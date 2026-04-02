@@ -1,12 +1,18 @@
 // Public API surface
 // All public exports flow through this file.
 
-// Parser types
+// Parser
 export {
   type ManifestItem,
   type PackageDocument,
   type PackageMetadata,
   type SpineItem,
+  EpubParseError,
+  type ZipReader,
+  createZipReader,
+  CONTAINER_PATH,
+  parseContainer,
+  parsePackageDocument,
 } from './parser/index';
 
 export {

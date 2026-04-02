@@ -3,6 +3,12 @@ export {
   type PackageDocument,
   type PackageMetadata,
   type SpineItem,
+  EpubParseError,
+  type ZipReader,
+  createZipReader,
+  CONTAINER_PATH,
+  parseContainer,
+  parsePackageDocument,
 } from './epub/index';
 
 export {
