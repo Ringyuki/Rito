@@ -126,9 +126,10 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const style = el.getAttribute('style') ?? undefined;
   const id = el.getAttribute('id') ?? undefined;
   if (cls === undefined && style === undefined && id === undefined) return undefined;
-  const attrs: { class?: string; style?: string; id?: string } = {};
-  if (cls !== undefined) attrs.class = cls;
-  if (style !== undefined) attrs.style = style;
-  if (id !== undefined) attrs.id = id;
+  const attrs = {
+    ...(cls !== undefined ? { class: cls } : {}),
+    ...(style !== undefined ? { style } : {}),
+    ...(id !== undefined ? { id } : {}),
+  } satisfies ElementAttributes;
   return attrs;
 }

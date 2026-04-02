@@ -61,5 +61,26 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     }
   }
 
-  return { packageDocument, chapters, stylesheets };
+  // Load font files from manifest
+  const fonts = new Map<string, Uint8Array>();
+  const fontMediaTypes = new Set([
+    'font/ttf',
+    'font/otf',
+    'font/woff',
+    'font/woff2',
+    'application/x-font-ttf',
+    'application/x-font-woff',
+    'application/font-woff',
+    'application/font-woff2',
+    'application/vnd.ms-opentype',
+    'application/font-sfnt',
+  ]);
+  for (const item of packageDocument.manifest) {
+    if (fontMediaTypes.has(item.mediaType)) {
+      const fullPath = opfDir + item.href;
+      fonts.set(item.href, reader.readFile(fullPath));
+    }
+  }
+
+  return { packageDocument, chapters, stylesheets, fonts };
 }

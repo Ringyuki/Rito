@@ -1,9 +1,9 @@
-import type { CssRule } from './types';
+import type { CssRule, FontFaceRule } from './types';
 import { parseCssDeclarations } from './css-property-parser';
 
 /**
  * Parse a CSS stylesheet string into an array of CssRule objects.
- * Handles comments, @-rules (skipped), and grouped selectors.
+ * Handles comments, @-rules (skipped except @font-face), and grouped selectors.
  */
 export function parseCssRules(css: string, baseFontSize: number): readonly CssRule[] {
   const cleaned = stripComments(css);
@@ -14,7 +14,6 @@ export function parseCssRules(css: string, baseFontSize: number): readonly CssRu
     const declarations = parseCssDeclarations(block.body, baseFontSize);
     if (Object.keys(declarations).length === 0) continue;
 
-    // Split grouped selectors: "h1, h2 { ... }" → two rules
     const selectors = block.selector
       .split(',')
       .map((s) => s.trim())
@@ -25,6 +24,78 @@ export function parseCssRules(css: string, baseFontSize: number): readonly CssRu
   }
 
   return rules;
+}
+
+/**
+ * Parse @font-face rules from a CSS stylesheet string.
+ */
+export function parseFontFaceRules(css: string): readonly FontFaceRule[] {
+  const cleaned = stripComments(css);
+  const rules: FontFaceRule[] = [];
+  let i = 0;
+
+  while (i < cleaned.length) {
+    // Skip whitespace
+    while (i < cleaned.length && /\s/.test(cleaned[i] ?? '')) i++;
+    if (i >= cleaned.length) break;
+
+    if (cleaned[i] === '@') {
+      const keyword = cleaned.slice(i, i + 11).toLowerCase();
+      if (keyword.startsWith('@font-face')) {
+        const braceStart = cleaned.indexOf('{', i);
+        if (braceStart === -1) break;
+        const braceEnd = findClosingBrace(cleaned, braceStart);
+        if (braceEnd === -1) break;
+        const body = cleaned.slice(braceStart + 1, braceEnd).trim();
+        const rule = parseFontFaceBody(body);
+        if (rule) rules.push(rule);
+        i = braceEnd + 1;
+        continue;
+      }
+      i = skipAtRule(cleaned, i);
+      continue;
+    }
+    // Skip non-@-rule content
+    const braceStart = cleaned.indexOf('{', i);
+    if (braceStart === -1) break;
+    const braceEnd = findClosingBrace(cleaned, braceStart);
+    if (braceEnd === -1) break;
+    i = braceEnd + 1;
+  }
+
+  return rules;
+}
+
+function parseFontFaceBody(body: string): FontFaceRule | undefined {
+  let family: string | undefined;
+  let src: string | undefined;
+  let weight: string | undefined;
+  let style: string | undefined;
+
+  for (const decl of body.split(';')) {
+    const colonIdx = decl.indexOf(':');
+    if (colonIdx === -1) continue;
+    const prop = decl.slice(0, colonIdx).trim().toLowerCase();
+    const val = decl.slice(colonIdx + 1).trim();
+
+    if (prop === 'font-family') {
+      family = val.replace(/^["']|["']$/g, '');
+    } else if (prop === 'src') {
+      const urlMatch = val.match(/url\(\s*["']?([^"')]+)["']?\s*\)/);
+      if (urlMatch?.[1]) src = urlMatch[1];
+    } else if (prop === 'font-weight') {
+      weight = val;
+    } else if (prop === 'font-style') {
+      style = val;
+    }
+  }
+
+  if (!family || !src) return undefined;
+
+  const result: { family: string; src: string; weight?: string; style?: string } = { family, src };
+  if (weight) result.weight = weight;
+  if (style) result.style = style;
+  return result;
 }
 
 function stripComments(css: string): string {
@@ -41,19 +112,15 @@ function extractRuleBlocks(css: string): RuleBlock[] {
   let i = 0;
 
   while (i < css.length) {
-    // Skip @-rules
     if (css[i] === '@') {
       i = skipAtRule(css, i);
       continue;
     }
 
-    // Find opening brace
     const braceStart = css.indexOf('{', i);
     if (braceStart === -1) break;
 
     const selector = css.slice(i, braceStart).trim();
-
-    // Find matching closing brace
     const braceEnd = findClosingBrace(css, braceStart);
     if (braceEnd === -1) break;
 
@@ -72,12 +139,10 @@ function skipAtRule(css: string, start: number): number {
   const bracePos = css.indexOf('{', start);
   const semiPos = css.indexOf(';', start);
 
-  // @charset, @import end with semicolon
   if (semiPos !== -1 && (bracePos === -1 || semiPos < bracePos)) {
     return semiPos + 1;
   }
 
-  // @media, @supports etc. have a block — skip to matching brace
   if (bracePos !== -1) {
     const end = findClosingBrace(css, bracePos);
     return end === -1 ? css.length : end + 1;

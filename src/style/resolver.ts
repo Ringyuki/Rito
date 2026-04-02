@@ -1,4 +1,4 @@
-import type { DocumentNode } from '../parser/xhtml/types';
+import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import type { ComputedStyle, CssRule, Specificity, StyledNode } from './types';
 import { DEFAULT_STYLE } from './defaults';
 import { parseCssDeclarations } from './css-property-parser';
@@ -36,7 +36,6 @@ function resolveNode(
       return { type: 'text', content: node.content, style: parentStyle, children: [] };
 
     case 'block': {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
       const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
       const childAncestors = [target, ...ancestors];
@@ -45,7 +44,6 @@ function resolveNode(
     }
 
     case 'inline': {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
       const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
       const childAncestors = [target, ...ancestors];
@@ -57,7 +55,7 @@ function resolveNode(
 
 function extractNodeMeta(
   tag: string,
-  attributes: { class?: string; style?: string; id?: string } | undefined,
+  attributes: ElementAttributes | undefined,
 ): { target: SelectorTarget; inlineCss: string | undefined } {
   const target: { tag: string; className?: string; id?: string } = { tag };
   if (attributes?.class) target.className = attributes.class;

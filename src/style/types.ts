@@ -62,6 +62,14 @@ export interface CssRule {
   readonly rawDeclarations: string;
 }
 
+/** A parsed @font-face rule. */
+export interface FontFaceRule {
+  readonly family: string;
+  readonly src: string;
+  readonly weight?: string;
+  readonly style?: string;
+}
+
 /** Specificity as a 3-tuple: [id, class, element]. */
 export type Specificity = readonly [number, number, number];
 

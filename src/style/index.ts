@@ -1,6 +1,6 @@
 export { DEFAULT_STYLE } from './defaults';
 export { parseCssDeclarations } from './css-property-parser';
-export { parseCssRules } from './css-rule-parser';
+export { parseCssRules, parseFontFaceRules } from './css-rule-parser';
 export { resolveStyles } from './resolver';
 export { matchesSelector, type SelectorTarget } from './selector-matcher';
 export { calculateSpecificity, compareSpecificity } from './specificity';
@@ -8,6 +8,7 @@ export { getTagStyle } from './tag-styles';
 export {
   type ComputedStyle,
   type CssRule,
+  type FontFaceRule,
   FONT_STYLES,
   type FontStyle,
   FONT_WEIGHTS,

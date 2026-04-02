@@ -1,4 +1,4 @@
-import { loadEpub, paginate, renderPage, createTextMeasurer } from '../../src/index';
+import { loadEpub, loadFonts, paginate, renderPage, createTextMeasurer } from '../../src/index';
 import type { LayoutConfig, Page } from '../../src/index';
 
 // ── Configuration ───────────────────────────────────────────────────
@@ -48,9 +48,10 @@ function render(): void {
 
 // ── EPUB Loading ────────────────────────────────────────────────────
 
-function loadFromArrayBuffer(data: ArrayBuffer, name: string): void {
+async function loadFromArrayBuffer(data: ArrayBuffer, name: string): Promise<void> {
   try {
     const doc = loadEpub(data);
+    await loadFonts(doc);
     const measurer = createTextMeasurer(canvas);
     pages = paginate(doc, PAGE_CONFIG, measurer);
     currentPage = 0;

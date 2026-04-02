@@ -13,6 +13,8 @@ export interface EpubDocument {
   readonly chapters: ReadonlyMap<string, string>;
   /** Map from manifest item id to raw CSS stylesheet content. */
   readonly stylesheets: ReadonlyMap<string, string>;
+  /** Map from relative href to font binary data. */
+  readonly fonts: ReadonlyMap<string, Uint8Array>;
 }
 
 /**

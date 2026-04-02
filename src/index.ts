@@ -6,6 +6,7 @@ export { loadEpub } from './runtime/index';
 export { paginate } from './runtime/index';
 export { renderPage } from './render/index';
 export { createTextMeasurer } from './render/index';
+export { loadFonts } from './render/index';
 
 // ── Types ───────────────────────────────────────────────────────────
 export { type EpubDocument, type LoadOptions } from './runtime/index';

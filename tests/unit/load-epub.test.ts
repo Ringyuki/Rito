@@ -58,6 +58,24 @@ describe('loadEpub', () => {
     expect(doc.stylesheets.size).toBe(0);
   });
 
+  it('loads font files from manifest', () => {
+    const fakeFont = new Uint8Array([0, 1, 2, 3]);
+    const data = buildMinimalEpub({
+      fonts: [{ id: 'font1', href: 'Fonts/test.ttf', mediaType: 'font/ttf', data: fakeFont }],
+    });
+    const doc = loadEpub(data);
+
+    expect(doc.fonts.size).toBe(1);
+    expect(doc.fonts.get('Fonts/test.ttf')).toBeDefined();
+    expect(doc.fonts.get('Fonts/test.ttf')?.length).toBe(4);
+  });
+
+  it('returns empty fonts map when no fonts exist', () => {
+    const data = buildMinimalEpub();
+    const doc = loadEpub(data);
+    expect(doc.fonts.size).toBe(0);
+  });
+
   it('includes spine and manifest in packageDocument', () => {
     const data = buildMinimalEpub({
       chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: '<html><body></body></html>' }],
