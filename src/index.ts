@@ -1,7 +1,19 @@
 // Public API surface
 // All public exports flow through this file.
 
-// Parser
+// ── Primary API ─────────────────────────────────────────────────────
+export { loadEpub } from './runtime/index';
+export { paginate } from './runtime/index';
+export { renderPage } from './render/index';
+export { createTextMeasurer } from './render/index';
+
+// ── Types ───────────────────────────────────────────────────────────
+export { type EpubDocument, type LoadOptions } from './runtime/index';
+export { type LayoutConfig, type Page } from './layout/index';
+export { type TextMeasurer, type TextMetrics } from './layout/index';
+export { type RenderOptions } from './render/index';
+
+// ── Parser ──────────────────────────────────────────────────────────
 export {
   type ManifestItem,
   type PackageDocument,
@@ -27,10 +39,7 @@ export {
   type ParseResult,
 } from './parser/index';
 
-// Model types
-export { type LayoutElement, type Rect, type Spacing } from './model/index';
-
-// Style
+// ── Style ───────────────────────────────────────────────────────────
 export {
   DEFAULT_STYLE,
   resolveStyles,
@@ -44,15 +53,11 @@ export {
   type TextAlignment,
 } from './style/index';
 
-// Layout
+// ── Layout ──────────────────────────────────────────────────────────
 export {
   type LayoutBlock,
-  type LayoutConfig,
   type LineBox,
-  type Page,
   type TextRun,
-  type TextMeasurer,
-  type TextMetrics,
   type StyledSegment,
   flattenInlineContent,
   type ParagraphLayouter,
@@ -61,8 +66,8 @@ export {
   paginateBlocks,
 } from './layout/index';
 
-// Render
-export { type RenderOptions, createCanvasTextMeasurer, renderPage } from './render/index';
+// ── Render ──────────────────────────────────────────────────────────
+export { createCanvasTextMeasurer, buildFontString } from './render/index';
 
-// Runtime types
-export { type EpubDocument, type LoadOptions } from './runtime/index';
+// ── Model ───────────────────────────────────────────────────────────
+export { type LayoutElement, type Rect, type Spacing } from './model/index';
