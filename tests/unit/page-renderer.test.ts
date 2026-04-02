@@ -2,16 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { renderPage } from '../../src/render/page-renderer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { LayoutConfig, Page } from '../../src/layout/types';
+import type { Page } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/config';
 
-const CONFIG: LayoutConfig = {
-  pageWidth: 400,
-  pageHeight: 600,
-  marginTop: 20,
-  marginRight: 20,
-  marginBottom: 20,
-  marginLeft: 20,
-};
+const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 
 function makePage(content: Page['content']): Page {
   return {

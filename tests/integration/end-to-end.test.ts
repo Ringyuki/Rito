@@ -6,7 +6,7 @@ import { renderPage } from '../../src/render/page-renderer';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import type { LayoutConfig } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/config';
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -16,14 +16,7 @@ function xhtml(body: string): string {
 </html>`;
 }
 
-const CONFIG: LayoutConfig = {
-  pageWidth: 400,
-  pageHeight: 600,
-  marginTop: 20,
-  marginRight: 20,
-  marginBottom: 20,
-  marginLeft: 20,
-};
+const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 
 describe('end-to-end: loadEpub → paginate → renderPage', () => {
   it('renders a minimal EPUB to canvas', () => {

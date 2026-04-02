@@ -5,3 +5,4 @@ export { buildFontString } from './font-string';
 export { drawTextRun } from './text-renderer';
 export { loadFonts } from './font-loader';
 export { renderPage } from './page-renderer';
+export { render, getSpreadDimensions } from './spread-renderer';

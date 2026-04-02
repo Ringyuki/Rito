@@ -4,18 +4,11 @@ import { paginate } from '../../src/runtime/paginate';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import type { LayoutConfig } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/config';
 
 const measurer = createMockTextMeasurer(0.6);
 
-const CONFIG: LayoutConfig = {
-  pageWidth: 400,
-  pageHeight: 600,
-  marginTop: 20,
-  marginRight: 20,
-  marginBottom: 20,
-  marginLeft: 20,
-};
+const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

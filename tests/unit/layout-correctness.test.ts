@@ -4,7 +4,8 @@ import { paginateBlocks } from '../../src/layout/paginator';
 import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { resolveStyles } from '../../src/style/resolver';
-import type { LayoutConfig, LineBox } from '../../src/layout/types';
+import type { LineBox } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/config';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 
@@ -12,14 +13,7 @@ const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);
 const CONTENT_WIDTH = 360;
 
-const CONFIG: LayoutConfig = {
-  pageWidth: 400,
-  pageHeight: 600,
-  marginTop: 20,
-  marginRight: 20,
-  marginBottom: 20,
-  marginLeft: 20,
-};
+const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 
 function text(content: string): DocumentNode {
   return { type: NODE_TYPES.Text, content };

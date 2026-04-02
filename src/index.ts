@@ -4,13 +4,14 @@
 // ── Primary API ─────────────────────────────────────────────────────
 export { loadEpub } from './runtime/index';
 export { paginate } from './runtime/index';
-export { renderPage } from './render/index';
+export { render } from './render/index';
 export { createTextMeasurer } from './render/index';
 export { loadFonts } from './render/index';
 
 // ── Types ───────────────────────────────────────────────────────────
 export { type EpubDocument, type LoadOptions } from './runtime/index';
-export { type LayoutConfig, type Page } from './layout/index';
+export { type LayoutConfig, type LayoutConfigInput, type Page } from './layout/index';
+export { createLayoutConfig } from './layout/index';
 export { type TextMeasurer, type TextMetrics } from './layout/index';
 export { type RenderOptions } from './render/index';
 
@@ -75,10 +76,17 @@ export {
   createGreedyLayouter,
   layoutBlocks,
   paginateBlocks,
+  type Spread,
+  buildSpreads,
 } from './layout/index';
 
 // ── Render ──────────────────────────────────────────────────────────
-export { createCanvasTextMeasurer, buildFontString } from './render/index';
+export {
+  createCanvasTextMeasurer,
+  buildFontString,
+  renderPage,
+  getSpreadDimensions,
+} from './render/index';
 
 // ── Model ───────────────────────────────────────────────────────────
 export { type LayoutElement, type Rect, type Spacing } from './model/index';

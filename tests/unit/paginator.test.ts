@@ -4,7 +4,8 @@ import { layoutBlocks } from '../../src/layout/block-layout';
 import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { resolveStyles } from '../../src/style/resolver';
-import type { LayoutBlock, LayoutConfig } from '../../src/layout/types';
+import type { LayoutBlock } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/config';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 
@@ -12,14 +13,7 @@ const measurer = createMockTextMeasurer(0.6);
 const paragraphLayouter = createGreedyLayouter(measurer);
 
 // Page: 400x600 with 20px margins → content area 360x560
-const CONFIG: LayoutConfig = {
-  pageWidth: 400,
-  pageHeight: 600,
-  marginTop: 20,
-  marginRight: 20,
-  marginBottom: 20,
-  marginLeft: 20,
-};
+const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 const CONTENT_WIDTH = CONFIG.pageWidth - CONFIG.marginLeft - CONFIG.marginRight;
 const CONTENT_HEIGHT = CONFIG.pageHeight - CONFIG.marginTop - CONFIG.marginBottom;
 

@@ -29,8 +29,8 @@ export interface LayoutBlock {
 }
 
 /**
- * Configuration for page dimensions and margins.
- * All values are in logical pixels.
+ * Configuration for page dimensions, margins, and display mode.
+ * All dimensional values are in logical pixels.
  */
 export interface LayoutConfig {
   readonly pageWidth: number;
@@ -39,6 +39,12 @@ export interface LayoutConfig {
   readonly marginRight: number;
   readonly marginBottom: number;
   readonly marginLeft: number;
+  /** Display mode: single-page or two-page spread. Defaults to 'single'. */
+  readonly spreadMode: 'single' | 'double';
+  /** If true, the first page (cover) stands alone in its own spread. Defaults to true. */
+  readonly firstPageAlone: boolean;
+  /** Gap in pixels between left and right pages in double mode. Defaults to 0. */
+  readonly spreadGap: number;
 }
 
 /**
@@ -53,3 +59,16 @@ export interface Page {
   /** Layout blocks positioned within the page content area. */
   readonly content: readonly LayoutBlock[];
 }
+
+/** A presentation-layer grouping of 1-2 pages for side-by-side display. */
+export interface Spread {
+  /** Zero-based spread index. */
+  readonly index: number;
+  /** Left page (or the only page in single mode). */
+  readonly left?: Page;
+  /** Right page (only in double mode). */
+  readonly right?: Page;
+}
+
+/** @deprecated Use LayoutConfig instead. */
+export type SpreadConfig = Pick<LayoutConfig, 'spreadMode' | 'firstPageAlone' | 'spreadGap'>;
