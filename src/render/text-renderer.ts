@@ -14,5 +14,30 @@ export function drawTextRun(
   ctx.font = buildFontString(run.style);
   ctx.fillStyle = run.style.color;
   ctx.textBaseline = 'top';
-  ctx.fillText(run.text, offsetX + run.bounds.x, offsetY + run.bounds.y);
+
+  const x = offsetX + run.bounds.x;
+  const y = offsetY + run.bounds.y;
+  ctx.fillText(run.text, x, y);
+
+  // Draw text decoration
+  if (run.style.textDecoration === 'underline') {
+    drawLine(ctx, x, y + run.style.fontSize, run.bounds.width, run.style.color);
+  } else if (run.style.textDecoration === 'line-through') {
+    drawLine(ctx, x, y + run.style.fontSize * 0.5, run.bounds.width, run.style.color);
+  }
+}
+
+function drawLine(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  color: string,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + width, y);
+  ctx.stroke();
 }

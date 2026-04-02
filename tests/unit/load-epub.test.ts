@@ -42,6 +42,22 @@ describe('loadEpub', () => {
     expect(doc.chapters.has('ch3')).toBe(false);
   });
 
+  it('loads stylesheets from manifest', () => {
+    const data = buildMinimalEpub({
+      stylesheets: [{ id: 'css1', href: 'styles/main.css', content: 'p { color: red; }' }],
+    });
+    const doc = loadEpub(data);
+
+    expect(doc.stylesheets.size).toBe(1);
+    expect(doc.stylesheets.get('css1')).toContain('color: red');
+  });
+
+  it('returns empty stylesheets map when no CSS exists', () => {
+    const data = buildMinimalEpub();
+    const doc = loadEpub(data);
+    expect(doc.stylesheets.size).toBe(0);
+  });
+
   it('includes spine and manifest in packageDocument', () => {
     const data = buildMinimalEpub({
       chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: '<html><body></body></html>' }],

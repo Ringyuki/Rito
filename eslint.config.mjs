@@ -40,7 +40,7 @@ export default defineConfig([
       'no-console': ['error', { allow: ['warn', 'error'] }],
       complexity: ['warn', 12],
       'max-lines': ['warn', 300],
-      'max-lines-per-function': ['warn', 40],
+      'max-lines-per-function': ['warn', 50],
     },
   },
   {

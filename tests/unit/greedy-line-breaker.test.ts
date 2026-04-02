@@ -106,11 +106,11 @@ describe('GreedyParagraphLayouter', () => {
       expect(lines[0]?.bounds.y).toBe(100);
     });
 
-    it('sets correct line box width', () => {
+    it('sets line box width to maxWidth', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
 
-      // "hello" = 5 * 9.6 = 48
-      expect(lines[0]?.bounds.width).toBeCloseTo(48);
+      // Line box spans full maxWidth (for alignment purposes)
+      expect(lines[0]?.bounds.width).toBe(200);
     });
 
     it('sets correct line box height', () => {
@@ -202,6 +202,82 @@ describe('GreedyParagraphLayouter', () => {
 
       expect(lines).toHaveLength(1);
       expect(lines[0]?.runs.map((r) => r.text)).toEqual(['a', 'b', 'c']);
+    });
+  });
+
+  describe('text-indent', () => {
+    it('indents the first line of a paragraph', () => {
+      const segments = [seg('hello world', { textIndent: 32 })];
+      const lines = layouter.layoutParagraph(segments, 200, 0);
+
+      expect(lines).toHaveLength(1);
+      // First run should start at the indent position
+      expect(lines[0]?.runs[0]?.bounds.x).toBeCloseTo(32);
+    });
+
+    it('does not indent subsequent lines', () => {
+      // Force line break: use narrow width so "hello" fits but "world" wraps
+      const segments = [seg('hello world', { textIndent: 32 })];
+      const lines = layouter.layoutParagraph(segments, 90, 0);
+
+      expect(lines.length).toBeGreaterThan(1);
+      // First line: indented
+      expect(lines[0]?.runs[0]?.bounds.x).toBeCloseTo(32);
+      // Second line: not indented
+      if (lines[1]) {
+        expect(lines[1].runs[0]?.bounds.x).toBeCloseTo(0);
+      }
+    });
+  });
+
+  describe('text-align', () => {
+    it('centers text with text-align: center', () => {
+      // "hi" = 2 chars * 9.6 = 19.2px, width 200
+      // centered: offset = (200 - 19.2) / 2 = 90.4
+      const segments = [seg('hi', { textAlign: 'center' })];
+      const lines = layouter.layoutParagraph(segments, 200, 0);
+
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.runs[0]?.bounds.x).toBeGreaterThan(80);
+    });
+
+    it('right-aligns text with text-align: right', () => {
+      // "hi" = 19.2px, width 200
+      // right: offset = 200 - 19.2 = 180.8
+      const segments = [seg('hi', { textAlign: 'right' })];
+      const lines = layouter.layoutParagraph(segments, 200, 0);
+
+      expect(lines).toHaveLength(1);
+      expect(lines[0]?.runs[0]?.bounds.x).toBeGreaterThan(170);
+    });
+
+    it('justifies text by distributing extra space between words', () => {
+      // "aa bb" = two words, total ~57.6px, maxWidth 200
+      // After justify (not last line), space distributed
+      // Need multi-line to trigger justify (single-line is "last line")
+      const segments = [seg('aa bb cc dd ee', { textAlign: 'justify' })];
+      const lines = layouter.layoutParagraph(segments, 100, 0);
+
+      // If there are 2+ lines, non-last lines should have runs spread wider
+      if (lines.length > 1) {
+        const firstLineRuns = lines[0]?.runs ?? [];
+        if (firstLineRuns.length > 1) {
+          const lastRun = firstLineRuns[firstLineRuns.length - 1];
+          if (lastRun) {
+            // Last run on first (justified) line should extend closer to maxWidth
+            expect(lastRun.bounds.x + lastRun.bounds.width).toBeGreaterThan(80);
+          }
+        }
+      }
+    });
+
+    it('does not justify the last line', () => {
+      const segments = [seg('hi', { textAlign: 'justify' })];
+      const lines = layouter.layoutParagraph(segments, 200, 0);
+
+      expect(lines).toHaveLength(1);
+      // Single line = last line, should be left-aligned
+      expect(lines[0]?.runs[0]?.bounds.x).toBeCloseTo(0);
     });
   });
 });

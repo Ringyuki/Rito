@@ -52,5 +52,14 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     loaded++;
   }
 
-  return { packageDocument, chapters };
+  // Load stylesheets from manifest
+  const stylesheets = new Map<string, string>();
+  for (const item of packageDocument.manifest) {
+    if (item.mediaType === 'text/css') {
+      const fullPath = opfDir + item.href;
+      stylesheets.set(item.id, reader.readTextFile(fullPath));
+    }
+  }
+
+  return { packageDocument, chapters, stylesheets };
 }

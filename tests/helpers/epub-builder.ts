@@ -10,6 +10,7 @@ export function buildMinimalEpub(options?: {
   identifier?: string;
   creator?: string;
   chapters?: Array<{ id: string; href: string; content: string }>;
+  stylesheets?: Array<{ id: string; href: string; content: string }>;
 }): ArrayBuffer {
   const title = options?.title ?? 'Test Book';
   const language = options?.language ?? 'en';
@@ -23,12 +24,18 @@ export function buildMinimalEpub(options?: {
     },
   ];
 
+  const stylesheets = options?.stylesheets ?? [];
   const creatorTag = creator ? `    <dc:creator>${creator}</dc:creator>\n` : '';
 
-  const manifestItems = chapters
+  const chapterManifest = chapters
     .map((ch) => `    <item id="${ch.id}" href="${ch.href}" media-type="application/xhtml+xml"/>`)
     .join('\n');
 
+  const cssManifest = stylesheets
+    .map((ss) => `    <item id="${ss.id}" href="${ss.href}" media-type="text/css"/>`)
+    .join('\n');
+
+  const manifestItems = [chapterManifest, cssManifest].filter((s) => s.length > 0).join('\n');
   const spineItems = chapters.map((ch) => `    <itemref idref="${ch.id}"/>`).join('\n');
 
   const opf = `<?xml version="1.0" encoding="UTF-8"?>
@@ -61,6 +68,10 @@ ${spineItems}
 
   for (const ch of chapters) {
     files[`OEBPS/${ch.href}`] = encoder.encode(ch.content);
+  }
+
+  for (const ss of stylesheets) {
+    files[`OEBPS/${ss.href}`] = encoder.encode(ss.content);
   }
 
   const zipped = zipSync(files);

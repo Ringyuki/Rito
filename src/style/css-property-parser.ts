@@ -85,10 +85,38 @@ function applyProperty(
       if (mb !== undefined) result['marginBottom'] = mb;
       break;
     }
+    case 'margin': {
+      applyMarginShorthand(result, value, parentFontSize);
+      break;
+    }
   }
 }
 
-/** Parse a CSS length value (px, pt, em) to a number in px. */
+/** Parse the `margin` shorthand into top/bottom values. */
+function applyMarginShorthand(
+  result: Record<string, unknown>,
+  value: string,
+  parentFontSize: number,
+): void {
+  const parts = value.trim().split(/\s+/);
+  const values = parts.map((p) => parseLength(p, parentFontSize));
+  // CSS margin shorthand: 1 value = all, 2 = top/bottom + left/right, 3 = top + lr + bottom, 4 = top right bottom left
+  if (parts.length === 1 && values[0] !== undefined) {
+    result['marginTop'] = values[0];
+    result['marginBottom'] = values[0];
+  } else if (parts.length === 2 && values[0] !== undefined) {
+    result['marginTop'] = values[0];
+    result['marginBottom'] = values[0];
+  } else if (parts.length === 3) {
+    if (values[0] !== undefined) result['marginTop'] = values[0];
+    if (values[2] !== undefined) result['marginBottom'] = values[2];
+  } else if (parts.length >= 4) {
+    if (values[0] !== undefined) result['marginTop'] = values[0];
+    if (values[2] !== undefined) result['marginBottom'] = values[2];
+  }
+}
+
+/** Parse a CSS length value (px, pt, em, %) to a number in px. */
 function parseLength(value: string, parentFontSize: number): number | undefined {
   const trimmed = value.trim().toLowerCase();
   if (trimmed.endsWith('px')) {
@@ -99,6 +127,10 @@ function parseLength(value: string, parentFontSize: number): number | undefined 
   }
   if (trimmed.endsWith('em')) {
     return parseFloat(trimmed) * parentFontSize;
+  }
+  if (trimmed.endsWith('%')) {
+    // Approximate: treat % as fraction of parent font size
+    return (parseFloat(trimmed) / 100) * parentFontSize;
   }
   // Bare number (e.g. "0")
   const num = parseFloat(trimmed);
@@ -128,12 +160,14 @@ function parseFontStyle(value: string): FontStyle | undefined {
 
 function parseLineHeight(value: string, parentFontSize: number): number | undefined {
   const trimmed = value.trim().toLowerCase();
-  // line-height with units
   if (trimmed.endsWith('px')) {
     return parseFloat(trimmed) / parentFontSize;
   }
   if (trimmed.endsWith('em')) {
     return parseFloat(trimmed);
+  }
+  if (trimmed.endsWith('%')) {
+    return parseFloat(trimmed) / 100;
   }
   // Unitless number (preferred in CSS)
   const num = parseFloat(trimmed);

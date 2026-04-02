@@ -11,6 +11,8 @@ export interface EpubDocument {
   readonly packageDocument: PackageDocument;
   /** Map from spine item idref to XHTML chapter content string. */
   readonly chapters: ReadonlyMap<string, string>;
+  /** Map from manifest item id to raw CSS stylesheet content. */
+  readonly stylesheets: ReadonlyMap<string, string>;
 }
 
 /**

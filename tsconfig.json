@@ -20,5 +20,5 @@
     "outDir": "dist",
     "rootDir": "."
   },
-  "include": ["src", "tests", "*.config.ts", "*.config.mts"]
+  "include": ["src", "tests", "*.config.ts", "*.config.mts", "*.config.mjs"]
 }

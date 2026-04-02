@@ -203,4 +203,94 @@ describe('resolveStyles', () => {
       expect(result[0]?.style.color).toBe('#000000');
     });
   });
+
+  describe('stylesheet rule resolution', () => {
+    it('applies matching element rule', () => {
+      const rules = [
+        { selector: 'p', declarations: { color: 'blue' }, rawDeclarations: 'color: blue' },
+      ];
+      const result = resolveStyles([block('p', [text('hi')])], undefined, rules);
+      expect(result[0]?.style.color).toBe('blue');
+    });
+
+    it('applies matching class rule', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { class: 'intro' },
+        children: [text('hi')],
+      };
+      const rules = [
+        {
+          selector: '.intro',
+          declarations: { textIndent: 32 },
+          rawDeclarations: 'text-indent: 32px',
+        },
+      ];
+      const result = resolveStyles([node], undefined, rules);
+      expect(result[0]?.style.textIndent).toBe(32);
+    });
+
+    it('higher specificity wins', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { class: 'red' },
+        children: [text('hi')],
+      };
+      const rules = [
+        { selector: 'p', declarations: { color: 'blue' }, rawDeclarations: 'color: blue' },
+        { selector: '.red', declarations: { color: 'red' }, rawDeclarations: 'color: red' },
+      ];
+      const result = resolveStyles([node], undefined, rules);
+      expect(result[0]?.style.color).toBe('red');
+    });
+
+    it('inline style overrides stylesheet rule', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { style: 'color: green' },
+        children: [text('hi')],
+      };
+      const rules = [
+        { selector: 'p', declarations: { color: 'blue' }, rawDeclarations: 'color: blue' },
+      ];
+      const result = resolveStyles([node], undefined, rules);
+      expect(result[0]?.style.color).toBe('green');
+    });
+
+    it('non-matching rules are ignored', () => {
+      const rules = [
+        { selector: '.nonexistent', declarations: { color: 'red' }, rawDeclarations: 'color: red' },
+      ];
+      const result = resolveStyles([block('p', [text('hi')])], undefined, rules);
+      expect(result[0]?.style.color).toBe('#000000');
+    });
+
+    it('resolves em margins against element font-size, not base', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { class: 'big' },
+        children: [text('hello')],
+      };
+      const rules = [
+        {
+          selector: '.big',
+          declarations: { fontSize: 32 },
+          rawDeclarations: 'font-size: 32px; margin-top: 0.5em',
+        },
+      ];
+      const result = resolveStyles([node], undefined, rules);
+      // margin-top: 0.5em should resolve against fontSize=32, giving 16
+      expect(result[0]?.style.fontSize).toBe(32);
+      expect(result[0]?.style.marginTop).toBe(16);
+    });
+
+    it('works without rules (backward compatible)', () => {
+      const result = resolveStyles([block('p', [text('hi')])]);
+      expect(result[0]?.style.color).toBe('#000000');
+    });
+  });
 });

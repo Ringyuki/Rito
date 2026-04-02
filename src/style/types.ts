@@ -53,6 +53,18 @@ export interface ComputedStyle {
   readonly marginBottom: number;
 }
 
+/** A single CSS rule: a selector paired with declarations. */
+export interface CssRule {
+  readonly selector: string;
+  /** Pre-parsed declarations (resolved against base font size). */
+  readonly declarations: Partial<ComputedStyle>;
+  /** Raw CSS declaration string for re-parsing with correct em context. */
+  readonly rawDeclarations: string;
+}
+
+/** Specificity as a 3-tuple: [id, class, element]. */
+export type Specificity = readonly [number, number, number];
+
 /** A document node paired with its resolved computed style. */
 export interface StyledNode {
   readonly type: 'block' | 'inline' | 'text';
