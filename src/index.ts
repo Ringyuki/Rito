@@ -22,6 +22,9 @@ export {
   NODE_TYPES,
   type NodeType,
   type TextNode,
+  XhtmlParseError,
+  parseXhtml,
+  type ParseResult,
 } from './parser/index';
 
 // Model types

@@ -18,4 +18,11 @@ export {
   NODE_TYPES,
   type NodeType,
   type TextNode,
+  XhtmlParseError,
+  classifyTag,
+  type TagClassification,
+  collapseWhitespace,
+  isWhitespaceOnly,
+  parseXhtml,
+  type ParseResult,
 } from './xhtml/index';
