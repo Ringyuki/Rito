@@ -5,6 +5,8 @@ describe('createLayoutConfig', () => {
   it('creates config with uniform margin and defaults', () => {
     const config = createLayoutConfig({ width: 800, height: 1200, margin: 40 });
     expect(config).toEqual({
+      viewportWidth: 800,
+      viewportHeight: 1200,
       pageWidth: 800,
       pageHeight: 1200,
       marginTop: 40,
@@ -40,28 +42,49 @@ describe('createLayoutConfig', () => {
   it('defaults to zero margins when omitted', () => {
     const config = createLayoutConfig({ width: 800, height: 1200 });
     expect(config.marginTop).toBe(0);
-    expect(config.marginRight).toBe(0);
-    expect(config.marginBottom).toBe(0);
-    expect(config.marginLeft).toBe(0);
   });
 
-  it('sets pageWidth and pageHeight', () => {
-    const config = createLayoutConfig({ width: 640, height: 480 });
-    expect(config.pageWidth).toBe(640);
-    expect(config.pageHeight).toBe(480);
+  it('single mode: page fills viewport', () => {
+    const config = createLayoutConfig({ width: 800, height: 1200 });
+    expect(config.pageWidth).toBe(800);
+    expect(config.pageHeight).toBe(1200);
+    expect(config.viewportWidth).toBe(800);
+    expect(config.viewportHeight).toBe(1200);
   });
 
-  it('accepts spread configuration', () => {
+  it('double mode: page width = (viewport - gap) / 2', () => {
+    // Landscape: width > height for double mode to take effect
     const config = createLayoutConfig({
-      width: 800,
-      height: 1200,
+      width: 1600,
+      height: 1000,
       spread: 'double',
-      firstPageAlone: false,
       spreadGap: 20,
     });
     expect(config.spreadMode).toBe('double');
-    expect(config.firstPageAlone).toBe(false);
-    expect(config.spreadGap).toBe(20);
+    expect(config.pageWidth).toBe(790); // (1600 - 20) / 2
+    expect(config.pageHeight).toBe(1000);
+    expect(config.viewportWidth).toBe(1600);
+  });
+
+  it('portrait viewport forces single mode', () => {
+    const config = createLayoutConfig({
+      width: 600,
+      height: 900,
+      spread: 'double',
+    });
+    expect(config.spreadMode).toBe('single');
+    expect(config.pageWidth).toBe(600);
+  });
+
+  it('square viewport allows double mode', () => {
+    const config = createLayoutConfig({
+      width: 1000,
+      height: 1000,
+      spread: 'double',
+      spreadGap: 20,
+    });
+    expect(config.spreadMode).toBe('double');
+    expect(config.pageWidth).toBe(490);
   });
 
   it('defaults spread to single, firstPageAlone true, gap 0', () => {

@@ -25,31 +25,37 @@ if (!ctx) throw new Error('Canvas 2d context not available');
 
 // ── State ───────────────────────────────────────────────────────────
 
-let config: LayoutConfig = createLayoutConfig({
-  width: 800,
-  height: 1200,
-  margin: 60,
-  spreadGap: 20,
-});
+let spreadMode: 'single' | 'double' = 'double';
+let config: LayoutConfig = buildConfig();
 let pages: readonly Page[] = [];
 let spreads: readonly Spread[] = [];
 let currentSpread = 0;
 const demoEpubUrl = new URL('./assets/demo.epub', import.meta.url);
 
+function buildConfig(): LayoutConfig {
+  return createLayoutConfig({
+    width: 1280,
+    height: 720,
+    margin: 60,
+    spread: spreadMode,
+    spreadGap: 20,
+  });
+}
+
 // Set initial canvas size
-canvas.width = config.pageWidth;
-canvas.height = config.pageHeight;
-canvas.style.maxWidth = `${String(config.pageWidth / 2)}px`;
+const initDims = getSpreadDimensions(config);
+canvas.width = initDims.width;
+canvas.height = initDims.height;
 
 // ── Rendering ───────────────────────────────────────────────────────
 
 function rebuild(): void {
+  config = buildConfig();
   spreads = buildSpreads(pages, config);
   currentSpread = 0;
   const dims = getSpreadDimensions(config);
   canvas.width = dims.width;
   canvas.height = dims.height;
-  canvas.style.maxWidth = `${String(dims.width / 2)}px`;
 }
 
 function draw(): void {
@@ -64,6 +70,30 @@ function draw(): void {
   statusEl.textContent = `${label} ${String(currentSpread + 1)} / ${String(spreads.length)}`;
   prevBtn.disabled = currentSpread === 0;
   nextBtn.disabled = currentSpread >= spreads.length - 1;
+
+  // Debug: dump current page structure to console
+  const page = spread.left;
+  if (page) {
+    console.group(`Page ${String(page.index)}`);
+    for (let bi = 0; bi < page.content.length; bi++) {
+      const block = page.content[bi];
+      if (!block) continue;
+      console.group(
+        `Block ${String(bi)}: y=${String(Math.round(block.bounds.y))}, h=${String(Math.round(block.bounds.height))}, lines=${String(block.children.length)}`,
+      );
+      for (let li = 0; li < block.children.length; li++) {
+        const child = block.children[li];
+        if (child?.type === 'line-box') {
+          const text = child.runs.map((r) => r.text).join('');
+          console.log(
+            `  Line ${String(li)}: y=${String(Math.round(child.bounds.y))}, h=${String(Math.round(child.bounds.height))}, text="${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
+          );
+        }
+      }
+      console.groupEnd();
+    }
+    console.groupEnd();
+  }
 }
 
 // ── EPUB Loading ────────────────────────────────────────────────────
@@ -130,9 +160,8 @@ nextBtn.addEventListener('click', () => {
 });
 
 spreadToggle.addEventListener('click', () => {
-  const newMode = config.spreadMode === 'single' ? 'double' : 'single';
-  config = { ...config, spreadMode: newMode };
-  spreadToggle.textContent = `Spread: ${newMode === 'single' ? 'Single' : 'Double'}`;
+  spreadMode = spreadMode === 'single' ? 'double' : 'single';
+  spreadToggle.textContent = `Spread: ${spreadMode === 'single' ? 'Single' : 'Double'}`;
   rebuild();
   draw();
 });

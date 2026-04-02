@@ -6,7 +6,9 @@ import { renderPage } from './page-renderer';
  * Render a spread onto a CanvasRenderingContext2D.
  *
  * This is the primary render function. Handles both single-page and
- * two-page spreads transparently. Size the canvas with {@link getSpreadDimensions}.
+ * two-page spreads transparently.
+ *
+ * The canvas should be sized to `viewportWidth × viewportHeight` (× pixelRatio).
  */
 export function render(
   spread: Spread,
@@ -33,19 +35,15 @@ export function render(
 }
 
 /**
- * Compute the canvas dimensions needed for a spread.
+ * Compute the canvas dimensions needed for a config.
+ * With viewport-based config, this simply returns the viewport dimensions.
  */
 export function getSpreadDimensions(
   config: LayoutConfig,
   pixelRatio = 1,
 ): { width: number; height: number } {
-  const pageW = config.pageWidth * pixelRatio;
-  const pageH = config.pageHeight * pixelRatio;
-
-  if (config.spreadMode === 'single') {
-    return { width: pageW, height: pageH };
-  }
-
-  const gap = config.spreadGap * pixelRatio;
-  return { width: pageW * 2 + gap, height: pageH };
+  return {
+    width: config.viewportWidth * pixelRatio,
+    height: config.viewportHeight * pixelRatio,
+  };
 }

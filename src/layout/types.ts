@@ -31,19 +31,28 @@ export interface LayoutBlock {
 /**
  * Configuration for page dimensions, margins, and display mode.
  * All dimensional values are in logical pixels.
+ *
+ * `viewportWidth` and `viewportHeight` are the hard canvas constraints.
+ * `pageWidth` and `pageHeight` are derived from the viewport and spread mode.
  */
 export interface LayoutConfig {
+  /** Total viewport (canvas) width. */
+  readonly viewportWidth: number;
+  /** Total viewport (canvas) height. */
+  readonly viewportHeight: number;
+  /** Derived page width (viewport width in single mode, half minus gap in double). */
   readonly pageWidth: number;
+  /** Derived page height (same as viewport height). */
   readonly pageHeight: number;
   readonly marginTop: number;
   readonly marginRight: number;
   readonly marginBottom: number;
   readonly marginLeft: number;
-  /** Display mode: single-page or two-page spread. Defaults to 'single'. */
+  /** Effective display mode (may differ from requested if viewport is portrait). */
   readonly spreadMode: 'single' | 'double';
-  /** If true, the first page (cover) stands alone in its own spread. Defaults to true. */
+  /** If true, the first page (cover) stands alone in its own spread. */
   readonly firstPageAlone: boolean;
-  /** Gap in pixels between left and right pages in double mode. Defaults to 0. */
+  /** Gap in pixels between left and right pages in double mode. */
   readonly spreadGap: number;
 }
 

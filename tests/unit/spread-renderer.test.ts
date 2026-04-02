@@ -6,7 +6,7 @@ import type { Page, Spread } from '../../src/layout/types';
 
 const SINGLE = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 const DOUBLE = createLayoutConfig({
-  width: 400,
+  width: 820,
   height: 600,
   margin: 20,
   spread: 'double',

@@ -186,15 +186,15 @@ describe('renderPage', () => {
   });
 
   describe('content clipping', () => {
-    it('clips to content area', () => {
+    it('clips to page bounds', () => {
       const mock = createMockCanvasContext();
       const page = makeSimplePage(['Hello']);
       renderPage(page, mock.ctx, CONFIG);
 
       const rectCalls = mock.getCalls('rect');
       expect(rectCalls).toHaveLength(1);
-      // content area: marginLeft=20, marginTop=20, width=360, height=560
-      expect(rectCalls[0]?.args).toEqual([20, 20, 360, 560]);
+      // Clip to full page bounds (not content area) to allow ink overhang into margin
+      expect(rectCalls[0]?.args).toEqual([0, 0, 400, 600]);
 
       const clipCalls = mock.getCalls('clip');
       expect(clipCalls).toHaveLength(1);

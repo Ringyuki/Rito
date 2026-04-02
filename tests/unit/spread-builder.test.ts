@@ -9,14 +9,14 @@ function makePage(index: number): Page {
 
 const SINGLE = createLayoutConfig({ width: 400, height: 600 });
 const DOUBLE = createLayoutConfig({
-  width: 400,
+  width: 800,
   height: 600,
   spread: 'double',
   firstPageAlone: false,
   spreadGap: 20,
 });
 const DOUBLE_COVER = createLayoutConfig({
-  width: 400,
+  width: 800,
   height: 600,
   spread: 'double',
   firstPageAlone: true,

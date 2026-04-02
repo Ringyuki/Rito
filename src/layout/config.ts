@@ -2,9 +2,9 @@ import type { LayoutConfig } from './types';
 
 /** Shorthand input for creating a LayoutConfig. */
 export interface LayoutConfigInput {
-  /** Page width in logical pixels. */
+  /** Viewport (canvas) width in logical pixels. */
   readonly width: number;
-  /** Page height in logical pixels. */
+  /** Viewport (canvas) height in logical pixels. */
   readonly height: number;
   /**
    * Page margins. Can be:
@@ -25,40 +25,54 @@ export interface LayoutConfigInput {
   readonly spread?: 'single' | 'double';
   /** If true, the first page (cover) stands alone. Defaults to true. */
   readonly firstPageAlone?: boolean;
-  /** Gap between pages in double mode. Defaults to 0. */
+  /** Gap between pages in double mode, in logical pixels. Defaults to 0. */
   readonly spreadGap?: number;
 }
 
 /**
  * Create a {@link LayoutConfig} from a simplified input.
  *
+ * `width` and `height` define the **viewport** (canvas) dimensions.
+ * Page dimensions are derived automatically:
+ * - Single mode: page fills the full viewport.
+ * - Double mode: each page = `(width - gap) / 2 × height`.
+ * - Portrait viewport (width < height): forces single mode regardless of config.
+ *
  * @example
  * ```ts
- * // Uniform 40px margins
+ * // Single page, uniform margins
  * createLayoutConfig({ width: 800, height: 1200, margin: 40 })
  *
- * // Horizontal/vertical margins
- * createLayoutConfig({ width: 800, height: 1200, margin: { x: 40, y: 60 } })
+ * // Two-page spread with gap
+ * createLayoutConfig({ width: 1600, height: 1200, margin: 40, spread: 'double', spreadGap: 20 })
  *
- * // Individual margins
- * createLayoutConfig({ width: 800, height: 1200, margin: { top: 60, right: 40, bottom: 60, left: 40 } })
- *
- * // No margins
- * createLayoutConfig({ width: 800, height: 1200 })
+ * // Portrait viewport: double mode auto-downgrades to single
+ * createLayoutConfig({ width: 600, height: 900, spread: 'double' })
  * ```
  */
 export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
   const { top, right, bottom, left } = resolveMargins(input.margin);
+  const gap = input.spreadGap ?? 0;
+
+  // Portrait viewport: force single mode
+  const requestedMode = input.spread ?? 'single';
+  const effectiveMode = input.width < input.height ? 'single' : requestedMode;
+
+  const pageWidth = effectiveMode === 'double' ? (input.width - gap) / 2 : input.width;
+  const pageHeight = input.height;
+
   return {
-    pageWidth: input.width,
-    pageHeight: input.height,
+    viewportWidth: input.width,
+    viewportHeight: input.height,
+    pageWidth,
+    pageHeight,
     marginTop: top,
     marginRight: right,
     marginBottom: bottom,
     marginLeft: left,
-    spreadMode: input.spread ?? 'single',
+    spreadMode: effectiveMode,
     firstPageAlone: input.firstPageAlone ?? true,
-    spreadGap: input.spreadGap ?? 0,
+    spreadGap: gap,
   };
 }
 
