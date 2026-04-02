@@ -94,6 +94,12 @@ function convertElement(
   const tagName = el.localName;
   const classification = classifyTag(tagName);
 
+  // Extract image from SVG wrapper (common EPUB cover pattern)
+  if (tagName === 'svg') {
+    const imageNode = extractSvgImage(el);
+    if (imageNode) return imageNode;
+  }
+
   if (classification === 'ignored') {
     warnings.push(`Unsupported element <${tagName}> skipped`);
     return undefined;
@@ -127,6 +133,25 @@ function convertElement(
     return { type: NODE_TYPES.Inline, tag: tagName, attributes, children } satisfies InlineNode;
   }
   return { type: NODE_TYPES.Inline, tag: tagName, children } satisfies InlineNode;
+}
+
+/** Extract an image from an SVG element (common EPUB cover/illustration pattern). */
+function extractSvgImage(svg: Element): DocumentNode | undefined {
+  // Look for <image> with xlink:href or href
+  const imageEls = svg.getElementsByTagName('image');
+  for (let i = 0; i < imageEls.length; i++) {
+    const img = imageEls[i];
+    if (!img) continue;
+    const src =
+      img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ??
+      img.getAttribute('xlink:href') ??
+      img.getAttribute('href') ??
+      '';
+    if (src && !src.startsWith('blob:')) {
+      return { type: 'image', src, alt: '' };
+    }
+  }
+  return undefined;
 }
 
 function extractAttributes(el: Element): ElementAttributes | undefined {
