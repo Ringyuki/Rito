@@ -37,3 +37,10 @@ export interface LayoutConfig {
   readonly marginBottom: number;
   readonly marginLeft: number;
 }
+
+/** A computed page of content ready for rendering. */
+export interface Page {
+  readonly index: number;
+  readonly bounds: Rect;
+  readonly content: readonly LayoutBlock[];
+}

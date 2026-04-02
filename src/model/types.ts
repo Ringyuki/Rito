@@ -18,13 +18,6 @@ export interface Spacing {
   readonly left: number;
 }
 
-/** Represents a computed page of content ready for rendering. */
-export interface Page {
-  readonly index: number;
-  readonly bounds: Rect;
-  readonly content: readonly LayoutElement[];
-}
-
 /** Base interface for elements in the layout tree. */
 export interface LayoutElement {
   readonly bounds: Rect;

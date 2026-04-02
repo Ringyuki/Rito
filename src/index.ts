@@ -28,7 +28,7 @@ export {
 } from './parser/index';
 
 // Model types
-export { type LayoutElement, type Page, type Rect, type Spacing } from './model/index';
+export { type LayoutElement, type Rect, type Spacing } from './model/index';
 
 // Style
 export {
@@ -49,6 +49,7 @@ export {
   type LayoutBlock,
   type LayoutConfig,
   type LineBox,
+  type Page,
   type TextRun,
   type TextMeasurer,
   type TextMetrics,
@@ -56,6 +57,8 @@ export {
   flattenInlineContent,
   type ParagraphLayouter,
   createGreedyLayouter,
+  layoutBlocks,
+  paginateBlocks,
 } from './layout/index';
 
 // Render

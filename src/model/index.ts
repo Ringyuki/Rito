@@ -1,1 +1,1 @@
-export { type LayoutElement, type Page, type Rect, type Spacing } from './types';
+export { type LayoutElement, type Rect, type Spacing } from './types';
