@@ -2,6 +2,7 @@ export {
   type BlockNode,
   type DocumentNode,
   type ElementAttributes,
+  type ImageNode,
   type InlineNode,
   NODE_TYPES,
   type NodeType,

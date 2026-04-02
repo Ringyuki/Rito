@@ -10,4 +10,6 @@ export interface RenderOptions {
    * Defaults to 1.
    */
   readonly pixelRatio?: number;
+  /** Decoded image bitmaps from {@link loadImages}. Required for image rendering. */
+  readonly images?: ReadonlyMap<string, ImageBitmap>;
 }

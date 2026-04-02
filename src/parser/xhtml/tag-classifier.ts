@@ -38,7 +38,6 @@ const IGNORED_TAGS = new Set([
   'canvas',
   'embed',
   'iframe',
-  'img',
   'map',
   'math',
   'noscript',

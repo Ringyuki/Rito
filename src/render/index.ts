@@ -4,5 +4,7 @@ export { createTextMeasurer } from './create-text-measurer';
 export { buildFontString } from './font-string';
 export { drawTextRun } from './text-renderer';
 export { loadFonts } from './font-loader';
+export { loadImages } from './image-loader';
+export { prepare, type Resources } from './resources';
 export { renderPage } from './page-renderer';
 export { render, getSpreadDimensions } from './spread-renderer';

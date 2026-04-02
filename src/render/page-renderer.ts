@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutConfig, LineBox, Page } from '../layout/types';
+import type { ImageElement, LayoutBlock, LayoutConfig, LineBox, Page } from '../layout/types';
 import type { RenderOptions } from './types';
 import { drawTextRun } from './text-renderer';
 
@@ -6,22 +6,12 @@ import { drawTextRun } from './text-renderer';
  * Render a page onto a CanvasRenderingContext2D.
  *
  * Draws the page background (if configured), then walks the layout tree
- * and draws each text run at its computed position, offset by page margins.
- *
- * The canvas element should be sized to `page.bounds.width * pixelRatio` by
- * `page.bounds.height * pixelRatio`. This function applies `ctx.scale()` to
- * handle the pixel ratio internally.
+ * and draws each text run and image at its computed position.
  *
  * @param page - The {@link Page} to render.
  * @param ctx - The canvas 2D rendering context.
  * @param config - Page dimensions and margins (used for content offset).
- * @param options - Optional rendering settings (background color, pixel ratio).
- *
- * @example
- * ```ts
- * const ctx = canvas.getContext('2d')!;
- * renderPage(pages[0], ctx, config, { backgroundColor: '#ffffff' });
- * ```
+ * @param options - Optional rendering settings (background color, pixel ratio, images).
  */
 export function renderPage(
   page: Page,
@@ -39,16 +29,12 @@ export function renderPage(
     ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
   }
 
-  // Clip to page bounds (not content area) to prevent drawing outside the page,
-  // while allowing text ink to extend slightly into the margin.
-  // Text advance width can be narrower than rendered ink bounds, so clipping
-  // to the exact content area would clip the last character on a line.
   ctx.beginPath();
   ctx.rect(0, 0, page.bounds.width, page.bounds.height);
   ctx.clip();
 
   for (const block of page.content) {
-    renderBlock(ctx, block, config.marginLeft, config.marginTop);
+    renderBlock(ctx, block, config.marginLeft, config.marginTop, options?.images);
   }
 
   ctx.restore();
@@ -59,6 +45,7 @@ function renderBlock(
   block: LayoutBlock,
   offsetX: number,
   offsetY: number,
+  images?: ReadonlyMap<string, ImageBitmap>,
 ): void {
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
@@ -66,8 +53,10 @@ function renderBlock(
   for (const child of block.children) {
     if (child.type === 'line-box') {
       renderLineBox(ctx, child, blockX, blockY);
+    } else if (child.type === 'image') {
+      renderImage(ctx, child, blockX, blockY, images);
     } else {
-      renderBlock(ctx, child, blockX, blockY);
+      renderBlock(ctx, child, blockX, blockY, images);
     }
   }
 }
@@ -84,4 +73,40 @@ function renderLineBox(
   for (const run of lineBox.runs) {
     drawTextRun(ctx, run, lineX, lineY);
   }
+}
+
+function renderImage(
+  ctx: CanvasRenderingContext2D,
+  image: ImageElement,
+  offsetX: number,
+  offsetY: number,
+  images?: ReadonlyMap<string, ImageBitmap>,
+): void {
+  if (!images) return;
+
+  // Resolve src — try direct match, then filename match
+  const bitmap = resolveImageBitmap(image.src, images);
+  if (!bitmap) return;
+
+  const x = offsetX + image.bounds.x;
+  const y = offsetY + image.bounds.y;
+  ctx.drawImage(bitmap, x, y, image.bounds.width, image.bounds.height);
+}
+
+function resolveImageBitmap(
+  src: string,
+  images: ReadonlyMap<string, ImageBitmap>,
+): ImageBitmap | undefined {
+  // Direct match
+  for (const [href, bitmap] of images) {
+    if (src.endsWith(href) || href.endsWith(src)) return bitmap;
+  }
+  // Filename match
+  const srcName = src.split('/').pop();
+  if (srcName) {
+    for (const [href, bitmap] of images) {
+      if (href.split('/').pop() === srcName) return bitmap;
+    }
+  }
+  return undefined;
 }

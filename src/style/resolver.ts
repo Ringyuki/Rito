@@ -50,6 +50,9 @@ function resolveNode(
       const children = node.children.map((c) => resolveNode(c, style, rules, childAncestors));
       return { type: 'inline', tag: node.tag, style, children };
     }
+
+    case 'image':
+      return { type: 'image', src: node.src, style: parentStyle, children: [] };
   }
 }
 

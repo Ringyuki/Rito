@@ -39,5 +39,12 @@ export interface BlockNode {
   readonly children: readonly DocumentNode[];
 }
 
+/** An image element. */
+export interface ImageNode {
+  readonly type: 'image';
+  readonly src: string;
+  readonly alt: string;
+}
+
 /** Union of all document node types. */
-export type DocumentNode = TextNode | InlineNode | BlockNode;
+export type DocumentNode = TextNode | InlineNode | BlockNode | ImageNode;

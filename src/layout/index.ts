@@ -1,4 +1,5 @@
 export {
+  type ImageElement,
   type LayoutBlock,
   type LayoutConfig,
   type LineBox,

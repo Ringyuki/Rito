@@ -21,11 +21,18 @@ export interface LineBox {
   readonly runs: readonly TextRun[];
 }
 
-/** A laid-out block containing line boxes or nested blocks. */
+/** A laid-out image element. */
+export interface ImageElement {
+  readonly type: 'image';
+  readonly src: string;
+  readonly bounds: Rect;
+}
+
+/** A laid-out block containing line boxes, nested blocks, or images. */
 export interface LayoutBlock {
   readonly type: 'layout-block';
   readonly bounds: Rect;
-  readonly children: readonly (LineBox | LayoutBlock)[];
+  readonly children: readonly (LineBox | LayoutBlock | ImageElement)[];
 }
 
 /**

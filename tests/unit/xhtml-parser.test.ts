@@ -121,14 +121,17 @@ describe('parseXhtml', () => {
   });
 
   describe('ignored elements', () => {
-    it('skips <img> and produces a warning', () => {
-      const { nodes, warnings } = parseXhtml(xhtml('<p>text<img src="x.png"/>more</p>'));
+    it('parses <img> as an image node', () => {
+      const { nodes, warnings } = parseXhtml(xhtml('<p>text<img src="x.png" alt="test"/>more</p>'));
 
       const p = nodes[0] as BlockNode;
-      const texts = p.children.filter((c): c is TextNode => c.type === 'text');
-      expect(texts.map((t) => t.content.trim())).toEqual(expect.arrayContaining(['text', 'more']));
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toContain('<img>');
+      const imageNode = p.children.find((c) => c.type === 'image');
+      expect(imageNode).toBeDefined();
+      if (imageNode?.type === 'image') {
+        expect(imageNode.src).toBe('x.png');
+        expect(imageNode.alt).toBe('test');
+      }
+      expect(warnings).toHaveLength(0);
     });
 
     it('skips <script> and <style>', () => {

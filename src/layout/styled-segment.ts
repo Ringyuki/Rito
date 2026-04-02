@@ -34,7 +34,8 @@ function collectSegments(nodes: readonly StyledNode[], out: StyledSegment[]): vo
         collectSegments(node.children, out);
         break;
       case 'block':
-        // Nested blocks inside inline content are not flattened.
+      case 'image':
+        // Nested blocks and images inside inline content are not flattened.
         // They will be handled separately by block layout.
         break;
     }

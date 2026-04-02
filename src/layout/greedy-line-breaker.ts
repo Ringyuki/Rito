@@ -8,13 +8,13 @@ import type { TextMeasurer } from './text-measurer';
 const CJK_RE =
   /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\u{20000}-\u{2FA1F}\u3000-\u303F\uFF00-\uFFEF]/u;
 
-/**
- * Greedy paragraph layouter.
- *
- * Uses whole-string measurement to find line break points, ensuring the
- * measured width matches what the canvas actually renders. Supports CJK
- * character-level breaking and Latin word-level breaking.
- */
+/** Maps character positions in the concatenated text to their original styles. */
+interface StyleRange {
+  readonly start: number;
+  readonly end: number;
+  readonly style: ComputedStyle;
+}
+
 export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter {
   return {
     layoutParagraph(
@@ -23,37 +23,43 @@ export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter 
       startY: number,
     ): readonly LineBox[] {
       if (segments.length === 0) return [];
-      // For single-style segments, use the efficient string-based approach
-      const style = segments[0]?.style;
-      if (!style) return [];
+      const firstStyle = segments[0]?.style;
+      if (!firstStyle) return [];
+
+      // Build concatenated text and style ranges
+      const ranges: StyleRange[] = [];
+      let offset = 0;
+      for (const seg of segments) {
+        if (seg.text.length > 0) {
+          ranges.push({ start: offset, end: offset + seg.text.length, style: seg.style });
+          offset += seg.text.length;
+        }
+      }
       const fullText = segments.map((s) => s.text).join('');
       if (fullText.trim().length === 0) return [];
-      return layoutText(fullText, style, maxWidth, startY, measurer);
+
+      return layoutText(fullText, firstStyle, ranges, maxWidth, startY, measurer);
     },
   };
 }
 
-/**
- * Layout a text string into line boxes using whole-string measurement.
- * Finds break points by measuring candidate substrings directly.
- */
 function layoutText(
   text: string,
-  style: ComputedStyle,
+  baseStyle: ComputedStyle,
+  ranges: readonly StyleRange[],
   maxWidth: number,
   startY: number,
   measurer: TextMeasurer,
 ): LineBox[] {
   const lines: LineBox[] = [];
-  const lineHeight = style.fontSize * style.lineHeight;
-  const textAlign = style.textAlign;
-  const indent = style.textIndent;
+  const lineHeight = baseStyle.fontSize * baseStyle.lineHeight;
+  const textAlign = baseStyle.textAlign;
+  const indent = baseStyle.textIndent;
   let y = startY;
   let pos = 0;
   let isFirstLine = true;
 
   while (pos < text.length) {
-    // Skip leading whitespace at start of line (except first line with indent)
     if (!isFirstLine || indent <= 0) {
       while (pos < text.length && text[pos] === ' ') pos++;
     }
@@ -62,30 +68,20 @@ function layoutText(
     const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
     const lineStartX = isFirstLine && indent > 0 ? indent : 0;
 
-    // Handle explicit newlines
     const nlIndex = text.indexOf('\n', pos);
     const lineEnd = nlIndex >= 0 ? nlIndex : text.length;
 
-    // Find how much text fits on this line
-    const breakPos = findBreakPosition(text, pos, lineEnd, effectiveMax, style, measurer);
+    const breakPos = findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer);
 
-    if (breakPos <= pos) {
-      // At least one character must be placed per line to avoid infinite loop
-      const minBreak = pos + 1;
-      const lineText = text.slice(pos, minBreak);
-      const width = measurer.measureText(lineText, style).width;
-      lines.push(buildLine(lineText, lineStartX, width, y, lineHeight, maxWidth, style, textAlign));
-      y += lineHeight;
-      pos = minBreak;
-    } else {
-      const lineText = text.slice(pos, breakPos).trimEnd();
-      const width = measurer.measureText(lineText, style).width;
-      lines.push(buildLine(lineText, lineStartX, width, y, lineHeight, maxWidth, style, textAlign));
-      y += lineHeight;
-      pos = breakPos;
-    }
+    const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
+    const lineText = text.slice(pos, lineTextEnd).trimEnd();
+    const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
+    const width = runs.reduce((sum, r) => Math.max(sum, r.bounds.x + r.bounds.width), 0);
 
-    // Skip past newline character(s)
+    lines.push(applyAlign(runs, width, y, lineHeight, maxWidth, textAlign));
+    y += lineHeight;
+    pos = lineTextEnd;
+
     while (pos < text.length && text[pos] === '\n') pos++;
     isFirstLine = false;
   }
@@ -93,10 +89,50 @@ function layoutText(
   return lines;
 }
 
-/**
- * Find the best break position for a line using whole-string measurement.
- * Prefers breaking at word boundaries (spaces) and CJK character boundaries.
- */
+/** Build TextRun objects for a line, splitting at style boundaries. */
+function buildStyledRuns(
+  lineText: string,
+  globalOffset: number,
+  startX: number,
+  lineHeight: number,
+  ranges: readonly StyleRange[],
+  measurer: TextMeasurer,
+): TextRun[] {
+  const runs: TextRun[] = [];
+  let x = startX;
+  let linePos = 0;
+
+  while (linePos < lineText.length) {
+    const globalPos = globalOffset + linePos;
+    const range = findRange(ranges, globalPos);
+    if (!range) break;
+
+    // How many characters of this range are left in the line
+    const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
+    const runText = lineText.slice(linePos, rangeEnd);
+    if (runText.length === 0) break;
+
+    const width = measurer.measureText(runText, range.style).width;
+    runs.push({
+      type: 'text-run',
+      text: runText,
+      bounds: { x, y: 0, width, height: lineHeight },
+      style: range.style,
+    });
+    x += width;
+    linePos = rangeEnd;
+  }
+
+  return runs;
+}
+
+function findRange(ranges: readonly StyleRange[], globalPos: number): StyleRange | undefined {
+  for (const range of ranges) {
+    if (globalPos >= range.start && globalPos < range.end) return range;
+  }
+  return undefined;
+}
+
 function findBreakPosition(
   text: string,
   start: number,
@@ -105,13 +141,11 @@ function findBreakPosition(
   style: ComputedStyle,
   measurer: TextMeasurer,
 ): number {
-  // Quick check: does the entire remaining text fit?
   const fullText = text.slice(start, end);
   if (measurer.measureText(fullText, style).width <= maxWidth) {
     return end;
   }
 
-  // Binary search for approximate fit point
   let lo = start;
   let hi = end;
   while (lo < hi - 1) {
@@ -124,58 +158,39 @@ function findBreakPosition(
     }
   }
 
-  // lo is the last position where text fits
-  // Now find the best break point at or before lo
   return findWordBreak(text, start, lo);
 }
 
-/**
- * Find the best word/character break point at or before fitPos.
- * Prefers breaking at spaces or CJK character boundaries.
- */
 function findWordBreak(text: string, start: number, fitPos: number): number {
-  // Look backwards from fitPos for a good break point
   for (let i = fitPos; i > start; i--) {
     const ch = text[i];
-    // Break at space
     if (ch === ' ') return i;
-    // Break before or after a CJK character
     if (ch && CJK_RE.test(ch)) return i;
     const prev = text[i - 1];
     if (prev && CJK_RE.test(prev)) return i;
   }
-  // No good break point found — break at fitPos (emergency character break)
   return fitPos;
 }
 
-function buildLine(
-  text: string,
-  startX: number,
-  textWidth: number,
+function applyAlign(
+  runs: TextRun[],
+  lineWidth: number,
   y: number,
   lineHeight: number,
   maxWidth: number,
-  style: ComputedStyle,
   textAlign: TextAlignment,
 ): LineBox {
-  let x = startX;
-
-  if (textAlign === 'center') {
-    x += (maxWidth - startX - textWidth) / 2;
-  } else if (textAlign === 'right') {
-    x = maxWidth - textWidth;
+  if (textAlign === 'center' && runs.length > 0) {
+    const offset = (maxWidth - lineWidth) / 2;
+    runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
+  } else if (textAlign === 'right' && runs.length > 0) {
+    const offset = maxWidth - lineWidth;
+    runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
   }
-
-  const run: TextRun = {
-    type: 'text-run',
-    text,
-    bounds: { x, y: 0, width: textWidth, height: lineHeight },
-    style,
-  };
 
   return {
     type: 'line-box',
     bounds: { x: 0, y, width: maxWidth, height: lineHeight },
-    runs: [run],
+    runs,
   };
 }

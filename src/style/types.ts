@@ -75,9 +75,10 @@ export type Specificity = readonly [number, number, number];
 
 /** A document node paired with its resolved computed style. */
 export interface StyledNode {
-  readonly type: 'block' | 'inline' | 'text';
+  readonly type: 'block' | 'inline' | 'text' | 'image';
   readonly tag?: string;
   readonly content?: string;
+  readonly src?: string;
   readonly style: ComputedStyle;
   readonly children: readonly StyledNode[];
 }

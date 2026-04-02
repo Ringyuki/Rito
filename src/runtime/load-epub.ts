@@ -82,5 +82,14 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     }
   }
 
-  return { packageDocument, chapters, stylesheets, fonts };
+  // Load image files from manifest
+  const images = new Map<string, Uint8Array>();
+  for (const item of packageDocument.manifest) {
+    if (item.mediaType.startsWith('image/')) {
+      const fullPath = opfDir + item.href;
+      images.set(item.href, reader.readFile(fullPath));
+    }
+  }
+
+  return { packageDocument, chapters, stylesheets, fonts, images };
 }

@@ -15,6 +15,8 @@ export interface EpubDocument {
   readonly stylesheets: ReadonlyMap<string, string>;
   /** Map from relative href to font binary data. */
   readonly fonts: ReadonlyMap<string, Uint8Array>;
+  /** Map from relative href to image binary data. */
+  readonly images: ReadonlyMap<string, Uint8Array>;
 }
 
 /**

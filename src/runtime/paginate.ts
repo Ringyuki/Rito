@@ -1,6 +1,7 @@
 import type { LayoutConfig, Page } from '../layout/types';
 import type { TextMeasurer } from '../layout/text-measurer';
 import type { ParagraphLayouter } from '../layout/paragraph-layouter';
+import type { ImageSizeMap } from '../layout/block-layout';
 import { createGreedyLayouter } from '../layout/greedy-line-breaker';
 import { layoutBlocks } from '../layout/block-layout';
 import { paginateBlocks } from '../layout/paginator';
@@ -14,26 +15,29 @@ import type { EpubDocument } from './types';
 /**
  * Paginate all chapters in an EPUB document into renderable pages.
  *
- * Each chapter starts on a new page. Parses and applies CSS stylesheets
- * from the EPUB, then processes each chapter in spine order.
+ * @param document - A loaded EpubDocument.
+ * @param config - Layout configuration.
+ * @param measurer - Text measurer for line breaking.
+ * @param images - Decoded image bitmaps for correct image sizing.
  */
 export function paginate(
   document: EpubDocument,
   config: LayoutConfig,
   measurer: TextMeasurer,
+  images?: ReadonlyMap<string, ImageBitmap>,
 ): readonly Page[] {
   const contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
+  const contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
   const layouter: ParagraphLayouter = createGreedyLayouter(measurer);
 
-  // Parse all stylesheets into CSS rules
   const allRules: CssRule[] = [];
   for (const css of document.stylesheets.values()) {
     const rules = parseCssRules(css, DEFAULT_STYLE.fontSize);
     allRules.push(...rules);
   }
 
-  // Extract body/html level base style
   const bodyStyle = computeBodyStyle(allRules);
+  const imageSizes = images ? createImageSizeMap(images) : undefined;
 
   const allPages: Page[] = [];
 
@@ -43,7 +47,7 @@ export function paginate(
 
     const { nodes } = parseXhtml(xhtml);
     const styled = resolveStyles(nodes, bodyStyle, allRules);
-    const blocks = layoutBlocks(styled, contentWidth, layouter);
+    const blocks = layoutBlocks(styled, contentWidth, layouter, imageSizes, contentHeight);
     if (blocks.length === 0) continue;
 
     const chapterPages = paginateBlocks(blocks, config);
@@ -63,4 +67,27 @@ function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {
     }
   }
   return style;
+}
+
+function createImageSizeMap(images: ReadonlyMap<string, ImageBitmap>): ImageSizeMap {
+  return {
+    getSize(src: string) {
+      // Direct match
+      for (const [href, bitmap] of images) {
+        if (src.endsWith(href) || href.endsWith(src)) {
+          return { width: bitmap.width, height: bitmap.height };
+        }
+      }
+      // Filename match
+      const srcName = src.split('/').pop();
+      if (srcName) {
+        for (const [href, bitmap] of images) {
+          if (href.split('/').pop() === srcName) {
+            return { width: bitmap.width, height: bitmap.height };
+          }
+        }
+      }
+      return undefined;
+    },
+  };
 }

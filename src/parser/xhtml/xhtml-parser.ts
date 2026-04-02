@@ -115,6 +115,14 @@ function convertElement(
     return { type: NODE_TYPES.Text, content: '\n' } satisfies TextNode;
   }
 
+  // Handle <img> as an image node
+  if (tagName === 'img') {
+    const src = el.getAttribute('src') ?? '';
+    const alt = el.getAttribute('alt') ?? '';
+    if (src) return { type: 'image', src, alt };
+    return undefined;
+  }
+
   if (attributes) {
     return { type: NODE_TYPES.Inline, tag: tagName, attributes, children } satisfies InlineNode;
   }

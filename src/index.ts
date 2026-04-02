@@ -3,10 +3,14 @@
 
 // ── Primary API ─────────────────────────────────────────────────────
 export { loadEpub } from './runtime/index';
-export { paginate } from './runtime/index';
+export { prepare, type Resources } from './render/index';
 export { render } from './render/index';
+
+// ── Advanced / lower-level ──────────────────────────────────────────
+export { paginate } from './runtime/index';
 export { createTextMeasurer } from './render/index';
 export { loadFonts } from './render/index';
+export { loadImages } from './render/index';
 
 // ── Types ───────────────────────────────────────────────────────────
 export { type EpubDocument, type LoadOptions } from './runtime/index';

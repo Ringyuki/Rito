@@ -29,7 +29,6 @@ describe('classifyTag', () => {
   });
 
   it('classifies ignored elements', () => {
-    expect(classifyTag('img')).toBe('ignored');
     expect(classifyTag('script')).toBe('ignored');
     expect(classifyTag('style')).toBe('ignored');
     expect(classifyTag('svg')).toBe('ignored');
@@ -46,6 +45,6 @@ describe('classifyTag', () => {
     expect(classifyTag('P')).toBe('block');
     expect(classifyTag('DIV')).toBe('block');
     expect(classifyTag('SPAN')).toBe('inline');
-    expect(classifyTag('IMG')).toBe('ignored');
+    expect(classifyTag('IMG')).toBe('inline');
   });
 });

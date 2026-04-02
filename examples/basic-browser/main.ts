@@ -1,14 +1,12 @@
 import {
   loadEpub,
-  loadFonts,
-  paginate,
+  prepare,
   render,
   getSpreadDimensions,
   buildSpreads,
-  createTextMeasurer,
   createLayoutConfig,
 } from '../../src/index';
-import type { LayoutConfig, Page, Spread } from '../../src/index';
+import type { LayoutConfig, Page, Resources, Spread } from '../../src/index';
 
 // ── DOM Elements ────────────────────────────────────────────────────
 
@@ -30,6 +28,7 @@ let config: LayoutConfig = buildConfig();
 let pages: readonly Page[] = [];
 let spreads: readonly Spread[] = [];
 let currentSpread = 0;
+let resources: Resources = { pages: [], images: new Map() };
 const demoEpubUrl = new URL('./assets/demo.epub', import.meta.url);
 
 function buildConfig(): LayoutConfig {
@@ -64,36 +63,12 @@ function draw(): void {
   if (!spread) return;
 
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  render(spread, ctx, config, { backgroundColor: '#ffffff' });
+  render(spread, ctx, config, { backgroundColor: '#ffffff', images: resources.images });
 
   const label = config.spreadMode === 'single' ? 'Page' : 'Spread';
   statusEl.textContent = `${label} ${String(currentSpread + 1)} / ${String(spreads.length)}`;
   prevBtn.disabled = currentSpread === 0;
   nextBtn.disabled = currentSpread >= spreads.length - 1;
-
-  // Debug: dump current page structure to console
-  const page = spread.left;
-  if (page) {
-    console.group(`Page ${String(page.index)}`);
-    for (let bi = 0; bi < page.content.length; bi++) {
-      const block = page.content[bi];
-      if (!block) continue;
-      console.group(
-        `Block ${String(bi)}: y=${String(Math.round(block.bounds.y))}, h=${String(Math.round(block.bounds.height))}, lines=${String(block.children.length)}`,
-      );
-      for (let li = 0; li < block.children.length; li++) {
-        const child = block.children[li];
-        if (child?.type === 'line-box') {
-          const text = child.runs.map((r) => r.text).join('');
-          console.log(
-            `  Line ${String(li)}: y=${String(Math.round(child.bounds.y))}, h=${String(Math.round(child.bounds.height))}, text="${text.slice(0, 40)}${text.length > 40 ? '...' : ''}"`,
-          );
-        }
-      }
-      console.groupEnd();
-    }
-    console.groupEnd();
-  }
 }
 
 // ── EPUB Loading ────────────────────────────────────────────────────
@@ -101,9 +76,8 @@ function draw(): void {
 async function loadFromArrayBuffer(data: ArrayBuffer, name: string): Promise<void> {
   try {
     const doc = loadEpub(data);
-    await loadFonts(doc);
-    const measurer = createTextMeasurer(canvas);
-    pages = paginate(doc, config, measurer);
+    resources = await prepare(doc, config, canvas);
+    pages = resources.pages;
 
     if (pages.length === 0) {
       statusEl.textContent = `"${name}" produced no pages`;
