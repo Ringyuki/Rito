@@ -28,7 +28,10 @@ export interface LayoutBlock {
   readonly children: readonly (LineBox | LayoutBlock)[];
 }
 
-/** Configuration for the layout engine. */
+/**
+ * Configuration for page dimensions and margins.
+ * All values are in logical pixels.
+ */
 export interface LayoutConfig {
   readonly pageWidth: number;
   readonly pageHeight: number;
@@ -38,9 +41,15 @@ export interface LayoutConfig {
   readonly marginLeft: number;
 }
 
-/** A computed page of content ready for rendering. */
+/**
+ * A computed page of content ready for rendering.
+ * Produced by {@link paginateBlocks} or {@link paginate}.
+ */
 export interface Page {
+  /** Zero-based page index. */
   readonly index: number;
+  /** Full page dimensions (including margins). */
   readonly bounds: Rect;
+  /** Layout blocks positioned within the page content area. */
   readonly content: readonly LayoutBlock[];
 }

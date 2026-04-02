@@ -7,10 +7,11 @@ export interface TextMetrics {
 }
 
 /**
- * Abstraction for text measurement.
+ * Abstraction for measuring text dimensions.
+ *
  * Layout code depends on this interface, never on Canvas directly.
- * Browser: implemented via CanvasRenderingContext2D.measureText()
- * Tests: implemented via MockTextMeasurer with deterministic widths.
+ * Create an instance with {@link createTextMeasurer} in browser environments,
+ * or provide a custom implementation for testing or server-side use.
  */
 export interface TextMeasurer {
   measureText(text: string, style: ComputedStyle): TextMetrics;

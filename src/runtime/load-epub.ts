@@ -4,29 +4,38 @@ import { parsePackageDocument } from '../parser/epub/package-parser';
 import type { EpubDocument, LoadOptions } from './types';
 
 /**
- * Load an EPUB file from an ArrayBuffer.
+ * Load and parse an EPUB file from an ArrayBuffer.
  *
- * Parses the container, package document, and eagerly loads all chapter content.
- * Returns an EpubDocument ready for pagination.
+ * Extracts the ZIP archive, parses `container.xml` and the OPF package document,
+ * and eagerly loads all chapter XHTML content from the spine.
+ *
+ * This function is synchronous. The caller is responsible for fetching the
+ * ArrayBuffer (e.g. via `fetch()` or `FileReader`).
+ *
+ * @param data - The raw EPUB file as an ArrayBuffer.
+ * @param options - Optional loading options (e.g. `maxChapters` to limit loading).
+ * @returns A parsed {@link EpubDocument} ready for pagination.
+ * @throws {@link EpubParseError} if the EPUB structure is invalid.
+ *
+ * @example
+ * ```ts
+ * const response = await fetch('book.epub');
+ * const data = await response.arrayBuffer();
+ * const doc = loadEpub(data);
+ * ```
  */
 export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument {
   const reader = createZipReader(data);
 
-  // Parse container.xml to find the OPF path
   const containerXml = reader.readTextFile(CONTAINER_PATH);
   const rootfilePath = parseContainer(containerXml);
 
-  // Parse the OPF package document
   const opfXml = reader.readTextFile(rootfilePath);
   const packageDocument = parsePackageDocument(opfXml);
 
-  // Resolve the directory containing the OPF for relative hrefs
   const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
-
-  // Build a lookup from manifest id → href
   const manifestById = new Map(packageDocument.manifest.map((item) => [item.id, item.href]));
 
-  // Load chapters from the spine
   const chapters = new Map<string, string>();
   const maxChapters = options?.maxChapters ?? Infinity;
   let loaded = 0;

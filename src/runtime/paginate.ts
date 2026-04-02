@@ -9,10 +9,25 @@ import { resolveStyles } from '../style/resolver';
 import type { EpubDocument } from './types';
 
 /**
- * Paginate all chapters in an EPUB document into pages.
+ * Paginate all chapters in an EPUB document into renderable pages.
  *
- * Orchestrates XHTML parsing → style resolution → block layout → pagination
- * for each chapter in spine order.
+ * Processes each chapter in spine order: parses XHTML, resolves styles,
+ * computes block and inline layout, then splits the result into pages.
+ *
+ * @param document - A loaded {@link EpubDocument} from {@link loadEpub}.
+ * @param config - Page dimensions and margins.
+ * @param measurer - A {@link TextMeasurer} for computing text widths.
+ *   Create one with {@link createTextMeasurer} in browser environments.
+ * @returns An array of {@link Page} objects ready for rendering.
+ *
+ * @example
+ * ```ts
+ * const measurer = createTextMeasurer(canvas);
+ * const pages = paginate(doc, {
+ *   pageWidth: 800, pageHeight: 1200,
+ *   marginTop: 40, marginRight: 40, marginBottom: 40, marginLeft: 40,
+ * }, measurer);
+ * ```
  */
 export function paginate(
   document: EpubDocument,

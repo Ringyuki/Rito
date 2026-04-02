@@ -5,8 +5,23 @@ import { drawTextRun } from './text-renderer';
 /**
  * Render a page onto a CanvasRenderingContext2D.
  *
- * The canvas should be sized to page.bounds.width * pixelRatio by
- * page.bounds.height * pixelRatio. This function handles scaling.
+ * Draws the page background (if configured), then walks the layout tree
+ * and draws each text run at its computed position, offset by page margins.
+ *
+ * The canvas element should be sized to `page.bounds.width * pixelRatio` by
+ * `page.bounds.height * pixelRatio`. This function applies `ctx.scale()` to
+ * handle the pixel ratio internally.
+ *
+ * @param page - The {@link Page} to render.
+ * @param ctx - The canvas 2D rendering context.
+ * @param config - Page dimensions and margins (used for content offset).
+ * @param options - Optional rendering settings (background color, pixel ratio).
+ *
+ * @example
+ * ```ts
+ * const ctx = canvas.getContext('2d')!;
+ * renderPage(pages[0], ctx, config, { backgroundColor: '#ffffff' });
+ * ```
  */
 export function renderPage(
   page: Page,
