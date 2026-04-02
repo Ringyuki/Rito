@@ -1,4 +1,4 @@
-import type { BlockNode, DocumentNode, InlineNode, TextNode } from './types';
+import type { BlockNode, DocumentNode, ElementAttributes, InlineNode, TextNode } from './types';
 import { NODE_TYPES } from './types';
 import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
@@ -101,8 +101,12 @@ function convertElement(
 
   const isPreformatted = preserveWhitespace || tagName === 'pre';
   const children = convertChildren(el, warnings, isPreformatted);
+  const attributes = extractAttributes(el);
 
   if (classification === 'block') {
+    if (attributes) {
+      return { type: NODE_TYPES.Block, tag: tagName, attributes, children } satisfies BlockNode;
+    }
     return { type: NODE_TYPES.Block, tag: tagName, children } satisfies BlockNode;
   }
 
@@ -111,5 +115,20 @@ function convertElement(
     return { type: NODE_TYPES.Text, content: '\n' } satisfies TextNode;
   }
 
+  if (attributes) {
+    return { type: NODE_TYPES.Inline, tag: tagName, attributes, children } satisfies InlineNode;
+  }
   return { type: NODE_TYPES.Inline, tag: tagName, children } satisfies InlineNode;
+}
+
+function extractAttributes(el: Element): ElementAttributes | undefined {
+  const cls = el.getAttribute('class') ?? undefined;
+  const style = el.getAttribute('style') ?? undefined;
+  const id = el.getAttribute('id') ?? undefined;
+  if (cls === undefined && style === undefined && id === undefined) return undefined;
+  const attrs: { class?: string; style?: string; id?: string } = {};
+  if (cls !== undefined) attrs.class = cls;
+  if (style !== undefined) attrs.style = style;
+  if (id !== undefined) attrs.id = id;
+  return attrs;
 }

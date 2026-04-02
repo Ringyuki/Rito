@@ -105,4 +105,21 @@ describe('paginate', () => {
       expect(firstChild.runs[0]?.text.length).toBeGreaterThan(0);
     }
   });
+
+  it('starts each chapter on a new page', () => {
+    // Two short chapters that each fit on one page
+    const data = buildMinimalEpub({
+      chapters: [
+        { id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Chapter one.</p>') },
+        { id: 'ch2', href: 'ch2.xhtml', content: xhtml('<p>Chapter two.</p>') },
+      ],
+    });
+    const doc = loadEpub(data);
+    const pages = paginate(doc, CONFIG, measurer);
+
+    // Each chapter should produce its own page (not merged onto one)
+    expect(pages).toHaveLength(2);
+    expect(pages[0]?.index).toBe(0);
+    expect(pages[1]?.index).toBe(1);
+  });
 });

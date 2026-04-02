@@ -16,10 +16,18 @@ export interface TextNode {
   readonly content: string;
 }
 
+/** HTML attributes extracted from an element. */
+export interface ElementAttributes {
+  readonly class?: string;
+  readonly style?: string;
+  readonly id?: string;
+}
+
 /** An inline element (e.g. <em>, <strong>). */
 export interface InlineNode {
   readonly type: typeof NODE_TYPES.Inline;
   readonly tag: string;
+  readonly attributes?: ElementAttributes;
   readonly children: readonly DocumentNode[];
 }
 
@@ -27,6 +35,7 @@ export interface InlineNode {
 export interface BlockNode {
   readonly type: typeof NODE_TYPES.Block;
   readonly tag: string;
+  readonly attributes?: ElementAttributes;
   readonly children: readonly DocumentNode[];
 }
 

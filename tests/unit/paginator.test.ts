@@ -131,10 +131,9 @@ describe('paginateBlocks', () => {
     });
   });
 
-  describe('unsplittable blocks', () => {
-    it('places an unsplittable block on its own page if it overflows', () => {
-      // Create a container block (not splittable) that's taller than the page
-      // A div containing many paragraphs acts as an unsplittable unit
+  describe('container blocks', () => {
+    it('paginates content inside container blocks (div) across pages', () => {
+      // Container blocks are flattened: div's children become individual blocks
       const innerNodes: DocumentNode[] = [];
       for (let i = 0; i < 40; i++) {
         innerNodes.push(block('p', [text(`Inner para ${String(i)}`)]));
@@ -142,8 +141,12 @@ describe('paginateBlocks', () => {
       const blocks = makeBlocks([block('p', [text('Before')]), block('div', innerNodes)]);
       const pages = paginateBlocks(blocks, CONFIG);
 
-      // Should have at least 2 pages
+      // Should paginate normally across multiple pages
       expect(pages.length).toBeGreaterThanOrEqual(2);
+      // All pages should have content
+      for (const page of pages) {
+        expect(page.content.length).toBeGreaterThan(0);
+      }
     });
   });
 

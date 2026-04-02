@@ -31,6 +31,8 @@ describe('public API surface', () => {
       fontStyle: 'normal',
       lineHeight: 1.5,
       textAlign: 'left',
+      textDecoration: 'none',
+      textIndent: 0,
       color: '#000000',
       marginTop: 0,
       marginBottom: 0,

@@ -76,14 +76,28 @@ describe('layoutBlocks', () => {
     expect(p?.children[0]?.type).toBe('line-box');
   });
 
-  it('handles nested container blocks', () => {
+  it('flattens container blocks into individual text blocks', () => {
     const styled = resolveStyles([block('div', [block('p', [text('Inside div')])])]);
     const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
+    // Container (div) is flattened: its child (p) appears directly in the output
     expect(blocks).toHaveLength(1);
-    const div = blocks[0];
-    expect(div?.children.length).toBeGreaterThan(0);
-    expect(div?.children[0]?.type).toBe('layout-block');
+    // The block is the p, containing line boxes (not a nested layout-block)
+    expect(blocks[0]?.children[0]?.type).toBe('line-box');
+  });
+
+  it('flattens deeply nested containers', () => {
+    const styled = resolveStyles([
+      block('div', [
+        block('section', [block('p', [text('Para 1')]), block('p', [text('Para 2')])]),
+      ]),
+    ]);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    // Both paragraphs should appear as individual blocks
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0]?.children[0]?.type).toBe('line-box');
+    expect(blocks[1]?.children[0]?.type).toBe('line-box');
   });
 
   it('handles empty blocks', () => {

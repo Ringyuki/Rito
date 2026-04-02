@@ -14,6 +14,7 @@ export {
 export {
   type BlockNode,
   type DocumentNode,
+  type ElementAttributes,
   type InlineNode,
   NODE_TYPES,
   type NodeType,

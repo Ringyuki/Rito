@@ -6,9 +6,11 @@ import { flattenInlineContent } from './styled-segment';
 /**
  * Lay out block-level styled nodes into a continuous vertical flow.
  *
- * Coordinates are in content-area space (y starts at 0).
- * LineBox y-values within each block are relative to the block's top.
- * The paginator later splits these blocks into pages.
+ * Container blocks (e.g. section, div) are flattened: their children
+ * appear directly in the output flow rather than wrapped in an unsplittable
+ * container. This ensures the paginator can split at any paragraph boundary.
+ *
+ * LineBox y-values within each block are relative to the block's top (start at 0).
  */
 export function layoutBlocks(
   nodes: readonly StyledNode[],
@@ -22,33 +24,89 @@ export function layoutBlocks(
   for (const node of nodes) {
     if (node.type !== 'block') continue;
 
-    // Simplified margin collapsing: use max of adjacent margins
-    const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-    y += collapsedMargin;
+    const hasBlockChildren = node.children.some((c) => c.type === 'block');
 
-    const block = layoutSingleBlock(node, contentWidth, y, layouter);
-    blocks.push(block);
+    if (hasBlockChildren) {
+      // Flatten container: lay out children directly into the flow
+      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
+      y += collapsedMargin;
 
-    y += block.bounds.height;
-    prevMarginBottom = node.style.marginBottom;
+      const childBlocks = layoutBlocksAt(node.children, contentWidth, layouter, y);
+      for (const child of childBlocks) {
+        blocks.push(child);
+      }
+
+      if (childBlocks.length > 0) {
+        const last = childBlocks[childBlocks.length - 1];
+        if (last) {
+          y = last.bounds.y + last.bounds.height;
+        }
+      }
+      prevMarginBottom = node.style.marginBottom;
+    } else {
+      // Text block: flatten inline content and lay out as paragraph
+      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
+      y += collapsedMargin;
+
+      const block = layoutTextBlock(node, contentWidth, y, layouter);
+      blocks.push(block);
+
+      y += block.bounds.height;
+      prevMarginBottom = node.style.marginBottom;
+    }
   }
 
   return blocks;
 }
 
-function layoutSingleBlock(
-  node: StyledNode,
+/**
+ * Internal: lay out nodes starting at a given y offset.
+ * Used for recursive container flattening.
+ */
+function layoutBlocksAt(
+  nodes: readonly StyledNode[],
   contentWidth: number,
-  y: number,
   layouter: ParagraphLayouter,
-): LayoutBlock {
-  const hasBlockChildren = node.children.some((c) => c.type === 'block');
+  startY: number,
+): readonly LayoutBlock[] {
+  const blocks: LayoutBlock[] = [];
+  let y = startY;
+  let prevMarginBottom = 0;
 
-  if (hasBlockChildren) {
-    return layoutContainerBlock(node, contentWidth, y, layouter);
+  for (const node of nodes) {
+    if (node.type !== 'block') continue;
+
+    const hasBlockChildren = node.children.some((c) => c.type === 'block');
+
+    if (hasBlockChildren) {
+      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
+      y += collapsedMargin;
+
+      const childBlocks = layoutBlocksAt(node.children, contentWidth, layouter, y);
+      for (const child of childBlocks) {
+        blocks.push(child);
+      }
+
+      if (childBlocks.length > 0) {
+        const last = childBlocks[childBlocks.length - 1];
+        if (last) {
+          y = last.bounds.y + last.bounds.height;
+        }
+      }
+      prevMarginBottom = node.style.marginBottom;
+    } else {
+      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
+      y += collapsedMargin;
+
+      const block = layoutTextBlock(node, contentWidth, y, layouter);
+      blocks.push(block);
+
+      y += block.bounds.height;
+      prevMarginBottom = node.style.marginBottom;
+    }
   }
 
-  return layoutTextBlock(node, contentWidth, y, layouter);
+  return blocks;
 }
 
 /** Layout a block that contains only inline/text children. */
@@ -69,34 +127,9 @@ function layoutTextBlock(
   };
 }
 
-/** Layout a block that contains nested block children. */
-function layoutContainerBlock(
-  node: StyledNode,
-  contentWidth: number,
-  y: number,
-  layouter: ParagraphLayouter,
-): LayoutBlock {
-  const childBlocks = layoutBlocks(node.children, contentWidth, layouter);
-  const height = computeBlocksHeight(childBlocks);
-
-  return {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height },
-    children: childBlocks,
-  };
-}
-
 function computeChildrenHeight(lineBoxes: readonly LineBox[]): number {
   if (lineBoxes.length === 0) return 0;
   const last = lineBoxes[lineBoxes.length - 1];
   if (!last) return 0;
-  return last.bounds.y + last.bounds.height;
-}
-
-function computeBlocksHeight(blocks: readonly LayoutBlock[]): number {
-  if (blocks.length === 0) return 0;
-  const last = blocks[blocks.length - 1];
-  if (!last) return 0;
-  // Height from 0 to the bottom of the last child block (relative to container)
   return last.bounds.y + last.bounds.height;
 }

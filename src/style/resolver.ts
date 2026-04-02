@@ -1,6 +1,7 @@
 import type { DocumentNode } from '../parser/xhtml/types';
 import type { ComputedStyle, StyledNode } from './types';
 import { DEFAULT_STYLE } from './defaults';
+import { parseCssDeclarations } from './css-property-parser';
 import { getTagStyle } from './tag-styles';
 
 /**
@@ -27,13 +28,13 @@ function resolveNode(node: DocumentNode, parentStyle: ComputedStyle): StyledNode
       };
 
     case 'block': {
-      const style = applyTagStyle(parentStyle, node.tag);
+      const style = applyInlineStyle(applyTagStyle(parentStyle, node.tag), node.attributes?.style);
       const children = node.children.map((child) => resolveNode(child, style));
       return { type: 'block', tag: node.tag, style, children };
     }
 
     case 'inline': {
-      const style = applyTagStyle(parentStyle, node.tag);
+      const style = applyInlineStyle(applyTagStyle(parentStyle, node.tag), node.attributes?.style);
       const children = node.children.map((child) => resolveNode(child, style));
       return { type: 'inline', tag: node.tag, style, children };
     }
@@ -46,4 +47,11 @@ function applyTagStyle(parentStyle: ComputedStyle, tag: string): ComputedStyle {
     return parentStyle;
   }
   return { ...parentStyle, ...overrides };
+}
+
+function applyInlineStyle(style: ComputedStyle, inlineCss: string | undefined): ComputedStyle {
+  if (!inlineCss) return style;
+  const overrides = parseCssDeclarations(inlineCss, style.fontSize);
+  if (Object.keys(overrides).length === 0) return style;
+  return { ...style, ...overrides };
 }

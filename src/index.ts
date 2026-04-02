@@ -30,6 +30,7 @@ export {
 export {
   type BlockNode,
   type DocumentNode,
+  type ElementAttributes,
   type InlineNode,
   NODE_TYPES,
   type NodeType,
@@ -51,6 +52,8 @@ export {
   type StyledNode,
   TEXT_ALIGNMENTS,
   type TextAlignment,
+  TEXT_DECORATIONS,
+  type TextDecoration,
 } from './style/index';
 
 // ── Layout ──────────────────────────────────────────────────────────

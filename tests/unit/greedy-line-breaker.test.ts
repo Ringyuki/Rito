@@ -41,12 +41,38 @@ describe('GreedyParagraphLayouter', () => {
       expect(lines[1]?.runs.map((r) => r.text)).toEqual(['three', 'four']);
     });
 
-    it('places a word that exceeds maxWidth alone on its line', () => {
+    it('breaks a word that exceeds maxWidth at character boundaries', () => {
       // "superlongword" = 13*9.6 = 124.8, width 100
+      // Each char = 9.6px, so 10 chars = 96px fits, 11 chars = 105.6 overflows
       const lines = layouter.layoutParagraph([seg('superlongword')], 100, 0);
 
-      expect(lines).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text).toBe('superlongword');
+      expect(lines.length).toBeGreaterThan(1);
+      // All characters should be present across all runs
+      const allText = lines.flatMap((l) => l.runs.map((r) => r.text)).join('');
+      expect(allText).toBe('superlongword');
+    });
+
+    it('handles a word where each character exceeds maxWidth', () => {
+      // maxWidth=5, each char=9.6, so each char is its own line
+      const lines = layouter.layoutParagraph([seg('abc')], 5, 0);
+
+      expect(lines).toHaveLength(3);
+      expect(lines[0]?.runs[0]?.text).toBe('a');
+      expect(lines[1]?.runs[0]?.text).toBe('b');
+      expect(lines[2]?.runs[0]?.text).toBe('c');
+    });
+
+    it('breaks oversized word that follows other words', () => {
+      // "hi superlongword" — "hi" fits on line 1, "superlongword" broken across remaining lines
+      const lines = layouter.layoutParagraph([seg('hi superlongword')], 100, 0);
+
+      expect(lines.length).toBeGreaterThan(1);
+      expect(lines[0]?.runs[0]?.text).toBe('hi');
+      const remaining = lines
+        .slice(1)
+        .flatMap((l) => l.runs.map((r) => r.text))
+        .join('');
+      expect(remaining).toBe('superlongword');
     });
 
     it('returns empty array for empty input', () => {

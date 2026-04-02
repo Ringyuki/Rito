@@ -11,23 +11,15 @@ import type { EpubDocument } from './types';
 /**
  * Paginate all chapters in an EPUB document into renderable pages.
  *
- * Processes each chapter in spine order: parses XHTML, resolves styles,
- * computes block and inline layout, then splits the result into pages.
+ * Each chapter starts on a new page. Processes each chapter in spine order:
+ * parses XHTML, resolves styles, computes block and inline layout, then
+ * splits the result into pages.
  *
  * @param document - A loaded {@link EpubDocument} from {@link loadEpub}.
  * @param config - Page dimensions and margins.
  * @param measurer - A {@link TextMeasurer} for computing text widths.
  *   Create one with {@link createTextMeasurer} in browser environments.
  * @returns An array of {@link Page} objects ready for rendering.
- *
- * @example
- * ```ts
- * const measurer = createTextMeasurer(canvas);
- * const pages = paginate(doc, {
- *   pageWidth: 800, pageHeight: 1200,
- *   marginTop: 40, marginRight: 40, marginBottom: 40, marginLeft: 40,
- * }, measurer);
- * ```
  */
 export function paginate(
   document: EpubDocument,
@@ -36,8 +28,7 @@ export function paginate(
 ): readonly Page[] {
   const contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
   const layouter: ParagraphLayouter = createGreedyLayouter(measurer);
-
-  const allBlocks = [];
+  const allPages: Page[] = [];
 
   for (const spineItem of document.packageDocument.spine) {
     const xhtml = document.chapters.get(spineItem.idref);
@@ -46,8 +37,13 @@ export function paginate(
     const { nodes } = parseXhtml(xhtml);
     const styled = resolveStyles(nodes);
     const blocks = layoutBlocks(styled, contentWidth, layouter);
-    allBlocks.push(...blocks);
+    if (blocks.length === 0) continue;
+
+    const chapterPages = paginateBlocks(blocks, config);
+    for (const page of chapterPages) {
+      allPages.push({ ...page, index: allPages.length });
+    }
   }
 
-  return paginateBlocks(allBlocks, config);
+  return allPages;
 }

@@ -191,6 +191,37 @@ describe('renderPage', () => {
     });
   });
 
+  describe('content clipping', () => {
+    it('clips to content area', () => {
+      const mock = createMockCanvasContext();
+      const page = makeSimplePage(['Hello']);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const rectCalls = mock.getCalls('rect');
+      expect(rectCalls).toHaveLength(1);
+      // content area: marginLeft=20, marginTop=20, width=360, height=560
+      expect(rectCalls[0]?.args).toEqual([20, 20, 360, 560]);
+
+      const clipCalls = mock.getCalls('clip');
+      expect(clipCalls).toHaveLength(1);
+    });
+
+    it('clips after background fill but before text', () => {
+      const mock = createMockCanvasContext();
+      const page = makeSimplePage(['Hello']);
+      renderPage(page, mock.ctx, CONFIG, { backgroundColor: '#fff' });
+
+      const allMethods = mock.records
+        .filter((r) => 'method' in r)
+        .map((r) => (r as { method: string }).method);
+      const fillRectIndex = allMethods.indexOf('fillRect');
+      const clipIndex = allMethods.indexOf('clip');
+      const fillTextIndex = allMethods.indexOf('fillText');
+      expect(fillRectIndex).toBeLessThan(clipIndex);
+      expect(clipIndex).toBeLessThan(fillTextIndex);
+    });
+  });
+
   describe('draw call order', () => {
     it('calls save, scale, render, restore in order', () => {
       const mock = createMockCanvasContext();

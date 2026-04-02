@@ -29,6 +29,15 @@ export const TEXT_ALIGNMENTS = {
 
 export type TextAlignment = (typeof TEXT_ALIGNMENTS)[keyof typeof TEXT_ALIGNMENTS];
 
+/** Supported text decoration values. */
+export const TEXT_DECORATIONS = {
+  None: 'none',
+  Underline: 'underline',
+  LineThrough: 'line-through',
+} as const;
+
+export type TextDecoration = (typeof TEXT_DECORATIONS)[keyof typeof TEXT_DECORATIONS];
+
 /** Computed style for a layout element. */
 export interface ComputedStyle {
   readonly fontFamily: string;
@@ -37,6 +46,8 @@ export interface ComputedStyle {
   readonly fontStyle: FontStyle;
   readonly lineHeight: number;
   readonly textAlign: TextAlignment;
+  readonly textDecoration: TextDecoration;
+  readonly textIndent: number;
   readonly color: string;
   readonly marginTop: number;
   readonly marginBottom: number;

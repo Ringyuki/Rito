@@ -28,6 +28,7 @@ if (!ctx) throw new Error('Canvas 2d context not available');
 
 let pages: readonly Page[] = [];
 let currentPage = 0;
+const demoEpubUrl = new URL('./assets/demo.epub', import.meta.url);
 
 // ── Rendering ───────────────────────────────────────────────────────
 
@@ -71,7 +72,11 @@ function loadFromArrayBuffer(data: ArrayBuffer, name: string): void {
 loadDemoBtn.addEventListener('click', async () => {
   statusEl.textContent = 'Loading demo…';
   try {
-    const response = await fetch('../assets/demo.epub');
+    const response = await fetch(demoEpubUrl);
+    if (!response.ok) {
+      throw new Error(`HTTP ${String(response.status)}`);
+    }
+
     const data = await response.arrayBuffer();
     loadFromArrayBuffer(data, 'demo.epub');
   } catch (err) {

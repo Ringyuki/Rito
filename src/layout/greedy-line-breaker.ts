@@ -72,13 +72,32 @@ function breakLines(
       continue;
     }
 
+    // Emergency break: single word wider than maxWidth
+    if (currentWords.length === 0 && word.width > maxWidth) {
+      const chunks = breakWord(word, maxWidth, measurer);
+      for (const chunk of chunks) {
+        y = emitLine(lines, [chunk], chunk.width, y, measurer);
+      }
+      continue;
+    }
+
     const spaceWidth = currentWords.length > 0 ? measurer.measureText(' ', word.style).width : 0;
     const needed = currentWidth + spaceWidth + word.width;
 
     if (currentWords.length > 0 && needed > maxWidth) {
       y = emitLine(lines, currentWords, currentWidth, y, measurer);
-      currentWords = [word];
-      currentWidth = word.width;
+      // After emitting, check if the overflow word itself needs breaking
+      if (word.width > maxWidth) {
+        const chunks = breakWord(word, maxWidth, measurer);
+        for (const chunk of chunks) {
+          y = emitLine(lines, [chunk], chunk.width, y, measurer);
+        }
+        currentWords = [];
+        currentWidth = 0;
+      } else {
+        currentWords = [word];
+        currentWidth = word.width;
+      }
     } else {
       currentWords.push(word);
       currentWidth =
@@ -101,7 +120,7 @@ function emitLine(
   if (words.length === 0) return y;
 
   const lineHeight = computeLineHeight(words);
-  const runs = buildTextRuns(words, y, measurer);
+  const runs = buildTextRuns(words, measurer);
 
   lines.push({
     type: 'line-box',
@@ -121,7 +140,7 @@ function computeLineHeight(words: readonly Word[]): number {
   return maxHeight;
 }
 
-function buildTextRuns(words: readonly Word[], y: number, measurer: TextMeasurer): TextRun[] {
+function buildTextRuns(words: readonly Word[], measurer: TextMeasurer): TextRun[] {
   const runs: TextRun[] = [];
   let x = 0;
 
@@ -137,11 +156,32 @@ function buildTextRuns(words: readonly Word[], y: number, measurer: TextMeasurer
     runs.push({
       type: 'text-run',
       text: word.text,
-      bounds: { x, y, width: word.width, height: lineHeight },
+      // y=0: run position is relative to its parent LineBox
+      bounds: { x, y: 0, width: word.width, height: lineHeight },
       style: word.style,
     });
     x += word.width;
   }
 
   return runs;
+}
+
+/** Break a word into character-level chunks that fit within maxWidth. */
+function breakWord(word: Word, maxWidth: number, measurer: TextMeasurer): Word[] {
+  const chunks: Word[] = [];
+  let start = 0;
+  while (start < word.text.length) {
+    let end = start + 1;
+    while (end < word.text.length) {
+      const candidate = word.text.slice(start, end + 1);
+      const { width } = measurer.measureText(candidate, word.style);
+      if (width > maxWidth) break;
+      end++;
+    }
+    const text = word.text.slice(start, end);
+    const { width } = measurer.measureText(text, word.style);
+    chunks.push({ text, style: word.style, width });
+    start = end;
+  }
+  return chunks;
 }

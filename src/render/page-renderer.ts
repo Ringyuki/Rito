@@ -39,6 +39,13 @@ export function renderPage(
     ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
   }
 
+  // Clip to content area to prevent overflow drawing
+  const contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
+  const contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
+  ctx.beginPath();
+  ctx.rect(config.marginLeft, config.marginTop, contentWidth, contentHeight);
+  ctx.clip();
+
   for (const block of page.content) {
     renderBlock(ctx, block, config.marginLeft, config.marginTop);
   }

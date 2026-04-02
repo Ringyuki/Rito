@@ -137,4 +137,70 @@ describe('resolveStyles', () => {
     expect(p?.children[0]?.content).toBe('hello');
     expect(p?.children[1]?.children[0]?.content).toBe('world');
   });
+
+  describe('inline style resolution', () => {
+    it('applies inline style attribute to a block', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { style: 'color: red' },
+        children: [text('hello')],
+      };
+      const result = resolveStyles([node]);
+      expect(result[0]?.style.color).toBe('red');
+    });
+
+    it('inline style overrides tag default', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'h1',
+        attributes: { style: 'font-size: 48px' },
+        children: [text('big')],
+      };
+      const result = resolveStyles([node]);
+      // h1 default is 32, inline overrides to 48
+      expect(result[0]?.style.fontSize).toBe(48);
+      // h1's bold should still apply
+      expect(result[0]?.style.fontWeight).toBe('bold');
+    });
+
+    it('inline style on inline element', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        children: [
+          {
+            type: NODE_TYPES.Inline,
+            tag: 'span',
+            attributes: { style: 'color: blue; font-style: italic' },
+            children: [text('styled')],
+          },
+        ],
+      };
+      const result = resolveStyles([node]);
+      const span = result[0]?.children[0];
+      expect(span?.style.color).toBe('blue');
+      expect(span?.style.fontStyle).toBe('italic');
+    });
+
+    it('inline style inherits to children', () => {
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { style: 'color: green' },
+        children: [inline('em', [text('child')])],
+      };
+      const result = resolveStyles([node]);
+      const em = result[0]?.children[0];
+      // Child inherits parent's inline color
+      expect(em?.style.color).toBe('green');
+      // em adds italic
+      expect(em?.style.fontStyle).toBe('italic');
+    });
+
+    it('nodes without attributes unchanged', () => {
+      const result = resolveStyles([block('p', [text('plain')])]);
+      expect(result[0]?.style.color).toBe('#000000');
+    });
+  });
 });

@@ -139,6 +139,43 @@ describe('parseXhtml', () => {
     });
   });
 
+  describe('attribute extraction', () => {
+    it('extracts style attribute from a block element', () => {
+      const { nodes } = parseXhtml(xhtml('<p style="color: red">Text</p>'));
+      const p = nodes[0] as BlockNode;
+      expect(p.attributes?.style).toBe('color: red');
+    });
+
+    it('extracts class attribute from an inline element', () => {
+      const { nodes } = parseXhtml(xhtml('<p><span class="highlight">Text</span></p>'));
+      const p = nodes[0] as BlockNode;
+      const span = p.children[0] as InlineNode;
+      expect(span.attributes?.class).toBe('highlight');
+    });
+
+    it('extracts id attribute', () => {
+      const { nodes } = parseXhtml(xhtml('<div id="chapter1"><p>Text</p></div>'));
+      const div = nodes[0] as BlockNode;
+      expect(div.attributes?.id).toBe('chapter1');
+    });
+
+    it('extracts multiple attributes simultaneously', () => {
+      const { nodes } = parseXhtml(
+        xhtml('<p id="intro" class="first" style="font-size: 18px">Text</p>'),
+      );
+      const p = nodes[0] as BlockNode;
+      expect(p.attributes?.id).toBe('intro');
+      expect(p.attributes?.class).toBe('first');
+      expect(p.attributes?.style).toBe('font-size: 18px');
+    });
+
+    it('omits attributes when element has none', () => {
+      const { nodes } = parseXhtml(xhtml('<p>Plain</p>'));
+      const p = nodes[0] as BlockNode;
+      expect(p.attributes).toBeUndefined();
+    });
+  });
+
   describe('error handling', () => {
     it('throws XhtmlParseError on malformed XHTML', () => {
       expect(() => parseXhtml('<not-valid-xml<>')).toThrow(XhtmlParseError);
