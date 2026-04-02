@@ -38,4 +38,15 @@ export interface ComputedStyle {
   readonly lineHeight: number;
   readonly textAlign: TextAlignment;
   readonly color: string;
+  readonly marginTop: number;
+  readonly marginBottom: number;
+}
+
+/** A document node paired with its resolved computed style. */
+export interface StyledNode {
+  readonly type: 'block' | 'inline' | 'text';
+  readonly tag?: string;
+  readonly content?: string;
+  readonly style: ComputedStyle;
+  readonly children: readonly StyledNode[];
 }

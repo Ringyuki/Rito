@@ -10,4 +10,6 @@ export const DEFAULT_STYLE: ComputedStyle = {
   lineHeight: 1.5,
   textAlign: TEXT_ALIGNMENTS.Left,
   color: '#000000',
+  marginTop: 0,
+  marginBottom: 0,
 };

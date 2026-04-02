@@ -32,6 +32,8 @@ describe('public API surface', () => {
       lineHeight: 1.5,
       textAlign: 'left',
       color: '#000000',
+      marginTop: 0,
+      marginBottom: 0,
     });
   });
 });

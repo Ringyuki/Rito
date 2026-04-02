@@ -30,14 +30,16 @@ export {
 // Model types
 export { type LayoutElement, type Page, type Rect, type Spacing } from './model/index';
 
-// Style types
+// Style
 export {
   DEFAULT_STYLE,
+  resolveStyles,
   type ComputedStyle,
   FONT_STYLES,
   type FontStyle,
   FONT_WEIGHTS,
   type FontWeight,
+  type StyledNode,
   TEXT_ALIGNMENTS,
   type TextAlignment,
 } from './style/index';
