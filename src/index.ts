@@ -44,11 +44,22 @@ export {
   type TextAlignment,
 } from './style/index';
 
-// Layout types
-export { type LayoutBlock, type LayoutConfig, type LineBox, type TextRun } from './layout/index';
+// Layout
+export {
+  type LayoutBlock,
+  type LayoutConfig,
+  type LineBox,
+  type TextRun,
+  type TextMeasurer,
+  type TextMetrics,
+  type StyledSegment,
+  flattenInlineContent,
+  type ParagraphLayouter,
+  createGreedyLayouter,
+} from './layout/index';
 
-// Render types
-export { type RenderOptions } from './render/index';
+// Render
+export { type RenderOptions, createCanvasTextMeasurer } from './render/index';
 
 // Runtime types
 export { type EpubDocument, type LoadOptions } from './runtime/index';
