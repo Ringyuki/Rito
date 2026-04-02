@@ -62,7 +62,7 @@ export {
 } from './layout/index';
 
 // Render
-export { type RenderOptions, createCanvasTextMeasurer } from './render/index';
+export { type RenderOptions, createCanvasTextMeasurer, renderPage } from './render/index';
 
 // Runtime types
 export { type EpubDocument, type LoadOptions } from './runtime/index';

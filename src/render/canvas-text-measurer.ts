@@ -1,15 +1,6 @@
 import type { ComputedStyle } from '../style/types';
 import type { TextMeasurer, TextMetrics } from '../layout/text-measurer';
-
-/** Build a CSS font string from a ComputedStyle. */
-function buildFontString(style: ComputedStyle): string {
-  const parts: string[] = [];
-  if (style.fontStyle === 'italic') parts.push('italic');
-  if (style.fontWeight === 'bold') parts.push('bold');
-  parts.push(`${String(style.fontSize)}px`);
-  parts.push(style.fontFamily);
-  return parts.join(' ');
-}
+import { buildFontString } from './font-string';
 
 /**
  * Text measurer backed by CanvasRenderingContext2D.
