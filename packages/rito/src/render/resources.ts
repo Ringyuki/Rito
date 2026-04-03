@@ -4,6 +4,7 @@ import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';
 import { createCanvasTextMeasurer, type CachedTextMeasurer } from './canvas-text-measurer';
 import { paginateWithMeta } from '../runtime/paginate';
+import type { Logger } from '../utils/logger';
 
 /** Decoded assets (fonts registered, images decoded). Reusable across resizes. */
 export interface LoadedAssets {
@@ -27,9 +28,16 @@ export interface Resources {
 export async function loadAssets(
   doc: EpubDocument,
   canvas: HTMLCanvasElement | OffscreenCanvas,
+  logger?: Logger,
 ): Promise<LoadedAssets> {
   const [fontResult, imageResult] = await Promise.allSettled([loadFonts(doc), loadImages(doc)]);
-  if (fontResult.status === 'rejected') console.warn('Font loading failed:', fontResult.reason);
+  if (fontResult.status === 'rejected') {
+    if (logger) {
+      logger.warn('Font loading failed: %s', fontResult.reason);
+    } else {
+      console.warn('Font loading failed:', fontResult.reason);
+    }
+  }
   const images =
     imageResult.status === 'fulfilled' ? imageResult.value : new Map<string, ImageBitmap>();
 
@@ -46,6 +54,7 @@ export function paginateWithAssets(
   config: LayoutConfig,
   assets: LoadedAssets,
   lineBreaking?: 'greedy' | 'optimal',
+  logger?: Logger,
 ): Omit<Resources, 'images'> {
   const { pages, chapterMap, anchorMap } = paginateWithMeta(
     doc,
@@ -53,6 +62,7 @@ export function paginateWithAssets(
     assets.measurer,
     assets.images,
     lineBreaking,
+    logger,
   );
   return { pages, chapterMap, anchorMap };
 }

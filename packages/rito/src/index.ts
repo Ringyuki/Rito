@@ -9,6 +9,7 @@ export { createReader, type Reader, type ReaderOptions } from './reader';
 export type { PackageMetadata, TocEntry } from './parser/index';
 export type { ChapterRange } from './runtime/index';
 export type { Page, Spread } from './layout/index';
+export type { LogLevel } from './utils/logger';
 
 // ── Primitives (still available from main entry for convenience) ──
 export { loadEpub } from './runtime/index';

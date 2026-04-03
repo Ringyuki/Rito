@@ -13,6 +13,8 @@ import { DEFAULT_STYLE } from '../style/defaults';
 import type { ComputedStyle, CssRule } from '../style/types';
 import type { ChapterRange, EpubDocument, PaginationResult } from './types';
 import { buildHrefResolver } from '../utils/resolve-href';
+import type { Logger } from '../utils/logger';
+import { createLogger } from '../utils/logger';
 
 /** Result of paginating a single chapter. */
 export interface ChapterPaginationResult {
@@ -33,6 +35,7 @@ export class PaginationSession {
   private readonly contentHeight: number;
   private readonly allRules: readonly CssRule[];
   private readonly bodyStyle: ComputedStyle;
+  private readonly logger: Logger;
 
   private spineIndex = 0;
   private readonly allPages: Page[] = [];
@@ -45,7 +48,9 @@ export class PaginationSession {
     measurer: TextMeasurer,
     images?: ReadonlyMap<string, ImageBitmap>,
     lineBreaking?: 'greedy' | 'optimal',
+    logger?: Logger,
   ) {
+    this.logger = logger ?? createLogger();
     this.doc = doc;
     this.config = config;
     this.contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
@@ -87,6 +92,8 @@ export class PaginationSession {
       );
       if (blocks.length === 0) continue;
 
+      this.logger.debug('Chapter %s: %d blocks laid out', spineItem.idref, blocks.length);
+
       const startPage = this.allPages.length;
       const chapterPages = paginateBlocks(blocks, this.config);
       const newPages: Page[] = [];
@@ -98,6 +105,7 @@ export class PaginationSession {
         collectAnchors(page.content, pageIndex, this.anchorMap);
       }
       this.chapterMap.set(spineItem.idref, { startPage, endPage: this.allPages.length - 1 });
+      this.logger.info('Chapter paginated: %s -> %d pages', spineItem.idref, newPages.length);
 
       return { pages: newPages, done: this.spineIndex >= spine.length };
     }
@@ -110,6 +118,7 @@ export class PaginationSession {
     while (this.spineIndex < this.doc.packageDocument.spine.length) {
       this.paginateNextChapter();
     }
+    this.logger.info('Pagination complete: %d total pages', this.allPages.length);
     return this.getResult();
   }
 

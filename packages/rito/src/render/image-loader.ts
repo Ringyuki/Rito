@@ -1,4 +1,5 @@
 import type { EpubDocument } from '../runtime/types';
+import { createLogger, type Logger } from '../utils/logger';
 
 /**
  * Decode all EPUB-embedded images into ImageBitmaps for canvas rendering.
@@ -11,7 +12,11 @@ import type { EpubDocument } from '../runtime/types';
  * render(spread, ctx, config, { images });
  * ```
  */
-export async function loadImages(doc: EpubDocument): Promise<ReadonlyMap<string, ImageBitmap>> {
+export async function loadImages(
+  doc: EpubDocument,
+  logger?: Logger,
+): Promise<ReadonlyMap<string, ImageBitmap>> {
+  const log = logger ?? createLogger();
   const result = new Map<string, ImageBitmap>();
   const entries = Array.from(doc.images.entries());
 
@@ -22,7 +27,7 @@ export async function loadImages(doc: EpubDocument): Promise<ReadonlyMap<string,
       const bitmap = await createImageBitmap(blob);
       result.set(href, bitmap);
     } catch {
-      console.warn(`Failed to decode image: ${href}`);
+      log.warn(`Failed to decode image: ${href}`);
     }
   });
 

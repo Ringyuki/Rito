@@ -1,6 +1,7 @@
 import type { LayoutConfig, Page } from '../layout/types';
 import type { EpubDocument, PaginationResult } from '../runtime/types';
 import type { LoadedAssets } from '../render/resources';
+import type { LogLevel } from '../utils/logger';
 import type { PaginateRequest, WorkerResponse } from './types';
 
 /**
@@ -16,6 +17,7 @@ export function paginateInWorker(
   config: LayoutConfig,
   assets: LoadedAssets,
   lineBreaking?: 'greedy' | 'optimal',
+  logLevel?: LogLevel,
 ): Promise<PaginationResult> {
   return new Promise((resolve, reject) => {
     const chapters = preReadChapters(doc);
@@ -30,6 +32,7 @@ export function paginateInWorker(
       spine: doc.packageDocument.spine,
       packageDocument: doc.packageDocument,
       ...(lineBreaking ? { lineBreaking } : {}),
+      ...(logLevel ? { logLevel } : {}),
     };
 
     worker.onmessage = (e: MessageEvent) => {

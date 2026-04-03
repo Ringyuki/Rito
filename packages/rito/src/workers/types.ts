@@ -1,6 +1,7 @@
 import type { LayoutConfig } from '../layout/types';
 import type { ChapterRange } from '../runtime/types';
 import type { SpineItem, PackageDocument } from '../parser/epub/types';
+import type { LogLevel } from '../utils/logger';
 
 /** Data sent from the main thread to the pagination worker. */
 export interface PaginateRequest {
@@ -18,6 +19,8 @@ export interface PaginateRequest {
   readonly packageDocument: PackageDocument;
   /** Line-breaking algorithm. Defaults to 'greedy'. */
   readonly lineBreaking?: 'greedy' | 'optimal';
+  /** Log verbosity for worker-side logging. Defaults to 'warn'. */
+  readonly logLevel?: LogLevel;
 }
 
 /** Serializable pagination result sent from worker to main thread. */

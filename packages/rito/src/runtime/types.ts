@@ -1,5 +1,6 @@
 import type { Page } from '../layout/types';
 import type { PackageDocument, TocEntry } from '../parser/epub/types';
+import type { Logger } from '../utils/logger';
 
 /**
  * A loaded EPUB document ready for pagination.
@@ -45,4 +46,6 @@ export interface PaginationResult {
 export interface LoadOptions {
   /** Maximum number of spine chapters to load. Defaults to all. */
   readonly maxChapters?: number;
+  /** Optional logger instance. Defaults to a warn-level logger. */
+  readonly logger?: Logger;
 }

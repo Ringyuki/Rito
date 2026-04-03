@@ -6,6 +6,7 @@ import type { TocEntry } from '../parser/epub/types';
 import type { ZipReader } from '../parser/epub/zip-reader';
 import type { PackageDocument } from '../parser/epub/types';
 import type { EpubDocument, LoadOptions } from './types';
+import { createLogger, type Logger } from '../utils/logger';
 
 /**
  * Load and parse an EPUB file from an ArrayBuffer.
@@ -19,6 +20,7 @@ import type { EpubDocument, LoadOptions } from './types';
  * @throws {@link EpubParseError} if the EPUB structure is invalid.
  */
 export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument {
+  const log = options?.logger ?? createLogger();
   const reader = createZipReader(data);
 
   const containerXml = reader.readTextFile(CONTAINER_PATH);
@@ -44,7 +46,8 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
 
   const { stylesheets, fonts, images } = loadManifestResources(packageDocument, reader, opfDir);
 
-  const toc = loadToc(reader, packageDocument, opfDir);
+  const toc = loadToc(reader, packageDocument, opfDir, log);
+  log.info('EPUB loaded: %d spine items, %d stylesheets', chapterPaths.size, stylesheets.size);
 
   return {
     packageDocument,
@@ -103,7 +106,12 @@ function loadManifestResources(
 }
 
 /** Attempt to load TOC from EPUB 3 nav document or EPUB 2 NCX. */
-function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): readonly TocEntry[] {
+function loadToc(
+  reader: ZipReader,
+  pkg: PackageDocument,
+  opfDir: string,
+  log: Logger,
+): readonly TocEntry[] {
   const navItem = pkg.manifest.find((item) => item.properties?.includes('nav'));
   if (navItem) {
     try {
@@ -111,7 +119,7 @@ function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): reado
       const entries = parseNavDocument(navXhtml);
       if (entries.length > 0) return entries;
     } catch (e) {
-      console.warn('Failed to parse NAV document, falling back to NCX:', e);
+      log.warn('Failed to parse NAV document, falling back to NCX:', e);
     }
   }
 
@@ -121,7 +129,7 @@ function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): reado
       const ncxXml = reader.readTextFile(opfDir + ncxItem.href);
       return parseNcx(ncxXml);
     } catch (e) {
-      console.warn('Failed to parse NCX document:', e);
+      log.warn('Failed to parse NCX document:', e);
     }
   }
 

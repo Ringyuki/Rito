@@ -1,19 +1,24 @@
-import type { Page } from '../layout/types';
+import type { LayoutBlock, Page } from '../layout/types';
 import type { ImageSizeMap } from '../layout/block-layout';
 import { createGreedyLayouter } from '../layout/greedy-line-breaker';
 import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
 import { layoutBlocks } from '../layout/block-layout';
 import { paginateBlocks } from '../layout/paginator';
+import type { ParagraphLayouter } from '../layout/paragraph-layouter';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import { resolveStyles } from '../style/resolver';
 import { parseCssRules } from '../style/css-rule-parser';
 import { DEFAULT_STYLE } from '../style/defaults';
 import type { ComputedStyle, CssRule } from '../style/types';
 import { createCanvasTextMeasurer } from '../render/canvas-text-measurer';
+import { createLogger } from '../utils/logger';
 import type { PaginateRequest, WorkerResponse } from './types';
 
 /** Handle a pagination request. Exported for use in Worker entry. */
 export function handlePaginate(req: PaginateRequest): WorkerResponse {
+  const logger = createLogger(req.logLevel ?? 'warn');
+  logger.info('Worker pagination: %d spine items', req.spine.length);
+
   const canvas = new OffscreenCanvas(1, 1);
   const ctx = canvas.getContext('2d');
   if (!ctx) return { type: 'error', message: 'Failed to get OffscreenCanvas 2d context' };
@@ -31,6 +36,39 @@ export function handlePaginate(req: PaginateRequest): WorkerResponse {
   const contentWidth = req.config.pageWidth - req.config.marginLeft - req.config.marginRight;
   const contentHeight = req.config.pageHeight - req.config.marginTop - req.config.marginBottom;
 
+  const { allPages, chapterMap, anchorMap } = paginateSpine(
+    req,
+    rules,
+    bodyStyle,
+    imageSizes,
+    contentWidth,
+    contentHeight,
+    layouter,
+  );
+
+  logger.info('Worker pagination complete: %d pages', allPages.length);
+
+  return {
+    type: 'result',
+    pages: allPages,
+    chapterMap,
+    anchorMap: Array.from(anchorMap.entries()),
+  };
+}
+
+function paginateSpine(
+  req: PaginateRequest,
+  rules: readonly CssRule[],
+  bodyStyle: ComputedStyle,
+  imageSizes: ImageSizeMap,
+  contentWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+): {
+  allPages: Page[];
+  chapterMap: [string, { startPage: number; endPage: number }][];
+  anchorMap: Map<string, number>;
+} {
   const allPages: Page[] = [];
   const chapterMap: [string, { startPage: number; endPage: number }][] = [];
   const anchorMap = new Map<string, number>();
@@ -54,12 +92,7 @@ export function handlePaginate(req: PaginateRequest): WorkerResponse {
     chapterMap.push([spineItem.idref, { startPage, endPage: allPages.length - 1 }]);
   }
 
-  return {
-    type: 'result',
-    pages: allPages,
-    chapterMap,
-    anchorMap: Array.from(anchorMap.entries()),
-  };
+  return { allPages, chapterMap, anchorMap };
 }
 
 function buildRules(stylesheets: ReadonlyMap<string, string>): CssRule[] {
@@ -98,8 +131,6 @@ function buildImageSizeMap(
     },
   };
 }
-
-import type { LayoutBlock } from '../layout/types';
 
 function collectAnchors(
   blocks: readonly LayoutBlock[],

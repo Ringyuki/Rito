@@ -2,6 +2,7 @@ import type { LayoutConfig, Page } from '../layout/types';
 import type { TextMeasurer } from '../layout/text-measurer';
 import type { EpubDocument, PaginationResult } from './types';
 import { PaginationSession } from './pagination-session';
+import type { Logger } from '../utils/logger';
 
 /**
  * Paginate all chapters in an EPUB document into renderable pages.
@@ -17,8 +18,9 @@ export function paginate(
   measurer: TextMeasurer,
   images?: ReadonlyMap<string, ImageBitmap>,
   lineBreaking?: 'greedy' | 'optimal',
+  logger?: Logger,
 ): readonly Page[] {
-  return paginateWithMeta(document, config, measurer, images, lineBreaking).pages;
+  return paginateWithMeta(document, config, measurer, images, lineBreaking, logger).pages;
 }
 
 /**
@@ -30,7 +32,8 @@ export function paginateWithMeta(
   measurer: TextMeasurer,
   images?: ReadonlyMap<string, ImageBitmap>,
   lineBreaking?: 'greedy' | 'optimal',
+  logger?: Logger,
 ): PaginationResult {
-  const session = new PaginationSession(document, config, measurer, images, lineBreaking);
+  const session = new PaginationSession(document, config, measurer, images, lineBreaking, logger);
   return session.paginateAll();
 }

@@ -14,6 +14,8 @@ import {
 } from './render/resources';
 import { findPageForTocEntry } from './runtime/navigation';
 import { paginateInWorker } from './workers/worker-paginator';
+import type { LogLevel, Logger } from './utils/logger';
+import { createLogger } from './utils/logger';
 
 /** Options for creating a Reader. */
 export interface ReaderOptions {
@@ -37,6 +39,8 @@ export interface ReaderOptions {
   readonly lineBreaking?: 'greedy' | 'optimal';
   /** Run pagination in a Web Worker to avoid blocking the main thread. Defaults to false. */
   readonly useWorker?: boolean;
+  /** Log verbosity level. Defaults to 'warn'. */
+  readonly logLevel?: LogLevel;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */
@@ -109,6 +113,7 @@ export async function createReader(
 }
 
 interface ReaderState {
+  readonly logger: Logger;
   spreadMode: 'single' | 'double';
   bgColor: string;
   fgColor: string | undefined;
@@ -124,17 +129,20 @@ async function initReaderState(
   canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
 ): Promise<ReaderState> {
+  const logger = createLogger(options.logLevel ?? 'warn');
   const spreadMode = options.spread ?? 'single';
   const dpr =
     options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
   const config = makeLayoutConfig(options, spreadMode);
-  const assets = await loadAssets(doc, canvas);
+  const assets = await loadAssets(doc, canvas, logger);
   const paginationResult = options.useWorker
-    ? await paginateViaWorker(doc, config, assets, options.lineBreaking)
-    : paginateWithAssets(doc, config, assets, options.lineBreaking);
+    ? await paginateViaWorker(doc, config, assets, options.lineBreaking, options.logLevel)
+    : paginateWithAssets(doc, config, assets, options.lineBreaking, logger);
   const resources: Resources = { ...paginationResult, images: assets.images };
   const chapterStarts = getChapterStartPages(resources.chapterMap);
+  logger.info('Reader created: %dx%d, spread=%s', options.width, options.height, spreadMode);
   return {
+    logger,
     spreadMode,
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor,
@@ -151,11 +159,12 @@ async function paginateViaWorker(
   config: LayoutConfig,
   assets: LoadedAssets,
   lineBreaking?: 'greedy' | 'optimal',
+  logLevel?: LogLevel,
 ): Promise<Omit<Resources, 'images'>> {
   const workerUrl = new URL('./worker', import.meta.url);
   const worker = new Worker(workerUrl, { type: 'module' });
   try {
-    return await paginateInWorker(worker, doc, config, assets, lineBreaking);
+    return await paginateInWorker(worker, doc, config, assets, lineBreaking, logLevel);
   } finally {
     worker.terminate();
   }
@@ -179,7 +188,7 @@ function renderSpreadToCanvas(
   scale: number,
 ): void {
   if (index < 0 || index >= state.spreads.length) {
-    console.warn(
+    state.logger.warn(
       `renderSpread: index ${String(index)} out of range [0, ${String(state.spreads.length)})`,
     );
     return;
@@ -218,11 +227,13 @@ function repaginate(
   if (layoutConfigEqual(state.config, newConfig)) return false;
   state.config = newConfig;
   state.assets.measurer.clearCache();
+  state.logger.info('Repagination triggered: %dx%d', width, height);
   const paginationResult = paginateWithAssets(
     doc,
     state.config,
     state.assets,
     options.lineBreaking,
+    state.logger,
   );
   state.resources = { ...paginationResult, images: state.assets.images };
   state.spreads = buildSpreads(

@@ -2,6 +2,7 @@ import type { EpubDocument } from '../runtime/types';
 import type { FontFaceRule } from '../style/types';
 import { parseFontFaceRules } from '../style/css-rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
+import { createLogger, type Logger } from '../utils/logger';
 
 /**
  * Register EPUB-embedded fonts via the FontFace API.
@@ -16,7 +17,8 @@ import { buildHrefResolver } from '../utils/resolve-href';
  * const measurer = createTextMeasurer(canvas);
  * ```
  */
-export async function loadFonts(doc: EpubDocument): Promise<void> {
+export async function loadFonts(doc: EpubDocument, logger?: Logger): Promise<void> {
+  const log = logger ?? createLogger();
   const fontFaceRules = collectFontFaceRules(doc);
   if (fontFaceRules.length === 0) return;
 
@@ -43,7 +45,7 @@ export async function loadFonts(doc: EpubDocument): Promise<void> {
           document.fonts.add(face);
         })
         .catch((err: unknown) => {
-          console.warn(`Failed to load font "${rule.family}":`, err);
+          log.warn(`Failed to load font "${rule.family}":`, err);
         }),
     );
   }

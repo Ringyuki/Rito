@@ -1,4 +1,5 @@
 import { buildHrefResolver } from '../utils/resolve-href';
+import { createLogger, type Logger } from '../utils/logger';
 
 /**
  * A lazy image decoder with LRU eviction.
@@ -59,7 +60,9 @@ class LruCache {
 export function createLazyImageLoader(
   imageData: ReadonlyMap<string, Uint8Array>,
   maxSize = 50,
+  logger?: Logger,
 ): LazyImageLoader {
+  const log = logger ?? createLogger();
   const resolve = buildHrefResolver(imageData);
   const lru = new LruCache(maxSize);
 
@@ -83,7 +86,7 @@ export function createLazyImageLoader(
       try {
         return await decode(src, data);
       } catch {
-        console.warn(`Failed to decode image: ${src}`);
+        log.warn(`Failed to decode image: ${src}`);
         return undefined;
       }
     },
