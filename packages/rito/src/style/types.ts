@@ -1,7 +1,4 @@
-/**
- * Internal style representation.
- * A limited, explicit subset of styling rules for rendering.
- */
+// Style types — computed CSS properties used by the layout and render layers.
 
 /** Supported font weight values. */
 export const FONT_WEIGHTS = {

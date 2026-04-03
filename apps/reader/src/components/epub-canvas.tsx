@@ -61,8 +61,7 @@ export function EpubCanvas({
   return (
     <canvas
       ref={canvasRef}
-      width={width}
-      height={height}
+      style={{ width, height }}
       tabIndex={0}
       className="rounded-lg border border-border shadow-lg outline-none"
     />

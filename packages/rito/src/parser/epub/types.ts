@@ -1,6 +1,4 @@
-/**
- * Types for EPUB container and package parsing.
- */
+// EPUB container and package types.
 
 /** Represents a single item in the EPUB manifest. */
 export interface ManifestItem {

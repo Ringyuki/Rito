@@ -3,17 +3,10 @@ import type { FontFaceRule } from '../style/types';
 import { parseFontFaceRules } from '../style/css-rule-parser';
 
 /**
- * Load and register EPUB-embedded fonts in the browser.
+ * Register EPUB-embedded fonts via the FontFace API.
  *
- * Parses `@font-face` rules from the EPUB's stylesheets, resolves font file
- * references against the loaded font data, and registers them via the
- * `FontFace` API so they are available for canvas text measurement and rendering.
- *
- * Must be called before `paginate()` / `createTextMeasurer()` to ensure
- * text measurement uses the correct fonts.
- *
- * @param doc - A loaded {@link EpubDocument} from {@link loadEpub}.
- * @returns A promise that resolves when all fonts are loaded and registered.
+ * Parses `@font-face` from stylesheets, resolves font data, and adds to `document.fonts`.
+ * Call before `paginate()` so text measurement uses the correct fonts.
  *
  * @example
  * ```ts

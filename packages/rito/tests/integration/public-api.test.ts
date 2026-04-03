@@ -3,61 +3,51 @@ import { describe, expect, it } from 'vitest';
 /**
  * Integration test scaffold.
  * Validates that the public API surface exports the expected symbols.
- * This will grow as actual parsing/layout/render logic is implemented.
  */
 describe('public API surface', () => {
-  it('exports parser types', async () => {
-    const api = await import('../../src/index.js');
-    expect(api.NODE_TYPES).toBeDefined();
-    expect(api.NODE_TYPES.Block).toBe('block');
-    expect(api.NODE_TYPES.Inline).toBe('inline');
-    expect(api.NODE_TYPES.Text).toBe('text');
+  it('exports essential functions', async () => {
+    const api = await import('../../src/index');
+    expect(api.loadEpub).toBeDefined();
+    expect(api.prepare).toBeDefined();
+    expect(api.disposeResources).toBeDefined();
+    expect(api.render).toBeDefined();
+    expect(api.paginate).toBeDefined();
+    expect(api.paginateWithMeta).toBeDefined();
+    expect(api.buildSpreads).toBeDefined();
+    expect(api.createLayoutConfig).toBeDefined();
+    expect(api.createTextMeasurer).toBeDefined();
+    expect(api.findPageForTocEntry).toBeDefined();
+    expect(api.getSpreadDimensions).toBeDefined();
+    expect(api.loadFonts).toBeDefined();
+    expect(api.loadImages).toBeDefined();
   });
 
-  it('exports style constants and defaults', async () => {
-    const api = await import('../../src/index.js');
-    expect(api.DEFAULT_STYLE).toBeDefined();
-    expect(api.FONT_WEIGHTS).toBeDefined();
-    expect(api.FONT_STYLES).toBeDefined();
-    expect(api.TEXT_ALIGNMENTS).toBeDefined();
+  it('does not export internal APIs from main entry', async () => {
+    const api = await import('../../src/index');
+    // Parser internals should be in rito/advanced
+    expect((api as Record<string, unknown>)['NODE_TYPES']).toBeUndefined();
+    expect((api as Record<string, unknown>)['parseXhtml']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createZipReader']).toBeUndefined();
+    // Style internals should be in rito/advanced
+    expect((api as Record<string, unknown>)['DEFAULT_STYLE']).toBeUndefined();
+    expect((api as Record<string, unknown>)['resolveStyles']).toBeUndefined();
+    expect((api as Record<string, unknown>)['parseCssDeclarations']).toBeUndefined();
+    // Layout internals should be in rito/advanced
+    expect((api as Record<string, unknown>)['layoutBlocks']).toBeUndefined();
+    expect((api as Record<string, unknown>)['paginateBlocks']).toBeUndefined();
   });
 
-  it('default style has correct shape', async () => {
-    const { DEFAULT_STYLE } = await import('../../src/index.js');
-    expect(DEFAULT_STYLE).toEqual({
-      fontFamily: 'serif',
-      fontSize: 16,
-      fontWeight: 'normal',
-      fontStyle: 'normal',
-      lineHeight: 1.5,
-      textAlign: 'left',
-      textDecoration: 'none',
-      textIndent: 0,
-      color: '#000000',
-      marginTop: 0,
-      marginRight: 0,
-      marginBottom: 0,
-      marginLeft: 0,
-      display: 'block',
-      paddingTop: 0,
-      paddingRight: 0,
-      paddingBottom: 0,
-      paddingLeft: 0,
-      backgroundColor: '',
-      letterSpacing: 0,
-      textTransform: 'none',
-      whiteSpace: 'normal',
-      borderTop: { width: 0, color: '#000000', style: 'none' },
-      borderRight: { width: 0, color: '#000000', style: 'none' },
-      borderBottom: { width: 0, color: '#000000', style: 'none' },
-      borderLeft: { width: 0, color: '#000000', style: 'none' },
-      float: 'none',
-      width: 0,
-      maxWidth: 0,
-      height: 0,
-      listStyleType: 'none',
-      pageBreakBefore: 'auto',
-      pageBreakAfter: 'auto',
-    });
+  it('exports internal APIs from advanced entry', async () => {
+    const adv = await import('../../src/advanced');
+    expect(adv.NODE_TYPES).toBeDefined();
+    expect(adv.DEFAULT_STYLE).toBeDefined();
+    expect(adv.FONT_WEIGHTS).toBeDefined();
+    expect(adv.FONT_STYLES).toBeDefined();
+    expect(adv.TEXT_ALIGNMENTS).toBeDefined();
+    expect(adv.parseXhtml).toBeDefined();
+    expect(adv.resolveStyles).toBeDefined();
+    expect(adv.layoutBlocks).toBeDefined();
+    expect(adv.paginateBlocks).toBeDefined();
+    expect(adv.createZipReader).toBeDefined();
   });
 });

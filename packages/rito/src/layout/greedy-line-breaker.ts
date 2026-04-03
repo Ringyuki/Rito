@@ -1,15 +1,14 @@
-import type { ComputedStyle, TextAlignment } from '../style/types';
+import type { ComputedStyle } from '../style/types';
 import { findHyphenationPoints } from './hyphenation';
+import { applyAlign } from './text-align';
 import type { LineBox, TextRun } from './types';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import type { StyledSegment } from './styled-segment';
 import type { TextMeasurer } from './text-measurer';
 
-// CJK Unicode ranges where line breaks are allowed between any characters
 const CJK_RE =
   /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\u{20000}-\u{2FA1F}\u3000-\u303F\uFF00-\uFFEF]/u;
 
-/** Maps character positions in the concatenated text to their original styles. */
 interface StyleRange {
   readonly start: number;
   readonly end: number;
@@ -27,7 +26,6 @@ export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter 
       const firstStyle = segments[0]?.style;
       if (!firstStyle) return [];
 
-      // Build concatenated text and style ranges
       const ranges: StyleRange[] = [];
       let offset = 0;
       for (const seg of segments) {
@@ -54,7 +52,6 @@ function layoutText(
 ): LineBox[] {
   const lines: LineBox[] = [];
   const lineHeight = baseStyle.fontSize * baseStyle.lineHeight;
-  const textAlign = baseStyle.textAlign;
   const indent = baseStyle.textIndent;
   const preserveWs = baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap';
   const allowWrap = baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap';
@@ -63,39 +60,20 @@ function layoutText(
   let isFirstLine = true;
 
   while (pos < text.length) {
-    // Strip leading spaces unless preserving whitespace
     if (!preserveWs && (!isFirstLine || indent <= 0)) {
       while (pos < text.length && text[pos] === ' ') pos++;
     }
     if (pos >= text.length) break;
 
-    const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
-    const lineStartX = isFirstLine && indent > 0 ? indent : 0;
+    const result = layoutSingleLine(
+      text, pos, isFirstLine, indent, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer,
+    );
 
-    const nlIndex = text.indexOf('\n', pos);
-    const lineEnd = nlIndex >= 0 ? nlIndex : text.length;
-
-    const breakPos = allowWrap
-      ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer)
-      : lineEnd; // pre/nowrap: don't wrap, take the whole line
-
-    const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
-    const lineText = preserveWs ? text.slice(pos, lineTextEnd) : text.slice(pos, lineTextEnd).trimEnd();
-    const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
-    const width = runs.reduce((sum, r) => Math.max(sum, r.bounds.x + r.bounds.width), 0);
-
-    pos = lineTextEnd;
-    // Consume newline character(s)
-    if (preserveWs) {
-      // In pre/pre-wrap, each \n produces a separate line break
-      if (pos < text.length && text[pos] === '\n') pos++;
-    } else {
-      // In normal mode, collapse consecutive newlines
-      while (pos < text.length && text[pos] === '\n') pos++;
-    }
+    pos = result.nextPos;
+    pos = consumeNewlines(text, pos, preserveWs);
 
     const isLastLine = pos >= text.length;
-    lines.push(applyAlign(runs, width, y, lineHeight, maxWidth, textAlign, isLastLine));
+    lines.push(applyAlign(result.runs, result.width, y, lineHeight, maxWidth, baseStyle.textAlign, isLastLine));
     y += lineHeight;
     isFirstLine = false;
   }
@@ -103,7 +81,33 @@ function layoutText(
   return lines;
 }
 
-/** Build TextRun objects for a line, splitting at style boundaries. */
+function layoutSingleLine(
+  text: string, pos: number, isFirstLine: boolean, indent: number, maxWidth: number,
+  preserveWs: boolean, allowWrap: boolean, baseStyle: ComputedStyle,
+  ranges: readonly StyleRange[], lineHeight: number, measurer: TextMeasurer,
+): { runs: TextRun[]; width: number; nextPos: number } {
+  const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
+  const lineStartX = isFirstLine && indent > 0 ? indent : 0;
+  const nlIndex = text.indexOf('\n', pos);
+  const lineEnd = nlIndex >= 0 ? nlIndex : text.length;
+  const breakPos = allowWrap
+    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer)
+    : lineEnd;
+  const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
+  const lineText = preserveWs ? text.slice(pos, lineTextEnd) : text.slice(pos, lineTextEnd).trimEnd();
+  const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
+  const width = runs.reduce((sum, r) => Math.max(sum, r.bounds.x + r.bounds.width), 0);
+  return { runs, width, nextPos: lineTextEnd };
+}
+
+function consumeNewlines(text: string, pos: number, preserveWs: boolean): number {
+  if (preserveWs) {
+    return pos < text.length && text[pos] === '\n' ? pos + 1 : pos;
+  }
+  while (pos < text.length && text[pos] === '\n') pos++;
+  return pos;
+}
+
 function buildStyledRuns(
   lineText: string,
   globalOffset: number,
@@ -121,7 +125,6 @@ function buildStyledRuns(
     const range = findRange(ranges, globalPos);
     if (!range) break;
 
-    // How many characters of this range are left in the line
     const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
     const runText = lineText.slice(linePos, rangeEnd);
     if (runText.length === 0) break;
@@ -173,8 +176,6 @@ function findBreakPosition(
   }
 
   const wordBreak = findWordBreak(text, start, lo);
-
-  // If no word boundary found (word is longer than line), try hyphenation
   if (wordBreak === lo) {
     const hyphenBreak = tryHyphenation(text, start, lo, maxWidth, style, measurer);
     if (hyphenBreak > start) return hyphenBreak;
@@ -194,11 +195,6 @@ function findWordBreak(text: string, start: number, fitPos: number): number {
   return fitPos;
 }
 
-/**
- * Try to find a hyphenation point for the word at the break position.
- * Extracts the word around `fitPos`, finds hyphenation points, and returns
- * the best one that fits within `maxWidth`. Returns 0 if no break found.
- */
 function tryHyphenation(
   text: string,
   start: number,
@@ -207,7 +203,6 @@ function tryHyphenation(
   style: ComputedStyle,
   measurer: TextMeasurer,
 ): number {
-  // Find the word boundaries around fitPos
   let wordStart = fitPos;
   while (wordStart > start && text[wordStart - 1] !== ' ') wordStart--;
   let wordEnd = fitPos;
@@ -217,7 +212,6 @@ function tryHyphenation(
   const points = findHyphenationPoints(word);
   if (points.length === 0) return 0;
 
-  // Try each hyphenation point (largest first) to see if it fits with a hyphen
   for (let i = points.length - 1; i >= 0; i--) {
     const pt = points[i];
     if (pt === undefined) continue;
@@ -232,84 +226,3 @@ function tryHyphenation(
   return 0;
 }
 
-function applyAlign(
-  runs: TextRun[],
-  lineWidth: number,
-  y: number,
-  lineHeight: number,
-  maxWidth: number,
-  textAlign: TextAlignment,
-  isLastLine: boolean,
-): LineBox {
-  if (textAlign === 'center' && runs.length > 0) {
-    const offset = (maxWidth - lineWidth) / 2;
-    runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
-  } else if (textAlign === 'right' && runs.length > 0) {
-    const offset = maxWidth - lineWidth;
-    runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
-  } else if (textAlign === 'justify' && !isLastLine && runs.length > 0) {
-    runs = justifyRuns(runs, lineWidth, maxWidth);
-  }
-
-  return {
-    type: 'line-box',
-    bounds: { x: 0, y, width: maxWidth, height: lineHeight },
-    runs,
-  };
-}
-
-/** Distribute extra space between words for justified text. */
-function justifyRuns(runs: TextRun[], lineWidth: number, maxWidth: number): TextRun[] {
-  // Count word gaps: spaces between text runs, or spaces within runs
-  const gaps: number[] = [];
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i];
-    if (!run) continue;
-    // Count spaces within this run (each space is a gap opportunity)
-    for (let j = 0; j < run.text.length; j++) {
-      if (run.text[j] === ' ') gaps.push(i);
-    }
-  }
-
-  if (gaps.length === 0) return runs;
-
-  const extraSpace = maxWidth - lineWidth;
-  const gapSize = extraSpace / gaps.length;
-
-  // Rebuild runs with adjusted x positions
-  const result: TextRun[] = [];
-  let xOffset = 0;
-  let gapIdx = 0;
-
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i];
-    if (!run) continue;
-
-    // Count how many gaps are in runs before this one
-    while (gapIdx < gaps.length && (gaps[gapIdx] ?? Infinity) < i) {
-      xOffset += gapSize;
-      gapIdx++;
-    }
-
-    // Count gaps within this run and expand
-    let intraGaps = 0;
-    for (let j = 0; j < run.text.length; j++) {
-      if (run.text[j] === ' ') intraGaps++;
-    }
-
-    result.push({
-      ...run,
-      bounds: {
-        ...run.bounds,
-        x: run.bounds.x + xOffset,
-        width: run.bounds.width + intraGaps * gapSize,
-      },
-    });
-
-    // Advance offset for gaps within this run
-    xOffset += intraGaps * gapSize;
-    gapIdx += intraGaps;
-  }
-
-  return result;
-}

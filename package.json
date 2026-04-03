@@ -16,6 +16,7 @@
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "@eslint/js": "^10.0.1",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",

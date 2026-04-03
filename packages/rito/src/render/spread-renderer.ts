@@ -5,8 +5,7 @@ import { renderPage } from './page-renderer';
 /**
  * Render a spread onto a CanvasRenderingContext2D.
  *
- * This is the primary render function. Handles both single-page and
- * two-page spreads transparently.
+ * Renders a single-page or two-page spread onto the canvas.
  *
  * The canvas should be sized to `viewportWidth × viewportHeight` (× pixelRatio).
  */

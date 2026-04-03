@@ -18,9 +18,8 @@ export interface Resources {
 }
 
 /**
- * Prepare an EPUB document for rendering in one async step.
- *
- * Loads fonts, decodes images, measures text, and paginates all chapters.
+ * Load fonts, decode images, paginate chapters, and return everything
+ * needed to render spreads.
  *
  * @example
  * ```ts

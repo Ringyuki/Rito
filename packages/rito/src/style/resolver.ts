@@ -37,47 +37,60 @@ function resolveNode(
   switch (node.type) {
     case 'text':
       return { type: 'text', content: node.content, style: parentStyle, children: [] };
-
-    case 'block': {
-      const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-      const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
-      if (style.display === DISPLAY_VALUES.None) {
-        return { type: 'block', tag: node.tag, style, children: [] };
-      }
-      const childAncestors = [target, ...ancestors];
-      const childStyle = inheritableStyle(style);
-      const children = node.children
-        .map((c) => resolveNode(c, childStyle, rules, childAncestors))
-        .filter((c) => c.style.display !== DISPLAY_VALUES.None);
-      const id = node.attributes?.id;
-      const colspan = node.attributes?.colspan;
-      const rowspan = node.attributes?.rowspan;
-      let result: StyledNode = { type: 'block', tag: node.tag, style, children };
-      if (id) result = { ...result, id };
-      if (colspan) result = { ...result, colspan };
-      if (rowspan) result = { ...result, rowspan };
-      return result;
-    }
-
-    case 'inline': {
-      const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-      const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
-      if (style.display === DISPLAY_VALUES.None) {
-        return { type: 'inline', tag: node.tag, style, children: [] };
-      }
-      const childAncestors = [target, ...ancestors];
-      const childStyle = inheritableStyle(style);
-      const children = node.children
-        .map((c) => resolveNode(c, childStyle, rules, childAncestors))
-        .filter((c) => c.style.display !== DISPLAY_VALUES.None);
-      const id = node.attributes?.id;
-      const result: StyledNode = { type: 'inline', tag: node.tag, style, children };
-      return id ? { ...result, id } : result;
-    }
-
+    case 'block':
+      return resolveBlockNode(node, parentStyle, rules, ancestors);
+    case 'inline':
+      return resolveInlineNode(node, parentStyle, rules, ancestors);
     case 'image':
       return { type: 'image', src: node.src, style: parentStyle, children: [] };
   }
+}
+
+function resolveBlockNode(
+  node: DocumentNode & { type: 'block' },
+  parentStyle: ComputedStyle,
+  rules: readonly CssRule[] | undefined,
+  ancestors: readonly SelectorTarget[],
+): StyledNode {
+  const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+  if (style.display === DISPLAY_VALUES.None) {
+    return { type: 'block', tag: node.tag, style, children: [] };
+  }
+  const children = resolveChildren(node.children, style, rules, [target, ...ancestors]);
+  let result: StyledNode = { type: 'block', tag: node.tag, style, children };
+  if (node.attributes?.id) result = { ...result, id: node.attributes.id };
+  if (node.attributes?.colspan) result = { ...result, colspan: node.attributes.colspan };
+  if (node.attributes?.rowspan) result = { ...result, rowspan: node.attributes.rowspan };
+  return result;
+}
+
+function resolveInlineNode(
+  node: DocumentNode & { type: 'inline' },
+  parentStyle: ComputedStyle,
+  rules: readonly CssRule[] | undefined,
+  ancestors: readonly SelectorTarget[],
+): StyledNode {
+  const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+  if (style.display === DISPLAY_VALUES.None) {
+    return { type: 'inline', tag: node.tag, style, children: [] };
+  }
+  const children = resolveChildren(node.children, style, rules, [target, ...ancestors]);
+  const result: StyledNode = { type: 'inline', tag: node.tag, style, children };
+  return node.attributes?.id ? { ...result, id: node.attributes.id } : result;
+}
+
+function resolveChildren(
+  nodes: readonly DocumentNode[],
+  parentStyle: ComputedStyle,
+  rules: readonly CssRule[] | undefined,
+  ancestors: readonly SelectorTarget[],
+): StyledNode[] {
+  const childStyle = inheritableStyle(parentStyle);
+  return nodes
+    .map((c) => resolveNode(c, childStyle, rules, ancestors))
+    .filter((c) => c.style.display !== DISPLAY_VALUES.None);
 }
 
 function extractNodeMeta(

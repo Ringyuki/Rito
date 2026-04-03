@@ -42,41 +42,7 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     count++;
   }
 
-  // Load stylesheets eagerly (needed before pagination for CSS rules)
-  const stylesheets = new Map<string, string>();
-  for (const item of packageDocument.manifest) {
-    if (item.mediaType === 'text/css') {
-      stylesheets.set(item.id, reader.readTextFile(opfDir + item.href));
-    }
-  }
-
-  // Load font files eagerly (needed for font registration)
-  const fonts = new Map<string, Uint8Array>();
-  const fontMediaTypes = new Set([
-    'font/ttf',
-    'font/otf',
-    'font/woff',
-    'font/woff2',
-    'application/x-font-ttf',
-    'application/x-font-woff',
-    'application/font-woff',
-    'application/font-woff2',
-    'application/vnd.ms-opentype',
-    'application/font-sfnt',
-  ]);
-  for (const item of packageDocument.manifest) {
-    if (fontMediaTypes.has(item.mediaType)) {
-      fonts.set(item.href, reader.readFile(opfDir + item.href));
-    }
-  }
-
-  // Load image files eagerly (needed for image sizing during layout)
-  const images = new Map<string, Uint8Array>();
-  for (const item of packageDocument.manifest) {
-    if (item.mediaType.startsWith('image/')) {
-      images.set(item.href, reader.readFile(opfDir + item.href));
-    }
-  }
+  const { stylesheets, fonts, images } = loadManifestResources(packageDocument, reader, opfDir);
 
   const toc = loadToc(reader, packageDocument, opfDir);
 
@@ -96,6 +62,35 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
       // Future: could release the entries map here.
     },
   };
+}
+
+const FONT_MEDIA_TYPES = new Set([
+  'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
+  'application/x-font-ttf', 'application/x-font-woff',
+  'application/font-woff', 'application/font-woff2',
+  'application/vnd.ms-opentype', 'application/font-sfnt',
+]);
+
+function loadManifestResources(
+  pkg: PackageDocument,
+  reader: ZipReader,
+  opfDir: string,
+): { stylesheets: Map<string, string>; fonts: Map<string, Uint8Array>; images: Map<string, Uint8Array> } {
+  const stylesheets = new Map<string, string>();
+  const fonts = new Map<string, Uint8Array>();
+  const images = new Map<string, Uint8Array>();
+
+  for (const item of pkg.manifest) {
+    if (item.mediaType === 'text/css') {
+      stylesheets.set(item.id, reader.readTextFile(opfDir + item.href));
+    } else if (FONT_MEDIA_TYPES.has(item.mediaType)) {
+      fonts.set(item.href, reader.readFile(opfDir + item.href));
+    } else if (item.mediaType.startsWith('image/')) {
+      images.set(item.href, reader.readFile(opfDir + item.href));
+    }
+  }
+
+  return { stylesheets, fonts, images };
 }
 
 /** Attempt to load TOC from EPUB 3 nav document or EPUB 2 NCX. */

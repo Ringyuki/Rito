@@ -1,23 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  loadEpub,
-  prepare,
-  render,
-  getSpreadDimensions,
-  buildSpreads,
-  createLayoutConfig,
-  findPageForTocEntry,
-  disposeResources,
-} from 'rito';
-import type {
-  ChapterRange,
-  EpubDocument,
-  LayoutConfig,
-  Page,
-  Resources,
-  Spread,
-  TocEntry,
-} from 'rito';
+import { createReader } from 'rito';
+import type { Reader, TocEntry, ChapterRange, Spread } from 'rito';
 import type { ContainerSize } from './use-container-size';
 
 interface EpubState {
@@ -25,7 +8,6 @@ interface EpubState {
   isLoading: boolean;
   error: string | null;
   fileName: string;
-  pages: readonly Page[];
   spreads: readonly Spread[];
   currentSpread: number;
   toc: readonly TocEntry[];
@@ -34,28 +16,29 @@ interface EpubState {
 }
 
 const PADDING = 48;
+const MIN_SIZE = 200;
 const FONT_SCALE_STEP = 0.1;
 const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
-const SPREAD_GAP = 20;
-const MIN_SIZE = 200;
 
-const THEME_COLORS = {
-  light: { backgroundColor: '#ffffff', foregroundColor: undefined },
-  dark: { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' },
-} as const;
+function getThemeOptions(t: 'light' | 'dark'): {
+  backgroundColor: string;
+  foregroundColor?: string;
+} {
+  if (t === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
+  return { backgroundColor: '#ffffff' };
+}
 
 export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const resourcesRef = useRef<Resources | null>(null);
-  const docRef = useRef<EpubDocument | null>(null);
+  const readerRef = useRef<Reader | null>(null);
+  const dataRef = useRef<ArrayBuffer | null>(null);
 
   const [state, setState] = useState<EpubState>({
     isLoaded: false,
     isLoading: false,
     error: null,
     fileName: '',
-    pages: [],
     spreads: [],
     currentSpread: 0,
     toc: [],
@@ -63,74 +46,55 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     fontScale: 1.0,
   });
 
-  const buildConfig = useCallback(
-    (mode: 'single' | 'double', size: ContainerSize, scale: number): LayoutConfig =>
-      createLayoutConfig({
-        width: Math.max((size.width - PADDING) / scale, MIN_SIZE),
-        height: Math.max((size.height - PADDING) / scale, MIN_SIZE),
-        margin: 40,
-        spread: mode,
-        spreadGap: SPREAD_GAP,
-      }),
-    [],
+  const getViewportSize = useCallback(
+    (scale: number) => ({
+      width: Math.max((containerSize.width - PADDING) / scale, MIN_SIZE),
+      height: Math.max((containerSize.height - PADDING) / scale, MIN_SIZE),
+    }),
+    [containerSize],
   );
 
-  const drawSpread = useCallback(
-    (
-      spreads: readonly Spread[],
-      index: number,
-      config: LayoutConfig,
-      t: 'light' | 'dark',
-      scale: number,
-    ) => {
-      const canvas = canvasRef.current;
-      if (!canvas || spreads.length === 0) return;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-
-      const spread = spreads[index];
-      if (!spread) return;
-
-      // Canvas physical size = layout logical size * fontScale
-      const dims = getSpreadDimensions(config, scale);
-      canvas.width = dims.width;
-      canvas.height = dims.height;
-
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      const images = resourcesRef.current?.images;
-      const colors = THEME_COLORS[t];
-      const opts: Record<string, unknown> = {
-        backgroundColor: colors.backgroundColor,
-        pixelRatio: scale,
-      };
-      if (colors.foregroundColor) opts['foregroundColor'] = colors.foregroundColor;
-      if (images) opts['images'] = images;
-      render(spread, ctx, config, opts as Parameters<typeof render>[3]);
+  const draw = useCallback(
+    (reader: Reader, index: number, scale: number) => {
+      if (!canvasRef.current) return;
+      reader.setTheme(getThemeOptions(theme));
+      reader.renderSpread(index, scale * window.devicePixelRatio);
     },
-    [],
+    [theme],
   );
 
-  // Re-paginate when container size or spread mode changes
+  // Rebuild reader when container size, spread mode, or font scale changes
   useEffect(() => {
-    const doc = docRef.current;
+    const data = dataRef.current;
     const canvas = canvasRef.current;
-    if (!doc || !canvas || containerSize.width === 0 || containerSize.height === 0) return;
+    if (!data || !canvas || containerSize.width === 0 || containerSize.height === 0) return;
 
     let cancelled = false;
 
     const timer = setTimeout(async () => {
-      const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
+      const { width, height } = getViewportSize(state.fontScale);
       try {
-        const resources = await prepare(doc, config, canvas);
-        if (cancelled) return;
-        resourcesRef.current = resources;
-        const pages = resources.pages;
-        const chapterStarts = getChapterStartPages(resources.chapterMap);
-        const newSpreads = buildSpreads(pages, config, chapterStarts);
+        readerRef.current?.dispose();
+        const reader = await createReader(data, canvas, {
+          width,
+          height,
+          margin: 40,
+          spread: state.spreadMode,
+          ...getThemeOptions(theme),
+        });
+        if (cancelled) {
+          reader.dispose();
+          return;
+        }
+        readerRef.current = reader;
 
-        const clampedIdx = Math.max(0, Math.min(state.currentSpread, newSpreads.length - 1));
-        setState((s) => ({ ...s, pages, spreads: newSpreads, currentSpread: clampedIdx }));
-        drawSpread(newSpreads, clampedIdx, config, theme, state.fontScale);
+        setState((s) => {
+          const clamped = Math.max(0, Math.min(s.currentSpread, reader.totalSpreads - 1));
+          return { ...s, spreads: reader.spreads, toc: reader.toc, currentSpread: clamped };
+        });
+
+        const clamped = Math.max(0, Math.min(state.currentSpread, reader.totalSpreads - 1));
+        draw(reader, clamped, state.fontScale);
       } catch {
         // ignore resize errors
       }
@@ -148,11 +112,11 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     state.isLoaded,
   ]);
 
-  // Re-render (no re-pagination) when theme changes
+  // Re-render (no rebuild) when theme changes
   useEffect(() => {
-    if (!state.isLoaded || state.spreads.length === 0) return;
-    const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
-    drawSpread(state.spreads, state.currentSpread, config, theme, state.fontScale);
+    const reader = readerRef.current;
+    if (!reader || !state.isLoaded) return;
+    draw(reader, state.currentSpread, state.fontScale);
   }, [theme]);
 
   const loadFromArrayBuffer = useCallback(
@@ -160,36 +124,33 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
       setState((s) => ({ ...s, isLoading: true, error: null }));
 
       try {
-        if (resourcesRef.current) {
-          disposeResources(resourcesRef.current);
-        }
-
         const canvas = canvasRef.current;
         if (!canvas) throw new Error('Canvas not ready');
 
-        const doc = loadEpub(data);
-        docRef.current = doc;
+        dataRef.current = data;
+        readerRef.current?.dispose();
 
-        const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
-        const resources = await prepare(doc, config, canvas);
-        resourcesRef.current = resources;
-
-        const pages = resources.pages;
-        const chapterStarts = getChapterStartPages(resources.chapterMap);
-        const spreads = buildSpreads(pages, config, chapterStarts);
+        const { width, height } = getViewportSize(state.fontScale);
+        const reader = await createReader(data, canvas, {
+          width,
+          height,
+          margin: 40,
+          spread: state.spreadMode,
+          ...getThemeOptions(theme),
+        });
+        readerRef.current = reader;
 
         setState((s) => ({
           ...s,
           isLoaded: true,
           isLoading: false,
           fileName: name,
-          pages,
-          spreads,
+          spreads: reader.spreads,
           currentSpread: 0,
-          toc: doc.toc,
+          toc: reader.toc,
         }));
 
-        drawSpread(spreads, 0, config, theme, state.fontScale);
+        draw(reader, 0, state.fontScale);
       } catch (err) {
         setState((s) => ({
           ...s,
@@ -198,7 +159,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
         }));
       }
     },
-    [buildConfig, drawSpread, state.spreadMode, containerSize, theme],
+    [getViewportSize, draw, state.spreadMode, state.fontScale, theme],
   );
 
   const loadDemo = useCallback(async () => {
@@ -219,116 +180,86 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
 
   const goToSpread = useCallback(
     (index: number) => {
+      const reader = readerRef.current;
+      if (!reader) return;
       setState((s) => {
         if (index < 0 || index >= s.spreads.length) return s;
-        const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
-        drawSpread(s.spreads, index, config, theme, s.fontScale);
+        draw(reader, index, s.fontScale);
         return { ...s, currentSpread: index };
       });
     },
-    [buildConfig, drawSpread, containerSize, theme],
+    [draw],
   );
 
   const nextSpread = useCallback(() => {
     setState((s) => {
-      if (s.currentSpread >= s.spreads.length - 1) return s;
+      const reader = readerRef.current;
+      if (!reader || s.currentSpread >= s.spreads.length - 1) return s;
       const next = s.currentSpread + 1;
-      const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
-      drawSpread(s.spreads, next, config, theme, s.fontScale);
+      draw(reader, next, s.fontScale);
       return { ...s, currentSpread: next };
     });
-  }, [buildConfig, drawSpread, containerSize, theme]);
+  }, [draw]);
 
   const prevSpread = useCallback(() => {
     setState((s) => {
-      if (s.currentSpread <= 0) return s;
+      const reader = readerRef.current;
+      if (!reader || s.currentSpread <= 0) return s;
       const prev = s.currentSpread - 1;
-      const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
-      drawSpread(s.spreads, prev, config, theme, s.fontScale);
+      draw(reader, prev, s.fontScale);
       return { ...s, currentSpread: prev };
     });
-  }, [buildConfig, drawSpread, containerSize, theme]);
+  }, [draw]);
 
   const toggleSpreadMode = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      spreadMode: s.spreadMode === 'single' ? 'double' : 'single',
-    }));
-    // The useEffect above handles re-pagination
+    setState((s) => ({ ...s, spreadMode: s.spreadMode === 'single' ? 'double' : 'single' }));
   }, []);
 
   const navigateToTocEntry = useCallback(
     (entry: TocEntry) => {
-      const doc = docRef.current;
-      const resources = resourcesRef.current;
-      if (!doc || !resources) return;
+      const reader = readerRef.current;
+      if (!reader) return;
 
-      const manifestHrefs = new Map(
-        doc.packageDocument.manifest.map(
-          (item: { id: string; href: string }) => [item.id, item.href] as const,
-        ),
-      );
-      const pageIndex = findPageForTocEntry(
-        entry,
-        resources.chapterMap,
-        doc.packageDocument.spine,
-        manifestHrefs,
-      );
+      const pageIndex = reader.findPage(entry);
       if (pageIndex === undefined) return;
 
+      const spreadIndex = reader.findSpread(pageIndex);
+      if (spreadIndex === undefined) return;
+
       setState((s) => {
-        for (let i = 0; i < s.spreads.length; i++) {
-          const sp = s.spreads[i];
-          if (sp?.left?.index === pageIndex || sp?.right?.index === pageIndex) {
-            const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
-            drawSpread(s.spreads, i, config, theme, s.fontScale);
-            return { ...s, currentSpread: i };
-          }
-        }
-        return s;
+        draw(reader, spreadIndex, s.fontScale);
+        return { ...s, currentSpread: spreadIndex };
       });
     },
-    [buildConfig, drawSpread, containerSize, theme],
+    [draw],
   );
 
   const increaseFontSize = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      fontScale: Math.min(s.fontScale + FONT_SCALE_STEP, FONT_SCALE_MAX),
-    }));
+    setState((s) => ({ ...s, fontScale: Math.min(s.fontScale + FONT_SCALE_STEP, FONT_SCALE_MAX) }));
   }, []);
 
   const decreaseFontSize = useCallback(() => {
-    setState((s) => ({
-      ...s,
-      fontScale: Math.max(s.fontScale - FONT_SCALE_STEP, FONT_SCALE_MIN),
-    }));
+    setState((s) => ({ ...s, fontScale: Math.max(s.fontScale - FONT_SCALE_STEP, FONT_SCALE_MIN) }));
   }, []);
 
-  const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
+  // Compute canvas size for the current config
+  const { width: vw, height: vh } = getViewportSize(state.fontScale);
   const canvasSize =
     containerSize.width > 0 && containerSize.height > 0
-      ? getSpreadDimensions(config, state.fontScale)
+      ? { width: Math.round(vw * state.fontScale), height: Math.round(vh * state.fontScale) }
       : { width: 0, height: 0 };
 
-  // Compute active chapter href for TOC highlighting
-  const currentSpreadObj = state.spreads[state.currentSpread];
-  const currentPageIndex = currentSpreadObj?.left?.index ?? 0;
-  const chapterMap: ReadonlyMap<string, ChapterRange> =
-    resourcesRef.current?.chapterMap ?? new Map<string, ChapterRange>();
-  const doc = docRef.current;
-
+  // Compute active chapter href
+  const reader = readerRef.current;
   let activeChapterHref = '';
-  if (doc) {
-    const manifestById = new Map(doc.packageDocument.manifest.map((m) => [m.id, m.href]));
-    for (const spineItem of doc.packageDocument.spine) {
-      const range = chapterMap.get(spineItem.idref);
-      if (range && currentPageIndex >= range.startPage && currentPageIndex <= range.endPage) {
-        activeChapterHref = manifestById.get(spineItem.idref) ?? '';
-        break;
-      }
-    }
+  if (reader && state.spreads.length > 0) {
+    const currentSpreadObj = state.spreads[state.currentSpread];
+    const pageIdx = currentSpreadObj?.left?.index ?? 0;
+    activeChapterHref = findActiveHref(reader.toc, pageIdx, reader);
   }
+
+  const chapterMap: ReadonlyMap<string, ChapterRange> =
+    reader?.chapterMap ?? new Map<string, ChapterRange>();
 
   return {
     ...state,
@@ -348,11 +279,21 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   };
 }
 
-/** Extract the set of page indices that start a new chapter. */
-function getChapterStartPages(chapterMap: ReadonlyMap<string, ChapterRange>): Set<number> {
-  const starts = new Set<number>();
-  for (const range of chapterMap.values()) {
-    starts.add(range.startPage);
-  }
-  return starts;
+/** Find the TOC entry href that matches the current page. */
+function findActiveHref(toc: readonly TocEntry[], pageIndex: number, reader: Reader): string {
+  // Walk TOC entries, find the last one whose page <= current page
+  let bestHref = '';
+  const walk = (entries: readonly TocEntry[]): void => {
+    for (const entry of entries) {
+      const page = reader.findPage(entry);
+      if (page !== undefined && page <= pageIndex) {
+        bestHref = entry.href;
+      }
+      walk(entry.children);
+    }
+  };
+  walk(toc);
+  // Extract filename from href
+  const path = bestHref.split('#')[0] ?? '';
+  return path.split('/').pop() ?? '';
 }

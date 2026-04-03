@@ -1,4 +1,6 @@
 export {
+  type Rect,
+  type BlockBorders,
   type HorizontalRule,
   type ImageElement,
   type LayoutBlock,

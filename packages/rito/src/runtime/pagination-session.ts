@@ -19,10 +19,8 @@ export interface ChapterPaginationResult {
 }
 
 /**
- * Incremental pagination session that paginates one chapter at a time.
- *
- * Allows rendering the first chapter's pages immediately while
- * subsequent chapters are paginated in the background.
+ * Paginates one chapter at a time. Use `paginateNextChapter()` for
+ * incremental loading, or `paginateAll()` to process everything at once.
  */
 export class PaginationSession {
   private readonly doc: EpubDocument;

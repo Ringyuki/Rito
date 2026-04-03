@@ -4,6 +4,8 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
 
+const tsconfigRootDir = import.meta.dirname;
+
 export default defineConfig([
   {
     ignores: ['**/dist/', '**/node_modules/', '**/coverage/', 'apps/reader/src/components/ui/'],
@@ -22,7 +24,7 @@ export default defineConfig([
         projectService: {
           allowDefaultProject: ['eslint.config.mjs'],
         },
-        tsconfigRootDir: import.meta.dirname,
+        tsconfigRootDir,
       },
     },
   },
@@ -38,7 +40,7 @@ export default defineConfig([
       '@typescript-eslint/no-unnecessary-type-assertion': 'error',
       '@typescript-eslint/no-unnecessary-condition': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
-      complexity: ['warn', 12],
+      complexity: ['warn', 24],
       'max-lines': ['warn', 300],
       'max-lines-per-function': ['warn', 50],
     },

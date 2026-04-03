@@ -159,11 +159,7 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const style = el.getAttribute('style') ?? undefined;
   const id = el.getAttribute('id') ?? undefined;
   const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
-  const isTableCell = el.localName === 'td' || el.localName === 'th';
-  const colspanRaw = isTableCell ? parseInt(el.getAttribute('colspan') ?? '', 10) : NaN;
-  const rowspanRaw = isTableCell ? parseInt(el.getAttribute('rowspan') ?? '', 10) : NaN;
-  const colspan = !isNaN(colspanRaw) && colspanRaw > 1 ? colspanRaw : undefined;
-  const rowspan = !isNaN(rowspanRaw) && rowspanRaw > 1 ? rowspanRaw : undefined;
+  const { colspan, rowspan } = extractTableCellSpans(el);
   if (
     cls === undefined &&
     style === undefined &&
@@ -174,7 +170,7 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   ) {
     return undefined;
   }
-  const attrs = {
+  return {
     ...(cls !== undefined ? { class: cls } : {}),
     ...(style !== undefined ? { style } : {}),
     ...(id !== undefined ? { id } : {}),
@@ -182,5 +178,16 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
     ...(colspan !== undefined ? { colspan } : {}),
     ...(rowspan !== undefined ? { rowspan } : {}),
   } satisfies ElementAttributes;
-  return attrs;
+}
+
+function extractTableCellSpans(el: Element): { colspan: number | undefined; rowspan: number | undefined } {
+  if (el.localName !== 'td' && el.localName !== 'th') {
+    return { colspan: undefined, rowspan: undefined };
+  }
+  const colspanRaw = parseInt(el.getAttribute('colspan') ?? '', 10);
+  const rowspanRaw = parseInt(el.getAttribute('rowspan') ?? '', 10);
+  return {
+    colspan: !isNaN(colspanRaw) && colspanRaw > 1 ? colspanRaw : undefined,
+    rowspan: !isNaN(rowspanRaw) && rowspanRaw > 1 ? rowspanRaw : undefined,
+  };
 }

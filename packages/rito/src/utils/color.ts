@@ -1,9 +1,4 @@
-/**
- * Color utilities for WCAG contrast ratio calculation.
- *
- * Used to determine whether text colors need to be overridden
- * for readability in different theme contexts (e.g., dark mode).
- */
+// WCAG contrast ratio utilities for theme-aware text color selection.
 
 /** Parse a CSS color string to [r, g, b] in 0-255 range. Supports hex (#rgb, #rrggbb). */
 export function parseColor(color: string): [number, number, number] | undefined {

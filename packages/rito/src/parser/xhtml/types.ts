@@ -1,6 +1,4 @@
-/**
- * Types for parsed XHTML chapter content.
- */
+// Parsed XHTML document tree types.
 
 export const NODE_TYPES = {
   Block: 'block',

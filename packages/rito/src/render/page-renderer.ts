@@ -71,45 +71,7 @@ function renderBlock(
   }
 
   if (block.borders) {
-    const { top, right, bottom, left } = block.borders;
-    const bx = blockX;
-    const by = blockY;
-    const bw = block.bounds.width;
-    const bh = block.bounds.height;
-    ctx.save();
-    if (top.width > 0) {
-      ctx.strokeStyle = top.color;
-      ctx.lineWidth = top.width;
-      ctx.beginPath();
-      ctx.moveTo(bx, by + top.width / 2);
-      ctx.lineTo(bx + bw, by + top.width / 2);
-      ctx.stroke();
-    }
-    if (bottom.width > 0) {
-      ctx.strokeStyle = bottom.color;
-      ctx.lineWidth = bottom.width;
-      ctx.beginPath();
-      ctx.moveTo(bx, by + bh - bottom.width / 2);
-      ctx.lineTo(bx + bw, by + bh - bottom.width / 2);
-      ctx.stroke();
-    }
-    if (left.width > 0) {
-      ctx.strokeStyle = left.color;
-      ctx.lineWidth = left.width;
-      ctx.beginPath();
-      ctx.moveTo(bx + left.width / 2, by);
-      ctx.lineTo(bx + left.width / 2, by + bh);
-      ctx.stroke();
-    }
-    if (right.width > 0) {
-      ctx.strokeStyle = right.color;
-      ctx.lineWidth = right.width;
-      ctx.beginPath();
-      ctx.moveTo(bx + bw - right.width / 2, by);
-      ctx.lineTo(bx + bw - right.width / 2, by + bh);
-      ctx.stroke();
-    }
-    ctx.restore();
+    renderBorders(ctx, block.borders, blockX, blockY, block.bounds.width, block.bounds.height);
   }
 
   for (const child of block.children) {
@@ -123,6 +85,36 @@ function renderBlock(
       renderBlock(ctx, child, blockX, blockY, images, colorOverride);
     }
   }
+}
+
+function renderBorders(
+  ctx: CanvasRenderingContext2D,
+  borders: NonNullable<LayoutBlock['borders']>,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): void {
+  const { top, right, bottom, left } = borders;
+  ctx.save();
+  if (top.width > 0) strokeLine(ctx, top.color, top.width, x, y + top.width / 2, x + w, y + top.width / 2);
+  if (bottom.width > 0) strokeLine(ctx, bottom.color, bottom.width, x, y + h - bottom.width / 2, x + w, y + h - bottom.width / 2);
+  if (left.width > 0) strokeLine(ctx, left.color, left.width, x + left.width / 2, y, x + left.width / 2, y + h);
+  if (right.width > 0) strokeLine(ctx, right.color, right.width, x + w - right.width / 2, y, x + w - right.width / 2, y + h);
+  ctx.restore();
+}
+
+function strokeLine(
+  ctx: CanvasRenderingContext2D,
+  color: string, width: number,
+  x1: number, y1: number, x2: number, y2: number,
+): void {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
 }
 
 function renderLineBox(

@@ -1,26 +1,16 @@
-import type { ComputedStyle, ListStyleType, StyledNode } from '../style/types';
-import { LIST_STYLE_TYPES, PAGE_BREAKS } from '../style/types';
-import type { BlockBorders, HorizontalRule, ImageElement, LayoutBlock, LineBox } from './types';
+import type { ComputedStyle, StyledNode } from '../style/types';
+import { PAGE_BREAKS } from '../style/types';
+import type { BlockBorders, HorizontalRule, LayoutBlock, LineBox } from './types';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import { flattenInlineContent } from './styled-segment';
-import { createMarkerRun } from './list-marker';
+import { layoutImageBlock } from './image-layout';
 import { layoutTable } from './table-layout';
+import { type ListContext, addListMarker, createListContext } from './list-layout';
+import { FloatContext } from './float-context';
 
-/** Default image height when intrinsic dimensions are unknown. */
-const DEFAULT_IMAGE_ASPECT = 0.75;
-
-/**
- * Lay out block-level styled nodes into a continuous vertical flow.
- * Container blocks are flattened for pagination.
- */
 /** Intrinsic image dimensions for correct aspect ratio. */
 export interface ImageSizeMap {
   getSize(src: string): { width: number; height: number } | undefined;
-}
-
-interface ListContext {
-  listStyleType: ListStyleType;
-  counter: number;
 }
 
 export function layoutBlocks(
@@ -33,6 +23,13 @@ export function layoutBlocks(
   return layoutNodesAt(nodes, contentWidth, contentHeight, layouter, 0, imageSizes);
 }
 
+interface LayoutState {
+  blocks: LayoutBlock[];
+  floats: FloatContext;
+  y: number;
+  prevMarginBottom: number;
+}
+
 function layoutNodesAt(
   nodes: readonly StyledNode[],
   contentWidth: number,
@@ -42,167 +39,142 @@ function layoutNodesAt(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): readonly LayoutBlock[] {
-  const blocks: LayoutBlock[] = [];
-  let y = startY;
-  let prevMarginBottom = 0;
-  // Active floats: track their bottom y and width for text wrapping
-  let leftFloat: { bottomY: number; width: number } | undefined;
-  let rightFloat: { bottomY: number; width: number } | undefined;
+  const state: LayoutState = { blocks: [], floats: new FloatContext(), y: startY, prevMarginBottom: 0 };
 
   for (const node of nodes) {
-    // Clear expired floats
-    if (leftFloat && y >= leftFloat.bottomY) leftFloat = undefined;
-    if (rightFloat && y >= rightFloat.bottomY) rightFloat = undefined;
-
+    state.floats.clearExpired(state.y);
     if (node.type === 'image' && node.src) {
-      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-      y += collapsedMargin;
-      const imgBlock = layoutImageBlock(node.src, contentWidth, contentHeight, y, imageSizes, node.style);
-
-      if (node.style.float === 'left' || node.style.float === 'right') {
-        // Floated image: position to left/right, don't advance y
-        const floatedBlock = node.style.float === 'right'
-          ? { ...imgBlock, bounds: { ...imgBlock.bounds, x: contentWidth - imgBlock.bounds.width } }
-          : imgBlock;
-        blocks.push(floatedBlock);
-        const floatInfo = { bottomY: y + imgBlock.bounds.height, width: imgBlock.bounds.width };
-        if (node.style.float === 'left') leftFloat = floatInfo;
-        else rightFloat = floatInfo;
-        prevMarginBottom = 0;
-      } else {
-        blocks.push(imgBlock);
-        y += imgBlock.bounds.height;
-        prevMarginBottom = node.style.marginBottom;
-      }
-      continue;
-    }
-
-    if (node.type !== 'block') continue;
-
-    if (node.tag === 'hr') {
-      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-      y += collapsedMargin;
-      const hrBlock = layoutHorizontalRule(contentWidth, y, node.style.color);
-      blocks.push(hrBlock);
-      y += hrBlock.bounds.height;
-      prevMarginBottom = node.style.marginBottom;
-      continue;
-    }
-
-    if (node.tag === 'table') {
-      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-      y += collapsedMargin;
-      // Tables use full content width — CSS width on tables is a min-width hint,
-      // not a max constraint. Tables expand to fit their content.
-      let block = layoutTable(node, contentWidth, y, layouter);
-      if (node.id) block = { ...block, anchorId: node.id };
-      blocks.push(withPageBreaks(block, node.style));
-      y += block.bounds.height;
-      prevMarginBottom = node.style.marginBottom;
-      continue;
-    }
-
-    const hasBlockChildren = node.children.some((c) => c.type === 'block' || c.type === 'image');
-
-    if (hasBlockChildren) {
-      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-      y += collapsedMargin;
-
-      // Determine list context and indentation for ul/ol
-      const childListCtx = createListContext(node);
-      const indent = node.style.paddingLeft;
-      const childWidth = indent > 0 ? contentWidth - indent : contentWidth;
-
-      const childBlocks = layoutNodesAt(
-        node.children,
-        childWidth,
-        contentHeight,
-        layouter,
-        y,
-        imageSizes,
-        childListCtx ?? listCtx,
-      );
-
-      // Offset children by paddingLeft if present
-      const indentedBlocks = indent > 0 ? indentBlocks(childBlocks, indent) : childBlocks;
-
-      applyPageBreakFlags(indentedBlocks, node.style);
-      if (node.id && indentedBlocks.length > 0) {
-        const first = indentedBlocks[0];
-        if (first) Object.assign(first, { anchorId: node.id });
-      }
-      for (const child of indentedBlocks) blocks.push(child);
-      if (indentedBlocks.length > 0) {
-        const last = indentedBlocks[indentedBlocks.length - 1];
-        if (last) y = last.bounds.y + last.bounds.height;
-      }
-      prevMarginBottom = node.style.marginBottom;
-    } else {
-      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
-      y += collapsedMargin;
-
-      const ml = node.style.marginLeft;
-      const mr = node.style.marginRight;
-      let effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
-      effectiveWidth = applySizeConstraints(effectiveWidth, node.style);
-      // Reduce width for active floats
-      const floatLeftW = leftFloat && y < leftFloat.bottomY ? leftFloat.width : 0;
-      const floatRightW = rightFloat && y < rightFloat.bottomY ? rightFloat.width : 0;
-      effectiveWidth -= floatLeftW + floatRightW;
-      let block = layoutListItemOrTextBlock(node, Math.max(effectiveWidth, 1), y, layouter, listCtx);
-      const xOffset = ml + floatLeftW;
-      if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
-      if (node.id) block = { ...block, anchorId: node.id };
-      blocks.push(withPageBreaks(block, node.style));
-      y += block.bounds.height;
-      prevMarginBottom = node.style.marginBottom;
+      layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
+    } else if (node.type === 'block') {
+      layoutBlockNode(state, node, contentWidth, contentHeight, layouter, imageSizes, listCtx);
     }
   }
 
-  return blocks;
+  return state.blocks;
 }
 
-/** Layout an image as a block. Fits within content area, preserving aspect ratio. */
-function layoutImageBlock(
-  src: string,
+function layoutFloatableImage(
+  state: LayoutState,
+  node: StyledNode,
   contentWidth: number,
   contentHeight: number,
-  y: number,
   imageSizes?: ImageSizeMap,
-  style?: ComputedStyle,
-): LayoutBlock {
-  const intrinsic = imageSizes?.getSize(src);
-  const aspect = intrinsic ? intrinsic.height / intrinsic.width : DEFAULT_IMAGE_ASPECT;
+): void {
+  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+  const src = node.src ?? '';
+  const imgBlock = layoutImageBlock(src, contentWidth, contentHeight, state.y, imageSizes, node.style);
 
-  // Start with explicit CSS dimensions or default to full content width
-  let width = style?.width && style.width > 0 ? Math.min(style.width, contentWidth) : contentWidth;
-  if (style?.maxWidth && style.maxWidth > 0) width = Math.min(width, style.maxWidth);
-  let height = style?.height && style.height > 0 ? style.height : width * aspect;
-
-  // Cap at content area
-  if (height > contentHeight) {
-    height = contentHeight;
-    width = height / aspect;
+  if (node.style.float === 'left' || node.style.float === 'right') {
+    const floatedBlock =
+      node.style.float === 'right'
+        ? { ...imgBlock, bounds: { ...imgBlock.bounds, x: contentWidth - imgBlock.bounds.width } }
+        : imgBlock;
+    state.blocks.push(floatedBlock);
+    state.floats.addFloat(node.style.float, imgBlock.bounds.width, state.y + imgBlock.bounds.height);
+    state.prevMarginBottom = 0;
+  } else {
+    state.blocks.push(imgBlock);
+    state.y += imgBlock.bounds.height;
+    state.prevMarginBottom = node.style.marginBottom;
   }
-  if (width > contentWidth) {
-    width = contentWidth;
-    height = width * aspect;
-  }
-  // Center horizontally if width was reduced
-  const x = width < contentWidth ? (contentWidth - width) / 2 : 0;
-  const imageElement: ImageElement = {
-    type: 'image',
-    src,
-    bounds: { x, y: 0, width, height },
-  };
-  return {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height },
-    children: [imageElement],
-  };
 }
 
-/** Layout a block that contains only inline/text children. */
+function layoutBlockNode(
+  state: LayoutState,
+  node: StyledNode,
+  contentWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
+  listCtx?: ListContext,
+): void {
+  if (node.tag === 'hr') {
+    state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+    state.blocks.push(layoutHorizontalRule(contentWidth, state.y, node.style.color));
+    state.y += 1;
+    state.prevMarginBottom = node.style.marginBottom;
+    return;
+  }
+
+  if (node.tag === 'table') {
+    state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+    let block = layoutTable(node, contentWidth, state.y, layouter);
+    if (node.id) block = { ...block, anchorId: node.id };
+    state.blocks.push(withPageBreaks(block, node.style));
+    state.y += block.bounds.height;
+    state.prevMarginBottom = node.style.marginBottom;
+    return;
+  }
+
+  const hasBlockChildren = node.children.some((c) => c.type === 'block' || c.type === 'image');
+  if (hasBlockChildren) {
+    layoutContainerBlock(state, node, contentWidth, contentHeight, layouter, imageSizes, listCtx);
+  } else {
+    layoutLeafBlock(state, node, contentWidth, layouter, listCtx);
+  }
+}
+
+function layoutContainerBlock(
+  state: LayoutState,
+  node: StyledNode,
+  contentWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
+  listCtx?: ListContext,
+): void {
+  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+  const childListCtx = createListContext(node);
+  const indent = node.style.paddingLeft;
+  const childWidth = indent > 0 ? contentWidth - indent : contentWidth;
+
+  const childBlocks = layoutNodesAt(
+    node.children, childWidth, contentHeight, layouter, state.y, imageSizes, childListCtx ?? listCtx,
+  );
+
+  const indented = indent > 0 ? indentBlocks(childBlocks, indent) : childBlocks;
+  applyPageBreakFlags(indented, node.style);
+  if (node.id && indented.length > 0) {
+    const first = indented[0];
+    if (first) Object.assign(first, { anchorId: node.id });
+  }
+
+  for (const child of indented) state.blocks.push(child);
+  if (indented.length > 0) {
+    const last = indented[indented.length - 1];
+    if (last) state.y = last.bounds.y + last.bounds.height;
+  }
+  state.prevMarginBottom = node.style.marginBottom;
+}
+
+function layoutLeafBlock(
+  state: LayoutState,
+  node: StyledNode,
+  contentWidth: number,
+  layouter: ParagraphLayouter,
+  listCtx?: ListContext,
+): void {
+  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+
+  const ml = node.style.marginLeft;
+  const mr = node.style.marginRight;
+  let w = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
+  w = applySizeConstraints(w, node.style);
+  w -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
+
+  let block = layoutTextBlock(node, Math.max(w, 1), state.y, layouter);
+  block = addListMarker(block, node, listCtx);
+
+  const xOffset = ml + state.floats.getLeftWidth(state.y);
+  if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
+  if (node.id) block = { ...block, anchorId: node.id };
+  state.blocks.push(withPageBreaks(block, node.style));
+  state.y += block.bounds.height;
+  state.prevMarginBottom = node.style.marginBottom;
+}
+
+// ── Internal helpers ───────────────────────────────────────────────
+
 function layoutTextBlock(
   node: StyledNode,
   contentWidth: number,
@@ -212,44 +184,26 @@ function layoutTextBlock(
   const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
   const segments = flattenInlineContent(node.children);
-  const lineBoxes = layouter.layoutParagraph(
-    segments,
-    innerWidth > 0 ? innerWidth : contentWidth,
-    0,
-  );
-  const contentHeight = computeChildrenHeight(lineBoxes);
-  const height = paddingTop + contentHeight + paddingBottom;
+  const lineBoxes = layouter.layoutParagraph(segments, innerWidth > 0 ? innerWidth : contentWidth, 0);
+  const ch = computeChildrenHeight(lineBoxes);
+  const height = paddingTop + ch + paddingBottom;
 
-  // Offset line boxes by paddingTop if present
   const children =
     paddingTop > 0
       ? lineBoxes.map((lb) => ({
           ...lb,
           bounds: { ...lb.bounds, y: lb.bounds.y + paddingTop },
-          runs: lb.runs.map((r) => ({
-            ...r,
-            bounds: { ...r.bounds, y: r.bounds.y + paddingTop },
-          })),
+          runs: lb.runs.map((r) => ({ ...r, bounds: { ...r.bounds, y: r.bounds.y + paddingTop } })),
         }))
       : lineBoxes;
 
-  let block: LayoutBlock = {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height },
-    children,
-  };
-  if (backgroundColor) {
-    block = { ...block, backgroundColor };
-  }
+  let block: LayoutBlock = { type: 'layout-block', bounds: { x: 0, y, width: contentWidth, height }, children };
+  if (backgroundColor) block = { ...block, backgroundColor };
   const borders = extractBorders(node.style);
-  if (borders) {
-    block = { ...block, borders };
-  }
+  if (borders) block = { ...block, borders };
   return block;
 }
 
-/** Extract border info from style, or return undefined if no visible borders. */
-/** Apply CSS width/max-width constraints to an available width. */
 function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
   let w = availableWidth;
   if (style.width > 0) w = Math.min(style.width, availableWidth);
@@ -280,51 +234,6 @@ function computeChildrenHeight(lineBoxes: readonly LineBox[]): number {
   return last.bounds.y + last.bounds.height;
 }
 
-/** Create a list context if the node is a ul or ol. */
-function createListContext(node: StyledNode): ListContext | undefined {
-  if (node.tag === 'ul' || node.tag === 'ol') {
-    return { listStyleType: node.style.listStyleType, counter: 0 };
-  }
-  return undefined;
-}
-
-/** Layout a list item (with marker) or a plain text block. */
-function layoutListItemOrTextBlock(
-  node: StyledNode,
-  contentWidth: number,
-  y: number,
-  layouter: ParagraphLayouter,
-  listCtx?: ListContext,
-): LayoutBlock {
-  const block = layoutTextBlock(node, contentWidth, y, layouter);
-  if (!listCtx || node.tag !== 'li' || listCtx.listStyleType === LIST_STYLE_TYPES.None) {
-    return block;
-  }
-  listCtx.counter++;
-  const firstLine = block.children[0];
-  if (!firstLine || firstLine.type !== 'line-box') return block;
-  const marker = createMarkerRun(
-    listCtx.counter,
-    listCtx.listStyleType,
-    node.style,
-    firstLine.bounds.height,
-  );
-  const markerLine: LineBox = {
-    ...firstLine,
-    runs: [marker, ...firstLine.runs],
-  };
-  return { ...block, children: [markerLine, ...block.children.slice(1)] };
-}
-
-/** Offset all blocks' x position by the given indent. */
-function indentBlocks(blocks: readonly LayoutBlock[], indent: number): readonly LayoutBlock[] {
-  return blocks.map((b) => ({
-    ...b,
-    bounds: { ...b.bounds, x: b.bounds.x + indent },
-  }));
-}
-
-/** Add page-break flags from a style to a layout block. */
 function withPageBreaks(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
   const before = style.pageBreakBefore === PAGE_BREAKS.Always;
   const after = style.pageBreakAfter === PAGE_BREAKS.Always;
@@ -335,7 +244,6 @@ function withPageBreaks(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
   return result;
 }
 
-/** Propagate page-break flags from a container to its first/last child blocks. */
 function applyPageBreakFlags(blocks: readonly LayoutBlock[], style: ComputedStyle): void {
   if (blocks.length === 0) return;
   if (style.pageBreakBefore === PAGE_BREAKS.Always) {
@@ -348,18 +256,13 @@ function applyPageBreakFlags(blocks: readonly LayoutBlock[], style: ComputedStyl
   }
 }
 
+function indentBlocks(blocks: readonly LayoutBlock[], indent: number): readonly LayoutBlock[] {
+  return blocks.map((b) => ({ ...b, bounds: { ...b.bounds, x: b.bounds.x + indent } }));
+}
+
 const HR_THICKNESS = 1;
 
-/** Layout a horizontal rule as a thin block. */
 function layoutHorizontalRule(contentWidth: number, y: number, color: string): LayoutBlock {
-  const hr: HorizontalRule = {
-    type: 'hr',
-    bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS },
-    color,
-  };
-  return {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS },
-    children: [hr],
-  };
+  const hr: HorizontalRule = { type: 'hr', bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS }, color };
+  return { type: 'layout-block', bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS }, children: [hr] };
 }

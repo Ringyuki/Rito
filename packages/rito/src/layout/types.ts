@@ -1,10 +1,14 @@
-/**
- * Layout computation types.
- * Layout must not depend on Canvas APIs.
- */
+// Layout types. No Canvas API dependency.
 
-import type { Rect } from '../model/types';
 import type { ComputedStyle } from '../style/types';
+
+/** Represents a rectangular region in layout space. */
+export interface Rect {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
 
 /** A laid-out text run within a line. */
 export interface TextRun {
@@ -105,6 +109,3 @@ export interface Spread {
   /** Right page (only in double mode). */
   readonly right?: Page;
 }
-
-/** @deprecated Use LayoutConfig instead. */
-export type SpreadConfig = Pick<LayoutConfig, 'spreadMode' | 'firstPageAlone' | 'spreadGap'>;
