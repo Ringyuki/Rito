@@ -30,6 +30,8 @@ export interface ReaderOptions {
   readonly backgroundColor?: string;
   /** Text color override for dark mode. Replaces low-contrast text colors automatically. */
   readonly foregroundColor?: string;
+  /** Device pixel ratio for HiDPI rendering. Defaults to `window.devicePixelRatio` (or 1 in non-browser environments). */
+  readonly devicePixelRatio?: number;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */
@@ -47,8 +49,8 @@ export interface Reader {
   /** All computed spreads. */
   readonly spreads: readonly Spread[];
 
-  /** Render a spread by index onto the canvas. Pass pixelRatio for HiDPI or font-scale rendering. */
-  renderSpread(index: number, pixelRatio?: number): void;
+  /** Render a spread by index onto the canvas. Pass scale for font-zoom rendering (DPR is handled internally). */
+  renderSpread(index: number, scale?: number): void;
 
   /** Resize the reader viewport. Re-paginates the document synchronously. */
   resize(width: number, height: number): void;
@@ -65,8 +67,8 @@ export interface Reader {
   /** Find the spread index containing a given page index. */
   findSpread(pageIndex: number): number | undefined;
 
-  /** Get the canvas dimensions needed for the current config. */
-  getCanvasSize(pixelRatio?: number): { width: number; height: number };
+  /** Get the CSS dimensions for the canvas at the given scale. DPR is accounted for internally. */
+  getCanvasSize(scale?: number): { width: number; height: number };
 
   /** Release all resources (image bitmaps, etc.). */
   dispose(): void;
@@ -105,6 +107,7 @@ interface ReaderState {
   spreadMode: 'single' | 'double';
   bgColor: string;
   fgColor: string | undefined;
+  dpr: number;
   config: LayoutConfig;
   assets: LoadedAssets;
   resources: Resources;
@@ -117,6 +120,8 @@ async function initReaderState(
   options: ReaderOptions,
 ): Promise<ReaderState> {
   const spreadMode = options.spread ?? 'single';
+  const dpr =
+    options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
   const config = makeLayoutConfig(options, spreadMode);
   const assets = await loadAssets(doc, canvas);
   const paginationResult = paginateWithAssets(doc, config, assets);
@@ -126,6 +131,7 @@ async function initReaderState(
     spreadMode,
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor,
+    dpr,
     config,
     assets,
     resources,
@@ -148,7 +154,7 @@ function renderSpreadToCanvas(
   canvas: HTMLCanvasElement | OffscreenCanvas,
   ctx: CanvasRenderingContext2D,
   index: number,
-  pixelRatio: number,
+  scale: number,
 ): void {
   if (index < 0 || index >= state.spreads.length) {
     console.warn(
@@ -158,11 +164,17 @@ function renderSpreadToCanvas(
   }
   const spread = state.spreads[index];
   if (!spread) return;
-  const dims = getSpreadDimensions(state.config, pixelRatio);
+  const effectiveRatio = scale * state.dpr;
+  const dims = getSpreadDimensions(state.config, effectiveRatio);
   canvas.width = dims.width;
   canvas.height = dims.height;
+  // Correct for rounding: actual buffer size may differ from effectiveRatio
+  const correctedRatio = canvas.width / state.config.viewportWidth;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const opts: Record<string, unknown> = { backgroundColor: state.bgColor, pixelRatio };
+  const opts: Record<string, unknown> = {
+    backgroundColor: state.bgColor,
+    pixelRatio: correctedRatio,
+  };
   if (state.fgColor) opts['foregroundColor'] = state.fgColor;
   opts['images'] = state.resources.images;
   render(spread, ctx, state.config, opts as Parameters<typeof render>[3]);
@@ -209,8 +221,8 @@ function buildReader(
   const manifestHrefs = new Map(doc.packageDocument.manifest.map((m) => [m.id, m.href] as const));
 
   return Object.assign(defineReaderAccessors(state, doc), {
-    renderSpread: (index: number, pixelRatio = 1): void => {
-      renderSpreadToCanvas(state, canvas, ctx, index, pixelRatio);
+    renderSpread: (index: number, scale = 1): void => {
+      renderSpreadToCanvas(state, canvas, ctx, index, scale);
     },
     resize: (w: number, h: number): void => {
       repaginate(state, doc, options, w, h);
@@ -232,7 +244,11 @@ function buildReader(
         manifestHrefs,
       ),
     findSpread: (pageIndex: number) => findSpreadIndex(state.spreads, pageIndex),
-    getCanvasSize: (pixelRatio = 1) => getSpreadDimensions(state.config, pixelRatio),
+    getCanvasSize: (scale = 1) => {
+      const effectiveRatio = scale * state.dpr;
+      const dims = getSpreadDimensions(state.config, effectiveRatio);
+      return { width: dims.width / state.dpr, height: dims.height / state.dpr };
+    },
     dispose(): void {
       disposeAssets(state.assets);
       doc.close();

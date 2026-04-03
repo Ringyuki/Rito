@@ -35,6 +35,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   const readerRef = useRef<Reader | null>(null);
   const dataRef = useRef<ArrayBuffer | null>(null);
   const skipNextRebuild = useRef(false);
+  const prevContainerRef = useRef({ width: 0, height: 0 });
 
   const [state, setState] = useState<EpubState>({
     isLoaded: false,
@@ -60,64 +61,58 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     (reader: Reader, index: number, scale: number) => {
       if (!canvasRef.current) return;
       reader.setTheme(getThemeOptions(theme));
-      reader.renderSpread(index, scale * window.devicePixelRatio);
+      reader.renderSpread(index, scale);
     },
     [theme],
   );
 
   // Rebuild reader when container size, spread mode, or font scale changes
   useEffect(() => {
-    const data = dataRef.current;
     const canvas = canvasRef.current;
-    if (!data || !canvas || containerSize.width === 0 || containerSize.height === 0) return;
+    const reader = readerRef.current;
+    if (!dataRef.current || !canvas || containerSize.width === 0 || containerSize.height === 0)
+      return;
 
     // Skip the redundant rebuild right after initial load
     if (skipNextRebuild.current) {
       skipNextRebuild.current = false;
+      prevContainerRef.current = { width: containerSize.width, height: containerSize.height };
       return;
     }
 
-    // Clear stale content immediately to avoid stretched rendering during debounce
-    if (readerRef.current) {
+    if (!reader) return;
+
+    const containerChanged =
+      containerSize.width !== prevContainerRef.current.width ||
+      containerSize.height !== prevContainerRef.current.height;
+    prevContainerRef.current = { width: containerSize.width, height: containerSize.height };
+
+    const rebuild = () => {
+      const { width, height } = getViewportSize(state.fontScale);
+      reader.setSpreadMode(state.spreadMode);
+      reader.resize(width, height);
+
+      setState((s) => {
+        const clamped = Math.max(0, Math.min(s.currentSpread, reader.totalSpreads - 1));
+        draw(reader, clamped, s.fontScale);
+        return { ...s, spreads: reader.spreads, toc: reader.toc, currentSpread: clamped };
+      });
+    };
+
+    if (containerChanged) {
+      // Debounce continuous container resize
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const timer = setTimeout(rebuild, 200);
+      return () => {
+        clearTimeout(timer);
+      };
     }
 
-    let cancelled = false;
-
-    const timer = setTimeout(async () => {
-      const { width, height } = getViewportSize(state.fontScale);
-      try {
-        readerRef.current?.dispose();
-        const reader = await createReader(data, canvas, {
-          width,
-          height,
-          margin: 40,
-          spread: state.spreadMode,
-          ...getThemeOptions(theme),
-        });
-        if (cancelled) {
-          reader.dispose();
-          return;
-        }
-        readerRef.current = reader;
-
-        setState((s) => {
-          const clamped = Math.max(0, Math.min(s.currentSpread, reader.totalSpreads - 1));
-          return { ...s, spreads: reader.spreads, toc: reader.toc, currentSpread: clamped };
-        });
-
-        const clamped = Math.max(0, Math.min(state.currentSpread, reader.totalSpreads - 1));
-        draw(reader, clamped, state.fontScale);
-      } catch {
-        // ignore resize errors
-      }
-    }, 200);
-
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    // Font scale / spread mode change: instant
+    rebuild();
+    return undefined;
   }, [
     containerSize.width,
     containerSize.height,
