@@ -1,4 +1,5 @@
 import type { ComputedStyle, TextAlignment } from '../style/types';
+import { findHyphenationPoints } from './hyphenation';
 import type { LineBox, TextRun } from './types';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import type { StyledSegment } from './styled-segment';
@@ -171,7 +172,15 @@ function findBreakPosition(
     }
   }
 
-  return findWordBreak(text, start, lo);
+  const wordBreak = findWordBreak(text, start, lo);
+
+  // If no word boundary found (word is longer than line), try hyphenation
+  if (wordBreak === lo) {
+    const hyphenBreak = tryHyphenation(text, start, lo, maxWidth, style, measurer);
+    if (hyphenBreak > start) return hyphenBreak;
+  }
+
+  return wordBreak;
 }
 
 function findWordBreak(text: string, start: number, fitPos: number): number {
@@ -183,6 +192,44 @@ function findWordBreak(text: string, start: number, fitPos: number): number {
     if (prev && CJK_RE.test(prev)) return i;
   }
   return fitPos;
+}
+
+/**
+ * Try to find a hyphenation point for the word at the break position.
+ * Extracts the word around `fitPos`, finds hyphenation points, and returns
+ * the best one that fits within `maxWidth`. Returns 0 if no break found.
+ */
+function tryHyphenation(
+  text: string,
+  start: number,
+  fitPos: number,
+  maxWidth: number,
+  style: ComputedStyle,
+  measurer: TextMeasurer,
+): number {
+  // Find the word boundaries around fitPos
+  let wordStart = fitPos;
+  while (wordStart > start && text[wordStart - 1] !== ' ') wordStart--;
+  let wordEnd = fitPos;
+  while (wordEnd < text.length && text[wordEnd] !== ' ') wordEnd++;
+
+  const word = text.slice(wordStart, wordEnd);
+  const points = findHyphenationPoints(word);
+  if (points.length === 0) return 0;
+
+  // Try each hyphenation point (largest first) to see if it fits with a hyphen
+  for (let i = points.length - 1; i >= 0; i--) {
+    const pt = points[i];
+    if (pt === undefined) continue;
+    const breakAt = wordStart + pt;
+    if (breakAt <= start || breakAt >= fitPos + 2) continue;
+    const candidate = text.slice(start, breakAt) + '-';
+    if (measurer.measureText(candidate, style).width <= maxWidth) {
+      return breakAt;
+    }
+  }
+
+  return 0;
 }
 
 function applyAlign(

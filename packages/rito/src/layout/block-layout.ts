@@ -45,15 +45,35 @@ function layoutNodesAt(
   const blocks: LayoutBlock[] = [];
   let y = startY;
   let prevMarginBottom = 0;
+  // Active floats: track their bottom y and width for text wrapping
+  let leftFloat: { bottomY: number; width: number } | undefined;
+  let rightFloat: { bottomY: number; width: number } | undefined;
 
   for (const node of nodes) {
+    // Clear expired floats
+    if (leftFloat && y >= leftFloat.bottomY) leftFloat = undefined;
+    if (rightFloat && y >= rightFloat.bottomY) rightFloat = undefined;
+
     if (node.type === 'image' && node.src) {
       const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
       y += collapsedMargin;
-      const imgBlock = layoutImageBlock(node.src, contentWidth, contentHeight, y, imageSizes);
-      blocks.push(imgBlock);
-      y += imgBlock.bounds.height;
-      prevMarginBottom = node.style.marginBottom;
+      const imgBlock = layoutImageBlock(node.src, contentWidth, contentHeight, y, imageSizes, node.style);
+
+      if (node.style.float === 'left' || node.style.float === 'right') {
+        // Floated image: position to left/right, don't advance y
+        const floatedBlock = node.style.float === 'right'
+          ? { ...imgBlock, bounds: { ...imgBlock.bounds, x: contentWidth - imgBlock.bounds.width } }
+          : imgBlock;
+        blocks.push(floatedBlock);
+        const floatInfo = { bottomY: y + imgBlock.bounds.height, width: imgBlock.bounds.width };
+        if (node.style.float === 'left') leftFloat = floatInfo;
+        else rightFloat = floatInfo;
+        prevMarginBottom = 0;
+      } else {
+        blocks.push(imgBlock);
+        y += imgBlock.bounds.height;
+        prevMarginBottom = node.style.marginBottom;
+      }
       continue;
     }
 
@@ -72,6 +92,8 @@ function layoutNodesAt(
     if (node.tag === 'table') {
       const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
       y += collapsedMargin;
+      // Tables use full content width — CSS width on tables is a min-width hint,
+      // not a max constraint. Tables expand to fit their content.
       let block = layoutTable(node, contentWidth, y, layouter);
       if (node.id) block = { ...block, anchorId: node.id };
       blocks.push(withPageBreaks(block, node.style));
@@ -121,9 +143,15 @@ function layoutNodesAt(
 
       const ml = node.style.marginLeft;
       const mr = node.style.marginRight;
-      const effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
-      let block = layoutListItemOrTextBlock(node, effectiveWidth, y, layouter, listCtx);
-      if (ml > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + ml } };
+      let effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
+      effectiveWidth = applySizeConstraints(effectiveWidth, node.style);
+      // Reduce width for active floats
+      const floatLeftW = leftFloat && y < leftFloat.bottomY ? leftFloat.width : 0;
+      const floatRightW = rightFloat && y < rightFloat.bottomY ? rightFloat.width : 0;
+      effectiveWidth -= floatLeftW + floatRightW;
+      let block = layoutListItemOrTextBlock(node, Math.max(effectiveWidth, 1), y, layouter, listCtx);
+      const xOffset = ml + floatLeftW;
+      if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
       if (node.id) block = { ...block, anchorId: node.id };
       blocks.push(withPageBreaks(block, node.style));
       y += block.bounds.height;
@@ -141,15 +169,24 @@ function layoutImageBlock(
   contentHeight: number,
   y: number,
   imageSizes?: ImageSizeMap,
+  style?: ComputedStyle,
 ): LayoutBlock {
   const intrinsic = imageSizes?.getSize(src);
   const aspect = intrinsic ? intrinsic.height / intrinsic.width : DEFAULT_IMAGE_ASPECT;
-  let width = contentWidth;
-  let height = width * aspect;
-  // Cap height at content area height
+
+  // Start with explicit CSS dimensions or default to full content width
+  let width = style?.width && style.width > 0 ? Math.min(style.width, contentWidth) : contentWidth;
+  if (style?.maxWidth && style.maxWidth > 0) width = Math.min(width, style.maxWidth);
+  let height = style?.height && style.height > 0 ? style.height : width * aspect;
+
+  // Cap at content area
   if (height > contentHeight) {
     height = contentHeight;
     width = height / aspect;
+  }
+  if (width > contentWidth) {
+    width = contentWidth;
+    height = width * aspect;
   }
   // Center horizontally if width was reduced
   const x = width < contentWidth ? (contentWidth - width) / 2 : 0;
@@ -212,6 +249,14 @@ function layoutTextBlock(
 }
 
 /** Extract border info from style, or return undefined if no visible borders. */
+/** Apply CSS width/max-width constraints to an available width. */
+function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
+  let w = availableWidth;
+  if (style.width > 0) w = Math.min(style.width, availableWidth);
+  if (style.maxWidth > 0) w = Math.min(w, style.maxWidth);
+  return w;
+}
+
 function extractBorders(style: ComputedStyle): BlockBorders | undefined {
   const { borderTop, borderRight, borderBottom, borderLeft } = style;
   const hasAny =

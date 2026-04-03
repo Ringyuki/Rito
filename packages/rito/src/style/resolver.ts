@@ -1,7 +1,7 @@
 import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import type { ComputedStyle, CssRule, Specificity, StyledNode } from './types';
 import { DISPLAY_VALUES } from './types';
-import { DEFAULT_STYLE } from './defaults';
+import { DEFAULT_STYLE, inheritableStyle } from './defaults';
 import { parseCssDeclarations } from './css-property-parser';
 import type { SelectorTarget } from './selector-matcher';
 import { matchesSelector } from './selector-matcher';
@@ -45,12 +45,18 @@ function resolveNode(
         return { type: 'block', tag: node.tag, style, children: [] };
       }
       const childAncestors = [target, ...ancestors];
+      const childStyle = inheritableStyle(style);
       const children = node.children
-        .map((c) => resolveNode(c, style, rules, childAncestors))
+        .map((c) => resolveNode(c, childStyle, rules, childAncestors))
         .filter((c) => c.style.display !== DISPLAY_VALUES.None);
       const id = node.attributes?.id;
-      const result: StyledNode = { type: 'block', tag: node.tag, style, children };
-      return id ? { ...result, id } : result;
+      const colspan = node.attributes?.colspan;
+      const rowspan = node.attributes?.rowspan;
+      let result: StyledNode = { type: 'block', tag: node.tag, style, children };
+      if (id) result = { ...result, id };
+      if (colspan) result = { ...result, colspan };
+      if (rowspan) result = { ...result, rowspan };
+      return result;
     }
 
     case 'inline': {
@@ -60,8 +66,9 @@ function resolveNode(
         return { type: 'inline', tag: node.tag, style, children: [] };
       }
       const childAncestors = [target, ...ancestors];
+      const childStyle = inheritableStyle(style);
       const children = node.children
-        .map((c) => resolveNode(c, style, rules, childAncestors))
+        .map((c) => resolveNode(c, childStyle, rules, childAncestors))
         .filter((c) => c.style.display !== DISPLAY_VALUES.None);
       const id = node.attributes?.id;
       const result: StyledNode = { type: 'inline', tag: node.tag, style, children };

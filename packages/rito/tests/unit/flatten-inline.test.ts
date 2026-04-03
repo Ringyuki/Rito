@@ -33,7 +33,10 @@ describe('flattenInlineContent', () => {
 
     expect(segments).toHaveLength(1);
     expect(segments[0]?.text).toBe('hello');
-    expect(segments[0]?.style).toEqual(p.style);
+    // Text nodes inherit from parent but non-inheritable props (margins, etc.) are reset
+    expect(segments[0]?.style.fontFamily).toBe(p.style.fontFamily);
+    expect(segments[0]?.style.fontSize).toBe(p.style.fontSize);
+    expect(segments[0]?.style.color).toBe(p.style.color);
   });
 
   it('flattens text with inline markup', () => {

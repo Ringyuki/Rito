@@ -112,6 +112,13 @@ export interface ComputedStyle {
   readonly borderRight: BorderSide;
   readonly borderBottom: BorderSide;
   readonly borderLeft: BorderSide;
+  readonly float: 'none' | 'left' | 'right';
+  /** Explicit width in px. 0 means auto (not set). */
+  readonly width: number;
+  /** Maximum width in px. 0 means no constraint. */
+  readonly maxWidth: number;
+  /** Explicit height in px. 0 means auto (not set). */
+  readonly height: number;
   readonly listStyleType: ListStyleType;
   readonly pageBreakBefore: PageBreak;
   readonly pageBreakAfter: PageBreak;
@@ -151,6 +158,8 @@ export interface StyledNode {
   readonly content?: string;
   readonly src?: string;
   readonly id?: string;
+  readonly colspan?: number;
+  readonly rowspan?: number;
   readonly style: ComputedStyle;
   readonly children: readonly StyledNode[];
 }

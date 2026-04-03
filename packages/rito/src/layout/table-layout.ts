@@ -9,9 +9,7 @@ const CELL_PADDING = 4;
 /**
  * Layout a <table> StyledNode as a grid of equal-width columns.
  *
- * Walks the table's children (thead/tbody/tfoot/tr) to find rows,
- * determines column count from the widest row, and lays out each
- * cell's content within its column width.
+ * Supports colspan and rowspan attributes on cells.
  */
 export function layoutTable(
   node: StyledNode,
@@ -28,14 +26,30 @@ export function layoutTable(
     };
   }
 
-  const colCount = Math.max(...rows.map((r) => r.children.length), 1);
+  const colCount = computeColumnCount(rows);
+  if (colCount === 0) {
+    return {
+      type: 'layout-block',
+      bounds: { x: 0, y, width: contentWidth, height: 0 },
+      children: [],
+    };
+  }
+
   const colWidth = contentWidth / colCount;
   const cellContentWidth = Math.max(colWidth - CELL_PADDING * 2, 1);
+
+  // Track cells occupied by rowspan from previous rows.
+  // occupied[row][col] = true if that position is taken by a rowspan from above.
+  const occupied: boolean[][] = rows.map(() => Array.from<boolean>({ length: colCount }).fill(false));
+  applyRowspanOccupancy(rows, occupied, colCount);
 
   const rowBlocks: LayoutBlock[] = [];
   let currentY = 0;
 
-  for (const row of rows) {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row) continue;
+    const rowOccupied = occupied[r] ?? [];
     const { block, height } = layoutRow(
       row,
       colCount,
@@ -43,6 +57,7 @@ export function layoutTable(
       cellContentWidth,
       currentY,
       layouter,
+      rowOccupied,
     );
     rowBlocks.push(block);
     currentY += height;
@@ -53,6 +68,66 @@ export function layoutTable(
     bounds: { x: 0, y, width: contentWidth, height: currentY },
     children: rowBlocks,
   };
+}
+
+/** Compute the effective column count from the widest row (accounting for colspan). */
+function computeColumnCount(rows: readonly StyledNode[]): number {
+  let max = 0;
+  for (const row of rows) {
+    let count = 0;
+    for (const cell of row.children) {
+      if (!isCellNode(cell)) continue;
+      count += cell.colspan ?? 1;
+    }
+    if (count > max) max = count;
+  }
+  return max;
+}
+
+/** Check if a node is a table cell (td/th). */
+function isCellNode(node: StyledNode): boolean {
+  return node.type === 'block' && (node.tag === 'td' || node.tag === 'th');
+}
+
+/** Mark grid positions occupied by rowspan cells. */
+function applyRowspanOccupancy(
+  rows: readonly StyledNode[],
+  occupied: boolean[][],
+  colCount: number,
+): void {
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row) continue;
+    const cells = row.children.filter(isCellNode);
+    let col = 0;
+    let childIdx = 0;
+    while (col < colCount && childIdx < cells.length) {
+      // Skip already occupied positions
+      while (col < colCount && occupied[r]?.[col]) col++;
+      if (col >= colCount) break;
+
+      const cell = cells[childIdx];
+      childIdx++;
+      if (!cell) continue;
+
+      const cs = cell.colspan ?? 1;
+      const rs = cell.rowspan ?? 1;
+
+      // Mark subsequent rows as occupied for rowspan > 1
+      if (rs > 1) {
+        for (let dr = 1; dr < rs && r + dr < rows.length; dr++) {
+          for (let dc = 0; dc < cs; dc++) {
+            const oRow = occupied[r + dr];
+            if (oRow && col + dc < colCount) {
+              oRow[col + dc] = true;
+            }
+          }
+        }
+      }
+
+      col += cs;
+    }
+  }
 }
 
 /** Collect all <tr> nodes from the table, unwrapping thead/tbody/tfoot. */
@@ -73,7 +148,7 @@ function collectRows(table: StyledNode): StyledNode[] {
   return rows;
 }
 
-/** Layout a single table row. Returns the row block and its height. */
+/** Layout a single table row. */
 function layoutRow(
   row: StyledNode,
   colCount: number,
@@ -81,42 +156,60 @@ function layoutRow(
   cellContentWidth: number,
   y: number,
   layouter: ParagraphLayouter,
+  rowOccupied: readonly boolean[],
 ): { block: LayoutBlock; height: number } {
   const cellBlocks: LayoutBlock[] = [];
   let maxCellHeight = 0;
+  let col = 0;
+  let childIdx = 0;
 
-  for (let col = 0; col < colCount; col++) {
-    const cell = row.children[col];
-    const x = col * colWidth;
+  // Extract only td/th cells from the row
+  const cells = row.children.filter(isCellNode);
 
-    if (!cell || (cell.type !== 'block' && cell.type !== 'inline')) {
-      cellBlocks.push({
-        type: 'layout-block',
-        bounds: { x, y: 0, width: colWidth, height: 0 },
-        children: [],
-      });
+  while (col < colCount) {
+    // Skip positions occupied by rowspan from above
+    if (rowOccupied[col]) {
+      col++;
       continue;
     }
 
-    const cellChildren = layoutCellContent(cell, cellContentWidth, layouter);
+    const cell = cells[childIdx];
+    childIdx++;
+
+    if (!cell) {
+      cellBlocks.push({
+        type: 'layout-block',
+        bounds: { x: col * colWidth, y: 0, width: colWidth, height: 0 },
+        children: [],
+      });
+      col++;
+      continue;
+    }
+
+    const cs = cell.colspan ?? 1;
+    const spanWidth = cs * colWidth;
+    const spanContentWidth = Math.max(spanWidth - CELL_PADDING * 2, 1);
+
+    const cellChildren = layoutCellContent(cell, spanContentWidth, layouter);
     const contentHeight = computeBlockChildrenHeight(cellChildren);
     const cellHeight = contentHeight + CELL_PADDING * 2;
 
     if (cellHeight > maxCellHeight) maxCellHeight = cellHeight;
 
-    // Offset children by cell padding
     const paddedChildren = offsetChildren(cellChildren, CELL_PADDING, CELL_PADDING);
 
     cellBlocks.push({
       type: 'layout-block',
-      bounds: { x, y: 0, width: colWidth, height: cellHeight },
+      bounds: { x: col * colWidth, y: 0, width: spanWidth, height: cellHeight },
       children: paddedChildren,
     });
+
+    col += cs;
   }
 
-  const normalizedCells = cellBlocks.map((cell) => ({
-    ...cell,
-    bounds: { ...cell.bounds, height: maxCellHeight },
+  const normalizedCells = cellBlocks.map((c) => ({
+    ...c,
+    bounds: { ...c.bounds, height: maxCellHeight },
   }));
 
   return {
@@ -129,10 +222,7 @@ function layoutRow(
   };
 }
 
-/**
- * Layout a cell's content. Supports both inline-only cells and cells
- * containing block elements (e.g. <p>, <div>).
- */
+/** Layout a cell's content. Supports block and inline children. */
 function layoutCellContent(
   cell: StyledNode,
   width: number,
@@ -141,27 +231,21 @@ function layoutCellContent(
   const hasBlockChildren = cell.children.some((c) => c.type === 'block' || c.type === 'image');
 
   if (hasBlockChildren) {
-    // Cell contains block elements — use the full block layout pipeline
     return layoutBlocks(cell.children, width, layouter);
   }
 
-  // Cell contains only inline/text content
   const segments = flattenInlineContent(cell.children);
   if (segments.length === 0) return [];
   return layouter.layoutParagraph(segments, width, 0);
 }
 
-/** Compute total height of a mix of LineBox and LayoutBlock children. */
-function computeBlockChildrenHeight(
-  children: readonly (LineBox | LayoutBlock)[],
-): number {
+function computeBlockChildrenHeight(children: readonly (LineBox | LayoutBlock)[]): number {
   if (children.length === 0) return 0;
   const last = children[children.length - 1];
   if (!last) return 0;
   return last.bounds.y + last.bounds.height;
 }
 
-/** Offset all children (LineBox or LayoutBlock) by dx/dy. */
 function offsetChildren(
   children: readonly (LineBox | LayoutBlock)[],
   dx: number,
@@ -178,7 +262,6 @@ function offsetChildren(
         })),
       };
     }
-    // LayoutBlock
     return {
       ...child,
       bounds: { ...child.bounds, x: child.bounds.x + dx, y: child.bounds.y + dy },

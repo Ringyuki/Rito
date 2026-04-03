@@ -180,6 +180,28 @@ function applyProperty(
       if (bl) result['borderLeft'] = bl;
       break;
     }
+    case 'float': {
+      const fl = value.trim().toLowerCase();
+      if (fl === 'left') result['float'] = 'left';
+      else if (fl === 'right') result['float'] = 'right';
+      else if (fl === 'none') result['float'] = 'none';
+      break;
+    }
+    case 'width': {
+      const w = parseLength(value, parentFontSize);
+      if (w !== undefined && w > 0) result['width'] = w;
+      break;
+    }
+    case 'max-width': {
+      const mw = parseLength(value, parentFontSize);
+      if (mw !== undefined && mw > 0) result['maxWidth'] = mw;
+      break;
+    }
+    case 'height': {
+      const h = parseLength(value, parentFontSize);
+      if (h !== undefined && h > 0) result['height'] = h;
+      break;
+    }
     case 'background-color': {
       result['backgroundColor'] = value;
       break;

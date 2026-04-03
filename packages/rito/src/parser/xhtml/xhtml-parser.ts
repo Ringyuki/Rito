@@ -159,7 +159,19 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const style = el.getAttribute('style') ?? undefined;
   const id = el.getAttribute('id') ?? undefined;
   const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
-  if (cls === undefined && style === undefined && id === undefined && href === undefined) {
+  const isTableCell = el.localName === 'td' || el.localName === 'th';
+  const colspanRaw = isTableCell ? parseInt(el.getAttribute('colspan') ?? '', 10) : NaN;
+  const rowspanRaw = isTableCell ? parseInt(el.getAttribute('rowspan') ?? '', 10) : NaN;
+  const colspan = !isNaN(colspanRaw) && colspanRaw > 1 ? colspanRaw : undefined;
+  const rowspan = !isNaN(rowspanRaw) && rowspanRaw > 1 ? rowspanRaw : undefined;
+  if (
+    cls === undefined &&
+    style === undefined &&
+    id === undefined &&
+    href === undefined &&
+    colspan === undefined &&
+    rowspan === undefined
+  ) {
     return undefined;
   }
   const attrs = {
@@ -167,6 +179,8 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
     ...(style !== undefined ? { style } : {}),
     ...(id !== undefined ? { id } : {}),
     ...(href !== undefined ? { href } : {}),
+    ...(colspan !== undefined ? { colspan } : {}),
+    ...(rowspan !== undefined ? { rowspan } : {}),
   } satisfies ElementAttributes;
   return attrs;
 }

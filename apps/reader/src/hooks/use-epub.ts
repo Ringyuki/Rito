@@ -118,7 +118,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
 
     let cancelled = false;
 
-    const relayout = async (): Promise<void> => {
+    const timer = setTimeout(async () => {
       const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
       try {
         const resources = await prepare(doc, config, canvas);
@@ -128,25 +128,25 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
         const chapterStarts = getChapterStartPages(resources.chapterMap);
         const newSpreads = buildSpreads(pages, config, chapterStarts);
 
-        setState((s) => {
-          const clamped = Math.max(0, Math.min(s.currentSpread, newSpreads.length - 1));
-          return { ...s, pages, spreads: newSpreads, currentSpread: clamped };
-        });
-
-        // Draw after state update — use the clamped index
         const clampedIdx = Math.max(0, Math.min(state.currentSpread, newSpreads.length - 1));
+        setState((s) => ({ ...s, pages, spreads: newSpreads, currentSpread: clampedIdx }));
         drawSpread(newSpreads, clampedIdx, config, theme, state.fontScale);
       } catch {
         // ignore resize errors
       }
-    };
-
-    void relayout();
+    }, 200);
 
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
-  }, [containerSize.width, containerSize.height, state.spreadMode, state.fontScale, state.isLoaded]);
+  }, [
+    containerSize.width,
+    containerSize.height,
+    state.spreadMode,
+    state.fontScale,
+    state.isLoaded,
+  ]);
 
   // Re-render (no re-pagination) when theme changes
   useEffect(() => {
@@ -264,7 +264,9 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
       if (!doc || !resources) return;
 
       const manifestHrefs = new Map(
-        doc.packageDocument.manifest.map((item) => [item.id, item.href]),
+        doc.packageDocument.manifest.map(
+          (item: { id: string; href: string }) => [item.id, item.href] as const,
+        ),
       );
       const pageIndex = findPageForTocEntry(
         entry,
@@ -347,9 +349,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
 }
 
 /** Extract the set of page indices that start a new chapter. */
-function getChapterStartPages(
-  chapterMap: ReadonlyMap<string, ChapterRange>,
-): Set<number> {
+function getChapterStartPages(chapterMap: ReadonlyMap<string, ChapterRange>): Set<number> {
   const starts = new Set<number>();
   for (const range of chapterMap.values()) {
     starts.add(range.startPage);

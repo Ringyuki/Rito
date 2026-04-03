@@ -1,7 +1,7 @@
 {
   "name": "rito",
   "type": "module",
-  "version": "0.1.0",
+  "version": "0.3.2.4",
   "private": true,
   "description": "A TypeScript Canvas-based EPUB rendering library",
   "keywords": [

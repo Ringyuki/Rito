@@ -22,6 +22,8 @@ export interface ElementAttributes {
   readonly style?: string;
   readonly id?: string;
   readonly href?: string;
+  readonly colspan?: number;
+  readonly rowspan?: number;
 }
 
 /** An inline element (e.g. <em>, <strong>). */
