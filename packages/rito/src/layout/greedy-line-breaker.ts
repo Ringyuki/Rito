@@ -55,12 +55,15 @@ function layoutText(
   const lineHeight = baseStyle.fontSize * baseStyle.lineHeight;
   const textAlign = baseStyle.textAlign;
   const indent = baseStyle.textIndent;
+  const preserveWs = baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap';
+  const allowWrap = baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap';
   let y = startY;
   let pos = 0;
   let isFirstLine = true;
 
   while (pos < text.length) {
-    if (!isFirstLine || indent <= 0) {
+    // Strip leading spaces unless preserving whitespace
+    if (!preserveWs && (!isFirstLine || indent <= 0)) {
       while (pos < text.length && text[pos] === ' ') pos++;
     }
     if (pos >= text.length) break;
@@ -71,18 +74,28 @@ function layoutText(
     const nlIndex = text.indexOf('\n', pos);
     const lineEnd = nlIndex >= 0 ? nlIndex : text.length;
 
-    const breakPos = findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer);
+    const breakPos = allowWrap
+      ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer)
+      : lineEnd; // pre/nowrap: don't wrap, take the whole line
 
     const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
-    const lineText = text.slice(pos, lineTextEnd).trimEnd();
+    const lineText = preserveWs ? text.slice(pos, lineTextEnd) : text.slice(pos, lineTextEnd).trimEnd();
     const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
     const width = runs.reduce((sum, r) => Math.max(sum, r.bounds.x + r.bounds.width), 0);
 
-    lines.push(applyAlign(runs, width, y, lineHeight, maxWidth, textAlign));
-    y += lineHeight;
     pos = lineTextEnd;
+    // Consume newline character(s)
+    if (preserveWs) {
+      // In pre/pre-wrap, each \n produces a separate line break
+      if (pos < text.length && text[pos] === '\n') pos++;
+    } else {
+      // In normal mode, collapse consecutive newlines
+      while (pos < text.length && text[pos] === '\n') pos++;
+    }
 
-    while (pos < text.length && text[pos] === '\n') pos++;
+    const isLastLine = pos >= text.length;
+    lines.push(applyAlign(runs, width, y, lineHeight, maxWidth, textAlign, isLastLine));
+    y += lineHeight;
     isFirstLine = false;
   }
 
@@ -179,6 +192,7 @@ function applyAlign(
   lineHeight: number,
   maxWidth: number,
   textAlign: TextAlignment,
+  isLastLine: boolean,
 ): LineBox {
   if (textAlign === 'center' && runs.length > 0) {
     const offset = (maxWidth - lineWidth) / 2;
@@ -186,6 +200,8 @@ function applyAlign(
   } else if (textAlign === 'right' && runs.length > 0) {
     const offset = maxWidth - lineWidth;
     runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
+  } else if (textAlign === 'justify' && !isLastLine && runs.length > 0) {
+    runs = justifyRuns(runs, lineWidth, maxWidth);
   }
 
   return {
@@ -193,4 +209,60 @@ function applyAlign(
     bounds: { x: 0, y, width: maxWidth, height: lineHeight },
     runs,
   };
+}
+
+/** Distribute extra space between words for justified text. */
+function justifyRuns(runs: TextRun[], lineWidth: number, maxWidth: number): TextRun[] {
+  // Count word gaps: spaces between text runs, or spaces within runs
+  const gaps: number[] = [];
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    if (!run) continue;
+    // Count spaces within this run (each space is a gap opportunity)
+    for (let j = 0; j < run.text.length; j++) {
+      if (run.text[j] === ' ') gaps.push(i);
+    }
+  }
+
+  if (gaps.length === 0) return runs;
+
+  const extraSpace = maxWidth - lineWidth;
+  const gapSize = extraSpace / gaps.length;
+
+  // Rebuild runs with adjusted x positions
+  const result: TextRun[] = [];
+  let xOffset = 0;
+  let gapIdx = 0;
+
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    if (!run) continue;
+
+    // Count how many gaps are in runs before this one
+    while (gapIdx < gaps.length && (gaps[gapIdx] ?? Infinity) < i) {
+      xOffset += gapSize;
+      gapIdx++;
+    }
+
+    // Count gaps within this run and expand
+    let intraGaps = 0;
+    for (let j = 0; j < run.text.length; j++) {
+      if (run.text[j] === ' ') intraGaps++;
+    }
+
+    result.push({
+      ...run,
+      bounds: {
+        ...run.bounds,
+        x: run.bounds.x + xOffset,
+        width: run.bounds.width + intraGaps * gapSize,
+      },
+    });
+
+    // Advance offset for gaps within this run
+    xOffset += intraGaps * gapSize;
+    gapIdx += intraGaps;
+  }
+
+  return result;
 }

@@ -9,6 +9,7 @@ import type {
   TextAlignment,
   TextDecoration,
   TextTransform,
+  WhiteSpace,
 } from './types';
 import {
   DISPLAY_VALUES,
@@ -19,6 +20,7 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
   TEXT_TRANSFORMS,
+  WHITE_SPACES,
 } from './types';
 
 /**
@@ -103,6 +105,16 @@ function applyProperty(
     case 'margin-bottom': {
       const mb = parseLength(value, parentFontSize);
       if (mb !== undefined) result['marginBottom'] = mb;
+      break;
+    }
+    case 'margin-left': {
+      const ml = parseLength(value, parentFontSize);
+      if (ml !== undefined) result['marginLeft'] = ml;
+      break;
+    }
+    case 'margin-right': {
+      const mr = parseLength(value, parentFontSize);
+      if (mr !== undefined) result['marginRight'] = mr;
       break;
     }
     case 'margin': {
@@ -190,6 +202,11 @@ function applyProperty(
       if (tt !== undefined) result['textTransform'] = tt;
       break;
     }
+    case 'white-space': {
+      const ws = parseWhiteSpace(value);
+      if (ws !== undefined) result['whiteSpace'] = ws;
+      break;
+    }
     case 'list-style-type':
     case 'list-style': {
       const lst = parseListStyleType(value);
@@ -219,19 +236,33 @@ function applyMarginShorthand(
 ): void {
   const parts = value.trim().split(/\s+/);
   const values = parts.map((p) => parseLength(p, parentFontSize));
-  // CSS margin shorthand: 1 value = all, 2 = top/bottom + left/right, 3 = top + lr + bottom, 4 = top right bottom left
+  // CSS margin shorthand: 1=all, 2=TB+LR, 3=T+LR+B, 4=T+R+B+L
   if (parts.length === 1 && values[0] !== undefined) {
     result['marginTop'] = values[0];
+    result['marginRight'] = values[0];
     result['marginBottom'] = values[0];
-  } else if (parts.length === 2 && values[0] !== undefined) {
-    result['marginTop'] = values[0];
-    result['marginBottom'] = values[0];
+    result['marginLeft'] = values[0];
+  } else if (parts.length === 2) {
+    if (values[0] !== undefined) {
+      result['marginTop'] = values[0];
+      result['marginBottom'] = values[0];
+    }
+    if (values[1] !== undefined) {
+      result['marginRight'] = values[1];
+      result['marginLeft'] = values[1];
+    }
   } else if (parts.length === 3) {
     if (values[0] !== undefined) result['marginTop'] = values[0];
+    if (values[1] !== undefined) {
+      result['marginRight'] = values[1];
+      result['marginLeft'] = values[1];
+    }
     if (values[2] !== undefined) result['marginBottom'] = values[2];
   } else if (parts.length >= 4) {
     if (values[0] !== undefined) result['marginTop'] = values[0];
+    if (values[1] !== undefined) result['marginRight'] = values[1];
     if (values[2] !== undefined) result['marginBottom'] = values[2];
+    if (values[3] !== undefined) result['marginLeft'] = values[3];
   }
 }
 
@@ -293,6 +324,15 @@ function parseLength(value: string, parentFontSize: number): number | undefined 
   if (!isNaN(num) && /^\d/.test(trimmed)) {
     return num;
   }
+  return undefined;
+}
+
+function parseWhiteSpace(value: string): WhiteSpace | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'normal') return WHITE_SPACES.Normal;
+  if (v === 'pre') return WHITE_SPACES.Pre;
+  if (v === 'pre-wrap') return WHITE_SPACES.PreWrap;
+  if (v === 'nowrap') return WHITE_SPACES.Nowrap;
   return undefined;
 }
 

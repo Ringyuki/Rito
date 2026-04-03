@@ -8,8 +8,8 @@ import { useContainerSize } from '@/hooks/use-container-size';
 
 export function App() {
   const [containerRef, containerSize] = useContainerSize();
-  const epub = useEpub(containerSize);
   const { theme, toggle: toggleTheme } = useTheme();
+  const epub = useEpub(containerSize, theme);
   const [tocOpen, setTocOpen] = useState(false);
 
   const handleFileLoad = useCallback(

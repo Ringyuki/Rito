@@ -8,6 +8,7 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
   TEXT_TRANSFORMS,
+  WHITE_SPACES,
 } from './types';
 
 /** Default style values used when no explicit style is specified. */
@@ -22,7 +23,9 @@ export const DEFAULT_STYLE: ComputedStyle = {
   textIndent: 0,
   color: '#000000',
   marginTop: 0,
+  marginRight: 0,
   marginBottom: 0,
+  marginLeft: 0,
   display: DISPLAY_VALUES.Block,
   paddingTop: 0,
   paddingRight: 0,
@@ -31,6 +34,7 @@ export const DEFAULT_STYLE: ComputedStyle = {
   backgroundColor: '',
   letterSpacing: 0,
   textTransform: TEXT_TRANSFORMS.None,
+  whiteSpace: WHITE_SPACES.Normal,
   borderTop: { width: 0, color: '#000000', style: 'none' },
   borderRight: { width: 0, color: '#000000', style: 'none' },
   borderBottom: { width: 0, color: '#000000', style: 'none' },

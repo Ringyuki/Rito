@@ -1,18 +1,28 @@
 import type { TextRun } from '../layout/types';
 import { buildFontString } from './font-string';
+import { resolveTextColor } from '../utils/color';
 
 /**
  * Draw a single text run onto a canvas context.
  * The caller is responsible for coordinate offsets (margins, block position).
+ *
+ * @param colorOverride - If provided, `{ foregroundColor, backgroundColor }` triggers
+ *   contrast-based color replacement for theme support (e.g. dark mode).
  */
 export function drawTextRun(
   ctx: CanvasRenderingContext2D,
   run: TextRun,
   offsetX: number,
   offsetY: number,
+  colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
   ctx.font = buildFontString(run.style);
-  ctx.fillStyle = run.style.color;
+
+  const color = colorOverride
+    ? resolveTextColor(run.style.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+    : run.style.color;
+
+  ctx.fillStyle = color;
   ctx.textBaseline = 'top';
 
   const x = offsetX + run.bounds.x;
@@ -21,9 +31,9 @@ export function drawTextRun(
 
   // Draw text decoration
   if (run.style.textDecoration === 'underline') {
-    drawLine(ctx, x, y + run.style.fontSize, run.bounds.width, run.style.color);
+    drawLine(ctx, x, y + run.style.fontSize, run.bounds.width, color);
   } else if (run.style.textDecoration === 'line-through') {
-    drawLine(ctx, x, y + run.style.fontSize * 0.5, run.bounds.width, run.style.color);
+    drawLine(ctx, x, y + run.style.fontSize * 0.5, run.bounds.width, color);
   }
 }
 

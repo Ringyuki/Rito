@@ -119,7 +119,11 @@ function layoutNodesAt(
       const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
       y += collapsedMargin;
 
-      let block = layoutListItemOrTextBlock(node, contentWidth, y, layouter, listCtx);
+      const ml = node.style.marginLeft;
+      const mr = node.style.marginRight;
+      const effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
+      let block = layoutListItemOrTextBlock(node, effectiveWidth, y, layouter, listCtx);
+      if (ml > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + ml } };
       if (node.id) block = { ...block, anchorId: node.id };
       blocks.push(withPageBreaks(block, node.style));
       y += block.bounds.height;

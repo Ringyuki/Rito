@@ -40,12 +40,19 @@ export function renderPage(
   ctx.rect(0, 0, page.bounds.width, page.bounds.height);
   ctx.clip();
 
+  const colorOverride =
+    options?.foregroundColor && options.backgroundColor
+      ? { foregroundColor: options.foregroundColor, backgroundColor: options.backgroundColor }
+      : undefined;
+
   for (const block of page.content) {
-    renderBlock(ctx, block, config.marginLeft, config.marginTop, options?.images);
+    renderBlock(ctx, block, config.marginLeft, config.marginTop, options?.images, colorOverride);
   }
 
   ctx.restore();
 }
+
+type ColorOverride = { foregroundColor: string; backgroundColor: string };
 
 function renderBlock(
   ctx: CanvasRenderingContext2D,
@@ -53,6 +60,7 @@ function renderBlock(
   offsetX: number,
   offsetY: number,
   images?: ReadonlyMap<string, ImageBitmap>,
+  colorOverride?: ColorOverride,
 ): void {
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
@@ -106,13 +114,13 @@ function renderBlock(
 
   for (const child of block.children) {
     if (child.type === 'line-box') {
-      renderLineBox(ctx, child, blockX, blockY);
+      renderLineBox(ctx, child, blockX, blockY, colorOverride);
     } else if (child.type === 'image') {
       renderImage(ctx, child, blockX, blockY, images);
     } else if (child.type === 'hr') {
       renderHorizontalRule(ctx, child, blockX, blockY);
     } else {
-      renderBlock(ctx, child, blockX, blockY, images);
+      renderBlock(ctx, child, blockX, blockY, images, colorOverride);
     }
   }
 }
@@ -122,12 +130,13 @@ function renderLineBox(
   lineBox: LineBox,
   offsetX: number,
   offsetY: number,
+  colorOverride?: ColorOverride,
 ): void {
   const lineX = offsetX + lineBox.bounds.x;
   const lineY = offsetY + lineBox.bounds.y;
 
   for (const run of lineBox.runs) {
-    drawTextRun(ctx, run, lineX, lineY);
+    drawTextRun(ctx, run, lineX, lineY, colorOverride);
   }
 }
 

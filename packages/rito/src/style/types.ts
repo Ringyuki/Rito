@@ -66,6 +66,16 @@ export const TEXT_TRANSFORMS = {
 
 export type TextTransform = (typeof TEXT_TRANSFORMS)[keyof typeof TEXT_TRANSFORMS];
 
+/** Supported white-space values. */
+export const WHITE_SPACES = {
+  Normal: 'normal',
+  Pre: 'pre',
+  PreWrap: 'pre-wrap',
+  Nowrap: 'nowrap',
+} as const;
+
+export type WhiteSpace = (typeof WHITE_SPACES)[keyof typeof WHITE_SPACES];
+
 /** Supported page-break values. */
 export const PAGE_BREAKS = {
   Auto: 'auto',
@@ -86,7 +96,9 @@ export interface ComputedStyle {
   readonly textIndent: number;
   readonly color: string;
   readonly marginTop: number;
+  readonly marginRight: number;
   readonly marginBottom: number;
+  readonly marginLeft: number;
   readonly display: Display;
   readonly paddingTop: number;
   readonly paddingRight: number;
@@ -95,6 +107,7 @@ export interface ComputedStyle {
   readonly backgroundColor: string;
   readonly letterSpacing: number;
   readonly textTransform: TextTransform;
+  readonly whiteSpace: WhiteSpace;
   readonly borderTop: BorderSide;
   readonly borderRight: BorderSide;
   readonly borderBottom: BorderSide;

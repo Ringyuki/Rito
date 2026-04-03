@@ -28,7 +28,12 @@ const PADDING = 48;
 const SPREAD_GAP = 20;
 const MIN_SIZE = 200;
 
-export function useEpub(containerSize: ContainerSize) {
+const THEME_COLORS = {
+  light: { backgroundColor: '#ffffff', foregroundColor: undefined },
+  dark: { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' },
+} as const;
+
+export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const resourcesRef = useRef<Resources | null>(null);
   const docRef = useRef<EpubDocument | null>(null);
@@ -58,7 +63,7 @@ export function useEpub(containerSize: ContainerSize) {
   );
 
   const drawSpread = useCallback(
-    (spreads: readonly Spread[], index: number, config: LayoutConfig) => {
+    (spreads: readonly Spread[], index: number, config: LayoutConfig, t: 'light' | 'dark') => {
       const canvas = canvasRef.current;
       if (!canvas || spreads.length === 0) return;
       const ctx = canvas.getContext('2d');
@@ -73,12 +78,11 @@ export function useEpub(containerSize: ContainerSize) {
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const images = resourcesRef.current?.images;
-      render(
-        spread,
-        ctx,
-        config,
-        images ? { backgroundColor: '#ffffff', images } : { backgroundColor: '#ffffff' },
-      );
+      const colors = THEME_COLORS[t];
+      const opts: Record<string, unknown> = { backgroundColor: colors.backgroundColor };
+      if (colors.foregroundColor) opts['foregroundColor'] = colors.foregroundColor;
+      if (images) opts['images'] = images;
+      render(spread, ctx, config, opts as Parameters<typeof render>[3]);
     },
     [],
   );
@@ -107,7 +111,7 @@ export function useEpub(containerSize: ContainerSize) {
 
         // Draw after state update — use the clamped index
         const clampedIdx = Math.max(0, Math.min(state.currentSpread, newSpreads.length - 1));
-        drawSpread(newSpreads, clampedIdx, config);
+        drawSpread(newSpreads, clampedIdx, config, theme);
       } catch {
         // ignore resize errors
       }
@@ -119,6 +123,13 @@ export function useEpub(containerSize: ContainerSize) {
       cancelled = true;
     };
   }, [containerSize.width, containerSize.height, state.spreadMode, state.isLoaded]);
+
+  // Re-render (no re-pagination) when theme changes
+  useEffect(() => {
+    if (!state.isLoaded || state.spreads.length === 0) return;
+    const config = buildConfig(state.spreadMode, containerSize);
+    drawSpread(state.spreads, state.currentSpread, config, theme);
+  }, [theme]);
 
   const loadFromArrayBuffer = useCallback(
     async (data: ArrayBuffer, name: string) => {
@@ -153,7 +164,7 @@ export function useEpub(containerSize: ContainerSize) {
           toc: doc.toc,
         }));
 
-        drawSpread(spreads, 0, config);
+        drawSpread(spreads, 0, config, theme);
       } catch (err) {
         setState((s) => ({
           ...s,
@@ -162,7 +173,7 @@ export function useEpub(containerSize: ContainerSize) {
         }));
       }
     },
-    [buildConfig, drawSpread, state.spreadMode, containerSize],
+    [buildConfig, drawSpread, state.spreadMode, containerSize, theme],
   );
 
   const loadDemo = useCallback(async () => {
@@ -186,11 +197,11 @@ export function useEpub(containerSize: ContainerSize) {
       setState((s) => {
         if (index < 0 || index >= s.spreads.length) return s;
         const config = buildConfig(s.spreadMode, containerSize);
-        drawSpread(s.spreads, index, config);
+        drawSpread(s.spreads, index, config, theme);
         return { ...s, currentSpread: index };
       });
     },
-    [buildConfig, drawSpread, containerSize],
+    [buildConfig, drawSpread, containerSize, theme],
   );
 
   const nextSpread = useCallback(() => {
@@ -198,20 +209,20 @@ export function useEpub(containerSize: ContainerSize) {
       if (s.currentSpread >= s.spreads.length - 1) return s;
       const next = s.currentSpread + 1;
       const config = buildConfig(s.spreadMode, containerSize);
-      drawSpread(s.spreads, next, config);
+      drawSpread(s.spreads, next, config, theme);
       return { ...s, currentSpread: next };
     });
-  }, [buildConfig, drawSpread, containerSize]);
+  }, [buildConfig, drawSpread, containerSize, theme]);
 
   const prevSpread = useCallback(() => {
     setState((s) => {
       if (s.currentSpread <= 0) return s;
       const prev = s.currentSpread - 1;
       const config = buildConfig(s.spreadMode, containerSize);
-      drawSpread(s.spreads, prev, config);
+      drawSpread(s.spreads, prev, config, theme);
       return { ...s, currentSpread: prev };
     });
-  }, [buildConfig, drawSpread, containerSize]);
+  }, [buildConfig, drawSpread, containerSize, theme]);
 
   const toggleSpreadMode = useCallback(() => {
     setState((s) => ({
@@ -243,14 +254,14 @@ export function useEpub(containerSize: ContainerSize) {
           const sp = s.spreads[i];
           if (sp?.left?.index === pageIndex || sp?.right?.index === pageIndex) {
             const config = buildConfig(s.spreadMode, containerSize);
-            drawSpread(s.spreads, i, config);
+            drawSpread(s.spreads, i, config, theme);
             return { ...s, currentSpread: i };
           }
         }
         return s;
       });
     },
-    [buildConfig, drawSpread, containerSize],
+    [buildConfig, drawSpread, containerSize, theme],
   );
 
   const config = buildConfig(state.spreadMode, containerSize);
