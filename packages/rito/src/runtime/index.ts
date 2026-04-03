@@ -6,4 +6,5 @@ export {
 } from './types';
 export { loadEpub } from './load-epub';
 export { paginate, paginateWithMeta } from './paginate';
+export { PaginationSession, type ChapterPaginationResult } from './pagination-session';
 export { findPageForTocEntry } from './navigation';

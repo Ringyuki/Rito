@@ -8,6 +8,7 @@ export { render } from './render/index';
 
 // ── Advanced / lower-level ──────────────────────────────────────────
 export { paginate, paginateWithMeta } from './runtime/index';
+export { PaginationSession, type ChapterPaginationResult } from './runtime/index';
 export { findPageForTocEntry } from './runtime/index';
 export { createTextMeasurer } from './render/index';
 export { loadFonts } from './render/index';

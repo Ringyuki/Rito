@@ -1,4 +1,5 @@
 import type {
+  BorderSide,
   ComputedStyle,
   Display,
   FontStyle,
@@ -137,6 +138,36 @@ function applyProperty(
       applyPaddingShorthand(result, value, parentFontSize);
       break;
     }
+    case 'border': {
+      const b = parseBorderShorthand(value, parentFontSize);
+      if (b) {
+        result['borderTop'] = b;
+        result['borderRight'] = b;
+        result['borderBottom'] = b;
+        result['borderLeft'] = b;
+      }
+      break;
+    }
+    case 'border-top': {
+      const bt = parseBorderShorthand(value, parentFontSize);
+      if (bt) result['borderTop'] = bt;
+      break;
+    }
+    case 'border-right': {
+      const br = parseBorderShorthand(value, parentFontSize);
+      if (br) result['borderRight'] = br;
+      break;
+    }
+    case 'border-bottom': {
+      const bb = parseBorderShorthand(value, parentFontSize);
+      if (bb) result['borderBottom'] = bb;
+      break;
+    }
+    case 'border-left': {
+      const bl = parseBorderShorthand(value, parentFontSize);
+      if (bl) result['borderLeft'] = bl;
+      break;
+    }
     case 'background-color': {
       result['backgroundColor'] = value;
       break;
@@ -263,6 +294,34 @@ function parseLength(value: string, parentFontSize: number): number | undefined 
     return num;
   }
   return undefined;
+}
+
+/** Parse a CSS border shorthand (e.g. "1px solid #ccc"). */
+function parseBorderShorthand(value: string, parentFontSize: number): BorderSide | undefined {
+  const parts = value.trim().split(/\s+/);
+  if (parts.length === 0) return undefined;
+
+  let width = 1;
+  let color = '#000000';
+  let style: 'solid' | 'none' = 'solid';
+
+  for (const part of parts) {
+    if (part === 'none' || part === 'hidden') {
+      style = 'none';
+    } else if (part === 'solid' || part === 'dotted' || part === 'dashed' || part === 'double') {
+      style = 'solid'; // Simplify all visible styles to solid
+    } else {
+      const len = parseLength(part, parentFontSize);
+      if (len !== undefined) {
+        width = len;
+      } else {
+        // Assume it's a color
+        color = part;
+      }
+    }
+  }
+
+  return { width, color, style };
 }
 
 function parseFontWeight(value: string): FontWeight | undefined {

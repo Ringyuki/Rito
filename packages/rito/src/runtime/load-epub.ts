@@ -10,23 +10,13 @@ import type { EpubDocument, LoadOptions } from './types';
 /**
  * Load and parse an EPUB file from an ArrayBuffer.
  *
- * Extracts the ZIP archive, parses `container.xml` and the OPF package document,
- * and eagerly loads all chapter XHTML content from the spine.
- *
- * This function is synchronous. The caller is responsible for fetching the
- * ArrayBuffer (e.g. via `fetch()` or `FileReader`).
+ * Parses the EPUB structure (container, OPF, stylesheets, fonts, images, TOC)
+ * eagerly, but chapter XHTML is loaded lazily via {@link EpubDocument.readChapter}.
  *
  * @param data - The raw EPUB file as an ArrayBuffer.
  * @param options - Optional loading options (e.g. `maxChapters` to limit loading).
  * @returns A parsed {@link EpubDocument} ready for pagination.
  * @throws {@link EpubParseError} if the EPUB structure is invalid.
- *
- * @example
- * ```ts
- * const response = await fetch('book.epub');
- * const data = await response.arrayBuffer();
- * const doc = loadEpub(data);
- * ```
  */
 export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument {
   const reader = createZipReader(data);
@@ -40,32 +30,27 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
   const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
   const manifestById = new Map(packageDocument.manifest.map((item) => [item.id, item.href]));
 
-  const chapters = new Map<string, string>();
+  // Build the idref → full zip path lookup for lazy chapter loading
   const maxChapters = options?.maxChapters ?? Infinity;
-  let loaded = 0;
-
+  const chapterPaths = new Map<string, string>();
+  let count = 0;
   for (const spineItem of packageDocument.spine) {
-    if (loaded >= maxChapters) break;
-
+    if (count >= maxChapters) break;
     const href = manifestById.get(spineItem.idref);
     if (!href) continue;
-
-    const fullPath = opfDir + href;
-    const content = reader.readTextFile(fullPath);
-    chapters.set(spineItem.idref, content);
-    loaded++;
+    chapterPaths.set(spineItem.idref, opfDir + href);
+    count++;
   }
 
-  // Load stylesheets from manifest
+  // Load stylesheets eagerly (needed before pagination for CSS rules)
   const stylesheets = new Map<string, string>();
   for (const item of packageDocument.manifest) {
     if (item.mediaType === 'text/css') {
-      const fullPath = opfDir + item.href;
-      stylesheets.set(item.id, reader.readTextFile(fullPath));
+      stylesheets.set(item.id, reader.readTextFile(opfDir + item.href));
     }
   }
 
-  // Load font files from manifest
+  // Load font files eagerly (needed for font registration)
   const fonts = new Map<string, Uint8Array>();
   const fontMediaTypes = new Set([
     'font/ttf',
@@ -81,28 +66,40 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
   ]);
   for (const item of packageDocument.manifest) {
     if (fontMediaTypes.has(item.mediaType)) {
-      const fullPath = opfDir + item.href;
-      fonts.set(item.href, reader.readFile(fullPath));
+      fonts.set(item.href, reader.readFile(opfDir + item.href));
     }
   }
 
-  // Load image files from manifest
+  // Load image files eagerly (needed for image sizing during layout)
   const images = new Map<string, Uint8Array>();
   for (const item of packageDocument.manifest) {
     if (item.mediaType.startsWith('image/')) {
-      const fullPath = opfDir + item.href;
-      images.set(item.href, reader.readFile(fullPath));
+      images.set(item.href, reader.readFile(opfDir + item.href));
     }
   }
 
   const toc = loadToc(reader, packageDocument, opfDir);
 
-  return { packageDocument, chapters, stylesheets, fonts, images, toc };
+  return {
+    packageDocument,
+    readChapter(idref: string): string | undefined {
+      const path = chapterPaths.get(idref);
+      if (!path) return undefined;
+      return reader.readTextFile(path);
+    },
+    stylesheets,
+    fonts,
+    images,
+    toc,
+    close(): void {
+      // No-op for now — the ZipReader holds decompressed data in memory.
+      // Future: could release the entries map here.
+    },
+  };
 }
 
 /** Attempt to load TOC from EPUB 3 nav document or EPUB 2 NCX. */
 function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): readonly TocEntry[] {
-  // EPUB 3: look for manifest item with properties containing "nav"
   const navItem = pkg.manifest.find((item) => item.properties?.includes('nav'));
   if (navItem) {
     try {
@@ -114,7 +111,6 @@ function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): reado
     }
   }
 
-  // EPUB 2: look for NCX file in manifest (media-type: application/x-dtbncx+xml)
   const ncxItem = pkg.manifest.find((item) => item.mediaType === 'application/x-dtbncx+xml');
   if (ncxItem) {
     try {

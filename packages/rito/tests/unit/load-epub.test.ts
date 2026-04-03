@@ -12,7 +12,7 @@ describe('loadEpub', () => {
     expect(doc.packageDocument.metadata.creator).toBe('Author');
   });
 
-  it('loads chapter content into the chapters map', () => {
+  it('reads chapter content lazily via readChapter', () => {
     const data = buildMinimalEpub({
       chapters: [
         { id: 'ch1', href: 'ch1.xhtml', content: '<html><body><p>One</p></body></html>' },
@@ -21,9 +21,9 @@ describe('loadEpub', () => {
     });
     const doc = loadEpub(data);
 
-    expect(doc.chapters.size).toBe(2);
-    expect(doc.chapters.get('ch1')).toContain('<p>One</p>');
-    expect(doc.chapters.get('ch2')).toContain('<p>Two</p>');
+    expect(doc.readChapter('ch1')).toContain('<p>One</p>');
+    expect(doc.readChapter('ch2')).toContain('<p>Two</p>');
+    expect(doc.readChapter('nonexistent')).toBeUndefined();
   });
 
   it('respects maxChapters option', () => {
@@ -36,10 +36,9 @@ describe('loadEpub', () => {
     });
     const doc = loadEpub(data, { maxChapters: 2 });
 
-    expect(doc.chapters.size).toBe(2);
-    expect(doc.chapters.has('ch1')).toBe(true);
-    expect(doc.chapters.has('ch2')).toBe(true);
-    expect(doc.chapters.has('ch3')).toBe(false);
+    expect(doc.readChapter('ch1')).toBeDefined();
+    expect(doc.readChapter('ch2')).toBeDefined();
+    expect(doc.readChapter('ch3')).toBeUndefined();
   });
 
   it('loads stylesheets from manifest', () => {
@@ -85,5 +84,13 @@ describe('loadEpub', () => {
     expect(doc.packageDocument.spine).toHaveLength(1);
     expect(doc.packageDocument.spine[0]?.idref).toBe('ch1');
     expect(doc.packageDocument.manifest).toHaveLength(1);
+  });
+
+  it('provides a close method', () => {
+    const data = buildMinimalEpub();
+    const doc = loadEpub(data);
+    expect(() => {
+      doc.close();
+    }).not.toThrow();
   });
 });

@@ -18,6 +18,15 @@ export function render(
 ): void {
   const pixelRatio = options?.pixelRatio ?? 1;
 
+  // Fill the entire viewport (including spread gap) with background color
+  if (options?.backgroundColor) {
+    ctx.save();
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.fillStyle = options.backgroundColor;
+    ctx.fillRect(0, 0, config.viewportWidth, config.viewportHeight);
+    ctx.restore();
+  }
+
   if (spread.left) {
     ctx.save();
     ctx.translate(0, 0);

@@ -62,6 +62,48 @@ function renderBlock(
     ctx.fillRect(blockX, blockY, block.bounds.width, block.bounds.height);
   }
 
+  if (block.borders) {
+    const { top, right, bottom, left } = block.borders;
+    const bx = blockX;
+    const by = blockY;
+    const bw = block.bounds.width;
+    const bh = block.bounds.height;
+    ctx.save();
+    if (top.width > 0) {
+      ctx.strokeStyle = top.color;
+      ctx.lineWidth = top.width;
+      ctx.beginPath();
+      ctx.moveTo(bx, by + top.width / 2);
+      ctx.lineTo(bx + bw, by + top.width / 2);
+      ctx.stroke();
+    }
+    if (bottom.width > 0) {
+      ctx.strokeStyle = bottom.color;
+      ctx.lineWidth = bottom.width;
+      ctx.beginPath();
+      ctx.moveTo(bx, by + bh - bottom.width / 2);
+      ctx.lineTo(bx + bw, by + bh - bottom.width / 2);
+      ctx.stroke();
+    }
+    if (left.width > 0) {
+      ctx.strokeStyle = left.color;
+      ctx.lineWidth = left.width;
+      ctx.beginPath();
+      ctx.moveTo(bx + left.width / 2, by);
+      ctx.lineTo(bx + left.width / 2, by + bh);
+      ctx.stroke();
+    }
+    if (right.width > 0) {
+      ctx.strokeStyle = right.color;
+      ctx.lineWidth = right.width;
+      ctx.beginPath();
+      ctx.moveTo(bx + bw - right.width / 2, by);
+      ctx.lineTo(bx + bw - right.width / 2, by + bh);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   for (const child of block.children) {
     if (child.type === 'line-box') {
       renderLineBox(ctx, child, blockX, blockY);

@@ -42,8 +42,17 @@ export interface LayoutBlock {
   readonly children: readonly (LineBox | LayoutBlock | ImageElement | HorizontalRule)[];
   readonly anchorId?: string;
   readonly backgroundColor?: string;
+  readonly borders?: BlockBorders;
   readonly pageBreakBefore?: boolean;
   readonly pageBreakAfter?: boolean;
+}
+
+/** Border widths and colors for a layout block. */
+export interface BlockBorders {
+  readonly top: { readonly width: number; readonly color: string };
+  readonly right: { readonly width: number; readonly color: string };
+  readonly bottom: { readonly width: number; readonly color: string };
+  readonly left: { readonly width: number; readonly color: string };
 }
 
 /**

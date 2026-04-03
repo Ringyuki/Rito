@@ -1,9 +1,10 @@
 import type { ComputedStyle, ListStyleType, StyledNode } from '../style/types';
 import { LIST_STYLE_TYPES, PAGE_BREAKS } from '../style/types';
-import type { HorizontalRule, ImageElement, LayoutBlock, LineBox } from './types';
+import type { BlockBorders, HorizontalRule, ImageElement, LayoutBlock, LineBox } from './types';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import { flattenInlineContent } from './styled-segment';
 import { createMarkerRun } from './list-marker';
+import { layoutTable } from './table-layout';
 
 /** Default image height when intrinsic dimensions are unknown. */
 const DEFAULT_IMAGE_ASPECT = 0.75;
@@ -64,6 +65,17 @@ function layoutNodesAt(
       const hrBlock = layoutHorizontalRule(contentWidth, y, node.style.color);
       blocks.push(hrBlock);
       y += hrBlock.bounds.height;
+      prevMarginBottom = node.style.marginBottom;
+      continue;
+    }
+
+    if (node.tag === 'table') {
+      const collapsedMargin = Math.max(prevMarginBottom, node.style.marginTop);
+      y += collapsedMargin;
+      let block = layoutTable(node, contentWidth, y, layouter);
+      if (node.id) block = { ...block, anchorId: node.id };
+      blocks.push(withPageBreaks(block, node.style));
+      y += block.bounds.height;
       prevMarginBottom = node.style.marginBottom;
       continue;
     }
@@ -180,15 +192,36 @@ function layoutTextBlock(
         }))
       : lineBoxes;
 
-  const block: LayoutBlock = {
+  let block: LayoutBlock = {
     type: 'layout-block',
     bounds: { x: 0, y, width: contentWidth, height },
     children,
   };
   if (backgroundColor) {
-    return { ...block, backgroundColor };
+    block = { ...block, backgroundColor };
+  }
+  const borders = extractBorders(node.style);
+  if (borders) {
+    block = { ...block, borders };
   }
   return block;
+}
+
+/** Extract border info from style, or return undefined if no visible borders. */
+function extractBorders(style: ComputedStyle): BlockBorders | undefined {
+  const { borderTop, borderRight, borderBottom, borderLeft } = style;
+  const hasAny =
+    (borderTop.style === 'solid' && borderTop.width > 0) ||
+    (borderRight.style === 'solid' && borderRight.width > 0) ||
+    (borderBottom.style === 'solid' && borderBottom.width > 0) ||
+    (borderLeft.style === 'solid' && borderLeft.width > 0);
+  if (!hasAny) return undefined;
+  return {
+    top: { width: borderTop.width, color: borderTop.color },
+    right: { width: borderRight.width, color: borderRight.color },
+    bottom: { width: borderBottom.width, color: borderBottom.color },
+    left: { width: borderLeft.width, color: borderLeft.color },
+  };
 }
 
 function computeChildrenHeight(lineBoxes: readonly LineBox[]): number {

@@ -95,9 +95,20 @@ export interface ComputedStyle {
   readonly backgroundColor: string;
   readonly letterSpacing: number;
   readonly textTransform: TextTransform;
+  readonly borderTop: BorderSide;
+  readonly borderRight: BorderSide;
+  readonly borderBottom: BorderSide;
+  readonly borderLeft: BorderSide;
   readonly listStyleType: ListStyleType;
   readonly pageBreakBefore: PageBreak;
   readonly pageBreakAfter: PageBreak;
+}
+
+/** A single border edge. */
+export interface BorderSide {
+  readonly width: number;
+  readonly color: string;
+  readonly style: 'solid' | 'none';
 }
 
 /** A single CSS rule: a selector paired with declarations. */

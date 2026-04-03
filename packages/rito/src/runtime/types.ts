@@ -4,14 +4,14 @@ import type { PackageDocument, TocEntry } from '../parser/epub/types';
 /**
  * A loaded EPUB document ready for pagination.
  *
- * Contains the parsed package metadata (title, author, manifest, spine)
- * and all chapter XHTML content eagerly loaded into memory.
+ * Chapters are loaded lazily — call {@link readChapter} to retrieve
+ * XHTML content for a spine item on demand.
  */
 export interface EpubDocument {
   /** The parsed OPF package document (metadata, manifest, spine). */
   readonly packageDocument: PackageDocument;
-  /** Map from spine item idref to XHTML chapter content string. */
-  readonly chapters: ReadonlyMap<string, string>;
+  /** Read a chapter's XHTML content by spine item idref. Returns undefined if not found. */
+  readChapter(idref: string): string | undefined;
   /** Map from manifest item id to raw CSS stylesheet content. */
   readonly stylesheets: ReadonlyMap<string, string>;
   /** Map from relative href to font binary data. */
@@ -20,6 +20,8 @@ export interface EpubDocument {
   readonly images: ReadonlyMap<string, Uint8Array>;
   /** Parsed table of contents, if available. */
   readonly toc: readonly TocEntry[];
+  /** Release the underlying ZIP archive resources. */
+  close(): void;
 }
 
 /** Page range for a single chapter/spine item. */

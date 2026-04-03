@@ -8,7 +8,6 @@
     "declaration": false,
     "declarationMap": false,
     "sourceMap": false,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
