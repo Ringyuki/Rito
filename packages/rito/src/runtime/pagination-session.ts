@@ -11,6 +11,7 @@ import { parseCssRules } from '../style/css-rule-parser';
 import { DEFAULT_STYLE } from '../style/defaults';
 import type { ComputedStyle, CssRule } from '../style/types';
 import type { ChapterRange, EpubDocument, PaginationResult } from './types';
+import { buildHrefResolver } from '../utils/resolve-href';
 
 /** Result of paginating a single chapter. */
 export interface ChapterPaginationResult {
@@ -138,22 +139,11 @@ function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {
 }
 
 function createImageSizeMap(images: ReadonlyMap<string, ImageBitmap>): ImageSizeMap {
+  const resolve = buildHrefResolver(images);
   return {
     getSize(src: string) {
-      for (const [href, bitmap] of images) {
-        if (src.endsWith(href) || href.endsWith(src)) {
-          return { width: bitmap.width, height: bitmap.height };
-        }
-      }
-      const srcName = src.split('/').pop();
-      if (srcName) {
-        for (const [href, bitmap] of images) {
-          if (href.split('/').pop() === srcName) {
-            return { width: bitmap.width, height: bitmap.height };
-          }
-        }
-      }
-      return undefined;
+      const bitmap = resolve(src);
+      return bitmap ? { width: bitmap.width, height: bitmap.height } : undefined;
     },
   };
 }

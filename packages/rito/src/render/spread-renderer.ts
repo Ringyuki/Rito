@@ -34,7 +34,7 @@ export function render(
   }
 
   if (config.spreadMode === 'double' && spread.right) {
-    const offsetX = (config.pageWidth + config.spreadGap) * pixelRatio;
+    const offsetX = Math.round((config.pageWidth + config.spreadGap) * pixelRatio);
     ctx.save();
     ctx.translate(offsetX, 0);
     renderPage(spread.right, ctx, config, options);
@@ -51,7 +51,7 @@ export function getSpreadDimensions(
   pixelRatio = 1,
 ): { width: number; height: number } {
   return {
-    width: config.viewportWidth * pixelRatio,
-    height: config.viewportHeight * pixelRatio,
+    width: Math.round(config.viewportWidth * pixelRatio),
+    height: Math.round(config.viewportHeight * pixelRatio),
   };
 }

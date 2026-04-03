@@ -16,10 +16,14 @@ export async function loadImages(doc: EpubDocument): Promise<ReadonlyMap<string,
   const entries = Array.from(doc.images.entries());
 
   const promises = entries.map(async ([href, data]) => {
-    const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
-    const blob = new Blob([buffer as ArrayBuffer]);
-    const bitmap = await createImageBitmap(blob);
-    result.set(href, bitmap);
+    try {
+      const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+      const blob = new Blob([buffer as ArrayBuffer]);
+      const bitmap = await createImageBitmap(blob);
+      result.set(href, bitmap);
+    } catch {
+      console.warn(`Failed to decode image: ${href}`);
+    }
   });
 
   await Promise.all(promises);

@@ -5,14 +5,16 @@ export interface ZipReader {
   readFile(path: string): Uint8Array;
   readTextFile(path: string): string;
   listFiles(): string[];
+  close(): void;
 }
 
 export function createZipReader(data: ArrayBuffer): ZipReader {
-  const entries = unzipSync(new Uint8Array(data));
+  let entries: Record<string, Uint8Array> | null = unzipSync(new Uint8Array(data));
   const paths = Object.keys(entries);
 
   return {
     readFile(path: string): Uint8Array {
+      if (!entries) throw new EpubParseError('ZipReader has been closed');
       const entry = entries[path];
       if (!entry) {
         throw new EpubParseError(`File not found in EPUB archive: ${path}`);
@@ -27,6 +29,10 @@ export function createZipReader(data: ArrayBuffer): ZipReader {
 
     listFiles(): string[] {
       return paths;
+    },
+
+    close(): void {
+      entries = null;
     },
   };
 }

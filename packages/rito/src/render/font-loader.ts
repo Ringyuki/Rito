@@ -1,6 +1,7 @@
 import type { EpubDocument } from '../runtime/types';
 import type { FontFaceRule } from '../style/types';
 import { parseFontFaceRules } from '../style/css-rule-parser';
+import { buildHrefResolver } from '../utils/resolve-href';
 
 /**
  * Register EPUB-embedded fonts via the FontFace API.
@@ -19,10 +20,11 @@ export async function loadFonts(doc: EpubDocument): Promise<void> {
   const fontFaceRules = collectFontFaceRules(doc);
   if (fontFaceRules.length === 0) return;
 
+  const resolve = buildHrefResolver(doc.fonts);
   const promises: Promise<void>[] = [];
 
   for (const rule of fontFaceRules) {
-    const fontData = resolveFontData(rule, doc);
+    const fontData = resolveFontData(rule, resolve);
     if (!fontData) continue;
 
     const descriptors: FontFaceDescriptors = {};
@@ -52,25 +54,9 @@ function collectFontFaceRules(doc: EpubDocument): FontFaceRule[] {
   return rules;
 }
 
-/**
- * Resolve a @font-face src URL to font binary data from the EPUB.
- *
- * The src is relative to the CSS file's location within the EPUB.
- * Since we store fonts by their manifest href (relative to the OPF directory),
- * we need to normalize the path.
- */
-function resolveFontData(rule: FontFaceRule, doc: EpubDocument): Uint8Array | undefined {
-  // Try direct match first (fonts keyed by href relative to OPF dir)
-  for (const [href, data] of doc.fonts) {
-    if (rule.src.endsWith(href) || href.endsWith(rule.src)) {
-      return data;
-    }
-    // Match by filename
-    const ruleName = rule.src.split('/').pop();
-    const hrefName = href.split('/').pop();
-    if (ruleName && hrefName && ruleName === hrefName) {
-      return data;
-    }
-  }
-  return undefined;
+function resolveFontData(
+  rule: FontFaceRule,
+  resolve: (src: string) => Uint8Array | undefined,
+): Uint8Array | undefined {
+  return resolve(rule.src);
 }

@@ -35,7 +35,10 @@ export async function prepare(
   config: LayoutConfig,
   canvas: HTMLCanvasElement | OffscreenCanvas,
 ): Promise<Resources> {
-  const [, images] = await Promise.all([loadFonts(doc), loadImages(doc)]);
+  const [fontResult, imageResult] = await Promise.allSettled([loadFonts(doc), loadImages(doc)]);
+  if (fontResult.status === 'rejected') console.warn('Font loading failed:', fontResult.reason);
+  const images =
+    imageResult.status === 'fulfilled' ? imageResult.value : new Map<string, ImageBitmap>();
 
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context from canvas');

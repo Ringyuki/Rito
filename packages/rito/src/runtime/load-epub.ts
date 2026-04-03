@@ -58,8 +58,7 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     images,
     toc,
     close(): void {
-      // No-op for now — the ZipReader holds decompressed data in memory.
-      // Future: could release the entries map here.
+      reader.close();
     },
   };
 }
@@ -111,8 +110,8 @@ function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): reado
       const navXhtml = reader.readTextFile(opfDir + navItem.href);
       const entries = parseNavDocument(navXhtml);
       if (entries.length > 0) return entries;
-    } catch {
-      // Fall through to NCX
+    } catch (e) {
+      console.warn('Failed to parse NAV document, falling back to NCX:', e);
     }
   }
 
@@ -121,8 +120,8 @@ function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): reado
     try {
       const ncxXml = reader.readTextFile(opfDir + ncxItem.href);
       return parseNcx(ncxXml);
-    } catch {
-      // No TOC available
+    } catch (e) {
+      console.warn('Failed to parse NCX document:', e);
     }
   }
 

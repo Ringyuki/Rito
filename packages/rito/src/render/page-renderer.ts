@@ -8,6 +8,7 @@ import type {
 } from '../layout/types';
 import type { RenderOptions } from './types';
 import { drawTextRun } from './text-renderer';
+import { buildHrefResolver } from '../utils/resolve-href';
 
 /**
  * Render a page onto a CanvasRenderingContext2D.
@@ -117,9 +118,11 @@ function strokeBorder(
   ctx.strokeStyle = edge.color;
   ctx.lineWidth = edge.width;
   ctx.setLineDash(getDashPattern(edge.style, edge.width));
+  // Snap to pixel grid for crisp lines (half-pixel offset for odd-width strokes)
+  const snap = edge.width % 2 === 1 ? 0.5 : 0;
   ctx.beginPath();
-  ctx.moveTo(x1, y1);
-  ctx.lineTo(x2, y2);
+  ctx.moveTo(Math.round(x1) + snap, Math.round(y1) + snap);
+  ctx.lineTo(Math.round(x2) + snap, Math.round(y2) + snap);
   ctx.stroke();
 }
 
@@ -169,31 +172,29 @@ function renderHorizontalRule(
   offsetY: number,
 ): void {
   const x = offsetX + hr.bounds.x;
-  const y = offsetY + hr.bounds.y + hr.bounds.height / 2;
+  const rawY = offsetY + hr.bounds.y + hr.bounds.height / 2;
+  const snap = hr.bounds.height % 2 === 1 ? 0.5 : 0;
+  const y = Math.round(rawY) + snap;
   ctx.save();
   ctx.strokeStyle = hr.color;
   ctx.lineWidth = hr.bounds.height;
   ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + hr.bounds.width, y);
+  ctx.moveTo(Math.round(x), y);
+  ctx.lineTo(Math.round(x + hr.bounds.width), y);
   ctx.stroke();
   ctx.restore();
 }
+
+let cachedResolver: ((src: string) => ImageBitmap | undefined) | undefined;
+let cachedImages: ReadonlyMap<string, ImageBitmap> | undefined;
 
 function resolveImageBitmap(
   src: string,
   images: ReadonlyMap<string, ImageBitmap>,
 ): ImageBitmap | undefined {
-  // Direct match
-  for (const [href, bitmap] of images) {
-    if (src.endsWith(href) || href.endsWith(src)) return bitmap;
+  if (images !== cachedImages) {
+    cachedResolver = buildHrefResolver(images);
+    cachedImages = images;
   }
-  // Filename match
-  const srcName = src.split('/').pop();
-  if (srcName) {
-    for (const [href, bitmap] of images) {
-      if (href.split('/').pop() === srcName) return bitmap;
-    }
-  }
-  return undefined;
+  return cachedResolver?.(src);
 }

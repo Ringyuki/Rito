@@ -50,8 +50,8 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
 
   const getViewportSize = useCallback(
     (scale: number) => ({
-      width: Math.max((containerSize.width - PADDING) / scale, MIN_SIZE),
-      height: Math.max((containerSize.height - PADDING) / scale, MIN_SIZE),
+      width: Math.round(Math.max((containerSize.width - PADDING) / scale, MIN_SIZE)),
+      height: Math.round(Math.max((containerSize.height - PADDING) / scale, MIN_SIZE)),
     }),
     [containerSize],
   );

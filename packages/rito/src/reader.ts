@@ -140,6 +140,12 @@ function renderSpreadToCanvas(
   index: number,
   pixelRatio: number,
 ): void {
+  if (index < 0 || index >= state.spreads.length) {
+    console.warn(
+      `renderSpread: index ${String(index)} out of range [0, ${String(state.spreads.length)})`,
+    );
+    return;
+  }
   const spread = state.spreads[index];
   if (!spread) return;
   const dims = getSpreadDimensions(state.config, pixelRatio);

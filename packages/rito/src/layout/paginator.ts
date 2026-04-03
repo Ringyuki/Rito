@@ -14,6 +14,11 @@ export function paginateBlocks(
   config: LayoutConfig,
 ): readonly Page[] {
   const contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
+  if (contentHeight <= 0) {
+    throw new Error(
+      `Invalid layout config: contentHeight is ${String(contentHeight)} (must be > 0)`,
+    );
+  }
   const state = createPaginationState(config);
 
   for (let i = 0; i < blocks.length; i++) {
