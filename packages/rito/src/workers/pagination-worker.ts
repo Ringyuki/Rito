@@ -1,6 +1,7 @@
 import type { Page } from '../layout/types';
 import type { ImageSizeMap } from '../layout/block-layout';
 import { createGreedyLayouter } from '../layout/greedy-line-breaker';
+import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
 import { layoutBlocks } from '../layout/block-layout';
 import { paginateBlocks } from '../layout/paginator';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
@@ -18,7 +19,10 @@ export function handlePaginate(req: PaginateRequest): WorkerResponse {
   if (!ctx) return { type: 'error', message: 'Failed to get OffscreenCanvas 2d context' };
 
   const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
-  const layouter = createGreedyLayouter(measurer);
+  const layouter =
+    req.lineBreaking === 'optimal'
+      ? createKnuthPlassLayouter(measurer)
+      : createGreedyLayouter(measurer);
 
   const rules = buildRules(req.stylesheets);
   const bodyStyle = computeBodyStyle(rules);

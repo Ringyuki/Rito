@@ -16,8 +16,9 @@ export function paginate(
   config: LayoutConfig,
   measurer: TextMeasurer,
   images?: ReadonlyMap<string, ImageBitmap>,
+  lineBreaking?: 'greedy' | 'optimal',
 ): readonly Page[] {
-  return paginateWithMeta(document, config, measurer, images).pages;
+  return paginateWithMeta(document, config, measurer, images, lineBreaking).pages;
 }
 
 /**
@@ -28,7 +29,8 @@ export function paginateWithMeta(
   config: LayoutConfig,
   measurer: TextMeasurer,
   images?: ReadonlyMap<string, ImageBitmap>,
+  lineBreaking?: 'greedy' | 'optimal',
 ): PaginationResult {
-  const session = new PaginationSession(document, config, measurer, images);
+  const session = new PaginationSession(document, config, measurer, images, lineBreaking);
   return session.paginateAll();
 }

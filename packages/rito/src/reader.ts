@@ -13,6 +13,7 @@ import {
   type Resources,
 } from './render/resources';
 import { findPageForTocEntry } from './runtime/navigation';
+import { paginateInWorker } from './workers/worker-paginator';
 
 /** Options for creating a Reader. */
 export interface ReaderOptions {
@@ -32,6 +33,10 @@ export interface ReaderOptions {
   readonly foregroundColor?: string;
   /** Device pixel ratio for HiDPI rendering. Defaults to `window.devicePixelRatio` (or 1 in non-browser environments). */
   readonly devicePixelRatio?: number;
+  /** Line-breaking algorithm. 'greedy' is fast, 'optimal' uses Knuth-Plass for more even line lengths. Defaults to 'greedy'. */
+  readonly lineBreaking?: 'greedy' | 'optimal';
+  /** Run pagination in a Web Worker to avoid blocking the main thread. Defaults to false. */
+  readonly useWorker?: boolean;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */
@@ -124,7 +129,9 @@ async function initReaderState(
     options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
   const config = makeLayoutConfig(options, spreadMode);
   const assets = await loadAssets(doc, canvas);
-  const paginationResult = paginateWithAssets(doc, config, assets);
+  const paginationResult = options.useWorker
+    ? await paginateViaWorker(doc, config, assets, options.lineBreaking)
+    : paginateWithAssets(doc, config, assets, options.lineBreaking);
   const resources: Resources = { ...paginationResult, images: assets.images };
   const chapterStarts = getChapterStartPages(resources.chapterMap);
   return {
@@ -137,6 +144,21 @@ async function initReaderState(
     resources,
     spreads: buildSpreads(resources.pages, config, chapterStarts),
   };
+}
+
+async function paginateViaWorker(
+  doc: ReturnType<typeof loadEpub>,
+  config: LayoutConfig,
+  assets: LoadedAssets,
+  lineBreaking?: 'greedy' | 'optimal',
+): Promise<Omit<Resources, 'images'>> {
+  const workerUrl = new URL('./worker', import.meta.url);
+  const worker = new Worker(workerUrl, { type: 'module' });
+  try {
+    return await paginateInWorker(worker, doc, config, assets, lineBreaking);
+  } finally {
+    worker.terminate();
+  }
 }
 
 function makeLayoutConfig(options: ReaderOptions, spreadMode: 'single' | 'double'): LayoutConfig {
@@ -196,7 +218,12 @@ function repaginate(
   if (layoutConfigEqual(state.config, newConfig)) return false;
   state.config = newConfig;
   state.assets.measurer.clearCache();
-  const paginationResult = paginateWithAssets(doc, state.config, state.assets);
+  const paginationResult = paginateWithAssets(
+    doc,
+    state.config,
+    state.assets,
+    options.lineBreaking,
+  );
   state.resources = { ...paginationResult, images: state.assets.images };
   state.spreads = buildSpreads(
     state.resources.pages,

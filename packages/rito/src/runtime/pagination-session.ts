@@ -3,6 +3,7 @@ import type { TextMeasurer } from '../layout/text-measurer';
 import type { ParagraphLayouter } from '../layout/paragraph-layouter';
 import type { ImageSizeMap } from '../layout/block-layout';
 import { createGreedyLayouter } from '../layout/greedy-line-breaker';
+import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
 import { layoutBlocks } from '../layout/block-layout';
 import { paginateBlocks } from '../layout/paginator';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
@@ -43,12 +44,16 @@ export class PaginationSession {
     config: LayoutConfig,
     measurer: TextMeasurer,
     images?: ReadonlyMap<string, ImageBitmap>,
+    lineBreaking?: 'greedy' | 'optimal',
   ) {
     this.doc = doc;
     this.config = config;
     this.contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
     this.contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
-    this.layouter = createGreedyLayouter(measurer);
+    this.layouter =
+      lineBreaking === 'optimal'
+        ? createKnuthPlassLayouter(measurer)
+        : createGreedyLayouter(measurer);
 
     const rules: CssRule[] = [];
     for (const css of doc.stylesheets.values()) {

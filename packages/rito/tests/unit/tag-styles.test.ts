@@ -54,6 +54,22 @@ describe('getTagStyle', () => {
     expect(style?.marginBottom).toBe(16);
   });
 
+  it('returns marginLeft 40 for <dd>', () => {
+    const style = getTagStyle('dd');
+    expect(style?.marginLeft).toBe(40);
+  });
+
+  it('returns bold for <dt>', () => {
+    const style = getTagStyle('dt');
+    expect(style?.fontWeight).toBe(700);
+  });
+
+  it('returns margins for <dl>', () => {
+    const style = getTagStyle('dl');
+    expect(style?.marginTop).toBe(16);
+    expect(style?.marginBottom).toBe(16);
+  });
+
   it('returns undefined for unknown tags', () => {
     expect(getTagStyle('span')).toBeUndefined();
     expect(getTagStyle('a')).toBeUndefined();

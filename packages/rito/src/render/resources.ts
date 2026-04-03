@@ -45,12 +45,14 @@ export function paginateWithAssets(
   doc: EpubDocument,
   config: LayoutConfig,
   assets: LoadedAssets,
+  lineBreaking?: 'greedy' | 'optimal',
 ): Omit<Resources, 'images'> {
   const { pages, chapterMap, anchorMap } = paginateWithMeta(
     doc,
     config,
     assets.measurer,
     assets.images,
+    lineBreaking,
   );
   return { pages, chapterMap, anchorMap };
 }

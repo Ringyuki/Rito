@@ -15,6 +15,7 @@ export function paginateInWorker(
   doc: EpubDocument,
   config: LayoutConfig,
   assets: LoadedAssets,
+  lineBreaking?: 'greedy' | 'optimal',
 ): Promise<PaginationResult> {
   return new Promise((resolve, reject) => {
     const chapters = preReadChapters(doc);
@@ -28,6 +29,7 @@ export function paginateInWorker(
       imageSizes,
       spine: doc.packageDocument.spine,
       packageDocument: doc.packageDocument,
+      ...(lineBreaking ? { lineBreaking } : {}),
     };
 
     worker.onmessage = (e: MessageEvent) => {

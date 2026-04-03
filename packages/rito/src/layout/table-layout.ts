@@ -3,11 +3,12 @@ import type { LayoutBlock, LineBox } from './types';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import { flattenInlineContent } from './styled-segment';
 import { layoutBlocks } from './block-layout';
+import { computeColumnWidths } from './table-column-widths';
 
 const CELL_PADDING = 4;
 
 /**
- * Layout a <table> StyledNode as a grid of equal-width columns.
+ * Layout a <table> StyledNode with content-based auto column widths.
  *
  * Supports colspan and rowspan attributes on cells.
  */
@@ -23,11 +24,12 @@ export function layoutTable(
     return emptyBlock(contentWidth, y);
   }
 
-  const colWidth = contentWidth / colCount;
   const occupied: boolean[][] = rows.map(() =>
     Array.from<boolean>({ length: colCount }).fill(false),
   );
   applyRowspanOccupancy(rows, occupied, colCount);
+
+  const colWidths = computeColumnWidths(rows, colCount, contentWidth, layouter, occupied);
 
   const rowBlocks: LayoutBlock[] = [];
   let currentY = 0;
@@ -35,10 +37,10 @@ export function layoutTable(
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     if (!row) continue;
-    const { block, height } = layoutRow(
+    const { block, height } = layoutRowWithWidths(
       row,
       colCount,
-      colWidth,
+      colWidths,
       currentY,
       layouter,
       occupied[r] ?? [],
@@ -90,7 +92,6 @@ function applyRowspanOccupancy(
     let col = 0;
     let childIdx = 0;
     while (col < colCount && childIdx < cells.length) {
-      // Skip already occupied positions
       while (col < colCount && occupied[r]?.[col]) col++;
       if (col >= colCount) break;
 
@@ -101,7 +102,6 @@ function applyRowspanOccupancy(
       const cs = cell.colspan ?? 1;
       const rs = cell.rowspan ?? 1;
 
-      // Mark subsequent rows as occupied for rowspan > 1
       if (rs > 1) {
         for (let dr = 1; dr < rs && r + dr < rows.length; dr++) {
           for (let dc = 0; dc < cs; dc++) {
@@ -136,24 +136,43 @@ function collectRows(table: StyledNode): StyledNode[] {
   return rows;
 }
 
-/** Layout a single table row. */
-function layoutRow(
+// ---------------------------------------------------------------------------
+// Row layout (using per-column widths)
+// ---------------------------------------------------------------------------
+
+/** Compute the x-offset for column `col` given variable-width columns. */
+function columnX(colWidths: readonly number[], col: number): number {
+  let x = 0;
+  for (let i = 0; i < col; i++) x += colWidths[i] ?? 0;
+  return x;
+}
+
+/** Sum widths from `col` over `span` columns. */
+function spanWidth(colWidths: readonly number[], col: number, span: number): number {
+  let w = 0;
+  for (let i = col; i < col + span; i++) w += colWidths[i] ?? 0;
+  return w;
+}
+
+/** Layout a single table row with variable column widths. */
+function layoutRowWithWidths(
   row: StyledNode,
   colCount: number,
-  colWidth: number,
+  colWidths: readonly number[],
   y: number,
   layouter: ParagraphLayouter,
   rowOccupied: readonly boolean[],
 ): { block: LayoutBlock; height: number } {
   const cells = row.children.filter(isCellNode);
-  const { cellBlocks, maxCellHeight } = layoutRowCells(
+  const { cellBlocks, maxCellHeight } = layoutRowCellsWithWidths(
     cells,
     colCount,
-    colWidth,
+    colWidths,
     layouter,
     rowOccupied,
   );
 
+  const totalWidth = colWidths.reduce((a, b) => a + b, 0);
   const normalizedCells = cellBlocks.map((c) => ({
     ...c,
     bounds: { ...c.bounds, height: maxCellHeight },
@@ -162,17 +181,17 @@ function layoutRow(
   return {
     block: {
       type: 'layout-block',
-      bounds: { x: 0, y, width: colCount * colWidth, height: maxCellHeight },
+      bounds: { x: 0, y, width: totalWidth, height: maxCellHeight },
       children: normalizedCells,
     },
     height: maxCellHeight,
   };
 }
 
-function layoutRowCells(
+function layoutRowCellsWithWidths(
   cells: readonly StyledNode[],
   colCount: number,
-  colWidth: number,
+  colWidths: readonly number[],
   layouter: ParagraphLayouter,
   rowOccupied: readonly boolean[],
 ): { cellBlocks: LayoutBlock[]; maxCellHeight: number } {
@@ -191,9 +210,10 @@ function layoutRowCells(
     childIdx++;
 
     if (!cell) {
+      const w = colWidths[col] ?? 0;
       cellBlocks.push({
         type: 'layout-block',
-        bounds: { x: col * colWidth, y: 0, width: colWidth, height: 0 },
+        bounds: { x: columnX(colWidths, col), y: 0, width: w, height: 0 },
         children: [],
       });
       col++;
@@ -201,15 +221,15 @@ function layoutRowCells(
     }
 
     const cs = cell.colspan ?? 1;
-    const spanWidth = cs * colWidth;
-    const spanContentWidth = Math.max(spanWidth - CELL_PADDING * 2, 1);
-    const cellChildren = layoutCellContent(cell, spanContentWidth, layouter);
+    const cellW = spanWidth(colWidths, col, cs);
+    const cellContentWidth = Math.max(cellW - CELL_PADDING * 2, 1);
+    const cellChildren = layoutCellContent(cell, cellContentWidth, layouter);
     const cellHeight = computeBlockChildrenHeight(cellChildren) + CELL_PADDING * 2;
     if (cellHeight > maxCellHeight) maxCellHeight = cellHeight;
 
     cellBlocks.push({
       type: 'layout-block',
-      bounds: { x: col * colWidth, y: 0, width: spanWidth, height: cellHeight },
+      bounds: { x: columnX(colWidths, col), y: 0, width: cellW, height: cellHeight },
       children: offsetChildren(cellChildren, CELL_PADDING, CELL_PADDING),
     });
     col += cs;

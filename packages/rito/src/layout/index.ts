@@ -16,5 +16,6 @@ export { type TextMeasurer, type TextMetrics } from './text-measurer';
 export { type StyledSegment, flattenInlineContent } from './styled-segment';
 export { type ParagraphLayouter } from './paragraph-layouter';
 export { createGreedyLayouter } from './greedy-line-breaker';
+export { createKnuthPlassLayouter } from './kp-line-breaker';
 export { layoutBlocks } from './block-layout';
 export { paginateBlocks } from './paginator';

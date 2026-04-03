@@ -16,6 +16,8 @@ export interface PaginateRequest {
   readonly spine: readonly SpineItem[];
   /** Full package document for body style resolution. */
   readonly packageDocument: PackageDocument;
+  /** Line-breaking algorithm. Defaults to 'greedy'. */
+  readonly lineBreaking?: 'greedy' | 'optimal';
 }
 
 /** Serializable pagination result sent from worker to main thread. */
