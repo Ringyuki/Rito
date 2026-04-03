@@ -5,6 +5,12 @@ import { loadImages } from './image-loader';
 import { createCanvasTextMeasurer } from './canvas-text-measurer';
 import { paginateWithMeta } from '../runtime/paginate';
 
+/** Decoded assets (fonts registered, images decoded). Reusable across resizes. */
+export interface LoadedAssets {
+  readonly images: ReadonlyMap<string, ImageBitmap>;
+  readonly measurer: ReturnType<typeof createCanvasTextMeasurer>;
+}
+
 /** Resources produced by {@link prepare}, needed for rendering. */
 export interface Resources {
   /** Paginated pages ready for spread building and rendering. */
@@ -17,24 +23,11 @@ export interface Resources {
   readonly anchorMap: ReadonlyMap<string, number>;
 }
 
-/**
- * Load fonts, decode images, paginate chapters, and return everything
- * needed to render spreads.
- *
- * @example
- * ```ts
- * const doc = loadEpub(data);
- * const config = createLayoutConfig({ width: 800, height: 600, margin: 40 });
- * const { pages, images } = await prepare(doc, config, canvas);
- * const spreads = buildSpreads(pages, config);
- * render(spreads[0], ctx, config, { images, backgroundColor: '#fff' });
- * ```
- */
-export async function prepare(
+/** Load fonts and decode images. Result is reusable across resizes. */
+export async function loadAssets(
   doc: EpubDocument,
-  config: LayoutConfig,
   canvas: HTMLCanvasElement | OffscreenCanvas,
-): Promise<Resources> {
+): Promise<LoadedAssets> {
   const [fontResult, imageResult] = await Promise.allSettled([loadFonts(doc), loadImages(doc)]);
   if (fontResult.status === 'rejected') console.warn('Font loading failed:', fontResult.reason);
   const images =
@@ -44,8 +37,43 @@ export async function prepare(
   if (!ctx) throw new Error('Failed to get 2d context from canvas');
   const measurer = createCanvasTextMeasurer(ctx as CanvasRenderingContext2D);
 
-  const { pages, chapterMap, anchorMap } = paginateWithMeta(doc, config, measurer, images);
-  return { pages, images, chapterMap, anchorMap };
+  return { images, measurer };
+}
+
+/** Run pagination using pre-loaded assets. */
+export function paginateWithAssets(
+  doc: EpubDocument,
+  config: LayoutConfig,
+  assets: LoadedAssets,
+): Omit<Resources, 'images'> {
+  const { pages, chapterMap, anchorMap } = paginateWithMeta(
+    doc,
+    config,
+    assets.measurer,
+    assets.images,
+  );
+  return { pages, chapterMap, anchorMap };
+}
+
+/**
+ * Load fonts, decode images, paginate chapters, and return everything
+ * needed to render spreads. Convenience wrapper around loadAssets + paginateWithAssets.
+ */
+export async function prepare(
+  doc: EpubDocument,
+  config: LayoutConfig,
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+): Promise<Resources> {
+  const assets = await loadAssets(doc, canvas);
+  const { pages, chapterMap, anchorMap } = paginateWithAssets(doc, config, assets);
+  return { pages, images: assets.images, chapterMap, anchorMap };
+}
+
+/** Release GPU/memory resources held by decoded images. */
+export function disposeAssets(assets: LoadedAssets): void {
+  for (const bitmap of assets.images.values()) {
+    bitmap.close();
+  }
 }
 
 /**

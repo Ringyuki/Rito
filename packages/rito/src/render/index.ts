@@ -5,6 +5,14 @@ export { buildFontString } from './font-string';
 export { drawTextRun } from './text-renderer';
 export { loadFonts } from './font-loader';
 export { loadImages } from './image-loader';
-export { prepare, disposeResources, type Resources } from './resources';
+export {
+  prepare,
+  loadAssets,
+  paginateWithAssets,
+  disposeAssets,
+  disposeResources,
+  type LoadedAssets,
+  type Resources,
+} from './resources';
 export { renderPage } from './page-renderer';
 export { render, getSpreadDimensions } from './spread-renderer';

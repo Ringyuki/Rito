@@ -5,7 +5,13 @@ import { loadEpub } from './runtime/load-epub';
 import { createLayoutConfig, type LayoutConfigInput } from './layout/config';
 import { buildSpreads } from './layout/spread-builder';
 import { getSpreadDimensions, render } from './render/spread-renderer';
-import { prepare, disposeResources, type Resources } from './render/resources';
+import {
+  loadAssets,
+  paginateWithAssets,
+  disposeAssets,
+  type LoadedAssets,
+  type Resources,
+} from './render/resources';
 import { findPageForTocEntry } from './runtime/navigation';
 
 /** Options for creating a Reader. */
@@ -44,11 +50,11 @@ export interface Reader {
   /** Render a spread by index onto the canvas. Pass pixelRatio for HiDPI or font-scale rendering. */
   renderSpread(index: number, pixelRatio?: number): void;
 
-  /** Resize the reader viewport. Re-paginates the document. */
-  resize(width: number, height: number): Promise<void>;
+  /** Resize the reader viewport. Re-paginates the document synchronously. */
+  resize(width: number, height: number): void;
 
-  /** Change spread mode. Re-paginates the document. */
-  setSpreadMode(mode: 'single' | 'double'): Promise<void>;
+  /** Change spread mode. Re-paginates the document synchronously. */
+  setSpreadMode(mode: 'single' | 'double'): void;
 
   /** Update theme colors. Takes effect on the next renderSpread() call without re-pagination. */
   setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
@@ -100,6 +106,7 @@ interface ReaderState {
   bgColor: string;
   fgColor: string | undefined;
   config: LayoutConfig;
+  assets: LoadedAssets;
   resources: Resources;
   spreads: readonly Spread[];
 }
@@ -111,13 +118,16 @@ async function initReaderState(
 ): Promise<ReaderState> {
   const spreadMode = options.spread ?? 'single';
   const config = makeLayoutConfig(options, spreadMode);
-  const resources = await prepare(doc, config, canvas);
+  const assets = await loadAssets(doc, canvas);
+  const paginationResult = paginateWithAssets(doc, config, assets);
+  const resources: Resources = { ...paginationResult, images: assets.images };
   const chapterStarts = getChapterStartPages(resources.chapterMap);
   return {
     spreadMode,
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor,
     config,
+    assets,
     resources,
     spreads: buildSpreads(resources.pages, config, chapterStarts),
   };
@@ -158,17 +168,16 @@ function renderSpreadToCanvas(
   render(spread, ctx, state.config, opts as Parameters<typeof render>[3]);
 }
 
-async function repaginate(
+function repaginate(
   state: ReaderState,
   doc: ReturnType<typeof loadEpub>,
-  canvas: HTMLCanvasElement | OffscreenCanvas,
   options: ReaderOptions,
   width: number,
   height: number,
-): Promise<void> {
+): void {
   state.config = makeLayoutConfig({ ...options, width, height }, state.spreadMode);
-  disposeResources(state.resources);
-  state.resources = await prepare(doc, state.config, canvas);
+  const paginationResult = paginateWithAssets(doc, state.config, state.assets);
+  state.resources = { ...paginationResult, images: state.assets.images };
   state.spreads = buildSpreads(
     state.resources.pages,
     state.config,
@@ -203,11 +212,13 @@ function buildReader(
     renderSpread: (index: number, pixelRatio = 1): void => {
       renderSpreadToCanvas(state, canvas, ctx, index, pixelRatio);
     },
-    resize: (w: number, h: number) => repaginate(state, doc, canvas, options, w, h),
-    async setSpreadMode(mode: 'single' | 'double'): Promise<void> {
+    resize: (w: number, h: number): void => {
+      repaginate(state, doc, options, w, h);
+    },
+    setSpreadMode(mode: 'single' | 'double'): void {
       state.spreadMode = mode;
       const { viewportWidth, viewportHeight } = state.config;
-      await repaginate(state, doc, canvas, options, viewportWidth, viewportHeight);
+      repaginate(state, doc, options, viewportWidth, viewportHeight);
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
@@ -223,7 +234,7 @@ function buildReader(
     findSpread: (pageIndex: number) => findSpreadIndex(state.spreads, pageIndex),
     getCanvasSize: (pixelRatio = 1) => getSpreadDimensions(state.config, pixelRatio),
     dispose(): void {
-      disposeResources(state.resources);
+      disposeAssets(state.assets);
       doc.close();
     },
   }) as Reader;

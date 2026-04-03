@@ -7,6 +7,7 @@ import type { SelectorTarget } from './selector-matcher';
 import { matchesSelector } from './selector-matcher';
 import { calculateSpecificity, compareSpecificity } from './specificity';
 import { getTagStyle } from './tag-styles';
+import { type RuleIndex, buildRuleIndex } from './rule-index';
 
 /**
  * Resolve styles for a document node tree.
@@ -23,8 +24,9 @@ export function resolveStyles(
   rules?: readonly CssRule[],
 ): readonly StyledNode[] {
   const base = parentStyle ?? DEFAULT_STYLE;
+  const index = rules && rules.length > 0 ? buildRuleIndex(rules) : undefined;
   return nodes
-    .map((node) => resolveNode(node, base, rules, []))
+    .map((node) => resolveNode(node, base, rules, index, []))
     .filter((node) => node.style.display !== DISPLAY_VALUES.None);
 }
 
@@ -32,15 +34,16 @@ function resolveNode(
   node: DocumentNode,
   parentStyle: ComputedStyle,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): StyledNode {
   switch (node.type) {
     case 'text':
       return { type: 'text', content: node.content, style: parentStyle, children: [] };
     case 'block':
-      return resolveBlockNode(node, parentStyle, rules, ancestors);
+      return resolveBlockNode(node, parentStyle, rules, index, ancestors);
     case 'inline':
-      return resolveInlineNode(node, parentStyle, rules, ancestors);
+      return resolveInlineNode(node, parentStyle, rules, index, ancestors);
     case 'image':
       return { type: 'image', src: node.src, style: parentStyle, children: [] };
   }
@@ -50,14 +53,15 @@ function resolveBlockNode(
   node: DocumentNode & { type: 'block' },
   parentStyle: ComputedStyle,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): StyledNode {
   const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-  const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
   }
-  const children = resolveChildren(node.children, style, rules, [target, ...ancestors]);
+  const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
   let result: StyledNode = { type: 'block', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
   if (node.attributes?.colspan) result = { ...result, colspan: node.attributes.colspan };
@@ -69,14 +73,15 @@ function resolveInlineNode(
   node: DocumentNode & { type: 'inline' },
   parentStyle: ComputedStyle,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): StyledNode {
   const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-  const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
-  const children = resolveChildren(node.children, style, rules, [target, ...ancestors]);
+  const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
   const result: StyledNode = { type: 'inline', tag: node.tag, style, children };
   return node.attributes?.id ? { ...result, id: node.attributes.id } : result;
 }
@@ -85,11 +90,12 @@ function resolveChildren(
   nodes: readonly DocumentNode[],
   parentStyle: ComputedStyle,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): StyledNode[] {
   const childStyle = inheritableStyle(parentStyle);
   return nodes
-    .map((c) => resolveNode(c, childStyle, rules, ancestors))
+    .map((c) => resolveNode(c, childStyle, rules, index, ancestors))
     .filter((c) => c.style.display !== DISPLAY_VALUES.None);
 }
 
@@ -108,10 +114,11 @@ function applyCascade(
   target: SelectorTarget,
   inlineCss: string | undefined,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): ComputedStyle {
   let style = applyTagStyle(parentStyle, target.tag);
-  style = applyRules(style, target, rules, ancestors);
+  style = applyRules(style, target, rules, index, ancestors);
   // Inline em values resolve against the inherited (parent) font-size,
   // not the element's computed font-size from class/rule overrides.
   // This matches browser CSS behavior.
@@ -135,12 +142,15 @@ function applyRules(
   style: ComputedStyle,
   target: SelectorTarget,
   rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): ComputedStyle {
   if (!rules || rules.length === 0) return style;
 
+  const candidates = index ? index.getCandidates(target.tag, target.className, target.id) : rules;
+
   const matches: MatchedRule[] = [];
-  for (const rule of rules) {
+  for (const rule of candidates) {
     if (matchesSelector(target, rule.selector, ancestors)) {
       matches.push({
         rawDeclarations: rule.rawDeclarations,

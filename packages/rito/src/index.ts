@@ -12,7 +12,15 @@ export type { Page, Spread } from './layout/index';
 
 // ── Primitives (still available from main entry for convenience) ──
 export { loadEpub } from './runtime/index';
-export { prepare, disposeResources, type Resources } from './render/index';
+export {
+  prepare,
+  loadAssets,
+  paginateWithAssets,
+  disposeAssets,
+  disposeResources,
+  type LoadedAssets,
+  type Resources,
+} from './render/index';
 export { render } from './render/index';
 export { getSpreadDimensions } from './render/index';
 export { paginate, paginateWithMeta } from './runtime/index';
