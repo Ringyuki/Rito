@@ -39,6 +39,12 @@ export interface HorizontalRule {
   readonly color: string;
 }
 
+/** Visual offset for position:relative elements. */
+export interface RelativeOffset {
+  readonly dx: number;
+  readonly dy: number;
+}
+
 /** A laid-out block containing line boxes, nested blocks, images, or horizontal rules. */
 export interface LayoutBlock {
   readonly type: 'layout-block';
@@ -47,8 +53,16 @@ export interface LayoutBlock {
   readonly anchorId?: string;
   readonly backgroundColor?: string;
   readonly borders?: BlockBorders;
+  /** Border radius in px for rounded corners. Render-only. */
+  readonly borderRadius?: number;
+  /** Opacity (0-1) for the block. Render-only. */
+  readonly opacity?: number;
   readonly pageBreakBefore?: boolean;
   readonly pageBreakAfter?: boolean;
+  /** Visual offset from position:relative (does not affect layout flow). */
+  readonly relativeOffset?: RelativeOffset;
+  /** When 'hidden', the renderer clips children to block bounds. */
+  readonly overflow?: 'hidden';
 }
 
 /** Border edge in a layout block. */

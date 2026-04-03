@@ -296,4 +296,208 @@ describe('renderPage', () => {
       expect(fillTextCalls).toHaveLength(0);
     });
   });
+
+  describe('overflow: hidden clipping', () => {
+    it('clips to block bounds when overflow is hidden', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 10, y: 20, width: 200, height: 50 },
+          overflow: 'hidden',
+          children: [
+            {
+              type: 'line-box',
+              bounds: { x: 0, y: 0, width: 100, height: 24 },
+              runs: [
+                {
+                  type: 'text-run',
+                  text: 'Clipped',
+                  bounds: { x: 0, y: 0, width: 70, height: 24 },
+                  style: DEFAULT_STYLE,
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const rectCalls = mock.getCalls('rect');
+      const clipCalls = mock.getCalls('clip');
+      // page clip + overflow clip
+      expect(clipCalls.length).toBeGreaterThanOrEqual(2);
+      // Second rect call should be for the overflow block
+      const overflowRect = rectCalls[1];
+      expect(overflowRect?.args).toEqual([10 + CONFIG.marginLeft, 20 + CONFIG.marginTop, 200, 50]);
+    });
+
+    it('uses save/restore around overflow clip', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 100, height: 30 },
+          overflow: 'hidden',
+          children: [
+            {
+              type: 'line-box',
+              bounds: { x: 0, y: 0, width: 80, height: 24 },
+              runs: [
+                {
+                  type: 'text-run',
+                  text: 'Test',
+                  bounds: { x: 0, y: 0, width: 40, height: 24 },
+                  style: DEFAULT_STYLE,
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const saveCalls = mock.getCalls('save');
+      const restoreCalls = mock.getCalls('restore');
+      // At least 2 saves: one for page, one for overflow clip
+      expect(saveCalls.length).toBeGreaterThanOrEqual(2);
+      expect(restoreCalls.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('does not add extra clip when overflow is not hidden', () => {
+      const mock = createMockCanvasContext();
+      const page = makeSimplePage(['No clip']);
+      renderPage(page, mock.ctx, CONFIG);
+
+      // Only the page-level clip
+      const clipCalls = mock.getCalls('clip');
+      expect(clipCalls).toHaveLength(1);
+    });
+  });
+
+  describe('border-radius', () => {
+    it('uses arcTo for background fill when borderRadius is set', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          children: [],
+          backgroundColor: '#ff0000',
+          borderRadius: 8,
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const arcToCalls = mock.getCalls('arcTo');
+      expect(arcToCalls.length).toBeGreaterThanOrEqual(4);
+      const fillCalls = mock.getCalls('fill');
+      expect(fillCalls).toHaveLength(1);
+      // Should NOT use fillRect for the block background
+      const fillRectCalls = mock.getCalls('fillRect');
+      expect(fillRectCalls).toHaveLength(0);
+    });
+
+    it('uses fillRect when borderRadius is 0', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          children: [],
+          backgroundColor: '#ff0000',
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const fillRectCalls = mock.getCalls('fillRect');
+      expect(fillRectCalls).toHaveLength(1);
+      const arcToCalls = mock.getCalls('arcTo');
+      expect(arcToCalls).toHaveLength(0);
+    });
+
+    it('uses rounded stroke for borders when borderRadius is set', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          children: [],
+          borderRadius: 10,
+          borders: {
+            top: { width: 2, color: '#000', style: 'solid' },
+            right: { width: 2, color: '#000', style: 'solid' },
+            bottom: { width: 2, color: '#000', style: 'solid' },
+            left: { width: 2, color: '#000', style: 'solid' },
+          },
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const arcToCalls = mock.getCalls('arcTo');
+      expect(arcToCalls.length).toBeGreaterThanOrEqual(4);
+      const strokeCalls = mock.getCalls('stroke');
+      expect(strokeCalls).toHaveLength(1);
+    });
+  });
+
+  describe('opacity', () => {
+    it('sets globalAlpha when opacity < 1', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          children: [
+            {
+              type: 'line-box',
+              bounds: { x: 0, y: 0, width: 100, height: 24 },
+              runs: [
+                {
+                  type: 'text-run',
+                  text: 'Faded',
+                  bounds: { x: 0, y: 0, width: 50, height: 24 },
+                  style: DEFAULT_STYLE,
+                },
+              ],
+            },
+          ],
+          opacity: 0.5,
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const alphaSets = mock.getPropertySets('globalAlpha');
+      expect(alphaSets.some((s) => s.value === 0.5)).toBe(true);
+    });
+
+    it('does not set globalAlpha when opacity is not specified', () => {
+      const mock = createMockCanvasContext();
+      const page = makeSimplePage(['Hello']);
+      renderPage(page, mock.ctx, CONFIG);
+
+      const alphaSets = mock.getPropertySets('globalAlpha');
+      expect(alphaSets).toHaveLength(0);
+    });
+
+    it('wraps opacity rendering in save/restore', () => {
+      const mock = createMockCanvasContext();
+      const page = makePage([
+        {
+          type: 'layout-block',
+          bounds: { x: 0, y: 0, width: 200, height: 100 },
+          children: [],
+          opacity: 0.3,
+        },
+      ]);
+      renderPage(page, mock.ctx, CONFIG);
+
+      // Should have an extra save/restore pair for opacity
+      const saveCalls = mock.getCalls('save');
+      const restoreCalls = mock.getCalls('restore');
+      // 1 for renderPage + 1 for opacity
+      expect(saveCalls).toHaveLength(2);
+      expect(restoreCalls).toHaveLength(2);
+    });
+  });
 });

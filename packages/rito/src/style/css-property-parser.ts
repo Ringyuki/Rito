@@ -230,6 +230,18 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     const h = parseLength(v, em, root);
     if (h !== undefined && h > 0) r['height'] = h;
   },
+  'min-height': (r, v, em, root) => {
+    const h = parseLength(v, em, root);
+    if (h !== undefined && h > 0) r['minHeight'] = h;
+  },
+  'max-height': (r, v, em, root) => {
+    const h = parseLength(v, em, root);
+    if (h !== undefined && h > 0) r['maxHeight'] = h;
+  },
+  overflow: (r, v) => {
+    const o = v.trim().toLowerCase();
+    if (o === 'visible' || o === 'hidden') r['overflow'] = o;
+  },
 
   // Background
   'background-color': (r, v) => {
@@ -280,5 +292,39 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
   'break-after': (r, v) => {
     const p = parsePageBreak(v);
     if (p !== undefined) r['pageBreakAfter'] = p;
+  },
+
+  // Positioning
+  position: (r, v) => {
+    const pos = v.trim().toLowerCase();
+    if (pos === 'static' || pos === 'relative') r['position'] = pos;
+  },
+  top: (r, v, em, root) => {
+    const t = parseLength(v, em, root);
+    if (t !== undefined) r['top'] = t;
+  },
+  left: (r, v, em, root) => {
+    const l = parseLength(v, em, root);
+    if (l !== undefined) r['left'] = l;
+  },
+  bottom: (r, v, em, root) => {
+    const b = parseLength(v, em, root);
+    if (b !== undefined) r['bottom'] = b;
+  },
+  right: (r, v, em, root) => {
+    const rv = parseLength(v, em, root);
+    if (rv !== undefined) r['right'] = rv;
+  },
+
+  // Border radius (single value shorthand)
+  'border-radius': (r, v, em, root) => {
+    const radius = parseLength(v, em, root);
+    if (radius !== undefined && radius >= 0) r['borderRadius'] = radius;
+  },
+
+  // Opacity
+  opacity: (r, v) => {
+    const n = parseFloat(v.trim());
+    if (!isNaN(n)) r['opacity'] = Math.max(0, Math.min(1, n));
   },
 };

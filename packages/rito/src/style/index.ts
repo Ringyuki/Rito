@@ -23,4 +23,6 @@ export {
   type TextDecoration,
   type VerticalAlign,
   VERTICAL_ALIGNS,
+  type Position,
+  POSITIONS,
 } from './types';

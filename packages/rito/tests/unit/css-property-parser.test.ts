@@ -353,6 +353,62 @@ describe('parseCssDeclarations', () => {
     });
   });
 
+  describe('min-height', () => {
+    it('parses min-height in px', () => {
+      const result = parseCssDeclarations('min-height: 50px', BASE_FONT_SIZE);
+      expect(result.minHeight).toBe(50);
+    });
+
+    it('parses min-height in em', () => {
+      const result = parseCssDeclarations('min-height: 2em', BASE_FONT_SIZE);
+      expect(result.minHeight).toBe(32);
+    });
+
+    it('ignores zero min-height', () => {
+      const result = parseCssDeclarations('min-height: 0px', BASE_FONT_SIZE);
+      expect(result.minHeight).toBeUndefined();
+    });
+
+    it('ignores negative min-height', () => {
+      const result = parseCssDeclarations('min-height: -10px', BASE_FONT_SIZE);
+      expect(result.minHeight).toBeUndefined();
+    });
+  });
+
+  describe('max-height', () => {
+    it('parses max-height in px', () => {
+      const result = parseCssDeclarations('max-height: 100px', BASE_FONT_SIZE);
+      expect(result.maxHeight).toBe(100);
+    });
+
+    it('parses max-height in em', () => {
+      const result = parseCssDeclarations('max-height: 3em', BASE_FONT_SIZE);
+      expect(result.maxHeight).toBe(48);
+    });
+
+    it('ignores zero max-height', () => {
+      const result = parseCssDeclarations('max-height: 0', BASE_FONT_SIZE);
+      expect(result.maxHeight).toBeUndefined();
+    });
+  });
+
+  describe('overflow', () => {
+    it('parses overflow: hidden', () => {
+      const result = parseCssDeclarations('overflow: hidden', BASE_FONT_SIZE);
+      expect(result.overflow).toBe('hidden');
+    });
+
+    it('parses overflow: visible', () => {
+      const result = parseCssDeclarations('overflow: visible', BASE_FONT_SIZE);
+      expect(result.overflow).toBe('visible');
+    });
+
+    it('ignores unsupported overflow values', () => {
+      const result = parseCssDeclarations('overflow: scroll', BASE_FONT_SIZE);
+      expect(result.overflow).toBeUndefined();
+    });
+  });
+
   describe('box-sizing', () => {
     it('parses box-sizing: border-box', () => {
       const result = parseCssDeclarations('box-sizing: border-box', BASE_FONT_SIZE);
@@ -378,6 +434,65 @@ describe('parseCssDeclarations', () => {
       expect(result.width).toBe(200);
       expect(result.paddingLeft).toBe(10);
       expect(result.paddingRight).toBe(10);
+    });
+  });
+
+  describe('border-radius', () => {
+    it('parses border-radius in px', () => {
+      const result = parseCssDeclarations('border-radius: 8px', BASE_FONT_SIZE);
+      expect(result.borderRadius).toBe(8);
+    });
+
+    it('parses border-radius in em', () => {
+      const result = parseCssDeclarations('border-radius: 0.5em', BASE_FONT_SIZE);
+      expect(result.borderRadius).toBe(8);
+    });
+
+    it('parses border-radius: 0', () => {
+      const result = parseCssDeclarations('border-radius: 0', BASE_FONT_SIZE);
+      expect(result.borderRadius).toBe(0);
+    });
+
+    it('ignores negative border-radius', () => {
+      const result = parseCssDeclarations('border-radius: -5px', BASE_FONT_SIZE);
+      expect(result.borderRadius).toBeUndefined();
+    });
+
+    it('parses border-radius in rem', () => {
+      const result = parseCssDeclarations('border-radius: 1rem', BASE_FONT_SIZE, 20);
+      expect(result.borderRadius).toBe(20);
+    });
+  });
+
+  describe('opacity', () => {
+    it('parses opacity: 1', () => {
+      const result = parseCssDeclarations('opacity: 1', BASE_FONT_SIZE);
+      expect(result.opacity).toBe(1);
+    });
+
+    it('parses opacity: 0', () => {
+      const result = parseCssDeclarations('opacity: 0', BASE_FONT_SIZE);
+      expect(result.opacity).toBe(0);
+    });
+
+    it('parses fractional opacity', () => {
+      const result = parseCssDeclarations('opacity: 0.5', BASE_FONT_SIZE);
+      expect(result.opacity).toBe(0.5);
+    });
+
+    it('clamps opacity above 1 to 1', () => {
+      const result = parseCssDeclarations('opacity: 2', BASE_FONT_SIZE);
+      expect(result.opacity).toBe(1);
+    });
+
+    it('clamps opacity below 0 to 0', () => {
+      const result = parseCssDeclarations('opacity: -0.5', BASE_FONT_SIZE);
+      expect(result.opacity).toBe(0);
+    });
+
+    it('ignores non-numeric opacity', () => {
+      const result = parseCssDeclarations('opacity: inherit', BASE_FONT_SIZE);
+      expect(result.opacity).toBeUndefined();
     });
   });
 });

@@ -211,6 +211,67 @@ describe('layoutBlocks', () => {
     });
   });
 
+  describe('min-height', () => {
+    it('enforces min-height when content is shorter', () => {
+      const styled = resolveStyles([block('div', [text('Hi')], { style: 'min-height: 200px' })]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.bounds.height).toBeGreaterThanOrEqual(200);
+    });
+
+    it('does not shrink content taller than min-height', () => {
+      // Short text, but min-height is smaller than natural height would be for large text
+      const styled = resolveStyles([block('div', [text('Hi')], { style: 'min-height: 1px' })]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      // Natural height should be preserved (greater than 1px)
+      expect(blocks[0]?.bounds.height).toBeGreaterThan(1);
+    });
+  });
+
+  describe('max-height', () => {
+    it('enforces max-height when content is taller', () => {
+      const styled = resolveStyles([block('div', [text('Hi')], { style: 'max-height: 5px' })]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.bounds.height).toBeLessThanOrEqual(5);
+    });
+
+    it('does not grow content shorter than max-height', () => {
+      const styled = resolveStyles([block('div', [text('Hi')], { style: 'max-height: 9999px' })]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      // Height should be less than 9999
+      expect(blocks[0]?.bounds.height).toBeLessThan(9999);
+    });
+  });
+
+  describe('overflow: hidden', () => {
+    it('propagates overflow hidden to layout block', () => {
+      const styled = resolveStyles([
+        block('div', [text('Clipped')], { style: 'overflow: hidden; max-height: 10px' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.overflow).toBe('hidden');
+    });
+
+    it('does not set overflow when visible (default)', () => {
+      const styled = resolveStyles([
+        block('div', [text('Visible')], { style: 'overflow: visible' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.overflow).toBeUndefined();
+    });
+  });
+
   describe('box-sizing: border-box', () => {
     it('subtracts padding from width in border-box', () => {
       // width: 200px with 20px padding on each side

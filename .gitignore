@@ -3,3 +3,7 @@ dist/
 coverage/
 *.tsbuildinfo
 .DS_Store
+
+AGENTS.md
+PLAN.md
+MEMORY.md

@@ -55,6 +55,40 @@ export function renderPage(
 
 type ColorOverride = { foregroundColor: string; backgroundColor: string };
 
+function renderBlockBackground(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  blockX: number,
+  blockY: number,
+  radius: number,
+): void {
+  if (block.backgroundColor) {
+    ctx.fillStyle = block.backgroundColor;
+    if (radius > 0) {
+      traceRoundedRect(ctx, blockX, blockY, block.bounds.width, block.bounds.height, radius);
+      ctx.fill();
+    } else {
+      ctx.fillRect(blockX, blockY, block.bounds.width, block.bounds.height);
+    }
+  }
+
+  if (block.borders) {
+    if (radius > 0) {
+      renderRoundedBorders(
+        ctx,
+        block.borders,
+        blockX,
+        blockY,
+        block.bounds.width,
+        block.bounds.height,
+        radius,
+      );
+    } else {
+      renderBorders(ctx, block.borders, blockX, blockY, block.bounds.width, block.bounds.height);
+    }
+  }
+}
+
 function renderBlock(
   ctx: CanvasRenderingContext2D,
   block: LayoutBlock,
@@ -63,16 +97,29 @@ function renderBlock(
   images?: ReadonlyMap<string, ImageBitmap>,
   colorOverride?: ColorOverride,
 ): void {
-  const blockX = offsetX + block.bounds.x;
-  const blockY = offsetY + block.bounds.y;
-
-  if (block.backgroundColor) {
-    ctx.fillStyle = block.backgroundColor;
-    ctx.fillRect(blockX, blockY, block.bounds.width, block.bounds.height);
+  const offset = block.relativeOffset;
+  if (offset) {
+    ctx.save();
+    ctx.translate(offset.dx, offset.dy);
   }
 
-  if (block.borders) {
-    renderBorders(ctx, block.borders, blockX, blockY, block.bounds.width, block.bounds.height);
+  const opacityValue = block.opacity;
+  const hasOpacity = opacityValue !== undefined && opacityValue < 1;
+  if (hasOpacity) {
+    ctx.save();
+    ctx.globalAlpha = opacityValue;
+  }
+
+  const blockX = offsetX + block.bounds.x;
+  const blockY = offsetY + block.bounds.y;
+  renderBlockBackground(ctx, block, blockX, blockY, block.borderRadius ?? 0);
+
+  const clipping = block.overflow === 'hidden';
+  if (clipping) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(blockX, blockY, block.bounds.width, block.bounds.height);
+    ctx.clip();
   }
 
   for (const child of block.children) {
@@ -86,6 +133,10 @@ function renderBlock(
       renderBlock(ctx, child, blockX, blockY, images, colorOverride);
     }
   }
+
+  if (clipping) ctx.restore();
+  if (hasOpacity) ctx.restore();
+  if (offset) ctx.restore();
 }
 
 function renderBorders(
@@ -181,6 +232,47 @@ function renderHorizontalRule(
   ctx.beginPath();
   ctx.moveTo(Math.round(x), y);
   ctx.lineTo(Math.round(x + hr.bounds.width), y);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/** Trace a rounded rectangle path without filling or stroking. */
+function traceRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const clampedR = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + clampedR, y);
+  ctx.arcTo(x + w, y, x + w, y + h, clampedR);
+  ctx.arcTo(x + w, y + h, x, y + h, clampedR);
+  ctx.arcTo(x, y + h, x, y, clampedR);
+  ctx.arcTo(x, y, x + w, y, clampedR);
+  ctx.closePath();
+}
+
+/** Stroke a rounded border using a single rounded rect path. */
+function renderRoundedBorders(
+  ctx: CanvasRenderingContext2D,
+  borders: NonNullable<LayoutBlock['borders']>,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  // Use the top border's style for the entire rounded border
+  const edge = borders.top;
+  if (edge.width <= 0) return;
+  ctx.save();
+  ctx.strokeStyle = edge.color;
+  ctx.lineWidth = edge.width;
+  ctx.setLineDash(getDashPattern(edge.style, edge.width));
+  traceRoundedRect(ctx, x, y, w, h, r);
   ctx.stroke();
   ctx.restore();
 }

@@ -1,5 +1,5 @@
 import type { ComputedStyle, StyledNode } from '../style/types';
-import type { HorizontalRule, LayoutBlock } from './types';
+import type { HorizontalRule, LayoutBlock, RelativeOffset } from './types';
 import {
   applyPageBreakFlags,
   computeChildrenHeight,
@@ -216,6 +216,7 @@ function layoutLeafBlock(
 
   if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
   if (node.id) block = { ...block, anchorId: node.id };
+  block = applyRelativeOffset(block, node.style);
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;
   state.prevMarginBottom = node.style.marginBottom;
@@ -249,15 +250,40 @@ function layoutTextBlock(
         }))
       : lineBoxes;
 
+  const constrainedHeight = applyHeightConstraints(height, node.style);
+
   let block: LayoutBlock = {
     type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height },
+    bounds: { x: 0, y, width: contentWidth, height: constrainedHeight },
     children,
   };
   if (backgroundColor) block = { ...block, backgroundColor };
   const borders = extractBorders(node.style);
   if (borders) block = { ...block, borders };
+  if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
+  if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
+  if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
   return block;
+}
+
+/**
+ * Compute a visual offset for position:relative elements.
+ * Per CSS spec: top wins over bottom, left wins over right.
+ * Returns undefined when position is static (no offset needed).
+ */
+function computeRelativeOffset(style: ComputedStyle): RelativeOffset | undefined {
+  if (style.position !== 'relative') return undefined;
+  const dy = style.top !== 0 ? style.top : style.bottom !== 0 ? -style.bottom : 0;
+  const dx = style.left !== 0 ? style.left : style.right !== 0 ? -style.right : 0;
+  if (dx === 0 && dy === 0) return undefined;
+  return { dx, dy };
+}
+
+/** Apply relativeOffset to a LayoutBlock if position:relative is set. */
+function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
+  const offset = computeRelativeOffset(style);
+  if (!offset) return block;
+  return { ...block, relativeOffset: offset };
 }
 
 /** Deduct padding+border from a measurement when using border-box sizing. */
@@ -266,6 +292,14 @@ function toBorderBox(value: number, style: ComputedStyle): number {
   const deduction =
     style.paddingLeft + style.paddingRight + style.borderLeft.width + style.borderRight.width;
   return Math.max(value - deduction, 0);
+}
+
+/** Enforce min-height and max-height constraints on a computed block height. */
+function applyHeightConstraints(height: number, style: ComputedStyle): number {
+  let h = height;
+  if (style.minHeight !== undefined && h < style.minHeight) h = style.minHeight;
+  if (style.maxHeight !== undefined && h > style.maxHeight) h = style.maxHeight;
+  return h;
 }
 
 function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {

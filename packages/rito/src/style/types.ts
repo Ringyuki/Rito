@@ -94,6 +94,14 @@ export const WHITE_SPACES = {
 
 export type WhiteSpace = (typeof WHITE_SPACES)[keyof typeof WHITE_SPACES];
 
+/** Supported overflow values. */
+export const OVERFLOW_VALUES = {
+  Visible: 'visible',
+  Hidden: 'hidden',
+} as const;
+
+export type Overflow = (typeof OVERFLOW_VALUES)[keyof typeof OVERFLOW_VALUES];
+
 /** Supported box-sizing values. */
 export const BOX_SIZING_VALUES = {
   ContentBox: 'content-box',
@@ -109,6 +117,14 @@ export const PAGE_BREAKS = {
 } as const;
 
 export type PageBreak = (typeof PAGE_BREAKS)[keyof typeof PAGE_BREAKS];
+
+/** Supported CSS position values. */
+export const POSITIONS = {
+  Static: 'static',
+  Relative: 'relative',
+} as const;
+
+export type Position = (typeof POSITIONS)[keyof typeof POSITIONS];
 
 /** Computed style for a layout element. */
 export interface ComputedStyle {
@@ -147,6 +163,12 @@ export interface ComputedStyle {
   readonly maxWidth: number;
   /** Explicit height in px. 0 means auto (not set). */
   readonly height: number;
+  /** Minimum height in px. undefined means no constraint. */
+  readonly minHeight: number | undefined;
+  /** Maximum height in px. undefined means no constraint. */
+  readonly maxHeight: number | undefined;
+  /** CSS overflow mode. */
+  readonly overflow: Overflow;
   readonly listStyleType: ListStyleType;
   /** Whether margin-left is set to 'auto'. */
   readonly marginLeftAuto: boolean;
@@ -157,6 +179,20 @@ export interface ComputedStyle {
   readonly verticalAlign: VerticalAlign;
   readonly pageBreakBefore: PageBreak;
   readonly pageBreakAfter: PageBreak;
+  /** CSS position property. Only 'static' and 'relative' are supported. */
+  readonly position: Position;
+  /** Offset top in px for position:relative. */
+  readonly top: number;
+  /** Offset left in px for position:relative. */
+  readonly left: number;
+  /** Offset bottom in px for position:relative. */
+  readonly bottom: number;
+  /** Offset right in px for position:relative. */
+  readonly right: number;
+  /** Border radius in px. 0 means no rounding. Render-only, no layout impact. */
+  readonly borderRadius: number;
+  /** Opacity (0-1). 1 means fully opaque. Render-only, no layout impact. */
+  readonly opacity: number;
 }
 
 /** A single border edge. */
