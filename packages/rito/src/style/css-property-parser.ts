@@ -1,5 +1,5 @@
 import type { ComputedStyle } from './types';
-import { applyBoxShorthand, parseLength } from './parse-utils';
+import { applyBoxShorthand, applyBoxShorthandWithAuto, parseLength } from './parse-utils';
 import {
   parseBorder,
   parseDisplay,
@@ -11,14 +11,25 @@ import {
   parseTextAlign,
   parseTextDecoration,
   parseTextTransform,
+  parseVerticalAlign,
   parseWhiteSpace,
 } from './css-value-parsers';
+
+const DEFAULT_ROOT_FONT_SIZE = 16;
 
 /**
  * Parse a CSS declaration string (e.g. `"color: red; font-size: 18px"`)
  * into a partial ComputedStyle. Unknown properties are ignored.
+ *
+ * @param css - The raw CSS declaration string.
+ * @param parentFontSize - The em basis in px (inherited font size).
+ * @param rootFontSize - The rem basis in px (root element font size, default 16).
  */
-export function parseCssDeclarations(css: string, parentFontSize: number): Partial<ComputedStyle> {
+export function parseCssDeclarations(
+  css: string,
+  parentFontSize: number,
+  rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+): Partial<ComputedStyle> {
   const result: Record<string, unknown> = {};
 
   for (const declaration of css.split(';')) {
@@ -30,7 +41,7 @@ export function parseCssDeclarations(css: string, parentFontSize: number): Parti
     if (!property || !value) continue;
 
     const handler = PROPERTY_HANDLERS[property];
-    if (handler) handler(result, value, parentFontSize);
+    if (handler) handler(result, value, parentFontSize, rootFontSize);
   }
 
   return result as Partial<ComputedStyle>;
@@ -38,7 +49,12 @@ export function parseCssDeclarations(css: string, parentFontSize: number): Parti
 
 // ── Property handler type ──────────────────────────────────────────
 
-type Handler = (result: Record<string, unknown>, value: string, emBase: number) => void;
+type Handler = (
+  result: Record<string, unknown>,
+  value: string,
+  emBase: number,
+  rootFontSize: number,
+) => void;
 
 // ── Property handler map ───────────────────────────────────────────
 
@@ -50,8 +66,8 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
   color: (r, v) => {
     r['color'] = v;
   },
-  'font-size': (r, v, em) => {
-    const s = parseLength(v, em);
+  'font-size': (r, v, em, root) => {
+    const s = parseLength(v, em, root);
     if (s !== undefined) r['fontSize'] = s;
   },
   'font-family': (r, v) => {
@@ -65,16 +81,16 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     const s = parseFontStyle(v);
     if (s !== undefined) r['fontStyle'] = s;
   },
-  'line-height': (r, v, em) => {
-    const lh = parseLineHeight(v, em);
+  'line-height': (r, v, em, root) => {
+    const lh = parseLineHeight(v, em, root);
     if (lh !== undefined) r['lineHeight'] = lh;
   },
-  'letter-spacing': (r, v, em) => {
-    const ls = parseLength(v, em);
+  'letter-spacing': (r, v, em, root) => {
+    const ls = parseLength(v, em, root);
     if (ls !== undefined) r['letterSpacing'] = ls;
   },
-  'word-spacing': (r, v, em) => {
-    const ws = parseLength(v, em);
+  'word-spacing': (r, v, em, root) => {
+    const ws = parseLength(v, em, root);
     if (ws !== undefined) r['wordSpacing'] = ws;
   },
 
@@ -87,8 +103,8 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     const d = parseTextDecoration(v);
     if (d !== undefined) r['textDecoration'] = d;
   },
-  'text-indent': (r, v, em) => {
-    const i = parseLength(v, em);
+  'text-indent': (r, v, em, root) => {
+    const i = parseLength(v, em, root);
     if (i !== undefined) r['textIndent'] = i;
   },
   'text-transform': (r, v) => {
@@ -101,48 +117,64 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
   },
 
   // Spacing
-  'margin-top': (r, v, em) => {
-    const m = parseLength(v, em);
+  'margin-top': (r, v, em, root) => {
+    const m = parseLength(v, em, root);
     if (m !== undefined) r['marginTop'] = m;
   },
-  'margin-right': (r, v, em) => {
-    const m = parseLength(v, em);
-    if (m !== undefined) r['marginRight'] = m;
+  'margin-right': (r, v, em, root) => {
+    if (v.trim().toLowerCase() === 'auto') {
+      r['marginRight'] = 0;
+      r['marginRightAuto'] = true;
+    } else {
+      const m = parseLength(v, em, root);
+      if (m !== undefined) {
+        r['marginRight'] = m;
+        r['marginRightAuto'] = false;
+      }
+    }
   },
-  'margin-bottom': (r, v, em) => {
-    const m = parseLength(v, em);
+  'margin-bottom': (r, v, em, root) => {
+    const m = parseLength(v, em, root);
     if (m !== undefined) r['marginBottom'] = m;
   },
-  'margin-left': (r, v, em) => {
-    const m = parseLength(v, em);
-    if (m !== undefined) r['marginLeft'] = m;
+  'margin-left': (r, v, em, root) => {
+    if (v.trim().toLowerCase() === 'auto') {
+      r['marginLeft'] = 0;
+      r['marginLeftAuto'] = true;
+    } else {
+      const m = parseLength(v, em, root);
+      if (m !== undefined) {
+        r['marginLeft'] = m;
+        r['marginLeftAuto'] = false;
+      }
+    }
   },
-  margin: (r, v, em) => {
-    applyBoxShorthand(r, v, em, MARGIN_KEYS);
+  margin: (r, v, em, root) => {
+    applyBoxShorthandWithAuto(r, v, em, MARGIN_KEYS, root);
   },
-  'padding-top': (r, v, em) => {
-    const p = parseLength(v, em);
+  'padding-top': (r, v, em, root) => {
+    const p = parseLength(v, em, root);
     if (p !== undefined) r['paddingTop'] = p;
   },
-  'padding-right': (r, v, em) => {
-    const p = parseLength(v, em);
+  'padding-right': (r, v, em, root) => {
+    const p = parseLength(v, em, root);
     if (p !== undefined) r['paddingRight'] = p;
   },
-  'padding-bottom': (r, v, em) => {
-    const p = parseLength(v, em);
+  'padding-bottom': (r, v, em, root) => {
+    const p = parseLength(v, em, root);
     if (p !== undefined) r['paddingBottom'] = p;
   },
-  'padding-left': (r, v, em) => {
-    const p = parseLength(v, em);
+  'padding-left': (r, v, em, root) => {
+    const p = parseLength(v, em, root);
     if (p !== undefined) r['paddingLeft'] = p;
   },
-  padding: (r, v, em) => {
-    applyBoxShorthand(r, v, em, PADDING_KEYS);
+  padding: (r, v, em, root) => {
+    applyBoxShorthand(r, v, em, PADDING_KEYS, root);
   },
 
   // Borders
-  border: (r, v, em) => {
-    const b = parseBorder(v, em);
+  border: (r, v, em, root) => {
+    const b = parseBorder(v, em, root);
     if (b) {
       r['borderTop'] = b;
       r['borderRight'] = b;
@@ -150,21 +182,27 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
       r['borderLeft'] = b;
     }
   },
-  'border-top': (r, v, em) => {
-    const b = parseBorder(v, em);
+  'border-top': (r, v, em, root) => {
+    const b = parseBorder(v, em, root);
     if (b) r['borderTop'] = b;
   },
-  'border-right': (r, v, em) => {
-    const b = parseBorder(v, em);
+  'border-right': (r, v, em, root) => {
+    const b = parseBorder(v, em, root);
     if (b) r['borderRight'] = b;
   },
-  'border-bottom': (r, v, em) => {
-    const b = parseBorder(v, em);
+  'border-bottom': (r, v, em, root) => {
+    const b = parseBorder(v, em, root);
     if (b) r['borderBottom'] = b;
   },
-  'border-left': (r, v, em) => {
-    const b = parseBorder(v, em);
+  'border-left': (r, v, em, root) => {
+    const b = parseBorder(v, em, root);
     if (b) r['borderLeft'] = b;
+  },
+
+  // Vertical alignment
+  'vertical-align': (r, v) => {
+    const va = parseVerticalAlign(v);
+    if (va !== undefined) r['verticalAlign'] = va;
   },
 
   // Layout
@@ -180,16 +218,16 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     const c = v.trim().toLowerCase();
     if (c === 'left' || c === 'right' || c === 'both' || c === 'none') r['clear'] = c;
   },
-  width: (r, v, em) => {
-    const w = parseLength(v, em);
+  width: (r, v, em, root) => {
+    const w = parseLength(v, em, root);
     if (w !== undefined && w > 0) r['width'] = w;
   },
-  'max-width': (r, v, em) => {
-    const w = parseLength(v, em);
+  'max-width': (r, v, em, root) => {
+    const w = parseLength(v, em, root);
     if (w !== undefined && w > 0) r['maxWidth'] = w;
   },
-  height: (r, v, em) => {
-    const h = parseLength(v, em);
+  height: (r, v, em, root) => {
+    const h = parseLength(v, em, root);
     if (h !== undefined && h > 0) r['height'] = h;
   },
 
@@ -209,8 +247,21 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     if (l !== undefined) r['listStyleType'] = l;
   },
   'list-style': (r, v) => {
-    const l = parseListStyleType(v);
-    if (l !== undefined) r['listStyleType'] = l;
+    // list-style is a shorthand that may contain type, position, and image.
+    // Try each token for a recognized list-style-type.
+    for (const token of v.trim().split(/\s+/)) {
+      const l = parseListStyleType(token);
+      if (l !== undefined) {
+        r['listStyleType'] = l;
+        return;
+      }
+    }
+  },
+
+  // Box model
+  'box-sizing': (r, v) => {
+    const bs = v.trim().toLowerCase();
+    if (bs === 'border-box' || bs === 'content-box') r['boxSizing'] = bs;
   },
 
   // Page breaks

@@ -4,6 +4,7 @@ import {
   FONT_WEIGHTS,
   LIST_STYLE_TYPES,
   TEXT_ALIGNMENTS,
+  VERTICAL_ALIGNS,
   WHITE_SPACES,
 } from './types';
 
@@ -38,6 +39,9 @@ const TAG_STYLES: Readonly<Record<string, PartialStyle>> = {
   ol: { marginTop: 16, marginBottom: 16, paddingLeft: 40, listStyleType: LIST_STYLE_TYPES.Decimal },
   li: { marginTop: 0, marginBottom: 0 },
   hr: { marginTop: 8, marginBottom: 8 },
+  th: { fontWeight: FONT_WEIGHTS.Bold },
+  sup: { verticalAlign: VERTICAL_ALIGNS.Super, fontSize: 13 },
+  sub: { verticalAlign: VERTICAL_ALIGNS.Sub, fontSize: 13 },
 };
 
 /**

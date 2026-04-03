@@ -1,5 +1,6 @@
 import type { ComputedStyle } from './types';
 import {
+  BOX_SIZING_VALUES,
   DISPLAY_VALUES,
   FONT_STYLES,
   FONT_WEIGHTS,
@@ -8,6 +9,7 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
   TEXT_TRANSFORMS,
+  VERTICAL_ALIGNS,
   WHITE_SPACES,
 } from './types';
 
@@ -35,6 +37,10 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
   width: 0,
   maxWidth: 0,
   height: 0,
+  marginLeftAuto: false,
+  marginRightAuto: false,
+  boxSizing: BOX_SIZING_VALUES.ContentBox,
+  verticalAlign: VERTICAL_ALIGNS.Baseline,
   pageBreakBefore: PAGE_BREAKS.Auto,
   pageBreakAfter: PAGE_BREAKS.Auto,
 };
@@ -82,6 +88,10 @@ export const DEFAULT_STYLE: ComputedStyle = {
   maxWidth: 0,
   height: 0,
   listStyleType: LIST_STYLE_TYPES.None,
+  marginLeftAuto: false,
+  marginRightAuto: false,
+  boxSizing: BOX_SIZING_VALUES.ContentBox,
+  verticalAlign: VERTICAL_ALIGNS.Baseline,
   pageBreakBefore: PAGE_BREAKS.Auto,
   pageBreakAfter: PAGE_BREAKS.Auto,
 };

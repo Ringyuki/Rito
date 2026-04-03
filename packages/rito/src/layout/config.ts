@@ -27,6 +27,8 @@ export interface LayoutConfigInput {
   readonly firstPageAlone?: boolean;
   /** Gap between pages in double mode, in logical pixels. Defaults to 0. */
   readonly spreadGap?: number;
+  /** Root font size in px, used to resolve rem units. Defaults to 16. */
+  readonly rootFontSize?: number;
 }
 
 /**
@@ -73,6 +75,7 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
     spreadMode: effectiveMode,
     firstPageAlone: input.firstPageAlone ?? true,
     spreadGap: gap,
+    rootFontSize: input.rootFontSize ?? 16,
   };
 }
 

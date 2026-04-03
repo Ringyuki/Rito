@@ -8,6 +8,7 @@ import type {
   TextAlignment,
   TextDecoration,
   TextTransform,
+  VerticalAlign,
   WhiteSpace,
 } from './types';
 import {
@@ -19,16 +20,53 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
   TEXT_TRANSFORMS,
+  VERTICAL_ALIGNS,
   WHITE_SPACES,
 } from './types';
 import { parseLength } from './parse-utils';
 
-export function parseFontWeight(value: string): FontWeight | undefined {
+/**
+ * CSS `lighter` lookup table per CSS Fonts Module Level 4.
+ * Each entry: [maxInherited, resolvedWeight].
+ */
+const LIGHTER_MAP: ReadonlyArray<readonly [number, number]> = [
+  [599, 100],
+  [799, 400],
+  [900, 700],
+];
+
+/**
+ * CSS `bolder` lookup table per spec.
+ * Maps inherited weight to the resolved bolder weight.
+ */
+const BOLDER_MAP: ReadonlyArray<readonly [number, number]> = [
+  [349, 400],
+  [549, 700],
+  [900, 900],
+];
+
+function resolveLighter(inherited: number): number {
+  for (const [threshold, result] of LIGHTER_MAP) {
+    if (inherited <= threshold) return result;
+  }
+  return 700;
+}
+
+function resolveBolder(inherited: number): number {
+  for (const [threshold, result] of BOLDER_MAP) {
+    if (inherited <= threshold) return result;
+  }
+  return 900;
+}
+
+export function parseFontWeight(value: string, inheritedWeight?: number): FontWeight | undefined {
   const v = value.trim().toLowerCase();
   if (v === 'bold') return FONT_WEIGHTS.Bold;
   if (v === 'normal') return FONT_WEIGHTS.Normal;
+  if (v === 'lighter') return resolveLighter(inheritedWeight ?? FONT_WEIGHTS.Normal);
+  if (v === 'bolder') return resolveBolder(inheritedWeight ?? FONT_WEIGHTS.Normal);
   const num = parseInt(v, 10);
-  if (!isNaN(num)) return num >= 600 ? FONT_WEIGHTS.Bold : FONT_WEIGHTS.Normal;
+  if (!isNaN(num) && num >= 1 && num <= 1000) return num;
   return undefined;
 }
 
@@ -39,9 +77,22 @@ export function parseFontStyle(value: string): FontStyle | undefined {
   return undefined;
 }
 
-export function parseLineHeight(value: string, parentFontSize: number): number | undefined {
+export function parseLineHeight(
+  value: string,
+  parentFontSize: number,
+  rootFontSize: number = 16,
+): number | undefined {
   const v = value.trim().toLowerCase();
+
+  // calc() line-heights: resolve to px then convert to ratio
+  if (v.startsWith('calc(')) {
+    const px = parseLength(v, parentFontSize, rootFontSize);
+    if (px !== undefined) return px / parentFontSize;
+    return undefined;
+  }
+
   if (v.endsWith('px')) return parseFloat(v) / parentFontSize;
+  if (v.endsWith('rem')) return (parseFloat(v) * rootFontSize) / parentFontSize;
   if (v.endsWith('em')) return parseFloat(v);
   if (v.endsWith('%')) return parseFloat(v) / 100;
   const num = parseFloat(v);
@@ -88,14 +139,34 @@ export function parseDisplay(value: string): Display | undefined {
   const v = value.trim().toLowerCase();
   if (v === 'block') return DISPLAY_VALUES.Block;
   if (v === 'inline') return DISPLAY_VALUES.Inline;
+  if (v === 'inline-block') return DISPLAY_VALUES.InlineBlock;
   if (v === 'none') return DISPLAY_VALUES.None;
+  return undefined;
+}
+
+export function parseVerticalAlign(value: string): VerticalAlign | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'baseline') return VERTICAL_ALIGNS.Baseline;
+  if (v === 'top') return VERTICAL_ALIGNS.Top;
+  if (v === 'middle') return VERTICAL_ALIGNS.Middle;
+  if (v === 'bottom') return VERTICAL_ALIGNS.Bottom;
+  if (v === 'super') return VERTICAL_ALIGNS.Super;
+  if (v === 'sub') return VERTICAL_ALIGNS.Sub;
+  if (v === 'text-top') return VERTICAL_ALIGNS.TextTop;
+  if (v === 'text-bottom') return VERTICAL_ALIGNS.TextBottom;
   return undefined;
 }
 
 export function parseListStyleType(value: string): ListStyleType | undefined {
   const v = value.trim().toLowerCase();
-  if (v === 'disc' || v === 'circle' || v === 'square') return LIST_STYLE_TYPES.Disc;
+  if (v === 'disc') return LIST_STYLE_TYPES.Disc;
+  if (v === 'circle') return LIST_STYLE_TYPES.Circle;
+  if (v === 'square') return LIST_STYLE_TYPES.Square;
   if (v === 'decimal' || v === 'decimal-leading-zero') return LIST_STYLE_TYPES.Decimal;
+  if (v === 'lower-alpha' || v === 'lower-latin') return LIST_STYLE_TYPES.LowerAlpha;
+  if (v === 'upper-alpha' || v === 'upper-latin') return LIST_STYLE_TYPES.UpperAlpha;
+  if (v === 'lower-roman') return LIST_STYLE_TYPES.LowerRoman;
+  if (v === 'upper-roman') return LIST_STYLE_TYPES.UpperRoman;
   if (v === 'none') return LIST_STYLE_TYPES.None;
   return undefined;
 }
@@ -107,7 +178,11 @@ export function parsePageBreak(value: string): PageBreak | undefined {
   return undefined;
 }
 
-export function parseBorder(value: string, parentFontSize: number): BorderSide | undefined {
+export function parseBorder(
+  value: string,
+  parentFontSize: number,
+  rootFontSize: number = 16,
+): BorderSide | undefined {
   const parts = value.trim().split(/\s+/);
   if (parts.length === 0) return undefined;
 
@@ -123,7 +198,7 @@ export function parseBorder(value: string, parentFontSize: number): BorderSide |
     } else if (part === 'double' || part === 'groove' || part === 'ridge') {
       style = 'solid'; // approximate unsupported styles as solid
     } else {
-      const len = parseLength(part, parentFontSize);
+      const len = parseLength(part, parentFontSize, rootFontSize);
       if (len !== undefined) {
         width = len;
       } else {

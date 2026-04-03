@@ -1,8 +1,25 @@
-/** Parse a CSS length value (px, pt, em, %) to a number in px. */
-export function parseLength(value: string, parentFontSize: number): number | undefined {
+import { evaluateCalc } from './calc-parser';
+
+export { evaluateCalc } from './calc-parser';
+
+const DEFAULT_ROOT_FONT_SIZE = 16;
+
+/** Parse a CSS length value (px, pt, em, rem, %) to a number in px. */
+export function parseLength(
+  value: string,
+  parentFontSize: number,
+  rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+): number | undefined {
   const trimmed = value.trim().toLowerCase();
+
+  // Handle calc() expressions
+  if (trimmed.startsWith('calc(')) {
+    return evaluateCalc(trimmed, parentFontSize, rootFontSize);
+  }
+
   if (trimmed.endsWith('px')) return parseFloat(trimmed);
   if (trimmed.endsWith('pt')) return parseFloat(trimmed) * (4 / 3);
+  if (trimmed.endsWith('rem')) return parseFloat(trimmed) * rootFontSize;
   if (trimmed.endsWith('em')) return parseFloat(trimmed) * parentFontSize;
   if (trimmed.endsWith('%')) return (parseFloat(trimmed) / 100) * parentFontSize;
   const num = parseFloat(trimmed);
@@ -19,9 +36,10 @@ export function applyBoxShorthand(
   value: string,
   parentFontSize: number,
   keys: readonly [string, string, string, string],
+  rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): void {
-  const parts = value.trim().split(/\s+/);
-  const values = parts.map((p) => parseLength(p, parentFontSize));
+  const parts = splitBoxValues(value.trim());
+  const values = parts.map((p) => parseLength(p, parentFontSize, rootFontSize));
   const [top, right, bottom, left] = keys;
 
   if (parts.length === 1 && values[0] !== undefined) {
@@ -51,4 +69,95 @@ export function applyBoxShorthand(
     if (values[2] !== undefined) result[bottom] = values[2];
     if (values[3] !== undefined) result[left] = values[3];
   }
+}
+
+/**
+ * Apply the margin shorthand, detecting 'auto' for left/right margins.
+ * Falls through to parseLength for non-auto values.
+ */
+export function applyBoxShorthandWithAuto(
+  result: Record<string, unknown>,
+  value: string,
+  parentFontSize: number,
+  keys: readonly [string, string, string, string],
+  rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+): void {
+  const parts = splitBoxValues(value.trim());
+  const [topKey, rightKey, bottomKey, leftKey] = keys;
+  const mapping = resolveBoxMapping(parts);
+
+  for (const [key, raw] of [
+    [topKey, mapping.top],
+    [rightKey, mapping.right],
+    [bottomKey, mapping.bottom],
+    [leftKey, mapping.left],
+  ] as const) {
+    if (raw === undefined) continue;
+    if (raw.toLowerCase() === 'auto') {
+      if (key === rightKey) {
+        result[key] = 0;
+        result['marginRightAuto'] = true;
+      } else if (key === leftKey) {
+        result[key] = 0;
+        result['marginLeftAuto'] = true;
+      } else {
+        result[key] = 0;
+      }
+    } else {
+      const parsed = parseLength(raw, parentFontSize, rootFontSize);
+      if (parsed !== undefined) {
+        result[key] = parsed;
+        if (key === rightKey) result['marginRightAuto'] = false;
+        if (key === leftKey) result['marginLeftAuto'] = false;
+      }
+    }
+  }
+}
+
+/** Resolve CSS 1-4 value shorthand into top/right/bottom/left raw strings. */
+function resolveBoxMapping(parts: string[]): {
+  top?: string | undefined;
+  right?: string | undefined;
+  bottom?: string | undefined;
+  left?: string | undefined;
+} {
+  if (parts.length === 1) {
+    return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+  }
+  if (parts.length === 2) {
+    return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+  }
+  if (parts.length === 3) {
+    return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+  }
+  if (parts.length >= 4) {
+    return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+  }
+  return {};
+}
+
+/**
+ * Split a box shorthand value into parts, respecting calc() expressions.
+ * Simple whitespace splitting breaks calc(100% - 2rem), so we track parens.
+ */
+function splitBoxValues(value: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let depth = 0;
+
+  for (const ch of value) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+
+    if ((ch === ' ' || ch === '\t') && depth === 0) {
+      if (current) {
+        parts.push(current);
+        current = '';
+      }
+    } else {
+      current += ch;
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
 }

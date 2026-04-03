@@ -135,7 +135,7 @@ describe('global stylesheet rules affect real nodes', () => {
     const h4 = styled[0];
     expect(h4?.style.fontSize).toBeCloseTo(22.4); // 1.4em * 16
     expect(h4?.style.textAlign).toBe('center');
-    expect(h4?.style.fontWeight).toBe('bold');
+    expect(h4?.style.fontWeight).toBe(700);
     expect(h4?.style.marginTop).toBeCloseTo(22.4); // 1em * 22.4 (own font-size)
     expect(h4?.style.marginBottom).toBeCloseTo(33.6); // 1.5em * 22.4
     expect(h4?.style.textIndent).toBe(0);

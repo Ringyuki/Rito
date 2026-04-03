@@ -192,6 +192,9 @@ function layoutLeafBlock(
 
   const ml = node.style.marginLeft;
   const mr = node.style.marginRight;
+  const mlAuto = node.style.marginLeftAuto;
+  const mrAuto = node.style.marginRightAuto;
+
   let w = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
   w = applySizeConstraints(w, node.style);
   w -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
@@ -199,7 +202,18 @@ function layoutLeafBlock(
   let block = layoutTextBlock(node, Math.max(w, 1), state.y, layouter);
   block = addListMarker(block, node, listCtx);
 
-  const xOffset = ml + state.floats.getLeftWidth(state.y);
+  // Resolve margin:auto centering
+  let xOffset = ml + state.floats.getLeftWidth(state.y);
+  if ((mlAuto || mrAuto) && block.bounds.width < contentWidth) {
+    const remaining = contentWidth - block.bounds.width;
+    if (mlAuto && mrAuto) {
+      xOffset = remaining / 2;
+    } else if (mlAuto) {
+      xOffset = remaining - mr;
+    }
+    // If only mrAuto, xOffset stays as ml (no change needed)
+  }
+
   if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
   if (node.id) block = { ...block, anchorId: node.id };
   state.blocks.push(withPageBreaks(block, node.style));
@@ -246,10 +260,18 @@ function layoutTextBlock(
   return block;
 }
 
+/** Deduct padding+border from a measurement when using border-box sizing. */
+function toBorderBox(value: number, style: ComputedStyle): number {
+  if (style.boxSizing !== 'border-box') return value;
+  const deduction =
+    style.paddingLeft + style.paddingRight + style.borderLeft.width + style.borderRight.width;
+  return Math.max(value - deduction, 0);
+}
+
 function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
   let w = availableWidth;
-  if (style.width > 0) w = Math.min(style.width, availableWidth);
-  if (style.maxWidth > 0) w = Math.min(w, style.maxWidth);
+  if (style.width > 0) w = Math.min(toBorderBox(style.width, style), availableWidth);
+  if (style.maxWidth > 0) w = Math.min(w, toBorderBox(style.maxWidth, style));
   return w;
 }
 

@@ -92,6 +92,8 @@ export interface LayoutConfig {
   readonly firstPageAlone: boolean;
   /** Gap in pixels between left and right pages in double mode. */
   readonly spreadGap: number;
+  /** Root font size in px, used to resolve rem units. Defaults to 16. */
+  readonly rootFontSize: number;
 }
 
 /**

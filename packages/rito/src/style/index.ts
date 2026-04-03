@@ -8,6 +8,8 @@ export { getTagStyle } from './tag-styles';
 export {
   type ComputedStyle,
   type CssRule,
+  type Display,
+  DISPLAY_VALUES,
   type FontFaceRule,
   FONT_STYLES,
   type FontStyle,
@@ -19,4 +21,6 @@ export {
   type TextAlignment,
   TEXT_DECORATIONS,
   type TextDecoration,
+  type VerticalAlign,
+  VERTICAL_ALIGNS,
 } from './types';

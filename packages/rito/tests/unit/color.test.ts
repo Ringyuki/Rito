@@ -33,21 +33,37 @@ describe('parseColor', () => {
     expect(parseColor('grey')).toEqual([128, 128, 128]);
   });
 
+  it('parses additional CSS named colors', () => {
+    expect(parseColor('tomato')).toEqual([255, 99, 71]);
+    expect(parseColor('cornflowerblue')).toEqual([100, 149, 237]);
+    expect(parseColor('rebeccapurple')).toEqual([102, 51, 153]);
+    expect(parseColor('magenta')).toEqual([255, 0, 255]);
+    expect(parseColor('cyan')).toEqual([0, 255, 255]);
+    expect(parseColor('coral')).toEqual([255, 127, 80]);
+    expect(parseColor('gold')).toEqual([255, 215, 0]);
+    expect(parseColor('indigo')).toEqual([75, 0, 130]);
+    expect(parseColor('salmon')).toEqual([250, 128, 114]);
+    expect(parseColor('teal')).toEqual([0, 128, 128]);
+    expect(parseColor('navy')).toEqual([0, 0, 128]);
+    expect(parseColor('olive')).toEqual([128, 128, 0]);
+    expect(parseColor('silver')).toEqual([192, 192, 192]);
+    expect(parseColor('maroon')).toEqual([128, 0, 0]);
+    expect(parseColor('lime')).toEqual([0, 255, 0]);
+    expect(parseColor('aqua')).toEqual([0, 255, 255]);
+    expect(parseColor('fuchsia')).toEqual([255, 0, 255]);
+  });
+
   it('is case insensitive for named colors', () => {
     expect(parseColor('BLACK')).toEqual([0, 0, 0]);
     expect(parseColor('White')).toEqual([255, 255, 255]);
     expect(parseColor('RED')).toEqual([255, 0, 0]);
+    expect(parseColor('Tomato')).toEqual([255, 99, 71]);
+    expect(parseColor('CornflowerBlue')).toEqual([100, 149, 237]);
   });
 
   it('trims whitespace', () => {
     expect(parseColor('  #ff0000  ')).toEqual([255, 0, 0]);
     expect(parseColor(' black ')).toEqual([0, 0, 0]);
-  });
-
-  it('returns undefined for unsupported formats', () => {
-    expect(parseColor('rgb(255, 0, 0)')).toBeUndefined();
-    expect(parseColor('rgba(0, 0, 0, 1)')).toBeUndefined();
-    expect(parseColor('hsl(0, 100%, 50%)')).toBeUndefined();
   });
 
   it('returns undefined for invalid hex', () => {
@@ -59,13 +75,124 @@ describe('parseColor', () => {
   });
 
   it('returns undefined for unknown named colors', () => {
-    expect(parseColor('magenta')).toBeUndefined();
-    expect(parseColor('cyan')).toBeUndefined();
     expect(parseColor('nonsense')).toBeUndefined();
+    expect(parseColor('notacolor')).toBeUndefined();
   });
 
   it('returns undefined for empty string', () => {
     expect(parseColor('')).toBeUndefined();
+  });
+
+  // rgb() / rgba() parsing
+  describe('rgb()/rgba()', () => {
+    it('parses comma-separated rgb()', () => {
+      expect(parseColor('rgb(255, 0, 0)')).toEqual([255, 0, 0]);
+      expect(parseColor('rgb(0, 128, 255)')).toEqual([0, 128, 255]);
+      expect(parseColor('rgb(0, 0, 0)')).toEqual([0, 0, 0]);
+      expect(parseColor('rgb(255, 255, 255)')).toEqual([255, 255, 255]);
+    });
+
+    it('parses space-separated rgb()', () => {
+      expect(parseColor('rgb(255 0 0)')).toEqual([255, 0, 0]);
+      expect(parseColor('rgb(0 128 255)')).toEqual([0, 128, 255]);
+    });
+
+    it('parses comma-separated rgba() (ignores alpha)', () => {
+      expect(parseColor('rgba(255, 0, 0, 1)')).toEqual([255, 0, 0]);
+      expect(parseColor('rgba(0, 0, 0, 0.5)')).toEqual([0, 0, 0]);
+      expect(parseColor('rgba(128, 64, 32, 0)')).toEqual([128, 64, 32]);
+    });
+
+    it('parses space-separated rgba() with slash alpha', () => {
+      expect(parseColor('rgba(255 0 0 / 0.5)')).toEqual([255, 0, 0]);
+      expect(parseColor('rgb(0 128 255 / 1)')).toEqual([0, 128, 255]);
+    });
+
+    it('rounds fractional rgb values', () => {
+      expect(parseColor('rgb(127.5, 63.7, 200.2)')).toEqual([128, 64, 200]);
+    });
+
+    it('is case insensitive for rgb/rgba', () => {
+      expect(parseColor('RGB(255, 0, 0)')).toEqual([255, 0, 0]);
+      expect(parseColor('RGBA(0, 0, 0, 1)')).toEqual([0, 0, 0]);
+    });
+
+    it('returns undefined for out-of-range values', () => {
+      expect(parseColor('rgb(256, 0, 0)')).toBeUndefined();
+      expect(parseColor('rgb(-1, 0, 0)')).toBeUndefined();
+      expect(parseColor('rgb(0, 0, 300)')).toBeUndefined();
+    });
+
+    it('returns undefined for too few arguments', () => {
+      expect(parseColor('rgb(255, 0)')).toBeUndefined();
+      expect(parseColor('rgb(255)')).toBeUndefined();
+      expect(parseColor('rgb()')).toBeUndefined();
+    });
+
+    it('returns undefined for non-numeric arguments', () => {
+      expect(parseColor('rgb(foo, bar, baz)')).toBeUndefined();
+    });
+  });
+
+  // hsl() / hsla() parsing
+  describe('hsl()/hsla()', () => {
+    it('parses comma-separated hsl()', () => {
+      // Pure red: hsl(0, 100%, 50%)
+      expect(parseColor('hsl(0, 100, 50)')).toEqual([255, 0, 0]);
+      // Pure green: hsl(120, 100%, 50%)
+      expect(parseColor('hsl(120, 100, 50)')).toEqual([0, 255, 0]);
+      // Pure blue: hsl(240, 100%, 50%)
+      expect(parseColor('hsl(240, 100, 50)')).toEqual([0, 0, 255]);
+    });
+
+    it('parses space-separated hsl()', () => {
+      expect(parseColor('hsl(0 100 50)')).toEqual([255, 0, 0]);
+      expect(parseColor('hsl(120 100 50)')).toEqual([0, 255, 0]);
+    });
+
+    it('parses hsla() with comma-separated values (ignores alpha)', () => {
+      expect(parseColor('hsla(0, 100, 50, 1)')).toEqual([255, 0, 0]);
+      expect(parseColor('hsla(120, 100, 50, 0.5)')).toEqual([0, 255, 0]);
+    });
+
+    it('parses hsla() with space-separated values and slash alpha', () => {
+      expect(parseColor('hsla(0 100 50 / 0.5)')).toEqual([255, 0, 0]);
+    });
+
+    it('converts black and white correctly', () => {
+      // Black: hsl(0, 0%, 0%)
+      expect(parseColor('hsl(0, 0, 0)')).toEqual([0, 0, 0]);
+      // White: hsl(0, 0%, 100%)
+      expect(parseColor('hsl(0, 0, 100)')).toEqual([255, 255, 255]);
+    });
+
+    it('converts gray correctly', () => {
+      // 50% gray
+      const result = parseColor('hsl(0, 0, 50)');
+      expect(result).toEqual([128, 128, 128]);
+    });
+
+    it('handles negative and large hue values via modulo', () => {
+      // 360 wraps to 0 -> red
+      expect(parseColor('hsl(360, 100, 50)')).toEqual([255, 0, 0]);
+      // -120 wraps to 240 -> blue
+      expect(parseColor('hsl(-120, 100, 50)')).toEqual([0, 0, 255]);
+    });
+
+    it('is case insensitive for hsl/hsla', () => {
+      expect(parseColor('HSL(0, 100, 50)')).toEqual([255, 0, 0]);
+      expect(parseColor('HSLA(120, 100, 50, 1)')).toEqual([0, 255, 0]);
+    });
+
+    it('returns undefined for too few arguments', () => {
+      expect(parseColor('hsl(0, 100)')).toBeUndefined();
+      expect(parseColor('hsl(0)')).toBeUndefined();
+      expect(parseColor('hsl()')).toBeUndefined();
+    });
+
+    it('returns undefined for non-numeric arguments', () => {
+      expect(parseColor('hsl(foo, bar, baz)')).toBeUndefined();
+    });
   });
 });
 
@@ -146,21 +273,36 @@ describe('resolveTextColor', () => {
   });
 
   it('returns original when fg is unparseable', () => {
-    expect(resolveTextColor('rgb(0,0,0)', '#ffffff', '#000000')).toBe('rgb(0,0,0)');
+    expect(resolveTextColor('notacolor', '#ffffff', '#000000')).toBe('notacolor');
   });
 
   it('returns original when bg is unparseable', () => {
-    expect(resolveTextColor('#000000', 'rgb(255,255,255)', '#111111')).toBe('#000000');
+    expect(resolveTextColor('#000000', 'notacolor', '#111111')).toBe('#000000');
   });
 
-  it('uses default minContrast of 3', () => {
-    // gray on white — contrast ~4.0, above default 3
-    expect(resolveTextColor('gray', 'white', 'black')).toBe('gray');
+  it('uses default minContrast of 4.5 (normal text)', () => {
+    // gray on white — contrast ~4.0, below 4.5 -> override
+    expect(resolveTextColor('gray', 'white', 'black')).toBe('black');
   });
 
   it('respects custom minContrast', () => {
     // gray on white — contrast ~4.0, below strict 7.0 threshold
     expect(resolveTextColor('gray', 'white', 'black', 7)).toBe('black');
+  });
+
+  it('uses 3:1 threshold for large text when isLargeText is true', () => {
+    // gray on white — contrast ~4.0, above 3:1 large text threshold
+    expect(resolveTextColor('gray', 'white', 'black', undefined, true)).toBe('gray');
+  });
+
+  it('uses 4.5:1 threshold for normal text when isLargeText is false', () => {
+    // gray on white — contrast ~4.0, below 4.5 normal text threshold
+    expect(resolveTextColor('gray', 'white', 'black', undefined, false)).toBe('black');
+  });
+
+  it('minContrast takes precedence over isLargeText', () => {
+    // explicit minContrast=3 overrides isLargeText=false default of 4.5
+    expect(resolveTextColor('gray', 'white', 'black', 3)).toBe('gray');
   });
 
   it('works with named colors', () => {
@@ -174,5 +316,15 @@ describe('resolveTextColor', () => {
   it('swaps similar colors', () => {
     // very similar: light gray on white
     expect(resolveTextColor('#eeeeee', '#ffffff', '#333333')).toBe('#333333');
+  });
+
+  it('works with rgb() colors', () => {
+    // black text on white bg via rgb()
+    expect(resolveTextColor('rgb(0, 0, 0)', 'rgb(255, 255, 255)', '#111111')).toBe('rgb(0, 0, 0)');
+  });
+
+  it('works with hsl() colors', () => {
+    // black text on white bg via hsl()
+    expect(resolveTextColor('hsl(0, 0, 0)', 'hsl(0, 0, 100)', '#111111')).toBe('hsl(0, 0, 0)');
   });
 });

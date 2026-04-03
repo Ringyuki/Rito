@@ -40,27 +40,39 @@ describe('parseCssDeclarations', () => {
   });
 
   describe('font-weight', () => {
-    it('parses bold keyword', () => {
+    it('parses bold keyword to 700', () => {
       expect(parseCssDeclarations('font-weight: bold', BASE_FONT_SIZE)).toEqual({
-        fontWeight: 'bold',
+        fontWeight: 700,
       });
     });
 
-    it('parses normal keyword', () => {
+    it('parses normal keyword to 400', () => {
       expect(parseCssDeclarations('font-weight: normal', BASE_FONT_SIZE)).toEqual({
-        fontWeight: 'normal',
+        fontWeight: 400,
       });
     });
 
-    it('parses numeric weight 700 as bold', () => {
+    it('parses numeric weight 700', () => {
       expect(parseCssDeclarations('font-weight: 700', BASE_FONT_SIZE)).toEqual({
-        fontWeight: 'bold',
+        fontWeight: 700,
       });
     });
 
-    it('parses numeric weight 400 as normal', () => {
+    it('parses numeric weight 400', () => {
       expect(parseCssDeclarations('font-weight: 400', BASE_FONT_SIZE)).toEqual({
-        fontWeight: 'normal',
+        fontWeight: 400,
+      });
+    });
+
+    it('parses numeric weight 300', () => {
+      expect(parseCssDeclarations('font-weight: 300', BASE_FONT_SIZE)).toEqual({
+        fontWeight: 300,
+      });
+    });
+
+    it('parses numeric weight 900', () => {
+      expect(parseCssDeclarations('font-weight: 900', BASE_FONT_SIZE)).toEqual({
+        fontWeight: 900,
       });
     });
   });
@@ -177,6 +189,195 @@ describe('parseCssDeclarations', () => {
     it('handles extra whitespace', () => {
       const result = parseCssDeclarations('  color :  red  ;  font-size : 18px  ', BASE_FONT_SIZE);
       expect(result).toEqual({ color: 'red', fontSize: 18 });
+    });
+  });
+
+  describe('rem units', () => {
+    it('parses font-size in rem with default root (16)', () => {
+      expect(parseCssDeclarations('font-size: 1.5rem', BASE_FONT_SIZE)).toEqual({
+        fontSize: 24,
+      });
+    });
+
+    it('parses font-size in rem with custom root', () => {
+      expect(parseCssDeclarations('font-size: 2rem', BASE_FONT_SIZE, 20)).toEqual({
+        fontSize: 40,
+      });
+    });
+
+    it('parses margin in rem', () => {
+      expect(parseCssDeclarations('margin-top: 1rem', BASE_FONT_SIZE, 20)).toEqual({
+        marginTop: 20,
+      });
+    });
+
+    it('parses padding in rem', () => {
+      expect(parseCssDeclarations('padding-left: 0.5rem', BASE_FONT_SIZE)).toEqual({
+        paddingLeft: 8,
+      });
+    });
+
+    it('parses text-indent in rem', () => {
+      expect(parseCssDeclarations('text-indent: 2rem', BASE_FONT_SIZE, 10)).toEqual({
+        textIndent: 20,
+      });
+    });
+
+    it('parses width in rem', () => {
+      expect(parseCssDeclarations('width: 20rem', BASE_FONT_SIZE)).toEqual({
+        width: 320,
+      });
+    });
+
+    it('parses letter-spacing in rem', () => {
+      expect(parseCssDeclarations('letter-spacing: 0.1rem', BASE_FONT_SIZE)).toEqual({
+        letterSpacing: 1.6,
+      });
+    });
+  });
+
+  describe('calc() expressions', () => {
+    it('parses calc(1em + 10px) in font-size', () => {
+      // 1em = 16px, so 16 + 10 = 26
+      expect(parseCssDeclarations('font-size: calc(1em + 10px)', BASE_FONT_SIZE)).toEqual({
+        fontSize: 26,
+      });
+    });
+
+    it('parses calc with rem in margin', () => {
+      // 2rem = 40px (root=20), minus 10px = 30
+      expect(parseCssDeclarations('margin-top: calc(2rem - 10px)', BASE_FONT_SIZE, 20)).toEqual({
+        marginTop: 30,
+      });
+    });
+
+    it('parses calc in padding shorthand', () => {
+      expect(parseCssDeclarations('padding-top: calc(10px + 10px)', BASE_FONT_SIZE)).toEqual({
+        paddingTop: 20,
+      });
+    });
+
+    it('parses calc with multiplication', () => {
+      expect(parseCssDeclarations('width: calc(10px * 5)', BASE_FONT_SIZE)).toEqual({
+        width: 50,
+      });
+    });
+
+    it('parses calc mixing em and rem', () => {
+      // 1em = 16px, 1rem = 20px, sum = 36
+      expect(parseCssDeclarations('margin-left: calc(1em + 1rem)', BASE_FONT_SIZE, 20)).toEqual({
+        marginLeft: 36,
+        marginLeftAuto: false,
+      });
+    });
+  });
+
+  describe('margin:auto', () => {
+    it('parses margin-left: auto', () => {
+      const result = parseCssDeclarations('margin-left: auto', BASE_FONT_SIZE);
+      expect(result.marginLeft).toBe(0);
+      expect(result.marginLeftAuto).toBe(true);
+    });
+
+    it('parses margin-right: auto', () => {
+      const result = parseCssDeclarations('margin-right: auto', BASE_FONT_SIZE);
+      expect(result.marginRight).toBe(0);
+      expect(result.marginRightAuto).toBe(true);
+    });
+
+    it('parses margin-left with explicit value and resets auto flag', () => {
+      const result = parseCssDeclarations('margin-left: 20px', BASE_FONT_SIZE);
+      expect(result.marginLeft).toBe(20);
+      expect(result.marginLeftAuto).toBe(false);
+    });
+
+    it('parses margin-right with explicit value and resets auto flag', () => {
+      const result = parseCssDeclarations('margin-right: 30px', BASE_FONT_SIZE);
+      expect(result.marginRight).toBe(30);
+      expect(result.marginRightAuto).toBe(false);
+    });
+
+    it('parses margin shorthand "0 auto" for centering', () => {
+      const result = parseCssDeclarations('margin: 0 auto', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(0);
+      expect(result.marginBottom).toBe(0);
+      expect(result.marginLeft).toBe(0);
+      expect(result.marginRight).toBe(0);
+      expect(result.marginLeftAuto).toBe(true);
+      expect(result.marginRightAuto).toBe(true);
+    });
+
+    it('parses margin shorthand "10px auto"', () => {
+      const result = parseCssDeclarations('margin: 10px auto', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(10);
+      expect(result.marginBottom).toBe(10);
+      expect(result.marginLeftAuto).toBe(true);
+      expect(result.marginRightAuto).toBe(true);
+    });
+
+    it('parses margin shorthand "10px auto 20px"', () => {
+      const result = parseCssDeclarations('margin: 10px auto 20px', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(10);
+      expect(result.marginBottom).toBe(20);
+      expect(result.marginLeftAuto).toBe(true);
+      expect(result.marginRightAuto).toBe(true);
+    });
+
+    it('parses margin shorthand "10px 20px 30px auto"', () => {
+      const result = parseCssDeclarations('margin: 10px 20px 30px auto', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(10);
+      expect(result.marginRight).toBe(20);
+      expect(result.marginRightAuto).toBe(false);
+      expect(result.marginBottom).toBe(30);
+      expect(result.marginLeft).toBe(0);
+      expect(result.marginLeftAuto).toBe(true);
+    });
+
+    it('parses margin shorthand "auto" (all sides auto)', () => {
+      const result = parseCssDeclarations('margin: auto', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(0);
+      expect(result.marginBottom).toBe(0);
+      expect(result.marginLeftAuto).toBe(true);
+      expect(result.marginRightAuto).toBe(true);
+    });
+
+    it('does not set auto flags for margin-top auto', () => {
+      // margin-top: auto is treated as 0, no auto flag
+      const result = parseCssDeclarations('margin: auto 10px', BASE_FONT_SIZE);
+      expect(result.marginTop).toBe(0);
+      expect(result.marginBottom).toBe(0);
+      expect(result.marginLeft).toBe(10);
+      expect(result.marginRight).toBe(10);
+      expect(result.marginLeftAuto).toBe(false);
+      expect(result.marginRightAuto).toBe(false);
+    });
+  });
+
+  describe('box-sizing', () => {
+    it('parses box-sizing: border-box', () => {
+      const result = parseCssDeclarations('box-sizing: border-box', BASE_FONT_SIZE);
+      expect(result.boxSizing).toBe('border-box');
+    });
+
+    it('parses box-sizing: content-box', () => {
+      const result = parseCssDeclarations('box-sizing: content-box', BASE_FONT_SIZE);
+      expect(result.boxSizing).toBe('content-box');
+    });
+
+    it('ignores invalid box-sizing values', () => {
+      const result = parseCssDeclarations('box-sizing: padding-box', BASE_FONT_SIZE);
+      expect(result.boxSizing).toBeUndefined();
+    });
+
+    it('parses box-sizing with other declarations', () => {
+      const result = parseCssDeclarations(
+        'width: 200px; box-sizing: border-box; padding: 10px',
+        BASE_FONT_SIZE,
+      );
+      expect(result.boxSizing).toBe('border-box');
+      expect(result.width).toBe(200);
+      expect(result.paddingLeft).toBe(10);
+      expect(result.paddingRight).toBe(10);
     });
   });
 });

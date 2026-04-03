@@ -48,9 +48,65 @@ export function addListMarker(
   return { ...block, children: [markerLine, ...block.children.slice(1)] };
 }
 
+/** Square bullet character (U+25AA). */
+const SQUARE = '\u25AA';
+
+/** Circle bullet character (U+25CB). */
+const CIRCLE = '\u25CB';
+
+/** Convert a 1-based counter to lower-alpha: 1→a, 2→b, ..., 26→z, 27→aa, ... */
+function toLowerAlpha(n: number): string {
+  let result = '';
+  let remaining = n;
+  while (remaining > 0) {
+    remaining--;
+    result = String.fromCharCode(97 + (remaining % 26)) + result;
+    remaining = Math.floor(remaining / 26);
+  }
+  return result;
+}
+
+/** Roman numeral value-symbol pairs, ordered from largest to smallest. */
+const ROMAN_PAIRS: ReadonlyArray<readonly [number, string]> = [
+  [1000, 'm'],
+  [900, 'cm'],
+  [500, 'd'],
+  [400, 'cd'],
+  [100, 'c'],
+  [90, 'xc'],
+  [50, 'l'],
+  [40, 'xl'],
+  [10, 'x'],
+  [9, 'ix'],
+  [5, 'v'],
+  [4, 'iv'],
+  [1, 'i'],
+];
+
+/** Convert a positive integer to lower-roman numerals. */
+function toLowerRoman(n: number): string {
+  let result = '';
+  let remaining = n;
+  for (const [value, symbol] of ROMAN_PAIRS) {
+    while (remaining >= value) {
+      result += symbol;
+      remaining -= value;
+    }
+  }
+  return result;
+}
+
 function formatListMarker(counter: number, listStyleType: ListStyleType): string {
   if (listStyleType === LIST_STYLE_TYPES.Decimal) return `${String(counter)}.`;
   if (listStyleType === LIST_STYLE_TYPES.Disc) return BULLET;
+  if (listStyleType === LIST_STYLE_TYPES.LowerAlpha) return `${toLowerAlpha(counter)}.`;
+  if (listStyleType === LIST_STYLE_TYPES.UpperAlpha)
+    return `${toLowerAlpha(counter).toUpperCase()}.`;
+  if (listStyleType === LIST_STYLE_TYPES.LowerRoman) return `${toLowerRoman(counter)}.`;
+  if (listStyleType === LIST_STYLE_TYPES.UpperRoman)
+    return `${toLowerRoman(counter).toUpperCase()}.`;
+  if (listStyleType === LIST_STYLE_TYPES.Square) return SQUARE;
+  if (listStyleType === LIST_STYLE_TYPES.Circle) return CIRCLE;
   return '';
 }
 

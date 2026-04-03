@@ -168,10 +168,11 @@ function buildStyledRuns(
     if (runText.length === 0) break;
 
     const width = measurer.measureText(runText, range.style).width;
+    const yOffset = computeVerticalAlignOffset(range.style, lineHeight);
     runs.push({
       type: 'text-run',
       text: runText,
-      bounds: { x, y: 0, width, height: lineHeight },
+      bounds: { x, y: yOffset, width, height: lineHeight },
       style: range.style,
     });
     x += width;
@@ -179,6 +180,40 @@ function buildStyledRuns(
   }
 
   return runs;
+}
+
+/**
+ * Compute the vertical y-offset for a text run based on its vertical-align
+ * property. The offset is relative to the line box top.
+ *
+ * - baseline: no offset (0)
+ * - top: align to top of line box (0)
+ * - bottom: align to bottom of line box
+ * - middle: center in line box
+ * - super: shift up by ~0.4em
+ * - sub: shift down by ~0.2em
+ * - text-top: align to top of text area (0)
+ * - text-bottom: align to bottom of text area
+ */
+function computeVerticalAlignOffset(style: ComputedStyle, lineHeight: number): number {
+  const va = style.verticalAlign;
+  if (va === 'baseline' || va === 'top' || va === 'text-top') return 0;
+
+  const fontSize = style.fontSize;
+
+  switch (va) {
+    case 'super':
+      return -(fontSize * 0.4);
+    case 'sub':
+      return fontSize * 0.2;
+    case 'middle':
+      return (lineHeight - fontSize) / 2;
+    case 'bottom':
+    case 'text-bottom':
+      return lineHeight - fontSize;
+    default:
+      return 0;
+  }
 }
 
 function findRange(ranges: readonly StyleRange[], globalPos: number): StyleRange | undefined {

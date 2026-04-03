@@ -16,6 +16,7 @@ describe('createLayoutConfig', () => {
       spreadMode: 'single',
       firstPageAlone: true,
       spreadGap: 0,
+      rootFontSize: 16,
     });
   });
 

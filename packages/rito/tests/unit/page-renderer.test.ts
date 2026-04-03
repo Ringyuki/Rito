@@ -111,7 +111,7 @@ describe('renderPage', () => {
 
     it('uses bold font for bold styled runs', () => {
       const mock = createMockCanvasContext();
-      const boldStyle = { ...DEFAULT_STYLE, fontWeight: 'bold' as const };
+      const boldStyle = { ...DEFAULT_STYLE, fontWeight: 700 };
       const page = makePage([
         {
           type: 'layout-block',
@@ -135,7 +135,7 @@ describe('renderPage', () => {
       renderPage(page, mock.ctx, CONFIG);
 
       const fontSets = mock.getPropertySets('font');
-      expect(fontSets.some((f) => f.value === 'bold 16px serif')).toBe(true);
+      expect(fontSets.some((f) => f.value === '700 16px serif')).toBe(true);
     });
   });
 

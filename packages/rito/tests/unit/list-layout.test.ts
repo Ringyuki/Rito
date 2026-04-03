@@ -77,4 +77,112 @@ describe('addListMarker', () => {
     const block = makeBlock();
     expect(addListMarker(block, makeNode('li'), undefined)).toBe(block);
   });
+
+  it('adds lower-alpha marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.LowerAlpha, counter: 0 };
+    const cases: Array<[number, string]> = [
+      [1, 'a.'],
+      [2, 'b.'],
+      [4, 'd.'],
+      [9, 'i.'],
+      [14, 'n.'],
+      [26, 'z.'],
+      [27, 'aa.'],
+      [28, 'ab.'],
+      [100, 'cv.'],
+    ];
+    for (const [target, expected] of cases) {
+      while (ctx.counter < target - 1) {
+        addListMarker(makeBlock(), makeNode('li'), ctx);
+      }
+      const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+      const firstLine = result.children[0] as LineBox;
+      expect(firstLine.runs[0]?.text).toBe(expected);
+    }
+  });
+
+  it('adds upper-alpha marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.UpperAlpha, counter: 0 };
+    const cases: Array<[number, string]> = [
+      [1, 'A.'],
+      [4, 'D.'],
+      [26, 'Z.'],
+      [27, 'AA.'],
+      [100, 'CV.'],
+    ];
+    for (const [target, expected] of cases) {
+      while (ctx.counter < target - 1) {
+        addListMarker(makeBlock(), makeNode('li'), ctx);
+      }
+      const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+      const firstLine = result.children[0] as LineBox;
+      expect(firstLine.runs[0]?.text).toBe(expected);
+    }
+  });
+
+  it('adds lower-roman marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.LowerRoman, counter: 0 };
+    const cases: Array<[number, string]> = [
+      [1, 'i.'],
+      [2, 'ii.'],
+      [3, 'iii.'],
+      [4, 'iv.'],
+      [5, 'v.'],
+      [9, 'ix.'],
+      [10, 'x.'],
+      [14, 'xiv.'],
+      [26, 'xxvi.'],
+      [27, 'xxvii.'],
+      [100, 'c.'],
+    ];
+    for (const [target, expected] of cases) {
+      while (ctx.counter < target - 1) {
+        addListMarker(makeBlock(), makeNode('li'), ctx);
+      }
+      const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+      const firstLine = result.children[0] as LineBox;
+      expect(firstLine.runs[0]?.text).toBe(expected);
+    }
+  });
+
+  it('adds upper-roman marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.UpperRoman, counter: 0 };
+    const cases: Array<[number, string]> = [
+      [1, 'I.'],
+      [4, 'IV.'],
+      [9, 'IX.'],
+      [14, 'XIV.'],
+      [100, 'C.'],
+    ];
+    for (const [target, expected] of cases) {
+      while (ctx.counter < target - 1) {
+        addListMarker(makeBlock(), makeNode('li'), ctx);
+      }
+      const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+      const firstLine = result.children[0] as LineBox;
+      expect(firstLine.runs[0]?.text).toBe(expected);
+    }
+  });
+
+  it('adds square marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.Square, counter: 0 };
+    const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+    const firstLine = result.children[0] as LineBox;
+    expect(firstLine.runs[0]?.text).toBe('\u25AA');
+  });
+
+  it('adds circle marker', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.Circle, counter: 0 };
+    const result = addListMarker(makeBlock(), makeNode('li'), ctx);
+    const firstLine = result.children[0] as LineBox;
+    expect(firstLine.runs[0]?.text).toBe('\u25CB');
+  });
+
+  it('returns empty marker for none', () => {
+    const ctx = { listStyleType: LIST_STYLE_TYPES.None, counter: 0 };
+    const block = makeBlock();
+    const result = addListMarker(block, makeNode('li'), ctx);
+    // none returns the block unchanged
+    expect(result).toBe(block);
+  });
 });

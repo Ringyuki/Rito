@@ -56,7 +56,7 @@ describe('flattenInlineContent', () => {
 
     expect(segments).toHaveLength(1);
     expect(segments[0]?.text).toBe('bold italic');
-    expect(segments[0]?.style.fontWeight).toBe('bold');
+    expect(segments[0]?.style.fontWeight).toBe(700);
     expect(segments[0]?.style.fontStyle).toBe('italic');
   });
 
@@ -99,8 +99,8 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(p.children);
 
     expect(segments).toHaveLength(3);
-    expect(segments[0]?.style.fontWeight).toBe('bold');
-    expect(segments[1]?.style.fontWeight).toBe('normal');
+    expect(segments[0]?.style.fontWeight).toBe(700);
+    expect(segments[1]?.style.fontWeight).toBe(400);
     expect(segments[2]?.style.fontStyle).toBe('italic');
   });
 

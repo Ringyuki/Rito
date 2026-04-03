@@ -1,12 +1,12 @@
 // Style types — computed CSS properties used by the layout and render layers.
 
-/** Supported font weight values. */
+/** Supported font weight values (CSS numeric scale 100-900). */
 export const FONT_WEIGHTS = {
-  Normal: 'normal',
-  Bold: 'bold',
+  Normal: 400,
+  Bold: 700,
 } as const;
 
-export type FontWeight = (typeof FONT_WEIGHTS)[keyof typeof FONT_WEIGHTS];
+export type FontWeight = number;
 
 /** Supported font style values. */
 export const FONT_STYLES = {
@@ -39,6 +39,12 @@ export type TextDecoration = (typeof TEXT_DECORATIONS)[keyof typeof TEXT_DECORAT
 export const LIST_STYLE_TYPES = {
   Disc: 'disc',
   Decimal: 'decimal',
+  LowerAlpha: 'lower-alpha',
+  UpperAlpha: 'upper-alpha',
+  LowerRoman: 'lower-roman',
+  UpperRoman: 'upper-roman',
+  Square: 'square',
+  Circle: 'circle',
   None: 'none',
 } as const;
 
@@ -48,10 +54,25 @@ export type ListStyleType = (typeof LIST_STYLE_TYPES)[keyof typeof LIST_STYLE_TY
 export const DISPLAY_VALUES = {
   Block: 'block',
   Inline: 'inline',
+  InlineBlock: 'inline-block',
   None: 'none',
 } as const;
 
 export type Display = (typeof DISPLAY_VALUES)[keyof typeof DISPLAY_VALUES];
+
+/** Supported vertical-align values. */
+export const VERTICAL_ALIGNS = {
+  Baseline: 'baseline',
+  Top: 'top',
+  Middle: 'middle',
+  Bottom: 'bottom',
+  Super: 'super',
+  Sub: 'sub',
+  TextTop: 'text-top',
+  TextBottom: 'text-bottom',
+} as const;
+
+export type VerticalAlign = (typeof VERTICAL_ALIGNS)[keyof typeof VERTICAL_ALIGNS];
 
 /** Supported text-transform values. */
 export const TEXT_TRANSFORMS = {
@@ -72,6 +93,14 @@ export const WHITE_SPACES = {
 } as const;
 
 export type WhiteSpace = (typeof WHITE_SPACES)[keyof typeof WHITE_SPACES];
+
+/** Supported box-sizing values. */
+export const BOX_SIZING_VALUES = {
+  ContentBox: 'content-box',
+  BorderBox: 'border-box',
+} as const;
+
+export type BoxSizing = (typeof BOX_SIZING_VALUES)[keyof typeof BOX_SIZING_VALUES];
 
 /** Supported page-break values. */
 export const PAGE_BREAKS = {
@@ -119,6 +148,13 @@ export interface ComputedStyle {
   /** Explicit height in px. 0 means auto (not set). */
   readonly height: number;
   readonly listStyleType: ListStyleType;
+  /** Whether margin-left is set to 'auto'. */
+  readonly marginLeftAuto: boolean;
+  /** Whether margin-right is set to 'auto'. */
+  readonly marginRightAuto: boolean;
+  /** CSS box-sizing model. */
+  readonly boxSizing: BoxSizing;
+  readonly verticalAlign: VerticalAlign;
   readonly pageBreakBefore: PageBreak;
   readonly pageBreakAfter: PageBreak;
 }

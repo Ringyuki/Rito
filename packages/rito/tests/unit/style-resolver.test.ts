@@ -41,7 +41,7 @@ describe('resolveStyles', () => {
 
     const p = result[0];
     const strong = p?.children[0];
-    expect(strong?.style.fontWeight).toBe('bold');
+    expect(strong?.style.fontWeight).toBe(700);
     // Other properties inherited from parent
     expect(strong?.style.fontFamily).toBe('serif');
   });
@@ -58,7 +58,7 @@ describe('resolveStyles', () => {
 
     const h1 = result[0];
     expect(h1?.style.fontSize).toBe(32);
-    expect(h1?.style.fontWeight).toBe('bold');
+    expect(h1?.style.fontWeight).toBe(700);
   });
 
   it('heading children inherit heading style', () => {
@@ -69,7 +69,7 @@ describe('resolveStyles', () => {
     // em inherits h1's font size, adds italic
     expect(em?.style.fontSize).toBe(32);
     expect(em?.style.fontStyle).toBe('italic');
-    expect(em?.style.fontWeight).toBe('bold');
+    expect(em?.style.fontWeight).toBe(700);
   });
 
   it('applies monospace for <pre>', () => {
@@ -95,14 +95,14 @@ describe('resolveStyles', () => {
     ]);
 
     const strong = result[0]?.children[0];
-    expect(strong?.style.fontWeight).toBe('bold');
+    expect(strong?.style.fontWeight).toBe(700);
 
     const em = strong?.children[0];
-    expect(em?.style.fontWeight).toBe('bold');
+    expect(em?.style.fontWeight).toBe(700);
     expect(em?.style.fontStyle).toBe('italic');
 
     const textNode = em?.children[0];
-    expect(textNode?.style.fontWeight).toBe('bold');
+    expect(textNode?.style.fontWeight).toBe(700);
     expect(textNode?.style.fontStyle).toBe('italic');
   });
 
@@ -161,7 +161,7 @@ describe('resolveStyles', () => {
       // h1 default is 32, inline overrides to 48
       expect(result[0]?.style.fontSize).toBe(48);
       // h1's bold should still apply
-      expect(result[0]?.style.fontWeight).toBe('bold');
+      expect(result[0]?.style.fontWeight).toBe(700);
     });
 
     it('inline style on inline element', () => {

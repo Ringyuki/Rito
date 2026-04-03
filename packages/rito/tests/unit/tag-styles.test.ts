@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 import { getTagStyle } from '../../src/style/tag-styles';
 
 describe('getTagStyle', () => {
-  it('returns bold for <strong>', () => {
+  it('returns 700 for <strong>', () => {
     const style = getTagStyle('strong');
-    expect(style?.fontWeight).toBe('bold');
+    expect(style?.fontWeight).toBe(700);
   });
 
-  it('returns bold for <b>', () => {
+  it('returns 700 for <b>', () => {
     const style = getTagStyle('b');
-    expect(style?.fontWeight).toBe('bold');
+    expect(style?.fontWeight).toBe(700);
   });
 
   it('returns italic for <em>', () => {
@@ -25,7 +25,12 @@ describe('getTagStyle', () => {
   it('returns larger font size for <h1>', () => {
     const style = getTagStyle('h1');
     expect(style?.fontSize).toBe(32);
-    expect(style?.fontWeight).toBe('bold');
+    expect(style?.fontWeight).toBe(700);
+  });
+
+  it('returns 700 for <th>', () => {
+    const style = getTagStyle('th');
+    expect(style?.fontWeight).toBe(700);
   });
 
   it('returns monospace for <pre>', () => {
