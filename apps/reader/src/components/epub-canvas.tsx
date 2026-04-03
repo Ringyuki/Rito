@@ -5,6 +5,7 @@ interface EpubCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
   width: number;
   height: number;
+  isLoaded: boolean;
   onPrev: () => void;
   onNext: () => void;
   onFirst: () => void;
@@ -15,6 +16,7 @@ export function EpubCanvas({
   canvasRef,
   width,
   height,
+  isLoaded,
   onPrev,
   onNext,
   onFirst,
@@ -59,11 +61,27 @@ export function EpubCanvas({
   useSwipe(canvasRef, onNext, onPrev);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width, height }}
-      tabIndex={0}
-      className="rounded-lg border border-border shadow-lg outline-none"
-    />
+    <div className="relative" style={{ width, height }}>
+      {!isLoaded && (
+        <div
+          className="pointer-events-none absolute bottom-0 left-0 h-128 w-lg"
+          style={{
+            backgroundImage: 'url(/rito.webp)',
+            backgroundSize: 'contain',
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'bottom left',
+            maskImage: 'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
+            WebkitMaskImage: 'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
+            opacity: 0.5,
+          }}
+        />
+      )}
+      <canvas
+        ref={canvasRef}
+        style={{ width, height }}
+        tabIndex={0}
+        className="rounded-lg border border-border shadow-lg outline-none"
+      />
+    </div>
   );
 }

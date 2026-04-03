@@ -89,6 +89,7 @@ export function App() {
           canvasRef={epub.canvasRef}
           width={epub.canvasSize.width}
           height={epub.canvasSize.height}
+          isLoaded={epub.isLoaded}
           onPrev={epub.prevSpread}
           onNext={epub.nextSpread}
           onFirst={() => {

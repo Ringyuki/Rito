@@ -33,6 +33,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const readerRef = useRef<Reader | null>(null);
   const dataRef = useRef<ArrayBuffer | null>(null);
+  const skipNextRebuild = useRef(false);
 
   const [state, setState] = useState<EpubState>({
     isLoaded: false,
@@ -68,6 +69,18 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     const data = dataRef.current;
     const canvas = canvasRef.current;
     if (!data || !canvas || containerSize.width === 0 || containerSize.height === 0) return;
+
+    // Skip the redundant rebuild right after initial load
+    if (skipNextRebuild.current) {
+      skipNextRebuild.current = false;
+      return;
+    }
+
+    // Clear stale content immediately to avoid stretched rendering during debounce
+    if (readerRef.current) {
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
 
     let cancelled = false;
 
@@ -151,6 +164,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
         }));
 
         draw(reader, 0, state.fontScale);
+        skipNextRebuild.current = true;
       } catch (err) {
         setState((s) => ({
           ...s,
