@@ -20,6 +20,7 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter rito build
       - run: pnpm run typecheck
       - run: pnpm run lint
       - run: pnpm run format:check

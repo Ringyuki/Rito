@@ -1,5 +1,6 @@
 import { useEffect, type RefObject } from 'react';
 import { useSwipe } from '@/hooks/use-swipe';
+import ritoImg from '@/assets/rito.webp';
 
 interface EpubCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -66,7 +67,7 @@ export function EpubCanvas({
         <div
           className="pointer-events-none absolute bottom-0 left-0 h-128 w-lg"
           style={{
-            backgroundImage: 'url(/rito.webp)',
+            backgroundImage: `url(${ritoImg})`,
             backgroundSize: 'contain',
             backgroundRepeat: 'no-repeat',
             backgroundPosition: 'bottom left',
