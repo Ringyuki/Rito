@@ -3,17 +3,23 @@
 
 // ── Primary API ─────────────────────────────────────────────────────
 export { loadEpub } from './runtime/index';
-export { prepare, type Resources } from './render/index';
+export { prepare, disposeResources, type Resources } from './render/index';
 export { render } from './render/index';
 
 // ── Advanced / lower-level ──────────────────────────────────────────
-export { paginate } from './runtime/index';
+export { paginate, paginateWithMeta } from './runtime/index';
+export { findPageForTocEntry } from './runtime/index';
 export { createTextMeasurer } from './render/index';
 export { loadFonts } from './render/index';
 export { loadImages } from './render/index';
 
 // ── Types ───────────────────────────────────────────────────────────
-export { type EpubDocument, type LoadOptions } from './runtime/index';
+export {
+  type EpubDocument,
+  type LoadOptions,
+  type ChapterRange,
+  type PaginationResult,
+} from './runtime/index';
 export { type LayoutConfig, type LayoutConfigInput, type Page } from './layout/index';
 export { createLayoutConfig } from './layout/index';
 export { type TextMeasurer, type TextMetrics } from './layout/index';
@@ -25,12 +31,15 @@ export {
   type PackageDocument,
   type PackageMetadata,
   type SpineItem,
+  type TocEntry,
   EpubParseError,
   type ZipReader,
   createZipReader,
   CONTAINER_PATH,
   parseContainer,
   parsePackageDocument,
+  parseNavDocument,
+  parseNcx,
 } from './parser/index';
 
 export {

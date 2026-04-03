@@ -1,4 +1,5 @@
 export {
+  type HorizontalRule,
   type ImageElement,
   type LayoutBlock,
   type LayoutConfig,

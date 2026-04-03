@@ -1,4 +1,5 @@
-import type { PackageDocument } from '../parser/epub/types';
+import type { Page } from '../layout/types';
+import type { PackageDocument, TocEntry } from '../parser/epub/types';
 
 /**
  * A loaded EPUB document ready for pagination.
@@ -17,6 +18,23 @@ export interface EpubDocument {
   readonly fonts: ReadonlyMap<string, Uint8Array>;
   /** Map from relative href to image binary data. */
   readonly images: ReadonlyMap<string, Uint8Array>;
+  /** Parsed table of contents, if available. */
+  readonly toc: readonly TocEntry[];
+}
+
+/** Page range for a single chapter/spine item. */
+export interface ChapterRange {
+  readonly startPage: number;
+  readonly endPage: number;
+}
+
+/** Enriched pagination result with chapter mapping and anchors. */
+export interface PaginationResult {
+  readonly pages: readonly Page[];
+  /** Map from spine item idref to page range. */
+  readonly chapterMap: ReadonlyMap<string, ChapterRange>;
+  /** Map from fragment identifier (id attribute) to page index. */
+  readonly anchorMap: ReadonlyMap<string, number>;
 }
 
 /**

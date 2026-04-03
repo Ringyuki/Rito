@@ -1,6 +1,10 @@
 import { createZipReader } from '../parser/epub/zip-reader';
 import { CONTAINER_PATH, parseContainer } from '../parser/epub/container-parser';
 import { parsePackageDocument } from '../parser/epub/package-parser';
+import { parseNavDocument, parseNcx } from '../parser/epub/toc-parser';
+import type { TocEntry } from '../parser/epub/types';
+import type { ZipReader } from '../parser/epub/zip-reader';
+import type { PackageDocument } from '../parser/epub/types';
 import type { EpubDocument, LoadOptions } from './types';
 
 /**
@@ -91,5 +95,41 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
     }
   }
 
-  return { packageDocument, chapters, stylesheets, fonts, images };
+  const toc = loadToc(reader, packageDocument, opfDir);
+
+  return { packageDocument, chapters, stylesheets, fonts, images, toc };
+}
+
+/** Attempt to load TOC from EPUB 3 nav document or EPUB 2 NCX. */
+function loadToc(
+  reader: ZipReader,
+  pkg: PackageDocument,
+  opfDir: string,
+): readonly TocEntry[] {
+  // EPUB 3: look for manifest item with properties containing "nav"
+  const navItem = pkg.manifest.find((item) => item.properties?.includes('nav'));
+  if (navItem) {
+    try {
+      const navXhtml = reader.readTextFile(opfDir + navItem.href);
+      const entries = parseNavDocument(navXhtml);
+      if (entries.length > 0) return entries;
+    } catch {
+      // Fall through to NCX
+    }
+  }
+
+  // EPUB 2: look for NCX file in manifest (media-type: application/x-dtbncx+xml)
+  const ncxItem = pkg.manifest.find(
+    (item) => item.mediaType === 'application/x-dtbncx+xml',
+  );
+  if (ncxItem) {
+    try {
+      const ncxXml = reader.readTextFile(opfDir + ncxItem.href);
+      return parseNcx(ncxXml);
+    } catch {
+      // No TOC available
+    }
+  }
+
+  return [];
 }

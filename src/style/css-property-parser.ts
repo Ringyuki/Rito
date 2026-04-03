@@ -1,5 +1,24 @@
-import type { ComputedStyle, FontStyle, FontWeight, TextAlignment, TextDecoration } from './types';
-import { FONT_STYLES, FONT_WEIGHTS, TEXT_ALIGNMENTS, TEXT_DECORATIONS } from './types';
+import type {
+  ComputedStyle,
+  Display,
+  FontStyle,
+  FontWeight,
+  ListStyleType,
+  PageBreak,
+  TextAlignment,
+  TextDecoration,
+  TextTransform,
+} from './types';
+import {
+  DISPLAY_VALUES,
+  FONT_STYLES,
+  FONT_WEIGHTS,
+  LIST_STYLE_TYPES,
+  PAGE_BREAKS,
+  TEXT_ALIGNMENTS,
+  TEXT_DECORATIONS,
+  TEXT_TRANSFORMS,
+} from './types';
 
 /**
  * Parse a CSS declaration string into a partial ComputedStyle.
@@ -89,6 +108,75 @@ function applyProperty(
       applyMarginShorthand(result, value, parentFontSize);
       break;
     }
+    case 'display': {
+      const d = parseDisplay(value);
+      if (d !== undefined) result['display'] = d;
+      break;
+    }
+    case 'padding-top': {
+      const pt = parseLength(value, parentFontSize);
+      if (pt !== undefined) result['paddingTop'] = pt;
+      break;
+    }
+    case 'padding-right': {
+      const pr = parseLength(value, parentFontSize);
+      if (pr !== undefined) result['paddingRight'] = pr;
+      break;
+    }
+    case 'padding-bottom': {
+      const pb2 = parseLength(value, parentFontSize);
+      if (pb2 !== undefined) result['paddingBottom'] = pb2;
+      break;
+    }
+    case 'padding-left': {
+      const pl = parseLength(value, parentFontSize);
+      if (pl !== undefined) result['paddingLeft'] = pl;
+      break;
+    }
+    case 'padding': {
+      applyPaddingShorthand(result, value, parentFontSize);
+      break;
+    }
+    case 'background-color': {
+      result['backgroundColor'] = value;
+      break;
+    }
+    case 'background': {
+      // Extract color from background shorthand (simple case: just a color)
+      const bg = value.trim();
+      if (bg && !bg.includes('url(') && !bg.includes('gradient')) {
+        result['backgroundColor'] = bg.split(/\s+/)[0] ?? '';
+      }
+      break;
+    }
+    case 'letter-spacing': {
+      const ls = parseLength(value, parentFontSize);
+      if (ls !== undefined) result['letterSpacing'] = ls;
+      break;
+    }
+    case 'text-transform': {
+      const tt = parseTextTransform(value);
+      if (tt !== undefined) result['textTransform'] = tt;
+      break;
+    }
+    case 'list-style-type':
+    case 'list-style': {
+      const lst = parseListStyleType(value);
+      if (lst !== undefined) result['listStyleType'] = lst;
+      break;
+    }
+    case 'page-break-before':
+    case 'break-before': {
+      const pb = parsePageBreak(value);
+      if (pb !== undefined) result['pageBreakBefore'] = pb;
+      break;
+    }
+    case 'page-break-after':
+    case 'break-after': {
+      const pa = parsePageBreak(value);
+      if (pa !== undefined) result['pageBreakAfter'] = pa;
+      break;
+    }
   }
 }
 
@@ -113,6 +201,43 @@ function applyMarginShorthand(
   } else if (parts.length >= 4) {
     if (values[0] !== undefined) result['marginTop'] = values[0];
     if (values[2] !== undefined) result['marginBottom'] = values[2];
+  }
+}
+
+/** Parse the `padding` shorthand into all four sides. */
+function applyPaddingShorthand(
+  result: Record<string, unknown>,
+  value: string,
+  parentFontSize: number,
+): void {
+  const parts = value.trim().split(/\s+/);
+  const values = parts.map((p) => parseLength(p, parentFontSize));
+  if (parts.length === 1 && values[0] !== undefined) {
+    result['paddingTop'] = values[0];
+    result['paddingRight'] = values[0];
+    result['paddingBottom'] = values[0];
+    result['paddingLeft'] = values[0];
+  } else if (parts.length === 2) {
+    if (values[0] !== undefined) {
+      result['paddingTop'] = values[0];
+      result['paddingBottom'] = values[0];
+    }
+    if (values[1] !== undefined) {
+      result['paddingRight'] = values[1];
+      result['paddingLeft'] = values[1];
+    }
+  } else if (parts.length === 3) {
+    if (values[0] !== undefined) result['paddingTop'] = values[0];
+    if (values[1] !== undefined) {
+      result['paddingRight'] = values[1];
+      result['paddingLeft'] = values[1];
+    }
+    if (values[2] !== undefined) result['paddingBottom'] = values[2];
+  } else if (parts.length >= 4) {
+    if (values[0] !== undefined) result['paddingTop'] = values[0];
+    if (values[1] !== undefined) result['paddingRight'] = values[1];
+    if (values[2] !== undefined) result['paddingBottom'] = values[2];
+    if (values[3] !== undefined) result['paddingLeft'] = values[3];
   }
 }
 
@@ -189,5 +314,37 @@ function parseTextDecoration(value: string): TextDecoration | undefined {
   if (v === 'none') return TEXT_DECORATIONS.None;
   if (v === 'underline') return TEXT_DECORATIONS.Underline;
   if (v === 'line-through') return TEXT_DECORATIONS.LineThrough;
+  return undefined;
+}
+
+function parseDisplay(value: string): Display | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'block') return DISPLAY_VALUES.Block;
+  if (v === 'inline') return DISPLAY_VALUES.Inline;
+  if (v === 'none') return DISPLAY_VALUES.None;
+  return undefined;
+}
+
+function parseTextTransform(value: string): TextTransform | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'none') return TEXT_TRANSFORMS.None;
+  if (v === 'uppercase') return TEXT_TRANSFORMS.Uppercase;
+  if (v === 'lowercase') return TEXT_TRANSFORMS.Lowercase;
+  if (v === 'capitalize') return TEXT_TRANSFORMS.Capitalize;
+  return undefined;
+}
+
+function parseListStyleType(value: string): ListStyleType | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'disc' || v === 'circle' || v === 'square') return LIST_STYLE_TYPES.Disc;
+  if (v === 'decimal' || v === 'decimal-leading-zero') return LIST_STYLE_TYPES.Decimal;
+  if (v === 'none') return LIST_STYLE_TYPES.None;
+  return undefined;
+}
+
+function parsePageBreak(value: string): PageBreak | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'always' || v === 'page') return PAGE_BREAKS.Always;
+  if (v === 'auto') return PAGE_BREAKS.Auto;
   return undefined;
 }

@@ -1,4 +1,11 @@
-import type { ImageElement, LayoutBlock, LayoutConfig, LineBox, Page } from '../layout/types';
+import type {
+  HorizontalRule,
+  ImageElement,
+  LayoutBlock,
+  LayoutConfig,
+  LineBox,
+  Page,
+} from '../layout/types';
 import type { RenderOptions } from './types';
 import { drawTextRun } from './text-renderer';
 
@@ -50,11 +57,18 @@ function renderBlock(
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
 
+  if (block.backgroundColor) {
+    ctx.fillStyle = block.backgroundColor;
+    ctx.fillRect(blockX, blockY, block.bounds.width, block.bounds.height);
+  }
+
   for (const child of block.children) {
     if (child.type === 'line-box') {
       renderLineBox(ctx, child, blockX, blockY);
     } else if (child.type === 'image') {
       renderImage(ctx, child, blockX, blockY, images);
+    } else if (child.type === 'hr') {
+      renderHorizontalRule(ctx, child, blockX, blockY);
     } else {
       renderBlock(ctx, child, blockX, blockY, images);
     }
@@ -91,6 +105,24 @@ function renderImage(
   const x = offsetX + image.bounds.x;
   const y = offsetY + image.bounds.y;
   ctx.drawImage(bitmap, x, y, image.bounds.width, image.bounds.height);
+}
+
+function renderHorizontalRule(
+  ctx: CanvasRenderingContext2D,
+  hr: HorizontalRule,
+  offsetX: number,
+  offsetY: number,
+): void {
+  const x = offsetX + hr.bounds.x;
+  const y = offsetY + hr.bounds.y + hr.bounds.height / 2;
+  ctx.save();
+  ctx.strokeStyle = hr.color;
+  ctx.lineWidth = hr.bounds.height;
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.lineTo(x + hr.bounds.width, y);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function resolveImageBitmap(

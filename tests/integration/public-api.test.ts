@@ -36,6 +36,17 @@ describe('public API surface', () => {
       color: '#000000',
       marginTop: 0,
       marginBottom: 0,
+      display: 'block',
+      paddingTop: 0,
+      paddingRight: 0,
+      paddingBottom: 0,
+      paddingLeft: 0,
+      backgroundColor: '',
+      letterSpacing: 0,
+      textTransform: 'none',
+      listStyleType: 'none',
+      pageBreakBefore: 'auto',
+      pageBreakAfter: 'auto',
     });
   });
 });

@@ -158,11 +158,15 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const cls = el.getAttribute('class') ?? undefined;
   const style = el.getAttribute('style') ?? undefined;
   const id = el.getAttribute('id') ?? undefined;
-  if (cls === undefined && style === undefined && id === undefined) return undefined;
+  const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
+  if (cls === undefined && style === undefined && id === undefined && href === undefined) {
+    return undefined;
+  }
   const attrs = {
     ...(cls !== undefined ? { class: cls } : {}),
     ...(style !== undefined ? { style } : {}),
     ...(id !== undefined ? { id } : {}),
+    ...(href !== undefined ? { href } : {}),
   } satisfies ElementAttributes;
   return attrs;
 }

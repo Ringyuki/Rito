@@ -28,11 +28,22 @@ export interface ImageElement {
   readonly bounds: Rect;
 }
 
-/** A laid-out block containing line boxes, nested blocks, or images. */
+/** A horizontal rule element. */
+export interface HorizontalRule {
+  readonly type: 'hr';
+  readonly bounds: Rect;
+  readonly color: string;
+}
+
+/** A laid-out block containing line boxes, nested blocks, images, or horizontal rules. */
 export interface LayoutBlock {
   readonly type: 'layout-block';
   readonly bounds: Rect;
-  readonly children: readonly (LineBox | LayoutBlock | ImageElement)[];
+  readonly children: readonly (LineBox | LayoutBlock | ImageElement | HorizontalRule)[];
+  readonly anchorId?: string;
+  readonly backgroundColor?: string;
+  readonly pageBreakBefore?: boolean;
+  readonly pageBreakAfter?: boolean;
 }
 
 /**

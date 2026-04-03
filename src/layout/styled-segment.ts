@@ -1,4 +1,5 @@
 import type { ComputedStyle, StyledNode } from '../style/types';
+import { TEXT_TRANSFORMS } from '../style/types';
 
 /** A flat text segment with a single resolved style. */
 export interface StyledSegment {
@@ -20,13 +21,26 @@ export function flattenInlineContent(children: readonly StyledNode[]): readonly 
   return segments;
 }
 
+function applyTextTransform(text: string, style: ComputedStyle): string {
+  switch (style.textTransform) {
+    case TEXT_TRANSFORMS.Uppercase:
+      return text.toUpperCase();
+    case TEXT_TRANSFORMS.Lowercase:
+      return text.toLowerCase();
+    case TEXT_TRANSFORMS.Capitalize:
+      return text.replace(/\b\w/g, (c) => c.toUpperCase());
+    case TEXT_TRANSFORMS.None:
+      return text;
+  }
+}
+
 function collectSegments(nodes: readonly StyledNode[], out: StyledSegment[]): void {
   for (const node of nodes) {
     switch (node.type) {
       case 'text': {
-        const text = node.content ?? '';
-        if (text.length > 0) {
-          out.push({ text, style: node.style });
+        const raw = node.content ?? '';
+        if (raw.length > 0) {
+          out.push({ text: applyTextTransform(raw, node.style), style: node.style });
         }
         break;
       }

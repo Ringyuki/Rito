@@ -1,5 +1,5 @@
 import type { ComputedStyle } from './types';
-import { FONT_STYLES, FONT_WEIGHTS, TEXT_ALIGNMENTS } from './types';
+import { FONT_STYLES, FONT_WEIGHTS, LIST_STYLE_TYPES, TEXT_ALIGNMENTS } from './types';
 
 /**
  * Partial style overrides applied when a specific HTML tag is encountered.
@@ -23,9 +23,10 @@ const TAG_STYLES: Readonly<Record<string, PartialStyle>> = {
   strong: { fontWeight: FONT_WEIGHTS.Bold },
   b: { fontWeight: FONT_WEIGHTS.Bold },
   center: { textAlign: TEXT_ALIGNMENTS.Center },
-  ul: { marginTop: 16, marginBottom: 16 },
-  ol: { marginTop: 16, marginBottom: 16 },
+  ul: { marginTop: 16, marginBottom: 16, paddingLeft: 40, listStyleType: LIST_STYLE_TYPES.Disc },
+  ol: { marginTop: 16, marginBottom: 16, paddingLeft: 40, listStyleType: LIST_STYLE_TYPES.Decimal },
   li: { marginTop: 0, marginBottom: 0 },
+  hr: { marginTop: 8, marginBottom: 8 },
 };
 
 /**

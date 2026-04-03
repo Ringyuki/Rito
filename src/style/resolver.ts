@@ -1,5 +1,6 @@
 import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import type { ComputedStyle, CssRule, Specificity, StyledNode } from './types';
+import { DISPLAY_VALUES } from './types';
 import { DEFAULT_STYLE } from './defaults';
 import { parseCssDeclarations } from './css-property-parser';
 import type { SelectorTarget } from './selector-matcher';
@@ -22,7 +23,9 @@ export function resolveStyles(
   rules?: readonly CssRule[],
 ): readonly StyledNode[] {
   const base = parentStyle ?? DEFAULT_STYLE;
-  return nodes.map((node) => resolveNode(node, base, rules, []));
+  return nodes
+    .map((node) => resolveNode(node, base, rules, []))
+    .filter((node) => node.style.display !== DISPLAY_VALUES.None);
 }
 
 function resolveNode(
@@ -38,17 +41,31 @@ function resolveNode(
     case 'block': {
       const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
       const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+      if (style.display === DISPLAY_VALUES.None) {
+        return { type: 'block', tag: node.tag, style, children: [] };
+      }
       const childAncestors = [target, ...ancestors];
-      const children = node.children.map((c) => resolveNode(c, style, rules, childAncestors));
-      return { type: 'block', tag: node.tag, style, children };
+      const children = node.children
+        .map((c) => resolveNode(c, style, rules, childAncestors))
+        .filter((c) => c.style.display !== DISPLAY_VALUES.None);
+      const id = node.attributes?.id;
+      const result: StyledNode = { type: 'block', tag: node.tag, style, children };
+      return id ? { ...result, id } : result;
     }
 
     case 'inline': {
       const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
       const style = applyCascade(parentStyle, target, inlineCss, rules, ancestors);
+      if (style.display === DISPLAY_VALUES.None) {
+        return { type: 'inline', tag: node.tag, style, children: [] };
+      }
       const childAncestors = [target, ...ancestors];
-      const children = node.children.map((c) => resolveNode(c, style, rules, childAncestors));
-      return { type: 'inline', tag: node.tag, style, children };
+      const children = node.children
+        .map((c) => resolveNode(c, style, rules, childAncestors))
+        .filter((c) => c.style.display !== DISPLAY_VALUES.None);
+      const id = node.attributes?.id;
+      const result: StyledNode = { type: 'inline', tag: node.tag, style, children };
+      return id ? { ...result, id } : result;
     }
 
     case 'image':

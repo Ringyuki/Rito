@@ -1,9 +1,9 @@
 import type { LayoutConfig, Page } from '../layout/types';
-import type { EpubDocument } from '../runtime/types';
+import type { ChapterRange, EpubDocument } from '../runtime/types';
 import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';
 import { createCanvasTextMeasurer } from './canvas-text-measurer';
-import { paginate } from '../runtime/paginate';
+import { paginateWithMeta } from '../runtime/paginate';
 
 /** Resources produced by {@link prepare}, needed for rendering. */
 export interface Resources {
@@ -11,6 +11,10 @@ export interface Resources {
   readonly pages: readonly Page[];
   /** Decoded image bitmaps for rendering. */
   readonly images: ReadonlyMap<string, ImageBitmap>;
+  /** Map from spine item idref to page range. */
+  readonly chapterMap: ReadonlyMap<string, ChapterRange>;
+  /** Map from fragment identifier (id attribute) to page index. */
+  readonly anchorMap: ReadonlyMap<string, number>;
 }
 
 /**
@@ -38,6 +42,16 @@ export async function prepare(
   if (!ctx) throw new Error('Failed to get 2d context from canvas');
   const measurer = createCanvasTextMeasurer(ctx as CanvasRenderingContext2D);
 
-  const pages = paginate(doc, config, measurer, images);
-  return { pages, images };
+  const { pages, chapterMap, anchorMap } = paginateWithMeta(doc, config, measurer, images);
+  return { pages, images, chapterMap, anchorMap };
+}
+
+/**
+ * Release GPU/memory resources held by a {@link Resources} object.
+ * Calls `.close()` on each decoded ImageBitmap.
+ */
+export function disposeResources(resources: Resources): void {
+  for (const bitmap of resources.images.values()) {
+    bitmap.close();
+  }
 }

@@ -30,3 +30,10 @@ export interface PackageDocument {
   readonly manifest: readonly ManifestItem[];
   readonly spine: readonly SpineItem[];
 }
+
+/** A single entry in the table of contents. */
+export interface TocEntry {
+  readonly label: string;
+  readonly href: string;
+  readonly children: readonly TocEntry[];
+}

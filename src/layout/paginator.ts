@@ -64,6 +64,11 @@ function placeBlock(
   contentHeight: number,
   state: PaginationState,
 ): void {
+  // Force page break before this block if requested
+  if (block.pageBreakBefore && state.pageBlocks.length > 0) {
+    emitPage(state);
+  }
+
   // Add spacing (margin) before the block, but not at the top of a page
   const effectiveSpacing = state.pageBlocks.length > 0 ? spacing : 0;
   const totalNeeded = state.usedHeight + effectiveSpacing + block.bounds.height;
@@ -72,6 +77,7 @@ function placeBlock(
     state.usedHeight += effectiveSpacing;
     state.pageBlocks.push(repositionBlock(block, state.usedHeight));
     state.usedHeight += block.bounds.height;
+    if (block.pageBreakAfter) emitPage(state);
     return;
   }
 
@@ -124,6 +130,9 @@ interface SplitResult {
   readonly tail: LayoutBlock;
 }
 
+/** Minimum lines to keep together at the bottom (orphans) or top (widows) of a page. */
+const MIN_SPLIT_LINES = 2;
+
 function trySplitBlock(block: LayoutBlock, availableHeight: number): SplitResult | undefined {
   if (!block.children.every((c): c is LineBox => c.type === 'line-box')) {
     return undefined;
@@ -134,6 +143,11 @@ function trySplitBlock(block: LayoutBlock, availableHeight: number): SplitResult
 
   const splitIndex = findSplitIndex(lineBoxes, availableHeight);
   if (splitIndex === 0 || splitIndex >= lineBoxes.length) return undefined;
+
+  // Widow/orphan control: ensure at least MIN_SPLIT_LINES on each side
+  const headCount = splitIndex;
+  const tailCount = lineBoxes.length - splitIndex;
+  if (headCount < MIN_SPLIT_LINES || tailCount < MIN_SPLIT_LINES) return undefined;
 
   return buildSplitResult(block, lineBoxes, splitIndex);
 }

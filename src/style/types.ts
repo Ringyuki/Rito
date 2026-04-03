@@ -38,6 +38,42 @@ export const TEXT_DECORATIONS = {
 
 export type TextDecoration = (typeof TEXT_DECORATIONS)[keyof typeof TEXT_DECORATIONS];
 
+/** Supported list style type values. */
+export const LIST_STYLE_TYPES = {
+  Disc: 'disc',
+  Decimal: 'decimal',
+  None: 'none',
+} as const;
+
+export type ListStyleType = (typeof LIST_STYLE_TYPES)[keyof typeof LIST_STYLE_TYPES];
+
+/** Supported display values. */
+export const DISPLAY_VALUES = {
+  Block: 'block',
+  Inline: 'inline',
+  None: 'none',
+} as const;
+
+export type Display = (typeof DISPLAY_VALUES)[keyof typeof DISPLAY_VALUES];
+
+/** Supported text-transform values. */
+export const TEXT_TRANSFORMS = {
+  None: 'none',
+  Uppercase: 'uppercase',
+  Lowercase: 'lowercase',
+  Capitalize: 'capitalize',
+} as const;
+
+export type TextTransform = (typeof TEXT_TRANSFORMS)[keyof typeof TEXT_TRANSFORMS];
+
+/** Supported page-break values. */
+export const PAGE_BREAKS = {
+  Auto: 'auto',
+  Always: 'always',
+} as const;
+
+export type PageBreak = (typeof PAGE_BREAKS)[keyof typeof PAGE_BREAKS];
+
 /** Computed style for a layout element. */
 export interface ComputedStyle {
   readonly fontFamily: string;
@@ -51,6 +87,17 @@ export interface ComputedStyle {
   readonly color: string;
   readonly marginTop: number;
   readonly marginBottom: number;
+  readonly display: Display;
+  readonly paddingTop: number;
+  readonly paddingRight: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly backgroundColor: string;
+  readonly letterSpacing: number;
+  readonly textTransform: TextTransform;
+  readonly listStyleType: ListStyleType;
+  readonly pageBreakBefore: PageBreak;
+  readonly pageBreakAfter: PageBreak;
 }
 
 /** A single CSS rule: a selector paired with declarations. */
@@ -79,6 +126,7 @@ export interface StyledNode {
   readonly tag?: string;
   readonly content?: string;
   readonly src?: string;
+  readonly id?: string;
   readonly style: ComputedStyle;
   readonly children: readonly StyledNode[];
 }
