@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createReader } from 'rito';
+import demoEpubUrl from '@/assets/demo.epub?url';
 import type { Reader, TocEntry, ChapterRange, Spread } from 'rito';
 import type { ContainerSize } from './use-container-size';
 
@@ -179,7 +180,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   const loadDemo = useCallback(async () => {
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
-      const response = await fetch('/demo.epub');
+      const response = await fetch(demoEpubUrl);
       if (!response.ok) throw new Error(`HTTP ${String(response.status)}`);
       const data = await response.arrayBuffer();
       await loadFromArrayBuffer(data, 'demo.epub');

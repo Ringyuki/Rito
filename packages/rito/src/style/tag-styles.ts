@@ -1,5 +1,11 @@
 import type { ComputedStyle } from './types';
-import { FONT_STYLES, FONT_WEIGHTS, LIST_STYLE_TYPES, TEXT_ALIGNMENTS, WHITE_SPACES } from './types';
+import {
+  FONT_STYLES,
+  FONT_WEIGHTS,
+  LIST_STYLE_TYPES,
+  TEXT_ALIGNMENTS,
+  WHITE_SPACES,
+} from './types';
 
 /**
  * Partial style overrides applied when a specific HTML tag is encountered.
@@ -16,7 +22,12 @@ const TAG_STYLES: Readonly<Record<string, PartialStyle>> = {
   h6: { fontSize: 11, fontWeight: FONT_WEIGHTS.Bold, marginTop: 25, marginBottom: 25 },
   p: { marginTop: 16, marginBottom: 16 },
   blockquote: { marginTop: 16, marginBottom: 16, marginLeft: 40 },
-  pre: { fontFamily: 'monospace', marginTop: 16, marginBottom: 16, whiteSpace: WHITE_SPACES.PreWrap },
+  pre: {
+    fontFamily: 'monospace',
+    marginTop: 16,
+    marginBottom: 16,
+    whiteSpace: WHITE_SPACES.PreWrap,
+  },
   code: { fontFamily: 'monospace' },
   em: { fontStyle: FONT_STYLES.Italic },
   i: { fontStyle: FONT_STYLES.Italic },

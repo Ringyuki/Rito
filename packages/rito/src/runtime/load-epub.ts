@@ -65,17 +65,27 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
 }
 
 const FONT_MEDIA_TYPES = new Set([
-  'font/ttf', 'font/otf', 'font/woff', 'font/woff2',
-  'application/x-font-ttf', 'application/x-font-woff',
-  'application/font-woff', 'application/font-woff2',
-  'application/vnd.ms-opentype', 'application/font-sfnt',
+  'font/ttf',
+  'font/otf',
+  'font/woff',
+  'font/woff2',
+  'application/x-font-ttf',
+  'application/x-font-woff',
+  'application/font-woff',
+  'application/font-woff2',
+  'application/vnd.ms-opentype',
+  'application/font-sfnt',
 ]);
 
 function loadManifestResources(
   pkg: PackageDocument,
   reader: ZipReader,
   opfDir: string,
-): { stylesheets: Map<string, string>; fonts: Map<string, Uint8Array>; images: Map<string, Uint8Array> } {
+): {
+  stylesheets: Map<string, string>;
+  fonts: Map<string, Uint8Array>;
+  images: Map<string, Uint8Array>;
+} {
   const stylesheets = new Map<string, string>();
   const fonts = new Map<string, Uint8Array>();
   const images = new Map<string, Uint8Array>();

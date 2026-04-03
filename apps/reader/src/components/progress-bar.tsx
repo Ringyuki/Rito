@@ -27,11 +27,7 @@ export function ProgressBar({ current, total, onSeek, className }: ProgressBarPr
   return (
     <div
       ref={barRef}
-      className={cn(
-        'h-1 w-full bg-muted',
-        total > 0 ? 'cursor-pointer' : '',
-        className,
-      )}
+      className={cn('h-1 w-full bg-muted', total > 0 ? 'cursor-pointer' : '', className)}
       onClick={handleClick}
     >
       {total > 0 && (

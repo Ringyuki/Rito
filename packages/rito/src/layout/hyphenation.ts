@@ -14,8 +14,24 @@ const MIN_AFTER = 2;
 
 /** Common suffixes where hyphenation is natural. */
 const SUFFIX_BREAKS = [
-  'tion', 'sion', 'ment', 'ness', 'able', 'ible', 'ful', 'less', 'ous',
-  'ive', 'ing', 'ent', 'ant', 'ence', 'ance', 'ity', 'ally', 'ical',
+  'tion',
+  'sion',
+  'ment',
+  'ness',
+  'able',
+  'ible',
+  'ful',
+  'less',
+  'ous',
+  'ive',
+  'ing',
+  'ent',
+  'ant',
+  'ence',
+  'ance',
+  'ity',
+  'ally',
+  'ical',
 ];
 
 /**

@@ -42,10 +42,7 @@ export function relativeLuminance(r: number, g: number, b: number): number {
 }
 
 /** Compute WCAG contrast ratio between two colors (1:1 to 21:1). */
-export function contrastRatio(
-  fg: [number, number, number],
-  bg: [number, number, number],
-): number {
+export function contrastRatio(fg: [number, number, number], bg: [number, number, number]): number {
   const l1 = relativeLuminance(...fg);
   const l2 = relativeLuminance(...bg);
   const lighter = Math.max(l1, l2);

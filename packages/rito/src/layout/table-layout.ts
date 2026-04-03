@@ -24,7 +24,9 @@ export function layoutTable(
   }
 
   const colWidth = contentWidth / colCount;
-  const occupied: boolean[][] = rows.map(() => Array.from<boolean>({ length: colCount }).fill(false));
+  const occupied: boolean[][] = rows.map(() =>
+    Array.from<boolean>({ length: colCount }).fill(false),
+  );
   applyRowspanOccupancy(rows, occupied, colCount);
 
   const rowBlocks: LayoutBlock[] = [];
@@ -33,7 +35,14 @@ export function layoutTable(
   for (let r = 0; r < rows.length; r++) {
     const row = rows[r];
     if (!row) continue;
-    const { block, height } = layoutRow(row, colCount, colWidth, currentY, layouter, occupied[r] ?? []);
+    const { block, height } = layoutRow(
+      row,
+      colCount,
+      colWidth,
+      currentY,
+      layouter,
+      occupied[r] ?? [],
+    );
     rowBlocks.push(block);
     currentY += height;
   }
@@ -137,7 +146,13 @@ function layoutRow(
   rowOccupied: readonly boolean[],
 ): { block: LayoutBlock; height: number } {
   const cells = row.children.filter(isCellNode);
-  const { cellBlocks, maxCellHeight } = layoutRowCells(cells, colCount, colWidth, layouter, rowOccupied);
+  const { cellBlocks, maxCellHeight } = layoutRowCells(
+    cells,
+    colCount,
+    colWidth,
+    layouter,
+    rowOccupied,
+  );
 
   const normalizedCells = cellBlocks.map((c) => ({
     ...c,
@@ -167,7 +182,10 @@ function layoutRowCells(
   let childIdx = 0;
 
   while (col < colCount) {
-    if (rowOccupied[col]) { col++; continue; }
+    if (rowOccupied[col]) {
+      col++;
+      continue;
+    }
 
     const cell = cells[childIdx];
     childIdx++;

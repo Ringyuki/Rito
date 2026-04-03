@@ -97,17 +97,41 @@ function renderBorders(
 ): void {
   const { top, right, bottom, left } = borders;
   ctx.save();
-  if (top.width > 0) strokeLine(ctx, top.color, top.width, x, y + top.width / 2, x + w, y + top.width / 2);
-  if (bottom.width > 0) strokeLine(ctx, bottom.color, bottom.width, x, y + h - bottom.width / 2, x + w, y + h - bottom.width / 2);
-  if (left.width > 0) strokeLine(ctx, left.color, left.width, x + left.width / 2, y, x + left.width / 2, y + h);
-  if (right.width > 0) strokeLine(ctx, right.color, right.width, x + w - right.width / 2, y, x + w - right.width / 2, y + h);
+  if (top.width > 0)
+    strokeLine(ctx, top.color, top.width, x, y + top.width / 2, x + w, y + top.width / 2);
+  if (bottom.width > 0)
+    strokeLine(
+      ctx,
+      bottom.color,
+      bottom.width,
+      x,
+      y + h - bottom.width / 2,
+      x + w,
+      y + h - bottom.width / 2,
+    );
+  if (left.width > 0)
+    strokeLine(ctx, left.color, left.width, x + left.width / 2, y, x + left.width / 2, y + h);
+  if (right.width > 0)
+    strokeLine(
+      ctx,
+      right.color,
+      right.width,
+      x + w - right.width / 2,
+      y,
+      x + w - right.width / 2,
+      y + h,
+    );
   ctx.restore();
 }
 
 function strokeLine(
   ctx: CanvasRenderingContext2D,
-  color: string, width: number,
-  x1: number, y1: number, x2: number, y2: number,
+  color: string,
+  width: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
 ): void {
   ctx.strokeStyle = color;
   ctx.lineWidth = width;

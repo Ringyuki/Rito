@@ -19,7 +19,11 @@ export function drawTextRun(
   ctx.font = buildFontString(run.style);
 
   const color = colorOverride
-    ? resolveTextColor(run.style.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+    ? resolveTextColor(
+        run.style.color,
+        colorOverride.backgroundColor,
+        colorOverride.foregroundColor,
+      )
     : run.style.color;
 
   ctx.fillStyle = color;

@@ -180,7 +180,10 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   } satisfies ElementAttributes;
 }
 
-function extractTableCellSpans(el: Element): { colspan: number | undefined; rowspan: number | undefined } {
+function extractTableCellSpans(el: Element): {
+  colspan: number | undefined;
+  rowspan: number | undefined;
+} {
   if (el.localName !== 'td' && el.localName !== 'th') {
     return { colspan: undefined, rowspan: undefined };
   }

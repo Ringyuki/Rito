@@ -45,7 +45,11 @@ function collectGaps(runs: readonly TextRun[]): number[] {
   return gaps;
 }
 
-function distributeGaps(runs: readonly TextRun[], gaps: readonly number[], gapSize: number): TextRun[] {
+function distributeGaps(
+  runs: readonly TextRun[],
+  gaps: readonly number[],
+  gapSize: number,
+): TextRun[] {
   const result: TextRun[] = [];
   let xOffset = 0;
   let gapIdx = 0;
@@ -66,7 +70,11 @@ function distributeGaps(runs: readonly TextRun[], gaps: readonly number[], gapSi
 
     result.push({
       ...run,
-      bounds: { ...run.bounds, x: run.bounds.x + xOffset, width: run.bounds.width + intraGaps * gapSize },
+      bounds: {
+        ...run.bounds,
+        x: run.bounds.x + xOffset,
+        width: run.bounds.width + intraGaps * gapSize,
+      },
     });
     xOffset += intraGaps * gapSize;
     gapIdx += intraGaps;

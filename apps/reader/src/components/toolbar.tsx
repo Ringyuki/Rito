@@ -104,7 +104,7 @@ export function Toolbar({
         />
       </div>
 
-      <Separator orientation="vertical" className="mx-1 h-6" />
+      <Separator orientation="vertical" className="mx-1" />
 
       {/* Center: Navigation */}
       <div className="flex flex-1 items-center justify-center gap-2">
@@ -133,7 +133,7 @@ export function Toolbar({
         </Button>
       </div>
 
-      <Separator orientation="vertical" className="mx-1 h-6" />
+      <Separator orientation="vertical" className="mx-1" />
 
       {/* Right: View controls */}
       <div className="flex items-center gap-1.5">

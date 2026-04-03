@@ -161,7 +161,24 @@ async function repaginate(
   state.config = makeLayoutConfig({ ...options, width, height }, state.spreadMode);
   disposeResources(state.resources);
   state.resources = await prepare(doc, state.config, canvas);
-  state.spreads = buildSpreads(state.resources.pages, state.config, getChapterStartPages(state.resources.chapterMap));
+  state.spreads = buildSpreads(
+    state.resources.pages,
+    state.config,
+    getChapterStartPages(state.resources.chapterMap),
+  );
+}
+
+function defineReaderAccessors(state: ReaderState, doc: ReturnType<typeof loadEpub>): object {
+  return Object.defineProperties(
+    {},
+    {
+      totalSpreads: { get: () => state.spreads.length, enumerable: true },
+      toc: { get: () => doc.toc, enumerable: true },
+      chapterMap: { get: () => state.resources.chapterMap, enumerable: true },
+      pages: { get: () => state.resources.pages, enumerable: true },
+      spreads: { get: () => state.spreads, enumerable: true },
+    },
+  );
 }
 
 function buildReader(
@@ -173,34 +190,42 @@ function buildReader(
   const ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
   const manifestHrefs = new Map(doc.packageDocument.manifest.map((m) => [m.id, m.href] as const));
 
-  return {
-    get totalSpreads() { return state.spreads.length; },
-    get toc() { return doc.toc; },
-    get chapterMap() { return state.resources.chapterMap; },
-    get pages() { return state.resources.pages; },
-    get spreads() { return state.spreads; },
-    renderSpread: (index: number, pixelRatio = 1): void => { renderSpreadToCanvas(state, canvas, ctx, index, pixelRatio); },
+  return Object.assign(defineReaderAccessors(state, doc), {
+    renderSpread: (index: number, pixelRatio = 1): void => {
+      renderSpreadToCanvas(state, canvas, ctx, index, pixelRatio);
+    },
     resize: (w: number, h: number) => repaginate(state, doc, canvas, options, w, h),
     async setSpreadMode(mode: 'single' | 'double'): Promise<void> {
       state.spreadMode = mode;
-      await repaginate(state, doc, canvas, options, state.config.viewportWidth, state.config.viewportHeight);
+      const { viewportWidth, viewportHeight } = state.config;
+      await repaginate(state, doc, canvas, options, viewportWidth, viewportHeight);
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
       if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor;
     },
     findPage: (entry: TocEntry) =>
-      findPageForTocEntry(entry, state.resources.chapterMap, doc.packageDocument.spine, manifestHrefs),
-    findSpread(pageIndex: number): number | undefined {
-      for (let i = 0; i < state.spreads.length; i++) {
-        const s = state.spreads[i];
-        if (s?.left?.index === pageIndex || s?.right?.index === pageIndex) return i;
-      }
-      return undefined;
-    },
+      findPageForTocEntry(
+        entry,
+        state.resources.chapterMap,
+        doc.packageDocument.spine,
+        manifestHrefs,
+      ),
+    findSpread: (pageIndex: number) => findSpreadIndex(state.spreads, pageIndex),
     getCanvasSize: (pixelRatio = 1) => getSpreadDimensions(state.config, pixelRatio),
-    dispose(): void { disposeResources(state.resources); doc.close(); },
-  };
+    dispose(): void {
+      disposeResources(state.resources);
+      doc.close();
+    },
+  }) as Reader;
+}
+
+function findSpreadIndex(spreads: readonly Spread[], pageIndex: number): number | undefined {
+  for (let i = 0; i < spreads.length; i++) {
+    const s = spreads[i];
+    if (s?.left?.index === pageIndex || s?.right?.index === pageIndex) return i;
+  }
+  return undefined;
 }
 
 function getChapterStartPages(chapterMap: ReadonlyMap<string, ChapterRange>): Set<number> {

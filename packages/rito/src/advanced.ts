@@ -73,11 +73,7 @@ export {
 } from './layout/index';
 
 // ── Render (primitives) ────────────────────────────────────────────
-export {
-  createCanvasTextMeasurer,
-  buildFontString,
-  renderPage,
-} from './render/index';
+export { createCanvasTextMeasurer, buildFontString, renderPage } from './render/index';
 
 // ── Model ──────────────────────────────────────────────────────────
 export { type LayoutElement, type Rect, type Spacing } from './model/index';

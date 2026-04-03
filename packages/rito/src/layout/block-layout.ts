@@ -1,6 +1,11 @@
 import type { ComputedStyle, StyledNode } from '../style/types';
-import { PAGE_BREAKS } from '../style/types';
-import type { BlockBorders, HorizontalRule, LayoutBlock, LineBox } from './types';
+import type { HorizontalRule, LayoutBlock } from './types';
+import {
+  applyPageBreakFlags,
+  computeChildrenHeight,
+  extractBorders,
+  withPageBreaks,
+} from './block-helpers';
 import type { ParagraphLayouter } from './paragraph-layouter';
 import { flattenInlineContent } from './styled-segment';
 import { layoutImageBlock } from './image-layout';
@@ -39,7 +44,12 @@ function layoutNodesAt(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): readonly LayoutBlock[] {
-  const state: LayoutState = { blocks: [], floats: new FloatContext(), y: startY, prevMarginBottom: 0 };
+  const state: LayoutState = {
+    blocks: [],
+    floats: new FloatContext(),
+    y: startY,
+    prevMarginBottom: 0,
+  };
 
   for (const node of nodes) {
     state.floats.clearExpired(state.y);
@@ -53,6 +63,10 @@ function layoutNodesAt(
   return state.blocks;
 }
 
+function collapseMargin(state: LayoutState, marginTop: number): void {
+  state.y += Math.max(state.prevMarginBottom, marginTop);
+}
+
 function layoutFloatableImage(
   state: LayoutState,
   node: StyledNode,
@@ -60,9 +74,16 @@ function layoutFloatableImage(
   contentHeight: number,
   imageSizes?: ImageSizeMap,
 ): void {
-  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+  collapseMargin(state, node.style.marginTop);
   const src = node.src ?? '';
-  const imgBlock = layoutImageBlock(src, contentWidth, contentHeight, state.y, imageSizes, node.style);
+  const imgBlock = layoutImageBlock(
+    src,
+    contentWidth,
+    contentHeight,
+    state.y,
+    imageSizes,
+    node.style,
+  );
 
   if (node.style.float === 'left' || node.style.float === 'right') {
     const floatedBlock =
@@ -70,7 +91,11 @@ function layoutFloatableImage(
         ? { ...imgBlock, bounds: { ...imgBlock.bounds, x: contentWidth - imgBlock.bounds.width } }
         : imgBlock;
     state.blocks.push(floatedBlock);
-    state.floats.addFloat(node.style.float, imgBlock.bounds.width, state.y + imgBlock.bounds.height);
+    state.floats.addFloat(
+      node.style.float,
+      imgBlock.bounds.width,
+      state.y + imgBlock.bounds.height,
+    );
     state.prevMarginBottom = 0;
   } else {
     state.blocks.push(imgBlock);
@@ -89,15 +114,14 @@ function layoutBlockNode(
   listCtx?: ListContext,
 ): void {
   if (node.tag === 'hr') {
-    state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+    collapseMargin(state, node.style.marginTop);
     state.blocks.push(layoutHorizontalRule(contentWidth, state.y, node.style.color));
     state.y += 1;
     state.prevMarginBottom = node.style.marginBottom;
     return;
   }
-
   if (node.tag === 'table') {
-    state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+    collapseMargin(state, node.style.marginTop);
     let block = layoutTable(node, contentWidth, state.y, layouter);
     if (node.id) block = { ...block, anchorId: node.id };
     state.blocks.push(withPageBreaks(block, node.style));
@@ -123,13 +147,19 @@ function layoutContainerBlock(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
-  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+  collapseMargin(state, node.style.marginTop);
   const childListCtx = createListContext(node);
   const indent = node.style.paddingLeft;
   const childWidth = indent > 0 ? contentWidth - indent : contentWidth;
 
   const childBlocks = layoutNodesAt(
-    node.children, childWidth, contentHeight, layouter, state.y, imageSizes, childListCtx ?? listCtx,
+    node.children,
+    childWidth,
+    contentHeight,
+    layouter,
+    state.y,
+    imageSizes,
+    childListCtx ?? listCtx,
   );
 
   const indented = indent > 0 ? indentBlocks(childBlocks, indent) : childBlocks;
@@ -154,7 +184,7 @@ function layoutLeafBlock(
   layouter: ParagraphLayouter,
   listCtx?: ListContext,
 ): void {
-  state.y += Math.max(state.prevMarginBottom, node.style.marginTop);
+  collapseMargin(state, node.style.marginTop);
 
   const ml = node.style.marginLeft;
   const mr = node.style.marginRight;
@@ -184,7 +214,11 @@ function layoutTextBlock(
   const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
   const segments = flattenInlineContent(node.children);
-  const lineBoxes = layouter.layoutParagraph(segments, innerWidth > 0 ? innerWidth : contentWidth, 0);
+  const lineBoxes = layouter.layoutParagraph(
+    segments,
+    innerWidth > 0 ? innerWidth : contentWidth,
+    0,
+  );
   const ch = computeChildrenHeight(lineBoxes);
   const height = paddingTop + ch + paddingBottom;
 
@@ -197,7 +231,11 @@ function layoutTextBlock(
         }))
       : lineBoxes;
 
-  let block: LayoutBlock = { type: 'layout-block', bounds: { x: 0, y, width: contentWidth, height }, children };
+  let block: LayoutBlock = {
+    type: 'layout-block',
+    bounds: { x: 0, y, width: contentWidth, height },
+    children,
+  };
   if (backgroundColor) block = { ...block, backgroundColor };
   const borders = extractBorders(node.style);
   if (borders) block = { ...block, borders };
@@ -211,51 +249,6 @@ function applySizeConstraints(availableWidth: number, style: ComputedStyle): num
   return w;
 }
 
-function extractBorders(style: ComputedStyle): BlockBorders | undefined {
-  const { borderTop, borderRight, borderBottom, borderLeft } = style;
-  const hasAny =
-    (borderTop.style === 'solid' && borderTop.width > 0) ||
-    (borderRight.style === 'solid' && borderRight.width > 0) ||
-    (borderBottom.style === 'solid' && borderBottom.width > 0) ||
-    (borderLeft.style === 'solid' && borderLeft.width > 0);
-  if (!hasAny) return undefined;
-  return {
-    top: { width: borderTop.width, color: borderTop.color },
-    right: { width: borderRight.width, color: borderRight.color },
-    bottom: { width: borderBottom.width, color: borderBottom.color },
-    left: { width: borderLeft.width, color: borderLeft.color },
-  };
-}
-
-function computeChildrenHeight(lineBoxes: readonly LineBox[]): number {
-  if (lineBoxes.length === 0) return 0;
-  const last = lineBoxes[lineBoxes.length - 1];
-  if (!last) return 0;
-  return last.bounds.y + last.bounds.height;
-}
-
-function withPageBreaks(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
-  const before = style.pageBreakBefore === PAGE_BREAKS.Always;
-  const after = style.pageBreakAfter === PAGE_BREAKS.Always;
-  if (!before && !after) return block;
-  const result = { ...block };
-  if (before) (result as { pageBreakBefore?: boolean }).pageBreakBefore = true;
-  if (after) (result as { pageBreakAfter?: boolean }).pageBreakAfter = true;
-  return result;
-}
-
-function applyPageBreakFlags(blocks: readonly LayoutBlock[], style: ComputedStyle): void {
-  if (blocks.length === 0) return;
-  if (style.pageBreakBefore === PAGE_BREAKS.Always) {
-    const first = blocks[0];
-    if (first) Object.assign(first, { pageBreakBefore: true });
-  }
-  if (style.pageBreakAfter === PAGE_BREAKS.Always) {
-    const last = blocks[blocks.length - 1];
-    if (last) Object.assign(last, { pageBreakAfter: true });
-  }
-}
-
 function indentBlocks(blocks: readonly LayoutBlock[], indent: number): readonly LayoutBlock[] {
   return blocks.map((b) => ({ ...b, bounds: { ...b.bounds, x: b.bounds.x + indent } }));
 }
@@ -263,6 +256,14 @@ function indentBlocks(blocks: readonly LayoutBlock[], indent: number): readonly 
 const HR_THICKNESS = 1;
 
 function layoutHorizontalRule(contentWidth: number, y: number, color: string): LayoutBlock {
-  const hr: HorizontalRule = { type: 'hr', bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS }, color };
-  return { type: 'layout-block', bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS }, children: [hr] };
+  const hr: HorizontalRule = {
+    type: 'hr',
+    bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS },
+    color,
+  };
+  return {
+    type: 'layout-block',
+    bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS },
+    children: [hr],
+  };
 }

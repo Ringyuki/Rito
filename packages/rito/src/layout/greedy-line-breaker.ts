@@ -15,6 +15,17 @@ interface StyleRange {
   readonly style: ComputedStyle;
 }
 
+interface LineContext {
+  readonly text: string;
+  readonly baseStyle: ComputedStyle;
+  readonly ranges: readonly StyleRange[];
+  readonly maxWidth: number;
+  readonly lineHeight: number;
+  readonly measurer: TextMeasurer;
+  readonly preserveWs: boolean;
+  readonly allowWrap: boolean;
+}
+
 export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter {
   return {
     layoutParagraph(
@@ -42,6 +53,25 @@ export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter 
   };
 }
 
+function buildLineContext(
+  text: string,
+  baseStyle: ComputedStyle,
+  ranges: readonly StyleRange[],
+  maxWidth: number,
+  measurer: TextMeasurer,
+): LineContext {
+  return {
+    text,
+    baseStyle,
+    ranges,
+    maxWidth,
+    lineHeight: baseStyle.fontSize * baseStyle.lineHeight,
+    measurer,
+    preserveWs: baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap',
+    allowWrap: baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap',
+  };
+}
+
 function layoutText(
   text: string,
   baseStyle: ComputedStyle,
@@ -50,30 +80,34 @@ function layoutText(
   startY: number,
   measurer: TextMeasurer,
 ): LineBox[] {
-  const lines: LineBox[] = [];
-  const lineHeight = baseStyle.fontSize * baseStyle.lineHeight;
+  const ctx = buildLineContext(text, baseStyle, ranges, maxWidth, measurer);
+  const { lineHeight } = ctx;
   const indent = baseStyle.textIndent;
-  const preserveWs = baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap';
-  const allowWrap = baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap';
+  const lines: LineBox[] = [];
   let y = startY;
   let pos = 0;
   let isFirstLine = true;
 
   while (pos < text.length) {
-    if (!preserveWs && (!isFirstLine || indent <= 0)) {
+    if (!ctx.preserveWs && (!isFirstLine || indent <= 0)) {
       while (pos < text.length && text[pos] === ' ') pos++;
     }
     if (pos >= text.length) break;
 
-    const result = layoutSingleLine(
-      text, pos, isFirstLine, indent, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer,
-    );
-
-    pos = result.nextPos;
-    pos = consumeNewlines(text, pos, preserveWs);
-
+    const result = layoutSingleLine(ctx, pos, isFirstLine, indent);
+    pos = consumeNewlines(text, result.nextPos, ctx.preserveWs);
     const isLastLine = pos >= text.length;
-    lines.push(applyAlign(result.runs, result.width, y, lineHeight, maxWidth, baseStyle.textAlign, isLastLine));
+    lines.push(
+      applyAlign(
+        result.runs,
+        result.width,
+        y,
+        lineHeight,
+        maxWidth,
+        baseStyle.textAlign,
+        isLastLine,
+      ),
+    );
     y += lineHeight;
     isFirstLine = false;
   }
@@ -82,10 +116,12 @@ function layoutText(
 }
 
 function layoutSingleLine(
-  text: string, pos: number, isFirstLine: boolean, indent: number, maxWidth: number,
-  preserveWs: boolean, allowWrap: boolean, baseStyle: ComputedStyle,
-  ranges: readonly StyleRange[], lineHeight: number, measurer: TextMeasurer,
+  ctx: LineContext,
+  pos: number,
+  isFirstLine: boolean,
+  indent: number,
 ): { runs: TextRun[]; width: number; nextPos: number } {
+  const { text, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer } = ctx;
   const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
   const lineStartX = isFirstLine && indent > 0 ? indent : 0;
   const nlIndex = text.indexOf('\n', pos);
@@ -94,7 +130,9 @@ function layoutSingleLine(
     ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer)
     : lineEnd;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
-  const lineText = preserveWs ? text.slice(pos, lineTextEnd) : text.slice(pos, lineTextEnd).trimEnd();
+  const lineText = preserveWs
+    ? text.slice(pos, lineTextEnd)
+    : text.slice(pos, lineTextEnd).trimEnd();
   const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
   const width = runs.reduce((sum, r) => Math.max(sum, r.bounds.x + r.bounds.width), 0);
   return { runs, width, nextPos: lineTextEnd };
@@ -225,4 +263,3 @@ function tryHyphenation(
 
   return 0;
 }
-
