@@ -1,4 +1,5 @@
 import { useEffect, type RefObject } from 'react';
+import { useSwipe } from '@/hooks/use-swipe';
 
 interface EpubCanvasProps {
   canvasRef: RefObject<HTMLCanvasElement | null>;
@@ -19,6 +20,7 @@ export function EpubCanvas({
   onFirst,
   onLast,
 }: EpubCanvasProps) {
+  // Keyboard navigation
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -53,13 +55,16 @@ export function EpubCanvas({
     };
   }, [canvasRef, onPrev, onNext, onFirst, onLast]);
 
+  // Swipe navigation (mobile)
+  useSwipe(canvasRef, onNext, onPrev);
+
   return (
     <canvas
       ref={canvasRef}
       width={width}
       height={height}
       tabIndex={0}
-      className="rounded-lg border border-border shadow-lg outline-none focus:ring-2 focus:ring-ring"
+      className="rounded-lg border border-border shadow-lg outline-none"
     />
   );
 }

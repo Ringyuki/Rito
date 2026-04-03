@@ -5,7 +5,9 @@ import {
   ChevronRight,
   Columns2,
   FileUp,
+  Minus,
   Moon,
+  Plus,
   Rows2,
   Sun,
 } from 'lucide-react';
@@ -24,9 +26,12 @@ interface ToolbarProps {
   onFileLoad: (data: ArrayBuffer, name: string) => void;
   onPrev: () => void;
   onNext: () => void;
+  fontScale: number;
   onToggleSpread: () => void;
   onToggleTheme: () => void;
   onToggleToc: () => void;
+  onIncreaseFontSize: () => void;
+  onDecreaseFontSize: () => void;
 }
 
 export function Toolbar({
@@ -40,9 +45,12 @@ export function Toolbar({
   onFileLoad,
   onPrev,
   onNext,
+  fontScale,
   onToggleSpread,
   onToggleTheme,
   onToggleToc,
+  onIncreaseFontSize,
+  onDecreaseFontSize,
 }: ToolbarProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,6 +144,28 @@ export function Toolbar({
             </Button>
           </TooltipTrigger>
           <TooltipContent>Toggle table of contents</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onDecreaseFontSize} disabled={!isLoaded}>
+              <Minus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Decrease font size</TooltipContent>
+        </Tooltip>
+
+        <span className="min-w-[3ch] text-center text-xs text-muted-foreground">
+          {Math.round(fontScale * 100)}%
+        </span>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onIncreaseFontSize} disabled={!isLoaded}>
+              <Plus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Increase font size</TooltipContent>
         </Tooltip>
 
         <Tooltip>

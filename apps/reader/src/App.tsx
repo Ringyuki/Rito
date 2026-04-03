@@ -1,5 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Toolbar } from '@/components/toolbar';
+import { ProgressBar } from '@/components/progress-bar';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { EpubCanvas } from '@/components/epub-canvas';
 import { useEpub } from '@/hooks/use-epub';
@@ -11,6 +13,13 @@ export function App() {
   const { theme, toggle: toggleTheme } = useTheme();
   const epub = useEpub(containerSize, theme);
   const [tocOpen, setTocOpen] = useState(false);
+
+  // Auto-focus canvas after load for keyboard navigation
+  useEffect(() => {
+    if (epub.isLoaded) {
+      epub.canvasRef.current?.focus();
+    }
+  }, [epub.isLoaded, epub.canvasRef]);
 
   const handleFileLoad = useCallback(
     (data: ArrayBuffer, name: string) => {
@@ -34,17 +43,33 @@ export function App() {
         onFileLoad={handleFileLoad}
         onPrev={epub.prevSpread}
         onNext={epub.nextSpread}
+        fontScale={epub.fontScale}
         onToggleSpread={epub.toggleSpreadMode}
         onToggleTheme={toggleTheme}
         onToggleToc={() => {
           setTocOpen((o) => !o);
         }}
+        onIncreaseFontSize={epub.increaseFontSize}
+        onDecreaseFontSize={epub.decreaseFontSize}
+      />
+
+      <ProgressBar
+        current={epub.currentSpread}
+        total={epub.spreads.length}
+        onSeek={epub.goToSpread}
       />
 
       <main
         ref={containerRef}
         className="relative flex flex-1 items-center justify-center overflow-hidden bg-muted/30"
       >
+        {epub.isLoading && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+            <Loader2 className="h-8 w-8 animate-spin" />
+            <p className="text-sm">Loading...</p>
+          </div>
+        )}
+
         {!epub.isLoaded && !epub.isLoading && !epub.error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
             <p className="text-lg">Open an EPUB to start reading</p>
@@ -80,6 +105,7 @@ export function App() {
         open={tocOpen}
         onOpenChange={setTocOpen}
         onNavigate={epub.navigateToTocEntry}
+        activeChapterHref={epub.activeChapterHref}
       />
     </div>
   );

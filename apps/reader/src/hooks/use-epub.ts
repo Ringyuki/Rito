@@ -9,7 +9,15 @@ import {
   findPageForTocEntry,
   disposeResources,
 } from 'rito';
-import type { EpubDocument, LayoutConfig, Page, Resources, Spread, TocEntry } from 'rito';
+import type {
+  ChapterRange,
+  EpubDocument,
+  LayoutConfig,
+  Page,
+  Resources,
+  Spread,
+  TocEntry,
+} from 'rito';
 import type { ContainerSize } from './use-container-size';
 
 interface EpubState {
@@ -22,9 +30,13 @@ interface EpubState {
   currentSpread: number;
   toc: readonly TocEntry[];
   spreadMode: 'single' | 'double';
+  fontScale: number;
 }
 
 const PADDING = 48;
+const FONT_SCALE_STEP = 0.1;
+const FONT_SCALE_MIN = 0.5;
+const FONT_SCALE_MAX = 2.0;
 const SPREAD_GAP = 20;
 const MIN_SIZE = 200;
 
@@ -48,13 +60,14 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     currentSpread: 0,
     toc: [],
     spreadMode: 'double',
+    fontScale: 1.0,
   });
 
   const buildConfig = useCallback(
-    (mode: 'single' | 'double', size: ContainerSize): LayoutConfig =>
+    (mode: 'single' | 'double', size: ContainerSize, scale: number): LayoutConfig =>
       createLayoutConfig({
-        width: Math.max(size.width - PADDING, MIN_SIZE),
-        height: Math.max(size.height - PADDING, MIN_SIZE),
+        width: Math.max((size.width - PADDING) / scale, MIN_SIZE),
+        height: Math.max((size.height - PADDING) / scale, MIN_SIZE),
         margin: 40,
         spread: mode,
         spreadGap: SPREAD_GAP,
@@ -63,7 +76,13 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
   );
 
   const drawSpread = useCallback(
-    (spreads: readonly Spread[], index: number, config: LayoutConfig, t: 'light' | 'dark') => {
+    (
+      spreads: readonly Spread[],
+      index: number,
+      config: LayoutConfig,
+      t: 'light' | 'dark',
+      scale: number,
+    ) => {
       const canvas = canvasRef.current;
       if (!canvas || spreads.length === 0) return;
       const ctx = canvas.getContext('2d');
@@ -72,14 +91,18 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
       const spread = spreads[index];
       if (!spread) return;
 
-      const dims = getSpreadDimensions(config);
+      // Canvas physical size = layout logical size * fontScale
+      const dims = getSpreadDimensions(config, scale);
       canvas.width = dims.width;
       canvas.height = dims.height;
 
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       const images = resourcesRef.current?.images;
       const colors = THEME_COLORS[t];
-      const opts: Record<string, unknown> = { backgroundColor: colors.backgroundColor };
+      const opts: Record<string, unknown> = {
+        backgroundColor: colors.backgroundColor,
+        pixelRatio: scale,
+      };
       if (colors.foregroundColor) opts['foregroundColor'] = colors.foregroundColor;
       if (images) opts['images'] = images;
       render(spread, ctx, config, opts as Parameters<typeof render>[3]);
@@ -96,13 +119,14 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     let cancelled = false;
 
     const relayout = async (): Promise<void> => {
-      const config = buildConfig(state.spreadMode, containerSize);
+      const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
       try {
         const resources = await prepare(doc, config, canvas);
         if (cancelled) return;
         resourcesRef.current = resources;
         const pages = resources.pages;
-        const newSpreads = buildSpreads(pages, config);
+        const chapterStarts = getChapterStartPages(resources.chapterMap);
+        const newSpreads = buildSpreads(pages, config, chapterStarts);
 
         setState((s) => {
           const clamped = Math.max(0, Math.min(s.currentSpread, newSpreads.length - 1));
@@ -111,7 +135,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
 
         // Draw after state update — use the clamped index
         const clampedIdx = Math.max(0, Math.min(state.currentSpread, newSpreads.length - 1));
-        drawSpread(newSpreads, clampedIdx, config, theme);
+        drawSpread(newSpreads, clampedIdx, config, theme, state.fontScale);
       } catch {
         // ignore resize errors
       }
@@ -122,13 +146,13 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     return () => {
       cancelled = true;
     };
-  }, [containerSize.width, containerSize.height, state.spreadMode, state.isLoaded]);
+  }, [containerSize.width, containerSize.height, state.spreadMode, state.fontScale, state.isLoaded]);
 
   // Re-render (no re-pagination) when theme changes
   useEffect(() => {
     if (!state.isLoaded || state.spreads.length === 0) return;
-    const config = buildConfig(state.spreadMode, containerSize);
-    drawSpread(state.spreads, state.currentSpread, config, theme);
+    const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
+    drawSpread(state.spreads, state.currentSpread, config, theme, state.fontScale);
   }, [theme]);
 
   const loadFromArrayBuffer = useCallback(
@@ -146,12 +170,13 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
         const doc = loadEpub(data);
         docRef.current = doc;
 
-        const config = buildConfig(state.spreadMode, containerSize);
+        const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
         const resources = await prepare(doc, config, canvas);
         resourcesRef.current = resources;
 
         const pages = resources.pages;
-        const spreads = buildSpreads(pages, config);
+        const chapterStarts = getChapterStartPages(resources.chapterMap);
+        const spreads = buildSpreads(pages, config, chapterStarts);
 
         setState((s) => ({
           ...s,
@@ -164,7 +189,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
           toc: doc.toc,
         }));
 
-        drawSpread(spreads, 0, config, theme);
+        drawSpread(spreads, 0, config, theme, state.fontScale);
       } catch (err) {
         setState((s) => ({
           ...s,
@@ -196,8 +221,8 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     (index: number) => {
       setState((s) => {
         if (index < 0 || index >= s.spreads.length) return s;
-        const config = buildConfig(s.spreadMode, containerSize);
-        drawSpread(s.spreads, index, config, theme);
+        const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
+        drawSpread(s.spreads, index, config, theme, s.fontScale);
         return { ...s, currentSpread: index };
       });
     },
@@ -208,8 +233,8 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     setState((s) => {
       if (s.currentSpread >= s.spreads.length - 1) return s;
       const next = s.currentSpread + 1;
-      const config = buildConfig(s.spreadMode, containerSize);
-      drawSpread(s.spreads, next, config, theme);
+      const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
+      drawSpread(s.spreads, next, config, theme, s.fontScale);
       return { ...s, currentSpread: next };
     });
   }, [buildConfig, drawSpread, containerSize, theme]);
@@ -218,8 +243,8 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     setState((s) => {
       if (s.currentSpread <= 0) return s;
       const prev = s.currentSpread - 1;
-      const config = buildConfig(s.spreadMode, containerSize);
-      drawSpread(s.spreads, prev, config, theme);
+      const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
+      drawSpread(s.spreads, prev, config, theme, s.fontScale);
       return { ...s, currentSpread: prev };
     });
   }, [buildConfig, drawSpread, containerSize, theme]);
@@ -253,8 +278,8 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
         for (let i = 0; i < s.spreads.length; i++) {
           const sp = s.spreads[i];
           if (sp?.left?.index === pageIndex || sp?.right?.index === pageIndex) {
-            const config = buildConfig(s.spreadMode, containerSize);
-            drawSpread(s.spreads, i, config, theme);
+            const config = buildConfig(s.spreadMode, containerSize, s.fontScale);
+            drawSpread(s.spreads, i, config, theme, s.fontScale);
             return { ...s, currentSpread: i };
           }
         }
@@ -264,16 +289,51 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     [buildConfig, drawSpread, containerSize, theme],
   );
 
-  const config = buildConfig(state.spreadMode, containerSize);
+  const increaseFontSize = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      fontScale: Math.min(s.fontScale + FONT_SCALE_STEP, FONT_SCALE_MAX),
+    }));
+  }, []);
+
+  const decreaseFontSize = useCallback(() => {
+    setState((s) => ({
+      ...s,
+      fontScale: Math.max(s.fontScale - FONT_SCALE_STEP, FONT_SCALE_MIN),
+    }));
+  }, []);
+
+  const config = buildConfig(state.spreadMode, containerSize, state.fontScale);
   const canvasSize =
     containerSize.width > 0 && containerSize.height > 0
-      ? getSpreadDimensions(config)
+      ? getSpreadDimensions(config, state.fontScale)
       : { width: 0, height: 0 };
+
+  // Compute active chapter href for TOC highlighting
+  const currentSpreadObj = state.spreads[state.currentSpread];
+  const currentPageIndex = currentSpreadObj?.left?.index ?? 0;
+  const chapterMap: ReadonlyMap<string, ChapterRange> =
+    resourcesRef.current?.chapterMap ?? new Map<string, ChapterRange>();
+  const doc = docRef.current;
+
+  let activeChapterHref = '';
+  if (doc) {
+    const manifestById = new Map(doc.packageDocument.manifest.map((m) => [m.id, m.href]));
+    for (const spineItem of doc.packageDocument.spine) {
+      const range = chapterMap.get(spineItem.idref);
+      if (range && currentPageIndex >= range.startPage && currentPageIndex <= range.endPage) {
+        activeChapterHref = manifestById.get(spineItem.idref) ?? '';
+        break;
+      }
+    }
+  }
 
   return {
     ...state,
     canvasRef,
     canvasSize,
+    activeChapterHref,
+    chapterMap,
     loadFromArrayBuffer,
     loadDemo,
     goToSpread,
@@ -281,5 +341,18 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     prevSpread,
     toggleSpreadMode,
     navigateToTocEntry,
+    increaseFontSize,
+    decreaseFontSize,
   };
+}
+
+/** Extract the set of page indices that start a new chapter. */
+function getChapterStartPages(
+  chapterMap: ReadonlyMap<string, ChapterRange>,
+): Set<number> {
+  const starts = new Set<number>();
+  for (const range of chapterMap.values()) {
+    starts.add(range.startPage);
+  }
+  return starts;
 }
