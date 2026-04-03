@@ -30,6 +30,7 @@ export { createTextMeasurer } from './render/index';
 export { findPageForTocEntry } from './runtime/index';
 export { loadFonts } from './render/index';
 export { loadImages } from './render/index';
+export { createLazyImageLoader, type LazyImageLoader } from './render/index';
 export type { EpubDocument, LoadOptions, PaginationResult } from './runtime/index';
 export type { LayoutConfig, LayoutConfigInput } from './layout/index';
 export type { TextMeasurer, TextMetrics } from './layout/index';
