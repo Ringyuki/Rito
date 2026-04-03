@@ -53,6 +53,10 @@ function layoutNodesAt(
 
   for (const node of nodes) {
     state.floats.clearExpired(state.y);
+    if (node.style.clear !== 'none') {
+      const clearY = state.floats.getClearY(node.style.clear);
+      if (clearY > state.y) state.y = clearY;
+    }
     if (node.type === 'image' && node.src) {
       layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
     } else if (node.type === 'block') {

@@ -97,48 +97,36 @@ function renderBorders(
 ): void {
   const { top, right, bottom, left } = borders;
   ctx.save();
-  if (top.width > 0)
-    strokeLine(ctx, top.color, top.width, x, y + top.width / 2, x + w, y + top.width / 2);
+  if (top.width > 0) strokeBorder(ctx, top, x, y + top.width / 2, x + w, y + top.width / 2);
   if (bottom.width > 0)
-    strokeLine(
-      ctx,
-      bottom.color,
-      bottom.width,
-      x,
-      y + h - bottom.width / 2,
-      x + w,
-      y + h - bottom.width / 2,
-    );
-  if (left.width > 0)
-    strokeLine(ctx, left.color, left.width, x + left.width / 2, y, x + left.width / 2, y + h);
+    strokeBorder(ctx, bottom, x, y + h - bottom.width / 2, x + w, y + h - bottom.width / 2);
+  if (left.width > 0) strokeBorder(ctx, left, x + left.width / 2, y, x + left.width / 2, y + h);
   if (right.width > 0)
-    strokeLine(
-      ctx,
-      right.color,
-      right.width,
-      x + w - right.width / 2,
-      y,
-      x + w - right.width / 2,
-      y + h,
-    );
+    strokeBorder(ctx, right, x + w - right.width / 2, y, x + w - right.width / 2, y + h);
   ctx.restore();
 }
 
-function strokeLine(
+function strokeBorder(
   ctx: CanvasRenderingContext2D,
-  color: string,
-  width: number,
+  edge: { width: number; color: string; style: 'solid' | 'dotted' | 'dashed' },
   x1: number,
   y1: number,
   x2: number,
   y2: number,
 ): void {
-  ctx.strokeStyle = color;
-  ctx.lineWidth = width;
+  ctx.strokeStyle = edge.color;
+  ctx.lineWidth = edge.width;
+  ctx.setLineDash(getDashPattern(edge.style, edge.width));
   ctx.beginPath();
   ctx.moveTo(x1, y1);
   ctx.lineTo(x2, y2);
   ctx.stroke();
+}
+
+function getDashPattern(style: 'solid' | 'dotted' | 'dashed', width: number): number[] {
+  if (style === 'dotted') return [width, width];
+  if (style === 'dashed') return [width * 3, width * 2];
+  return [];
 }
 
 function renderLineBox(

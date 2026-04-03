@@ -273,6 +273,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     activeChapterHref = findActiveHref(reader.toc, pageIdx, reader);
   }
 
+  const bookTitle = reader?.metadata.title ?? '';
   const chapterMap: ReadonlyMap<string, ChapterRange> =
     reader?.chapterMap ?? new Map<string, ChapterRange>();
 
@@ -280,6 +281,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     ...state,
     canvasRef,
     canvasSize,
+    bookTitle,
     activeChapterHref,
     chapterMap,
     loadFromArrayBuffer,

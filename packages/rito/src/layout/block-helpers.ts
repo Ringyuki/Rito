@@ -5,16 +5,32 @@ import type { BlockBorders, LayoutBlock, LineBox } from './types';
 export function extractBorders(style: ComputedStyle): BlockBorders | undefined {
   const { borderTop, borderRight, borderBottom, borderLeft } = style;
   const hasAny =
-    (borderTop.style === 'solid' && borderTop.width > 0) ||
-    (borderRight.style === 'solid' && borderRight.width > 0) ||
-    (borderBottom.style === 'solid' && borderBottom.width > 0) ||
-    (borderLeft.style === 'solid' && borderLeft.width > 0);
+    (borderTop.style !== 'none' && borderTop.width > 0) ||
+    (borderRight.style !== 'none' && borderRight.width > 0) ||
+    (borderBottom.style !== 'none' && borderBottom.width > 0) ||
+    (borderLeft.style !== 'none' && borderLeft.width > 0);
   if (!hasAny) return undefined;
   return {
-    top: { width: borderTop.width, color: borderTop.color },
-    right: { width: borderRight.width, color: borderRight.color },
-    bottom: { width: borderBottom.width, color: borderBottom.color },
-    left: { width: borderLeft.width, color: borderLeft.color },
+    top: {
+      width: borderTop.width,
+      color: borderTop.color,
+      style: borderTop.style === 'none' ? 'solid' : borderTop.style,
+    },
+    right: {
+      width: borderRight.width,
+      color: borderRight.color,
+      style: borderRight.style === 'none' ? 'solid' : borderRight.style,
+    },
+    bottom: {
+      width: borderBottom.width,
+      color: borderBottom.color,
+      style: borderBottom.style === 'none' ? 'solid' : borderBottom.style,
+    },
+    left: {
+      width: borderLeft.width,
+      color: borderLeft.color,
+      style: borderLeft.style === 'none' ? 'solid' : borderLeft.style,
+    },
   };
 }
 

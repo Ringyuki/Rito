@@ -21,6 +21,7 @@ interface ToolbarProps {
   currentSpread: number;
   totalSpreads: number;
   spreadMode: 'single' | 'double';
+  bookTitle: string;
   theme: 'light' | 'dark';
   onLoadDemo: () => void;
   onFileLoad: (data: ArrayBuffer, name: string) => void;
@@ -40,6 +41,7 @@ export function Toolbar({
   currentSpread,
   totalSpreads,
   spreadMode,
+  bookTitle,
   theme,
   onLoadDemo,
   onFileLoad,
@@ -116,6 +118,9 @@ export function Toolbar({
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
+        {isLoaded && bookTitle && (
+          <span className="max-w-[200px] truncate text-sm font-medium">{bookTitle}</span>
+        )}
         <span className="min-w-[120px] text-center text-sm text-muted-foreground">
           {isLoading
             ? 'Loading...'

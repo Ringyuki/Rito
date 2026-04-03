@@ -1,4 +1,4 @@
-import type { TocEntry } from './parser/epub/types';
+import type { PackageMetadata, TocEntry } from './parser/epub/types';
 import type { LayoutConfig, Page, Spread } from './layout/types';
 import type { ChapterRange } from './runtime/types';
 import { loadEpub } from './runtime/load-epub';
@@ -28,6 +28,8 @@ export interface ReaderOptions {
 
 /** A Rito reader instance. Created by {@link createReader}. */
 export interface Reader {
+  /** EPUB metadata (title, creator, language, identifier). */
+  readonly metadata: PackageMetadata;
   /** Total number of spreads (pages in single mode, page-pairs in double mode). */
   readonly totalSpreads: number;
   /** Table of contents entries. */
@@ -172,6 +174,7 @@ function defineReaderAccessors(state: ReaderState, doc: ReturnType<typeof loadEp
   return Object.defineProperties(
     {},
     {
+      metadata: { get: () => doc.packageDocument.metadata, enumerable: true },
       totalSpreads: { get: () => state.spreads.length, enumerable: true },
       toc: { get: () => doc.toc, enumerable: true },
       chapterMap: { get: () => state.resources.chapterMap, enumerable: true },

@@ -28,6 +28,8 @@ export function drawTextRun(
 
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
+  ctx.wordSpacing = run.style.wordSpacing !== 0 ? `${String(run.style.wordSpacing)}px` : '';
+  ctx.letterSpacing = run.style.letterSpacing !== 0 ? `${String(run.style.letterSpacing)}px` : '';
 
   const x = offsetX + run.bounds.x;
   const y = offsetY + run.bounds.y;

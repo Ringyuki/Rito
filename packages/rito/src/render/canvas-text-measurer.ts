@@ -19,7 +19,11 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): TextMea
       // actualBoundingBoxLeft + actualBoundingBoxRight = ink bounds (actual pixels)
       // Use the larger of the two to prevent clipping.
       const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
-      const width = Math.max(metrics.width, inkWidth);
+      let width = Math.max(metrics.width, inkWidth);
+      if (style.wordSpacing !== 0) {
+        const spaces = text.split(' ').length - 1;
+        width += spaces * style.wordSpacing;
+      }
 
       return {
         width,

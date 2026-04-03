@@ -36,6 +36,7 @@ export function App() {
         currentSpread={epub.currentSpread}
         totalSpreads={epub.spreads.length}
         spreadMode={epub.spreadMode}
+        bookTitle={epub.bookTitle}
         theme={theme}
         onLoadDemo={() => {
           void epub.loadDemo();

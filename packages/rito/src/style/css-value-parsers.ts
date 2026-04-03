@@ -113,13 +113,15 @@ export function parseBorder(value: string, parentFontSize: number): BorderSide |
 
   let width = 1;
   let color = '#000000';
-  let style: 'solid' | 'none' = 'solid';
+  let style: BorderSide['style'] = 'solid';
 
   for (const part of parts) {
     if (part === 'none' || part === 'hidden') {
       style = 'none';
-    } else if (part === 'solid' || part === 'dotted' || part === 'dashed' || part === 'double') {
-      style = 'solid';
+    } else if (part === 'solid' || part === 'dotted' || part === 'dashed') {
+      style = part;
+    } else if (part === 'double' || part === 'groove' || part === 'ridge') {
+      style = 'solid'; // approximate unsupported styles as solid
     } else {
       const len = parseLength(part, parentFontSize);
       if (len !== undefined) {

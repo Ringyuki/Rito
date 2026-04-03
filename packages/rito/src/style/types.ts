@@ -103,6 +103,7 @@ export interface ComputedStyle {
   readonly paddingLeft: number;
   readonly backgroundColor: string;
   readonly letterSpacing: number;
+  readonly wordSpacing: number;
   readonly textTransform: TextTransform;
   readonly whiteSpace: WhiteSpace;
   readonly borderTop: BorderSide;
@@ -110,6 +111,7 @@ export interface ComputedStyle {
   readonly borderBottom: BorderSide;
   readonly borderLeft: BorderSide;
   readonly float: 'none' | 'left' | 'right';
+  readonly clear: 'none' | 'left' | 'right' | 'both';
   /** Explicit width in px. 0 means auto (not set). */
   readonly width: number;
   /** Maximum width in px. 0 means no constraint. */
@@ -125,7 +127,7 @@ export interface ComputedStyle {
 export interface BorderSide {
   readonly width: number;
   readonly color: string;
-  readonly style: 'solid' | 'none';
+  readonly style: 'solid' | 'dotted' | 'dashed' | 'none';
 }
 
 /** A single CSS rule: a selector paired with declarations. */

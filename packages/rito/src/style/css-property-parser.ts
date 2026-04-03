@@ -73,6 +73,10 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
     const ls = parseLength(v, em);
     if (ls !== undefined) r['letterSpacing'] = ls;
   },
+  'word-spacing': (r, v, em) => {
+    const ws = parseLength(v, em);
+    if (ws !== undefined) r['wordSpacing'] = ws;
+  },
 
   // Text
   'text-align': (r, v) => {
@@ -171,6 +175,10 @@ const PROPERTY_HANDLERS: Readonly<Record<string, Handler>> = {
   float: (r, v) => {
     const f = v.trim().toLowerCase();
     if (f === 'left' || f === 'right' || f === 'none') r['float'] = f;
+  },
+  clear: (r, v) => {
+    const c = v.trim().toLowerCase();
+    if (c === 'left' || c === 'right' || c === 'both' || c === 'none') r['clear'] = c;
   },
   width: (r, v, em) => {
     const w = parseLength(v, em);

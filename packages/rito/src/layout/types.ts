@@ -51,12 +51,19 @@ export interface LayoutBlock {
   readonly pageBreakAfter?: boolean;
 }
 
-/** Border widths and colors for a layout block. */
+/** Border edge in a layout block. */
+export interface BlockBorderEdge {
+  readonly width: number;
+  readonly color: string;
+  readonly style: 'solid' | 'dotted' | 'dashed';
+}
+
+/** Border widths, colors, and styles for a layout block. */
 export interface BlockBorders {
-  readonly top: { readonly width: number; readonly color: string };
-  readonly right: { readonly width: number; readonly color: string };
-  readonly bottom: { readonly width: number; readonly color: string };
-  readonly left: { readonly width: number; readonly color: string };
+  readonly top: BlockBorderEdge;
+  readonly right: BlockBorderEdge;
+  readonly bottom: BlockBorderEdge;
+  readonly left: BlockBorderEdge;
 }
 
 /**

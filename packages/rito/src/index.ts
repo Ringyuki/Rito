@@ -6,7 +6,7 @@
 export { createReader, type Reader, type ReaderOptions } from './reader';
 
 // ── Types (commonly needed with Reader) ────────────────────────────
-export type { TocEntry } from './parser/index';
+export type { PackageMetadata, TocEntry } from './parser/index';
 export type { ChapterRange } from './runtime/index';
 export type { Page, Spread } from './layout/index';
 
