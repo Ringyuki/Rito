@@ -5,7 +5,6 @@ import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
 import { layoutBlocks } from '../layout/block-layout';
 import { paginateBlocks } from '../layout/paginator';
 import type { ParagraphLayouter } from '../layout/paragraph-layouter';
-import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import { resolveStyles } from '../style/resolver';
 import { parseCssRules } from '../style/css-rule-parser';
 import { DEFAULT_STYLE } from '../style/defaults';
@@ -74,10 +73,9 @@ function paginateSpine(
   const anchorMap = new Map<string, number>();
 
   for (const spineItem of req.spine) {
-    const xhtml = req.chapters.get(spineItem.idref);
-    if (!xhtml) continue;
+    const nodes = req.chapters.get(spineItem.idref);
+    if (!nodes || nodes.length === 0) continue;
 
-    const { nodes } = parseXhtml(xhtml);
     const styled = resolveStyles(nodes, bodyStyle, rules);
     const blocks = layoutBlocks(styled, contentWidth, layouter, imageSizes, contentHeight);
     if (blocks.length === 0) continue;
