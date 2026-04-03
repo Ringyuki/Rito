@@ -6,7 +6,7 @@ import prettier from 'eslint-config-prettier';
 
 export default defineConfig([
   {
-    ignores: ['dist/', 'node_modules/', 'coverage/', 'examples/'],
+    ignores: ['**/dist/', '**/node_modules/', '**/coverage/', 'apps/reader/src/components/ui/'],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
@@ -27,7 +27,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['src/**/*.ts'],
+    files: ['packages/rito/src/**/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       '@typescript-eslint/no-explicit-any': 'error',
@@ -44,11 +44,18 @@ export default defineConfig([
     },
   },
   {
-    files: ['tests/**/*.ts'],
+    files: ['packages/rito/tests/**/*.ts'],
     rules: {
       '@typescript-eslint/explicit-module-boundary-types': 'off',
       'max-lines': ['warn', 800],
       'max-lines-per-function': 'off',
+    },
+  },
+  {
+    files: ['apps/reader/src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'error',
+      'no-console': ['error', { allow: ['warn', 'error'] }],
     },
   },
   prettier,

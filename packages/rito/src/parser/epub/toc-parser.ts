@@ -15,10 +15,8 @@ export function parseNavDocument(xhtml: string): readonly TocEntry[] {
   for (let i = 0; i < navElements.length; i++) {
     const nav = navElements[i];
     if (!nav) continue;
-    const epubType = nav.getAttribute('epub:type') ?? nav.getAttributeNS(
-      'http://www.idpf.org/2007/ops',
-      'type',
-    );
+    const epubType =
+      nav.getAttribute('epub:type') ?? nav.getAttributeNS('http://www.idpf.org/2007/ops', 'type');
     if (epubType === 'toc') {
       tocNav = nav;
       break;

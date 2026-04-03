@@ -159,7 +159,11 @@ function layoutTextBlock(
   const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
   const segments = flattenInlineContent(node.children);
-  const lineBoxes = layouter.layoutParagraph(segments, innerWidth > 0 ? innerWidth : contentWidth, 0);
+  const lineBoxes = layouter.layoutParagraph(
+    segments,
+    innerWidth > 0 ? innerWidth : contentWidth,
+    0,
+  );
   const contentHeight = computeChildrenHeight(lineBoxes);
   const height = paddingTop + contentHeight + paddingBottom;
 

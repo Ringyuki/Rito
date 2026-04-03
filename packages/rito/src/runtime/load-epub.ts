@@ -101,11 +101,7 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
 }
 
 /** Attempt to load TOC from EPUB 3 nav document or EPUB 2 NCX. */
-function loadToc(
-  reader: ZipReader,
-  pkg: PackageDocument,
-  opfDir: string,
-): readonly TocEntry[] {
+function loadToc(reader: ZipReader, pkg: PackageDocument, opfDir: string): readonly TocEntry[] {
   // EPUB 3: look for manifest item with properties containing "nav"
   const navItem = pkg.manifest.find((item) => item.properties?.includes('nav'));
   if (navItem) {
@@ -119,9 +115,7 @@ function loadToc(
   }
 
   // EPUB 2: look for NCX file in manifest (media-type: application/x-dtbncx+xml)
-  const ncxItem = pkg.manifest.find(
-    (item) => item.mediaType === 'application/x-dtbncx+xml',
-  );
+  const ncxItem = pkg.manifest.find((item) => item.mediaType === 'application/x-dtbncx+xml');
   if (ncxItem) {
     try {
       const ncxXml = reader.readTextFile(opfDir + ncxItem.href);

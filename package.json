@@ -1,55 +1,26 @@
 {
-  "name": "rito",
-  "type": "module",
-  "version": "0.1.0",
+  "name": "rito-monorepo",
   "private": true,
-  "description": "A TypeScript Canvas-based EPUB rendering library",
-  "keywords": [
-    "epub",
-    "canvas",
-    "renderer",
-    "ebook",
-    "typesetting",
-    "layout",
-    "pagination"
-  ],
-  "sideEffects": false,
-  "exports": {
-    ".": {
-      "import": "./dist/index.mjs",
-      "types": "./dist/index.d.mts"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist"
-  ],
+  "type": "module",
   "scripts": {
-    "build": "tsdown",
-    "dev": "tsdown --watch",
+    "build": "pnpm -r run build",
+    "dev": "pnpm -r --parallel run dev",
+    "dev:reader": "pnpm --filter @rito/reader dev",
+    "dev:rito": "pnpm --filter rito dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
+    "typecheck": "pnpm -r run typecheck",
+    "test": "pnpm -r run test",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.5.0",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
-    "happy-dom": "^20.8.9",
     "prettier": "^3.8.1",
-    "tsdown": "^0.21.7",
     "typescript": "^6.0.2",
-    "typescript-eslint": "^8.58.0",
-    "vitest": "^4.1.2"
-  },
-  "dependencies": {
-    "fflate": "^0.8.2"
+    "typescript-eslint": "^8.58.0"
   }
 }
