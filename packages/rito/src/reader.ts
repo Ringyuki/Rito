@@ -180,20 +180,46 @@ function renderSpreadToCanvas(
   render(spread, ctx, state.config, opts as Parameters<typeof render>[3]);
 }
 
+/**
+ * Re-paginate with new dimensions. Reuses cached assets (fonts, images,
+ * text measurer) — only layout and spread building are re-run.
+ * Returns `true` if pagination was actually performed.
+ */
 function repaginate(
   state: ReaderState,
   doc: ReturnType<typeof loadEpub>,
   options: ReaderOptions,
   width: number,
   height: number,
-): void {
-  state.config = makeLayoutConfig({ ...options, width, height }, state.spreadMode);
+): boolean {
+  const newConfig = makeLayoutConfig({ ...options, width, height }, state.spreadMode);
+  if (layoutConfigEqual(state.config, newConfig)) return false;
+  state.config = newConfig;
+  state.assets.measurer.clearCache();
   const paginationResult = paginateWithAssets(doc, state.config, state.assets);
   state.resources = { ...paginationResult, images: state.assets.images };
   state.spreads = buildSpreads(
     state.resources.pages,
     state.config,
     getChapterStartPages(state.resources.chapterMap),
+  );
+  return true;
+}
+
+/** Shallow equality check for layout configs to skip redundant repagination. */
+function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
+  return (
+    a.viewportWidth === b.viewportWidth &&
+    a.viewportHeight === b.viewportHeight &&
+    a.pageWidth === b.pageWidth &&
+    a.pageHeight === b.pageHeight &&
+    a.marginTop === b.marginTop &&
+    a.marginRight === b.marginRight &&
+    a.marginBottom === b.marginBottom &&
+    a.marginLeft === b.marginLeft &&
+    a.spreadMode === b.spreadMode &&
+    a.firstPageAlone === b.firstPageAlone &&
+    a.spreadGap === b.spreadGap
   );
 }
 
@@ -228,6 +254,7 @@ function buildReader(
       repaginate(state, doc, options, w, h);
     },
     setSpreadMode(mode: 'single' | 'double'): void {
+      if (state.spreadMode === mode) return;
       state.spreadMode = mode;
       const { viewportWidth, viewportHeight } = state.config;
       repaginate(state, doc, options, viewportWidth, viewportHeight);

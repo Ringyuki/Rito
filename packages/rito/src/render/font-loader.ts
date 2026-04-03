@@ -37,9 +37,14 @@ export async function loadFonts(doc: EpubDocument): Promise<void> {
     );
     const face = new FontFace(rule.family, buffer as ArrayBuffer, descriptors);
     promises.push(
-      face.load().then(() => {
-        document.fonts.add(face);
-      }),
+      face
+        .load()
+        .then(() => {
+          document.fonts.add(face);
+        })
+        .catch((err: unknown) => {
+          console.warn(`Failed to load font "${rule.family}":`, err);
+        }),
     );
   }
 

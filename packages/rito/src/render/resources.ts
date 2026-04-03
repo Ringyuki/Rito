@@ -2,13 +2,13 @@ import type { LayoutConfig, Page } from '../layout/types';
 import type { ChapterRange, EpubDocument } from '../runtime/types';
 import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';
-import { createCanvasTextMeasurer } from './canvas-text-measurer';
+import { createCanvasTextMeasurer, type CachedTextMeasurer } from './canvas-text-measurer';
 import { paginateWithMeta } from '../runtime/paginate';
 
 /** Decoded assets (fonts registered, images decoded). Reusable across resizes. */
 export interface LoadedAssets {
   readonly images: ReadonlyMap<string, ImageBitmap>;
-  readonly measurer: ReturnType<typeof createCanvasTextMeasurer>;
+  readonly measurer: CachedTextMeasurer;
 }
 
 /** Resources produced by {@link prepare}, needed for rendering. */
