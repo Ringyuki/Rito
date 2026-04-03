@@ -1,7 +1,7 @@
 {
   "name": "rito",
   "type": "module",
-  "version": "0.4.4",
+  "version": "0.4.5",
   "private": true,
   "description": "A TypeScript Canvas-based EPUB rendering library",
   "keywords": [
@@ -13,7 +13,10 @@
     "layout",
     "pagination"
   ],
-  "sideEffects": false,
+  "sideEffects": [
+    "./dist/worker.mjs",
+    "./src/worker.ts"
+  ],
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -22,6 +25,10 @@
     "./advanced": {
       "import": "./dist/advanced.mjs",
       "types": "./dist/advanced.d.mts"
+    },
+    "./worker": {
+      "import": "./dist/worker.mjs",
+      "types": "./dist/worker.d.mts"
     },
     "./package.json": "./package.json"
   },

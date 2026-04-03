@@ -34,3 +34,4 @@ export type { EpubDocument, LoadOptions, PaginationResult } from './runtime/inde
 export type { LayoutConfig, LayoutConfigInput } from './layout/index';
 export type { TextMeasurer, TextMetrics } from './layout/index';
 export type { RenderOptions } from './render/index';
+export { paginateInWorker } from './workers/worker-paginator';
