@@ -33,6 +33,30 @@
       "import": "./dist/worker.mjs",
       "types": "./dist/worker.d.mts"
     },
+    "./selection": {
+      "import": "./dist/selection.mjs",
+      "types": "./dist/selection.d.mts"
+    },
+    "./search": {
+      "import": "./dist/search.mjs",
+      "types": "./dist/search.d.mts"
+    },
+    "./annotations": {
+      "import": "./dist/annotations.mjs",
+      "types": "./dist/annotations.d.mts"
+    },
+    "./position": {
+      "import": "./dist/position.mjs",
+      "types": "./dist/position.d.mts"
+    },
+    "./a11y": {
+      "import": "./dist/a11y.mjs",
+      "types": "./dist/a11y.d.mts"
+    },
+    "./dom": {
+      "import": "./dist/dom.mjs",
+      "types": "./dist/dom.d.mts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
