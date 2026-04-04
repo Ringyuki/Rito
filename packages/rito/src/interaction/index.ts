@@ -10,3 +10,5 @@ export type { SearchIndex, SearchResult, SearchOptions } from './search-index';
 export type { SemanticNode, SemanticRole } from './semantic-tree';
 export type { Annotation, AnnotationRenderData } from './annotations';
 export type { ReadingPosition } from './position';
+export { createSelectionEngine } from './selection-engine';
+export type { SelectionEngine, SelectionState, PointerInput } from './selection-engine';
