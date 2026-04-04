@@ -79,6 +79,26 @@ export default defineConfig([
     },
   },
   {
+    files: ['packages/react/src/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/consistent-type-imports': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/explicit-module-boundary-types': 'error',
+      'no-console': ['error', { allow: ['warn', 'error'] }],
+      'max-lines': ['warn', 300],
+      'max-lines-per-function': ['warn', 50],
+    },
+  },
+  {
+    files: ['packages/react/tests/**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+      'max-lines': ['warn', 800],
+      'max-lines-per-function': 'off',
+    },
+  },
+  {
     files: ['apps/reader/src/**/*.{ts,tsx}'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',

@@ -1,0 +1,53 @@
+{
+  "name": "@rito/react",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React hooks and components for rito",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./hooks": {
+      "import": "./dist/hooks.mjs",
+      "types": "./dist/hooks.d.mts"
+    },
+    "./components": {
+      "import": "./dist/components.mjs",
+      "types": "./dist/components.d.mts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "rito": "workspace:*",
+    "@rito/kit": "workspace:*"
+  },
+  "devDependencies": {
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "rito": "workspace:*",
+    "@rito/kit": "workspace:*",
+    "tsdown": "^0.21.7",
+    "vitest": "^4.1.2"
+  }
+}
