@@ -1,6 +1,6 @@
 import type { ComputedStyle } from '../../../style/types';
-import type { TextMeasurer } from '../../text-measurer';
-import type { TextRun } from '../../types';
+import type { TextRun } from '../../core/types';
+import type { TextMeasurer } from '../../text/text-measurer';
 import type { StyleRange } from './types';
 
 export function buildStyledRuns(

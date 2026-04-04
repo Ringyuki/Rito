@@ -1,6 +1,6 @@
 import type { TocEntry } from '../parser/epub/types';
 import type { SpineItem } from '../parser/epub/types';
-import type { Spread } from '../layout/types';
+import type { Spread } from '../layout/core/types';
 import type { ChapterRange } from './types';
 
 /**

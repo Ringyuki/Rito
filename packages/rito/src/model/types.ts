@@ -1,8 +1,8 @@
 /**
- * Shared types — re-exported from layout/types.ts for backward compatibility.
+ * Shared types — re-exported from layout/core/types.ts for backward compatibility.
  */
-import type { Rect } from '../layout/types';
-export type { Rect } from '../layout/types';
+import type { Rect } from '../layout/core/types';
+export type { Rect } from '../layout/core/types';
 
 /** Represents spacing values (margin, padding). */
 export interface Spacing {

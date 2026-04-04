@@ -7,8 +7,8 @@ import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import type { ComputedStyle } from '../../src/style/types';
-import type { StyledSegment } from '../../src/layout/styled-segment';
-import type { TextRun } from '../../src/layout/types';
+import type { StyledSegment } from '../../src/layout/text/styled-segment';
+import type { TextRun } from '../../src/layout/core/types';
 
 const BASE_FONT_SIZE = 16;
 const measurer = createMockTextMeasurer(0.6);

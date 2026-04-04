@@ -1,4 +1,4 @@
-import type { HorizontalRule, LayoutBlock, LineBox } from '../../layout/types';
+import type { HorizontalRule, LayoutBlock, LineBox } from '../../layout/core/types';
 import { drawTextRun } from '../text-renderer';
 import { renderBlockBackground } from './background-renderer';
 import { renderImage } from './image-renderer';

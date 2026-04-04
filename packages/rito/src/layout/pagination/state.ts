@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutConfig, Page } from '../types';
+import type { LayoutBlock, LayoutConfig, Page } from '../core/types';
 
 export interface PaginationState {
   pages: Page[];

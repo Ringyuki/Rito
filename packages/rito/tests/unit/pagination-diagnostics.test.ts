@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { createLayoutConfig } from '../../src/layout/config';
+import { createLayoutConfig } from '../../src/layout/core/config';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { paginateWithMeta } from '../../src/runtime/paginate';
 import type { Logger } from '../../src/utils/logger';

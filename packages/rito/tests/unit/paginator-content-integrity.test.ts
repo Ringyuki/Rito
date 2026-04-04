@@ -8,12 +8,12 @@ import { paginateBlocks } from '../../src/layout/pagination';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { resolveStyles } from '../../src/style/resolver';
-import { createLayoutConfig } from '../../src/layout/config';
+import { createLayoutConfig } from '../../src/layout/core/config';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import { parseCssRules } from '../../src/style/css-rule-parser';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import type { LayoutBlock } from '../../src/layout/types';
+import type { LayoutBlock } from '../../src/layout/core/types';
 
 // CJK-like full-width measurement
 const measurer = createMockTextMeasurer(1.0);

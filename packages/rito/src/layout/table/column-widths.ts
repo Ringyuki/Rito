@@ -1,8 +1,8 @@
 import type { StyledNode } from '../../style/types';
-import type { ParagraphLayouter } from '../paragraph-layouter';
-import type { StyledSegment } from '../styled-segment';
-import { flattenInlineContent } from '../styled-segment';
-import type { LineBox } from '../types';
+import type { LineBox } from '../core/types';
+import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import type { StyledSegment } from '../text/styled-segment';
+import { flattenInlineContent } from '../text/styled-segment';
 import { CELL_PADDING, isCellNode } from './shared';
 
 const LARGE_WIDTH = 1e6;

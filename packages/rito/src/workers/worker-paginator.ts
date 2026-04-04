@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page } from '../layout/types';
+import type { LayoutConfig, Page } from '../layout/core/types';
 import type { EpubDocument, PaginationResult } from '../runtime/types';
 import { logXhtmlWarnings } from '../runtime/xhtml-diagnostics';
 import type { LoadedAssets } from '../render/resources';

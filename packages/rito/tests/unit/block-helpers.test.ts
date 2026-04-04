@@ -6,7 +6,7 @@ import {
   applyPageBreakFlags,
 } from '../../src/layout/block/helpers';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { LayoutBlock, LineBox } from '../../src/layout/types';
+import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
 
 describe('extractBorders', () => {
   it('returns undefined when all borders are none', () => {

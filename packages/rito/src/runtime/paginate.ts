@@ -1,5 +1,5 @@
-import type { LayoutConfig, Page } from '../layout/types';
-import type { TextMeasurer } from '../layout/text-measurer';
+import type { LayoutConfig, Page } from '../layout/core/types';
+import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { EpubDocument, PaginationResult } from './types';
 import { PaginationSession } from './pagination-session';
 import type { Logger } from '../utils/logger';

@@ -1,8 +1,8 @@
 import type { StyledNode } from '../../style/types';
 import { layoutBlocks } from '../block';
-import type { ParagraphLayouter } from '../paragraph-layouter';
-import { flattenInlineContent } from '../styled-segment';
-import type { LayoutBlock, LineBox } from '../types';
+import type { LayoutBlock, LineBox } from '../core/types';
+import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import { flattenInlineContent } from '../text/styled-segment';
 
 export function layoutTableCellContent(
   cell: StyledNode,

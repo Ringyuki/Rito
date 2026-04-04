@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from '../../src/layout/config';
-import type { Page } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
+import type { Page } from '../../src/layout/core/types';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
 import { paginateChapterNodes, preparePaginationContext } from '../../src/runtime/pagination-core';
 import { loadEpub } from '../../src/runtime/load-epub';

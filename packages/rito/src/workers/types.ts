@@ -1,4 +1,4 @@
-import type { LayoutConfig } from '../layout/types';
+import type { LayoutConfig } from '../layout/core/types';
 import type { ChapterRange } from '../runtime/types';
 import type { SpineItem, PackageDocument } from '../parser/epub/types';
 import type { DocumentNode } from '../parser/xhtml/types';

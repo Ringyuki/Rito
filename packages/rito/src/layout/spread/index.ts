@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page, Spread } from '../types';
+import type { LayoutConfig, Page, Spread } from '../core/types';
 
 export function buildSpreads(
   pages: readonly Page[],

@@ -1,6 +1,6 @@
 import type { ComputedStyle } from '../../../style/types';
-import { findHyphenationPoints } from '../../hyphenation';
-import type { TextMeasurer } from '../../text-measurer';
+import { findHyphenationPoints } from '../../text/hyphenation';
+import type { TextMeasurer } from '../../text/text-measurer';
 
 const CJK_RE =
   /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\u{20000}-\u{2FA1F}\u3000-\u303F\uFF00-\uFFEF]/u;

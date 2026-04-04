@@ -6,7 +6,7 @@ import { renderPage } from '../../src/render/page-renderer';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { createLayoutConfig } from '../../src/layout/config';
+import { createLayoutConfig } from '../../src/layout/core/config';
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

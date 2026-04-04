@@ -1,5 +1,5 @@
 import type { ComputedStyle } from '../../src/style/types';
-import type { TextMetrics } from '../../src/layout/text-measurer';
+import type { TextMetrics } from '../../src/layout/text/text-measurer';
 import type { CachedTextMeasurer } from '../../src/render/canvas-text-measurer';
 
 /**

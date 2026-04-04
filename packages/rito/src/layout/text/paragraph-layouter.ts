@@ -1,4 +1,4 @@
-import type { LineBox } from './types';
+import type { LineBox } from '../core/types';
 import type { StyledSegment } from './styled-segment';
 
 /**

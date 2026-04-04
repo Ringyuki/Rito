@@ -1,4 +1,4 @@
-import type { StyledSegment } from '../../styled-segment';
+import type { StyledSegment } from '../../text/styled-segment';
 
 export interface KPBox {
   readonly type: 'box';

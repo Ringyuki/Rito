@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutConfig, Page } from '../types';
+import type { LayoutBlock, LayoutConfig, Page } from '../core/types';
 import { createPaginationState, emitPage, type PaginationState } from './state';
 import { repositionBlock, trySplitBlock } from './split';
 

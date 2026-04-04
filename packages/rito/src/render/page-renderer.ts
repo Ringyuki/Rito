@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page } from '../layout/types';
+import type { LayoutConfig, Page } from '../layout/core/types';
 import { renderBlock } from './page-renderer/block-renderer';
 import type { ColorOverride } from './page-renderer/types';
 import type { RenderOptions } from './types';

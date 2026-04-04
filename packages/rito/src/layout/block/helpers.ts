@@ -1,6 +1,6 @@
 import type { ComputedStyle } from '../../style/types';
 import { PAGE_BREAKS } from '../../style/types';
-import type { BlockBorders, LayoutBlock, LineBox } from '../types';
+import type { BlockBorders, LayoutBlock, LineBox } from '../core/types';
 
 export function extractBorders(style: ComputedStyle): BlockBorders | undefined {
   const { borderTop, borderRight, borderBottom, borderLeft } = style;

@@ -1,6 +1,6 @@
-import { findHyphenationPoints } from '../../hyphenation';
-import type { StyledSegment } from '../../styled-segment';
-import type { TextMeasurer } from '../../text-measurer';
+import { findHyphenationPoints } from '../../text/hyphenation';
+import type { StyledSegment } from '../../text/styled-segment';
+import type { TextMeasurer } from '../../text/text-measurer';
 import type { KPBox, KPGlue, KPItem, KPPenalty } from './types';
 
 const HYPHEN_PENALTY = 50;

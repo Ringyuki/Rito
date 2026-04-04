@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { layoutImageBlock } from '../../src/layout/block/image';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { ImageSizeMap } from '../../src/layout/block';
-import type { ImageElement, LayoutBlock } from '../../src/layout/types';
+import type { ImageElement, LayoutBlock } from '../../src/layout/core/types';
 
 function getImage(block: LayoutBlock): ImageElement {
   const child = block.children[0];

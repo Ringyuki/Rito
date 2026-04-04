@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { layoutTable } from '../../src/layout/table';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { StyledNode } from '../../src/style/types';
-import type { ParagraphLayouter } from '../../src/layout/paragraph-layouter';
+import type { ParagraphLayouter } from '../../src/layout/text/paragraph-layouter';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 

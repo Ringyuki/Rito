@@ -3,7 +3,7 @@ import { createListContext, addListMarker } from '../../src/layout/block/list';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import { LIST_STYLE_TYPES } from '../../src/style/types';
 import type { ListStyleType, StyledNode } from '../../src/style/types';
-import type { LayoutBlock, LineBox } from '../../src/layout/types';
+import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
 
 function makeNode(tag: string, listStyleType: ListStyleType = LIST_STYLE_TYPES.Disc): StyledNode {
   return { type: 'block', tag, style: { ...DEFAULT_STYLE, listStyleType }, children: [] };

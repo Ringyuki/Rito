@@ -1,4 +1,4 @@
-import type { LayoutBlock } from '../../layout/types';
+import type { LayoutBlock } from '../../layout/core/types';
 
 export function renderBlockBackground(
   ctx: CanvasRenderingContext2D,

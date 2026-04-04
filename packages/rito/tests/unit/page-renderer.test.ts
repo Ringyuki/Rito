@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { renderPage } from '../../src/render/page-renderer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { Page } from '../../src/layout/types';
-import { createLayoutConfig } from '../../src/layout/config';
+import type { Page } from '../../src/layout/core/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
 
 const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 

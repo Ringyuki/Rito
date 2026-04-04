@@ -1,9 +1,9 @@
 import type { ComputedStyle } from '../../../style/types';
-import type { ParagraphLayouter } from '../../paragraph-layouter';
-import type { StyledSegment } from '../../styled-segment';
-import { applyAlign } from '../../text-align';
-import type { TextMeasurer } from '../../text-measurer';
-import type { LineBox, TextRun } from '../../types';
+import type { LineBox, TextRun } from '../../core/types';
+import type { ParagraphLayouter } from '../../text/paragraph-layouter';
+import type { StyledSegment } from '../../text/styled-segment';
+import { applyAlign } from '../../text/text-align';
+import type { TextMeasurer } from '../../text/text-measurer';
 import { buildKPItems } from './builder';
 import { emergencyBreaks, solveKP } from './solver';
 import type { KPItem } from './types';

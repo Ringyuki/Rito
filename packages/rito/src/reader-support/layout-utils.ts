@@ -1,5 +1,5 @@
-import { createLayoutConfig, type LayoutConfigInput } from '../layout/config';
-import type { LayoutConfig } from '../layout/types';
+import { createLayoutConfig, type LayoutConfigInput } from '../layout/core/config';
+import type { LayoutConfig } from '../layout/core/types';
 import type { ReaderOptions } from '../reader';
 import type { ChapterRange } from '../runtime/types';
 

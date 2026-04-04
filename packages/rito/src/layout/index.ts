@@ -9,12 +9,13 @@ export {
   type Page,
   type Spread,
   type TextRun,
-} from './types';
+  createLayoutConfig,
+  type LayoutConfigInput,
+} from './core';
 export { buildSpreads } from './spread';
-export { createLayoutConfig, type LayoutConfigInput } from './config';
-export { type TextMeasurer, type TextMetrics } from './text-measurer';
-export { type StyledSegment, flattenInlineContent } from './styled-segment';
-export { type ParagraphLayouter } from './paragraph-layouter';
+export { type TextMeasurer, type TextMetrics } from './text';
+export { type StyledSegment, flattenInlineContent } from './text';
+export { type ParagraphLayouter } from './text';
 export { createGreedyLayouter, createKnuthPlassLayouter } from './line-breaker';
 export { layoutBlocks } from './block';
 export { paginateBlocks } from './pagination';

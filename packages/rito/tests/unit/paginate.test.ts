@@ -4,7 +4,7 @@ import { paginate } from '../../src/runtime/paginate';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { createLayoutConfig } from '../../src/layout/config';
+import { createLayoutConfig } from '../../src/layout/core/config';
 
 const measurer = createMockTextMeasurer(0.6);
 

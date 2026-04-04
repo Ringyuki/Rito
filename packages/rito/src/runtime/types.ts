@@ -1,4 +1,4 @@
-import type { Page } from '../layout/types';
+import type { Page } from '../layout/core/types';
 import type { PackageDocument, TocEntry } from '../parser/epub/types';
 import type { Logger } from '../utils/logger';
 

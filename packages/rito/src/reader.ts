@@ -1,5 +1,5 @@
 import type { PackageMetadata, TocEntry } from './parser/epub/types';
-import type { Page, Spread } from './layout/types';
+import type { Page, Spread } from './layout/core/types';
 import type { ChapterRange, EpubDocument } from './runtime/types';
 import { loadEpub } from './runtime/load-epub';
 import { getSpreadDimensions } from './render/spread-renderer';

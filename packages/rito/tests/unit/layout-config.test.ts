@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from '../../src/layout/config';
+import { createLayoutConfig } from '../../src/layout/core/config';
 
 describe('createLayoutConfig', () => {
   it('creates config with uniform margin and defaults', () => {

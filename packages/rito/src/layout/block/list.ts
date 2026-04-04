@@ -1,6 +1,6 @@
 import { LIST_STYLE_TYPES } from '../../style/types';
 import type { ComputedStyle, ListStyleType, StyledNode } from '../../style/types';
-import type { LayoutBlock, LineBox, TextRun } from '../types';
+import type { LayoutBlock, LineBox, TextRun } from '../core/types';
 
 const MARKER_AREA_WIDTH = 24;
 const BULLET = '\u2022';

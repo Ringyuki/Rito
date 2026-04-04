@@ -1,7 +1,7 @@
 import type { StyledNode } from '../../style/types';
-import type { ParagraphLayouter } from '../paragraph-layouter';
+import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutTable } from '../table';
-import type { LayoutBlock } from '../types';
+import type { LayoutBlock } from '../core/types';
 import { FloatContext } from './float-context';
 import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { layoutImageBlock } from './image';

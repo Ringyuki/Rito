@@ -4,8 +4,8 @@ import { layoutBlocks } from '../../src/layout/block';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { resolveStyles } from '../../src/style/resolver';
-import type { LayoutBlock } from '../../src/layout/types';
-import { createLayoutConfig } from '../../src/layout/config';
+import type { LayoutBlock } from '../../src/layout/core/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 

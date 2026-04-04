@@ -1,4 +1,4 @@
-import type { LayoutBlock, LineBox } from '../types';
+import type { LayoutBlock, LineBox } from '../core/types';
 
 interface SplitResult {
   readonly head: LayoutBlock;

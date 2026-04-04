@@ -1,6 +1,6 @@
 import type { StyledNode } from '../../style/types';
-import type { ParagraphLayouter } from '../paragraph-layouter';
-import type { LayoutBlock } from '../types';
+import type { LayoutBlock } from '../core/types';
+import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutTableCellContent } from './cell-layout';
 import { CELL_PADDING, columnX, computeChildrenHeight, offsetChildren, spanWidth } from './shared';
 

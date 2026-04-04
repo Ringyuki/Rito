@@ -1,6 +1,6 @@
 import type { ComputedStyle } from '../../../style/types';
-import type { StyledSegment } from '../../styled-segment';
-import type { TextMeasurer } from '../../text-measurer';
+import type { StyledSegment } from '../../text/styled-segment';
+import type { TextMeasurer } from '../../text/text-measurer';
 import type { LineContext, StyleRange } from './types';
 
 export function buildStyleRanges(segments: readonly StyledSegment[]): {

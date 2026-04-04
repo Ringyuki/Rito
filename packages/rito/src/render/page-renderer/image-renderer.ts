@@ -1,4 +1,4 @@
-import type { ImageElement } from '../../layout/types';
+import type { ImageElement } from '../../layout/core/types';
 import { buildHrefResolver } from '../../utils/resolve-href';
 
 let cachedResolver: ((src: string) => ImageBitmap | undefined) | undefined;

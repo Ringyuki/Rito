@@ -1,5 +1,5 @@
 import type { ComputedStyle } from '../../style/types';
-import type { ImageElement, LayoutBlock } from '../types';
+import type { ImageElement, LayoutBlock } from '../core/types';
 import type { ImageSizeMap } from './types';
 
 const DEFAULT_IMAGE_ASPECT = 0.75;

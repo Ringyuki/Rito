@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildSpreads } from '../../src/layout/spread';
-import { createLayoutConfig } from '../../src/layout/config';
-import type { Page } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
+import type { Page } from '../../src/layout/core/types';
 
 function makePage(index: number): Page {
   return { index, bounds: { x: 0, y: 0, width: 400, height: 600 }, content: [] };

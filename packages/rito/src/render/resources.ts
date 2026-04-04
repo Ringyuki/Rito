@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page } from '../layout/types';
+import type { LayoutConfig, Page } from '../layout/core/types';
 import type { ChapterRange, EpubDocument } from '../runtime/types';
 import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';

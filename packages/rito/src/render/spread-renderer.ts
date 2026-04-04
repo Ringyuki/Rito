@@ -1,4 +1,4 @@
-import type { LayoutConfig, Spread } from '../layout/types';
+import type { LayoutConfig, Spread } from '../layout/core/types';
 import type { RenderOptions } from './types';
 import { renderPage } from './page-renderer';
 

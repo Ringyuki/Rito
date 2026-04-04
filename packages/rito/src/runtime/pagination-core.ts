@@ -1,10 +1,10 @@
 import type { ImageSizeMap } from '../layout/block';
 import { layoutBlocks } from '../layout/block';
 import { createGreedyLayouter, createKnuthPlassLayouter } from '../layout/line-breaker';
-import type { ParagraphLayouter } from '../layout/paragraph-layouter';
 import { paginateBlocks } from '../layout/pagination';
-import type { LayoutBlock, LayoutConfig, Page } from '../layout/types';
-import type { TextMeasurer } from '../layout/text-measurer';
+import type { LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
+import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
+import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode } from '../parser/xhtml/types';
 import { DEFAULT_STYLE } from '../style/defaults';
 import { parseCssRules } from '../style/css-rule-parser';

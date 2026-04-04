@@ -1,5 +1,5 @@
 import type { ComputedStyle } from '../style/types';
-import type { TextMeasurer, TextMetrics } from '../layout/text-measurer';
+import type { TextMeasurer, TextMetrics } from '../layout/text/text-measurer';
 import { buildFontString } from './font-string';
 
 /**

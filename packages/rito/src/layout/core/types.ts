@@ -1,6 +1,6 @@
 // Layout types. No Canvas API dependency.
 
-import type { ComputedStyle } from '../style/types';
+import type { ComputedStyle } from '../../style/types';
 
 /** Represents a rectangular region in layout space. */
 export interface Rect {

@@ -1,4 +1,4 @@
-import type { TextRun } from '../layout/types';
+import type { TextRun } from '../layout/core/types';
 import { buildFontString } from './font-string';
 import { resolveTextColor } from '../utils/color';
 

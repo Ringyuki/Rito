@@ -1,4 +1,4 @@
-import type { LayoutConfig, Spread } from '../layout/types';
+import type { LayoutConfig, Spread } from '../layout/core/types';
 import type { LoadedAssets, Resources } from '../render/resources';
 import type { Logger } from '../utils/logger';
 

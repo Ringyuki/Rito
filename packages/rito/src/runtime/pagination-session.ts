@@ -1,5 +1,5 @@
-import type { LayoutConfig, Page } from '../layout/types';
-import type { TextMeasurer } from '../layout/text-measurer';
+import type { LayoutConfig, Page } from '../layout/core/types';
+import type { TextMeasurer } from '../layout/text/text-measurer';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import type { Logger } from '../utils/logger';
 import { createLogger } from '../utils/logger';

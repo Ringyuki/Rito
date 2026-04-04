@@ -10,8 +10,8 @@ import { NODE_TYPES } from '../../src/parser/xhtml/types';
 import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
 import { renderPage } from '../../src/render/page-renderer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-import { createLayoutConfig } from '../../src/layout/config';
-import type { Page } from '../../src/layout/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
+import type { Page } from '../../src/layout/core/types';
 
 const BASE_FONT_SIZE = 16;
 const measurer = createMockTextMeasurer(0.6);

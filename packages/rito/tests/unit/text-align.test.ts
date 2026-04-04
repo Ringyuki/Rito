@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { applyAlign } from '../../src/layout/text-align';
+import { applyAlign } from '../../src/layout/text/text-align';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { TextRun } from '../../src/layout/types';
+import type { TextRun } from '../../src/layout/core/types';
 
 function makeRun(text: string, x: number, width: number): TextRun {
   return {

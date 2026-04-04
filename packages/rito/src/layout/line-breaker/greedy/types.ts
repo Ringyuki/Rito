@@ -1,5 +1,5 @@
 import type { ComputedStyle } from '../../../style/types';
-import type { TextMeasurer } from '../../text-measurer';
+import type { TextMeasurer } from '../../text/text-measurer';
 
 export interface StyleRange {
   readonly start: number;
