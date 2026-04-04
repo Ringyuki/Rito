@@ -1,4 +1,11 @@
-import type { InlineAtom, LayoutBlock, LineBox, Page, Rect, TextRun } from '../layout/core/types';
+import type {
+  InlineAtom,
+  LayoutBlock,
+  LineBox,
+  Page,
+  Rect,
+  TextRun,
+} from '../../layout/core/types';
 import type { LinkRegion } from './types';
 
 /** Build a list of hyperlink regions from a page's layout data. */

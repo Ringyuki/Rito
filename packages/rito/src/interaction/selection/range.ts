@@ -1,6 +1,7 @@
-import type { LayoutBlock, LineBox, Page, Rect, TextRun } from '../layout/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
-import type { HitMap, TextPosition, TextRange } from './types';
+import type { Page, Rect } from '../../layout/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
+import type { HitMap, TextPosition, TextRange } from '../core/types';
+import { isSameTextRun, normalizeTextRange, walkPageTextRuns } from '../core/text-traversal';
 
 /**
  * Compute highlight rectangles for a text selection range.
@@ -12,7 +13,7 @@ export function getSelectionRects(
   measurer: TextMeasurer,
 ): readonly Rect[] {
   const rects: Rect[] = [];
-  const [start, end] = normalizeRange(range);
+  const [start, end] = normalizeTextRange(range);
   let inRange = false;
 
   for (const entry of hitMap.entries) {
@@ -47,14 +48,13 @@ export function getSelectionRects(
 
 /** Extract the plain text within a selection range from a page. */
 export function getSelectedText(page: Page, range: TextRange): string {
-  const [start, end] = normalizeRange(range);
+  const [start, end] = normalizeTextRange(range);
   const parts: string[] = [];
   let inRange = false;
 
-  walkTextRuns(page, (run, blockIndex, lineIndex, runIndex) => {
-    const pos = { blockIndex, lineIndex, runIndex };
-    const isStart = sameRun(pos, start);
-    const isEnd = sameRun(pos, end);
+  walkPageTextRuns(page, ({ run, blockIndex, lineIndex, runIndex }) => {
+    const isStart = isSameTextRun({ blockIndex, lineIndex, runIndex }, start);
+    const isEnd = isSameTextRun({ blockIndex, lineIndex, runIndex }, end);
 
     if (isStart && isEnd) {
       parts.push(run.text.slice(start.charIndex, end.charIndex));
@@ -76,27 +76,11 @@ export function getSelectedText(page: Page, range: TextRange): string {
   return parts.join('');
 }
 
-function normalizeRange(range: TextRange): [TextPosition, TextPosition] {
-  if (comparePositions(range.start, range.end) <= 0) return [range.start, range.end];
-  return [range.end, range.start];
-}
-
-function comparePositions(a: TextPosition, b: TextPosition): number {
-  if (a.blockIndex !== b.blockIndex) return a.blockIndex - b.blockIndex;
-  if (a.lineIndex !== b.lineIndex) return a.lineIndex - b.lineIndex;
-  if (a.runIndex !== b.runIndex) return a.runIndex - b.runIndex;
-  return a.charIndex - b.charIndex;
-}
-
 function sameRun(
   pos: { blockIndex: number; lineIndex: number; runIndex: number },
   target: TextPosition,
 ): boolean {
-  return (
-    pos.blockIndex === target.blockIndex &&
-    pos.lineIndex === target.lineIndex &&
-    pos.runIndex === target.runIndex
-  );
+  return isSameTextRun(pos, target);
 }
 
 function sliceRunRect(
@@ -139,40 +123,4 @@ function mergeLineRects(rects: readonly Rect[]): Rect[] {
   }
   merged.push(current);
   return merged;
-}
-
-function walkTextRuns(
-  page: Page,
-  callback: (run: TextRun, blockIndex: number, lineIndex: number, runIndex: number) => boolean,
-): void {
-  for (let bi = 0; bi < page.content.length; bi++) {
-    const block = page.content[bi];
-    if (block && walkBlock(block, bi, callback)) return;
-  }
-}
-
-function walkBlock(
-  block: LayoutBlock,
-  blockIndex: number,
-  callback: (run: TextRun, blockIndex: number, lineIndex: number, runIndex: number) => boolean,
-): boolean {
-  for (let li = 0; li < block.children.length; li++) {
-    const child = block.children[li];
-    if (!child || child.type !== 'line-box') continue;
-    if (walkLine(child, blockIndex, li, callback)) return true;
-  }
-  return false;
-}
-
-function walkLine(
-  lineBox: LineBox,
-  blockIndex: number,
-  lineIndex: number,
-  callback: (run: TextRun, blockIndex: number, lineIndex: number, runIndex: number) => boolean,
-): boolean {
-  for (let ri = 0; ri < lineBox.runs.length; ri++) {
-    const run = lineBox.runs[ri];
-    if (run?.type === 'text-run' && callback(run, blockIndex, lineIndex, ri)) return true;
-  }
-  return false;
 }

@@ -1,14 +1,14 @@
 /**
- * L1 PositionTracker — tracks reading position with serialize/restore.
+ * PositionTracker — tracks reading position with serialize/restore.
  *
  * Consumers call update() on spread change. The tracker computes a
  * ReadingPosition and notifies listeners. Positions are JSON-serializable
  * for persistence by the consumer.
  */
 
-import type { Page, Spread } from '../layout/core/types';
-import type { ChapterRange } from '../runtime/types';
-import { createReadingPosition, resolveReadingPosition, type ReadingPosition } from './position';
+import type { Page, Spread } from '../../layout/core/types';
+import type { ChapterRange } from '../../runtime/types';
+import { createReadingPosition, resolveReadingPosition, type ReadingPosition } from './model';
 
 export interface PositionTracker {
   update(spreadIndex: number): void;

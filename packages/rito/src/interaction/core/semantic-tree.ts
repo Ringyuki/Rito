@@ -1,4 +1,4 @@
-import type { LayoutBlock, LineBox, Page, Rect } from '../layout/core/types';
+import type { LayoutBlock, LineBox, Page, Rect } from '../../layout/core/types';
 
 /** ARIA-compatible semantic roles derived from HTML tags. */
 export type SemanticRole =

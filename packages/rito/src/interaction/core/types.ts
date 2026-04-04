@@ -1,5 +1,5 @@
-import type { Rect } from '../layout/core/types';
-import type { ComputedStyle } from '../style/core/types';
+import type { Rect } from '../../layout/core/types';
+import type { ComputedStyle } from '../../style/core/types';
 
 /** A position within the text content of a page. */
 export interface TextPosition {

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { buildHitMap } from '../../src/interaction/core';
+import type { TextRange } from '../../src/interaction/core';
 import { getSelectedText, getSelectionRects } from '../../src/interaction/selection';
-import { buildSearchIndex, search } from '../../src/interaction/search-index';
-import { buildHitMap } from '../../src/interaction/hit-map';
+import { buildSearchIndex, search } from '../../src/interaction/search';
 import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
-import type { TextRange } from '../../src/interaction/types';
 import type { TextMeasurer } from '../../src/layout/text/text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 
@@ -30,6 +30,14 @@ function makeLine(runs: TextRun[], y: number): LineBox {
 
 function makeBlock(lines: LineBox[]): LayoutBlock {
   return { type: 'layout-block', bounds: { x: 0, y: 0, width: 300, height: 100 }, children: lines };
+}
+
+function makeNestedBlock(children: LayoutBlock[], x = 0, y = 0): LayoutBlock {
+  return {
+    type: 'layout-block',
+    bounds: { x, y, width: 300, height: 100 },
+    children,
+  };
 }
 
 function makePage(blocks: LayoutBlock[], index = 0): Page {
@@ -75,6 +83,24 @@ describe('getSelectedText', () => {
     };
     expect(getSelectedText(page, range)).toBe('Hello');
   });
+
+  it('extracts text from nested blocks using traversal order positions', () => {
+    const nestedPage = makePage([
+      makeNestedBlock(
+        [
+          makeBlock([makeLine([makeRun('Outer', 0)], 0)]),
+          makeBlock([makeLine([makeRun('Inner', 0)], 0)]),
+        ],
+        0,
+        0,
+      ),
+    ]);
+    const range: TextRange = {
+      start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 2 },
+      end: { blockIndex: 0, lineIndex: 1, runIndex: 0, charIndex: 3 },
+    };
+    expect(getSelectedText(nestedPage, range)).toBe('terInn');
+  });
 });
 
 describe('getSelectionRects', () => {
@@ -112,6 +138,26 @@ describe('getSelectionRects', () => {
       end: { blockIndex: 0, lineIndex: 1, runIndex: 0, charIndex: 6 },
     };
     const rects = getSelectionRects(hitMap, range, mockMeasurer);
+    expect(rects.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('returns nested block rects using the same traversal order', () => {
+    const nestedPage = makePage([
+      makeNestedBlock(
+        [
+          makeBlock([makeLine([makeRun('Outer', 0)], 0)]),
+          makeBlock([makeLine([makeRun('Inner', 0)], 20)]),
+        ],
+        0,
+        0,
+      ),
+    ]);
+    const nestedHitMap = buildHitMap(nestedPage);
+    const range: TextRange = {
+      start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 1 },
+      end: { blockIndex: 0, lineIndex: 1, runIndex: 0, charIndex: 2 },
+    };
+    const rects = getSelectionRects(nestedHitMap, range, mockMeasurer);
     expect(rects.length).toBeGreaterThanOrEqual(2);
   });
 });
@@ -164,5 +210,25 @@ describe('buildSearchIndex + search', () => {
     const results = search(index, 'fox');
     expect(results[0]?.context).toContain('fox');
     expect(results[0]?.context).toContain('brown');
+  });
+
+  it('returns nested block positions using traversal order', () => {
+    const nestedIndex = buildSearchIndex([
+      makePage([
+        makeNestedBlock(
+          [
+            makeBlock([makeLine([makeRun('Outer ', 0)], 0)]),
+            makeBlock([makeLine([makeRun('Inner text', 0)], 0)]),
+          ],
+          0,
+          0,
+        ),
+      ]),
+    ]);
+    const results = search(nestedIndex, 'Inner');
+    expect(results).toHaveLength(1);
+    expect(results[0]?.range.start.blockIndex).toBe(0);
+    expect(results[0]?.range.start.lineIndex).toBe(1);
+    expect(results[0]?.range.start.charIndex).toBe(0);
   });
 });

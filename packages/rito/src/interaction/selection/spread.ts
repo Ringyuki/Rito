@@ -1,9 +1,10 @@
 /** Helpers for mapping pointer events to page-local coordinates within a spread. */
 
-import type { LayoutConfig, Rect } from '../layout/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
-import { getSelectionRects } from './selection';
-import type { HitMap, TextPosition, TextRange } from './types';
+import type { LayoutConfig, Rect } from '../../layout/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
+import type { HitMap, TextPosition, TextRange } from '../core/types';
+import { isSameTextPosition } from '../core/text-traversal';
+import { getSelectionRects } from './range';
 
 export interface SpreadContext {
   readonly config: LayoutConfig;
@@ -46,13 +47,7 @@ export function resolvePageHit(x: number, y: number, ctx: SpreadContext): PageHi
 }
 
 export function isSamePosition(a: AnchoredPosition, b: AnchoredPosition): boolean {
-  return (
-    a.pageIndex === b.pageIndex &&
-    a.position.blockIndex === b.position.blockIndex &&
-    a.position.lineIndex === b.position.lineIndex &&
-    a.position.runIndex === b.position.runIndex &&
-    a.position.charIndex === b.position.charIndex
-  );
+  return a.pageIndex === b.pageIndex && isSameTextPosition(a.position, b.position);
 }
 
 export function computeSelectionRects(
@@ -94,7 +89,7 @@ function crossPageRects(
 
   const endMap = endPos.pageIndex === ctx.leftHitMap?.pageIndex ? ctx.leftHitMap : ctx.rightHitMap;
   if (endMap) {
-    const r: TextRange = { start: firstPosition(), end: endPos.position };
+    const r: TextRange = { start: firstPosition(endMap), end: endPos.position };
     rects.push(...offsetRects(getSelectionRects(endMap, r, ctx.measurer), endPos.pageIndex, ctx));
   }
 
@@ -122,6 +117,13 @@ function lastPosition(hitMap: HitMap): TextPosition {
   };
 }
 
-function firstPosition(): TextPosition {
-  return { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 };
+function firstPosition(hitMap: HitMap): TextPosition {
+  const first = hitMap.entries[0];
+  if (!first) return { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 };
+  return {
+    blockIndex: first.blockIndex,
+    lineIndex: first.lineIndex,
+    runIndex: first.runIndex,
+    charIndex: 0,
+  };
 }

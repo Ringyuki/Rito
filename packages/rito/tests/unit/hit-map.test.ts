@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHitMap, hitTest } from '../../src/interaction/hit-map';
-import { buildLinkMap, hitTestLink } from '../../src/interaction/link-map';
+import { buildHitMap, buildLinkMap, hitTest, hitTestLink } from '../../src/interaction/core';
 import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 
@@ -20,6 +19,10 @@ function makeLine(runs: TextRun[], y: number): LineBox {
 
 function makeBlock(lines: LineBox[], x = 0, y = 0): LayoutBlock {
   return { type: 'layout-block', bounds: { x, y, width: 300, height: 100 }, children: lines };
+}
+
+function makeNestedBlock(children: LayoutBlock[], x = 0, y = 0): LayoutBlock {
+  return { type: 'layout-block', bounds: { x, y, width: 300, height: 100 }, children };
 }
 
 function makePage(blocks: LayoutBlock[], index = 0): Page {
@@ -50,6 +53,24 @@ describe('buildHitMap', () => {
     const page = makePage([]);
     const hitMap = buildHitMap(page);
     expect(hitMap.entries).toHaveLength(0);
+  });
+
+  it('assigns nested line boxes traversal-order positions', () => {
+    const page = makePage([
+      makeNestedBlock(
+        [
+          makeBlock([makeLine([makeRun('Outer', 0, 50)], 0)]),
+          makeBlock([makeLine([makeRun('Inner', 0, 50)], 15)]),
+        ],
+        0,
+        10,
+      ),
+    ]);
+    const hitMap = buildHitMap(page);
+    expect(hitMap.entries).toHaveLength(2);
+    expect(hitMap.entries[0]?.lineIndex).toBe(0);
+    expect(hitMap.entries[1]?.lineIndex).toBe(1);
+    expect(hitMap.entries[1]?.bounds.y).toBe(25);
   });
 });
 

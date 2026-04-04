@@ -1,9 +1,9 @@
 /**
- * L2 DOM helper: hidden DOM mirror for screen readers.
+ * Hidden DOM mirror for screen readers.
  * Creates an aria-live region that reflects the semantic tree of the current spread.
  */
 
-import type { SemanticNode } from '../interaction/semantic-tree';
+import type { SemanticNode } from '../interaction/core';
 
 /** A mounted accessibility mirror that can be updated on spread change. */
 export interface A11yMirror {
@@ -76,11 +76,10 @@ function createList(node: SemanticNode): HTMLElement {
 }
 
 function createImage(node: SemanticNode): HTMLElement {
-  const img = document.createElement('img');
-  img.setAttribute('role', 'img');
-  img.alt = node.alt ?? '';
-  img.src = '';
-  return img;
+  const el = document.createElement('span');
+  el.setAttribute('role', 'img');
+  el.setAttribute('aria-label', node.alt ?? '');
+  return el;
 }
 
 function createLink(node: SemanticNode): HTMLElement {

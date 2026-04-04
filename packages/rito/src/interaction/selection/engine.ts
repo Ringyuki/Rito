@@ -1,18 +1,19 @@
 /**
- * L1 SelectionEngine — a stateful, framework-agnostic text selection engine.
+ * SelectionEngine — a stateful, framework-agnostic text selection engine.
  *
  * State machine: idle → selecting → selected → idle
  * Accepts pointer events in spread-local logical coordinates.
  * Consumer is responsible for coordinate transforms (DPR, canvas offset).
  */
 
-import type { LayoutConfig, Rect, Spread } from '../layout/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
-import { buildHitMap, resolveCharPosition } from './hit-map';
-import { getSelectedText } from './selection';
-import type { AnchoredPosition, SpreadContext } from './spread-hit';
-import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread-hit';
-import type { TextRange } from './types';
+import type { LayoutConfig, Rect, Spread } from '../../layout/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
+import { buildHitMap, resolveCharPosition } from '../core/hit-map';
+import { getFirstTextPosition, getLastTextPosition } from '../core/text-traversal';
+import type { TextRange } from '../core/types';
+import { getSelectedText } from './range';
+import type { AnchoredPosition, SpreadContext } from './spread';
+import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
 
 export type SelectionState = 'idle' | 'selecting' | 'selected';
 
@@ -165,10 +166,31 @@ function buildEngine(s: EngineState): SelectionEngine {
 
 function getTextFromState(s: EngineState): string {
   const range = getRange(s);
-  if (!range || !s.spread) return '';
-  const page = s.spread.left ?? s.spread.right;
-  if (!page) return '';
-  return getSelectedText(page, range);
+  if (!range || !s.spread || !s.anchor || !s.focus) return '';
+
+  // Same page — straightforward
+  if (s.anchor.pageIndex === s.focus.pageIndex) {
+    const page = s.anchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
+    if (!page) return '';
+    return getSelectedText(page, range);
+  }
+
+  // Cross-page: concatenate text from both pages
+  const [startAnchor, endAnchor] =
+    s.anchor.pageIndex < s.focus.pageIndex ? [s.anchor, s.focus] : [s.focus, s.anchor];
+  const startPage = startAnchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
+  const endPage = endAnchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
+  let text = '';
+  const startEnd = startPage ? getLastTextPosition(startPage) : undefined;
+  if (startPage && startEnd)
+    text += getSelectedText(startPage, {
+      start: startAnchor.position,
+      end: startEnd,
+    });
+  const endStart = endPage ? getFirstTextPosition(endPage) : undefined;
+  if (endPage && endStart)
+    text += getSelectedText(endPage, { start: endStart, end: endAnchor.position });
+  return text;
 }
 
 function getRectsFromState(s: EngineState): readonly Rect[] {

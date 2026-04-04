@@ -1,9 +1,9 @@
 /**
- * L1 AnnotationEngine — in-memory annotation store with pluggable persistence.
+ * AnnotationEngine — in-memory annotation store with pluggable persistence.
  */
 
-import type { Annotation } from './annotations';
-import type { TextRange } from './types';
+import type { TextRange } from '../core/types';
+import type { Annotation } from './geometry';
 
 export interface StorageAdapter {
   load(): Promise<readonly Annotation[]>;

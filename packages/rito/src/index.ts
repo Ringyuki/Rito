@@ -10,6 +10,7 @@ export type { PackageMetadata, TocEntry } from './parser/index';
 export type { ChapterRange } from './runtime/index';
 export type { Page, Spread } from './layout/index';
 export type { LogLevel } from './utils/logger';
+export type { TextRange, TextPosition, ReadingPosition } from './interaction/index';
 
 // ── Stable high-level primitives ───────────────────────────────────
 export { loadEpub } from './runtime/index';

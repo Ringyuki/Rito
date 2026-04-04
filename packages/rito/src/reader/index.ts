@@ -86,11 +86,17 @@ export interface Reader {
   /** Get the CSS dimensions for the canvas at the given scale. DPR is accounted for internally. */
   getCanvasSize(scale?: number): { width: number; height: number };
 
-  /** Text measurer for use with L0/L1 interaction APIs (hit testing, selection). */
+  /** Text measurer for use with interaction APIs (hit testing, selection). */
   readonly measurer: TextMeasurer;
 
-  /** Update typography settings. Triggers re-pagination. */
-  setTypography(opts: { fontSize?: number }): boolean;
+  /**
+   * Update typography settings. Triggers re-pagination.
+   * `fontSize` overrides rootFontSize (affects rem units and base size).
+   * `lineHeight` and `fontFamily` are accepted but not yet wired through
+   * the pagination pipeline — they will be implemented when style-level
+   * overrides are added.
+   */
+  setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
 
   /** Subscribe to spread render events. Returns unsubscribe function. */
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
@@ -141,39 +147,49 @@ function buildReader(
 
   return Object.assign(
     defineReaderAccessors(state, doc),
-    {
-      renderSpread: (index: number, scale = 1): void => {
-        renderSpreadToCanvas(state, canvas, ctx, index, scale);
-      },
-      setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
-        if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
-        if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor;
-      },
-      getCanvasSize: (scale = 1) => {
-        const effectiveRatio = scale * state.dpr;
-        const dims = getSpreadDimensions(state.config, effectiveRatio);
-        return { width: dims.width / state.dpr, height: dims.height / state.dpr };
-      },
-      measurer: state.assets.measurer as TextMeasurer,
-      setTypography(opts: { fontSize?: number }): boolean {
-        if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
-        return layoutControls.updateLayout(
-          state.config.viewportWidth,
-          state.config.viewportHeight,
-          state.spreadMode,
-        );
-      },
-      onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void {
-        state.spreadRenderedListeners.add(cb);
-        return () => state.spreadRenderedListeners.delete(cb);
-      },
-      dispose(): void {
-        state.spreadRenderedListeners.clear();
-        disposeAssets(state.assets);
-        doc.close();
-      },
-    },
+    buildReaderMethods(state, doc, canvas, ctx, layoutControls),
     layoutControls,
     navigation,
   ) as Reader;
+}
+
+function buildReaderMethods(
+  state: ReaderState,
+  doc: EpubDocument,
+  canvas: HTMLCanvasElement | OffscreenCanvas,
+  ctx: CanvasRenderingContext2D,
+  layoutControls: ReturnType<typeof createReaderLayoutControls>,
+) {
+  return {
+    renderSpread: (index: number, scale = 1): void => {
+      renderSpreadToCanvas(state, canvas, ctx, index, scale);
+    },
+    setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
+      if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
+      if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor;
+    },
+    getCanvasSize: (scale = 1) => {
+      const effectiveRatio = scale * state.dpr;
+      const dims = getSpreadDimensions(state.config, effectiveRatio);
+      return { width: dims.width / state.dpr, height: dims.height / state.dpr };
+    },
+    measurer: state.assets.measurer as TextMeasurer,
+    setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
+      if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
+      return layoutControls.updateLayout(
+        state.config.viewportWidth,
+        state.config.viewportHeight,
+        state.spreadMode,
+      );
+    },
+    onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void {
+      state.spreadRenderedListeners.add(cb);
+      return () => state.spreadRenderedListeners.delete(cb);
+    },
+    dispose(): void {
+      state.spreadRenderedListeners.clear();
+      disposeAssets(state.assets);
+      doc.close();
+    },
+  };
 }

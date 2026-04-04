@@ -1,5 +1,6 @@
-import type { LayoutBlock, LineBox, Page } from '../layout/core/types';
-import type { TextPosition, TextRange } from './types';
+import type { Page } from '../../layout/core/types';
+import type { TextPosition, TextRange } from '../core/types';
+import { walkPageTextRuns } from '../core/text-traversal';
 
 /** A prebuilt search index for all pages. */
 export interface SearchIndex {
@@ -65,8 +66,8 @@ export function search(
         continue;
       }
 
-      const start = offsetToPosition(pageText.offsets, idx);
-      const end = offsetToPosition(pageText.offsets, idx + needle.length);
+      const start = offsetToPosition(pageText.offsets, idx, 'start');
+      const end = offsetToPosition(pageText.offsets, idx + needle.length, 'end');
       if (start && end) {
         results.push({
           pageIndex: pageText.pageIndex,
@@ -84,62 +85,35 @@ export function search(
 function extractPageText(page: Page): PageText {
   const parts: string[] = [];
   const offsets: RunOffset[] = [];
-  let offset = 0;
+  const state = { offset: 0 };
 
-  for (let bi = 0; bi < page.content.length; bi++) {
-    const block = page.content[bi];
-    if (block) extractBlock(block, bi, parts, offsets, { offset });
-    offset = parts.join('').length;
-  }
+  walkPageTextRuns(page, ({ run, blockIndex, lineIndex, runIndex }) => {
+    offsets.push({
+      start: state.offset,
+      end: state.offset + run.text.length,
+      blockIndex,
+      lineIndex,
+      runIndex,
+    });
+    parts.push(run.text);
+    state.offset += run.text.length;
+    return false;
+  });
 
   return { pageIndex: page.index, text: parts.join(''), offsets };
 }
 
-function extractBlock(
-  block: LayoutBlock,
-  blockIndex: number,
-  parts: string[],
-  offsets: RunOffset[],
-  state: { offset: number },
-): void {
-  for (let li = 0; li < block.children.length; li++) {
-    const child = block.children[li];
-    if (!child) continue;
-    if (child.type === 'line-box') {
-      extractLine(child, blockIndex, li, parts, offsets, state);
-    } else if (child.type === 'layout-block') {
-      extractBlock(child, blockIndex, parts, offsets, state);
-    }
-  }
-}
-
-function extractLine(
-  lineBox: LineBox,
-  blockIndex: number,
-  lineIndex: number,
-  parts: string[],
-  offsets: RunOffset[],
-  state: { offset: number },
-): void {
-  for (let ri = 0; ri < lineBox.runs.length; ri++) {
-    const run = lineBox.runs[ri];
-    if (run?.type !== 'text-run') continue;
-    const text = run.text;
-    offsets.push({
-      start: state.offset,
-      end: state.offset + text.length,
-      blockIndex,
-      lineIndex,
-      runIndex: ri,
-    });
-    parts.push(text);
-    state.offset += text.length;
-  }
-}
-
-function offsetToPosition(offsets: readonly RunOffset[], offset: number): TextPosition | undefined {
+function offsetToPosition(
+  offsets: readonly RunOffset[],
+  offset: number,
+  bias: 'start' | 'end',
+): TextPosition | undefined {
   for (const entry of offsets) {
-    if (offset >= entry.start && offset <= entry.end) {
+    const inEntry =
+      bias === 'start'
+        ? offset >= entry.start && offset < entry.end
+        : offset > entry.start && offset <= entry.end;
+    if (inEntry) {
       return {
         blockIndex: entry.blockIndex,
         lineIndex: entry.lineIndex,
@@ -147,6 +121,16 @@ function offsetToPosition(offsets: readonly RunOffset[], offset: number): TextPo
         charIndex: offset - entry.start,
       };
     }
+  }
+  if (bias === 'end' && offset === 0) {
+    const first = offsets[0];
+    if (!first) return undefined;
+    return {
+      blockIndex: first.blockIndex,
+      lineIndex: first.lineIndex,
+      runIndex: first.runIndex,
+      charIndex: 0,
+    };
   }
   return undefined;
 }

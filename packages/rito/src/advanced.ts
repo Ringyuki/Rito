@@ -100,3 +100,33 @@ export { type LayoutElement, type Rect, type Spacing } from './model/index';
 
 // ── Diagnostics ────────────────────────────────────────────────────
 export { createLogger, type Logger, type LogLevel } from './utils/index';
+
+// ── Interaction (pure computation primitives) ─────────────────────
+export {
+  buildHitMap,
+  hitTest,
+  resolveCharPosition,
+  buildLinkMap,
+  hitTestLink,
+  getSelectionRects,
+  getSelectedText,
+  buildSearchIndex,
+  search,
+  buildSemanticTree,
+  resolveAnnotationRects,
+  createReadingPosition,
+  resolveReadingPosition,
+  type HitEntry,
+  type HitMap,
+  type LinkRegion,
+  type TextPosition,
+  type TextRange,
+  type SearchIndex,
+  type SearchResult,
+  type SearchOptions,
+  type SemanticNode,
+  type SemanticRole,
+  type Annotation,
+  type AnnotationRenderData,
+  type ReadingPosition,
+} from './interaction/index';

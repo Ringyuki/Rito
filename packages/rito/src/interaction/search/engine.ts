@@ -1,18 +1,18 @@
 /**
- * L1 SearchEngine — stateful full-text search with result navigation.
+ * SearchEngine — stateful full-text search with result navigation.
  */
 
-import type { Page, Rect } from '../layout/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
-import type { HitMap } from './types';
+import type { Page, Rect } from '../../layout/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
+import type { HitMap } from '../core/types';
 import {
   buildSearchIndex,
   search as searchIndex,
   type SearchIndex,
   type SearchOptions,
   type SearchResult,
-} from './search-index';
-import { getSelectionRects } from './selection';
+} from './indexing';
+import { getSelectionRects } from '../selection/range';
 
 export interface SearchEngine {
   setPages(pages: readonly Page[]): void;

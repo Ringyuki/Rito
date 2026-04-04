@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSelectionEngine } from '../../src/interaction/selection-engine';
+import { createSelectionEngine } from '../../src/interaction/selection';
 import type {
   LayoutBlock,
   LayoutConfig,
@@ -246,6 +246,16 @@ describe('SelectionEngine', () => {
       engine.setSpread(doubleSpread(), doubleConfig, measurer);
       engine.handlePointerDown({ x: 320, y: 10 }); // in the gap (300-340)
       expect(engine.getState()).toBe('idle');
+    });
+
+    it('returns text for a cross-page selection', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(doubleSpread(), doubleConfig, measurer);
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 400, y: 10 });
+      engine.handlePointerUp({ x: 400, y: 10 });
+      expect(engine.getState()).toBe('selected');
+      expect(engine.getText()).toBe('Left pageRight ');
     });
   });
 

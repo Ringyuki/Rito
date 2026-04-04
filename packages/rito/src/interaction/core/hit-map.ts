@@ -1,15 +1,15 @@
-import type { InlineAtom, LayoutBlock, LineBox, Page, TextRun } from '../layout/core/types';
-import type { ComputedStyle } from '../style/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
+import type { InlineAtom, LineBox, Page, TextRun } from '../../layout/core/types';
+import type { ComputedStyle } from '../../style/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
+import { walkPageLineBoxes } from './text-traversal';
 
 /** Build a HitMap from a page's layout data. Collects all text runs with absolute bounds. */
 export function buildHitMap(page: Page): HitMap {
   const entries: HitEntry[] = [];
-  for (let bi = 0; bi < page.content.length; bi++) {
-    const block = page.content[bi];
-    if (block) collectBlock(entries, block, 0, 0, bi);
-  }
+  walkPageLineBoxes(page, ({ blockIndex, lineIndex, lineBox, originX, originY }) => {
+    collectLineBox(entries, lineBox, originX, originY, blockIndex, lineIndex);
+  });
   return { entries, pageIndex: page.index };
 }
 
@@ -79,47 +79,25 @@ function findCharIndex(
   return lo;
 }
 
-function collectBlock(
-  entries: HitEntry[],
-  block: LayoutBlock,
-  offsetX: number,
-  offsetY: number,
-  blockIndex: number,
-): void {
-  const bx = offsetX + block.bounds.x;
-  const by = offsetY + block.bounds.y;
-
-  for (let li = 0; li < block.children.length; li++) {
-    const child = block.children[li];
-    if (!child) continue;
-    if (child.type === 'line-box') {
-      collectLineBox(entries, child, bx, by, blockIndex, li);
-    } else if (child.type === 'layout-block') {
-      collectBlock(entries, child, bx, by, blockIndex);
-    }
-  }
-}
-
 function collectLineBox(
   entries: HitEntry[],
   lineBox: LineBox,
-  offsetX: number,
-  offsetY: number,
+  lineOriginX: number,
+  lineOriginY: number,
   blockIndex: number,
   lineIndex: number,
 ): void {
-  const lx = offsetX + lineBox.bounds.x;
-  const ly = offsetY + lineBox.bounds.y;
-
   for (let ri = 0; ri < lineBox.runs.length; ri++) {
     const run = lineBox.runs[ri];
     if (!run) continue;
     if (run.type === 'text-run') {
-      entries.push(textRunEntry(run, lx, ly, blockIndex, lineIndex, ri));
+      entries.push(textRunEntry(run, lineOriginX, lineOriginY, blockIndex, lineIndex, ri));
     } else {
       const fallbackStyle = findLineStyle(lineBox);
       if (fallbackStyle)
-        entries.push(atomEntry(run, lx, ly, blockIndex, lineIndex, ri, fallbackStyle));
+        entries.push(
+          atomEntry(run, lineOriginX, lineOriginY, blockIndex, lineIndex, ri, fallbackStyle),
+        );
     }
   }
 }

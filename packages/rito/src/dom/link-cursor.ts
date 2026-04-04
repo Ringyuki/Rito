@@ -1,9 +1,9 @@
 /**
- * L2 DOM helper: change cursor to pointer over hyperlinks and handle clicks.
+ * Change cursor to pointer over hyperlinks and handle clicks.
  */
 
-import type { LinkRegion } from '../interaction/types';
-import { hitTestLink } from '../interaction/link-map';
+import type { LinkRegion } from '../interaction/core';
+import { hitTestLink } from '../interaction/core';
 
 /**
  * Bind link cursor and click handling on a canvas.

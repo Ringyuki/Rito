@@ -1,7 +1,7 @@
-import type { Rect } from '../layout/core/types';
-import type { TextMeasurer } from '../layout/text/text-measurer';
-import type { HitMap, TextRange } from './types';
-import { getSelectionRects } from './selection';
+import type { Rect } from '../../layout/core/types';
+import type { TextMeasurer } from '../../layout/text/text-measurer';
+import type { HitMap, TextRange } from '../core/types';
+import { getSelectionRects } from '../selection/range';
 
 /** A user annotation on the text. */
 export interface Annotation {

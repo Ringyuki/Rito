@@ -1,8 +1,9 @@
-export { createAnnotationEngine } from './interaction/annotation-engine';
+export { createAnnotationEngine } from './interaction/annotations';
 export type {
   AnnotationEngine,
   StorageAdapter,
   AnnotationInput,
   AnnotationPatch,
-} from './interaction/annotation-engine';
-export type { Annotation, AnnotationRenderData } from './interaction/annotations';
+  Annotation,
+  AnnotationRenderData,
+} from './interaction/annotations';

@@ -1,9 +1,9 @@
 /**
- * L2 DOM helper: bind pointer events from an HTMLCanvasElement to a SelectionEngine.
+ * Bind pointer events from an HTMLCanvasElement to a SelectionEngine.
  * Translates DOM coordinates to spread-local logical coordinates.
  */
 
-import type { SelectionEngine } from '../interaction/selection-engine';
+import type { SelectionEngine } from '../interaction/selection';
 
 /**
  * Bind pointer events on a canvas to drive a SelectionEngine.

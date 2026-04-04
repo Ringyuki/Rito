@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSearchEngine } from '../../src/interaction/search-engine';
-import { createAnnotationEngine } from '../../src/interaction/annotation-engine';
-import type { StorageAdapter } from '../../src/interaction/annotation-engine';
-import { createPositionTracker } from '../../src/interaction/position-tracker';
+import { createAnnotationEngine } from '../../src/interaction/annotations';
+import type { StorageAdapter } from '../../src/interaction/annotations';
+import { createPositionTracker } from '../../src/interaction/position';
+import { createSearchEngine } from '../../src/interaction/search';
 import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../../src/layout/core/types';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 

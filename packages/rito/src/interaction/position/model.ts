@@ -1,5 +1,5 @@
-import type { Page, Spread } from '../layout/core/types';
-import type { ChapterRange } from '../runtime/types';
+import type { Page, Spread } from '../../layout/core/types';
+import type { ChapterRange } from '../../runtime/types';
 
 /** A serializable reading position. */
 export interface ReadingPosition {

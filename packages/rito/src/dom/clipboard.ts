@@ -1,9 +1,9 @@
 /**
- * L2 DOM helper: bind clipboard copy to a SelectionEngine.
+ * Bind clipboard copy to a SelectionEngine.
  * Listens for Ctrl+C / Cmd+C and writes selected text to clipboard.
  */
 
-import type { SelectionEngine } from '../interaction/selection-engine';
+import type { SelectionEngine } from '../interaction/selection';
 
 /**
  * Bind clipboard copy support. Returns a cleanup function.

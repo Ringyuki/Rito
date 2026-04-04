@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildSemanticTree } from '../../src/interaction/semantic-tree';
 import { resolveAnnotationRects } from '../../src/interaction/annotations';
-import { createReadingPosition, resolveReadingPosition } from '../../src/interaction/position';
-import { buildHitMap } from '../../src/interaction/hit-map';
 import type { Annotation } from '../../src/interaction/annotations';
+import { buildHitMap, buildSemanticTree } from '../../src/interaction/core';
+import { createReadingPosition, resolveReadingPosition } from '../../src/interaction/position';
 import type {
   ImageElement,
   LayoutBlock,
