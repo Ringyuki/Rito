@@ -2,7 +2,12 @@
 // Import from `rito` instead unless you need direct access to internals.
 
 // ── Runtime (advanced) ─────────────────────────────────────────────
-export { PaginationSession, type ChapterPaginationResult } from './runtime/index';
+export {
+  PaginationSession,
+  paginateWithMeta,
+  findPageForTocEntry,
+  type ChapterPaginationResult,
+} from './runtime/index';
 
 // ── Parser ─────────────────────────────────────────────────────────
 export {
@@ -75,10 +80,23 @@ export {
 // ── Render (primitives) ────────────────────────────────────────────
 export {
   createCanvasTextMeasurer,
+  createTextMeasurer,
   type CachedTextMeasurer,
   buildFontString,
   renderPage,
+  loadFonts,
+  loadImages,
+  createLazyImageLoader,
+  loadAssets,
+  paginateWithAssets,
+  disposeAssets,
+  type LazyImageLoader,
+  type LoadedAssets,
+  type Resources,
 } from './render/index';
 
 // ── Model ──────────────────────────────────────────────────────────
 export { type LayoutElement, type Rect, type Spacing } from './model/index';
+
+// ── Diagnostics ────────────────────────────────────────────────────
+export { createLogger, type Logger, type LogLevel } from './utils/index';

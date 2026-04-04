@@ -62,7 +62,7 @@ export function EpubCanvas({
   useSwipe(canvasRef, onNext, onPrev);
 
   return (
-    <div className="relative" style={{ width, height }}>
+    <div className="relative overflow-hidden" style={{ width, height }}>
       {!isLoaded && (
         <div
           className="pointer-events-none absolute bottom-0 left-0 h-128 w-lg"

@@ -85,8 +85,8 @@ export function createLazyImageLoader(
       if (!data) return undefined;
       try {
         return await decode(src, data);
-      } catch {
-        log.warn(`Failed to decode image: ${src}`);
+      } catch (err: unknown) {
+        log.warn('Failed to decode image: %s', src, err);
         return undefined;
       }
     },

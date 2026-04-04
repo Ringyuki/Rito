@@ -1,17 +1,18 @@
-import type { ComputedStyle, StyledNode } from '../style/types';
-import type { HorizontalRule, LayoutBlock, RelativeOffset } from './types';
-import {
-  applyPageBreakFlags,
-  computeChildrenHeight,
-  extractBorders,
-  withPageBreaks,
-} from './block-helpers';
+import type { StyledNode } from '../style/types';
+import type { LayoutBlock } from './types';
+import { applyPageBreakFlags, withPageBreaks } from './block-helpers';
 import type { ParagraphLayouter } from './paragraph-layouter';
-import { flattenInlineContent } from './styled-segment';
 import { layoutImageBlock } from './image-layout';
 import { layoutTable } from './table-layout';
 import { type ListContext, addListMarker, createListContext } from './list-layout';
 import { FloatContext } from './float-context';
+import {
+  applyRelativeOffset,
+  applySizeConstraints,
+  indentBlocks,
+  layoutHorizontalRule,
+  layoutTextBlock,
+} from './block-layout-primitives';
 
 /** Intrinsic image dimensions for correct aspect ratio. */
 export interface ImageSizeMap {
@@ -220,110 +221,4 @@ function layoutLeafBlock(
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;
   state.prevMarginBottom = node.style.marginBottom;
-}
-
-// ── Internal helpers ───────────────────────────────────────────────
-
-function layoutTextBlock(
-  node: StyledNode,
-  contentWidth: number,
-  y: number,
-  layouter: ParagraphLayouter,
-): LayoutBlock {
-  const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
-  const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
-  const segments = flattenInlineContent(node.children);
-  const lineBoxes = layouter.layoutParagraph(
-    segments,
-    innerWidth > 0 ? innerWidth : contentWidth,
-    0,
-  );
-  const ch = computeChildrenHeight(lineBoxes);
-  const height = paddingTop + ch + paddingBottom;
-
-  const children =
-    paddingTop > 0
-      ? lineBoxes.map((lb) => ({
-          ...lb,
-          bounds: { ...lb.bounds, y: lb.bounds.y + paddingTop },
-          runs: lb.runs.map((r) => ({ ...r, bounds: { ...r.bounds, y: r.bounds.y + paddingTop } })),
-        }))
-      : lineBoxes;
-
-  const constrainedHeight = applyHeightConstraints(height, node.style);
-
-  let block: LayoutBlock = {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height: constrainedHeight },
-    children,
-  };
-  if (backgroundColor) block = { ...block, backgroundColor };
-  const borders = extractBorders(node.style);
-  if (borders) block = { ...block, borders };
-  if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
-  if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
-  if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
-  return block;
-}
-
-/**
- * Compute a visual offset for position:relative elements.
- * Per CSS spec: top wins over bottom, left wins over right.
- * Returns undefined when position is static (no offset needed).
- */
-function computeRelativeOffset(style: ComputedStyle): RelativeOffset | undefined {
-  if (style.position !== 'relative') return undefined;
-  const dy = style.top !== 0 ? style.top : style.bottom !== 0 ? -style.bottom : 0;
-  const dx = style.left !== 0 ? style.left : style.right !== 0 ? -style.right : 0;
-  if (dx === 0 && dy === 0) return undefined;
-  return { dx, dy };
-}
-
-/** Apply relativeOffset to a LayoutBlock if position:relative is set. */
-function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
-  const offset = computeRelativeOffset(style);
-  if (!offset) return block;
-  return { ...block, relativeOffset: offset };
-}
-
-/** Deduct padding+border from a measurement when using border-box sizing. */
-function toBorderBox(value: number, style: ComputedStyle): number {
-  if (style.boxSizing !== 'border-box') return value;
-  const deduction =
-    style.paddingLeft + style.paddingRight + style.borderLeft.width + style.borderRight.width;
-  return Math.max(value - deduction, 0);
-}
-
-/** Enforce min-height and max-height constraints on a computed block height. */
-function applyHeightConstraints(height: number, style: ComputedStyle): number {
-  let h = height;
-  if (style.minHeight !== undefined && h < style.minHeight) h = style.minHeight;
-  if (style.maxHeight !== undefined && h > style.maxHeight) h = style.maxHeight;
-  return h;
-}
-
-function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
-  let w = availableWidth;
-  if (style.width > 0) w = Math.min(toBorderBox(style.width, style), availableWidth);
-  if (style.maxWidth > 0) w = Math.min(w, toBorderBox(style.maxWidth, style));
-  return w;
-}
-
-function indentBlocks(blocks: readonly LayoutBlock[], indent: number): readonly LayoutBlock[] {
-  return blocks.map((b) => ({ ...b, bounds: { ...b.bounds, x: b.bounds.x + indent } }));
-}
-
-const HR_THICKNESS = 1;
-
-function layoutHorizontalRule(contentWidth: number, y: number, color: string): LayoutBlock {
-  const hr: HorizontalRule = {
-    type: 'hr',
-    bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS },
-    color,
-  };
-  return {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS },
-    children: [hr],
-  };
 }

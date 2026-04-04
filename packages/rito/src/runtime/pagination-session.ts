@@ -1,20 +1,15 @@
-import type { LayoutBlock, LayoutConfig, Page } from '../layout/types';
+import type { LayoutConfig, Page } from '../layout/types';
 import type { TextMeasurer } from '../layout/text-measurer';
-import type { ParagraphLayouter } from '../layout/paragraph-layouter';
-import type { ImageSizeMap } from '../layout/block-layout';
-import { createGreedyLayouter } from '../layout/greedy-line-breaker';
-import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
-import { layoutBlocks } from '../layout/block-layout';
-import { paginateBlocks } from '../layout/paginator';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
-import { resolveStyles } from '../style/resolver';
-import { parseCssRules } from '../style/css-rule-parser';
-import { DEFAULT_STYLE } from '../style/defaults';
-import type { ComputedStyle, CssRule } from '../style/types';
-import type { ChapterRange, EpubDocument, PaginationResult } from './types';
-import { buildHrefResolver } from '../utils/resolve-href';
 import type { Logger } from '../utils/logger';
 import { createLogger } from '../utils/logger';
+import {
+  paginateChapterNodes,
+  preparePaginationContext,
+  type PreparedPaginationContext,
+} from './pagination-core';
+import type { ChapterRange, EpubDocument, PaginationResult } from './types';
+import { logXhtmlWarnings } from './xhtml-diagnostics';
 
 /** Result of paginating a single chapter. */
 export interface ChapterPaginationResult {
@@ -29,12 +24,7 @@ export interface ChapterPaginationResult {
 export class PaginationSession {
   private readonly doc: EpubDocument;
   private readonly config: LayoutConfig;
-  private readonly layouter: ParagraphLayouter;
-  private readonly imageSizes: ImageSizeMap | undefined;
-  private readonly contentWidth: number;
-  private readonly contentHeight: number;
-  private readonly allRules: readonly CssRule[];
-  private readonly bodyStyle: ComputedStyle;
+  private readonly context: PreparedPaginationContext;
   private readonly logger: Logger;
 
   private spineIndex = 0;
@@ -53,20 +43,13 @@ export class PaginationSession {
     this.logger = logger ?? createLogger();
     this.doc = doc;
     this.config = config;
-    this.contentWidth = config.pageWidth - config.marginLeft - config.marginRight;
-    this.contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
-    this.layouter =
-      lineBreaking === 'optimal'
-        ? createKnuthPlassLayouter(measurer)
-        : createGreedyLayouter(measurer);
-
-    const rules: CssRule[] = [];
-    for (const css of doc.stylesheets.values()) {
-      rules.push(...parseCssRules(css, DEFAULT_STYLE.fontSize));
-    }
-    this.allRules = rules;
-    this.bodyStyle = computeBodyStyle(rules);
-    this.imageSizes = images ? createImageSizeMap(images) : undefined;
+    this.context = preparePaginationContext(
+      config,
+      measurer,
+      doc.stylesheets,
+      images,
+      lineBreaking,
+    );
   }
 
   /** Paginate the next spine item. Returns the new pages and whether all chapters are done. */
@@ -81,29 +64,17 @@ export class PaginationSession {
       const xhtml = this.doc.readChapter(spineItem.idref);
       if (!xhtml) continue;
 
-      const { nodes } = parseXhtml(xhtml);
-      const styled = resolveStyles(nodes, this.bodyStyle, this.allRules);
-      const blocks = layoutBlocks(
-        styled,
-        this.contentWidth,
-        this.layouter,
-        this.imageSizes,
-        this.contentHeight,
-      );
-      if (blocks.length === 0) continue;
-
-      this.logger.debug('Chapter %s: %d blocks laid out', spineItem.idref, blocks.length);
-
+      const { nodes, warnings } = parseXhtml(xhtml);
+      logXhtmlWarnings(warnings, this.logger, spineItem.idref);
       const startPage = this.allPages.length;
-      const chapterPages = paginateBlocks(blocks, this.config);
-      const newPages: Page[] = [];
-      for (const page of chapterPages) {
-        const pageIndex = this.allPages.length;
-        const indexed = { ...page, index: pageIndex };
-        this.allPages.push(indexed);
-        newPages.push(indexed);
-        collectAnchors(page.content, pageIndex, this.anchorMap);
-      }
+      const chapter = paginateChapterNodes(nodes, this.config, this.context, startPage);
+      if (chapter.pages.length === 0) continue;
+
+      this.logger.debug('Chapter %s: %d blocks laid out', spineItem.idref, chapter.blockCount);
+
+      const newPages = [...chapter.pages];
+      this.allPages.push(...newPages);
+      mergeAnchorMap(this.anchorMap, chapter.anchorMap);
       this.chapterMap.set(spineItem.idref, { startPage, endPage: this.allPages.length - 1 });
       this.logger.info('Chapter paginated: %s -> %d pages', spineItem.idref, newPages.length);
 
@@ -142,39 +113,10 @@ export class PaginationSession {
   }
 }
 
-function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {
-  let style: ComputedStyle = DEFAULT_STYLE;
-  for (const rule of rules) {
-    if (rule.selector === 'body' || rule.selector === 'html') {
-      style = { ...style, ...rule.declarations };
-    }
-  }
-  return style;
-}
-
-function createImageSizeMap(images: ReadonlyMap<string, ImageBitmap>): ImageSizeMap {
-  const resolve = buildHrefResolver(images);
-  return {
-    getSize(src: string) {
-      const bitmap = resolve(src);
-      return bitmap ? { width: bitmap.width, height: bitmap.height } : undefined;
-    },
-  };
-}
-
-function collectAnchors(
-  blocks: readonly LayoutBlock[],
-  pageIndex: number,
-  anchorMap: Map<string, number>,
-): void {
-  for (const block of blocks) {
-    if (block.anchorId && !anchorMap.has(block.anchorId)) {
-      anchorMap.set(block.anchorId, pageIndex);
-    }
-    for (const child of block.children) {
-      if (child.type === 'layout-block') {
-        collectAnchors([child], pageIndex, anchorMap);
-      }
+function mergeAnchorMap(target: Map<string, number>, source: ReadonlyMap<string, number>): void {
+  for (const [anchorId, pageIndex] of source) {
+    if (!target.has(anchorId)) {
+      target.set(anchorId, pageIndex);
     }
   }
 }

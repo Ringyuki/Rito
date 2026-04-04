@@ -12,14 +12,11 @@ describe('public API surface', () => {
     expect(api.disposeResources).toBeDefined();
     expect(api.render).toBeDefined();
     expect(api.paginate).toBeDefined();
-    expect(api.paginateWithMeta).toBeDefined();
     expect(api.buildSpreads).toBeDefined();
     expect(api.createLayoutConfig).toBeDefined();
     expect(api.createTextMeasurer).toBeDefined();
-    expect(api.findPageForTocEntry).toBeDefined();
     expect(api.getSpreadDimensions).toBeDefined();
-    expect(api.loadFonts).toBeDefined();
-    expect(api.loadImages).toBeDefined();
+    expect(api.paginateInWorker).toBeDefined();
   });
 
   it('does not export internal APIs from main entry', async () => {
@@ -35,6 +32,16 @@ describe('public API surface', () => {
     // Layout internals should be in rito/advanced
     expect((api as Record<string, unknown>)['layoutBlocks']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateBlocks']).toBeUndefined();
+    // Advanced runtime / render helpers should be kept off the main entry
+    expect((api as Record<string, unknown>)['paginateWithMeta']).toBeUndefined();
+    expect((api as Record<string, unknown>)['findPageForTocEntry']).toBeUndefined();
+    expect((api as Record<string, unknown>)['loadFonts']).toBeUndefined();
+    expect((api as Record<string, unknown>)['loadImages']).toBeUndefined();
+    expect((api as Record<string, unknown>)['loadAssets']).toBeUndefined();
+    expect((api as Record<string, unknown>)['paginateWithAssets']).toBeUndefined();
+    expect((api as Record<string, unknown>)['disposeAssets']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createLazyImageLoader']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createLogger']).toBeUndefined();
   });
 
   it('exports internal APIs from advanced entry', async () => {
@@ -49,5 +56,14 @@ describe('public API surface', () => {
     expect(adv.layoutBlocks).toBeDefined();
     expect(adv.paginateBlocks).toBeDefined();
     expect(adv.createZipReader).toBeDefined();
+    expect(adv.paginateWithMeta).toBeDefined();
+    expect(adv.findPageForTocEntry).toBeDefined();
+    expect(adv.loadFonts).toBeDefined();
+    expect(adv.loadImages).toBeDefined();
+    expect(adv.loadAssets).toBeDefined();
+    expect(adv.paginateWithAssets).toBeDefined();
+    expect(adv.disposeAssets).toBeDefined();
+    expect(adv.createLazyImageLoader).toBeDefined();
+    expect(adv.createLogger).toBeDefined();
   });
 });

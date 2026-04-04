@@ -34,7 +34,12 @@ console.log(`${reader.totalSpreads} spreads, ${reader.toc.length} TOC entries`);
 
 // Navigate, resize, theme, and clean up
 reader.renderSpread(1);
-await reader.resize(1024, 768);
+reader.updateLayout(1024, 768, 'single');
+const firstEntry = reader.toc[0];
+if (firstEntry) {
+  const chapter = reader.resolveTocEntry(firstEntry);
+  if (chapter) reader.renderSpread(chapter.spreadIndex);
+}
 reader.setTheme({ backgroundColor: '#1a1a2e', foregroundColor: '#e0e0e0' });
 reader.renderSpread(0);
 
@@ -49,36 +54,43 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 
 **Options:**
 
-| Option            | Type                   | Default      | Description                       |
-| ----------------- | ---------------------- | ------------ | --------------------------------- |
-| `width`           | `number`               | _(required)_ | Viewport width in logical pixels  |
-| `height`          | `number`               | _(required)_ | Viewport height in logical pixels |
-| `margin`          | `number`               | `40`         | Page margin in logical pixels     |
-| `spread`          | `'single' \| 'double'` | `'single'`   | Spread mode                       |
-| `spreadGap`       | `number`               | `20`         | Gap between pages in double mode  |
-| `backgroundColor` | `string`               | `'#ffffff'`  | Page background color             |
-| `foregroundColor` | `string`               | —            | Text color override (dark mode)   |
+| Option             | Type                    | Default                          | Description                       |
+| ------------------ | ----------------------- | -------------------------------- | --------------------------------- |
+| `width`            | `number`                | _(required)_                     | Viewport width in logical pixels  |
+| `height`           | `number`                | _(required)_                     | Viewport height in logical pixels |
+| `margin`           | `number`                | `40`                             | Page margin in logical pixels     |
+| `spread`           | `'single' \| 'double'`  | `'single'`                       | Spread mode                       |
+| `spreadGap`        | `number`                | `20`                             | Gap between pages in double mode  |
+| `backgroundColor`  | `string`                | `'#ffffff'`                      | Page background color             |
+| `foregroundColor`  | `string`                | —                                | Text color override (dark mode)   |
+| `devicePixelRatio` | `number`                | `window.devicePixelRatio \|\| 1` | HiDPI backing-store ratio         |
+| `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking algorithm           |
+| `useWorker`        | `boolean`               | `false`                          | Paginate in a Web Worker          |
+| `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity             |
 
 **Reader interface:**
 
-| Method / Property      | Description                                 |
-| ---------------------- | ------------------------------------------- |
-| `renderSpread(index)`  | Render a spread onto the canvas             |
-| `resize(w, h)`         | Resize viewport and re-paginate             |
-| `setSpreadMode(mode)`  | Switch single/double and re-paginate        |
-| `setTheme({ bg, fg })` | Update colors (takes effect on next render) |
-| `findPage(tocEntry)`   | Map a TOC entry to a page index             |
-| `findSpread(pageIdx)`  | Find which spread contains a page           |
-| `getCanvasSize(dpr?)`  | Get canvas dimensions for current config    |
-| `dispose()`            | Release all resources                       |
-| `totalSpreads`         | Number of spreads                           |
-| `toc`                  | Table of contents entries                   |
-| `pages` / `spreads`    | Computed pages and spreads                  |
-| `chapterMap`           | Chapter-to-page-range mapping               |
+| Method / Property             | Description                                 |
+| ----------------------------- | ------------------------------------------- |
+| `renderSpread(index, scale?)` | Render a spread onto the canvas             |
+| `resize(w, h)`                | Resize viewport and re-paginate             |
+| `setSpreadMode(mode)`         | Switch single/double and re-paginate        |
+| `updateLayout(w, h, spread?)` | Update viewport/spread in one pass          |
+| `setTheme({ bg, fg })`        | Update colors (takes effect on next render) |
+| `findPage(tocEntry)`          | Map a TOC entry to a page index             |
+| `findSpread(pageIdx)`         | Find which spread contains a page           |
+| `resolveTocEntry(tocEntry)`   | Resolve a TOC entry to page + spread        |
+| `findActiveTocEntry(pageIdx)` | Find the current TOC entry for a page       |
+| `getCanvasSize(scale?)`       | Get canvas dimensions for current config    |
+| `dispose()`                   | Release all resources                       |
+| `totalSpreads`                | Number of spreads                           |
+| `toc`                         | Table of contents entries                   |
+| `pages` / `spreads`           | Computed pages and spreads                  |
+| `chapterMap`                  | Chapter-to-page-range mapping               |
 
-### Primitives
+### Stable Primitives
 
-The main entry also re-exports lower-level functions for custom pipelines:
+The main entry re-exports a curated set of stable high-level functions for custom pipelines:
 
 | Function                             | Description                                      |
 | ------------------------------------ | ------------------------------------------------ |
@@ -90,12 +102,12 @@ The main entry also re-exports lower-level functions for custom pipelines:
 | `createLayoutConfig(input)`          | Create a `LayoutConfig` from shorthand options   |
 | `getSpreadDimensions(config)`        | Compute canvas dimensions for a spread           |
 | `createTextMeasurer(canvas)`         | Create a `TextMeasurer` from a canvas element    |
-| `loadFonts(doc)` / `loadImages(doc)` | Register fonts / decode images separately        |
+| `paginateInWorker(worker, ...)`      | Run pagination through a caller-provided Worker  |
 | `disposeResources(resources)`        | Release prepared resources                       |
 
 ### Advanced Entry (`rito/advanced`)
 
-Internal APIs for parser, style resolver, layout engine, and render primitives are available via a separate entry point:
+Internal APIs and expert-level helpers for parser, style resolver, layout engine, runtime metadata, asset preparation, and diagnostics are available via a separate entry point:
 
 ```ts
 import { parseXhtml, resolveStyles, layoutBlocks, renderPage } from 'rito/advanced';
@@ -104,8 +116,9 @@ import { parseXhtml, resolveStyles, layoutBlocks, renderPage } from 'rito/advanc
 - **Parser**: `parseXhtml`, `parseContainer`, `parsePackageDocument`, `parseNavDocument`, `parseNcx`, `createZipReader`
 - **Style**: `resolveStyles`, `parseCssRules`, `parseCssDeclarations`, `matchesSelector`, `calculateSpecificity`
 - **Layout**: `layoutBlocks`, `paginateBlocks`, `createGreedyLayouter`, `flattenInlineContent`
-- **Render**: `renderPage`, `createCanvasTextMeasurer`, `buildFontString`
-- **Runtime**: `PaginationSession` for incremental pagination
+- **Render**: `renderPage`, `createCanvasTextMeasurer`, `createTextMeasurer`, `buildFontString`, `loadFonts`, `loadImages`, `loadAssets`, `paginateWithAssets`
+- **Runtime**: `PaginationSession`, `paginateWithMeta`, `findPageForTocEntry`
+- **Diagnostics**: `createLogger`, `Logger`, `LogLevel`
 
 ## Capabilities
 

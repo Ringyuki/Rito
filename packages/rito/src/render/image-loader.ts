@@ -26,8 +26,8 @@ export async function loadImages(
       const blob = new Blob([buffer as ArrayBuffer]);
       const bitmap = await createImageBitmap(blob);
       result.set(href, bitmap);
-    } catch {
-      log.warn(`Failed to decode image: ${href}`);
+    } catch (err: unknown) {
+      log.warn('Failed to decode image: %s', href, err);
     }
   });
 

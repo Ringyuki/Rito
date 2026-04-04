@@ -1,7 +1,8 @@
 import type { LayoutConfig, Page } from '../layout/types';
 import type { EpubDocument, PaginationResult } from '../runtime/types';
+import { logXhtmlWarnings } from '../runtime/xhtml-diagnostics';
 import type { LoadedAssets } from '../render/resources';
-import type { LogLevel } from '../utils/logger';
+import { createLogger, type LogLevel, type Logger } from '../utils/logger';
 import type { DocumentNode } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import type { PaginateRequest, WorkerResponse } from './types';
@@ -22,7 +23,8 @@ export function paginateInWorker(
   logLevel?: LogLevel,
 ): Promise<PaginationResult> {
   return new Promise((resolve, reject) => {
-    const chapters = preReadAndParseChapters(doc);
+    const logger = createLogger(logLevel ?? 'warn');
+    const chapters = preReadAndParseChapters(doc, logger);
     const imageSizes = extractImageSizes(assets.images);
 
     const request: PaginateRequest = {
@@ -58,12 +60,16 @@ export function paginateInWorker(
   });
 }
 
-function preReadAndParseChapters(doc: EpubDocument): Map<string, readonly DocumentNode[]> {
+function preReadAndParseChapters(
+  doc: EpubDocument,
+  logger: Logger,
+): Map<string, readonly DocumentNode[]> {
   const chapters = new Map<string, readonly DocumentNode[]>();
   for (const item of doc.packageDocument.spine) {
     const xhtml = doc.readChapter(item.idref);
     if (xhtml) {
-      const { nodes } = parseXhtml(xhtml);
+      const { nodes, warnings } = parseXhtml(xhtml);
+      logXhtmlWarnings(warnings, logger, item.idref);
       chapters.set(item.idref, nodes);
     }
   }

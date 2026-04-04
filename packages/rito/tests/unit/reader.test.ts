@@ -77,9 +77,12 @@ describe('createReader', () => {
       expect(typeof reader.renderSpread).toBe('function');
       expect(typeof reader.resize).toBe('function');
       expect(typeof reader.setSpreadMode).toBe('function');
+      expect(typeof reader.updateLayout).toBe('function');
       expect(typeof reader.setTheme).toBe('function');
       expect(typeof reader.findPage).toBe('function');
       expect(typeof reader.findSpread).toBe('function');
+      expect(typeof reader.resolveTocEntry).toBe('function');
+      expect(typeof reader.findActiveTocEntry).toBe('function');
       expect(typeof reader.getCanvasSize).toBe('function');
       expect(typeof reader.dispose).toBe('function');
     });
@@ -293,6 +296,48 @@ describe('createReader', () => {
     });
   });
 
+  describe('updateLayout', () => {
+    it('returns false when the requested layout is unchanged', async () => {
+      const reader = await buildReader();
+
+      expect(reader.updateLayout(800, 600, 'single')).toBe(false);
+    });
+
+    it('applies size and spread changes in one pass', async () => {
+      const reader = await buildReader({
+        epubOptions: {
+          chapters: [
+            { id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Page one.</p>') },
+            { id: 'ch2', href: 'ch2.xhtml', content: xhtml('<p>Page two.</p>') },
+          ],
+        },
+        readerOptions: { spread: 'single', width: 800, height: 600 },
+      });
+
+      expect(reader.updateLayout(400, 300, 'double')).toBe(true);
+      expect(reader.spreads.length).toBe(reader.totalSpreads);
+      expect(reader.totalSpreads).toBeLessThanOrEqual(reader.pages.length);
+    });
+
+    it('remembers the requested spread mode even when portrait falls back to single', async () => {
+      const reader = await buildReader({
+        epubOptions: {
+          chapters: [
+            { id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Page one.</p>') },
+            { id: 'ch2', href: 'ch2.xhtml', content: xhtml('<p>Page two.</p>') },
+            { id: 'ch3', href: 'ch3.xhtml', content: xhtml('<p>Page three.</p>') },
+          ],
+        },
+        readerOptions: { spread: 'single', width: 400, height: 600 },
+      });
+
+      expect(reader.updateLayout(400, 600, 'double')).toBe(false);
+      expect(reader.totalSpreads).toBe(reader.pages.length);
+      expect(reader.updateLayout(800, 600)).toBe(true);
+      expect(reader.totalSpreads).toBeLessThanOrEqual(reader.pages.length);
+    });
+  });
+
   describe('setTheme', () => {
     it('updates background color', async () => {
       const reader = await buildReader();
@@ -384,6 +429,52 @@ describe('createReader', () => {
       const reader = await buildReader();
       const entry = { label: 'Missing', href: 'nonexistent.xhtml', children: [] };
       expect(reader.findPage(entry)).toBeUndefined();
+    });
+  });
+
+  describe('resolveTocEntry', () => {
+    it('returns both page and spread indices for a valid TOC entry', async () => {
+      const reader = await buildReader({
+        epubOptions: {
+          chapters: [
+            { id: 'ch1', href: 'chapter1.xhtml', content: xhtml('<p>First chapter</p>') },
+            { id: 'ch2', href: 'chapter2.xhtml', content: xhtml('<p>Second chapter</p>') },
+          ],
+        },
+      });
+
+      const entry = { label: 'Chapter 2', href: 'chapter2.xhtml', children: [] };
+      const location = reader.resolveTocEntry(entry);
+
+      expect(location).toBeDefined();
+      expect(location?.pageIndex).toBeTypeOf('number');
+      expect(location?.spreadIndex).toBeTypeOf('number');
+    });
+  });
+
+  describe('findActiveTocEntry', () => {
+    it('returns the closest TOC entry at or before the given page', async () => {
+      const reader = await buildReader({
+        epubOptions: {
+          chapters: [
+            { id: 'ch1', href: 'chapter1.xhtml', content: xhtml('<p>First chapter</p>') },
+            { id: 'ch2', href: 'chapter2.xhtml', content: xhtml('<p>Second chapter</p>') },
+          ],
+          toc: [
+            { label: 'Chapter 1', href: 'chapter1.xhtml' },
+            { label: 'Chapter 2', href: 'chapter2.xhtml' },
+          ],
+        },
+      });
+
+      expect(reader.findActiveTocEntry(0)?.href).toBe('chapter1.xhtml');
+      const chapter2Page = reader.findPage({
+        label: 'Chapter 2',
+        href: 'chapter2.xhtml',
+        children: [],
+      });
+      expect(chapter2Page).toBeDefined();
+      expect(reader.findActiveTocEntry(chapter2Page ?? 0)?.href).toBe('chapter2.xhtml');
     });
   });
 

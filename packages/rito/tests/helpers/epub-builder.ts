@@ -1,5 +1,11 @@
 import { zipSync } from 'fflate';
 
+interface TocItem {
+  readonly label: string;
+  readonly href: string;
+  readonly children?: readonly TocItem[];
+}
+
 /**
  * Builds a minimal valid EPUB 3 archive in memory for testing.
  * Returns an ArrayBuffer containing the ZIP data.
@@ -12,6 +18,7 @@ export function buildMinimalEpub(options?: {
   chapters?: Array<{ id: string; href: string; content: string }>;
   stylesheets?: Array<{ id: string; href: string; content: string }>;
   fonts?: Array<{ id: string; href: string; mediaType: string; data: Uint8Array }>;
+  toc?: readonly TocItem[];
 }): ArrayBuffer {
   const title = options?.title ?? 'Test Book';
   const language = options?.language ?? 'en';
@@ -27,6 +34,7 @@ export function buildMinimalEpub(options?: {
 
   const stylesheets = options?.stylesheets ?? [];
   const fontItems = options?.fonts ?? [];
+  const toc = options?.toc ?? [];
   const creatorTag = creator ? `    <dc:creator>${creator}</dc:creator>\n` : '';
 
   const chapterManifest = chapters
@@ -40,8 +48,12 @@ export function buildMinimalEpub(options?: {
   const fontManifest = fontItems
     .map((f) => `    <item id="${f.id}" href="${f.href}" media-type="${f.mediaType}"/>`)
     .join('\n');
+  const navManifest =
+    toc.length > 0
+      ? '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>'
+      : '';
 
-  const manifestItems = [chapterManifest, cssManifest, fontManifest]
+  const manifestItems = [chapterManifest, cssManifest, fontManifest, navManifest]
     .filter((s) => s.length > 0)
     .join('\n');
   const spineItems = chapters.map((ch) => `    <itemref idref="${ch.id}"/>`).join('\n');
@@ -86,8 +98,34 @@ ${spineItems}
     files[`OEBPS/${f.href}`] = f.data;
   }
 
+  if (toc.length > 0) {
+    files['OEBPS/nav.xhtml'] = encoder.encode(buildNavDocument(toc));
+  }
+
   const zipped = zipSync(files);
   return zipped.buffer as ArrayBuffer;
+}
+
+function buildNavDocument(entries: readonly TocItem[]): string {
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
+  <head><title>Contents</title></head>
+  <body>
+    <nav epub:type="toc">
+      ${renderTocEntries(entries)}
+    </nav>
+  </body>
+</html>`;
+}
+
+function renderTocEntries(entries: readonly TocItem[]): string {
+  const items = entries
+    .map((entry) => {
+      const children = entry.children?.length ? renderTocEntries(entry.children) : '';
+      return `<li><a href="${entry.href}">${entry.label}</a>${children}</li>`;
+    })
+    .join('');
+  return `<ol>${items}</ol>`;
 }
 
 const MINIMAL_CHAPTER = `<?xml version="1.0" encoding="UTF-8"?>

@@ -1,0 +1,142 @@
+import type { ImageSizeMap } from '../layout/block-layout';
+import { layoutBlocks } from '../layout/block-layout';
+import { createGreedyLayouter } from '../layout/greedy-line-breaker';
+import { createKnuthPlassLayouter } from '../layout/kp-line-breaker';
+import type { ParagraphLayouter } from '../layout/paragraph-layouter';
+import { paginateBlocks } from '../layout/paginator';
+import type { LayoutBlock, LayoutConfig, Page } from '../layout/types';
+import type { TextMeasurer } from '../layout/text-measurer';
+import type { DocumentNode } from '../parser/xhtml/types';
+import { DEFAULT_STYLE } from '../style/defaults';
+import { parseCssRules } from '../style/css-rule-parser';
+import { resolveStyles } from '../style/resolver';
+import type { ComputedStyle, CssRule } from '../style/types';
+import { buildHrefResolver } from '../utils/resolve-href';
+
+type SizeLike = { readonly width: number; readonly height: number };
+
+export interface PreparedPaginationContext {
+  readonly contentWidth: number;
+  readonly contentHeight: number;
+  readonly layouter: ParagraphLayouter;
+  readonly rules: readonly CssRule[];
+  readonly bodyStyle: ComputedStyle;
+  readonly imageSizes: ImageSizeMap | undefined;
+}
+
+export interface PaginatedChapterResult {
+  readonly pages: readonly Page[];
+  readonly anchorMap: ReadonlyMap<string, number>;
+  readonly blockCount: number;
+}
+
+export function preparePaginationContext<T extends SizeLike>(
+  config: LayoutConfig,
+  measurer: TextMeasurer,
+  stylesheets: ReadonlyMap<string, string>,
+  images?: ReadonlyMap<string, T>,
+  lineBreaking?: 'greedy' | 'optimal',
+): PreparedPaginationContext {
+  const rules = buildRules(stylesheets);
+
+  return {
+    contentWidth: config.pageWidth - config.marginLeft - config.marginRight,
+    contentHeight: config.pageHeight - config.marginTop - config.marginBottom,
+    layouter: createParagraphLayouter(measurer, lineBreaking),
+    rules,
+    bodyStyle: computeBodyStyle(rules),
+    imageSizes: images ? createImageSizeMap(images) : undefined,
+  };
+}
+
+export function paginateChapterNodes(
+  nodes: readonly DocumentNode[],
+  config: LayoutConfig,
+  context: PreparedPaginationContext,
+  pageIndexOffset: number,
+): PaginatedChapterResult {
+  const styled = resolveStyles(nodes, context.bodyStyle, context.rules);
+  const blocks = layoutBlocks(
+    styled,
+    context.contentWidth,
+    context.layouter,
+    context.imageSizes,
+    context.contentHeight,
+  );
+  if (blocks.length === 0) {
+    return { pages: [], anchorMap: new Map<string, number>(), blockCount: 0 };
+  }
+
+  const pages = indexPages(paginateBlocks(blocks, config), pageIndexOffset);
+  return {
+    pages,
+    anchorMap: collectAnchorsByPage(pages),
+    blockCount: blocks.length,
+  };
+}
+
+function createParagraphLayouter(
+  measurer: TextMeasurer,
+  lineBreaking: 'greedy' | 'optimal' | undefined,
+): ParagraphLayouter {
+  return lineBreaking === 'optimal'
+    ? createKnuthPlassLayouter(measurer)
+    : createGreedyLayouter(measurer);
+}
+
+function buildRules(stylesheets: ReadonlyMap<string, string>): CssRule[] {
+  const rules: CssRule[] = [];
+  for (const css of stylesheets.values()) {
+    rules.push(...parseCssRules(css, DEFAULT_STYLE.fontSize));
+  }
+  return rules;
+}
+
+function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {
+  let style: ComputedStyle = DEFAULT_STYLE;
+  for (const rule of rules) {
+    if (rule.selector === 'body' || rule.selector === 'html') {
+      style = { ...style, ...rule.declarations };
+    }
+  }
+  return style;
+}
+
+function createImageSizeMap<T extends SizeLike>(images: ReadonlyMap<string, T>): ImageSizeMap {
+  const resolve = buildHrefResolver(images);
+  return {
+    getSize(src: string) {
+      const size = resolve(src);
+      return size ? { width: size.width, height: size.height } : undefined;
+    },
+  };
+}
+
+function indexPages(pages: readonly Page[], pageIndexOffset: number): Page[] {
+  return pages.map((page, index) => ({ ...page, index: pageIndexOffset + index }));
+}
+
+function collectAnchorsByPage(pages: readonly Page[]): ReadonlyMap<string, number> {
+  const anchorMap = new Map<string, number>();
+  for (const page of pages) {
+    collectAnchors(page.content, page.index, anchorMap);
+  }
+  return anchorMap;
+}
+
+function collectAnchors(
+  blocks: readonly LayoutBlock[],
+  pageIndex: number,
+  anchorMap: Map<string, number>,
+): void {
+  for (const block of blocks) {
+    if (block.anchorId && !anchorMap.has(block.anchorId)) {
+      anchorMap.set(block.anchorId, pageIndex);
+    }
+    for (const child of block.children) {
+      if (child.type === 'layout-block') {
+        collectAnchors([child], pageIndex, anchorMap);
+      }
+    }
+  }
+}
