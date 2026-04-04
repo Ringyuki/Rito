@@ -12,3 +12,14 @@ export type { Annotation, AnnotationRenderData } from './annotations';
 export type { ReadingPosition } from './position';
 export { createSelectionEngine } from './selection-engine';
 export type { SelectionEngine, SelectionState, PointerInput } from './selection-engine';
+export { createSearchEngine } from './search-engine';
+export type { SearchEngine } from './search-engine';
+export { createAnnotationEngine } from './annotation-engine';
+export type {
+  AnnotationEngine,
+  StorageAdapter,
+  AnnotationInput,
+  AnnotationPatch,
+} from './annotation-engine';
+export { createPositionTracker } from './position-tracker';
+export type { PositionTracker } from './position-tracker';
