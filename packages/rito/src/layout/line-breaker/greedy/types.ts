@@ -6,6 +6,7 @@ export interface StyleRange {
   readonly start: number;
   readonly end: number;
   readonly style: ComputedStyle;
+  readonly href?: string;
 }
 
 export interface LineContext {

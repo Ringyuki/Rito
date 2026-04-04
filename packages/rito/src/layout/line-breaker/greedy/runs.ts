@@ -41,7 +41,7 @@ export function buildStyledRuns(
     }
 
     const width = measurer.measureText(runText, range.style).width;
-    runs.push(buildTextRun(runText, x, lineHeight, width, range.style));
+    runs.push(buildTextRun(runText, x, lineHeight, width, range.style, range.href));
     x += width;
     linePos = rangeEnd;
   }
@@ -59,13 +59,15 @@ function buildTextRun(
   lineHeight: number,
   width: number,
   style: ComputedStyle,
+  href?: string,
 ): TextRun {
-  return {
+  const run: TextRun = {
     type: 'text-run',
     text,
     bounds: { x, y: computeVerticalAlignOffset(style, lineHeight), width, height: lineHeight },
     style,
   };
+  return href ? { ...run, href } : run;
 }
 
 function buildInlineAtom(atom: InlineAtomSegment, x: number, lineHeight: number): InlineAtom {
@@ -78,7 +80,10 @@ function buildInlineAtom(atom: InlineAtomSegment, x: number, lineHeight: number)
       height: atom.height,
     },
   };
-  if (atom.imageSrc !== undefined) return { ...result, imageSrc: atom.imageSrc };
+  if (atom.imageSrc !== undefined) {
+    const withSrc: InlineAtom = { ...result, imageSrc: atom.imageSrc };
+    return atom.alt ? { ...withSrc, alt: atom.alt } : withSrc;
+  }
   if (atom.sourceNode) return { ...result, verticalAlign: atom.style.verticalAlign };
   return result;
 }

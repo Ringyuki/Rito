@@ -11,6 +11,7 @@ export function layoutImageBlock(
   y: number,
   imageSizes?: ImageSizeMap,
   style?: ComputedStyle,
+  alt?: string,
 ): LayoutBlock {
   const intrinsic = imageSizes?.getSize(src);
   const aspect = intrinsic ? intrinsic.height / intrinsic.width : DEFAULT_IMAGE_ASPECT;
@@ -29,11 +30,8 @@ export function layoutImageBlock(
   }
 
   const x = width < contentWidth ? (contentWidth - width) / 2 : 0;
-  const imageElement: ImageElement = {
-    type: 'image',
-    src,
-    bounds: { x, y: 0, width, height },
-  };
+  const base: ImageElement = { type: 'image', src, bounds: { x, y: 0, width, height } };
+  const imageElement: ImageElement = alt ? { ...base, alt } : base;
   return {
     type: 'layout-block',
     bounds: { x: 0, y, width: contentWidth, height },

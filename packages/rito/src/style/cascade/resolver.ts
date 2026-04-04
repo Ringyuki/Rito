@@ -45,7 +45,7 @@ function resolveNode(
     case 'inline':
       return resolveInlineNode(node, parentStyle, rules, index, ancestors);
     case 'image':
-      return { type: 'image', src: node.src, style: parentStyle, children: [] };
+      return { type: 'image', src: node.src, alt: node.alt, style: parentStyle, children: [] };
   }
 }
 
@@ -82,8 +82,10 @@ function resolveInlineNode(
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
   const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
-  const result: StyledNode = { type: 'inline', tag: node.tag, style, children };
-  return node.attributes?.id ? { ...result, id: node.attributes.id } : result;
+  let result: StyledNode = { type: 'inline', tag: node.tag, style, children };
+  if (node.attributes?.id) result = { ...result, id: node.attributes.id };
+  if (node.attributes?.href) result = { ...result, href: node.attributes.href };
+  return result;
 }
 
 function resolveChildren(

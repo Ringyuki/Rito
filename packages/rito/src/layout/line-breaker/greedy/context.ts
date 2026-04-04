@@ -28,11 +28,12 @@ export function buildStyleRanges(segments: readonly InlineSegment[]): {
     textParts.push(segment.text);
     if (segment.text.length === 0) continue;
 
-    ranges.push({
+    const range: StyleRange = {
       start: offset,
       end: offset + segment.text.length,
       style: segment.style,
-    });
+    };
+    ranges.push(segment.href ? { ...range, href: segment.href } : range);
     offset += segment.text.length;
   }
 

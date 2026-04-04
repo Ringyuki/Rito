@@ -6,6 +6,7 @@ import type { ImageSizeMap } from '../block/types';
 export interface StyledSegment {
   readonly text: string;
   readonly style: ComputedStyle;
+  readonly href?: string;
 }
 
 /** Type guard: returns true if the segment is an inline atom. */
@@ -20,6 +21,7 @@ export interface InlineAtomSegment {
   readonly height: number;
   readonly style: ComputedStyle;
   readonly imageSrc?: string;
+  readonly alt?: string;
   readonly sourceNode?: StyledNode;
 }
 
@@ -61,19 +63,26 @@ function collectSegments(
   nodes: readonly StyledNode[],
   out: InlineSegment[],
   imageSizes?: ImageSizeMap,
+  inheritedHref?: string,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
       case 'text': {
         const raw = node.content ?? '';
         if (raw.length > 0) {
-          out.push({ text: applyTextTransform(raw, node.style), style: node.style });
+          const seg: StyledSegment = {
+            text: applyTextTransform(raw, node.style),
+            style: node.style,
+          };
+          out.push(inheritedHref ? { ...seg, href: inheritedHref } : seg);
         }
         break;
       }
-      case 'inline':
-        collectSegments(node.children, out, imageSizes);
+      case 'inline': {
+        const href = node.href ?? inheritedHref;
+        collectSegments(node.children, out, imageSizes, href);
         break;
+      }
       case 'image':
         out.push(createImageAtom(node, imageSizes));
         break;
@@ -105,7 +114,14 @@ function createImageAtom(node: StyledNode, imageSizes?: ImageSizeMap): InlineAto
     }
   }
 
-  return { type: 'inline-atom', width, height, style: node.style, imageSrc: src };
+  const atom: InlineAtomSegment = {
+    type: 'inline-atom',
+    width,
+    height,
+    style: node.style,
+    imageSrc: src,
+  };
+  return node.alt ? { ...atom, alt: node.alt } : atom;
 }
 
 function createInlineBlockAtom(node: StyledNode): InlineAtomSegment {

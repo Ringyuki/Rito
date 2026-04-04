@@ -34,7 +34,7 @@ export function layoutTextBlock(
         }))
       : lineBoxes;
 
-  let block: LayoutBlock = {
+  const block: LayoutBlock = {
     type: 'layout-block',
     bounds: {
       x: 0,
@@ -47,15 +47,25 @@ export function layoutTextBlock(
     },
     children,
   };
-  if (backgroundColor) block = { ...block, backgroundColor };
+  return applyBlockDecorations(block, node, backgroundColor);
+}
+
+function applyBlockDecorations(
+  block: LayoutBlock,
+  node: StyledNode,
+  backgroundColor: string,
+): LayoutBlock {
+  let result = block;
+  if (node.tag) result = { ...result, semanticTag: node.tag };
+  if (backgroundColor) result = { ...result, backgroundColor };
   const borders = extractBorders(node.style);
-  if (borders) block = { ...block, borders };
-  if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
-  if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
-  if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
-  if (node.style.orphans !== 2) block = { ...block, orphans: node.style.orphans };
-  if (node.style.widows !== 2) block = { ...block, widows: node.style.widows };
-  return block;
+  if (borders) result = { ...result, borders };
+  if (node.style.borderRadius > 0) result = { ...result, borderRadius: node.style.borderRadius };
+  if (node.style.opacity < 1) result = { ...result, opacity: node.style.opacity };
+  if (node.style.overflow === 'hidden') result = { ...result, overflow: 'hidden' };
+  if (node.style.orphans !== 2) result = { ...result, orphans: node.style.orphans };
+  if (node.style.widows !== 2) result = { ...result, widows: node.style.widows };
+  return result;
 }
 
 export function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): LayoutBlock {

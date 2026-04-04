@@ -88,6 +88,7 @@ function layoutFloatableImage(
     state.y,
     imageSizes,
     node.style,
+    node.alt,
   );
 
   if (node.style.float === 'left' || node.style.float === 'right') {
@@ -130,6 +131,7 @@ function layoutBlockNode(
   if (node.tag === 'table') {
     collapseMargin(state, node.style.marginTop);
     let block = layoutTable(node, contentWidth, state.y, layouter);
+    block = { ...block, semanticTag: node.tag };
     if (node.id) block = { ...block, anchorId: node.id };
     state.blocks.push(withPageBreaks(block, node.style));
     state.y += block.bounds.height;

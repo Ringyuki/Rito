@@ -232,7 +232,9 @@ export interface StyledNode {
   readonly tag?: string;
   readonly content?: string;
   readonly src?: string;
+  readonly alt?: string;
   readonly id?: string;
+  readonly href?: string;
   readonly colspan?: number;
   readonly rowspan?: number;
   readonly style: ComputedStyle;

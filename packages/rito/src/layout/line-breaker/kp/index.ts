@@ -139,7 +139,7 @@ function appendBox(
   lineHeight: number,
   measurer: TextMeasurer,
 ): void {
-  if (ctx.currentSegment?.style === segment.style) {
+  if (ctx.currentSegment?.style === segment.style && ctx.currentSegment.href === segment.href) {
     ctx.currentText += text;
     return;
   }
@@ -153,8 +153,9 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   if (ctx.currentText.length === 0 || !ctx.currentSegment) return;
 
   const style = ctx.currentSegment.style;
+  const href = ctx.currentSegment.href;
   const width = measurer.measureText(ctx.currentText, style).width;
-  ctx.runs.push({
+  const run: TextRun = {
     type: 'text-run',
     text: ctx.currentText,
     bounds: {
@@ -164,7 +165,8 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
       height: lineHeight,
     },
     style,
-  });
+  };
+  ctx.runs.push(href ? { ...run, href } : run);
   ctx.x += width;
   ctx.currentText = '';
 }
@@ -219,7 +221,10 @@ function buildAtomRun(atom: InlineAtomSegment, x: number, lineHeight: number): I
       height: atom.height,
     },
   };
-  if (atom.imageSrc !== undefined) return { ...base, imageSrc: atom.imageSrc };
+  if (atom.imageSrc !== undefined) {
+    const withSrc: InlineAtom = { ...base, imageSrc: atom.imageSrc };
+    return atom.alt ? { ...withSrc, alt: atom.alt } : withSrc;
+  }
   if (atom.sourceNode) return { ...base, verticalAlign: atom.style.verticalAlign };
   return base;
 }

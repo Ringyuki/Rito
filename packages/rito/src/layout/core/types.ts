@@ -16,6 +16,7 @@ export interface TextRun {
   readonly text: string;
   readonly bounds: Rect;
   readonly style: ComputedStyle;
+  readonly href?: string;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */
@@ -29,6 +30,8 @@ export interface InlineAtom {
    */
   readonly block?: LayoutBlock;
   readonly verticalAlign?: string;
+  readonly href?: string;
+  readonly alt?: string;
 }
 
 /** A laid-out line box containing text runs and inline atoms. */
@@ -42,6 +45,7 @@ export interface LineBox {
 export interface ImageElement {
   readonly type: 'image';
   readonly src: string;
+  readonly alt?: string;
   readonly bounds: Rect;
 }
 
@@ -64,6 +68,8 @@ export interface LayoutBlock {
   readonly bounds: Rect;
   readonly children: readonly (LineBox | LayoutBlock | ImageElement | HorizontalRule)[];
   readonly anchorId?: string;
+  /** Source HTML tag name for semantic mapping (e.g. 'h1', 'p', 'blockquote'). */
+  readonly semanticTag?: string;
   readonly backgroundColor?: string;
   readonly borders?: BlockBorders;
   /** Border radius in px for rounded corners. Render-only. */
