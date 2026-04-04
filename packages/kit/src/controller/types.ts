@@ -32,6 +32,8 @@ export interface ReaderControllerEvents {
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
   annotationsChange: { annotations: readonly Annotation[] };
+  annotationClick: { annotation: Annotation };
+  annotationHover: { annotation: Annotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   transitionStart: { direction: 'forward' | 'backward' };

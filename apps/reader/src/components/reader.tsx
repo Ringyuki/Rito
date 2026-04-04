@@ -1,6 +1,9 @@
 import { Loader2 } from 'lucide-react';
 import { Reader as RitoReader } from '@rito/react';
 import { Placeholder } from '@/components/placeholder';
+import { AnnotationToolbar } from '@/components/annotation-toolbar';
+import { AnnotationDialog } from '@/components/annotation-dialog';
+import { AnnotationTooltip } from '@/components/annotation-tooltip';
 import { type useReader } from '@/hooks/use-reader';
 
 interface ReaderProps {
@@ -35,8 +38,24 @@ export function Reader({ containerRef, reader }: ReaderProps) {
 
       <RitoReader
         controller={reader.controller}
-        className="flex flex-1 items-center justify-center"
+        className="relative flex flex-1 items-center justify-center"
         placeholder={<Placeholder />}
+      />
+
+      <AnnotationToolbar
+        selection={reader.selection}
+        annotations={reader.annotations}
+        controller={reader.controller}
+        renderScale={reader.fontScale}
+        margin={50}
+      />
+
+      <AnnotationTooltip hover={reader.annotations.hover} />
+
+      <AnnotationDialog
+        annotation={reader.annotations.clickedAnnotation}
+        annotations={reader.annotations}
+        onClose={reader.annotations.clearClicked}
       />
     </main>
   );

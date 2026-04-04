@@ -5,6 +5,7 @@ export interface ReaderProps {
   readonly controller: ReaderController | null;
   readonly className?: string | undefined;
   readonly placeholder?: React.ReactNode;
+  readonly children?: React.ReactNode;
 }
 
 /**
@@ -14,7 +15,12 @@ export interface ReaderProps {
  * NOTE: This component does NOT call controller.resize(). The consumer is
  * responsible for calling resize() with the correct viewport dimensions.
  */
-export function Reader({ controller, className, placeholder }: ReaderProps): React.JSX.Element {
+export function Reader({
+  controller,
+  className,
+  placeholder,
+  children,
+}: ReaderProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
 
@@ -35,6 +41,7 @@ export function Reader({ controller, className, placeholder }: ReaderProps): Rea
   return (
     <div ref={containerRef} className={className} style={{ position: 'relative' }}>
       {!controller && placeholder}
+      {children}
     </div>
   );
 }
