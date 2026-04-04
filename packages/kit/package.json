@@ -1,0 +1,53 @@
+{
+  "name": "@rito/kit",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Framework-agnostic reader building blocks for rito",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./transition": {
+      "import": "./dist/transition.mjs",
+      "types": "./dist/transition.d.mts"
+    },
+    "./overlay": {
+      "import": "./dist/overlay.mjs",
+      "types": "./dist/overlay.d.mts"
+    },
+    "./keyboard": {
+      "import": "./dist/keyboard.mjs",
+      "types": "./dist/keyboard.d.mts"
+    },
+    "./storage": {
+      "import": "./dist/storage.mjs",
+      "types": "./dist/storage.d.mts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "rito": "workspace:*"
+  },
+  "devDependencies": {
+    "rito": "workspace:*",
+    "tsdown": "^0.21.7",
+    "vitest": "^4.1.2"
+  }
+}
