@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { layoutImageBlock } from '../../src/layout/block/image';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ImageSizeMap } from '../../src/layout/block';
 import type { ImageElement, LayoutBlock } from '../../src/layout/core/types';
 

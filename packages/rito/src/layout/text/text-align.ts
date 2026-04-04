@@ -1,4 +1,4 @@
-import type { TextAlignment } from '../../style/types';
+import type { TextAlignment } from '../../style/core/types';
 import type { LineBox, TextRun } from '../core/types';
 
 export function applyAlign(

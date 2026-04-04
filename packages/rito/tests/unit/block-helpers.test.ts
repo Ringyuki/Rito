@@ -5,7 +5,7 @@ import {
   withPageBreaks,
   applyPageBreakFlags,
 } from '../../src/layout/block/helpers';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
 
 describe('extractBorders', () => {

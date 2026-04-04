@@ -6,10 +6,10 @@ import type { LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
 import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode } from '../parser/xhtml/types';
-import { DEFAULT_STYLE } from '../style/defaults';
-import { parseCssRules } from '../style/css-rule-parser';
-import { resolveStyles } from '../style/resolver';
-import type { ComputedStyle, CssRule } from '../style/types';
+import { resolveStyles } from '../style/cascade/resolver';
+import { DEFAULT_STYLE } from '../style/core/defaults';
+import type { ComputedStyle, CssRule } from '../style/core/types';
+import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
 
 type SizeLike = { readonly width: number; readonly height: number };

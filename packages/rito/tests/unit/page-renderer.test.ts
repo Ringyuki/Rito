@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/render/page-renderer';
+import { renderPage } from '../../src/render/page';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { Page } from '../../src/layout/core/types';
 import { createLayoutConfig } from '../../src/layout/core/config';
 

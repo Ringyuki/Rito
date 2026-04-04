@@ -9,8 +9,8 @@ import type { Reader, ReaderOptions } from '../../src/reader';
  * Mock loadAssets so we skip real font loading, image decoding, and canvas
  * text measurement (none of which exist in a happy-dom / Node environment).
  */
-vi.mock('../../src/render/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/resources')>();
+vi.mock('../../src/render/assets/resources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/render/assets/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
@@ -520,7 +520,7 @@ describe('createReader', () => {
     });
 
     it('calls disposeAssets', async () => {
-      const { disposeAssets } = await import('../../src/render/resources');
+      const { disposeAssets } = await import('../../src/render/assets/resources');
       const reader = await buildReader();
       reader.dispose();
       expect(disposeAssets).toHaveBeenCalled();

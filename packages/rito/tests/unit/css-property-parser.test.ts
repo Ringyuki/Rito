@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCssDeclarations } from '../../src/style/css-property-parser';
+import { parseCssDeclarations } from '../../src/style/css/property-parser';
 
 const BASE_FONT_SIZE = 16;
 

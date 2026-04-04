@@ -1,4 +1,4 @@
-import type { ComputedStyle } from '../../style/types';
+import type { ComputedStyle } from '../../style/core/types';
 
 /** Result of measuring a text string. */
 export interface TextMetrics {

@@ -1,5 +1,5 @@
-import type { ComputedStyle } from '../../style/types';
-import { PAGE_BREAKS } from '../../style/types';
+import type { ComputedStyle } from '../../style/core/types';
+import { PAGE_BREAKS } from '../../style/core/types';
 import type { BlockBorders, LayoutBlock, LineBox } from '../core/types';
 
 export function extractBorders(style: ComputedStyle): BlockBorders | undefined {

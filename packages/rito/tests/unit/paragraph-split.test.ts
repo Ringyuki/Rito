@@ -7,7 +7,7 @@ import { layoutBlocks } from '../../src/layout/block';
 import { paginateBlocks } from '../../src/layout/pagination';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { resolveStyles } from '../../src/style/resolver';
+import { resolveStyles } from '../../src/style/cascade/resolver';
 import { createLayoutConfig } from '../../src/layout/core/config';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';

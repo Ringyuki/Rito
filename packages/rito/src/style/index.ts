@@ -1,28 +1,31 @@
-export { DEFAULT_STYLE } from './defaults';
-export { parseCssDeclarations } from './css-property-parser';
-export { parseCssRules, parseFontFaceRules } from './css-rule-parser';
-export { resolveStyles } from './resolver';
-export { matchesSelector, type SelectorTarget } from './selector-matcher';
-export { calculateSpecificity, compareSpecificity } from './specificity';
-export { getTagStyle } from './tag-styles';
+export { parseCssDeclarations, parseCssRules, parseFontFaceRules } from './css';
 export {
+  calculateSpecificity,
+  compareSpecificity,
+  matchesSelector,
+  resolveStyles,
+  type SelectorTarget,
+} from './cascade';
+export {
+  DEFAULT_STYLE,
+  DISPLAY_VALUES,
+  FONT_STYLES,
+  FONT_WEIGHTS,
+  getTagStyle,
+  POSITIONS,
+  TEXT_ALIGNMENTS,
+  TEXT_DECORATIONS,
   type ComputedStyle,
   type CssRule,
   type Display,
-  DISPLAY_VALUES,
   type FontFaceRule,
-  FONT_STYLES,
   type FontStyle,
-  FONT_WEIGHTS,
   type FontWeight,
+  type Position,
   type Specificity,
   type StyledNode,
-  TEXT_ALIGNMENTS,
   type TextAlignment,
-  TEXT_DECORATIONS,
   type TextDecoration,
   type VerticalAlign,
   VERTICAL_ALIGNS,
-  type Position,
-  POSITIONS,
-} from './types';
+} from './core';

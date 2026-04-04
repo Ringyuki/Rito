@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { createListContext, addListMarker } from '../../src/layout/block/list';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
-import { LIST_STYLE_TYPES } from '../../src/style/types';
-import type { ListStyleType, StyledNode } from '../../src/style/types';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { LIST_STYLE_TYPES } from '../../src/style/core/types';
+import type { ListStyleType, StyledNode } from '../../src/style/core/types';
 import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
 
 function makeNode(tag: string, listStyleType: ListStyleType = LIST_STYLE_TYPES.Disc): StyledNode {

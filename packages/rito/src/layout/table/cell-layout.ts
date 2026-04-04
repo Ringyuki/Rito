@@ -1,4 +1,4 @@
-import type { StyledNode } from '../../style/types';
+import type { StyledNode } from '../../style/core/types';
 import { layoutBlocks } from '../block';
 import type { LayoutBlock, LineBox } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';

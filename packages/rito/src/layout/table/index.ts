@@ -1,4 +1,4 @@
-import type { StyledNode } from '../../style/types';
+import type { StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { computeColumnWidths } from './column-widths';

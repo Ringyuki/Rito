@@ -11,8 +11,8 @@ import {
   parseListStyleType,
   parsePageBreak,
   parseBorder,
-} from '../../src/style/css-value-parsers';
-import { parseLength, evaluateCalc } from '../../src/style/parse-utils';
+} from '../../src/style/css/value-parsers';
+import { parseLength, evaluateCalc } from '../../src/style/css/parse-utils';
 
 describe('parseFontWeight', () => {
   it('parses bold to 700', () => {

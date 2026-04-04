@@ -1,6 +1,6 @@
-import type { ComputedStyle } from '../../src/style/types';
+import type { ComputedStyle } from '../../src/style/core/types';
 import type { TextMetrics } from '../../src/layout/text/text-measurer';
-import type { CachedTextMeasurer } from '../../src/render/canvas-text-measurer';
+import type { CachedTextMeasurer } from '../../src/render/text/canvas-text-measurer';
 
 /**
  * Deterministic text measurer for tests.

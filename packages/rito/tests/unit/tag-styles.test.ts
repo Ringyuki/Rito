@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getTagStyle } from '../../src/style/tag-styles';
+import { getTagStyle } from '../../src/style/core/tag-styles';
 
 describe('getTagStyle', () => {
   it('returns 700 for <strong>', () => {

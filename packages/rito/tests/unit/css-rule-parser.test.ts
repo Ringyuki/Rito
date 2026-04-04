@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseCssRules } from '../../src/style/css-rule-parser';
+import { parseCssRules } from '../../src/style/css/rule-parser';
 
 const BASE = 16;
 

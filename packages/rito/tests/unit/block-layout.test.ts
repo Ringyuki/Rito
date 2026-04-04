@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { layoutBlocks } from '../../src/layout/block';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { resolveStyles } from '../../src/style/resolver';
+import { resolveStyles } from '../../src/style/cascade/resolver';
 import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 

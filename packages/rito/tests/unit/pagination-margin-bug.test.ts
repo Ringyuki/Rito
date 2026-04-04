@@ -4,14 +4,14 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { parseCssRules } from '../../src/style/css-rule-parser';
-import { resolveStyles } from '../../src/style/resolver';
+import { parseCssRules } from '../../src/style/css/rule-parser';
+import { resolveStyles } from '../../src/style/cascade/resolver';
 import { layoutBlocks } from '../../src/layout/block';
 import { paginateBlocks } from '../../src/layout/pagination';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);

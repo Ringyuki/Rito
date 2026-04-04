@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseFontFaceRules } from '../../src/style/css-rule-parser';
+import { parseFontFaceRules } from '../../src/style/css/rule-parser';
 
 describe('parseFontFaceRules', () => {
   it('parses a basic @font-face rule', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { resolveStyles } from '../../src/style/resolver';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { resolveStyles } from '../../src/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { BlockNode, DocumentNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 

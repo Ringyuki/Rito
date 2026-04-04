@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { resolveStyles } from '../../src/style/resolver';
+import { resolveStyles } from '../../src/style/cascade/resolver';
 import { layoutBlocks } from '../../src/layout/block';
 import { paginateBlocks } from '../../src/layout/pagination';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';

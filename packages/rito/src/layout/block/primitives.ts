@@ -1,4 +1,4 @@
-import type { ComputedStyle, StyledNode } from '../../style/types';
+import type { ComputedStyle, StyledNode } from '../../style/core/types';
 import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';

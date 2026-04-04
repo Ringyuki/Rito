@@ -1,4 +1,4 @@
-import type { StyledNode } from '../../style/types';
+import type { StyledNode } from '../../style/core/types';
 import { isCellNode } from './shared';
 
 interface TableModel {

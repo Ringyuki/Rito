@@ -1,5 +1,5 @@
 import type { Page } from '../layout/core/types';
-import { createCanvasTextMeasurer } from '../render/canvas-text-measurer';
+import { createCanvasTextMeasurer } from '../render/text/canvas-text-measurer';
 import {
   paginateChapterNodes,
   preparePaginationContext,

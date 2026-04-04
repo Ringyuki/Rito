@@ -1,4 +1,4 @@
-import type { ComputedStyle } from '../../../style/types';
+import type { ComputedStyle } from '../../../style/core/types';
 import type { LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
 import type { StyledSegment } from '../../text/styled-segment';

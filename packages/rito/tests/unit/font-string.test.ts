@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { buildFontString } from '../../src/render/font-string';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
+import { buildFontString } from '../../src/render/text/font-string';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 
 describe('buildFontString', () => {
   it('builds default font string (weight 400 omitted)', () => {

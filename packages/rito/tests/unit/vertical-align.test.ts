@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { parseCssDeclarations } from '../../src/style/css-property-parser';
-import { parseDisplay, parseVerticalAlign } from '../../src/style/css-value-parsers';
-import { getTagStyle } from '../../src/style/tag-styles';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
-import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/types';
+import { parseCssDeclarations } from '../../src/style/css/property-parser';
+import { parseDisplay, parseVerticalAlign } from '../../src/style/css/value-parsers';
+import { getTagStyle } from '../../src/style/core/tag-styles';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/core/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import type { ComputedStyle } from '../../src/style/types';
+import type { ComputedStyle } from '../../src/style/core/types';
 import type { StyledSegment } from '../../src/layout/text/styled-segment';
 import type { TextRun } from '../../src/layout/core/types';
 

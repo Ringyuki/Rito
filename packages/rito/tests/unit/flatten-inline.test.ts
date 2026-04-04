@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { flattenInlineContent } from '../../src/layout/text/styled-segment';
-import { resolveStyles } from '../../src/style/resolver';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { StyledNode } from '../../src/style/types';
+import { resolveStyles } from '../../src/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import type { StyledNode } from '../../src/style/core/types';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 

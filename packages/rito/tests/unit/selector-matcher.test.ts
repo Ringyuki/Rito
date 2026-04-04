@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SelectorTarget } from '../../src/style/selector-matcher';
-import { matchesSelector } from '../../src/style/selector-matcher';
+import type { SelectorTarget } from '../../src/style/cascade/selector-matcher';
+import { matchesSelector } from '../../src/style/cascade/selector-matcher';
 
 function target(tag: string, opts?: { className?: string; id?: string }): SelectorTarget {
   const t: { tag: string; className?: string; id?: string } = { tag };

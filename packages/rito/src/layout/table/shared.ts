@@ -1,4 +1,4 @@
-import type { StyledNode } from '../../style/types';
+import type { StyledNode } from '../../style/core/types';
 import type { LayoutBlock, LineBox } from '../core/types';
 
 export const CELL_PADDING = 4;

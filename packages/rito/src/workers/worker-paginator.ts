@@ -1,7 +1,7 @@
 import type { LayoutConfig, Page } from '../layout/core/types';
 import type { EpubDocument, PaginationResult } from '../runtime/types';
 import { logXhtmlWarnings } from '../runtime/xhtml-diagnostics';
-import type { LoadedAssets } from '../render/resources';
+import type { LoadedAssets } from '../render/assets';
 import { createLogger, type LogLevel, type Logger } from '../utils/logger';
 import type { DocumentNode } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';

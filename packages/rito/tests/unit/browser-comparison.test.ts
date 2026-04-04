@@ -6,10 +6,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { parseCssRules } from '../../src/style/css-rule-parser';
-import { resolveStyles } from '../../src/style/resolver';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { StyledNode } from '../../src/style/types';
+import { parseCssRules } from '../../src/style/css/rule-parser';
+import { resolveStyles } from '../../src/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import type { StyledNode } from '../../src/style/core/types';
 
 const BASE = 16;
 

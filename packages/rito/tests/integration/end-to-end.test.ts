@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { paginate } from '../../src/runtime/paginate';
-import { renderPage } from '../../src/render/page-renderer';
+import { renderPage } from '../../src/render/page';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { buildMinimalEpub } from '../helpers/epub-builder';

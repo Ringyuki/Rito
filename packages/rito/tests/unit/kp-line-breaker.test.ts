@@ -3,8 +3,8 @@ import { buildKPItems } from '../../src/layout/line-breaker/kp/builder';
 import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
 import { emergencyBreaks, solveKP } from '../../src/layout/line-breaker/kp/solver';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { ComputedStyle } from '../../src/style/types';
+import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import type { ComputedStyle } from '../../src/style/core/types';
 import type { StyledSegment } from '../../src/layout/text/styled-segment';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 

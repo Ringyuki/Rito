@@ -1,19 +1,23 @@
-export { type RenderOptions } from './types';
-export { createCanvasTextMeasurer, type CachedTextMeasurer } from './canvas-text-measurer';
-export { createTextMeasurer } from './create-text-measurer';
-export { buildFontString } from './font-string';
-export { drawTextRun } from './text-renderer';
-export { loadFonts } from './font-loader';
-export { loadImages } from './image-loader';
-export { createLazyImageLoader, type LazyImageLoader } from './lazy-image-loader';
+export { type RenderOptions } from './core';
 export {
-  prepare,
-  loadAssets,
-  paginateWithAssets,
+  createCanvasTextMeasurer,
+  createTextMeasurer,
+  buildFontString,
+  drawTextRun,
+  type CachedTextMeasurer,
+} from './text';
+export {
+  createLazyImageLoader,
   disposeAssets,
   disposeResources,
+  loadAssets,
+  loadFonts,
+  loadImages,
+  paginateWithAssets,
+  prepare,
+  type LazyImageLoader,
   type LoadedAssets,
   type Resources,
-} from './resources';
-export { renderPage } from './page-renderer';
-export { render, getSpreadDimensions } from './spread-renderer';
+} from './assets';
+export { renderPage } from './page';
+export { render, getSpreadDimensions } from './spread';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { render, getSpreadDimensions } from '../../src/render/spread-renderer';
+import { render, getSpreadDimensions } from '../../src/render/spread';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createLayoutConfig } from '../../src/layout/core/config';
 import type { Page, Spread } from '../../src/layout/core/types';

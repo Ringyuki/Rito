@@ -1,4 +1,4 @@
-import type { ComputedStyle } from '../../../style/types';
+import type { ComputedStyle } from '../../../style/core/types';
 import { findHyphenationPoints } from '../../text/hyphenation';
 import type { TextMeasurer } from '../../text/text-measurer';
 

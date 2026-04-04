@@ -1,5 +1,5 @@
-import type { ComputedStyle, StyledNode } from '../../style/types';
-import { TEXT_TRANSFORMS } from '../../style/types';
+import type { ComputedStyle, StyledNode } from '../../style/core/types';
+import { TEXT_TRANSFORMS } from '../../style/core/types';
 
 /** A flat text segment with a single resolved style. */
 export interface StyledSegment {
