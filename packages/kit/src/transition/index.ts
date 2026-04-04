@@ -71,11 +71,17 @@ async function performTransition(
   }
 }
 
+/**
+ * Create a transition engine that wraps an existing canvas element.
+ * Call `mount(container)` to inject the wrapper div (containing the canvas)
+ * into the target container.
+ */
 export function createTransitionEngine(
+  canvas: HTMLCanvasElement,
   initialOptions?: Partial<TransitionOptions>,
 ): TransitionEngine {
   const state: EngineState = {
-    dom: createTransitionDOM(),
+    dom: createTransitionDOM(canvas),
     options: { ...DEFAULT_TRANSITION_OPTIONS, ...initialOptions },
     animating: false,
     mounted: false,

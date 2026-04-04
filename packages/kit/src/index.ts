@@ -23,10 +23,10 @@ export {
 } from './storage/index';
 
 export {
-  createReaderController,
+  createController,
   type ReaderController,
   type ReaderControllerEvents,
-  type ReaderControllerOptions,
+  type ControllerOptions,
   type InteractionMode,
 } from './controller/index';
 

@@ -6,10 +6,11 @@ export function renderLayers(
   height: number,
   dpr: number,
   layers: readonly OverlayLayer[],
+  renderScale = 1,
 ): void {
   ctx.clearRect(0, 0, width * dpr, height * dpr);
   ctx.save();
-  ctx.scale(dpr, dpr);
+  ctx.scale(dpr * renderScale, dpr * renderScale);
 
   const sorted = [...layers].sort((a, b) => a.zIndex - b.zIndex);
 

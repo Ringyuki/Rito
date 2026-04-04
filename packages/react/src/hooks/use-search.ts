@@ -15,6 +15,7 @@ export function useSearch(controller: ReaderController | null): SearchState & {
   setQuery: (q: string) => void;
   next: () => void;
   prev: () => void;
+  goTo: (index: number) => void;
   clear: () => void;
 } {
   const [query, setQueryState] = useState('');
@@ -58,5 +59,12 @@ export function useSearch(controller: ReaderController | null): SearchState & {
     setState({ results: [], activeIndex: -1, activeResult: undefined, isActive: false });
   }, [controller]);
 
-  return { ...state, query, setQuery, next, prev, clear };
+  const goTo = useCallback(
+    (index: number) => {
+      controller?.goToSearchResult(index);
+    },
+    [controller],
+  );
+
+  return { ...state, query, setQuery, next, prev, goTo, clear };
 }

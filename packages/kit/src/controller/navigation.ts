@@ -7,6 +7,7 @@ export interface NavigationDeps {
   getReader: () => Reader | null;
   getCurrentSpread: () => number;
   setCurrentSpread: (index: number) => void;
+  getRenderScale: () => number;
   emitter: TypedEmitter<ReaderControllerEvents>;
   transition: TransitionEngine;
 }
@@ -29,7 +30,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     deps.emitter.emit('transitionStart', { direction: dir });
     void deps.transition
       .transitionTo(dir, () => {
-        reader.renderSpread(clamped);
+        reader.renderSpread(clamped, deps.getRenderScale());
       })
       .then(() => {
         deps.emitter.emit('transitionEnd', { direction: dir });

@@ -9,6 +9,7 @@ import {
   Moon,
   Plus,
   Rows2,
+  Search,
   Sun,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -31,6 +32,7 @@ interface ToolbarProps {
   onToggleSpread: () => void;
   onToggleTheme: () => void;
   onToggleToc: () => void;
+  onToggleSearch: () => void;
   onIncreaseFontSize: () => void;
   onDecreaseFontSize: () => void;
 }
@@ -51,6 +53,7 @@ export function Toolbar({
   onToggleSpread,
   onToggleTheme,
   onToggleToc,
+  onToggleSearch,
   onIncreaseFontSize,
   onDecreaseFontSize,
 }: ToolbarProps) {
@@ -144,11 +147,20 @@ export function Toolbar({
       <div className="flex items-center gap-1.5">
         <Tooltip>
           <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onToggleSearch} disabled={!isLoaded}>
+              <Search className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Search (Ctrl+F)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
             <Button variant="ghost" size="icon" onClick={onToggleToc} disabled={!isLoaded}>
               <BookOpen className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Toggle table of contents</TooltipContent>
+          <TooltipContent>Table of contents</TooltipContent>
         </Tooltip>
 
         <Tooltip>

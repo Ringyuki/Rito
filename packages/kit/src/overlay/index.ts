@@ -17,6 +17,7 @@ function createOverlayCanvas(): HTMLCanvasElement {
   canvas.style.top = '0';
   canvas.style.left = '0';
   canvas.style.pointerEvents = 'none';
+  canvas.setAttribute('data-rito-overlay', '');
   return canvas;
 }
 
@@ -46,9 +47,9 @@ export function createOverlayRenderer(): OverlayRenderer {
       syncSize(canvas, state);
     },
 
-    render(layers: readonly OverlayLayer[]): void {
+    render(layers: readonly OverlayLayer[], renderScale = 1): void {
       if (!state.ctx) return;
-      renderLayers(state.ctx, state.width, state.height, state.dpr, layers);
+      renderLayers(state.ctx, state.width, state.height, state.dpr, layers, renderScale);
     },
 
     clear(): void {

@@ -4,13 +4,14 @@ export interface TransitionDOM {
   readonly snapshotCanvas: HTMLCanvasElement;
 }
 
-export function createTransitionDOM(): TransitionDOM {
+/**
+ * Create the transition DOM structure around an existing canvas.
+ * The wrapper div will contain the mainCanvas + snapshotCanvas.
+ */
+export function createTransitionDOM(existingCanvas: HTMLCanvasElement): TransitionDOM {
   const wrapper = document.createElement('div');
   wrapper.style.position = 'relative';
   wrapper.style.overflow = 'hidden';
-
-  const mainCanvas = document.createElement('canvas');
-  mainCanvas.style.display = 'block';
 
   const snapshotCanvas = document.createElement('canvas');
   snapshotCanvas.style.position = 'absolute';
@@ -19,10 +20,12 @@ export function createTransitionDOM(): TransitionDOM {
   snapshotCanvas.style.display = 'none';
   snapshotCanvas.style.willChange = 'transform, opacity';
 
-  wrapper.appendChild(mainCanvas);
+  existingCanvas.style.display = 'block';
+
+  wrapper.appendChild(existingCanvas);
   wrapper.appendChild(snapshotCanvas);
 
-  return { wrapper, mainCanvas, snapshotCanvas };
+  return { wrapper, mainCanvas: existingCanvas, snapshotCanvas };
 }
 
 export function syncCanvasSize(

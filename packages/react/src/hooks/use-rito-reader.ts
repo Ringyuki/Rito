@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { RefObject } from 'react';
-import type { PackageMetadata, Spread, TocEntry } from 'rito';
+import type { PackageMetadata, Reader, Spread, TocEntry } from 'rito';
+import { createReader, type ReaderOptions } from 'rito';
 import {
-  createReaderController,
+  createController,
+  type ControllerOptions,
   type ReaderController,
-  type ReaderControllerOptions,
   type TransitionOptions,
 } from '@rito/kit';
-import { useControllerEvent } from '../utils/use-controller-event';
 
-export interface UseRitoReaderOptions extends ReaderControllerOptions {
-  readonly data?: ArrayBuffer | null | undefined;
-  readonly restorePosition?: boolean | undefined;
+export interface UseRitoReaderOptions {
+  /** Reader options passed to createReader(). */
+  readonly reader: ReaderOptions;
+  /** Controller options passed to createController(). */
+  readonly controller?: ControllerOptions | undefined;
 }
 
 export interface RitoReaderState {
@@ -27,12 +28,14 @@ export interface RitoReaderState {
 }
 
 export interface RitoReaderActions {
+  /** Load an EPUB from an ArrayBuffer. Disposes any previous reader. */
   readonly load: (data: ArrayBuffer) => Promise<void>;
   readonly nextSpread: () => void;
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
   readonly navigateToTocEntry: (entry: TocEntry) => void;
   readonly resize: (width: number, height: number) => void;
+  readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
   readonly setTypography: (opts: {
@@ -54,7 +57,7 @@ interface InternalState {
   spreads: readonly Spread[];
 }
 
-const INITIAL_STATE: InternalState = {
+const INITIAL: InternalState = {
   isLoaded: false,
   isLoading: false,
   error: null,
@@ -65,79 +68,67 @@ const INITIAL_STATE: InternalState = {
   spreads: [],
 };
 
-export function useRitoReader(
-  containerRef: RefObject<HTMLElement | null>,
-  options: UseRitoReaderOptions,
-): RitoReaderState & RitoReaderActions {
+/**
+ * Full-lifecycle hook for rito.
+ * Handles canvas creation, Reader + Controller instantiation, event sync, and cleanup.
+ */
+export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & RitoReaderActions {
+  const canvasRef = useRef(document.createElement('canvas'));
+  const readerRef = useRef<Reader | null>(null);
   const ctrlRef = useRef<ReaderController | null>(null);
-  const [state, setState] = useState(INITIAL_STATE);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const [state, setState] = useState(INITIAL);
 
-  // Create controller once
-  useEffect(() => {
-    const ctrl = createReaderController(options);
-    ctrlRef.current = ctrl;
-    const container = containerRef.current;
-    if (container) ctrl.mount(container);
-    return () => {
-      ctrl.dispose();
-      ctrlRef.current = null;
-    };
-  }, []);
+  // Cleanup on unmount
+  useEffect(
+    () => () => {
+      ctrlRef.current?.dispose();
+      readerRef.current?.dispose();
+    },
+    [],
+  );
 
-  // Mount when container becomes available
-  useEffect(() => {
-    const container = containerRef.current;
-    const ctrl = ctrlRef.current;
-    if (container && ctrl) ctrl.mount(container);
-  }, [containerRef]);
-
-  // Auto-load data
-  useEffect(() => {
-    const ctrl = ctrlRef.current;
-    if (!ctrl || !options.data) return;
-    void ctrl.load(options.data).then(() => {
-      if (options.restorePosition !== false) {
-        const idx = ctrl.restorePosition();
-        if (idx !== undefined) ctrl.goToSpread(idx);
-      }
-    });
-  }, [options.data, options.restorePosition]);
-
-  // Sync state from events
-  useControllerEvent(ctrlRef.current, 'loadStart', () => {
-    setState((s) => ({ ...s, isLoading: true, error: null }));
-  });
-
-  useControllerEvent(ctrlRef.current, 'loadEnd', ({ success, error }) => {
-    const ctrl = ctrlRef.current;
-    setState((s) => ({
-      ...s,
-      isLoading: false,
-      isLoaded: success,
-      error: error ?? null,
-      metadata: ctrl?.metadata ?? null,
-      toc: ctrl?.toc ?? [],
-      spreads: ctrl?.spreads ?? [],
-      totalSpreads: ctrl?.totalSpreads ?? 0,
-    }));
-  });
-
-  useControllerEvent(ctrlRef.current, 'spreadChange', ({ spreadIndex }) => {
-    setState((s) => ({ ...s, currentSpread: spreadIndex }));
-  });
-
-  useControllerEvent(ctrlRef.current, 'layoutChange', ({ spreads, totalSpreads }) => {
-    setState((s) => ({ ...s, spreads, totalSpreads }));
-  });
-
-  useControllerEvent(ctrlRef.current, 'error', ({ message }) => {
-    setState((s) => ({ ...s, error: message }));
-  });
-
-  // Stable action callbacks
+  // Load
   const load = useCallback(async (data: ArrayBuffer) => {
-    await ctrlRef.current?.load(data);
+    const opts = optionsRef.current;
+    setState((s) => ({ ...s, isLoading: true, error: null }));
+    try {
+      ctrlRef.current?.dispose();
+      readerRef.current?.dispose();
+
+      const reader = await createReader(data, canvasRef.current, opts.reader);
+      readerRef.current = reader;
+
+      // Forward margin/spreadGap from reader options so the user doesn't have to pass them twice
+      const ctrl = createController(reader, canvasRef.current, {
+        ...opts.controller,
+        margin: opts.controller?.margin ?? opts.reader.margin,
+        spreadGap: opts.controller?.spreadGap ?? opts.reader.spreadGap,
+      });
+      ctrlRef.current = ctrl;
+      subscribeEvents(ctrl, setState);
+
+      setState({
+        isLoaded: true,
+        isLoading: false,
+        error: null,
+        currentSpread: 0,
+        totalSpreads: reader.totalSpreads,
+        metadata: reader.metadata,
+        toc: reader.toc,
+        spreads: reader.spreads,
+      });
+    } catch (err) {
+      setState((s) => ({
+        ...s,
+        isLoading: false,
+        error: err instanceof Error ? err.message : String(err),
+      }));
+    }
   }, []);
+
+  // Actions — stable callbacks that delegate to current controller
   const nextSpread = useCallback(() => {
     ctrlRef.current?.nextSpread();
   }, []);
@@ -152,6 +143,9 @@ export function useRitoReader(
   }, []);
   const resize = useCallback((w: number, h: number) => {
     ctrlRef.current?.resize(w, h);
+  }, []);
+  const setRenderScale = useCallback((s: number) => {
+    ctrlRef.current?.setRenderScale(s);
   }, []);
   const setSpreadMode = useCallback((m: 'single' | 'double') => {
     ctrlRef.current?.setSpreadMode(m);
@@ -177,9 +171,25 @@ export function useRitoReader(
     goToSpread,
     navigateToTocEntry,
     resize,
+    setRenderScale,
     setSpreadMode,
     setTheme,
     setTypography,
     configureTransition,
   };
+}
+
+function subscribeEvents(
+  ctrl: ReaderController,
+  setState: React.Dispatch<React.SetStateAction<InternalState>>,
+): void {
+  ctrl.on('spreadChange', ({ spreadIndex }) => {
+    setState((s) => ({ ...s, currentSpread: spreadIndex }));
+  });
+  ctrl.on('layoutChange', ({ spreads, totalSpreads }) => {
+    setState((s) => ({ ...s, spreads, totalSpreads }));
+  });
+  ctrl.on('error', ({ message }) => {
+    setState((s) => ({ ...s, error: message }));
+  });
 }

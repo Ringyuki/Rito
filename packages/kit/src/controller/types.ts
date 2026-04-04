@@ -1,4 +1,4 @@
-import type { PackageMetadata, Page, Reader, ReaderOptions, Spread, TocEntry } from 'rito';
+import type { PackageMetadata, Page, Reader, Spread, TocEntry } from 'rito';
 import type {
   Annotation,
   AnnotationInput,
@@ -14,10 +14,16 @@ import type { OverlayRenderer } from '../overlay/types';
 import type { TransitionEngine } from '../transition/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 
-export interface ReaderControllerOptions extends ReaderOptions {
+/** Defaults matching rito core's ReaderOptions defaults. */
+export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
+
+export interface ControllerOptions {
   readonly transition?: Partial<TransitionOptions> | undefined;
   readonly annotationStorage?: StorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;
+  /** Page margin (must match the margin used in createReader). Needed for overlay positioning. */
+  readonly margin?: number | undefined;
+  readonly spreadGap?: number | undefined;
 }
 
 export interface ReaderControllerEvents {
@@ -27,8 +33,6 @@ export interface ReaderControllerEvents {
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
   annotationsChange: { annotations: readonly Annotation[] };
   positionChange: { position: ReadingPosition };
-  loadStart: undefined;
-  loadEnd: { success: boolean; error?: string };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   transitionStart: { direction: 'forward' | 'backward' };
   transitionEnd: { direction: 'forward' | 'backward' };
@@ -45,13 +49,13 @@ interface Rect {
 export type InteractionMode = 'selection' | 'gesture';
 
 export interface ReaderController {
-  load(data: ArrayBuffer): Promise<void>;
+  /** Inject transition wrapper + overlay into container. */
   mount(container: HTMLElement): void;
+  /** Clean up all engines, DOM elements, and listeners. Does NOT dispose the Reader. */
   dispose(): void;
 
-  readonly isLoaded: boolean;
-  readonly isLoading: boolean;
-  readonly metadata: PackageMetadata | null;
+  readonly reader: Reader;
+  readonly metadata: PackageMetadata;
   readonly toc: readonly TocEntry[];
   readonly spreads: readonly Spread[];
   readonly pages: readonly Page[];
@@ -63,14 +67,21 @@ export interface ReaderController {
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
 
+  /** Re-paginate with new viewport dimensions. Also syncs canvas size using renderScale. */
   resize(width: number, height: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
   setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
 
+  /** Set render scale (e.g. for font zoom). Canvas display size = viewport × scale. */
+  setRenderScale(scale: number): void;
+  readonly renderScale: number;
+
   search(query: string): void;
   searchNext(): SearchResult | undefined;
   searchPrev(): SearchResult | undefined;
+  /** Navigate to a specific search result by index (sets active + jumps to page). */
+  goToSearchResult(index: number): void;
   clearSearch(): void;
   readonly searchResults: readonly SearchResult[];
   readonly searchActiveIndex: number;
@@ -96,7 +107,6 @@ export interface ReaderController {
     handler: (data: ReaderControllerEvents[K]) => void,
   ): () => void;
 
-  readonly reader: Reader | null;
   readonly transitionEngine: TransitionEngine;
   readonly overlayRenderer: OverlayRenderer;
   readonly emitter: TypedEmitter<ReaderControllerEvents>;

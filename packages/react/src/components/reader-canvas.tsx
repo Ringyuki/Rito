@@ -1,29 +1,23 @@
 import { useCallback, useEffect, useRef } from 'react';
 import type { ReaderController } from '@rito/kit';
 
-export interface ReaderCanvasProps {
+export interface ReaderProps {
   readonly controller: ReaderController | null;
-  readonly width: number;
-  readonly height: number;
   readonly className?: string | undefined;
   readonly placeholder?: React.ReactNode;
 }
 
 /**
  * Mounts the controller's DOM elements (transition canvases + overlay canvas).
- * The controller manages its own canvas elements internally.
+ * Fills its parent container — apply sizing via className or parent layout.
+ *
+ * NOTE: This component does NOT call controller.resize(). The consumer is
+ * responsible for calling resize() with the correct viewport dimensions.
  */
-export function ReaderCanvas({
-  controller,
-  width,
-  height,
-  className,
-  placeholder,
-}: ReaderCanvasProps): React.JSX.Element {
+export function Reader({ controller, className, placeholder }: ReaderProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
 
-  // Mount controller into container
   const mountController = useCallback(() => {
     const container = containerRef.current;
     if (!container || !controller || mountedRef.current) return;
@@ -38,17 +32,9 @@ export function ReaderCanvas({
     };
   }, [mountController]);
 
-  // Sync size
-  useEffect(() => {
-    if (!controller || width === 0 || height === 0) return;
-    controller.resize(width, height);
-  }, [controller, width, height]);
-
-  const isLoaded = controller?.isLoaded ?? false;
-
   return (
-    <div ref={containerRef} className={className} style={{ position: 'relative', width, height }}>
-      {!isLoaded && placeholder}
+    <div ref={containerRef} className={className} style={{ position: 'relative' }}>
+      {!controller && placeholder}
     </div>
   );
 }

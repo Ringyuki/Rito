@@ -18,8 +18,8 @@ export interface OverlayRenderer {
   mount(container: HTMLElement): void;
   /** Sync overlay canvas size with the main canvas. */
   setSize(width: number, height: number, dpr: number): void;
-  /** Clear and redraw all layers sorted by zIndex. */
-  render(layers: readonly OverlayLayer[]): void;
+  /** Clear and redraw all layers sorted by zIndex. renderScale maps layout coords to display coords. */
+  render(layers: readonly OverlayLayer[], renderScale?: number): void;
   /** Clear the overlay. */
   clear(): void;
   /** The overlay canvas element. */

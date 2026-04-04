@@ -1,4 +1,3 @@
-import { createReader } from 'rito';
 import type { Reader } from 'rito';
 import { createSelectionEngine } from 'rito/selection';
 import { createSearchEngine } from 'rito/search';
@@ -21,43 +20,54 @@ import {
   wireSpreadRendered,
 } from './wiring';
 import type {
+  ControllerOptions,
   InteractionMode,
   ReaderController,
   ReaderControllerEvents,
-  ReaderControllerOptions,
 } from './types';
 
 export type {
   ReaderController,
   ReaderControllerEvents,
-  ReaderControllerOptions,
+  ControllerOptions,
   InteractionMode,
 } from './types';
 
 interface Internals {
-  reader: Reader | null;
+  reader: Reader;
   currentSpread: number;
-  isLoaded: boolean;
-  isLoading: boolean;
-  options: ReaderControllerOptions;
-  engines: CoordinatorEngines | null;
+  renderScale: number;
+  options: ControllerOptions;
+  engines: CoordinatorEngines;
 }
 
-export function createReaderController(options: ReaderControllerOptions): ReaderController {
+/**
+ * Enhance an existing Reader with interaction features:
+ * transitions, overlays, selection, search, annotations, position tracking.
+ *
+ * The Reader must already be created via `createReader()` from rito core.
+ * Call `mount(container)` to inject the visual infrastructure into the DOM.
+ */
+export function createController(
+  reader: Reader,
+  canvas: HTMLCanvasElement,
+  options?: ControllerOptions,
+): ReaderController {
+  const opts = options ?? {};
   const emitter = createEmitter<ReaderControllerEvents>();
   const disposables = createDisposableCollection();
-  const transition = createTransitionEngine(options.transition);
+  const transition = createTransitionEngine(canvas, opts.transition);
   const overlay = createOverlayRenderer();
   const modeManager = createInteractionModeManager(detectDefaultMode());
   const coordState = createCoordinatorState();
+  const engines = createEngines(reader, opts);
 
   const internals: Internals = {
-    reader: null,
+    reader,
     currentSpread: 0,
-    isLoaded: false,
-    isLoading: false,
-    options,
-    engines: null,
+    renderScale: 1,
+    options: opts,
+    engines,
   };
 
   const nav = createNavigation({
@@ -66,6 +76,7 @@ export function createReaderController(options: ReaderControllerOptions): Reader
     setCurrentSpread: (i) => {
       internals.currentSpread = i;
     },
+    getRenderScale: () => internals.renderScale,
     emitter,
     transition,
   });
@@ -75,131 +86,246 @@ export function createReaderController(options: ReaderControllerOptions): Reader
     else nav.prevSpread();
   };
 
-  return buildControllerObject(
-    internals,
-    emitter,
-    disposables,
-    transition,
-    overlay,
-    modeManager,
-    coordState,
-    nav,
-  );
+  wireAll(reader, internals, emitter, overlay, disposables, coordState, canvas);
+  syncCanvasSize(internals, transition, overlay);
+  reader.renderSpread(0, internals.renderScale);
+
+  return buildController(internals, emitter, disposables, transition, overlay, modeManager, nav);
 }
 
-function buildControllerObject(
+function createEngines(reader: Reader, opts: ControllerOptions): CoordinatorEngines {
+  const selection = createSelectionEngine();
+  const search = createSearchEngine();
+  const annotation = createAnnotationEngine();
+  search.setPages(reader.pages);
+  if (opts.annotationStorage) void annotation.init(opts.annotationStorage);
+  const position = createPositionTracker(reader.spreads, reader.pages, reader.chapterMap);
+  return { selection, search, annotation, position };
+}
+
+function goToSearchResult(
+  result: SearchResult,
+  reader: Reader,
+  nav: ReturnType<typeof createNavigation>,
+): void {
+  const spreadIdx = reader.findSpread(result.pageIndex);
+  if (spreadIdx !== undefined) nav.goToSpread(spreadIdx);
+}
+
+function navigateToSearchIndex(
+  search: ReturnType<typeof createSearchEngine>,
+  targetIndex: number,
+  reader: Reader,
+  nav: ReturnType<typeof createNavigation>,
+): void {
+  const results = search.getResults();
+  if (targetIndex < 0 || targetIndex >= results.length) return;
+  // Step to the target index using next/prev
+  const current = search.getActiveIndex();
+  const total = results.length;
+  if (current === targetIndex) {
+    const result = results[targetIndex];
+    if (result) goToSearchResult(result, reader, nav);
+    return;
+  }
+  const fwd = (targetIndex - current + total) % total;
+  const bwd = (current - targetIndex + total) % total;
+  const step = fwd <= bwd ? 1 : -1;
+  const move = step === 1 ? () => search.nextResult() : () => search.prevResult();
+  let result: SearchResult | undefined;
+  const steps = Math.min(fwd, bwd);
+  for (let i = 0; i < steps; i++) result = move();
+  if (result) goToSearchResult(result, reader, nav);
+}
+
+function wireAll(
+  reader: Reader,
+  internals: Internals,
+  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  overlay: ReturnType<typeof createOverlayRenderer>,
+  disposables: ReturnType<typeof createDisposableCollection>,
+  coordState: ReturnType<typeof createCoordinatorState>,
+  canvas: HTMLCanvasElement,
+): void {
+  const deps = {
+    reader,
+    engines: internals.engines,
+    emitter,
+    overlay,
+    options: internals.options,
+    coordState,
+    canvas,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (i: number) => {
+      internals.currentSpread = i;
+    },
+    getRenderScale: () => internals.renderScale,
+  };
+  wireSpreadRendered(deps, disposables);
+  wireEngineEvents(deps, disposables);
+  wirePositionTracker(deps, disposables);
+  wireDomHelpers(deps, disposables);
+}
+
+function syncCanvasSize(
+  internals: Internals,
+  transition: ReturnType<typeof createTransitionEngine>,
+  overlay: ReturnType<typeof createOverlayRenderer>,
+): void {
+  const size = internals.reader.getCanvasSize(internals.renderScale);
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+  transition.setSize(size.width, size.height, dpr);
+  overlay.setSize(size.width, size.height, dpr);
+}
+
+function buildController(
   internals: Internals,
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
   disposables: ReturnType<typeof createDisposableCollection>,
   transition: ReturnType<typeof createTransitionEngine>,
   overlay: ReturnType<typeof createOverlayRenderer>,
   modeManager: ReturnType<typeof createInteractionModeManager>,
-  coordState: ReturnType<typeof createCoordinatorState>,
   nav: ReturnType<typeof createNavigation>,
 ): ReaderController {
   return {
-    load: (data) =>
-      loadEpub(data, internals, emitter, transition, overlay, disposables, coordState),
     mount(container): void {
       transition.mount(container);
-      overlay.mount(container);
+      // Mount overlay inside the transition wrapper so it's positioned relative to the canvas
+      const wrapper = transition.mainCanvas.parentElement;
+      if (wrapper) overlay.mount(wrapper);
     },
     dispose(): void {
       disposables.disposeAll();
       overlay.dispose();
       transition.dispose();
-      internals.reader?.dispose();
-      internals.reader = null;
-      internals.isLoaded = false;
     },
 
-    get isLoaded() {
-      return internals.isLoaded;
-    },
-    get isLoading() {
-      return internals.isLoading;
+    get reader() {
+      return internals.reader;
     },
     get metadata() {
-      return internals.reader?.metadata ?? null;
+      return internals.reader.metadata;
     },
     get toc() {
-      return internals.reader?.toc ?? [];
+      return internals.reader.toc;
     },
     get spreads() {
-      return internals.reader?.spreads ?? [];
+      return internals.reader.spreads;
     },
     get pages() {
-      return internals.reader?.pages ?? [];
+      return internals.reader.pages;
     },
     get currentSpread() {
       return internals.currentSpread;
     },
     get totalSpreads() {
-      return internals.reader?.totalSpreads ?? 0;
+      return internals.reader.totalSpreads;
     },
 
     ...nav,
 
     resize(w, h): void {
-      resizeReader(internals, emitter, w, h);
+      const changed = internals.reader.updateLayout(w, h);
+      if (!changed) return;
+      internals.currentSpread = Math.min(
+        internals.currentSpread,
+        internals.reader.totalSpreads - 1,
+      );
+      syncCanvasSize(internals, transition, overlay);
+      emitter.emit('layoutChange', {
+        spreads: internals.reader.spreads,
+        totalSpreads: internals.reader.totalSpreads,
+      });
+      internals.reader.renderSpread(internals.currentSpread, internals.renderScale);
     },
     setSpreadMode(mode): void {
-      changeSpreadMode(internals, emitter, mode);
+      internals.reader.setSpreadMode(mode);
+      internals.currentSpread = Math.min(
+        internals.currentSpread,
+        internals.reader.totalSpreads - 1,
+      );
+      syncCanvasSize(internals, transition, overlay);
+      emitter.emit('layoutChange', {
+        spreads: internals.reader.spreads,
+        totalSpreads: internals.reader.totalSpreads,
+      });
+      internals.reader.renderSpread(internals.currentSpread, internals.renderScale);
     },
     setTheme(opts): void {
-      internals.reader?.setTheme(opts);
+      internals.reader.setTheme(opts);
     },
     setTypography(opts) {
-      return internals.reader?.setTypography(opts) ?? false;
+      return internals.reader.setTypography(opts);
+    },
+
+    setRenderScale(scale): void {
+      if (scale === internals.renderScale) return;
+      internals.renderScale = scale;
+      syncCanvasSize(internals, transition, overlay);
+      internals.reader.renderSpread(internals.currentSpread, scale);
+    },
+    get renderScale() {
+      return internals.renderScale;
     },
 
     search(q): void {
-      internals.engines?.search.search(q);
+      internals.engines.search.search(q);
     },
     searchNext(): SearchResult | undefined {
-      return internals.engines?.search.nextResult();
+      const result = internals.engines.search.nextResult();
+      if (result) goToSearchResult(result, internals.reader, nav);
+      return result;
     },
     searchPrev(): SearchResult | undefined {
-      return internals.engines?.search.prevResult();
+      const result = internals.engines.search.prevResult();
+      if (result) goToSearchResult(result, internals.reader, nav);
+      return result;
+    },
+    goToSearchResult(targetIndex): void {
+      navigateToSearchIndex(internals.engines.search, targetIndex, internals.reader, nav);
     },
     clearSearch(): void {
-      internals.engines?.search.clear();
+      internals.engines.search.clear();
     },
     get searchResults() {
-      return internals.engines?.search.getResults() ?? [];
+      return internals.engines.search.getResults();
     },
     get searchActiveIndex() {
-      return internals.engines?.search.getActiveIndex() ?? -1;
+      return internals.engines.search.getActiveIndex();
     },
 
     clearSelection(): void {
-      internals.engines?.selection.clear();
+      internals.engines.selection.clear();
     },
     get selectionText() {
-      return internals.engines?.selection.getText() ?? '';
+      return internals.engines.selection.getText();
     },
     get selectionRange() {
-      return internals.engines?.selection.getSelection() ?? null;
+      return internals.engines.selection.getSelection();
     },
 
     addAnnotation(input): Annotation | undefined {
-      return addAnnotation(internals, input);
+      const spread = internals.reader.spreads[internals.currentSpread];
+      return internals.engines.annotation.add({ ...input, pageIndex: spread?.left?.index ?? 0 });
     },
     removeAnnotation(id) {
-      return internals.engines?.annotation.remove(id) ?? false;
+      return internals.engines.annotation.remove(id);
     },
     updateAnnotation(id, patch) {
-      return internals.engines?.annotation.update(id, patch) ?? false;
+      return internals.engines.annotation.update(id, patch);
     },
     get annotations() {
-      return internals.engines?.annotation.getAll() ?? [];
+      return internals.engines.annotation.getAll();
     },
 
     restorePosition(): number | undefined {
-      return restorePos(internals);
+      const s = internals.options.positionStorage?.load() ?? null;
+      if (!s || !internals.engines.position) return undefined;
+      return internals.engines.position.restore(s);
     },
     savePosition(): void {
-      savePos(internals);
+      if (!internals.engines.position) return;
+      internals.options.positionStorage?.save(internals.engines.position.serialize());
     },
 
     setInteractionMode(mode): void {
@@ -214,9 +340,6 @@ function buildControllerObject(
 
     on: (event, handler) => emitter.on(event, handler),
 
-    get reader() {
-      return internals.reader;
-    },
     get transitionEngine() {
       return transition;
     },
@@ -227,143 +350,4 @@ function buildControllerObject(
       return emitter;
     },
   };
-}
-
-async function loadEpub(
-  data: ArrayBuffer,
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  transition: ReturnType<typeof createTransitionEngine>,
-  overlay: ReturnType<typeof createOverlayRenderer>,
-  disposables: ReturnType<typeof createDisposableCollection>,
-  coordState: ReturnType<typeof createCoordinatorState>,
-): Promise<void> {
-  internals.isLoading = true;
-  emitter.emit('loadStart', undefined);
-  try {
-    internals.reader?.dispose();
-    disposables.disposeAll();
-    const reader = await createReader(data, transition.mainCanvas, internals.options);
-    internals.reader = reader;
-    internals.isLoaded = true;
-    internals.isLoading = false;
-    internals.currentSpread = 0;
-    internals.engines = createEngines(reader);
-    wireAll(reader, internals, emitter, overlay, disposables, coordState, transition.mainCanvas);
-    syncCanvasSize(reader, transition, overlay, internals.options);
-    reader.renderSpread(0);
-    emitter.emit('loadEnd', { success: true });
-    emitter.emit('layoutChange', { spreads: reader.spreads, totalSpreads: reader.totalSpreads });
-  } catch (err) {
-    internals.isLoading = false;
-    const msg = err instanceof Error ? err.message : String(err);
-    emitter.emit('loadEnd', { success: false, error: msg });
-    emitter.emit('error', { message: msg, source: 'load' });
-  }
-}
-
-function createEngines(reader: Reader): CoordinatorEngines {
-  const selection = createSelectionEngine();
-  const search = createSearchEngine();
-  const annotation = createAnnotationEngine();
-  search.setPages(reader.pages);
-  const position = createPositionTracker(reader.spreads, reader.pages, reader.chapterMap);
-  return { selection, search, annotation, position };
-}
-
-function wireAll(
-  reader: Reader,
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  overlay: ReturnType<typeof createOverlayRenderer>,
-  disposables: ReturnType<typeof createDisposableCollection>,
-  coordState: ReturnType<typeof createCoordinatorState>,
-  canvas: HTMLCanvasElement,
-): void {
-  if (!internals.engines) return;
-  const deps = {
-    reader,
-    engines: internals.engines,
-    emitter,
-    overlay,
-    options: internals.options,
-    coordState,
-    canvas,
-    getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i: number) => {
-      internals.currentSpread = i;
-    },
-  };
-  wireSpreadRendered(deps, disposables);
-  wireEngineEvents(deps, disposables);
-  wirePositionTracker(deps, disposables);
-  wireDomHelpers(deps, disposables);
-}
-
-function syncCanvasSize(
-  reader: Reader,
-  transition: ReturnType<typeof createTransitionEngine>,
-  overlay: ReturnType<typeof createOverlayRenderer>,
-  options: ReaderControllerOptions,
-): void {
-  const size = reader.getCanvasSize();
-  const dpr =
-    options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
-  transition.setSize(size.width, size.height, dpr);
-  overlay.setSize(size.width, size.height, dpr);
-}
-
-function resizeReader(
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  w: number,
-  h: number,
-): void {
-  if (!internals.reader) return;
-  internals.options = { ...internals.options, width: w, height: h };
-  const changed = internals.reader.updateLayout(w, h);
-  if (!changed) return;
-  internals.currentSpread = Math.min(internals.currentSpread, internals.reader.totalSpreads - 1);
-  emitter.emit('layoutChange', {
-    spreads: internals.reader.spreads,
-    totalSpreads: internals.reader.totalSpreads,
-  });
-  internals.reader.renderSpread(internals.currentSpread);
-}
-
-function changeSpreadMode(
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  mode: 'single' | 'double',
-): void {
-  if (!internals.reader) return;
-  internals.options = { ...internals.options, spread: mode };
-  internals.reader.setSpreadMode(mode);
-  internals.currentSpread = Math.min(internals.currentSpread, internals.reader.totalSpreads - 1);
-  emitter.emit('layoutChange', {
-    spreads: internals.reader.spreads,
-    totalSpreads: internals.reader.totalSpreads,
-  });
-  internals.reader.renderSpread(internals.currentSpread);
-}
-
-function addAnnotation(
-  internals: Internals,
-  input: Parameters<ReaderController['addAnnotation']>[0],
-): Annotation | undefined {
-  if (!internals.engines || !internals.reader) return undefined;
-  const spread = internals.reader.spreads[internals.currentSpread];
-  const pageIndex = spread?.left?.index ?? 0;
-  return internals.engines.annotation.add({ ...input, pageIndex });
-}
-
-function restorePos(internals: Internals): number | undefined {
-  const serialized = internals.options.positionStorage?.load() ?? null;
-  if (!serialized || !internals.engines?.position) return undefined;
-  return internals.engines.position.restore(serialized);
-}
-
-function savePos(internals: Internals): void {
-  if (!internals.engines?.position) return;
-  internals.options.positionStorage?.save(internals.engines.position.serialize());
 }
