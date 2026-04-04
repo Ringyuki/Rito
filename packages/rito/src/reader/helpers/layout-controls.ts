@@ -43,7 +43,11 @@ function repaginate(
   height: number,
   spreadMode = state.spreadMode,
 ): boolean {
-  const newConfig = makeLayoutConfig({ ...options, width, height }, spreadMode);
+  const newConfig = makeLayoutConfig(
+    { ...options, width, height },
+    spreadMode,
+    state.fontSizeOverride,
+  );
   state.spreadMode = spreadMode;
   if (layoutConfigEqual(state.config, newConfig)) return false;
 

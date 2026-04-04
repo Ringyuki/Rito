@@ -1,4 +1,5 @@
 import type { Page, Spread } from '../layout/core/types';
+import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
 import { disposeAssets } from '../render/assets';
 import { getSpreadDimensions } from '../render/spread';
@@ -85,6 +86,15 @@ export interface Reader {
   /** Get the CSS dimensions for the canvas at the given scale. DPR is accounted for internally. */
   getCanvasSize(scale?: number): { width: number; height: number };
 
+  /** Text measurer for use with L0/L1 interaction APIs (hit testing, selection). */
+  readonly measurer: TextMeasurer;
+
+  /** Update typography settings. Triggers re-pagination. */
+  setTypography(opts: { fontSize?: number }): boolean;
+
+  /** Subscribe to spread render events. Returns unsubscribe function. */
+  onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
+
   /** Release all resources (image bitmaps, etc.). */
   dispose(): void;
 }
@@ -144,7 +154,21 @@ function buildReader(
         const dims = getSpreadDimensions(state.config, effectiveRatio);
         return { width: dims.width / state.dpr, height: dims.height / state.dpr };
       },
+      measurer: state.assets.measurer as TextMeasurer,
+      setTypography(opts: { fontSize?: number }): boolean {
+        if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
+        return layoutControls.updateLayout(
+          state.config.viewportWidth,
+          state.config.viewportHeight,
+          state.spreadMode,
+        );
+      },
+      onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void {
+        state.spreadRenderedListeners.add(cb);
+        return () => state.spreadRenderedListeners.delete(cb);
+      },
       dispose(): void {
+        state.spreadRenderedListeners.clear();
         disposeAssets(state.assets);
         doc.close();
       },

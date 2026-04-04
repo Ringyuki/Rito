@@ -41,6 +41,8 @@ export async function initReaderState(
     assets,
     resources,
     spreads: buildSpreads(resources.pages, config, getChapterStartPages(resources.chapterMap)),
+    spreadRenderedListeners: new Set(),
+    fontSizeOverride: undefined,
   };
 }
 

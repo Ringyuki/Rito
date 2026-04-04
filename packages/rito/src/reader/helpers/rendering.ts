@@ -32,4 +32,6 @@ export function renderSpreadToCanvas(
   };
   if (state.fgColor) options['foregroundColor'] = state.fgColor;
   render(spread, ctx, state.config, options as Parameters<typeof render>[3]);
+
+  for (const cb of state.spreadRenderedListeners) cb(index, spread);
 }

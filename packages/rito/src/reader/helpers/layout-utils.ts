@@ -6,6 +6,7 @@ import type { ChapterRange } from '../../runtime/types';
 export function makeLayoutConfig(
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
+  rootFontSize?: number,
 ): LayoutConfig {
   return createLayoutConfig({
     width: options.width,
@@ -13,6 +14,7 @@ export function makeLayoutConfig(
     margin: options.margin ?? 40,
     spread: spreadMode,
     spreadGap: options.spreadGap ?? 20,
+    ...(rootFontSize !== undefined ? { rootFontSize } : {}),
   } satisfies LayoutConfigInput);
 }
 
@@ -36,6 +38,7 @@ export function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
     a.marginLeft === b.marginLeft &&
     a.spreadMode === b.spreadMode &&
     a.firstPageAlone === b.firstPageAlone &&
-    a.spreadGap === b.spreadGap
+    a.spreadGap === b.spreadGap &&
+    a.rootFontSize === b.rootFontSize
   );
 }
