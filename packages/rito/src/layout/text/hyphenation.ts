@@ -1,38 +1,39 @@
 /**
- * Basic rule-based hyphenation for English text.
- *
- * Uses simple heuristics without a dictionary:
- * - Minimum 3 characters before the break point
- * - Minimum 2 characters after the break point
- * - Breaks at common suffix boundaries
- * - Does not hyphenate short words (< 6 chars)
+ * Dictionary-based hyphenation using Liang's algorithm with TeX en-US patterns.
  */
 
-const MIN_WORD_LENGTH = 6;
-const MIN_BEFORE = 3;
-const MIN_AFTER = 2;
+import { buildTrie, findPointsWithTrie } from './hyphenation-trie';
+import type { HyphenationTrie } from './hyphenation-trie';
+import { EN_US_EXCEPTIONS_RAW, EN_US_PATTERNS_RAW } from './patterns/en-us';
 
-/** Common suffixes where hyphenation is natural. */
-const SUFFIX_BREAKS = [
-  'tion',
-  'sion',
-  'ment',
-  'ness',
-  'able',
-  'ible',
-  'ful',
-  'less',
-  'ous',
-  'ive',
-  'ing',
-  'ent',
-  'ant',
-  'ence',
-  'ance',
-  'ity',
-  'ally',
-  'ical',
-];
+const MIN_WORD_LENGTH = 6;
+const MIN_BEFORE = 2;
+const MIN_AFTER = 3;
+
+let cachedTrie: HyphenationTrie | undefined;
+let cachedExceptions: Map<string, readonly number[]> | undefined;
+
+function getTrie(): HyphenationTrie {
+  cachedTrie ??= buildTrie(EN_US_PATTERNS_RAW.split(' '));
+  return cachedTrie;
+}
+
+function getExceptions(): Map<string, readonly number[]> {
+  if (!cachedExceptions) {
+    cachedExceptions = new Map();
+    for (const entry of EN_US_EXCEPTIONS_RAW.split(' ')) {
+      const word = entry.replace(/-/g, '');
+      const points: number[] = [];
+      let pos = 0;
+      for (const part of entry.split('-')) {
+        pos += part.length;
+        if (pos < word.length) points.push(pos);
+      }
+      cachedExceptions.set(word, points);
+    }
+  }
+  return cachedExceptions;
+}
 
 /**
  * Find possible hyphenation points in a word.
@@ -42,32 +43,9 @@ const SUFFIX_BREAKS = [
 export function findHyphenationPoints(word: string): readonly number[] {
   if (word.length < MIN_WORD_LENGTH) return [];
 
-  const points: number[] = [];
   const lower = word.toLowerCase();
+  const exception = getExceptions().get(lower);
+  if (exception) return exception;
 
-  // Check suffix-based breaks
-  for (const suffix of SUFFIX_BREAKS) {
-    const idx = lower.length - suffix.length;
-    if (idx >= MIN_BEFORE && lower.endsWith(suffix)) {
-      points.push(idx);
-    }
-  }
-
-  // If no suffix match, try breaking at vowel-consonant boundaries
-  if (points.length === 0) {
-    for (let i = MIN_BEFORE; i <= word.length - MIN_AFTER; i++) {
-      const prev = lower[i - 1];
-      const curr = lower[i];
-      if (prev && curr && isVowel(prev) && !isVowel(curr)) {
-        points.push(i);
-      }
-    }
-  }
-
-  // Deduplicate and sort
-  return [...new Set(points)].sort((a, b) => a - b);
-}
-
-function isVowel(ch: string): boolean {
-  return 'aeiou'.includes(ch);
+  return findPointsWithTrie(lower, getTrie(), MIN_BEFORE, MIN_AFTER);
 }

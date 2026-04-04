@@ -1,4 +1,5 @@
 import type { ComputedStyle } from '../../../style/core/types';
+import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 
 export interface StyleRange {
@@ -16,4 +17,5 @@ export interface LineContext {
   readonly measurer: TextMeasurer;
   readonly preserveWs: boolean;
   readonly allowWrap: boolean;
+  readonly atoms: ReadonlyMap<number, InlineAtomSegment>;
 }

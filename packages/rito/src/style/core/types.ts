@@ -193,6 +193,10 @@ export interface ComputedStyle {
   readonly borderRadius: number;
   /** Opacity (0-1). 1 means fully opaque. Render-only, no layout impact. */
   readonly opacity: number;
+  /** Minimum lines before a page break (CSS orphans). Default 2. */
+  readonly orphans: number;
+  /** Minimum lines after a page break (CSS widows). Default 2. */
+  readonly widows: number;
 }
 
 /** A single border edge. */

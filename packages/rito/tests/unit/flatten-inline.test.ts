@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { flattenInlineContent } from '../../src/layout/text/styled-segment';
+import type { InlineSegment, StyledSegment } from '../../src/layout/text/styled-segment';
+import { flattenInlineContent, isInlineAtom } from '../../src/layout/text/styled-segment';
 import { resolveStyles } from '../../src/style/cascade/resolver';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { StyledNode } from '../../src/style/core/types';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
+
+function asText(seg: InlineSegment | undefined): StyledSegment | undefined {
+  if (!seg || isInlineAtom(seg)) return undefined;
+  return seg;
+}
 
 function text(content: string): DocumentNode {
   return { type: NODE_TYPES.Text, content };
@@ -32,7 +38,7 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(p.children);
 
     expect(segments).toHaveLength(1);
-    expect(segments[0]?.text).toBe('hello');
+    expect(asText(segments[0])?.text).toBe('hello');
     // Text nodes inherit from parent but non-inheritable props (margins, etc.) are reset
     expect(segments[0]?.style.fontFamily).toBe(p.style.fontFamily);
     expect(segments[0]?.style.fontSize).toBe(p.style.fontSize);
@@ -44,9 +50,9 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(p.children);
 
     expect(segments).toHaveLength(2);
-    expect(segments[0]?.text).toBe('Hello ');
+    expect(asText(segments[0])?.text).toBe('Hello ');
     expect(segments[0]?.style.fontStyle).toBe('normal');
-    expect(segments[1]?.text).toBe('world');
+    expect(asText(segments[1])?.text).toBe('world');
     expect(segments[1]?.style.fontStyle).toBe('italic');
   });
 
@@ -55,7 +61,7 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(p.children);
 
     expect(segments).toHaveLength(1);
-    expect(segments[0]?.text).toBe('bold italic');
+    expect(asText(segments[0])?.text).toBe('bold italic');
     expect(segments[0]?.style.fontWeight).toBe(700);
     expect(segments[0]?.style.fontStyle).toBe('italic');
   });
@@ -67,8 +73,8 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(div.children);
 
     expect(segments).toHaveLength(2);
-    expect(segments[0]?.text).toBe('before');
-    expect(segments[1]?.text).toBe('after');
+    expect(asText(segments[0])?.text).toBe('before');
+    expect(asText(segments[1])?.text).toBe('after');
   });
 
   it('skips empty text nodes', () => {
@@ -76,7 +82,7 @@ describe('flattenInlineContent', () => {
     const segments = flattenInlineContent(p.children);
 
     expect(segments).toHaveLength(1);
-    expect(segments[0]?.text).toBe('content');
+    expect(asText(segments[0])?.text).toBe('content');
   });
 
   it('preserves style inheritance through nesting', () => {

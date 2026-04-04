@@ -1,4 +1,5 @@
 export {
+  type InlineAtom,
   type Rect,
   type BlockBorders,
   type HorizontalRule,

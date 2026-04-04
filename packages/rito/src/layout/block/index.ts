@@ -1,4 +1,5 @@
 import type { StyledNode } from '../../style/core/types';
+import { DISPLAY_VALUES } from '../../style/core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutTable } from '../table';
 import type { LayoutBlock } from '../core/types';
@@ -136,13 +137,15 @@ function layoutBlockNode(
     return;
   }
 
-  const hasBlockChildren = node.children.some(
-    (child) => child.type === 'block' || child.type === 'image',
-  );
+  const hasBlockChildren = node.children.some((child) => {
+    if (child.type === 'block') return child.style.display !== DISPLAY_VALUES.InlineBlock;
+    if (child.type === 'image') return !hasMixedInlineContent(node.children);
+    return false;
+  });
   if (hasBlockChildren) {
     layoutContainerBlock(state, node, contentWidth, contentHeight, layouter, imageSizes, listCtx);
   } else {
-    layoutLeafBlock(state, node, contentWidth, layouter, listCtx);
+    layoutLeafBlock(state, node, contentWidth, layouter, imageSizes, listCtx);
   }
 }
 
@@ -190,6 +193,7 @@ function layoutLeafBlock(
   node: StyledNode,
   contentWidth: number,
   layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
   collapseMargin(state, node.style.marginTop);
@@ -203,7 +207,7 @@ function layoutLeafBlock(
   width = applySizeConstraints(width, node.style);
   width -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
 
-  let block = layoutTextBlock(node, Math.max(width, 1), state.y, layouter);
+  let block = layoutTextBlock(node, Math.max(width, 1), state.y, layouter, imageSizes);
   block = addListMarker(block, node, listCtx);
 
   let xOffset = ml + state.floats.getLeftWidth(state.y);
@@ -224,4 +228,15 @@ function layoutLeafBlock(
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;
   state.prevMarginBottom = node.style.marginBottom;
+}
+
+/** Returns true if children contain text/inline nodes alongside images. */
+function hasMixedInlineContent(children: readonly StyledNode[]): boolean {
+  let hasInline = false;
+  let hasImage = false;
+  for (const child of children) {
+    if (child.type === 'text' || child.type === 'inline') hasInline = true;
+    if (child.type === 'image') hasImage = true;
+  }
+  return hasInline && hasImage;
 }

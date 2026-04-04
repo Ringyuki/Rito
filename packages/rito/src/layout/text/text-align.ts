@@ -1,8 +1,10 @@
 import type { TextAlignment } from '../../style/core/types';
-import type { LineBox, TextRun } from '../core/types';
+import type { InlineAtom, LineBox, TextRun } from '../core/types';
+
+type Run = TextRun | InlineAtom;
 
 export function applyAlign(
-  runs: TextRun[],
+  runs: Run[],
   lineWidth: number,
   y: number,
   lineHeight: number,
@@ -27,17 +29,17 @@ export function applyAlign(
   };
 }
 
-function justifyRuns(runs: TextRun[], lineWidth: number, maxWidth: number): TextRun[] {
+function justifyRuns(runs: Run[], lineWidth: number, maxWidth: number): Run[] {
   const gaps = collectGaps(runs);
   if (gaps.length === 0) return runs;
   return distributeGaps(runs, gaps, (maxWidth - lineWidth) / gaps.length);
 }
 
-function collectGaps(runs: readonly TextRun[]): number[] {
+function collectGaps(runs: readonly Run[]): number[] {
   const gaps: number[] = [];
   for (let i = 0; i < runs.length; i++) {
     const run = runs[i];
-    if (!run) continue;
+    if (!run || run.type !== 'text-run') continue;
     for (let j = 0; j < run.text.length; j++) {
       if (run.text[j] === ' ') gaps.push(i);
     }
@@ -45,12 +47,8 @@ function collectGaps(runs: readonly TextRun[]): number[] {
   return gaps;
 }
 
-function distributeGaps(
-  runs: readonly TextRun[],
-  gaps: readonly number[],
-  gapSize: number,
-): TextRun[] {
-  const result: TextRun[] = [];
+function distributeGaps(runs: readonly Run[], gaps: readonly number[], gapSize: number): Run[] {
+  const result: Run[] = [];
   let xOffset = 0;
   let gapIdx = 0;
 
@@ -64,8 +62,10 @@ function distributeGaps(
     }
 
     let intraGaps = 0;
-    for (let j = 0; j < run.text.length; j++) {
-      if (run.text[j] === ' ') intraGaps++;
+    if (run.type === 'text-run') {
+      for (let j = 0; j < run.text.length; j++) {
+        if (run.text[j] === ' ') intraGaps++;
+      }
     }
 
     result.push({

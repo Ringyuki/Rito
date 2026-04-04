@@ -1,8 +1,8 @@
 import type { StyledNode } from '../../style/core/types';
 import type { LineBox } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
-import type { StyledSegment } from '../text/styled-segment';
-import { flattenInlineContent } from '../text/styled-segment';
+import type { InlineSegment, StyledSegment } from '../text/styled-segment';
+import { flattenInlineContent, isInlineAtom } from '../text/styled-segment';
 import { CELL_PADDING, isCellNode } from './shared';
 
 const LARGE_WIDTH = 1e6;
@@ -109,7 +109,7 @@ function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellW
 }
 
 function measurePreferredWidth(
-  segments: readonly StyledSegment[],
+  segments: readonly InlineSegment[],
   layouter: ParagraphLayouter,
 ): number {
   const lines = layouter.layoutParagraph(segments, LARGE_WIDTH, 0);
@@ -117,15 +117,20 @@ function measurePreferredWidth(
 }
 
 function measureMinimumWidth(
-  segments: readonly StyledSegment[],
+  segments: readonly InlineSegment[],
   layouter: ParagraphLayouter,
 ): number {
   let maxWordWidth = 0;
 
   for (const segment of segments) {
-    const words = segment.text.split(/\s+/).filter((word) => word.length > 0);
+    if (isInlineAtom(segment)) {
+      if (segment.width > maxWordWidth) maxWordWidth = segment.width;
+      continue;
+    }
+    const textSeg: StyledSegment = segment;
+    const words = textSeg.text.split(/\s+/).filter((word) => word.length > 0);
     for (const word of words) {
-      const wordSegment: StyledSegment = { text: word, style: segment.style };
+      const wordSegment: StyledSegment = { text: word, style: textSeg.style };
       const lines = layouter.layoutParagraph([wordSegment], LARGE_WIDTH, 0);
       const width = maxLineContentWidth(lines);
       if (width > maxWordWidth) maxWordWidth = width;

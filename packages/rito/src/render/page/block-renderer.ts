@@ -1,4 +1,5 @@
-import type { HorizontalRule, LayoutBlock, LineBox } from '../../layout/core/types';
+import type { HorizontalRule, InlineAtom, LayoutBlock, LineBox } from '../../layout/core/types';
+import { buildHrefResolver } from '../../utils/resolve-href';
 import { drawTextRun } from '../text/text-renderer';
 import { renderBlockBackground } from './background-renderer';
 import { renderImage } from './image-renderer';
@@ -54,7 +55,7 @@ function renderChild(
   colorOverride?: ColorOverride,
 ): void {
   if (child.type === 'line-box') {
-    renderLineBox(ctx, child, offsetX, offsetY, colorOverride);
+    renderLineBox(ctx, child, offsetX, offsetY, images, colorOverride);
     return;
   }
   if (child.type === 'image') {
@@ -73,13 +74,51 @@ function renderLineBox(
   lineBox: LineBox,
   offsetX: number,
   offsetY: number,
+  images?: ReadonlyMap<string, ImageBitmap>,
   colorOverride?: ColorOverride,
 ): void {
   const lineX = offsetX + lineBox.bounds.x;
   const lineY = offsetY + lineBox.bounds.y;
 
   for (const run of lineBox.runs) {
-    drawTextRun(ctx, run, lineX, lineY, colorOverride);
+    if (run.type === 'inline-atom') {
+      renderInlineAtom(ctx, run, lineX, lineY, images);
+    } else {
+      drawTextRun(ctx, run, lineX, lineY, colorOverride);
+    }
+  }
+}
+
+let cachedAtomResolver:
+  | { images: ReadonlyMap<string, ImageBitmap>; resolve: (href: string) => ImageBitmap | undefined }
+  | undefined;
+
+function getAtomResolver(
+  images: ReadonlyMap<string, ImageBitmap>,
+): (href: string) => ImageBitmap | undefined {
+  if (cachedAtomResolver?.images === images) return cachedAtomResolver.resolve;
+  const resolve = buildHrefResolver(images);
+  cachedAtomResolver = { images, resolve };
+  return resolve;
+}
+
+function renderInlineAtom(
+  ctx: CanvasRenderingContext2D,
+  atom: InlineAtom,
+  offsetX: number,
+  offsetY: number,
+  images?: ReadonlyMap<string, ImageBitmap>,
+): void {
+  if (atom.imageSrc && images) {
+    const bitmap = getAtomResolver(images)(atom.imageSrc);
+    if (bitmap) {
+      const x = offsetX + atom.bounds.x;
+      const y = offsetY + atom.bounds.y;
+      ctx.drawImage(bitmap, x, y, atom.bounds.width, atom.bounds.height);
+    }
+  }
+  if (atom.block) {
+    renderBlock(ctx, atom.block, offsetX + atom.bounds.x, offsetY + atom.bounds.y, images);
   }
 }
 

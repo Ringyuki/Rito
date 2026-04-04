@@ -3,7 +3,11 @@ import { createListContext, addListMarker } from '../../src/layout/block/list';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import { LIST_STYLE_TYPES } from '../../src/style/core/types';
 import type { ListStyleType, StyledNode } from '../../src/style/core/types';
-import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
+import type { InlineAtom, LayoutBlock, LineBox, TextRun } from '../../src/layout/core/types';
+
+function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+  return run?.type === 'text-run' ? run.text : undefined;
+}
 
 function makeNode(tag: string, listStyleType: ListStyleType = LIST_STYLE_TYPES.Disc): StyledNode {
   return { type: 'block', tag, style: { ...DEFAULT_STYLE, listStyleType }, children: [] };
@@ -48,7 +52,7 @@ describe('addListMarker', () => {
     const result = addListMarker(block, makeNode('li'), ctx);
     const firstLine = result.children[0] as LineBox;
     expect(firstLine.runs.length).toBe(2);
-    expect(firstLine.runs[0]?.text).toBe('\u2022');
+    expect(textOf(firstLine.runs[0])).toBe('\u2022');
     expect(ctx.counter).toBe(1);
   });
 
@@ -58,7 +62,7 @@ describe('addListMarker', () => {
     expect(ctx.counter).toBe(1);
     const result = addListMarker(makeBlock(), makeNode('li'), ctx);
     const firstLine = result.children[0] as LineBox;
-    expect(firstLine.runs[0]?.text).toBe('2.');
+    expect(textOf(firstLine.runs[0])).toBe('2.');
   });
 
   it('returns block unchanged for non-li tag', () => {
@@ -97,7 +101,7 @@ describe('addListMarker', () => {
       }
       const result = addListMarker(makeBlock(), makeNode('li'), ctx);
       const firstLine = result.children[0] as LineBox;
-      expect(firstLine.runs[0]?.text).toBe(expected);
+      expect(textOf(firstLine.runs[0])).toBe(expected);
     }
   });
 
@@ -116,7 +120,7 @@ describe('addListMarker', () => {
       }
       const result = addListMarker(makeBlock(), makeNode('li'), ctx);
       const firstLine = result.children[0] as LineBox;
-      expect(firstLine.runs[0]?.text).toBe(expected);
+      expect(textOf(firstLine.runs[0])).toBe(expected);
     }
   });
 
@@ -141,7 +145,7 @@ describe('addListMarker', () => {
       }
       const result = addListMarker(makeBlock(), makeNode('li'), ctx);
       const firstLine = result.children[0] as LineBox;
-      expect(firstLine.runs[0]?.text).toBe(expected);
+      expect(textOf(firstLine.runs[0])).toBe(expected);
     }
   });
 
@@ -160,7 +164,7 @@ describe('addListMarker', () => {
       }
       const result = addListMarker(makeBlock(), makeNode('li'), ctx);
       const firstLine = result.children[0] as LineBox;
-      expect(firstLine.runs[0]?.text).toBe(expected);
+      expect(textOf(firstLine.runs[0])).toBe(expected);
     }
   });
 
@@ -168,14 +172,14 @@ describe('addListMarker', () => {
     const ctx = { listStyleType: LIST_STYLE_TYPES.Square, counter: 0 };
     const result = addListMarker(makeBlock(), makeNode('li'), ctx);
     const firstLine = result.children[0] as LineBox;
-    expect(firstLine.runs[0]?.text).toBe('\u25AA');
+    expect(textOf(firstLine.runs[0])).toBe('\u25AA');
   });
 
   it('adds circle marker', () => {
     const ctx = { listStyleType: LIST_STYLE_TYPES.Circle, counter: 0 };
     const result = addListMarker(makeBlock(), makeNode('li'), ctx);
     const firstLine = result.children[0] as LineBox;
-    expect(firstLine.runs[0]?.text).toBe('\u25CB');
+    expect(textOf(firstLine.runs[0])).toBe('\u25CB');
   });
 
   it('returns empty marker for none', () => {

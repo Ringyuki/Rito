@@ -95,7 +95,8 @@ describe('paginate', () => {
     const firstChild = firstBlock?.children[0];
     if (firstChild?.type === 'line-box') {
       expect(firstChild.runs.length).toBeGreaterThan(0);
-      expect(firstChild.runs[0]?.text.length).toBeGreaterThan(0);
+      const firstRun = firstChild.runs[0];
+      expect(firstRun?.type === 'text-run' ? firstRun.text.length : 0).toBeGreaterThan(0);
     }
   });
 

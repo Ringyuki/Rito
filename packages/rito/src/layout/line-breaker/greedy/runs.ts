@@ -1,7 +1,11 @@
 import type { ComputedStyle } from '../../../style/core/types';
-import type { TextRun } from '../../core/types';
+import type { InlineAtom, TextRun } from '../../core/types';
+import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 import type { StyleRange } from './types';
+
+/** Object Replacement Character used as placeholder for inline atoms. */
+const ORC = '\uFFFC';
 
 export function buildStyledRuns(
   lineText: string,
@@ -10,32 +14,34 @@ export function buildStyledRuns(
   lineHeight: number,
   ranges: readonly StyleRange[],
   measurer: TextMeasurer,
-): TextRun[] {
-  const runs: TextRun[] = [];
+  atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
+): (TextRun | InlineAtom)[] {
+  const runs: (TextRun | InlineAtom)[] = [];
   let x = startX;
   let linePos = 0;
 
   while (linePos < lineText.length) {
     const globalPos = globalOffset + linePos;
+    const atom = atoms.get(globalPos);
+    if (atom) {
+      runs.push(buildInlineAtom(atom, x, lineHeight));
+      x += atom.width;
+      linePos += 1;
+      continue;
+    }
+
     const range = findRange(ranges, globalPos);
     if (!range) break;
 
     const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
-    const runText = lineText.slice(linePos, rangeEnd);
-    if (runText.length === 0) break;
+    const runText = stripORC(lineText.slice(linePos, rangeEnd));
+    if (runText.length === 0) {
+      linePos = rangeEnd;
+      continue;
+    }
 
     const width = measurer.measureText(runText, range.style).width;
-    runs.push({
-      type: 'text-run',
-      text: runText,
-      bounds: {
-        x,
-        y: computeVerticalAlignOffset(range.style, lineHeight),
-        width,
-        height: lineHeight,
-      },
-      style: range.style,
-    });
+    runs.push(buildTextRun(runText, x, lineHeight, width, range.style));
     x += width;
     linePos = rangeEnd;
   }
@@ -43,8 +49,42 @@ export function buildStyledRuns(
   return runs;
 }
 
-export function getRunsWidth(runs: readonly TextRun[]): number {
+export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {
   return runs.reduce((maxWidth, run) => Math.max(maxWidth, run.bounds.x + run.bounds.width), 0);
+}
+
+function buildTextRun(
+  text: string,
+  x: number,
+  lineHeight: number,
+  width: number,
+  style: ComputedStyle,
+): TextRun {
+  return {
+    type: 'text-run',
+    text,
+    bounds: { x, y: computeVerticalAlignOffset(style, lineHeight), width, height: lineHeight },
+    style,
+  };
+}
+
+function buildInlineAtom(atom: InlineAtomSegment, x: number, lineHeight: number): InlineAtom {
+  const result: InlineAtom = {
+    type: 'inline-atom',
+    bounds: {
+      x,
+      y: computeVerticalAlignOffset(atom.style, lineHeight),
+      width: atom.width,
+      height: atom.height,
+    },
+  };
+  if (atom.imageSrc !== undefined) return { ...result, imageSrc: atom.imageSrc };
+  if (atom.sourceNode) return { ...result, verticalAlign: atom.style.verticalAlign };
+  return result;
+}
+
+function stripORC(text: string): string {
+  return text.includes(ORC) ? text.replaceAll(ORC, '') : text;
 }
 
 function findRange(ranges: readonly StyleRange[], globalPos: number): StyleRange | undefined {

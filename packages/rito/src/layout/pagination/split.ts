@@ -5,8 +5,6 @@ interface SplitResult {
   readonly tail: LayoutBlock;
 }
 
-const MIN_SPLIT_LINES = 2;
-
 export function trySplitBlock(
   block: LayoutBlock,
   availableHeight: number,
@@ -16,14 +14,21 @@ export function trySplitBlock(
   }
 
   const lineBoxes = block.children;
-  if (lineBoxes.length < 2) return undefined;
+  const orphans = block.orphans ?? 2;
+  const widows = block.widows ?? 2;
+  const minTotal = orphans + widows;
 
-  const splitIndex = findSplitIndex(lineBoxes, availableHeight);
-  if (splitIndex === 0 || splitIndex >= lineBoxes.length) return undefined;
+  if (lineBoxes.length < minTotal) return undefined;
 
-  const headCount = splitIndex;
-  const tailCount = lineBoxes.length - splitIndex;
-  if (headCount < MIN_SPLIT_LINES || tailCount < MIN_SPLIT_LINES) return undefined;
+  let splitIndex = findSplitIndex(lineBoxes, availableHeight);
+  // Enforce orphans/widows: adjust the split point so at least `orphans` lines
+  // stay on the current page and at least `widows` lines move to the next.
+  // The adjusted head may exceed availableHeight — this matches browser behavior
+  // where orphan compliance takes priority over page fit. The paginator's
+  // overflow handling (placeOversizedBlock) deals with any resulting overshoot.
+  if (splitIndex < orphans) splitIndex = orphans;
+  if (lineBoxes.length - splitIndex < widows) splitIndex = lineBoxes.length - widows;
+  if (splitIndex <= 0 || splitIndex >= lineBoxes.length) return undefined;
 
   return buildSplitResult(block, lineBoxes, splitIndex);
 }

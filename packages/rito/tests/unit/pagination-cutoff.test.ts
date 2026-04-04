@@ -50,7 +50,7 @@ describe('pagination cutoff regression', () => {
         for (const child of block.children) {
           if (child.type === 'line-box') {
             for (const run of child.runs) {
-              allText.push(run.text);
+              if (run.type === 'text-run') allText.push(run.text);
             }
           }
         }
@@ -108,7 +108,7 @@ describe('pagination cutoff regression', () => {
         for (const child of block.children) {
           if (child.type === 'line-box') {
             for (const run of child.runs) {
-              allTexts.push(run.text);
+              if (run.type === 'text-run') allTexts.push(run.text);
             }
           }
         }

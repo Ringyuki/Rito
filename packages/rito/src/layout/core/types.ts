@@ -18,11 +18,24 @@ export interface TextRun {
   readonly style: ComputedStyle;
 }
 
-/** A laid-out line box containing text runs. */
+/** An atomic inline unit (inline-block or inline image) within a line. */
+export interface InlineAtom {
+  readonly type: 'inline-atom';
+  readonly bounds: Rect;
+  readonly imageSrc?: string;
+  /**
+   * Nested layout block for inline-block elements.
+   * Currently unused — reserved for future inline-block content rendering.
+   */
+  readonly block?: LayoutBlock;
+  readonly verticalAlign?: string;
+}
+
+/** A laid-out line box containing text runs and inline atoms. */
 export interface LineBox {
   readonly type: 'line-box';
   readonly bounds: Rect;
-  readonly runs: readonly TextRun[];
+  readonly runs: readonly (TextRun | InlineAtom)[];
 }
 
 /** A laid-out image element. */
@@ -63,6 +76,10 @@ export interface LayoutBlock {
   readonly relativeOffset?: RelativeOffset;
   /** When 'hidden', the renderer clips children to block bounds. */
   readonly overflow?: 'hidden';
+  /** Minimum lines before a page break (CSS orphans). */
+  readonly orphans?: number;
+  /** Minimum lines after a page break (CSS widows). */
+  readonly widows?: number;
 }
 
 /** Border edge in a layout block. */

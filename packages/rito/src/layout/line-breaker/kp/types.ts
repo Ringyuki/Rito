@@ -1,10 +1,11 @@
-import type { StyledSegment } from '../../text/styled-segment';
+import type { InlineAtomSegment, StyledSegment } from '../../text/styled-segment';
 
 export interface KPBox {
   readonly type: 'box';
   readonly width: number;
   readonly text: string;
   readonly segment: StyledSegment;
+  readonly atom?: InlineAtomSegment;
 }
 
 export interface KPGlue {

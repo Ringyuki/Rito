@@ -71,7 +71,7 @@ describe('paragraph split across pages', () => {
         for (const child of b.children) {
           if (child.type === 'line-box') {
             for (const run of child.runs) {
-              allText.push(run.text);
+              if (run.type === 'text-run') allText.push(run.text);
             }
           }
         }
@@ -111,7 +111,7 @@ describe('paragraph split across pages', () => {
         for (const child of b.children) {
           if (child.type === 'line-box') {
             for (const run of child.runs) {
-              allText.push(run.text);
+              if (run.type === 'text-run') allText.push(run.text);
             }
           }
         }

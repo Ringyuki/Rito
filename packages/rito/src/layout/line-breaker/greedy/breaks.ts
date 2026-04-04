@@ -1,5 +1,6 @@
 import type { ComputedStyle } from '../../../style/core/types';
 import { findHyphenationPoints } from '../../text/hyphenation';
+import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 
 const CJK_RE =
@@ -12,9 +13,9 @@ export function findBreakPosition(
   maxWidth: number,
   style: ComputedStyle,
   measurer: TextMeasurer,
+  atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
 ): number {
-  const fullText = text.slice(start, end);
-  if (measurer.measureText(fullText, style).width <= maxWidth) {
+  if (measureSlice(text, start, end, style, measurer, atoms) <= maxWidth) {
     return end;
   }
 
@@ -22,8 +23,7 @@ export function findBreakPosition(
   let hi = end;
   while (lo < hi - 1) {
     const mid = (lo + hi) >>> 1;
-    const candidate = text.slice(start, mid);
-    if (measurer.measureText(candidate, style).width <= maxWidth) {
+    if (measureSlice(text, start, mid, style, measurer, atoms) <= maxWidth) {
       lo = mid;
     } else {
       hi = mid;
@@ -37,6 +37,31 @@ export function findBreakPosition(
   }
 
   return wordBreak;
+}
+
+function measureSlice(
+  text: string,
+  start: number,
+  end: number,
+  style: ComputedStyle,
+  measurer: TextMeasurer,
+  atoms: ReadonlyMap<number, InlineAtomSegment>,
+): number {
+  if (atoms.size === 0) {
+    return measurer.measureText(text.slice(start, end), style).width;
+  }
+  let width = 0;
+  let textStart = start;
+  for (let i = start; i < end; i++) {
+    const atom = atoms.get(i);
+    if (atom) {
+      if (i > textStart) width += measurer.measureText(text.slice(textStart, i), style).width;
+      width += atom.width;
+      textStart = i + 1;
+    }
+  }
+  if (textStart < end) width += measurer.measureText(text.slice(textStart, end), style).width;
+  return width;
 }
 
 function findWordBreak(text: string, start: number, fitPos: number): number {

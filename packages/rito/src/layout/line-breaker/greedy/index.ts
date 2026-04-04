@@ -1,7 +1,7 @@
 import type { ComputedStyle } from '../../../style/core/types';
-import type { LineBox, TextRun } from '../../core/types';
+import type { InlineAtom, LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
-import type { StyledSegment } from '../../text/styled-segment';
+import type { InlineAtomSegment, InlineSegment } from '../../text/styled-segment';
 import { applyAlign } from '../../text/text-align';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { findBreakPosition } from './breaks';
@@ -12,7 +12,7 @@ import type { LineContext, StyleRange } from './types';
 export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter {
   return {
     layoutParagraph(
-      segments: readonly StyledSegment[],
+      segments: readonly InlineSegment[],
       maxWidth: number,
       startY: number,
     ): readonly LineBox[] {
@@ -20,10 +20,10 @@ export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter 
       const firstStyle = segments[0]?.style;
       if (!firstStyle) return [];
 
-      const { fullText, ranges } = buildStyleRanges(segments);
-      if (fullText.trim().length === 0) return [];
+      const { fullText, ranges, atoms } = buildStyleRanges(segments);
+      if (fullText.trim().length === 0 && atoms.size === 0) return [];
 
-      return layoutText(fullText, firstStyle, ranges, maxWidth, startY, measurer);
+      return layoutText(fullText, firstStyle, ranges, maxWidth, startY, measurer, atoms);
     },
   };
 }
@@ -35,8 +35,9 @@ function layoutText(
   maxWidth: number,
   startY: number,
   measurer: TextMeasurer,
+  atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
 ): LineBox[] {
-  const ctx = buildLineContext(text, baseStyle, ranges, maxWidth, measurer);
+  const ctx = buildLineContext(text, baseStyle, ranges, maxWidth, measurer, atoms);
   const { lineHeight } = ctx;
   const indent = baseStyle.textIndent;
   const lines: LineBox[] = [];
@@ -76,20 +77,21 @@ function layoutSingleLine(
   pos: number,
   isFirstLine: boolean,
   indent: number,
-): { runs: TextRun[]; width: number; nextPos: number } {
-  const { text, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer } = ctx;
+): { runs: (TextRun | InlineAtom)[]; width: number; nextPos: number } {
+  const { text, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer, atoms } =
+    ctx;
   const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
   const lineStartX = isFirstLine && indent > 0 ? indent : 0;
   const newlineIndex = text.indexOf('\n', pos);
   const lineEnd = newlineIndex >= 0 ? newlineIndex : text.length;
   const breakPos = allowWrap
-    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer)
+    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms)
     : lineEnd;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
   const lineText = preserveWs
     ? text.slice(pos, lineTextEnd)
     : text.slice(pos, lineTextEnd).trimEnd();
-  const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer);
+  const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer, atoms);
 
   return { runs, width: getRunsWidth(runs), nextPos: lineTextEnd };
 }

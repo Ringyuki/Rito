@@ -86,7 +86,8 @@ describe('paginator content integrity', () => {
       if (firstChild?.type === 'line-box') {
         // The first line box should have actual text content
         expect(firstChild.runs.length).toBeGreaterThan(0);
-        const firstRunText = firstChild.runs[0]?.text ?? '';
+        const r0 = firstChild.runs[0];
+        const firstRunText = r0?.type === 'text-run' ? r0.text : '';
         expect(firstRunText.trim().length).toBeGreaterThan(0);
         // The first line box should start at y=0 (no blank gap)
         expect(firstChild.bounds.y).toBe(0);
@@ -121,7 +122,7 @@ describe('paginator content integrity', () => {
       for (const b of page.content) {
         for (const c of b.children) {
           if (c.type === 'line-box') {
-            for (const run of c.runs) allText.push(run.text);
+            for (const run of c.runs) if (run.type === 'text-run') allText.push(run.text);
           }
         }
       }

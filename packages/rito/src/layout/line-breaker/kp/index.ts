@@ -1,7 +1,8 @@
 import type { ComputedStyle } from '../../../style/core/types';
-import type { LineBox, TextRun } from '../../core/types';
+import type { InlineAtom, LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
-import type { StyledSegment } from '../../text/styled-segment';
+import type { InlineAtomSegment, InlineSegment, StyledSegment } from '../../text/styled-segment';
+import { isInlineAtom } from '../../text/styled-segment';
 import { applyAlign } from '../../text/text-align';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { buildKPItems } from './builder';
@@ -11,7 +12,7 @@ import type { KPItem } from './types';
 export function createKnuthPlassLayouter(measurer: TextMeasurer): ParagraphLayouter {
   return {
     layoutParagraph(
-      segments: readonly StyledSegment[],
+      segments: readonly InlineSegment[],
       maxWidth: number,
       startY: number,
     ): readonly LineBox[] {
@@ -19,8 +20,9 @@ export function createKnuthPlassLayouter(measurer: TextMeasurer): ParagraphLayou
       const firstStyle = segments[0]?.style;
       if (!firstStyle) return [];
 
-      const fullText = segments.map((segment) => segment.text).join('');
-      if (fullText.trim().length === 0) return [];
+      const hasAtoms = segments.some(isInlineAtom);
+      const fullText = segments.map((s) => (isInlineAtom(s) ? '\uFFFC' : s.text)).join('');
+      if (fullText.trim().length === 0 && !hasAtoms) return [];
 
       const lineHeight = firstStyle.fontSize * firstStyle.lineHeight;
       const indent = firstStyle.textIndent;
@@ -84,6 +86,8 @@ function buildLineBoxes(
   return lines;
 }
 
+type Run = TextRun | InlineAtom;
+
 function buildLineRuns(
   items: readonly KPItem[],
   startIdx: number,
@@ -91,7 +95,7 @@ function buildLineRuns(
   startX: number,
   lineHeight: number,
   measurer: TextMeasurer,
-): TextRun[] {
+): Run[] {
   const ctx: RunBuildContext = {
     runs: [],
     x: startX,
@@ -104,7 +108,11 @@ function buildLineRuns(
     const item = items[index];
     if (!item) continue;
 
-    if (item.type === 'box') {
+    if (item.type === 'box' && item.atom) {
+      flushRun(ctx, lineHeight, measurer);
+      ctx.runs.push(buildAtomRun(item.atom, ctx.x, lineHeight));
+      ctx.x += item.atom.width;
+    } else if (item.type === 'box') {
       appendBox(ctx, item.text, item.segment, lineHeight, measurer);
     } else if (item.type === 'glue' && ctx.currentSegment) {
       ctx.currentText += ' ';
@@ -118,7 +126,7 @@ function buildLineRuns(
 }
 
 interface RunBuildContext {
-  runs: TextRun[];
+  runs: Run[];
   x: number;
   currentText: string;
   currentSegment: StyledSegment | undefined;
@@ -184,9 +192,9 @@ function appendHyphenIfNeeded(
   }
 }
 
-function trimLastRun(runs: TextRun[], measurer: TextMeasurer): void {
+function trimLastRun(runs: Run[], measurer: TextMeasurer): void {
   const lastRun = runs[runs.length - 1];
-  if (!lastRun) return;
+  if (!lastRun || lastRun.type !== 'text-run') return;
 
   const trimmed = lastRun.text.trimEnd();
   if (trimmed.length === lastRun.text.length) return;
@@ -199,6 +207,21 @@ function trimLastRun(runs: TextRun[], measurer: TextMeasurer): void {
       width: measurer.measureText(trimmed, lastRun.style).width,
     },
   };
+}
+
+function buildAtomRun(atom: InlineAtomSegment, x: number, lineHeight: number): InlineAtom {
+  const base: InlineAtom = {
+    type: 'inline-atom',
+    bounds: {
+      x,
+      y: computeVerticalAlignOffset(atom.style, lineHeight),
+      width: atom.width,
+      height: atom.height,
+    },
+  };
+  if (atom.imageSrc !== undefined) return { ...base, imageSrc: atom.imageSrc };
+  if (atom.sourceNode) return { ...base, verticalAlign: atom.style.verticalAlign };
+  return base;
 }
 
 function computeVerticalAlignOffset(style: ComputedStyle, lineHeight: number): number {

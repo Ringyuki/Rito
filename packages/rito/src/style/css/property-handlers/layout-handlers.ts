@@ -74,4 +74,12 @@ export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
   right: (result, value, emBase, rootFontSize) => {
     assignLength(result, 'right', value, emBase, rootFontSize);
   },
+  orphans: (result, value) => {
+    const num = parseInt(value.trim(), 10);
+    if (!isNaN(num) && num >= 1) result.orphans = num;
+  },
+  widows: (result, value) => {
+    const num = parseInt(value.trim(), 10);
+    if (!isNaN(num) && num >= 1) result.widows = num;
+  },
 };

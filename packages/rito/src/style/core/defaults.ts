@@ -116,4 +116,6 @@ export const DEFAULT_STYLE: ComputedStyle = {
   right: 0,
   borderRadius: 0,
   opacity: 1,
+  orphans: 2,
+  widows: 2,
 };

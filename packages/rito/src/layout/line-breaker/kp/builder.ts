@@ -1,16 +1,30 @@
 import { findHyphenationPoints } from '../../text/hyphenation';
-import type { StyledSegment } from '../../text/styled-segment';
+import type { InlineSegment, StyledSegment } from '../../text/styled-segment';
+import { isInlineAtom } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 import type { KPBox, KPGlue, KPItem, KPPenalty } from './types';
 
 const HYPHEN_PENALTY = 50;
 const FORCED_BREAK_PENALTY = -Infinity;
 
-export function buildKPItems(segments: readonly StyledSegment[], measurer: TextMeasurer): KPItem[] {
+export function buildKPItems(segments: readonly InlineSegment[], measurer: TextMeasurer): KPItem[] {
   const items: KPItem[] = [];
 
   for (const segment of segments) {
-    const { text, style } = segment;
+    if (isInlineAtom(segment)) {
+      const dummySeg: StyledSegment = { text: '\uFFFC', style: segment.style };
+      items.push({
+        type: 'box',
+        width: segment.width,
+        text: '\uFFFC',
+        segment: dummySeg,
+        atom: segment,
+      });
+      continue;
+    }
+
+    const textSeg = segment;
+    const { text, style } = textSeg;
     if (text.length === 0) continue;
 
     const spaceWidth = measurer.measureText(' ', style).width;
@@ -24,7 +38,7 @@ export function buildKPItems(segments: readonly StyledSegment[], measurer: TextM
       } else if (token === ' ' || token === '\t') {
         items.push(createGlue(spaceWidth, stretchFactor, shrinkFactor));
       } else {
-        addWordItems(items, token, segment, measurer);
+        addWordItems(items, token, textSeg, measurer);
       }
     }
   }

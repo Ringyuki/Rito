@@ -127,7 +127,10 @@ describe('layoutBlocks', () => {
 
     const lineBox = blocks[0]?.children[0];
     if (lineBox?.type === 'line-box') {
-      const allText = lineBox.runs.map((r) => r.text).join('');
+      const allText = lineBox.runs
+        .filter((r) => r.type === 'text-run')
+        .map((r) => r.text)
+        .join('');
       expect(allText).toContain('Hello');
       expect(allText).toContain('bold');
     }

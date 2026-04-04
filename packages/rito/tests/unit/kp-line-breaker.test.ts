@@ -5,15 +5,20 @@ import { emergencyBreaks, solveKP } from '../../src/layout/line-breaker/kp/solve
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
-import type { StyledSegment } from '../../src/layout/text/styled-segment';
+import type { InlineSegment } from '../../src/layout/text/styled-segment';
+import type { InlineAtom, TextRun } from '../../src/layout/core/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+
+function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+  return run?.type === 'text-run' ? run.text : undefined;
+}
 
 // With charWidthFactor=0.6 and fontSize=16, each char is 9.6px wide.
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createKnuthPlassLayouter(measurer);
 const greedyLayouter = createGreedyLayouter(measurer);
 
-function seg(text: string, style?: Partial<ComputedStyle>): StyledSegment {
+function seg(text: string, style?: Partial<ComputedStyle>): InlineSegment {
   return { text, style: { ...DEFAULT_STYLE, ...style } };
 }
 
@@ -135,14 +140,14 @@ describe('KnuthPlassLayouter', () => {
     it('fits a short text on one line', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
       expect(lines).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text).toBe('hello');
+      expect(textOf(lines[0]?.runs[0])).toBe('hello');
     });
 
     it('breaks long text into multiple lines', () => {
       const lines = layouter.layoutParagraph([seg('one two three four')], 100, 0);
       expect(lines.length).toBeGreaterThan(1);
       // All text should be present
-      const allText = lines.map((l) => l.runs.map((r) => r.text).join('')).join(' ');
+      const allText = lines.map((l) => l.runs.map((r) => textOf(r) ?? '').join('')).join(' ');
       expect(allText).toContain('one');
       expect(allText).toContain('four');
     });
@@ -186,8 +191,8 @@ describe('KnuthPlassLayouter', () => {
     it('forces a line break on newline characters', () => {
       const lines = layouter.layoutParagraph([seg('line1\nline2')], 400, 0);
       expect(lines).toHaveLength(2);
-      expect(lines[0]?.runs[0]?.text).toBe('line1');
-      expect(lines[1]?.runs[0]?.text).toBe('line2');
+      expect(textOf(lines[0]?.runs[0])).toBe('line1');
+      expect(textOf(lines[1]?.runs[0])).toBe('line2');
     });
   });
 
@@ -222,7 +227,7 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph([seg('superlongword')], 50, 0);
       expect(lines.length).toBeGreaterThan(0);
       // All characters should be preserved
-      const allText = lines.flatMap((l) => l.runs.map((r) => r.text)).join('');
+      const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
       // The text may contain hyphens from hyphenation
       expect(allText.replace(/-/g, '')).toBe('superlongword');
     });

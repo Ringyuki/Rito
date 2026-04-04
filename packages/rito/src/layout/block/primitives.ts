@@ -3,6 +3,7 @@ import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types'
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
 import { computeChildrenHeight, extractBorders } from './helpers';
+import type { ImageSizeMap } from './types';
 
 const HR_THICKNESS = 1;
 
@@ -11,10 +12,11 @@ export function layoutTextBlock(
   contentWidth: number,
   y: number,
   layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
 ): LayoutBlock {
   const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
-  const segments = flattenInlineContent(node.children);
+  const segments = flattenInlineContent(node.children, imageSizes);
   const lineBoxes = layouter.layoutParagraph(
     segments,
     innerWidth > 0 ? innerWidth : contentWidth,
@@ -51,6 +53,8 @@ export function layoutTextBlock(
   if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
   if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
+  if (node.style.orphans !== 2) block = { ...block, orphans: node.style.orphans };
+  if (node.style.widows !== 2) block = { ...block, widows: node.style.widows };
   return block;
 }
 

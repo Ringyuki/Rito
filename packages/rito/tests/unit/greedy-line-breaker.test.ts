@@ -3,13 +3,18 @@ import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
-import type { StyledSegment } from '../../src/layout/text/styled-segment';
+import type { InlineSegment } from '../../src/layout/text/styled-segment';
+import type { InlineAtom, TextRun } from '../../src/layout/core/types';
+
+function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+  return run?.type === 'text-run' ? run.text : undefined;
+}
 
 // With charWidthFactor=0.6 and fontSize=16, each char is 9.6px wide.
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);
 
-function seg(text: string, style?: Partial<ComputedStyle>): StyledSegment {
+function seg(text: string, style?: Partial<ComputedStyle>): InlineSegment {
   return { text, style: { ...DEFAULT_STYLE, ...style } };
 }
 
@@ -18,7 +23,7 @@ describe('GreedyParagraphLayouter', () => {
     it('fits a short text on one line', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
       expect(lines).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text).toBe('hello');
+      expect(textOf(lines[0]?.runs[0])).toBe('hello');
     });
 
     it('breaks long text into multiple lines', () => {
@@ -28,7 +33,7 @@ describe('GreedyParagraphLayouter', () => {
       const lines = layouter.layoutParagraph([seg('one two three four')], 100, 0);
       expect(lines.length).toBeGreaterThan(1);
       // All text should be present
-      const allText = lines.map((l) => l.runs.map((r) => r.text).join('')).join(' ');
+      const allText = lines.map((l) => l.runs.map((r) => textOf(r) ?? '').join('')).join(' ');
       expect(allText).toContain('one');
       expect(allText).toContain('four');
     });
@@ -37,7 +42,7 @@ describe('GreedyParagraphLayouter', () => {
       // "superlongword" = 13 chars * 9.6 = 124.8px, width 100
       const lines = layouter.layoutParagraph([seg('superlongword')], 100, 0);
       expect(lines.length).toBeGreaterThan(1);
-      const allText = lines.flatMap((l) => l.runs.map((r) => r.text)).join('');
+      const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
       expect(allText).toBe('superlongword');
     });
 
@@ -81,7 +86,7 @@ describe('GreedyParagraphLayouter', () => {
       const lines = layouter.layoutParagraph([seg('hello world')], 200, 0);
       expect(lines).toHaveLength(1);
       expect(lines[0]?.runs).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text).toBe('hello world');
+      expect(textOf(lines[0]?.runs[0])).toBe('hello world');
     });
   });
 
@@ -89,16 +94,16 @@ describe('GreedyParagraphLayouter', () => {
     it('forces a line break on newline characters', () => {
       const lines = layouter.layoutParagraph([seg('line1\nline2')], 400, 0);
       expect(lines).toHaveLength(2);
-      expect(lines[0]?.runs[0]?.text).toBe('line1');
-      expect(lines[1]?.runs[0]?.text).toBe('line2');
+      expect(textOf(lines[0]?.runs[0])).toBe('line1');
+      expect(textOf(lines[1]?.runs[0])).toBe('line2');
     });
 
     it('handles multiple consecutive newlines', () => {
       const lines = layouter.layoutParagraph([seg('a\n\nb')], 400, 0);
       // "a", newline, empty line (skipped), "b"
       expect(lines).toHaveLength(2);
-      expect(lines[0]?.runs[0]?.text).toBe('a');
-      expect(lines[1]?.runs[0]?.text).toBe('b');
+      expect(textOf(lines[0]?.runs[0])).toBe('a');
+      expect(textOf(lines[1]?.runs[0])).toBe('b');
     });
   });
 
@@ -148,14 +153,14 @@ describe('GreedyParagraphLayouter', () => {
       // "你好世界测试" = 6 CJK chars = 57.6px
       const lines = layouter.layoutParagraph([seg('你好世界测试')], 40, 0);
       expect(lines.length).toBeGreaterThan(1);
-      const allText = lines.flatMap((l) => l.runs.map((r) => r.text)).join('');
+      const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
       expect(allText).toBe('你好世界测试');
     });
 
     it('preserves all CJK characters across lines', () => {
       const text = '这是一段很长的中文文本需要多行显示完整内容';
       const lines = layouter.layoutParagraph([seg(text)], 80, 0);
-      const allText = lines.flatMap((l) => l.runs.map((r) => r.text)).join('');
+      const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
       expect(allText).toBe(text);
     });
   });
@@ -164,14 +169,14 @@ describe('GreedyParagraphLayouter', () => {
     it('handles leading and trailing spaces', () => {
       const lines = layouter.layoutParagraph([seg('  hello  ')], 200, 0);
       expect(lines).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text.trim()).toBe('hello');
+      expect(textOf(lines[0]?.runs[0])?.trim()).toBe('hello');
     });
 
     it('handles many segments producing one line', () => {
       const segments = [seg('a '), seg('b '), seg('c')];
       const lines = layouter.layoutParagraph(segments, 200, 0);
       expect(lines).toHaveLength(1);
-      expect(lines[0]?.runs[0]?.text).toContain('a');
+      expect(textOf(lines[0]?.runs[0])).toContain('a');
     });
   });
 });
