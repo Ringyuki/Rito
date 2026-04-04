@@ -1,8 +1,10 @@
-import type { ComputedStyle, StyledNode } from '../style/types';
-import type { HorizontalRule, LayoutBlock, RelativeOffset } from './types';
-import { computeChildrenHeight, extractBorders } from './block-helpers';
-import type { ParagraphLayouter } from './paragraph-layouter';
-import { flattenInlineContent } from './styled-segment';
+import type { ComputedStyle, StyledNode } from '../../style/types';
+import type { ParagraphLayouter } from '../paragraph-layouter';
+import { flattenInlineContent } from '../styled-segment';
+import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../types';
+import { computeChildrenHeight, extractBorders } from './helpers';
+
+const HR_THICKNESS = 1;
 
 export function layoutTextBlock(
   node: StyledNode,
@@ -113,5 +115,3 @@ function applyHeightConstraints(height: number, style: ComputedStyle): number {
   }
   return constrained;
 }
-
-const HR_THICKNESS = 1;

@@ -4,7 +4,7 @@ import { parseDisplay, parseVerticalAlign } from '../../src/style/css-value-pars
 import { getTagStyle } from '../../src/style/tag-styles';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/types';
-import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
+import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import type { ComputedStyle } from '../../src/style/types';
 import type { StyledSegment } from '../../src/layout/styled-segment';

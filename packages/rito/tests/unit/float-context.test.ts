@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FloatContext } from '../../src/layout/float-context';
+import { FloatContext } from '../../src/layout/block/float-context';
 
 describe('FloatContext', () => {
   it('returns 0 widths when no floats are present', () => {

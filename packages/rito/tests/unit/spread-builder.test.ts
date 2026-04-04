@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildSpreads } from '../../src/layout/spread-builder';
+import { buildSpreads } from '../../src/layout/spread';
 import { createLayoutConfig } from '../../src/layout/config';
 import type { Page } from '../../src/layout/types';
 

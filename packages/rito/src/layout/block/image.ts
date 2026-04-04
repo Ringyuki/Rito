@@ -1,10 +1,9 @@
-import type { ComputedStyle } from '../style/types';
-import type { ImageElement, LayoutBlock } from './types';
-import type { ImageSizeMap } from './block-layout';
+import type { ComputedStyle } from '../../style/types';
+import type { ImageElement, LayoutBlock } from '../types';
+import type { ImageSizeMap } from './types';
 
 const DEFAULT_IMAGE_ASPECT = 0.75;
 
-/** Layout an image as a block. Fits within content area, preserving aspect ratio. */
 export function layoutImageBlock(
   src: string,
   contentWidth: number,

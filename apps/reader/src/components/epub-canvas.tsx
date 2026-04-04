@@ -62,20 +62,23 @@ export function EpubCanvas({
   useSwipe(canvasRef, onNext, onPrev);
 
   return (
-    <div className="relative overflow-hidden" style={{ width, height }}>
+    <div className="relative" style={{ width, height }}>
       {!isLoaded && (
-        <div
-          className="pointer-events-none absolute bottom-0 left-0 h-128 w-lg"
-          style={{
-            backgroundImage: `url(${ritoImg})`,
-            backgroundSize: 'contain',
-            backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'bottom left',
-            maskImage: 'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
-            WebkitMaskImage: 'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
-            opacity: 0.5,
-          }}
-        />
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute bottom-0 left-0 h-128 w-lg">
+            <img
+              src={ritoImg}
+              alt="Rito"
+              className="h-full w-full object-contain opacity-50"
+              style={{
+                objectPosition: 'bottom left',
+                maskImage: 'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
+                WebkitMaskImage:
+                  'radial-gradient(ellipse at bottom left, black 30%, transparent 70%)',
+              }}
+            />
+          </div>
+        </div>
       )}
       <canvas
         ref={canvasRef}

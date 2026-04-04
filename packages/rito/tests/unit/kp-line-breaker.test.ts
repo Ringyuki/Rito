@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildKPItems } from '../../src/layout/kp-builder';
-import { createKnuthPlassLayouter } from '../../src/layout/kp-line-breaker';
-import { emergencyBreaks, solveKP } from '../../src/layout/kp-solver';
+import { buildKPItems } from '../../src/layout/line-breaker/kp/builder';
+import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
+import { emergencyBreaks, solveKP } from '../../src/layout/line-breaker/kp/solver';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { ComputedStyle } from '../../src/style/types';
 import type { StyledSegment } from '../../src/layout/styled-segment';
-import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
+import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 
 // With charWidthFactor=0.6 and fontSize=16, each char is 9.6px wide.
 const measurer = createMockTextMeasurer(0.6);

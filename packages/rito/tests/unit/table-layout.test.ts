@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { layoutTable } from '../../src/layout/table-layout';
+import { layoutTable } from '../../src/layout/table';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { StyledNode } from '../../src/style/types';
 import type { ParagraphLayouter } from '../../src/layout/paragraph-layouter';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
+import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 
 function makeCell(text: string, colspan?: number, rowspan?: number): StyledNode {
   const child: StyledNode = { type: 'text', content: text, style: DEFAULT_STYLE, children: [] };

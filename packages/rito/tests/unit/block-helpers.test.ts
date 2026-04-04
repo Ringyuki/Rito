@@ -4,7 +4,7 @@ import {
   computeChildrenHeight,
   withPageBreaks,
   applyPageBreakFlags,
-} from '../../src/layout/block-helpers';
+} from '../../src/layout/block/helpers';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { LayoutBlock, LineBox } from '../../src/layout/types';
 

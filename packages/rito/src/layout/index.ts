@@ -10,12 +10,11 @@ export {
   type Spread,
   type TextRun,
 } from './types';
-export { buildSpreads } from './spread-builder';
+export { buildSpreads } from './spread';
 export { createLayoutConfig, type LayoutConfigInput } from './config';
 export { type TextMeasurer, type TextMetrics } from './text-measurer';
 export { type StyledSegment, flattenInlineContent } from './styled-segment';
 export { type ParagraphLayouter } from './paragraph-layouter';
-export { createGreedyLayouter } from './greedy-line-breaker';
-export { createKnuthPlassLayouter } from './kp-line-breaker';
-export { layoutBlocks } from './block-layout';
-export { paginateBlocks } from './paginator';
+export { createGreedyLayouter, createKnuthPlassLayouter } from './line-breaker';
+export { layoutBlocks } from './block';
+export { paginateBlocks } from './pagination';

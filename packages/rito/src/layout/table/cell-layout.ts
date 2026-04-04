@@ -1,0 +1,23 @@
+import type { StyledNode } from '../../style/types';
+import { layoutBlocks } from '../block';
+import type { ParagraphLayouter } from '../paragraph-layouter';
+import { flattenInlineContent } from '../styled-segment';
+import type { LayoutBlock, LineBox } from '../types';
+
+export function layoutTableCellContent(
+  cell: StyledNode,
+  width: number,
+  layouter: ParagraphLayouter,
+): readonly (LineBox | LayoutBlock)[] {
+  const hasBlockChildren = cell.children.some((child) => {
+    return child.type === 'block' || child.type === 'image';
+  });
+
+  if (hasBlockChildren) {
+    return layoutBlocks(cell.children, width, layouter);
+  }
+
+  const segments = flattenInlineContent(cell.children);
+  if (segments.length === 0) return [];
+  return layouter.layoutParagraph(segments, width, 0);
+}

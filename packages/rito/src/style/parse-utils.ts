@@ -1,8 +1,19 @@
 import { evaluateCalc } from './calc-parser';
+import type { MutableStylePatch } from './style-patch';
 
 export { evaluateCalc } from './calc-parser';
 
 const DEFAULT_ROOT_FONT_SIZE = 16;
+type BoxSideKey =
+  | 'marginTop'
+  | 'marginRight'
+  | 'marginBottom'
+  | 'marginLeft'
+  | 'paddingTop'
+  | 'paddingRight'
+  | 'paddingBottom'
+  | 'paddingLeft';
+type MarginSideKey = 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft';
 
 /** Parse a CSS length value (px, pt, em, rem, %) to a number in px. */
 export function parseLength(
@@ -32,10 +43,10 @@ export function parseLength(
  * Handles 1-4 value patterns: all / TB+LR / T+LR+B / T+R+B+L
  */
 export function applyBoxShorthand(
-  result: Record<string, unknown>,
+  result: MutableStylePatch,
   value: string,
   parentFontSize: number,
-  keys: readonly [string, string, string, string],
+  keys: readonly [BoxSideKey, BoxSideKey, BoxSideKey, BoxSideKey],
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): void {
   const parts = splitBoxValues(value.trim());
@@ -76,10 +87,10 @@ export function applyBoxShorthand(
  * Falls through to parseLength for non-auto values.
  */
 export function applyBoxShorthandWithAuto(
-  result: Record<string, unknown>,
+  result: MutableStylePatch,
   value: string,
   parentFontSize: number,
-  keys: readonly [string, string, string, string],
+  keys: readonly [MarginSideKey, MarginSideKey, MarginSideKey, MarginSideKey],
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): void {
   const parts = splitBoxValues(value.trim());
@@ -96,10 +107,10 @@ export function applyBoxShorthandWithAuto(
     if (raw.toLowerCase() === 'auto') {
       if (key === rightKey) {
         result[key] = 0;
-        result['marginRightAuto'] = true;
+        result.marginRightAuto = true;
       } else if (key === leftKey) {
         result[key] = 0;
-        result['marginLeftAuto'] = true;
+        result.marginLeftAuto = true;
       } else {
         result[key] = 0;
       }
@@ -107,8 +118,8 @@ export function applyBoxShorthandWithAuto(
       const parsed = parseLength(raw, parentFontSize, rootFontSize);
       if (parsed !== undefined) {
         result[key] = parsed;
-        if (key === rightKey) result['marginRightAuto'] = false;
-        if (key === leftKey) result['marginLeftAuto'] = false;
+        if (key === rightKey) result.marginRightAuto = false;
+        if (key === leftKey) result.marginLeftAuto = false;
       }
     }
   }

@@ -1,5 +1,6 @@
 import type { ComputedStyle } from './types';
 import { PROPERTY_HANDLERS } from './css-property-handlers';
+import type { MutableStylePatch } from './style-patch';
 
 const DEFAULT_ROOT_FONT_SIZE = 16;
 
@@ -16,7 +17,7 @@ export function parseCssDeclarations(
   parentFontSize: number,
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): Partial<ComputedStyle> {
-  const result: Record<string, unknown> = {};
+  const result: MutableStylePatch = {};
 
   for (const declaration of css.split(';')) {
     const colonIndex = declaration.indexOf(':');
@@ -30,5 +31,5 @@ export function parseCssDeclarations(
     if (handler) handler(result, value, parentFontSize, rootFontSize);
   }
 
-  return result as Partial<ComputedStyle>;
+  return result;
 }

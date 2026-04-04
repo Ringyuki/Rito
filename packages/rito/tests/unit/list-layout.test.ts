@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createListContext, addListMarker } from '../../src/layout/list-layout';
+import { createListContext, addListMarker } from '../../src/layout/block/list';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import { LIST_STYLE_TYPES } from '../../src/style/types';
 import type { ListStyleType, StyledNode } from '../../src/style/types';

@@ -13,7 +13,7 @@ export function useEpub(containerSize: ContainerSize, theme: 'light' | 'dark') {
     ...state,
     canvasRef,
     canvasSize: getCanvasSize(containerSize, state.fontScale),
-    bookTitle: reader?.metadata.title,
+    bookTitle: reader?.metadata.title ?? '',
     activeChapterHref: getActiveChapterHref(reader, state.spreads, state.currentSpread),
     loadFromArrayBuffer,
     loadDemo,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { layoutImageBlock } from '../../src/layout/image-layout';
+import { layoutImageBlock } from '../../src/layout/block/image';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
-import type { ImageSizeMap } from '../../src/layout/block-layout';
+import type { ImageSizeMap } from '../../src/layout/block';
 import type { ImageElement, LayoutBlock } from '../../src/layout/types';
 
 function getImage(block: LayoutBlock): ImageElement {

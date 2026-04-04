@@ -1,23 +1,21 @@
-import type { StyledNode } from '../style/types';
-import type { LayoutBlock } from './types';
-import { applyPageBreakFlags, withPageBreaks } from './block-helpers';
-import type { ParagraphLayouter } from './paragraph-layouter';
-import { layoutImageBlock } from './image-layout';
-import { layoutTable } from './table-layout';
-import { type ListContext, addListMarker, createListContext } from './list-layout';
+import type { StyledNode } from '../../style/types';
+import type { ParagraphLayouter } from '../paragraph-layouter';
+import { layoutTable } from '../table';
+import type { LayoutBlock } from '../types';
 import { FloatContext } from './float-context';
+import { applyPageBreakFlags, withPageBreaks } from './helpers';
+import { layoutImageBlock } from './image';
+import { addListMarker, createListContext, type ListContext } from './list';
 import {
   applyRelativeOffset,
   applySizeConstraints,
   indentBlocks,
   layoutHorizontalRule,
   layoutTextBlock,
-} from './block-layout-primitives';
+} from './primitives';
+import type { ImageSizeMap } from './types';
 
-/** Intrinsic image dimensions for correct aspect ratio. */
-export interface ImageSizeMap {
-  getSize(src: string): { width: number; height: number } | undefined;
-}
+export type { ImageSizeMap } from './types';
 
 export function layoutBlocks(
   nodes: readonly StyledNode[],
@@ -58,6 +56,7 @@ function layoutNodesAt(
       const clearY = state.floats.getClearY(node.style.clear);
       if (clearY > state.y) state.y = clearY;
     }
+
     if (node.type === 'image' && node.src) {
       layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
     } else if (node.type === 'block') {
@@ -102,11 +101,12 @@ function layoutFloatableImage(
       state.y + imgBlock.bounds.height,
     );
     state.prevMarginBottom = 0;
-  } else {
-    state.blocks.push(imgBlock);
-    state.y += imgBlock.bounds.height;
-    state.prevMarginBottom = node.style.marginBottom;
+    return;
   }
+
+  state.blocks.push(imgBlock);
+  state.y += imgBlock.bounds.height;
+  state.prevMarginBottom = node.style.marginBottom;
 }
 
 function layoutBlockNode(
@@ -125,6 +125,7 @@ function layoutBlockNode(
     state.prevMarginBottom = node.style.marginBottom;
     return;
   }
+
   if (node.tag === 'table') {
     collapseMargin(state, node.style.marginTop);
     let block = layoutTable(node, contentWidth, state.y, layouter);
@@ -135,7 +136,9 @@ function layoutBlockNode(
     return;
   }
 
-  const hasBlockChildren = node.children.some((c) => c.type === 'block' || c.type === 'image');
+  const hasBlockChildren = node.children.some(
+    (child) => child.type === 'block' || child.type === 'image',
+  );
   if (hasBlockChildren) {
     layoutContainerBlock(state, node, contentWidth, contentHeight, layouter, imageSizes, listCtx);
   } else {
@@ -196,14 +199,13 @@ function layoutLeafBlock(
   const mlAuto = node.style.marginLeftAuto;
   const mrAuto = node.style.marginRightAuto;
 
-  let w = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
-  w = applySizeConstraints(w, node.style);
-  w -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
+  let width = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
+  width = applySizeConstraints(width, node.style);
+  width -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
 
-  let block = layoutTextBlock(node, Math.max(w, 1), state.y, layouter);
+  let block = layoutTextBlock(node, Math.max(width, 1), state.y, layouter);
   block = addListMarker(block, node, listCtx);
 
-  // Resolve margin:auto centering
   let xOffset = ml + state.floats.getLeftWidth(state.y);
   if ((mlAuto || mrAuto) && block.bounds.width < contentWidth) {
     const remaining = contentWidth - block.bounds.width;
@@ -212,10 +214,11 @@ function layoutLeafBlock(
     } else if (mlAuto) {
       xOffset = remaining - mr;
     }
-    // If only mrAuto, xOffset stays as ml (no change needed)
   }
 
-  if (xOffset > 0) block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
+  if (xOffset > 0) {
+    block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
+  }
   if (node.id) block = { ...block, anchorId: node.id };
   block = applyRelativeOffset(block, node.style);
   state.blocks.push(withPageBreaks(block, node.style));

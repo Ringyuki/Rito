@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
+import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/defaults';
 import type { ComputedStyle } from '../../src/style/types';

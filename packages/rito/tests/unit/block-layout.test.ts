@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { layoutBlocks } from '../../src/layout/block-layout';
-import { createGreedyLayouter } from '../../src/layout/greedy-line-breaker';
+import { layoutBlocks } from '../../src/layout/block';
+import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { resolveStyles } from '../../src/style/resolver';
 import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
