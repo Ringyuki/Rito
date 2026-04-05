@@ -4,8 +4,10 @@ import { Toolbar } from '@/components/toolbar';
 import { ProgressBar } from '@/components/progress-bar';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
+import { MobileOverlay } from '@/components/mobile-overlay';
 import { useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
+import { useMobileOverlay } from '@/hooks/use-mobile-overlay';
 import { Reader } from '@/components/reader';
 
 export function App() {
@@ -14,6 +16,7 @@ export function App() {
   const reader = useReader(theme, containerSize.width, containerSize.height);
   const [tocOpen, setTocOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const overlay = useMobileOverlay();
 
   const handleFileLoad = useCallback(
     (data: ArrayBuffer) => {
@@ -22,40 +25,50 @@ export function App() {
     [reader],
   );
 
+  const handleToggleToc = useCallback(() => {
+    setTocOpen((o) => !o);
+    overlay.hide();
+  }, [overlay]);
+
+  const handleToggleSearch = useCallback(() => {
+    setSearchOpen(true);
+    overlay.hide();
+  }, [overlay]);
+
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
-      <Toolbar
-        isLoaded={reader.isLoaded}
-        isLoading={reader.isLoading}
-        currentSpread={reader.currentSpread}
-        totalSpreads={reader.spreads.length}
-        spreadMode={reader.spreadMode}
-        bookTitle={reader.bookTitle}
-        theme={theme}
-        onLoadDemo={() => {
-          void reader.loadDemo();
-        }}
-        onFileLoad={handleFileLoad}
-        onPrev={reader.prevSpread}
-        onNext={reader.nextSpread}
-        fontScale={reader.fontScale}
-        onToggleSpread={reader.toggleSpreadMode}
-        onToggleTheme={toggleTheme}
-        onToggleToc={() => {
-          setTocOpen((o) => !o);
-        }}
-        onToggleSearch={() => {
-          setSearchOpen(true);
-        }}
-        onIncreaseFontSize={reader.increaseFontSize}
-        onDecreaseFontSize={reader.decreaseFontSize}
-      />
+      <div className="hidden lg:contents">
+        <Toolbar
+          isLoaded={reader.isLoaded}
+          isLoading={reader.isLoading}
+          currentSpread={reader.currentSpread}
+          totalSpreads={reader.spreads.length}
+          spreadMode={reader.spreadMode}
+          bookTitle={reader.bookTitle}
+          theme={theme}
+          onLoadDemo={() => {
+            void reader.loadDemo();
+          }}
+          onFileLoad={handleFileLoad}
+          onPrev={reader.prevSpread}
+          onNext={reader.nextSpread}
+          fontScale={reader.fontScale}
+          onToggleSpread={reader.toggleSpreadMode}
+          onToggleTheme={toggleTheme}
+          onToggleToc={handleToggleToc}
+          onToggleSearch={handleToggleSearch}
+          onIncreaseFontSize={reader.increaseFontSize}
+          onDecreaseFontSize={reader.decreaseFontSize}
+        />
+      </div>
 
-      <ProgressBar
-        current={reader.currentSpread}
-        total={reader.spreads.length}
-        onSeek={reader.goToSpread}
-      />
+      <div className="hidden lg:contents">
+        <ProgressBar
+          current={reader.currentSpread}
+          total={reader.spreads.length}
+          onSeek={reader.goToSpread}
+        />
+      </div>
 
       <Reader containerRef={containerRef} reader={reader} />
 
@@ -67,6 +80,31 @@ export function App() {
         onOpenChange={setTocOpen}
         onNavigate={reader.navigateToTocEntry}
         activeChapterHref={reader.activeChapterHref}
+      />
+
+      <MobileOverlay
+        visible={overlay.visible}
+        isLoaded={reader.isLoaded}
+        isLoading={reader.isLoading}
+        bookTitle={reader.bookTitle}
+        theme={theme}
+        currentSpread={reader.currentSpread}
+        totalSpreads={reader.spreads.length}
+        fontScale={reader.fontScale}
+        spreadMode={reader.spreadMode}
+        onSeek={reader.goToSpread}
+        onPrev={reader.prevSpread}
+        onNext={reader.nextSpread}
+        onToggleToc={handleToggleToc}
+        onToggleSearch={handleToggleSearch}
+        onIncreaseFontSize={reader.increaseFontSize}
+        onDecreaseFontSize={reader.decreaseFontSize}
+        onToggleTheme={toggleTheme}
+        onToggleSpread={reader.toggleSpreadMode}
+        onLoadDemo={() => {
+          void reader.loadDemo();
+        }}
+        onFileLoad={handleFileLoad}
       />
     </div>
   );

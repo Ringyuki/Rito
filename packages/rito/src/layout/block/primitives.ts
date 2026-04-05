@@ -27,10 +27,7 @@ export function layoutTextBlock(
       ? lineBoxes.map((lineBox) => ({
           ...lineBox,
           bounds: { ...lineBox.bounds, y: lineBox.bounds.y + paddingTop },
-          runs: lineBox.runs.map((run) => ({
-            ...run,
-            bounds: { ...run.bounds, y: run.bounds.y + paddingTop },
-          })),
+          // Run bounds are relative to the line box — only shift line position.
         }))
       : lineBoxes;
 

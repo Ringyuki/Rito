@@ -5,6 +5,7 @@ import type {
   Disposables,
   Transition,
   Overlay,
+  Keyboard,
   ModeManager,
   Nav,
 } from './types';
@@ -26,6 +27,7 @@ export function buildController(
   disposables: Disposables,
   transition: Transition,
   overlay: Overlay,
+  keyboard: Keyboard,
   modeManager: ModeManager,
   nav: Nav,
 ): ReaderController {
@@ -38,6 +40,6 @@ export function buildController(
     ...buildSelectionAccessors(internals),
     ...buildAnnotationActions(internals),
     ...buildPositionActions(internals),
-    ...buildMisc(emitter, modeManager, transition, overlay),
+    ...buildMisc(emitter, modeManager, transition, overlay, keyboard),
   };
 }

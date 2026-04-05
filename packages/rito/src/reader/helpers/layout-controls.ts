@@ -8,7 +8,7 @@ import type { ReaderState } from './types';
 interface ReaderLayoutControls {
   resize(width: number, height: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
-  updateLayout(width: number, height: number, mode?: 'single' | 'double'): boolean;
+  updateLayout(width: number, height: number, mode?: 'single' | 'double', margin?: number): boolean;
 }
 
 export function createReaderLayoutControls(
@@ -16,22 +16,35 @@ export function createReaderLayoutControls(
   doc: EpubDocument,
   options: ReaderOptions,
 ): ReaderLayoutControls {
+  let marginOverride: number | undefined;
+
+  function getOptions(): ReaderOptions {
+    return marginOverride !== undefined ? { ...options, margin: marginOverride } : options;
+  }
+
   return {
     resize: (width: number, height: number): void => {
-      repaginate(state, doc, options, width, height);
+      repaginate(state, doc, getOptions(), width, height);
     },
     setSpreadMode: (mode: 'single' | 'double'): void => {
       repaginate(
         state,
         doc,
-        options,
+        getOptions(),
         state.config.viewportWidth,
         state.config.viewportHeight,
         mode,
       );
     },
-    updateLayout: (width: number, height: number, mode = state.spreadMode): boolean =>
-      repaginate(state, doc, options, width, height, mode),
+    updateLayout: (
+      width: number,
+      height: number,
+      mode = state.spreadMode,
+      margin?: number,
+    ): boolean => {
+      if (margin !== undefined) marginOverride = margin;
+      return repaginate(state, doc, getOptions(), width, height, mode);
+    },
   };
 }
 

@@ -1,10 +1,8 @@
-import { useRef } from 'react';
 import {
   BookOpen,
   ChevronLeft,
   ChevronRight,
   Columns2,
-  FileUp,
   Minus,
   Moon,
   Plus,
@@ -13,6 +11,7 @@ import {
   Sun,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { FileActions } from '@/components/file-actions';
 import { Separator } from '@/components/ui/separator';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -25,7 +24,7 @@ interface ToolbarProps {
   bookTitle: string;
   theme: 'light' | 'dark';
   onLoadDemo: () => void;
-  onFileLoad: (data: ArrayBuffer, name: string) => void;
+  onFileLoad: (data: ArrayBuffer) => void;
   onPrev: () => void;
   onNext: () => void;
   fontScale: number;
@@ -57,55 +56,15 @@ export function Toolbar({
   onIncreaseFontSize,
   onDecreaseFontSize,
 }: ToolbarProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (reader.result instanceof ArrayBuffer) {
-        onFileLoad(reader.result, file.name);
-      }
-    };
-    reader.readAsArrayBuffer(file);
-    e.target.value = '';
-  };
-
   return (
-    <header className="flex h-14 items-center gap-2 border-b border-border bg-card px-4">
+    <header className="flex shrink-0 h-14 items-center gap-2 border-b border-border bg-card px-4">
       {/* Left: File actions */}
       <div className="flex items-center gap-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="sm" onClick={onLoadDemo} disabled={isLoading}>
-              <BookOpen className="mr-1.5 h-4 w-4" />
-              Demo
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Load demo EPUB</TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
-            >
-              <FileUp className="mr-1.5 h-4 w-4" />
-              Open
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Open EPUB file</TooltipContent>
-        </Tooltip>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".epub"
-          className="hidden"
-          onChange={handleFile}
+        <FileActions
+          isLoading={isLoading}
+          onLoadDemo={onLoadDemo}
+          onFileLoad={onFileLoad}
+          size="sm"
         />
       </div>
 

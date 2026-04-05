@@ -26,12 +26,13 @@ export function useReader(
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth / fontScale) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight / fontScale) : 0;
+  const margin = containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
 
   const rito = useRitoReader({
     reader: {
       width: vpWidth,
       height: vpHeight,
-      margin: 50,
+      margin,
       spread: spreadMode,
       ...getThemeOptions(theme),
     },
@@ -50,8 +51,8 @@ export function useReader(
   useEffect(() => {
     if (vpWidth === 0 || !rito.controller) return;
     rito.setRenderScale(fontScale);
-    rito.resize(vpWidth, vpHeight);
-  }, [vpWidth, vpHeight, fontScale, rito.controller]);
+    rito.resize(vpWidth, vpHeight, margin);
+  }, [vpWidth, vpHeight, fontScale, margin, rito.controller]);
 
   // Sync theme
   useEffect(() => {

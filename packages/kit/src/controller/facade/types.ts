@@ -4,6 +4,7 @@ import type { createEmitter } from '../../utils/event-emitter';
 import type { createDisposableCollection } from '../../utils/disposable';
 import type { createInteractionModeManager } from '../interaction-mode/index';
 import type { createNavigation } from '../navigation/index';
+import type { KeyboardManager } from '../../keyboard/types';
 import type { ReaderController, ReaderControllerEvents } from '../types';
 
 export type { Internals } from '../core/internals';
@@ -42,6 +43,7 @@ export type AnnotationActionsSlice = Pick<
   'addAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
 >;
 export type PositionActionsSlice = Pick<ReaderController, 'restorePosition' | 'savePosition'>;
+export type Keyboard = KeyboardManager;
 export type MiscSlice = Pick<
   ReaderController,
   | 'setInteractionMode'
@@ -51,4 +53,5 @@ export type MiscSlice = Pick<
   | 'transitionEngine'
   | 'overlayRenderer'
   | 'emitter'
+  | 'keyboard'
 >;

@@ -28,7 +28,7 @@ export function useControllerActions(
     prevSpread: useCallback(() => ctrlRef.current?.prevSpread(), []),
     goToSpread: useCallback((i: number) => ctrlRef.current?.goToSpread(i), []),
     navigateToTocEntry: useCallback((e: TocEntry) => ctrlRef.current?.navigateToTocEntry(e), []),
-    resize: useCallback((w: number, h: number) => ctrlRef.current?.resize(w, h), []),
+    resize: useCallback((w: number, h: number, m?: number) => ctrlRef.current?.resize(w, h, m), []),
     setRenderScale: useCallback((s: number) => ctrlRef.current?.setRenderScale(s), []),
     setSpreadMode: useCallback((m: 'single' | 'double') => ctrlRef.current?.setSpreadMode(m), []),
     setTheme: useCallback(

@@ -128,8 +128,11 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: auto;
   }
   html {
     @apply font-sans;
+    overscroll-behavior: none;
   }
 }

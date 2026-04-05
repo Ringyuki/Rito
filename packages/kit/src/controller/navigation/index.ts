@@ -23,6 +23,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
   const goTo = (index: number): void => {
     const reader = deps.getReader();
     if (!reader) return;
+    if (deps.transition.isAnimating) return;
     const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
     if (clamped === deps.getCurrentSpread()) return;
     const dir = clamped > deps.getCurrentSpread() ? 'forward' : 'backward';

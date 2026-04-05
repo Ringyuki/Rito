@@ -1,11 +1,12 @@
 import type { InteractionMode } from '../types';
-import type { Emitter, ModeManager, Transition, Overlay, MiscSlice } from './types';
+import type { Emitter, ModeManager, Transition, Overlay, Keyboard, MiscSlice } from './types';
 
 export function buildMisc(
   emitter: Emitter,
   modeManager: ModeManager,
   transition: Transition,
   overlay: Overlay,
+  keyboard: Keyboard,
 ): MiscSlice {
   const on: MiscSlice['on'] = (event, handler) => emitter.on(event, handler);
 
@@ -28,6 +29,9 @@ export function buildMisc(
     },
     get emitter() {
       return emitter;
+    },
+    get keyboard() {
+      return keyboard;
     },
   };
 }

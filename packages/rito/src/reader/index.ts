@@ -66,8 +66,13 @@ export interface Reader {
   /** Change spread mode. Re-paginates the document synchronously. */
   setSpreadMode(mode: 'single' | 'double'): void;
 
-  /** Update viewport size and spread mode in a single re-pagination pass. Returns `true` when layout changed. */
-  updateLayout(width: number, height: number, spreadMode?: 'single' | 'double'): boolean;
+  /** Update viewport size, spread mode, and/or margin in a single re-pagination pass. Returns `true` when layout changed. */
+  updateLayout(
+    width: number,
+    height: number,
+    spreadMode?: 'single' | 'double',
+    margin?: number,
+  ): boolean;
 
   /** Update theme colors. Takes effect on the next renderSpread() call without re-pagination. */
   setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;

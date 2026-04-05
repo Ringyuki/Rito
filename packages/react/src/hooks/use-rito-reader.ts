@@ -32,7 +32,7 @@ export interface RitoReaderActions {
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
   readonly navigateToTocEntry: (entry: TocEntry) => void;
-  readonly resize: (width: number, height: number) => void;
+  readonly resize: (width: number, height: number, margin?: number) => void;
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
@@ -77,7 +77,6 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const [state, setState] = useState(INITIAL);
-
   useEffect(
     () => () => {
       ctrlRef.current?.dispose();
@@ -85,7 +84,6 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
     },
     [],
   );
-
   const load = useCallback(async (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => {
     const opts = optionsRef.current;
     setState((s) => ({ ...s, isLoading: true, error: null }));
@@ -119,9 +117,7 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
       }));
     }
   }, []);
-
   const actions = useControllerActions(ctrlRef);
-
   return { controller: ctrlRef.current, ...state, load, ...actions };
 }
 

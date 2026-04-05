@@ -1,6 +1,7 @@
 import { Loader2 } from 'lucide-react';
 import { Reader as RitoReader } from '@rito/react';
 import { Placeholder } from '@/components/placeholder';
+import { FileActions } from '@/components/file-actions';
 import { AnnotationToolbar } from '@/components/annotation-toolbar';
 import { AnnotationDialog } from '@/components/annotation-dialog';
 import { AnnotationTooltip } from '@/components/annotation-tooltip';
@@ -22,9 +23,18 @@ export function Reader({ containerRef, reader }: ReaderProps) {
       )}
 
       {!reader.isLoaded && !reader.isLoading && !reader.error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
-          <p className="text-lg">Open an EPUB to start reading</p>
-          <p className="text-sm">Use the toolbar to load a demo or open a file</p>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-muted-foreground">
+          <p className="text-lg font-medium">Open an EPUB to start reading</p>
+          <div className="flex gap-3">
+            <FileActions
+              onLoadDemo={() => {
+                void reader.loadDemo();
+              }}
+              onFileLoad={(data) => {
+                void reader.loadFromArrayBuffer(data);
+              }}
+            />
+          </div>
         </div>
       )}
 
@@ -38,7 +48,7 @@ export function Reader({ containerRef, reader }: ReaderProps) {
 
       <RitoReader
         controller={reader.controller}
-        className="relative flex flex-1 items-center justify-center"
+        className="relative flex flex-1 items-center justify-center select-none"
         placeholder={<Placeholder />}
       />
 

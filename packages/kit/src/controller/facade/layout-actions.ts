@@ -18,8 +18,8 @@ export function buildLayoutActions(
   };
 
   return {
-    resize(w: number, h: number): void {
-      const changed = internals.reader.updateLayout(w, h);
+    resize(w: number, h: number, margin?: number): void {
+      const changed = internals.reader.updateLayout(w, h, undefined, margin);
       if (!changed) return;
       emitLayoutChange();
     },
@@ -29,6 +29,7 @@ export function buildLayoutActions(
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       internals.reader.setTheme(opts);
+      internals.reader.renderSpread(internals.currentSpread, internals.renderScale);
     },
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
       return internals.reader.setTypography(opts);

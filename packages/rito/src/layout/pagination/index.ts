@@ -1,6 +1,6 @@
 import type { LayoutBlock, LayoutConfig, Page } from '../core/types';
 import { createPaginationState, emitPage, type PaginationState } from './state';
-import { repositionBlock, trySplitBlock } from './split';
+import { forceSplitBlock, repositionBlock, trySplitBlock } from './split';
 
 export function paginateBlocks(
   blocks: readonly LayoutBlock[],
@@ -73,7 +73,17 @@ function placeBlockOnFullPage(
   const remaining = contentHeight - state.usedHeight - spacing;
   const split = remaining > 0 ? trySplitBlock(block, remaining) : undefined;
 
-  if (!split) {
+  // No split possible, or head exceeds remaining space → start fresh page
+  if (!split || split.head.bounds.height > remaining) {
+    // Try force split as fallback before giving up on this page
+    const forced = remaining > 0 ? forceSplitBlock(block, remaining) : undefined;
+    if (forced && forced.head.bounds.height <= remaining) {
+      state.usedHeight += spacing;
+      state.pageBlocks.push(repositionBlock(forced.head, state.usedHeight));
+      emitPage(state);
+      placeBlock(forced.tail, 0, contentHeight, state);
+      return;
+    }
     emitPage(state);
     placeBlock(block, 0, contentHeight, state);
     return;
@@ -90,14 +100,25 @@ function placeOversizedBlock(
   contentHeight: number,
   state: PaginationState,
 ): void {
+  // Try normal split (respects orphan/widow)
   const split = trySplitBlock(block, contentHeight);
-  if (!split) {
-    state.pageBlocks.push(repositionBlock(block, 0));
+  if (split && split.head.bounds.height <= contentHeight) {
+    state.pageBlocks.push(repositionBlock(split.head, 0));
     emitPage(state);
+    placeBlock(split.tail, 0, contentHeight, state);
     return;
   }
 
-  state.pageBlocks.push(repositionBlock(split.head, 0));
+  // Normal split failed or produced oversized head — force split ignoring orphan/widow
+  const forced = forceSplitBlock(block, contentHeight);
+  if (forced) {
+    state.pageBlocks.push(repositionBlock(forced.head, 0));
+    emitPage(state);
+    placeBlock(forced.tail, 0, contentHeight, state);
+    return;
+  }
+
+  // Truly unsplittable (no line-box children, or single line taller than page) — emit as-is
+  state.pageBlocks.push(repositionBlock(block, 0));
   emitPage(state);
-  placeBlock(split.tail, 0, contentHeight, state);
 }

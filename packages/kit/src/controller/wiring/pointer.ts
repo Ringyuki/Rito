@@ -9,15 +9,18 @@ export function bindPointerEvents(
   let downPos: { x: number; y: number } | null = null;
 
   const onDown = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return; // handled by unified touch handler
     if (e.button !== 0) return;
     const pos = toContent(e);
     downPos = pos;
     engine.handlePointerDown(pos);
   };
   const onMove = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return;
     engine.handlePointerMove(toContent(e));
   };
   const onUp = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return;
     const pos = toContent(e);
     engine.handlePointerUp(pos);
     if (downPos && Math.abs(pos.x - downPos.x) < 3 && Math.abs(pos.y - downPos.y) < 3) {

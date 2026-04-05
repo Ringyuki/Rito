@@ -18,16 +18,33 @@ export function trySplitBlock(
   const widows = block.widows ?? 2;
   const minTotal = orphans + widows;
 
-  if (lineBoxes.length < minTotal) return undefined;
-
   let splitIndex = findSplitIndex(lineBoxes, availableHeight);
-  // Enforce orphans/widows: adjust the split point so at least `orphans` lines
-  // stay on the current page and at least `widows` lines move to the next.
-  // The adjusted head may exceed availableHeight — this matches browser behavior
-  // where orphan compliance takes priority over page fit. The paginator's
-  // overflow handling (placeOversizedBlock) deals with any resulting overshoot.
-  if (splitIndex < orphans) splitIndex = orphans;
-  if (lineBoxes.length - splitIndex < widows) splitIndex = lineBoxes.length - widows;
+
+  // Enforce orphans/widows when the block has enough lines
+  if (lineBoxes.length >= minTotal) {
+    if (splitIndex < orphans) splitIndex = orphans;
+    if (lineBoxes.length - splitIndex < widows) splitIndex = lineBoxes.length - widows;
+  }
+  // For blocks with fewer lines than orphans+widows, still allow splitting
+  // at the height boundary to prevent overflow (skip orphan/widow rules)
+
+  if (splitIndex <= 0 || splitIndex >= lineBoxes.length) return undefined;
+
+  return buildSplitResult(block, lineBoxes, splitIndex);
+}
+
+/**
+ * Force-split a block at the height boundary, ignoring orphan/widow rules.
+ * Used as a last resort when trySplitBlock returns undefined but the block overflows.
+ */
+export function forceSplitBlock(
+  block: LayoutBlock,
+  availableHeight: number,
+): SplitResult | undefined {
+  const lineBoxes = block.children.filter((child): child is LineBox => child.type === 'line-box');
+  if (lineBoxes.length === 0) return undefined;
+
+  const splitIndex = findSplitIndex(lineBoxes, availableHeight);
   if (splitIndex <= 0 || splitIndex >= lineBoxes.length) return undefined;
 
   return buildSplitResult(block, lineBoxes, splitIndex);
@@ -76,10 +93,8 @@ function repositionLines(lines: readonly LineBox[]): LineBox[] {
   return lines.map((line) => ({
     ...line,
     bounds: { ...line.bounds, y: line.bounds.y - firstY },
-    runs: line.runs.map((run) => ({
-      ...run,
-      bounds: { ...run.bounds, y: run.bounds.y - firstY },
-    })),
+    // Run bounds are relative to the line box — do NOT shift them.
+    // Only line box positions need repositioning within the new block.
   }));
 }
 

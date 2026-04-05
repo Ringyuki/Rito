@@ -12,6 +12,7 @@ import type { TransitionOptions } from '../transition/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { OverlayRenderer } from '../overlay/types';
 import type { TransitionEngine } from '../transition/types';
+import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 
 /** Defaults matching rito core's ReaderOptions defaults. */
@@ -22,6 +23,8 @@ export interface ControllerOptions {
   /** Storage adapter for source-anchored annotation records. */
   readonly annotationStorage?: RecordStorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;
+  /** Accessibility mirror configuration (opt-in). */
+  readonly a11y?: { readonly enabled?: boolean; readonly container?: HTMLElement } | undefined;
   /**
    * @deprecated Controller now reads geometry from reader.getLayoutGeometry().
    * These fields are kept for backwards compatibility but are no longer used.
@@ -51,6 +54,8 @@ export interface ReaderControllerEvents {
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   transitionStart: { direction: 'forward' | 'backward' };
   transitionEnd: { direction: 'forward' | 'backward' };
+  /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */
+  searchOpen: undefined;
   error: { message: string; source: string };
 }
 
@@ -89,8 +94,8 @@ export interface ReaderController {
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
 
-  /** Re-paginate with new viewport dimensions. Also syncs canvas size using renderScale. */
-  resize(width: number, height: number): void;
+  /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
+  resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
   setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
@@ -132,4 +137,5 @@ export interface ReaderController {
   readonly transitionEngine: TransitionEngine;
   readonly overlayRenderer: OverlayRenderer;
   readonly emitter: TypedEmitter<ReaderControllerEvents>;
+  readonly keyboard: KeyboardManager;
 }

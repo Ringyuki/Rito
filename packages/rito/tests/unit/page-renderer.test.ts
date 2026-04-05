@@ -193,7 +193,7 @@ describe('renderPage', () => {
 
       const rectCalls = mock.getCalls('rect');
       expect(rectCalls).toHaveLength(1);
-      // Clip to full page bounds (not content area) to allow ink overhang into margin
+      // Clip to full page bounds
       expect(rectCalls[0]?.args).toEqual([0, 0, 400, 600]);
 
       const clipCalls = mock.getCalls('clip');

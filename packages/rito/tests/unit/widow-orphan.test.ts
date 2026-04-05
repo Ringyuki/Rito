@@ -75,14 +75,17 @@ describe('widow/orphan control in trySplitBlock', () => {
     expect(result?.tail.children).toHaveLength(3);
   });
 
-  it('orphans:5, widows:5, 8 lines → no split (5+5 > 8)', () => {
+  it('orphans:5, widows:5, 8 lines → still splits at height boundary (overflow prevention)', () => {
     const block: LayoutBlock = {
       ...makeBlock(8, 24),
       orphans: 5,
       widows: 5,
     };
+    // 5+5 > 8, but we split anyway at the height boundary to prevent overflow
     const result = trySplitBlock(block, 120);
-    expect(result).toBeUndefined();
+    expect(result).toBeDefined();
+    expect(result?.head.children).toHaveLength(5); // 120px / 24px = 5 lines
+    expect(result?.tail.children).toHaveLength(3);
   });
 
   it('orphans:1, widows:1 → most permissive, split at 1', () => {
@@ -98,10 +101,13 @@ describe('widow/orphan control in trySplitBlock', () => {
     expect(result?.tail.children).toHaveLength(3);
   });
 
-  it('block without orphans/widows fields defaults to 2', () => {
+  it('block without orphans/widows fields defaults to 2, but still splits small blocks', () => {
     const block = makeBlock(3, 24);
-    // 2+2=4 > 3 lines → no split
-    expect(trySplitBlock(block, 48)).toBeUndefined();
+    // 2+2=4 > 3 lines, but split anyway at height boundary to prevent overflow
+    const result = trySplitBlock(block, 48);
+    expect(result).toBeDefined();
+    expect(result?.head.children).toHaveLength(2); // 48px / 24px = 2 lines
+    expect(result?.tail.children).toHaveLength(1);
   });
 });
 
