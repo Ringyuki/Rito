@@ -120,6 +120,9 @@ function textRunEntry(
     runIndex,
     text: run.text,
     style: run.style,
+    ...(run.sourceRef ? { sourceRef: run.sourceRef } : {}),
+    ...(run.sourceText !== undefined ? { sourceText: run.sourceText } : {}),
+    ...(run.sourceTextOffset !== undefined ? { sourceTextOffset: run.sourceTextOffset } : {}),
   };
   return run.href ? { ...entry, href: run.href } : entry;
 }

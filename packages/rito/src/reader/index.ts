@@ -1,4 +1,5 @@
 import type { LayoutConfig, Page, Spread } from '../layout/core/types';
+import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
 import { disposeAssets } from '../render/assets';
@@ -89,6 +90,9 @@ export interface Reader {
   /** Get the current layout configuration (read-only). */
   getLayoutGeometry(): Readonly<LayoutConfig>;
 
+  /** Get source-based chapter text indices (built from parsed XHTML, not layout output). */
+  getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
+
   /** Text measurer for use with interaction APIs (hit testing, selection). */
   readonly measurer: TextMeasurer;
 
@@ -177,6 +181,7 @@ function buildReaderMethods(
       return { width: dims.width / state.dpr, height: dims.height / state.dpr };
     },
     getLayoutGeometry: (): Readonly<LayoutConfig> => state.config,
+    getChapterTextIndices: () => state.resources.chapterTextIndices,
     measurer: state.assets.measurer as TextMeasurer,
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
       if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;

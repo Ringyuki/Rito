@@ -1,6 +1,7 @@
 import type { DisposableCollection } from '../../utils/disposable';
 import { refreshCurrentOverlay } from './spread';
 import type { WiringDeps } from '../core/wiring-deps';
+import { resolveVisibleAnnotations } from '../annotation-resolution';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
@@ -37,10 +38,20 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
     }),
   );
 
-  disposables.add(
-    engines.annotation.onAnnotationsChange((annotations) => {
-      emitter.emit('annotationsChange', { annotations });
-      refreshCurrentOverlay(deps);
-    }),
-  );
+  // Wire annotation store changes (new source-anchored system)
+  const store = deps.coordState.annotationStore;
+  if (store) {
+    disposables.add(
+      store.onChange((records) => {
+        // Re-resolve annotations against current layout
+        deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
+          store,
+          deps.coordState,
+          deps.reader,
+        );
+        emitter.emit('annotationsChange', { annotations: records });
+        refreshCurrentOverlay(deps);
+      }),
+    );
+  }
 }

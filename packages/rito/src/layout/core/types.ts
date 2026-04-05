@@ -1,5 +1,6 @@
 // Layout types. No Canvas API dependency.
 
+import type { SourceRef } from '../../parser/xhtml/types';
 import type { ComputedStyle } from '../../style/core/types';
 
 /** Represents a rectangular region in layout space. */
@@ -17,6 +18,10 @@ export interface TextRun {
   readonly bounds: Rect;
   readonly style: ComputedStyle;
   readonly href?: string;
+  readonly sourceRef?: SourceRef;
+  readonly sourceText?: string;
+  /** Offset of this run's first character within the source text node. */
+  readonly sourceTextOffset?: number;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */

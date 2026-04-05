@@ -1,6 +1,4 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createAnnotationEngine } from '../../src/interaction/annotations';
-import type { StorageAdapter } from '../../src/interaction/annotations';
 import { createPositionTracker } from '../../src/interaction/position';
 import { createSearchEngine } from '../../src/interaction/search';
 import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../../src/layout/core/types';
@@ -93,78 +91,6 @@ describe('SearchEngine', () => {
     const engine = createSearchEngine();
     engine.search('test');
     expect(engine.getResults()).toHaveLength(0);
-  });
-});
-
-// --- AnnotationEngine ---
-describe('AnnotationEngine', () => {
-  const range = {
-    start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 },
-    end: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 5 },
-  };
-
-  it('adds and retrieves annotations', () => {
-    const engine = createAnnotationEngine();
-    const a = engine.add({ type: 'highlight', range, pageIndex: 0, color: '#ff0' });
-    expect(a.id).toBeDefined();
-    expect(engine.getAll()).toHaveLength(1);
-    expect(engine.getForPage(0)).toHaveLength(1);
-    expect(engine.getForPage(1)).toHaveLength(0);
-  });
-
-  it('removes annotations', () => {
-    const engine = createAnnotationEngine();
-    const a = engine.add({ type: 'highlight', range, pageIndex: 0 });
-    expect(engine.remove(a.id)).toBe(true);
-    expect(engine.getAll()).toHaveLength(0);
-    expect(engine.remove('nonexistent')).toBe(false);
-  });
-
-  it('updates annotations', () => {
-    const engine = createAnnotationEngine();
-    const a = engine.add({ type: 'highlight', range, pageIndex: 0, color: '#ff0' });
-    engine.update(a.id, { color: '#0f0' });
-    const updated = engine.getAll()[0];
-    expect(updated?.color).toBe('#0f0');
-  });
-
-  it('fires change callbacks', () => {
-    const engine = createAnnotationEngine();
-    const cb = vi.fn();
-    engine.onAnnotationsChange(cb);
-    engine.add({ type: 'highlight', range, pageIndex: 0 });
-    expect(cb).toHaveBeenCalledTimes(1);
-    expect(cb.mock.calls[0]?.[0]).toHaveLength(1);
-  });
-
-  it('loads from and persists to storage adapter', async () => {
-    const stored = [{ id: '10', type: 'highlight' as const, range, pageIndex: 0, createdAt: 1000 }];
-    const adapter: StorageAdapter = {
-      load: vi.fn().mockResolvedValue(stored),
-      save: vi.fn().mockResolvedValue(undefined),
-    };
-
-    const engine = createAnnotationEngine();
-    await engine.init(adapter);
-    expect(engine.getAll()).toHaveLength(1);
-
-    engine.add({ type: 'underline', range, pageIndex: 1 });
-    await engine.persist();
-    // eslint-disable-next-line @typescript-eslint/unbound-method
-    expect(adapter.save).toHaveBeenCalledTimes(1);
-  });
-
-  it("assigns ids that don't conflict with loaded data", async () => {
-    const stored = [{ id: '5', type: 'highlight' as const, range, pageIndex: 0, createdAt: 1000 }];
-    const adapter: StorageAdapter = {
-      load: vi.fn().mockResolvedValue(stored),
-      save: vi.fn().mockResolvedValue(undefined),
-    };
-
-    const engine = createAnnotationEngine();
-    await engine.init(adapter);
-    const newA = engine.add({ type: 'note', range, pageIndex: 0, note: 'test' });
-    expect(Number(newA.id)).toBeGreaterThan(5);
   });
 });
 

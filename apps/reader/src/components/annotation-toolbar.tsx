@@ -41,13 +41,11 @@ export function AnnotationToolbar({ selection, annotations, controller, renderSc
 
   const submit = (color: string, noteText?: string) => {
     if (!controller || !selection.range) return;
-    const input: Parameters<typeof annotations.add>[0] = {
-      type: 'highlight',
-      range: selection.range,
+    annotations.add({
+      kind: 'highlight',
       color,
-    };
-    if (noteText) (input as Record<string, unknown>)['note'] = noteText;
-    annotations.add(input);
+      ...(noteText ? { note: noteText } : {}),
+    });
     controller.clearSelection();
     setShowNote(false);
     setNote('');

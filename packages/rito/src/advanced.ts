@@ -32,6 +32,7 @@ export {
   type InlineNode,
   NODE_TYPES,
   type NodeType,
+  type SourceRef,
   type TextNode,
   XhtmlParseError,
   parseXhtml,

@@ -1,4 +1,5 @@
 import type { Page } from '../layout/core/types';
+import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { PackageDocument, TocEntry } from '../parser/epub/types';
 import type { Logger } from '../utils/logger';
 
@@ -38,6 +39,8 @@ export interface PaginationResult {
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   /** Map from fragment identifier (id attribute) to page index. */
   readonly anchorMap: ReadonlyMap<string, number>;
+  /** Source-based chapter text indices for annotation anchoring. */
+  readonly chapterTextIndices: ReadonlyMap<string, ChapterTextIndex>;
 }
 
 /**

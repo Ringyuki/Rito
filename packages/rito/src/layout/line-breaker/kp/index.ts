@@ -101,6 +101,8 @@ function buildLineRuns(
     x: startX,
     currentText: '',
     currentSegment: undefined,
+    currentSourceOffset: 0,
+    hasTrailingHyphen: false,
   };
 
   let index = skipLeadingNonContent(items, startIdx, endIdx);
@@ -130,6 +132,10 @@ interface RunBuildContext {
   x: number;
   currentText: string;
   currentSegment: StyledSegment | undefined;
+  /** Offset of currentText[0] within the current segment's source text node. */
+  currentSourceOffset: number;
+  /** Whether appendHyphenIfNeeded added an artificial '-' to currentText. */
+  hasTrailingHyphen: boolean;
 }
 
 function appendBox(
@@ -147,6 +153,7 @@ function appendBox(
   flushRun(ctx, lineHeight, measurer);
   ctx.currentSegment = segment;
   ctx.currentText = text;
+  ctx.currentSourceOffset = 0;
 }
 
 function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasurer): void {
@@ -154,6 +161,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
 
   const style = ctx.currentSegment.style;
   const href = ctx.currentSegment.href;
+  const flushedLength = ctx.currentText.length;
   const width = measurer.measureText(ctx.currentText, style).width;
   const run: TextRun = {
     type: 'text-run',
@@ -165,10 +173,18 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
       height: lineHeight,
     },
     style,
+    ...(ctx.currentSegment.sourceRef ? { sourceRef: ctx.currentSegment.sourceRef } : {}),
+    ...(ctx.currentSegment.sourceText !== undefined
+      ? { sourceText: ctx.currentSegment.sourceText }
+      : {}),
+    ...(ctx.currentSegment.sourceRef ? { sourceTextOffset: ctx.currentSourceOffset } : {}),
   };
   ctx.runs.push(href ? { ...run, href } : run);
   ctx.x += width;
+  const sourceLength = ctx.hasTrailingHyphen ? flushedLength - 1 : flushedLength;
+  ctx.currentSourceOffset += sourceLength;
   ctx.currentText = '';
+  ctx.hasTrailingHyphen = false;
 }
 
 function skipLeadingNonContent(items: readonly KPItem[], start: number, end: number): number {
@@ -191,6 +207,7 @@ function appendHyphenIfNeeded(
     ctx.currentSegment
   ) {
     ctx.currentText += '-';
+    ctx.hasTrailingHyphen = true;
   }
 }
 

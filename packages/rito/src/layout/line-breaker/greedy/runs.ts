@@ -1,3 +1,4 @@
+import type { SourceRef } from '../../../parser/xhtml/types';
 import type { ComputedStyle } from '../../../style/core/types';
 import type { InlineAtom, TextRun } from '../../core/types';
 import type { InlineAtomSegment } from '../../text/styled-segment';
@@ -40,8 +41,21 @@ export function buildStyledRuns(
       continue;
     }
 
+    const sourceTextOffset = globalPos - range.start;
     const width = measurer.measureText(runText, range.style).width;
-    runs.push(buildTextRun(runText, x, lineHeight, width, range.style, range.href));
+    runs.push(
+      buildTextRun(
+        runText,
+        x,
+        lineHeight,
+        width,
+        range.style,
+        range.href,
+        range.sourceRef,
+        range.sourceText,
+        sourceTextOffset,
+      ),
+    );
     x += width;
     linePos = rangeEnd;
   }
@@ -60,12 +74,18 @@ function buildTextRun(
   width: number,
   style: ComputedStyle,
   href?: string,
+  sourceRef?: SourceRef,
+  sourceText?: string,
+  sourceTextOffset?: number,
 ): TextRun {
   const run: TextRun = {
     type: 'text-run',
     text,
     bounds: { x, y: computeVerticalAlignOffset(style, lineHeight), width, height: lineHeight },
     style,
+    ...(sourceRef ? { sourceRef } : {}),
+    ...(sourceText !== undefined ? { sourceText } : {}),
+    ...(sourceTextOffset !== undefined ? { sourceTextOffset } : {}),
   };
   return href ? { ...run, href } : run;
 }

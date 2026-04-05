@@ -1,5 +1,7 @@
 // Style types — computed CSS properties used by the layout and render layers.
 
+import type { SourceRef } from '../../parser/xhtml/types';
+
 /** Supported font weight values (CSS numeric scale 100-900). */
 export const FONT_WEIGHTS = {
   Normal: 400,
@@ -239,4 +241,5 @@ export interface StyledNode {
   readonly rowspan?: number;
   readonly style: ComputedStyle;
   readonly children: readonly StyledNode[];
+  readonly sourceRef?: SourceRef;
 }

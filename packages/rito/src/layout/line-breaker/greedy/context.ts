@@ -32,6 +32,8 @@ export function buildStyleRanges(segments: readonly InlineSegment[]): {
       start: offset,
       end: offset + segment.text.length,
       style: segment.style,
+      ...(segment.sourceRef ? { sourceRef: segment.sourceRef } : {}),
+      ...(segment.sourceText !== undefined ? { sourceText: segment.sourceText } : {}),
     };
     ranges.push(segment.href ? { ...range, href: segment.href } : range);
     offset += segment.text.length;

@@ -1,4 +1,5 @@
 import type { Rect } from '../../layout/core/types';
+import type { SourceRef } from '../../parser/xhtml/types';
 import type { ComputedStyle } from '../../style/core/types';
 
 /** A position within the text content of a page. */
@@ -24,6 +25,10 @@ export interface HitEntry {
   readonly text: string;
   readonly style: ComputedStyle;
   readonly href?: string;
+  readonly sourceRef?: SourceRef;
+  readonly sourceText?: string;
+  /** Offset of this entry's first character within the source text node. */
+  readonly sourceTextOffset?: number;
 }
 
 /** Precomputed coordinate-to-content mapping for a page. */

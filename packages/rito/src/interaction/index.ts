@@ -6,14 +6,7 @@ export { getSelectionRects, getSelectedText, createSelectionEngine } from './sel
 export type { SelectionEngine, SelectionState, PointerInput } from './selection';
 export { buildSearchIndex, search, createSearchEngine } from './search';
 export type { SearchIndex, SearchResult, SearchOptions, SearchEngine } from './search';
-export { resolveAnnotationRects, createAnnotationEngine } from './annotations';
-export type {
-  Annotation,
-  AnnotationRenderData,
-  AnnotationEngine,
-  StorageAdapter,
-  AnnotationInput,
-  AnnotationPatch,
-} from './annotations';
+export { resolveAnnotationRects } from './annotations';
+export type { Annotation, AnnotationRenderData } from './annotations';
 export { createReadingPosition, resolveReadingPosition, createPositionTracker } from './position';
 export type { ReadingPosition, PositionTracker } from './position';

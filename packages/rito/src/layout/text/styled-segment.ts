@@ -1,3 +1,4 @@
+import type { SourceRef } from '../../parser/xhtml/types';
 import type { ComputedStyle, StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES, TEXT_TRANSFORMS } from '../../style/core/types';
 import type { ImageSizeMap } from '../block/types';
@@ -7,6 +8,8 @@ export interface StyledSegment {
   readonly text: string;
   readonly style: ComputedStyle;
   readonly href?: string;
+  readonly sourceRef?: SourceRef;
+  readonly sourceText?: string;
 }
 
 /** Type guard: returns true if the segment is an inline atom. */
@@ -73,6 +76,7 @@ function collectSegments(
           const seg: StyledSegment = {
             text: applyTextTransform(raw, node.style),
             style: node.style,
+            ...(node.sourceRef ? { sourceRef: node.sourceRef, sourceText: raw } : {}),
           };
           out.push(inheritedHref ? { ...seg, href: inheritedHref } : seg);
         }

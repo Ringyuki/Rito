@@ -1,9 +1,9 @@
 import type { PackageMetadata, Page, Reader, Spread, TocEntry } from 'rito';
 import type {
-  Annotation,
-  AnnotationInput,
-  AnnotationPatch,
-  StorageAdapter,
+  AnnotationRecord,
+  AnnotationRecordPatch,
+  RecordStorageAdapter,
+  ResolvedAnnotation,
 } from 'rito/annotations';
 import type { ReadingPosition } from 'rito/position';
 import type { SearchResult } from 'rito/search';
@@ -19,7 +19,8 @@ export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
 
 export interface ControllerOptions {
   readonly transition?: Partial<TransitionOptions> | undefined;
-  readonly annotationStorage?: StorageAdapter | undefined;
+  /** Storage adapter for source-anchored annotation records. */
+  readonly annotationStorage?: RecordStorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;
   /**
    * @deprecated Controller now reads geometry from reader.getLayoutGeometry().
@@ -42,10 +43,10 @@ export interface ReaderControllerEvents {
   };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
-  annotationsChange: { annotations: readonly Annotation[] };
-  annotationClick: { annotation: Annotation };
+  annotationsChange: { annotations: readonly AnnotationRecord[] };
+  annotationClick: { annotation: ResolvedAnnotation };
   /** Annotation hover event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
-  annotationHover: { annotation: Annotation | null; x: number; y: number };
+  annotationHover: { annotation: ResolvedAnnotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   transitionStart: { direction: 'forward' | 'backward' };
@@ -58,6 +59,13 @@ interface Rect {
   readonly y: number;
   readonly width: number;
   readonly height: number;
+}
+
+/** Input for creating an annotation from the current selection. */
+export interface AddAnnotationInput {
+  readonly kind: 'highlight' | 'underline' | 'note';
+  readonly color?: string;
+  readonly note?: string;
 }
 
 export type InteractionMode = 'selection' | 'gesture';
@@ -104,10 +112,10 @@ export interface ReaderController {
   readonly selectionText: string;
   readonly selectionRange: TextRange | null;
 
-  addAnnotation(input: Omit<AnnotationInput, 'pageIndex'>): Annotation | undefined;
+  addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
   removeAnnotation(id: string): boolean;
-  updateAnnotation(id: string, patch: AnnotationPatch): boolean;
-  readonly annotations: readonly Annotation[];
+  updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
+  readonly annotations: readonly AnnotationRecord[];
 
   restorePosition(): number | undefined;
   savePosition(): void;

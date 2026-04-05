@@ -24,7 +24,7 @@ export function parseXhtml(xhtml: string): ParseResult {
 
   const body = doc.getElementsByTagName('body')[0] ?? doc.documentElement;
   const warnings: string[] = [];
-  const nodes = convertChildren(body, warnings, false);
+  const nodes = convertChildren(body, warnings, false, []);
 
   return { nodes, warnings };
 }
@@ -33,16 +33,20 @@ function convertChildren(
   parent: Element,
   warnings: string[],
   preserveWhitespace: boolean,
+  parentPath: readonly number[],
 ): DocumentNode[] {
   const result: DocumentNode[] = [];
+  let emittedIndex = 0;
 
   for (let i = 0; i < parent.childNodes.length; i++) {
     const child = parent.childNodes[i];
     if (!child) continue;
 
-    const node = convertNode(child, warnings, preserveWhitespace);
+    const childPath = [...parentPath, emittedIndex];
+    const node = convertNode(child, warnings, preserveWhitespace, childPath);
     if (node) {
       result.push(node);
+      emittedIndex++;
     }
   }
 
@@ -53,50 +57,55 @@ function convertNode(
   domNode: Node,
   warnings: string[],
   preserveWhitespace: boolean,
+  nodePath: readonly number[],
 ): DocumentNode | undefined {
   if (domNode.nodeType === Node.TEXT_NODE) {
-    return convertTextNode(domNode, preserveWhitespace);
+    return convertTextNode(domNode, preserveWhitespace, nodePath);
   }
 
   if (domNode.nodeType === Node.ELEMENT_NODE) {
-    return convertElement(domNode as Element, warnings, preserveWhitespace);
+    return convertElement(domNode as Element, warnings, preserveWhitespace, nodePath);
   }
 
   // Ignore comments, processing instructions, etc.
   return undefined;
 }
 
-function convertTextNode(domNode: Node, preserveWhitespace: boolean): TextNode | undefined {
+function convertTextNode(
+  domNode: Node,
+  preserveWhitespace: boolean,
+  nodePath: readonly number[],
+): TextNode | undefined {
   const raw = domNode.textContent ?? '';
+  const sourceRef = { nodePath };
 
   if (!preserveWhitespace) {
     if (isWhitespaceOnly(raw)) {
-      // Keep whitespace-only text nodes as a single space to preserve
-      // inter-element spacing (e.g., between inline elements)
       if (raw.length > 0) {
-        return { type: NODE_TYPES.Text, content: ' ' };
+        return { type: NODE_TYPES.Text, content: ' ', sourceRef };
       }
       return undefined;
     }
-    return { type: NODE_TYPES.Text, content: collapseWhitespace(raw) };
+    return { type: NODE_TYPES.Text, content: collapseWhitespace(raw), sourceRef };
   }
 
-  // In pre-formatted contexts, preserve the text as-is
   if (raw.length === 0) return undefined;
-  return { type: NODE_TYPES.Text, content: raw };
+  return { type: NODE_TYPES.Text, content: raw, sourceRef };
 }
 
 function convertElement(
   el: Element,
   warnings: string[],
   preserveWhitespace: boolean,
+  nodePath: readonly number[],
 ): DocumentNode | undefined {
   const tagName = el.localName;
   const classification = classifyTag(tagName);
+  const sourceRef = { nodePath };
 
   // Extract image from SVG wrapper (common EPUB cover pattern)
   if (tagName === 'svg') {
-    const imageNode = extractSvgImage(el);
+    const imageNode = extractSvgImage(el, nodePath);
     if (imageNode) return imageNode;
   }
 
@@ -106,38 +115,37 @@ function convertElement(
   }
 
   const isPreformatted = preserveWhitespace || tagName === 'pre';
-  const children = convertChildren(el, warnings, isPreformatted);
+  const children = convertChildren(el, warnings, isPreformatted, nodePath);
   const attributes = extractAttributes(el);
 
   if (classification === 'block') {
-    if (attributes) {
-      return { type: NODE_TYPES.Block, tag: tagName, attributes, children } satisfies BlockNode;
-    }
-    return { type: NODE_TYPES.Block, tag: tagName, children } satisfies BlockNode;
+    const block: BlockNode = attributes
+      ? { type: NODE_TYPES.Block, tag: tagName, attributes, children, sourceRef }
+      : { type: NODE_TYPES.Block, tag: tagName, children, sourceRef };
+    return block;
   }
 
   // Handle <br> as a newline text node
   if (tagName === 'br') {
-    return { type: NODE_TYPES.Text, content: '\n' } satisfies TextNode;
+    return { type: NODE_TYPES.Text, content: '\n', sourceRef } satisfies TextNode;
   }
 
   // Handle <img> as an image node
   if (tagName === 'img') {
     const src = el.getAttribute('src') ?? '';
     const alt = el.getAttribute('alt') ?? '';
-    if (src) return { type: 'image', src, alt };
+    if (src) return { type: 'image', src, alt, sourceRef };
     return undefined;
   }
 
-  if (attributes) {
-    return { type: NODE_TYPES.Inline, tag: tagName, attributes, children } satisfies InlineNode;
-  }
-  return { type: NODE_TYPES.Inline, tag: tagName, children } satisfies InlineNode;
+  const inline: InlineNode = attributes
+    ? { type: NODE_TYPES.Inline, tag: tagName, attributes, children, sourceRef }
+    : { type: NODE_TYPES.Inline, tag: tagName, children, sourceRef };
+  return inline;
 }
 
 /** Extract an image from an SVG element (common EPUB cover/illustration pattern). */
-function extractSvgImage(svg: Element): DocumentNode | undefined {
-  // Look for <image> with xlink:href or href
+function extractSvgImage(svg: Element, nodePath: readonly number[]): DocumentNode | undefined {
   const imageEls = svg.getElementsByTagName('image');
   for (let i = 0; i < imageEls.length; i++) {
     const img = imageEls[i];
@@ -148,7 +156,7 @@ function extractSvgImage(svg: Element): DocumentNode | undefined {
       img.getAttribute('href') ??
       '';
     if (src && !src.startsWith('blob:')) {
-      return { type: 'image', src, alt: '' };
+      return { type: 'image', src, alt: '', sourceRef: { nodePath } };
     }
   }
   return undefined;

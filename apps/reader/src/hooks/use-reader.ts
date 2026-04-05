@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TocEntry } from 'rito';
 import { useRitoReader, useSelection, useSearch, useAnnotations } from '@rito/react';
-import { createLocalStorageAdapter, createLocalStoragePositionAdapter } from '@rito/kit';
+import { createLocalStoragePositionAdapter, createLocalStorageAdapter } from '@rito/kit';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const FONT_SCALE_STEP = 0.1;
@@ -9,7 +9,7 @@ const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
-const annotationStorage = createLocalStorageAdapter('rito-annotations');
+const annotationStorage = createLocalStorageAdapter('rito-annotations-v2');
 
 function getThemeOptions(theme: 'light' | 'dark') {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };

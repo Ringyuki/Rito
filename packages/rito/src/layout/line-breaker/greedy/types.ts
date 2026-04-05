@@ -1,3 +1,4 @@
+import type { SourceRef } from '../../../parser/xhtml/types';
 import type { ComputedStyle } from '../../../style/core/types';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
@@ -7,6 +8,8 @@ export interface StyleRange {
   readonly end: number;
   readonly style: ComputedStyle;
   readonly href?: string;
+  readonly sourceRef?: SourceRef;
+  readonly sourceText?: string;
 }
 
 export interface LineContext {

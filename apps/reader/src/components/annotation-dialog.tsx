@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Annotation } from 'rito/annotations';
+import type { ResolvedAnnotation } from 'rito/annotations';
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,7 @@ import { ANNOTATION_COLORS } from '@/components/annotation-toolbar';
 import type { useReader } from '@/hooks/use-reader';
 
 interface Props {
-  annotation: Annotation | null;
+  annotation: ResolvedAnnotation | null;
   annotations: ReturnType<typeof useReader>['annotations'];
   onClose: () => void;
 }
@@ -26,8 +26,8 @@ export function AnnotationDialog({ annotation, annotations, onClose }: Props) {
   // Sync local state when a different annotation is opened
   useEffect(() => {
     if (annotation) {
-      setNote(annotation.note ?? '');
-      setColor(annotation.color ?? ANNOTATION_COLORS[0].value);
+      setNote(annotation.record.note ?? '');
+      setColor(annotation.record.color ?? ANNOTATION_COLORS[0].value);
     }
   }, [annotation?.id]);
 

@@ -1,4 +1,5 @@
 import type { LayoutConfig, Page } from '../../layout/core/types';
+import type { ChapterTextIndex } from '../../interaction/anchors/chapter-text-index';
 import type { ChapterRange, EpubDocument } from '../../runtime/types';
 import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';
@@ -22,6 +23,8 @@ export interface Resources {
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   /** Map from fragment identifier (id attribute) to page index. */
   readonly anchorMap: ReadonlyMap<string, number>;
+  /** Source-based chapter text indices for annotation anchoring. */
+  readonly chapterTextIndices: ReadonlyMap<string, ChapterTextIndex>;
 }
 
 /** Load fonts and decode images. Result is reusable across resizes. */
@@ -59,7 +62,7 @@ export function paginateWithAssets(
   lineBreaking?: 'greedy' | 'optimal',
   logger?: Logger,
 ): Omit<Resources, 'images'> {
-  const { pages, chapterMap, anchorMap } = paginateWithMeta(
+  const result = paginateWithMeta(
     doc,
     config,
     assets.measurer,
@@ -67,7 +70,12 @@ export function paginateWithAssets(
     lineBreaking,
     logger,
   );
-  return { pages, chapterMap, anchorMap };
+  return {
+    pages: result.pages,
+    chapterMap: result.chapterMap,
+    anchorMap: result.anchorMap,
+    chapterTextIndices: result.chapterTextIndices,
+  };
 }
 
 /**
@@ -80,8 +88,8 @@ export async function prepare(
   canvas: HTMLCanvasElement | OffscreenCanvas,
 ): Promise<Resources> {
   const assets = await loadAssets(doc, canvas);
-  const { pages, chapterMap, anchorMap } = paginateWithAssets(doc, config, assets);
-  return { pages, images: assets.images, chapterMap, anchorMap };
+  const pagination = paginateWithAssets(doc, config, assets);
+  return { ...pagination, images: assets.images };
 }
 
 /** Release GPU/memory resources held by decoded images. */

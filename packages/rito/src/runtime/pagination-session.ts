@@ -9,6 +9,8 @@ import {
   type PreparedPaginationContext,
 } from './pagination-core';
 import type { ChapterRange, EpubDocument, PaginationResult } from './types';
+import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
+import { buildChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import { logXhtmlWarnings } from './xhtml-diagnostics';
 
 /** Result of paginating a single chapter. */
@@ -31,6 +33,7 @@ export class PaginationSession {
   private readonly allPages: Page[] = [];
   private readonly chapterMap = new Map<string, ChapterRange>();
   private readonly anchorMap = new Map<string, number>();
+  private readonly chapterTextIndices = new Map<string, ChapterTextIndex>();
 
   constructor(
     doc: EpubDocument,
@@ -66,6 +69,7 @@ export class PaginationSession {
 
       const { nodes, warnings } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, spineItem.idref);
+      this.chapterTextIndices.set(spineItem.idref, buildChapterTextIndex(spineItem.idref, nodes));
       const startPage = this.allPages.length;
       const chapter = paginateChapterNodes(nodes, this.config, this.context, startPage);
       if (chapter.pages.length === 0) continue;
@@ -109,6 +113,7 @@ export class PaginationSession {
       pages: this.allPages,
       chapterMap: this.chapterMap,
       anchorMap: this.anchorMap,
+      chapterTextIndices: this.chapterTextIndices,
     };
   }
 }

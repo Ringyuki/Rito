@@ -39,13 +39,26 @@ function resolveNode(
 ): StyledNode {
   switch (node.type) {
     case 'text':
-      return { type: 'text', content: node.content, style: parentStyle, children: [] };
+      return {
+        type: 'text',
+        content: node.content,
+        style: parentStyle,
+        children: [],
+        ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
+      };
     case 'block':
       return resolveBlockNode(node, parentStyle, rules, index, ancestors);
     case 'inline':
       return resolveInlineNode(node, parentStyle, rules, index, ancestors);
     case 'image':
-      return { type: 'image', src: node.src, alt: node.alt, style: parentStyle, children: [] };
+      return {
+        type: 'image',
+        src: node.src,
+        alt: node.alt,
+        style: parentStyle,
+        children: [],
+        ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
+      };
   }
 }
 
@@ -66,6 +79,7 @@ function resolveBlockNode(
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
   if (node.attributes?.colspan) result = { ...result, colspan: node.attributes.colspan };
   if (node.attributes?.rowspan) result = { ...result, rowspan: node.attributes.rowspan };
+  if (node.sourceRef) result = { ...result, sourceRef: node.sourceRef };
   return result;
 }
 
@@ -85,6 +99,7 @@ function resolveInlineNode(
   let result: StyledNode = { type: 'inline', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
   if (node.attributes?.href) result = { ...result, href: node.attributes.href };
+  if (node.sourceRef) result = { ...result, sourceRef: node.sourceRef };
   return result;
 }
 

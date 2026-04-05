@@ -15,7 +15,7 @@ export function AnnotationTooltip({ hover }: Props) {
           style={{ top: hover.y, left: hover.x, width: 1, height: 1 }}
         />
       </TooltipTrigger>
-      <TooltipContent side="top">{hover.annotation.note ?? 'Click to edit'}</TooltipContent>
+      <TooltipContent side="top">{hover.annotation.record.note ?? 'Click to edit'}</TooltipContent>
     </Tooltip>
   );
 }

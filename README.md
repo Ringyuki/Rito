@@ -2,7 +2,7 @@
 
 A TypeScript-first Canvas-based EPUB rendering library.
 
-Rito is a rendering core for EPUB content. It loads EPUB archives, parses XHTML chapters with CSS stylesheets, computes paginated layout (including tables, lists, floats, and hyphenation), and renders spreads onto an HTML Canvas with theme support.
+Rito is a rendering core for EPUB content. It loads EPUB archives, lazily reads XHTML spine chapters, resolves CSS, computes paginated layout (including tables, lists, floats, hyphenation, and widow/orphan control), and renders spreads onto an HTML Canvas with theme support.
 
 > [!WARNING]
 > Rito is still under development! We do not recommend that you use it in production environments, but of course we always welcome your PR!
@@ -82,11 +82,17 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 | `resolveTocEntry(tocEntry)`   | Resolve a TOC entry to page + spread        |
 | `findActiveTocEntry(pageIdx)` | Find the current TOC entry for a page       |
 | `getCanvasSize(scale?)`       | Get canvas dimensions for current config    |
+| `getLayoutGeometry()`         | Get the current layout configuration        |
+| `getChapterTextIndices()`     | Get source-based chapter text indices       |
+| `setTypography(opts)`         | Re-paginate with typography overrides       |
+| `onSpreadRendered(cb)`        | Subscribe to render notifications           |
 | `dispose()`                   | Release all resources                       |
+| `metadata`                    | EPUB package metadata                       |
 | `totalSpreads`                | Number of spreads                           |
 | `toc`                         | Table of contents entries                   |
 | `pages` / `spreads`           | Computed pages and spreads                  |
 | `chapterMap`                  | Chapter-to-page-range mapping               |
+| `measurer`                    | Text measurer for interaction APIs          |
 
 ### Stable Primitives
 
@@ -115,21 +121,37 @@ import { parseXhtml, resolveStyles, layoutBlocks, renderPage } from 'rito/advanc
 
 - **Parser**: `parseXhtml`, `parseContainer`, `parsePackageDocument`, `parseNavDocument`, `parseNcx`, `createZipReader`
 - **Style**: `resolveStyles`, `parseCssRules`, `parseCssDeclarations`, `matchesSelector`, `calculateSpecificity`
-- **Layout**: `layoutBlocks`, `paginateBlocks`, `createGreedyLayouter`, `flattenInlineContent`
-- **Render**: `renderPage`, `createCanvasTextMeasurer`, `createTextMeasurer`, `buildFontString`, `loadFonts`, `loadImages`, `loadAssets`, `paginateWithAssets`
+- **Layout**: `layoutBlocks`, `paginateBlocks`, `createGreedyLayouter`, `createKnuthPlassLayouter`, `flattenInlineContent`
+- **Render**: `renderPage`, `createCanvasTextMeasurer`, `createTextMeasurer`, `buildFontString`, `loadFonts`, `loadImages`, `createLazyImageLoader`, `loadAssets`, `paginateWithAssets`
 - **Runtime**: `PaginationSession`, `paginateWithMeta`, `findPageForTocEntry`
 - **Diagnostics**: `createLogger`, `Logger`, `LogLevel`
 
+### Specialized Entry Points
+
+Rito also exposes focused subpath entries for higher-level interaction and integration helpers:
+
+- `rito/selection` — stateful text selection engine
+- `rito/search` — full-text search engine
+- `rito/annotations` — source-anchored annotation store + resolver helpers
+- `rito/position` — reading-position tracker
+- `rito/a11y` — semantic tree + visually hidden DOM mirror helpers
+- `rito/dom` — optional DOM bindings (pointer, clipboard, link cursor)
+- `rito/worker` — pagination worker entry
+
 ## Capabilities
 
-- Parse EPUB 3 container metadata, manifest, spine, NAV/NCX table of contents.
+- Parse EPUB 3 container metadata, manifest, spine, and NAV/NCX table of contents.
 - Parse XHTML into a structured node tree (block, inline, text, image, table, list).
+- Lazily read chapter XHTML through `EpubDocument.readChapter()` after archive parsing.
 - Extract embedded fonts, images, and SVG cover art.
-- Resolve CSS with selector matching (element, class, ID, descendant, pseudo-class), specificity, cascading, inheritance, and `@font-face`.
-- Layout engine: block layout, inline text with greedy line breaking and hyphenation, floats, tables with border styling, ordered/unordered lists, and block images.
-- Pagination with page-break awareness and chapter-start detection.
+- Resolve CSS with element/class/ID/compound/descendant selectors, specificity, cascading, inheritance, `@font-face`, `rem`, and `calc()`.
+- Layout engine: block layout, greedy or Knuth-Plass line breaking, Liang hyphenation (`en-us`), floats, inline images, tables, lists, `margin: auto`, `vertical-align`, and `position: relative`.
+- Pagination with page-break awareness, widow/orphan control, and chapter-start-aware spread building.
 - Single-page and two-page spread modes.
+- Optional worker pagination for initial reader creation.
 - Canvas rendering with theme support (background/foreground color override with WCAG contrast detection).
+- Source-anchored annotations that remain stable across repagination, spread-mode switches, and viewport changes.
+- Interaction primitives and engines for selection, search, annotations, reading position, and accessibility mirrors.
 
 ## Reader App
 
@@ -141,13 +163,13 @@ pnpm run dev:reader
 
 ## Current Limitations
 
-- **CSS subset** — supports common properties (font, color, margin, padding, border, text-align, display, white-space, list-style, float) but no flexbox, grid, or positioning.
-- **Greedy line breaking** — no Knuth-Plass or advanced typographic optimization.
-- **No widow/orphan control** — blocks split at line boundaries only.
-- **Simplified resource scoping** — stylesheets merge at document level; font/image path matching uses heuristics.
-- **Eager loading** — `loadEpub` loads all chapters into memory at once.
-- **Browser-oriented** — `loadFonts`, `loadImages`, and `prepare` depend on browser APIs (`FontFace`, `createImageBitmap`).
-- **No RTL/BiDi** — left-to-right text layout only.
+- **CSS subset** — optimized for EPUB book layout, not full browser CSS. No flexbox, grid, multicolumn layout, or `position: absolute/fixed/sticky`.
+- **Selector subset** — supports element/class/ID/compound/descendant selectors only; no attribute selectors, sibling combinators, pseudo-elements, or media queries.
+- **Language support** — layout is left-to-right only; no RTL/BiDi, and bundled hyphenation patterns are currently `en-us` only.
+- **TOC / internal links** — fragment identifiers currently resolve to chapter start pages rather than exact anchor pages.
+- **Typography overrides** — `setTypography()` currently wires `fontSize`; `lineHeight` and `fontFamily` are accepted but not yet applied.
+- **Default loading model** — `loadEpub()` reads chapters lazily, but `createReader()` / `prepare()` still paginate the full spine up front and eagerly decode resources.
+- **Browser-oriented rendering pipeline** — `loadFonts`, `loadImages`, `prepare`, and worker pagination depend on browser APIs such as `FontFace`, `createImageBitmap`, `Worker`, and `OffscreenCanvas`.
 - **EPUB 3 first** — no explicit EPUB 2 compatibility layer.
 
 ## Development
@@ -175,14 +197,28 @@ pnpm run check    # typecheck + lint + format + test + build
 packages/rito/
   src/index.ts      Public API (createReader + primitives)
   src/advanced.ts   Internal APIs (parser, style, layout, render primitives)
-  src/reader.ts     Reader implementation
+  src/reader/       Reader facade + state helpers
   src/parser/       EPUB structure + XHTML content parsing
   src/model/        Shared geometry/data structures
   src/style/        CSS subset parsing + style resolution
   src/layout/       Pure layout computation + pagination + spread building
   src/render/       Canvas rendering + browser resource preparation
   src/runtime/      High-level orchestration (loadEpub, paginate)
+  src/interaction/  Search, selection, annotations, position, semantics
+  src/workers/      Worker-side pagination entry + transport types
+  src/dom/          Optional DOM integration helpers
   src/utils/        Small shared utilities
+
+packages/kit/
+  src/controller/   ReaderController orchestration layer
+  src/transition/   Snapshot-based page-turn transitions
+  src/overlay/      Highlight overlay renderer
+  src/keyboard/     Shortcut manager
+  src/storage/      localStorage adapters
+
+packages/react/
+  src/hooks/        React lifecycle + controller state hooks
+  src/components/   Reader mount component
 
 apps/reader/
   src/components/   Reader UI components (toolbar, canvas, TOC sidebar, progress bar)

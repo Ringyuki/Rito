@@ -3,7 +3,7 @@
  * and spread-content rects into viewport-logical space via the mapper.
  */
 import type { Reader, Spread, Page } from 'rito';
-import { resolveAnnotationRects, getSelectionRects } from 'rito/advanced';
+import { getSelectionRects } from 'rito/advanced';
 import type { HitMap } from 'rito/advanced';
 import type { Rect } from '../../overlay/types';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
@@ -31,7 +31,7 @@ export function buildOverlayData(
   );
 
   const activeSearchRects = collectActiveSearchRects(spread, engines, state, reader, mapper);
-  const annotationLayers = collectAnnotationLayers(spread, engines, state, reader, mapper);
+  const annotationLayers = collectAnnotationLayers(spread, state, mapper);
 
   return { selectionRects, searchRects, activeSearchRects, annotationLayers };
 }
@@ -80,22 +80,21 @@ function collectRects(
 
 function collectAnnotationLayers(
   spread: Spread,
-  engines: CoordinatorEngines,
   state: CoordinatorState,
-  reader: Reader,
   mapper: CoordinateMapper,
 ): readonly { id: string; rects: readonly Rect[]; color: string }[] {
   const layers: { id: string; rects: readonly Rect[]; color: string }[] = [];
-  for (const page of pagesOf(spread)) {
-    const hitMap = state.hitMaps.get(page.index);
-    if (!hitMap) continue;
-    for (const ann of engines.annotation.getForPage(page.index)) {
-      const data = resolveAnnotationRects(ann, hitMap, reader.measurer);
-      if (data.rects.length > 0) {
+  const pageIndices = new Set(pagesOf(spread).map((p) => p.index));
+
+  for (const resolved of state.resolvedAnnotations) {
+    if (resolved.status === 'orphaned') continue;
+    for (const seg of resolved.segments) {
+      if (!pageIndices.has(seg.pageIndex)) continue;
+      if (seg.rects.length > 0) {
         layers.push({
-          id: ann.id,
-          rects: data.rects.map((r) => mapper.pageContentToViewport(page.index, r)),
-          color: ann.color ?? OVERLAY_COLORS.annotationDefault,
+          id: resolved.id,
+          rects: seg.rects.map((r) => mapper.pageContentToViewport(seg.pageIndex, r)),
+          color: resolved.record.color ?? OVERLAY_COLORS.annotationDefault,
         });
       }
     }

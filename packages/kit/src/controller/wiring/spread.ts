@@ -11,6 +11,7 @@ import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import { buildOverlayData } from '../overlay/projection';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { WiringDeps } from '../core/wiring-deps';
+import { syncChapterIndices, resolveVisibleAnnotations } from '../annotation-resolution';
 
 export function coordinateOnSpreadRendered(
   spreadIndex: number,
@@ -27,6 +28,13 @@ export function coordinateOnSpreadRendered(
   engines.selection.setSpread(spread, mapper.selectionConfig, reader.measurer);
   rebuildHitMaps(spread, state);
   rebuildLinksByPage(spread, state);
+
+  // Sync chapter text indices and re-resolve annotations from the store
+  syncChapterIndices(state, reader);
+  if (state.annotationStore) {
+    state.resolvedAnnotations = resolveVisibleAnnotations(state.annotationStore, state, reader);
+  }
+
   engines.position?.update(spreadIndex);
 
   renderOverlay(spread, engines, reader, overlay, state, renderScale);

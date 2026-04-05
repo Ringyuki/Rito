@@ -1,20 +1,21 @@
-import type { Annotation, StorageAdapter } from 'rito/annotations';
+import type { AnnotationRecord, RecordStorageAdapter } from 'rito/annotations';
 import type { PositionStorageAdapter } from './types';
 
-export function createLocalStorageAdapter(key: string): StorageAdapter {
+/** Storage adapter that persists AnnotationRecords to localStorage. */
+export function createLocalStorageAdapter(key: string): RecordStorageAdapter {
   return {
-    load(): Promise<readonly Annotation[]> {
+    load(): Promise<readonly AnnotationRecord[]> {
       try {
         const raw = localStorage.getItem(key);
         if (!raw) return Promise.resolve([]);
-        return Promise.resolve(JSON.parse(raw) as Annotation[]);
+        return Promise.resolve(JSON.parse(raw) as AnnotationRecord[]);
       } catch {
         return Promise.resolve([]);
       }
     },
-    save(annotations: readonly Annotation[]): Promise<void> {
+    save(records: readonly AnnotationRecord[]): Promise<void> {
       try {
-        localStorage.setItem(key, JSON.stringify(annotations));
+        localStorage.setItem(key, JSON.stringify(records));
       } catch {
         // Storage full or unavailable — silently fail
       }

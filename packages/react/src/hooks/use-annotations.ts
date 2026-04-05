@@ -1,28 +1,28 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController } from '@rito/kit';
-import type { Annotation, AnnotationInput, AnnotationPatch } from 'rito/annotations';
+import type { ReaderController, AddAnnotationInput } from '@rito/kit';
+import type { AnnotationRecord, AnnotationRecordPatch, ResolvedAnnotation } from 'rito/annotations';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface AnnotationHover {
-  readonly annotation: Annotation;
+  readonly annotation: ResolvedAnnotation;
   readonly x: number;
   readonly y: number;
 }
 
 export interface AnnotationsState {
-  readonly annotations: readonly Annotation[];
-  readonly clickedAnnotation: Annotation | null;
+  readonly annotations: readonly AnnotationRecord[];
+  readonly clickedAnnotation: ResolvedAnnotation | null;
   readonly hover: AnnotationHover | null;
 }
 
 export function useAnnotations(controller: ReaderController | null): AnnotationsState & {
-  add: (input: Omit<AnnotationInput, 'pageIndex'>) => Annotation | undefined;
+  add: (input: AddAnnotationInput) => AnnotationRecord | undefined;
   remove: (id: string) => boolean;
-  update: (id: string, patch: AnnotationPatch) => boolean;
+  update: (id: string, patch: AnnotationRecordPatch) => boolean;
   clearClicked: () => void;
 } {
-  const [annotations, setAnnotations] = useState<readonly Annotation[]>([]);
-  const [clickedAnnotation, setClickedAnnotation] = useState<Annotation | null>(null);
+  const [annotations, setAnnotations] = useState<readonly AnnotationRecord[]>([]);
+  const [clickedAnnotation, setClickedAnnotation] = useState<ResolvedAnnotation | null>(null);
   const [hover, setHover] = useState<AnnotationHover | null>(null);
 
   useControllerEvent(controller, 'annotationsChange', ({ annotations: anns }) => {
@@ -38,7 +38,7 @@ export function useAnnotations(controller: ReaderController | null): Annotations
   });
 
   const add = useCallback(
-    (input: Omit<AnnotationInput, 'pageIndex'>) => controller?.addAnnotation(input),
+    (input: AddAnnotationInput) => controller?.addAnnotation(input),
     [controller],
   );
   const remove = useCallback(
@@ -46,7 +46,7 @@ export function useAnnotations(controller: ReaderController | null): Annotations
     [controller],
   );
   const update = useCallback(
-    (id: string, patch: AnnotationPatch) => controller?.updateAnnotation(id, patch) ?? false,
+    (id: string, patch: AnnotationRecordPatch) => controller?.updateAnnotation(id, patch) ?? false,
     [controller],
   );
   const clearClicked = useCallback(() => {

@@ -5,6 +5,8 @@ import type { LoadedAssets } from '../render/assets';
 import { createLogger, type LogLevel, type Logger } from '../utils/logger';
 import type { DocumentNode } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
+import { buildChapterTextIndex } from '../interaction/anchors/chapter-text-index';
+import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { PaginateRequest, WorkerResponse } from './types';
 
 /**
@@ -24,7 +26,7 @@ export function paginateInWorker(
 ): Promise<PaginationResult> {
   return new Promise((resolve, reject) => {
     const logger = createLogger(logLevel ?? 'warn');
-    const chapters = preReadAndParseChapters(doc, logger);
+    const { chapters, textIndices } = preReadAndParseChapters(doc, logger);
     const imageSizes = extractImageSizes(assets.images);
 
     const request: PaginateRequest = {
@@ -46,6 +48,7 @@ export function paginateInWorker(
           pages: response.pages as Page[],
           chapterMap: new Map(response.chapterMap),
           anchorMap: new Map(response.anchorMap),
+          chapterTextIndices: textIndices,
         });
       } else {
         reject(new Error(response.message));
@@ -63,17 +66,19 @@ export function paginateInWorker(
 function preReadAndParseChapters(
   doc: EpubDocument,
   logger: Logger,
-): Map<string, readonly DocumentNode[]> {
+): { chapters: Map<string, readonly DocumentNode[]>; textIndices: Map<string, ChapterTextIndex> } {
   const chapters = new Map<string, readonly DocumentNode[]>();
+  const textIndices = new Map<string, ChapterTextIndex>();
   for (const item of doc.packageDocument.spine) {
     const xhtml = doc.readChapter(item.idref);
     if (xhtml) {
       const { nodes, warnings } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, logger, item.idref);
       chapters.set(item.idref, nodes);
+      textIndices.set(item.idref, buildChapterTextIndex(item.idref, nodes));
     }
   }
-  return chapters;
+  return { chapters, textIndices };
 }
 
 function extractImageSizes(

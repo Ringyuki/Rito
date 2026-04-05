@@ -19,7 +19,6 @@ export {
   createLocalStorageAdapter,
   createLocalStoragePositionAdapter,
   type PositionStorageAdapter,
-  type StorageAdapter,
 } from './storage/index';
 
 export {
@@ -28,6 +27,7 @@ export {
   type ReaderControllerEvents,
   type ControllerOptions,
   type InteractionMode,
+  type AddAnnotationInput,
 } from './controller/index';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';

@@ -22,6 +22,7 @@ export type {
   ReaderControllerEvents,
   ControllerOptions,
   InteractionMode,
+  AddAnnotationInput,
 } from './types';
 
 /**
@@ -43,7 +44,7 @@ export function createController(
   const overlay = createOverlayRenderer();
   const modeManager = createInteractionModeManager(detectDefaultMode());
   const coordState = createCoordinatorState();
-  const engines = createEngines(reader, opts);
+  const engines = createEngines(reader, opts, coordState);
 
   const internals: Internals = {
     reader,
