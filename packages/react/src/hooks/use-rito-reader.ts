@@ -91,9 +91,12 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       const resolvedData = await data;
+      const reader = await createReader(resolvedData, canvasRef.current, opts.reader);
+      // Dispose old instances only after the new reader is fully ready —
+      // no await gap between dispose and reassignment, so concurrent
+      // effects (resize, theme) never see a disposed-but-referenced state.
       ctrlRef.current?.dispose();
       readerRef.current?.dispose();
-      const reader = await createReader(resolvedData, canvasRef.current, opts.reader);
       readerRef.current = reader;
       const ctrl = createController(reader, canvasRef.current, opts.controller);
       ctrlRef.current = ctrl;

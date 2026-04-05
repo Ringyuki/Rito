@@ -9,7 +9,7 @@ const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
-const annotationStorage = createLocalStorageAdapter('rito-annotations-v2');
+const annotationStorage = createLocalStorageAdapter('rito-annotations');
 
 function getThemeOptions(theme: 'light' | 'dark') {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
