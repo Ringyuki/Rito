@@ -8,6 +8,7 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
+  CommandShortcut,
 } from '@/components/ui/command';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -81,7 +82,9 @@ export function SearchBar({ search, open, onOpenChange }: SearchBarProps) {
                 >
                   <BookOpen className="h-4 w-4 text-muted-foreground" />
                   <span className="flex-1 truncate">{result.context}</span>
-                  <span className="text-xs text-muted-foreground">p.{result.pageIndex + 1}</span>
+                  <CommandShortcut>
+                    <span className="text-xs text-muted-foreground">p.{result.pageIndex + 1}</span>
+                  </CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>

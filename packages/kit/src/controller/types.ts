@@ -21,18 +21,30 @@ export interface ControllerOptions {
   readonly transition?: Partial<TransitionOptions> | undefined;
   readonly annotationStorage?: StorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;
-  /** Page margin (must match the margin used in createReader). Needed for overlay positioning. */
+  /**
+   * @deprecated Controller now reads geometry from reader.getLayoutGeometry().
+   * These fields are kept for backwards compatibility but are no longer used.
+   */
   readonly margin?: number | undefined;
+  /** @deprecated See `margin`. */
   readonly spreadGap?: number | undefined;
 }
 
 export interface ReaderControllerEvents {
   spreadChange: { spreadIndex: number; spread: Spread };
-  selectionChange: { range: TextRange | null; text: string; rects: readonly Rect[] };
+  selectionChange: {
+    range: TextRange | null;
+    text: string;
+    /** Selection rects in spread-content space (legacy — prefer viewportRects). */
+    rects: readonly Rect[];
+    /** Selection rects in viewport-logical space (includes margins, ready for overlay/UI). */
+    viewportRects: readonly Rect[];
+  };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
   annotationsChange: { annotations: readonly Annotation[] };
   annotationClick: { annotation: Annotation };
+  /** Annotation hover event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
   annotationHover: { annotation: Annotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };

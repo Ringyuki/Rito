@@ -1,12 +1,11 @@
 import type { Reader } from 'rito';
 import type { LinkRegion } from 'rito/advanced';
-import type { TypedEmitter } from '../utils/event-emitter';
-import type { ReaderControllerEvents } from './types';
+import type { TypedEmitter } from '../../utils/event-emitter';
+import type { ReaderControllerEvents } from '../types';
 
 export function handleLinkClick(
   region: LinkRegion,
   reader: Reader,
-  getCurrentSpread: () => number,
   setCurrentSpread: (idx: number) => void,
   emitter: TypedEmitter<ReaderControllerEvents>,
 ): void {

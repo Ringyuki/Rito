@@ -2,8 +2,15 @@
  * SelectionEngine — a stateful, framework-agnostic text selection engine.
  *
  * State machine: idle → selecting → selected → idle
- * Accepts pointer events in spread-local logical coordinates.
- * Consumer is responsible for coordinate transforms (DPR, canvas offset).
+ *
+ * Accepts pointer events in **spread-content** coordinates — the synthetic
+ * space where `pageWidth = contentWidth` (no margins). The LayoutConfig passed
+ * to `setSpread()` must describe this content-only space, not the full
+ * viewport with margins. In `@rito/kit`, the CoordinateMapper provides
+ * `selectionConfig` for this purpose, and `cssToSpreadContent()` converts
+ * pointer events from display-css to spread-content.
+ *
+ * Returned rects from `getRects()` are also in spread-content space.
  */
 
 import type { LayoutConfig, Rect, Spread } from '../../layout/core/types';

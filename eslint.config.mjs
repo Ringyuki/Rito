@@ -29,6 +29,24 @@ export default defineConfig([
     },
   },
   {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          args: 'all',
+          argsIgnorePattern: '^_',
+          caughtErrors: 'all',
+          caughtErrorsIgnorePattern: '^_',
+          destructuredArrayIgnorePattern: '^_',
+          ignoreRestSiblings: false,
+          varsIgnorePattern: '^_',
+        },
+      ],
+    },
+  },
+  {
     files: ['packages/rito/src/**/*.ts'],
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',

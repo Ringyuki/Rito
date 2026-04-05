@@ -4,7 +4,10 @@ import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
 import { walkPageLineBoxes } from './text-traversal';
 
-/** Build a HitMap from a page's layout data. Collects all text runs with absolute bounds. */
+/**
+ * Build a HitMap from a page's layout data.
+ * All entry bounds are in **page-content** space (origin = top-left of content area, no margins).
+ */
 export function buildHitMap(page: Page): HitMap {
   const entries: HitEntry[] = [];
   walkPageLineBoxes(page, ({ blockIndex, lineIndex, lineBox, originX, originY }) => {
@@ -13,7 +16,7 @@ export function buildHitMap(page: Page): HitMap {
   return { entries, pageIndex: page.index };
 }
 
-/** Find the HitEntry at the given page-local coordinates. */
+/** Find the HitEntry at the given page-content coordinates. */
 export function hitTest(hitMap: HitMap, x: number, y: number): HitEntry | undefined {
   // Binary search on y to narrow candidates, then linear scan on x.
   let best: HitEntry | undefined;
@@ -32,7 +35,7 @@ export function hitTest(hitMap: HitMap, x: number, y: number): HitEntry | undefi
 }
 
 /**
- * Resolve a precise character position from page-local coordinates.
+ * Resolve a precise character position from page-content coordinates.
  * Uses the measurer to subdivide a matched TextRun for char-level accuracy.
  */
 export function resolveCharPosition(

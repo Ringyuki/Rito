@@ -1,1 +1,1 @@
-export { Reader, type ReaderProps } from './reader-canvas';
+export { Reader, type ReaderProps } from './reader';

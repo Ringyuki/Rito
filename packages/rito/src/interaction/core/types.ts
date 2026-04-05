@@ -15,7 +15,7 @@ export interface TextRange {
   readonly end: TextPosition;
 }
 
-/** A rectangular region mapped to content within a page. */
+/** A rectangular region mapped to content within a page. Bounds are in page-content space. */
 export interface HitEntry {
   readonly bounds: Rect;
   readonly blockIndex: number;
@@ -32,7 +32,7 @@ export interface HitMap {
   readonly pageIndex: number;
 }
 
-/** A hyperlink region within a page. */
+/** A hyperlink region within a page. Bounds are in page-content space. */
 export interface LinkRegion {
   readonly bounds: Rect;
   readonly href: string;

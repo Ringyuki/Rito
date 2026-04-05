@@ -1,4 +1,4 @@
-import type { OverlayLayer, Rect } from '../overlay/types';
+import type { OverlayLayer, Rect } from '../../overlay/types';
 
 /** Z-index constants for overlay layer ordering. */
 const Z_ANNOTATION = 0;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { MessageSquarePlus, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { useReader } from '@/hooks/use-reader';
+import { Input } from '@/components/ui/input';
 
 export const ANNOTATION_COLORS = [
   { value: 'rgba(250, 204, 21, 0.35)', bg: '#facc15' },
@@ -15,7 +16,6 @@ interface Props {
   annotations: ReturnType<typeof useReader>['annotations'];
   controller: ReturnType<typeof useReader>['controller'];
   renderScale: number;
-  margin: number;
 }
 
 function stop(e: React.SyntheticEvent): void {
@@ -23,26 +23,21 @@ function stop(e: React.SyntheticEvent): void {
   e.nativeEvent.stopImmediatePropagation();
 }
 
-export function AnnotationToolbar({
-  selection,
-  annotations,
-  controller,
-  renderScale,
-  margin,
-}: Props) {
+export function AnnotationToolbar({ selection, annotations, controller, renderScale }: Props) {
   const [showNote, setShowNote] = useState(false);
   const [note, setNote] = useState('');
   const [pickedColor, setPickedColor] = useState(ANNOTATION_COLORS[0].value as string);
 
-  if (!selection.hasSelection || selection.rects.length === 0 || !selection.text) {
+  if (!selection.hasSelection || selection.viewportRects.length === 0 || !selection.text) {
     return null;
   }
 
-  const last = selection.rects[selection.rects.length - 1];
+  const last = selection.viewportRects[selection.viewportRects.length - 1];
   if (!last) return null;
 
-  const top = (last.y + margin) * renderScale - (showNote ? 110 : 40);
-  const left = (last.x + last.width / 2 + margin) * renderScale;
+  // viewportRects already include margins — just multiply by renderScale for display
+  const top = last.y * renderScale - (showNote ? 110 : 40);
+  const left = (last.x + last.width / 2) * renderScale;
 
   const submit = (color: string, noteText?: string) => {
     if (!controller || !selection.range) return;
@@ -100,7 +95,7 @@ export function AnnotationToolbar({
 
       {showNote && (
         <div className="flex gap-1">
-          <input
+          <Input
             type="text"
             value={note}
             onChange={(e) => {
@@ -115,12 +110,13 @@ export function AnnotationToolbar({
           />
           <Button
             size="icon"
-            className="h-7 w-7"
+            className="h-8 w-8"
+            variant="outline"
             onClick={() => {
               submit(pickedColor, note);
             }}
           >
-            <Send className="h-3 w-3" />
+            <Send className="h-4 w-4" />
           </Button>
         </div>
       )}

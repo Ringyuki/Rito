@@ -21,8 +21,9 @@ export interface AnnotationRenderData {
 }
 
 /**
- * Resolve an annotation's text range into canvas-coordinate rectangles.
- * Reuses the selection geometry engine.
+ * Resolve an annotation's text range into page-content rectangles.
+ * Returns rects in the same coordinate space as the HitMap (page-content, no margins).
+ * Use a CoordinateMapper to convert to viewport-logical or screen space.
  */
 export function resolveAnnotationRects(
   annotation: Annotation,

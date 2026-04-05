@@ -1,4 +1,4 @@
-import type { InteractionMode } from './types';
+import type { InteractionMode } from '../types';
 
 export interface InteractionModeManager {
   readonly mode: InteractionMode;

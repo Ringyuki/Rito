@@ -1,7 +1,7 @@
 import type { Reader, TocEntry } from 'rito';
-import type { TypedEmitter } from '../utils/event-emitter';
-import type { TransitionEngine } from '../transition/types';
-import type { ReaderControllerEvents } from './types';
+import type { TypedEmitter } from '../../utils/event-emitter';
+import type { TransitionEngine } from '../../transition/types';
+import type { ReaderControllerEvents } from '../types';
 
 export interface NavigationDeps {
   getReader: () => Reader | null;

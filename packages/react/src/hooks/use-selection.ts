@@ -13,7 +13,10 @@ interface Rect {
 export interface SelectionState {
   readonly range: TextRange | null;
   readonly text: string;
+  /** Selection rects in spread-content space (legacy — prefer viewportRects). */
   readonly rects: readonly Rect[];
+  /** Selection rects in viewport-logical space (includes margins). */
+  readonly viewportRects: readonly Rect[];
   readonly hasSelection: boolean;
 }
 
@@ -24,11 +27,12 @@ export function useSelection(controller: ReaderController | null): SelectionStat
     range: null,
     text: '',
     rects: [],
+    viewportRects: [],
     hasSelection: false,
   });
 
-  useControllerEvent(controller, 'selectionChange', ({ range, text, rects }) => {
-    setState({ range, text, rects, hasSelection: range !== null });
+  useControllerEvent(controller, 'selectionChange', ({ range, text, rects, viewportRects }) => {
+    setState({ range, text, rects, viewportRects, hasSelection: range !== null });
   });
 
   const clear = useCallback(() => {

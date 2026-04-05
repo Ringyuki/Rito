@@ -29,7 +29,7 @@ export function AnnotationDialog({ annotation, annotations, onClose }: Props) {
       setNote(annotation.note ?? '');
       setColor(annotation.color ?? ANNOTATION_COLORS[0].value);
     }
-  }, [annotation?.id]);  
+  }, [annotation?.id]);
 
   if (!annotation) return null;
 

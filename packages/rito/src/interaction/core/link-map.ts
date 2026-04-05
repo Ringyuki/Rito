@@ -8,7 +8,10 @@ import type {
 } from '../../layout/core/types';
 import type { LinkRegion } from './types';
 
-/** Build a list of hyperlink regions from a page's layout data. */
+/**
+ * Build a list of hyperlink regions from a page's layout data.
+ * All region bounds are in **page-content** space (origin = top-left of content area, no margins).
+ */
 export function buildLinkMap(page: Page): readonly LinkRegion[] {
   const regions: LinkRegion[] = [];
   for (const block of page.content) {
@@ -17,7 +20,7 @@ export function buildLinkMap(page: Page): readonly LinkRegion[] {
   return mergeAdjacentLinks(regions);
 }
 
-/** Hit-test a point against link regions. Returns the matched region or undefined. */
+/** Hit-test a point (in page-content space) against link regions. Returns the matched region or undefined. */
 export function hitTestLink(
   regions: readonly LinkRegion[],
   x: number,

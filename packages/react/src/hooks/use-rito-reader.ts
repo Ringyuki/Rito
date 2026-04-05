@@ -7,11 +7,10 @@ import {
   type ReaderController,
   type TransitionOptions,
 } from '@rito/kit';
+import { useControllerActions } from './use-controller-actions';
 
 export interface UseRitoReaderOptions {
-  /** Reader options passed to createReader(). */
   readonly reader: ReaderOptions;
-  /** Controller options passed to createController(). */
   readonly controller?: ControllerOptions | undefined;
 }
 
@@ -28,7 +27,6 @@ export interface RitoReaderState {
 }
 
 export interface RitoReaderActions {
-  /** Load an EPUB from an ArrayBuffer. Disposes any previous reader. */
   readonly load: (data: ArrayBuffer) => Promise<void>;
   readonly nextSpread: () => void;
   readonly prevSpread: () => void;
@@ -80,7 +78,6 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
   optionsRef.current = options;
   const [state, setState] = useState(INITIAL);
 
-  // Cleanup on unmount
   useEffect(
     () => () => {
       ctrlRef.current?.dispose();
@@ -89,26 +86,17 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
     [],
   );
 
-  // Load
   const load = useCallback(async (data: ArrayBuffer) => {
     const opts = optionsRef.current;
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
       ctrlRef.current?.dispose();
       readerRef.current?.dispose();
-
       const reader = await createReader(data, canvasRef.current, opts.reader);
       readerRef.current = reader;
-
-      // Forward margin/spreadGap from reader options so the user doesn't have to pass them twice
-      const ctrl = createController(reader, canvasRef.current, {
-        ...opts.controller,
-        margin: opts.controller?.margin ?? opts.reader.margin,
-        spreadGap: opts.controller?.spreadGap ?? opts.reader.spreadGap,
-      });
+      const ctrl = createController(reader, canvasRef.current, opts.controller);
       ctrlRef.current = ctrl;
       subscribeEvents(ctrl, setState);
-
       setState({
         isLoaded: true,
         isLoading: false,
@@ -128,55 +116,9 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
     }
   }, []);
 
-  // Actions — stable callbacks that delegate to current controller
-  const nextSpread = useCallback(() => {
-    ctrlRef.current?.nextSpread();
-  }, []);
-  const prevSpread = useCallback(() => {
-    ctrlRef.current?.prevSpread();
-  }, []);
-  const goToSpread = useCallback((i: number) => {
-    ctrlRef.current?.goToSpread(i);
-  }, []);
-  const navigateToTocEntry = useCallback((e: TocEntry) => {
-    ctrlRef.current?.navigateToTocEntry(e);
-  }, []);
-  const resize = useCallback((w: number, h: number) => {
-    ctrlRef.current?.resize(w, h);
-  }, []);
-  const setRenderScale = useCallback((s: number) => {
-    ctrlRef.current?.setRenderScale(s);
-  }, []);
-  const setSpreadMode = useCallback((m: 'single' | 'double') => {
-    ctrlRef.current?.setSpreadMode(m);
-  }, []);
-  const setTheme = useCallback((o: { backgroundColor?: string; foregroundColor?: string }) => {
-    ctrlRef.current?.setTheme(o);
-  }, []);
-  const setTypography = useCallback(
-    (o: { fontSize?: number; lineHeight?: number; fontFamily?: string }) =>
-      ctrlRef.current?.setTypography(o) ?? false,
-    [],
-  );
-  const configureTransition = useCallback((o: Partial<TransitionOptions>) => {
-    ctrlRef.current?.configureTransition(o);
-  }, []);
+  const actions = useControllerActions(ctrlRef);
 
-  return {
-    controller: ctrlRef.current,
-    ...state,
-    load,
-    nextSpread,
-    prevSpread,
-    goToSpread,
-    navigateToTocEntry,
-    resize,
-    setRenderScale,
-    setSpreadMode,
-    setTheme,
-    setTypography,
-    configureTransition,
-  };
+  return { controller: ctrlRef.current, ...state, load, ...actions };
 }
 
 function subscribeEvents(

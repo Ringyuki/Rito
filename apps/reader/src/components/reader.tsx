@@ -47,7 +47,6 @@ export function Reader({ containerRef, reader }: ReaderProps) {
         annotations={reader.annotations}
         controller={reader.controller}
         renderScale={reader.fontScale}
-        margin={50}
       />
 
       <AnnotationTooltip hover={reader.annotations.hover} />
