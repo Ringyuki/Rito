@@ -19,9 +19,15 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter rito build
-      - run: pnpm run typecheck
-      - run: pnpm run lint
-      - run: pnpm run format:check
-      - run: pnpm run test
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Build Reader Dependency Packages
+        run: pnpm --filter @rito/reader^... build
+      - name: Typecheck
+        run: pnpm run typecheck
+      - name: Lint
+        run: pnpm run lint
+      - name: Check Formatting
+        run: pnpm run format:check
+      - name: Test
+        run: pnpm run test
