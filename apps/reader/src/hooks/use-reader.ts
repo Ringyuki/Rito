@@ -75,9 +75,12 @@ export function useReader(
   );
 
   const loadDemo = useCallback(async () => {
-    const resp = await fetch(demoEpubUrl);
-    if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
-    await rito.load(await resp.arrayBuffer());
+    await rito.load(
+      fetch(demoEpubUrl).then(async (resp) => {
+        if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
+        return resp.arrayBuffer();
+      }),
+    );
   }, [rito]);
 
   const toggleSpreadMode = useCallback(() => {

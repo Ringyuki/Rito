@@ -27,7 +27,7 @@ export interface RitoReaderState {
 }
 
 export interface RitoReaderActions {
-  readonly load: (data: ArrayBuffer) => Promise<void>;
+  readonly load: (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => Promise<void>;
   readonly nextSpread: () => void;
   readonly prevSpread: () => void;
   readonly goToSpread: (index: number) => void;
@@ -86,13 +86,14 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
     [],
   );
 
-  const load = useCallback(async (data: ArrayBuffer) => {
+  const load = useCallback(async (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => {
     const opts = optionsRef.current;
     setState((s) => ({ ...s, isLoading: true, error: null }));
     try {
+      const resolvedData = await data;
       ctrlRef.current?.dispose();
       readerRef.current?.dispose();
-      const reader = await createReader(data, canvasRef.current, opts.reader);
+      const reader = await createReader(resolvedData, canvasRef.current, opts.reader);
       readerRef.current = reader;
       const ctrl = createController(reader, canvasRef.current, opts.controller);
       ctrlRef.current = ctrl;
