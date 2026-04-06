@@ -151,8 +151,8 @@ describe('title page diagnostic', () => {
     expect(thirdP).toBeDefined();
     if (!thirdP) return;
     expect(thirdP.style.fontSize).toBeCloseTo(27.2);
-    // margin: 0.15em inline → resolved against PARENT fontSize=16 (CSS spec)
-    expect(thirdP.style.marginTop).toBeCloseTo(2.4);
+    // margin: 0.15em inline → resolved against element's own fontSize=27.2 (CSS spec)
+    expect(thirdP.style.marginTop).toBeCloseTo(27.2 * 0.15);
     expect(thirdP.style.marginBottom).toBe(0);
   });
 
@@ -161,8 +161,8 @@ describe('title page diagnostic', () => {
     expect(volP).toBeDefined();
     if (!volP) return;
     expect(volP.style.fontSize).toBeCloseTo(41.6);
-    // margin: 0.3em inline → resolved against PARENT fontSize=16
-    expect(volP.style.marginTop).toBeCloseTo(4.8);
+    // margin: 0.3em inline → resolved against element's own fontSize=41.6
+    expect(volP.style.marginTop).toBeCloseTo(41.6 * 0.3);
     expect(volP.style.marginBottom).toBe(0);
     expect(volP.style.color).toBe('#716F71');
   });
@@ -172,9 +172,9 @@ describe('title page diagnostic', () => {
     expect(authorLabel).toBeDefined();
     if (!authorLabel) return;
     expect(authorLabel.style.fontSize).toBeCloseTo(12.8);
-    // margin: 3.5em inline → resolved against PARENT fontSize=16
-    expect(authorLabel.style.marginTop).toBeCloseTo(56);
-    expect(authorLabel.style.marginBottom).toBeCloseTo(2.4);
+    // margin: 3.5em inline → resolved against element's own fontSize=12.8
+    expect(authorLabel.style.marginTop).toBeCloseTo(12.8 * 3.5);
+    expect(authorLabel.style.marginBottom).toBeCloseTo(12.8 * 0.15);
   });
 
   it('resolved author name (em13, margin: 0)', () => {
@@ -222,8 +222,8 @@ describe('title page diagnostic', () => {
       const third = blocks[2];
       if (!second || !third) return;
       const gap = third.bounds.y - (second.bounds.y + second.bounds.height);
-      // marginTop = 0.15em * parent(16) = 2.4, collapsed with prev marginBottom=0 → 2.4
-      expect(gap).toBeCloseTo(2.4);
+      // marginTop = 0.15em * own fontSize(27.2) = 4.08, collapsed with prev marginBottom=0
+      expect(gap).toBeCloseTo(27.2 * 0.15);
     });
 
     it('author label block has large gap from marginTop 3.5em', () => {
@@ -231,8 +231,8 @@ describe('title page diagnostic', () => {
       const authorLabel = blocks[4];
       if (!volLine || !authorLabel) return;
       const gap = authorLabel.bounds.y - (volLine.bounds.y + volLine.bounds.height);
-      // authorLabel marginTop = 3.5em * parent(16) = 56
-      expect(gap).toBeCloseTo(56);
+      // authorLabel marginTop = 3.5em * own fontSize(12.8) = 44.8
+      expect(gap).toBeCloseTo(12.8 * 3.5);
     });
 
     it('block heights are based on font-size * lineHeight', () => {

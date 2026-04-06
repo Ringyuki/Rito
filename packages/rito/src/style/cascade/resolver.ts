@@ -136,10 +136,7 @@ function applyCascade(
 ): ComputedStyle {
   let style = applyTagStyle(parentStyle, target.tag);
   style = applyRules(style, target, rules, index, ancestors);
-  // Inline em values resolve against the inherited (parent) font-size,
-  // not the element's computed font-size from class/rule overrides.
-  // This matches browser CSS behavior.
-  style = applyInlineStyle(style, inlineCss, parentStyle.fontSize);
+  style = applyInlineStyle(style, inlineCss, parentStyle.fontSize, style.fontSize);
   return style;
 }
 
@@ -198,13 +195,27 @@ function applyRules(
   return result;
 }
 
+/**
+ * Apply inline style with two-stage em resolution:
+ * - font-size in inline style resolves against parent (parentEmBasis)
+ * - all other em properties resolve against the element's own computed font-size
+ */
 function applyInlineStyle(
   style: ComputedStyle,
   inlineCss: string | undefined,
-  emBasis: number,
+  parentEmBasis: number,
+  currentFontSize: number,
 ): ComputedStyle {
   if (!inlineCss) return style;
-  const overrides = parseCssDeclarations(inlineCss, emBasis);
-  if (Object.keys(overrides).length === 0) return style;
-  return { ...style, ...overrides };
+
+  // Pass 1: parse with parent em basis to resolve font-size correctly
+  const pass1 = parseCssDeclarations(inlineCss, parentEmBasis);
+  const resolvedFontSize = pass1.fontSize ?? currentFontSize;
+
+  // Pass 2: re-parse with the resolved font-size for em-dependent properties
+  const pass2 = parseCssDeclarations(inlineCss, resolvedFontSize);
+  if (Object.keys(pass2).length === 0) return style;
+
+  // Keep font-size from pass 1 (em in font-size is relative to parent)
+  return { ...style, ...pass2, fontSize: resolvedFontSize };
 }

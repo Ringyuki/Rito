@@ -206,12 +206,19 @@ describe('browser vs Rito comparison', () => {
   }
 
   // Per-paragraph marginTop comparison
+  // Note: happy-dom resolves inline-style em values against parent font-size,
+  // but the CSS spec says they resolve against the element's own computed font-size.
+  // Rito now follows the spec, so elements with large font-size classes + em margins
+  // will diverge from happy-dom. We skip those comparisons.
   for (let i = 0; i < 8; i++) {
     it(`${labels[i] ?? `p[${String(i)}]`} marginTop matches browser`, () => {
       const bEl = browserPs[i];
       const rNode = styledPs[i];
       if (!bEl || !rNode) return;
       const bv = getBrowserValues(bEl);
+      // Skip if the element has a font-size different from parent — happy-dom's em resolution
+      // is incorrect for inline styles on these elements
+      if (Math.abs(rNode.style.fontSize - BASE) > 1) return;
       expect(rNode.style.marginTop).toBeCloseTo(bv.marginTop, 0);
     });
   }
