@@ -100,10 +100,12 @@ describe('GreedyParagraphLayouter', () => {
 
     it('handles multiple consecutive newlines', () => {
       const lines = layouter.layoutParagraph([seg('a\n\nb')], 400, 0);
-      // "a", newline, empty line (skipped), "b"
-      expect(lines).toHaveLength(2);
+      // Each \n produces its own line break: "a", empty line, "b"
+      expect(lines).toHaveLength(3);
       expect(textOf(lines[0]?.runs[0])).toBe('a');
-      expect(textOf(lines[1]?.runs[0])).toBe('b');
+      // lines[1] is the empty line (from first \n → second \n)
+      expect(lines[1]?.runs).toHaveLength(0);
+      expect(textOf(lines[2]?.runs[0])).toBe('b');
     });
   });
 

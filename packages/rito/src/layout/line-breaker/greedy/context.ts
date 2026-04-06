@@ -63,11 +63,7 @@ export function buildLineContext(
   };
 }
 
-export function consumeNewlines(text: string, pos: number, preserveWs: boolean): number {
-  if (preserveWs) {
-    return pos < text.length && text[pos] === '\n' ? pos + 1 : pos;
-  }
-
-  while (pos < text.length && text[pos] === '\n') pos++;
-  return pos;
+export function consumeNewlines(text: string, pos: number, _preserveWs: boolean): number {
+  // Consume exactly one newline (from <br>) so each <br> produces its own line break.
+  return pos < text.length && text[pos] === '\n' ? pos + 1 : pos;
 }

@@ -22,7 +22,7 @@ export function createKnuthPlassLayouter(measurer: TextMeasurer): ParagraphLayou
 
       const hasAtoms = segments.some(isInlineAtom);
       const fullText = segments.map((s) => (isInlineAtom(s) ? '\uFFFC' : s.text)).join('');
-      if (fullText.trim().length === 0 && !hasAtoms) return [];
+      if (fullText.trim().length === 0 && !fullText.includes('\n') && !hasAtoms) return [];
 
       const lineHeight = firstStyle.fontSize * firstStyle.lineHeight;
       const indent = firstStyle.textIndent;

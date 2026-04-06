@@ -21,7 +21,7 @@ export function createGreedyLayouter(measurer: TextMeasurer): ParagraphLayouter 
       if (!firstStyle) return [];
 
       const { fullText, ranges, atoms } = buildStyleRanges(segments);
-      if (fullText.trim().length === 0 && atoms.size === 0) return [];
+      if (fullText.trim().length === 0 && !fullText.includes('\n') && atoms.size === 0) return [];
 
       return layoutText(fullText, firstStyle, ranges, maxWidth, startY, measurer, atoms);
     },
