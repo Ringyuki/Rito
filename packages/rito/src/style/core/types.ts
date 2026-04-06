@@ -199,6 +199,28 @@ export interface ComputedStyle {
   readonly orphans: number;
   /** Minimum lines after a page break (CSS widows). Default 2. */
   readonly widows: number;
+  /** Box shadow list. Empty means no shadow. */
+  readonly boxShadow: readonly BoxShadow[];
+  /** Text shadow list. Empty means no shadow. */
+  readonly textShadow: readonly TextShadow[];
+}
+
+/** A single box-shadow value. */
+export interface BoxShadow {
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly blur: number;
+  readonly spread: number;
+  readonly color: string;
+  readonly inset: boolean;
+}
+
+/** A single text-shadow value. */
+export interface TextShadow {
+  readonly offsetX: number;
+  readonly offsetY: number;
+  readonly blur: number;
+  readonly color: string;
 }
 
 /** A single border edge. */

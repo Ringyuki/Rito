@@ -1,3 +1,4 @@
+import type { BoxShadow } from '../../style/core/types';
 import type { LayoutBlock } from '../../layout/core/types';
 
 export function renderBlockBackground(
@@ -7,6 +8,18 @@ export function renderBlockBackground(
   blockY: number,
   radius: number,
 ): void {
+  if (block.boxShadow && block.boxShadow.length > 0) {
+    renderBoxShadows(
+      ctx,
+      block.boxShadow,
+      blockX,
+      blockY,
+      block.bounds.width,
+      block.bounds.height,
+      radius,
+    );
+  }
+
   if (block.backgroundColor) {
     ctx.fillStyle = block.backgroundColor;
     if (radius > 0) {
@@ -114,4 +127,98 @@ function getDashPattern(style: 'solid' | 'dotted' | 'dashed', width: number): nu
   if (style === 'dotted') return [width, width];
   if (style === 'dashed') return [width * 3, width * 2];
   return [];
+}
+
+/**
+ * Render outer box-shadows using the inverse-clip technique:
+ * 1. Create a clip that excludes the box interior (evenodd)
+ * 2. Set Canvas shadow properties
+ * 3. Fill the box path → shadow renders outside, fill is clipped away
+ *
+ * This works correctly for transparent blocks, border-only blocks, and rounded corners.
+ */
+function renderBoxShadows(
+  ctx: CanvasRenderingContext2D,
+  shadows: readonly BoxShadow[],
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+): void {
+  // Render in reverse order (first in list = topmost = rendered last)
+  for (let i = shadows.length - 1; i >= 0; i--) {
+    const s = shadows[i];
+    if (!s || s.inset) continue;
+    renderSingleBoxShadow(ctx, s, x, y, w, h, radius);
+  }
+}
+
+function renderSingleBoxShadow(
+  ctx: CanvasRenderingContext2D,
+  s: BoxShadow,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+): void {
+  ctx.save();
+
+  // Inverse clip: outer rect CW + inner box CCW → only outside the box is drawable
+  const pad = s.blur * 2 + Math.abs(s.offsetX) + Math.abs(s.offsetY) + Math.max(s.spread, 0) + 50;
+  ctx.beginPath();
+  ctx.rect(x - pad, y - pad, w + pad * 2, h + pad * 2);
+  // Trace inner box path in reverse (will be subtracted by evenodd)
+  traceBoxPathCCW(ctx, x, y, w, h, radius);
+  ctx.clip('evenodd');
+
+  // Set shadow and fill the (spread-expanded) box shape → shadow appears outside
+  ctx.shadowColor = s.color;
+  ctx.shadowBlur = s.blur;
+  ctx.shadowOffsetX = s.offsetX;
+  ctx.shadowOffsetY = s.offsetY;
+  ctx.fillStyle = s.color;
+  const sp = s.spread;
+  const expandedW = w + sp * 2;
+  const expandedH = h + sp * 2;
+  if (expandedW <= 0 || expandedH <= 0) {
+    ctx.restore();
+    return;
+  }
+  const expandedR = Math.max(0, radius + sp); // clamp: negative spread can shrink radius below 0
+  if (expandedR > 0) {
+    traceRoundedRect(ctx, x - sp, y - sp, expandedW, expandedH, expandedR);
+  } else {
+    ctx.beginPath();
+    ctx.rect(x - sp, y - sp, expandedW, expandedH);
+  }
+  ctx.fill();
+
+  ctx.restore();
+}
+
+/** Trace a box path counter-clockwise (for evenodd clip subtraction). */
+function traceBoxPathCCW(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+): void {
+  if (radius > 0) {
+    const r = Math.min(radius, w / 2, h / 2);
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x, y, x, y + h, r);
+    ctx.arcTo(x, y + h, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x + w, y, r);
+    ctx.arcTo(x + w, y, x, y, r);
+  } else {
+    ctx.moveTo(x, y);
+    ctx.lineTo(x, y + h);
+    ctx.lineTo(x + w, y + h);
+    ctx.lineTo(x + w, y);
+  }
+  ctx.closePath();
 }

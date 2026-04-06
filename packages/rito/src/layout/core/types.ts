@@ -1,7 +1,7 @@
 // Layout types. No Canvas API dependency.
 
 import type { SourceRef } from '../../parser/xhtml/types';
-import type { ComputedStyle } from '../../style/core/types';
+import type { BoxShadow, ComputedStyle } from '../../style/core/types';
 
 /** Represents a rectangular region in layout space. */
 export interface Rect {
@@ -91,6 +91,8 @@ export interface LayoutBlock {
   readonly orphans?: number;
   /** Minimum lines after a page break (CSS widows). */
   readonly widows?: number;
+  /** Box shadows for the block. Render-only. */
+  readonly boxShadow?: readonly BoxShadow[];
 }
 
 /** Border edge in a layout block. */

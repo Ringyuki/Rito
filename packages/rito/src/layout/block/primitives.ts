@@ -62,6 +62,7 @@ function applyBlockDecorations(
   if (node.style.overflow === 'hidden') result = { ...result, overflow: 'hidden' };
   if (node.style.orphans !== 2) result = { ...result, orphans: node.style.orphans };
   if (node.style.widows !== 2) result = { ...result, widows: node.style.widows };
+  if (node.style.boxShadow.length > 0) result = { ...result, boxShadow: node.style.boxShadow };
   return result;
 }
 

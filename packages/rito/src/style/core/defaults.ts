@@ -118,4 +118,6 @@ export const DEFAULT_STYLE: ComputedStyle = {
   opacity: 1,
   orphans: 2,
   widows: 2,
+  boxShadow: [],
+  textShadow: [],
 };
