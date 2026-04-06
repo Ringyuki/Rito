@@ -14,12 +14,24 @@ function eventToShortcut(e: KeyboardEvent): string {
   return parts.join('+');
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) return false;
+  if (target instanceof HTMLInputElement) return true;
+  if (target instanceof HTMLTextAreaElement) return true;
+  if (target instanceof HTMLSelectElement) return true;
+  return target instanceof HTMLElement
+    ? target.isContentEditable ||
+        !!target.closest('[contenteditable]:not([contenteditable="false"])')
+    : false;
+}
+
 function createHandler(
   bindings: Map<string, () => void>,
   enabled: { value: boolean },
 ): (e: KeyboardEvent) => void {
   return (e: KeyboardEvent): void => {
     if (!enabled.value) return;
+    if (isEditableTarget(e.target)) return;
     const shortcut = eventToShortcut(e);
     const action = bindings.get(shortcut);
     if (action) {

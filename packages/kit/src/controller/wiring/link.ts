@@ -2,9 +2,26 @@ import { hitTestLink } from 'rito/advanced';
 import type { LinkRegion } from 'rito/advanced';
 import type { CoordinatorState } from '../core/coordinator-state';
 
+/** Hit-test links at a spread-content position. Shared by desktop pointer and touch tap paths. */
+export function findLinkAtPos(
+  pos: { x: number; y: number },
+  coordState: CoordinatorState,
+): LinkRegion | undefined {
+  const { mapper, linksByPage } = coordState;
+  if (!mapper) return undefined;
+
+  const resolved = mapper.spreadContentToPage(pos.x, pos.y);
+  if (!resolved) return undefined;
+
+  const regions = linksByPage.get(resolved.pageIndex);
+  if (!regions) return undefined;
+
+  return hitTestLink(regions, resolved.x, resolved.y);
+}
+
 /**
- * Link cursor and click handling — uses per-page link state + mapper for
- * correct right-page hit testing.
+ * Link cursor and click handling for desktop pointer events.
+ * Touch is excluded — link taps are handled by the unified touch handler's onTap.
  */
 export function bindLinkCursor(
   canvas: HTMLCanvasElement,
@@ -12,25 +29,14 @@ export function bindLinkCursor(
   toSpreadContent: (e: PointerEvent) => { x: number; y: number },
   onClick?: (region: LinkRegion) => void,
 ): () => void {
-  function hitTest(pos: { x: number; y: number }): LinkRegion | undefined {
-    const { mapper, linksByPage } = coordState;
-    if (!mapper) return undefined;
-
-    const resolved = mapper.spreadContentToPage(pos.x, pos.y);
-    if (!resolved) return undefined;
-
-    const regions = linksByPage.get(resolved.pageIndex);
-    if (!regions) return undefined;
-
-    return hitTestLink(regions, resolved.x, resolved.y);
-  }
-
   const onMove = (e: PointerEvent): void => {
-    canvas.style.cursor = hitTest(toSpreadContent(e)) ? 'pointer' : '';
+    if (e.pointerType === 'touch') return;
+    canvas.style.cursor = findLinkAtPos(toSpreadContent(e), coordState) ? 'pointer' : '';
   };
   const onDown = (e: PointerEvent): void => {
+    if (e.pointerType === 'touch') return; // handled by unified touch handler
     if (e.button !== 0 || !onClick) return;
-    const hit = hitTest(toSpreadContent(e));
+    const hit = findLinkAtPos(toSpreadContent(e), coordState);
     if (hit) onClick(hit);
   };
 

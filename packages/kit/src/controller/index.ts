@@ -19,7 +19,9 @@ import {
   wireSpreadRendered,
   wireUnifiedTouchHandler,
 } from './wiring/index';
-import { checkAnnotationClick } from './wiring/annotation';
+import { findAnnotationAtPos } from './wiring/annotation';
+import { findLinkAtPos } from './wiring/link';
+import { handleLinkClick } from './link-handler/index';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
 
 export type {
@@ -183,7 +185,16 @@ function wireIntegrations(
       modeManager,
       touchToContent,
       (pos) => {
-        checkAnnotationClick(pos, wiringDeps);
+        // Annotation takes priority over link
+        const ann = findAnnotationAtPos(pos, wiringDeps);
+        if (ann) {
+          emitter.emit('annotationClick', { annotation: ann });
+          return;
+        }
+        const link = findLinkAtPos(pos, coordState);
+        if (link) {
+          handleLinkClick(link, reader, wiringDeps.setCurrentSpread, emitter);
+        }
       },
       disposables,
     );
