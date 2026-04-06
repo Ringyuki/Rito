@@ -1,56 +1,53 @@
 /**
  * Build an AnnotationTarget from the current selection state.
- * Maps TextRange positions to HitEntry sourceRefs, then uses
+ * Maps page-aware endpoints to HitEntry sourceRefs, then uses
  * createAnnotationTarget from rito/annotations.
  */
 
 import type { AnnotationTarget } from 'rito/annotations';
 import { createAnnotationTarget } from 'rito/annotations';
-import type { HitEntry, HitMap, TextRange } from 'rito/advanced';
+import type { HitEntry, HitMap } from 'rito/advanced';
+import type { SelectionSnapshot } from 'rito/selection';
 import type { Internals } from '../core/internals';
 
 /**
- * Build an AnnotationTarget from a selection range on a specific page.
- * Returns undefined if sourceRefs are not available or the chapter index
- * cannot be resolved.
+ * Build an AnnotationTarget from a SelectionSnapshot.
+ * Each endpoint is resolved against its own page's HitMap,
+ * supporting both same-page and cross-page (same-chapter) selections.
+ * Returns undefined if the selection spans multiple chapters or sourceRefs are unavailable.
  */
-export function buildAnnotationTargetFromSelection(
-  pageIndex: number,
-  range: TextRange,
+export function buildAnnotationTargetFromSnapshot(
+  snapshot: SelectionSnapshot,
   internals: Internals,
 ): AnnotationTarget | undefined {
-  const hitMap = internals.coordState.hitMaps.get(pageIndex);
-  if (!hitMap) return undefined;
+  const { start, end } = snapshot;
 
-  // Find HitEntries for the start and end of the selection
-  const startEntry = findHitEntry(hitMap, range.start);
-  const endEntry = findHitEntry(hitMap, range.end);
+  // Resolve HitEntries from each endpoint's own page HitMap
+  const startHitMap = internals.coordState.hitMaps.get(start.pageIndex);
+  const endHitMap = internals.coordState.hitMaps.get(end.pageIndex);
+  if (!startHitMap || !endHitMap) return undefined;
+
+  const startEntry = findHitEntry(startHitMap, start.position);
+  const endEntry = findHitEntry(endHitMap, end.position);
   if (!startEntry || !endEntry) return undefined;
   if (!startEntry.sourceRef || !endEntry.sourceRef) return undefined;
 
-  // Find which chapter this page belongs to
-  const href = findChapterHref(pageIndex, internals);
-  if (!href) return undefined;
+  // Both endpoints must be in the same chapter
+  const startHref = findChapterHref(start.pageIndex, internals);
+  const endHref = findChapterHref(end.pageIndex, internals);
+  if (!startHref || !endHref || startHref !== endHref) return undefined;
 
-  // Get or build the chapter text index
-  const chapterIndex = internals.coordState.chapterIndices.get(href);
+  const chapterIndex = internals.coordState.chapterIndices.get(startHref);
   if (!chapterIndex) return undefined;
 
-  // Find the chapter's spine index
-  const spineIndex = findSpineIndex(href, internals);
-
-  // Get the selected text
+  const spineIndex = findSpineIndex(startHref, internals);
   const selectedText = internals.engines.selection.getText();
 
-  // Compute the actual character offset within the source text node.
-  // range.start.charIndex is the offset within the run's text, but the run
-  // may start partway through the source text node. sourceTextOffset tells
-  // us where the run starts within the source text node.
-  const startCharOffset = range.start.charIndex + (startEntry.sourceTextOffset ?? 0);
-  const endCharOffset = range.end.charIndex + (endEntry.sourceTextOffset ?? 0);
+  const startCharOffset = start.position.charIndex + (startEntry.sourceTextOffset ?? 0);
+  const endCharOffset = end.position.charIndex + (endEntry.sourceTextOffset ?? 0);
 
   return createAnnotationTarget({
-    href,
+    href: startHref,
     startEntry,
     startCharOffset,
     endEntry,

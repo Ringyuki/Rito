@@ -1,7 +1,7 @@
 import type { AnnotationRecord, AnnotationRecordPatch } from 'rito/annotations';
 import type { AddAnnotationInput } from '../types';
 import type { Internals, AnnotationActionsSlice } from './types';
-import { buildAnnotationTargetFromSelection } from '../annotation-resolution/target-builder';
+import { buildAnnotationTargetFromSnapshot } from '../annotation-resolution/target-builder';
 
 export function buildAnnotationActions(internals: Internals): AnnotationActionsSlice {
   return {
@@ -30,11 +30,10 @@ function addAnnotationImpl(
   const store = internals.coordState.annotationStore;
   if (!store) return undefined;
 
-  const selectionRange = internals.engines.selection.getSelection();
-  if (!selectionRange) return undefined;
+  const snapshot = internals.engines.selection.getSnapshot();
+  if (!snapshot) return undefined;
 
-  const pageIndex = resolveSelectionPageIndex(internals);
-  const target = buildAnnotationTargetFromSelection(pageIndex, selectionRange, internals);
+  const target = buildAnnotationTargetFromSnapshot(snapshot, internals);
   if (!target) return undefined;
 
   const record = store.add({
@@ -65,25 +64,4 @@ function updateAnnotationImpl(
   const ok = store.update(id, patch);
   if (ok) void store.persist();
   return ok;
-}
-
-// ── Annotation helpers ───────────────────────────────────────────────
-
-/** Determine which page the current selection is on via the CoordinateMapper. */
-function resolveSelectionPageIndex(internals: Internals): number {
-  const spread = internals.reader.spreads[internals.currentSpread];
-  if (!spread) return 0;
-  if (!spread.right) return spread.left?.index ?? 0;
-
-  const rects = internals.engines.selection.getRects();
-  if (rects.length === 0) return spread.left?.index ?? 0;
-
-  const firstRect = rects[0];
-  if (!firstRect) return spread.left?.index ?? 0;
-
-  const { mapper } = internals.coordState;
-  if (!mapper) return spread.left?.index ?? 0;
-
-  const resolved = mapper.spreadContentToPage(firstRect.x, firstRect.y);
-  return resolved?.pageIndex ?? spread.left?.index ?? 0;
 }
