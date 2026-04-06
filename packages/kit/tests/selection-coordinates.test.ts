@@ -136,6 +136,114 @@ describe('Selection engine coordinate behavior', () => {
     });
   });
 
+  describe('focusRect caret semantics', () => {
+    const config = createLayoutConfig({
+      width: 300,
+      height: 400,
+      margin: 0,
+      spread: 'single',
+    });
+
+    function setupEngine() {
+      const page = makePage(
+        [
+          makeBlock([
+            makeLine([makeRun('Hello world this is', 0)], 0),
+            makeLine([makeRun('a second line here', 0)], 25),
+          ]),
+        ],
+        0,
+      );
+      const spread: Spread = { index: 0, left: page };
+      const engine = createSelectionEngine();
+      engine.setSpread(spread, config, measurer);
+      return engine;
+    }
+
+    it('forward selection: focus caret is at right edge of last rect', () => {
+      const engine = setupEngine();
+      // Select "Hello" (x:0 → x:50, 5 chars × 10px)
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      const rects = engine.getRects();
+      const snap = engine.getSnapshot();
+      expect(rects.length).toBeGreaterThan(0);
+      expect(snap).toBeDefined();
+      if (!snap || rects.length === 0) return;
+
+      // Forward: anchor === start
+      expect(snap.anchor).toBe(snap.start);
+      const lastRect = rects[rects.length - 1];
+      if (!lastRect) return;
+      // The focus caret should be at the right edge
+      const focusX = lastRect.x + lastRect.width;
+      expect(focusX).toBeCloseTo(50, 0); // 5 chars × 10px
+    });
+
+    it('reverse selection: focus caret is at left edge of first rect', () => {
+      const engine = setupEngine();
+      // Reverse: drag from char 10 back to char 5
+      engine.handlePointerDown({ x: 100, y: 10 }); // char 10
+      engine.handlePointerMove({ x: 50, y: 10 }); // char 5
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      const rects = engine.getRects();
+      const snap = engine.getSnapshot();
+      expect(rects.length).toBeGreaterThan(0);
+      expect(snap).toBeDefined();
+      if (!snap || rects.length === 0) return;
+
+      // Reverse: anchor === end (anchor was at char 10, which is later)
+      expect(snap.anchor).toBe(snap.end);
+      const firstRect = rects[0];
+      if (!firstRect) return;
+      // The focus caret should be at the left edge
+      expect(firstRect.x).toBeCloseTo(50, 0); // char 5 × 10px
+    });
+
+    it('multi-line forward: focus caret at right edge of last line rect', () => {
+      const engine = setupEngine();
+      // Select from first line to middle of second line
+      engine.handlePointerDown({ x: 0, y: 10 }); // line 0, char 0
+      engine.handlePointerMove({ x: 60, y: 30 }); // line 1, char 6
+      engine.handlePointerUp({ x: 60, y: 30 });
+
+      const rects = engine.getRects();
+      expect(rects.length).toBeGreaterThan(1); // should span 2 lines
+
+      const snap = engine.getSnapshot();
+      if (!snap) return;
+      expect(snap.anchor).toBe(snap.start); // forward
+
+      const lastRect = rects[rects.length - 1];
+      if (!lastRect) return;
+      // Focus caret on second line, right edge ≈ 60px
+      expect(lastRect.x + lastRect.width).toBeCloseTo(60, 0);
+    });
+
+    it('multi-line reverse: focus caret at left edge of first line rect', () => {
+      const engine = setupEngine();
+      // Reverse: from second line back to first line
+      engine.handlePointerDown({ x: 60, y: 30 }); // line 1, char 6
+      engine.handlePointerMove({ x: 50, y: 10 }); // line 0, char 5
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      const rects = engine.getRects();
+      expect(rects.length).toBeGreaterThan(1);
+
+      const snap = engine.getSnapshot();
+      if (!snap) return;
+      expect(snap.anchor).toBe(snap.end); // reverse
+
+      const firstRect = rects[0];
+      if (!firstRect) return;
+      // Focus caret on first line, left edge ≈ 50px
+      expect(firstRect.x).toBeCloseTo(50, 0);
+    });
+  });
+
   describe('selection rects are in spread-content, NOT viewport-logical', () => {
     it('rects do not include margin offset', () => {
       const config = createLayoutConfig({

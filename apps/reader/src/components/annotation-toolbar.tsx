@@ -34,9 +34,9 @@ export function AnnotationToolbar({ selection, annotations, controller, renderSc
 
   const anchor = selection.focusRect;
 
-  // focusRect is in viewport-logical space — multiply by renderScale for display
-  const top = anchor.y * renderScale - (showNote ? 110 : 40);
-  const left = (anchor.x + anchor.width / 2) * renderScale;
+  // focusRect is a zero-width caret at the exact focus endpoint — multiply by renderScale
+  const top = anchor.y * renderScale - (showNote ? 110 : 60);
+  const left = anchor.x * renderScale;
 
   const submit = (color: string, noteText?: string) => {
     if (!controller || !selection.range) return;

@@ -16,7 +16,8 @@ export { resolveSourceRangeToSegments } from './interaction/annotations';
 
 // anchor types for target creation and resolution
 export { createAnnotationTarget } from './interaction/anchors/create';
-export type { CreateTargetInput } from './interaction/anchors/create';
+export type { CreateTargetFromOffsetsInput } from './interaction/anchors/create';
+export { sourcePointToOffset, offsetToSourcePoint } from './interaction/anchors/source-point';
 export { buildChapterTextIndex } from './interaction/anchors/chapter-text-index';
 export type { ChapterTextIndex, ChapterTextSpan } from './interaction/anchors/chapter-text-index';
 export type {

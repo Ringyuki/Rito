@@ -1,20 +1,22 @@
 /**
  * Build an AnnotationTarget from the current selection state.
- * Maps page-aware endpoints to HitEntry sourceRefs, then uses
- * createAnnotationTarget from rito/annotations.
+ *
+ * Responsibility: resolve selection endpoints → normalized chapter offsets.
+ * The actual target construction is delegated to createAnnotationTarget()
+ * which only accepts canonical chapter-level offsets.
  */
 
 import type { AnnotationTarget } from 'rito/annotations';
-import { createAnnotationTarget } from 'rito/annotations';
+import { createAnnotationTarget, sourcePointToOffset } from 'rito/annotations';
 import type { HitEntry, HitMap } from 'rito/advanced';
 import type { SelectionSnapshot } from 'rito/selection';
+import type { SourceRef } from 'rito/advanced';
 import type { Internals } from '../core/internals';
 
 /**
  * Build an AnnotationTarget from a SelectionSnapshot.
- * Each endpoint is resolved against its own page's HitMap,
- * supporting both same-page and cross-page (same-chapter) selections.
- * Returns undefined if the selection spans multiple chapters or sourceRefs are unavailable.
+ * Each endpoint is resolved against its own page's HitMap, then converted
+ * to normalized chapter offsets for the canonical createAnnotationTarget() API.
  */
 export function buildAnnotationTargetFromSnapshot(
   snapshot: SelectionSnapshot,
@@ -30,7 +32,10 @@ export function buildAnnotationTargetFromSnapshot(
   const startEntry = findHitEntry(startHitMap, start.position);
   const endEntry = findHitEntry(endHitMap, end.position);
   if (!startEntry || !endEntry) return undefined;
-  if (!startEntry.sourceRef || !endEntry.sourceRef) return undefined;
+
+  const startSourceRef = startEntry.sourceRef;
+  const endSourceRef = endEntry.sourceRef;
+  if (!startSourceRef || !endSourceRef) return undefined;
 
   // Both endpoints must be in the same chapter
   const startHref = findChapterHref(start.pageIndex, internals);
@@ -40,21 +45,40 @@ export function buildAnnotationTargetFromSnapshot(
   const chapterIndex = internals.coordState.chapterIndices.get(startHref);
   if (!chapterIndex) return undefined;
 
-  const spineIndex = findSpineIndex(startHref, internals);
-  const selectedText = internals.engines.selection.getText();
-
-  const startCharOffset = start.position.charIndex + (startEntry.sourceTextOffset ?? 0);
-  const endCharOffset = end.position.charIndex + (endEntry.sourceTextOffset ?? 0);
+  // Convert HitEntry endpoints → normalized chapter offsets
+  const startOffset = resolveEntryOffset(
+    startSourceRef,
+    start.position.charIndex,
+    startEntry,
+    chapterIndex,
+  );
+  const endOffset = resolveEntryOffset(
+    endSourceRef,
+    end.position.charIndex,
+    endEntry,
+    chapterIndex,
+  );
+  if (startOffset === undefined || endOffset === undefined) return undefined;
 
   return createAnnotationTarget({
     href: startHref,
-    startEntry,
-    startCharOffset,
-    endEntry,
-    endCharOffset,
     chapterIndex,
-    chapterSpineIndex: spineIndex,
-    selectedText,
+    chapterSpineIndex: findSpineIndex(startHref, internals),
+    startOffset,
+    endOffset,
+  });
+}
+
+/** Resolve a HitEntry + charIndex to a normalized chapter offset. */
+function resolveEntryOffset(
+  sourceRef: SourceRef,
+  charIndex: number,
+  entry: HitEntry,
+  chapterIndex: Parameters<typeof sourcePointToOffset>[0],
+): number | undefined {
+  return sourcePointToOffset(chapterIndex, {
+    nodePath: sourceRef.nodePath,
+    textOffset: charIndex + (entry.sourceTextOffset ?? 0),
   });
 }
 

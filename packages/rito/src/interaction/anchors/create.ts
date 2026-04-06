@@ -1,48 +1,51 @@
 /**
- * Create an AnnotationTarget from a selection in the current layout.
+ * Create an AnnotationTarget from normalized chapter-level offsets.
+ *
+ * This is the canonical way to build an annotation target. All selectors
+ * (SourceRange, TextQuote, TextPosition, Progression) are derived from
+ * the same pair of normalized offsets, guaranteeing internal consistency.
  */
 
-import type { HitEntry } from '../core/types';
-import type { AnnotationTarget } from './model';
+import type { AnnotationTarget, LocatorTextContext, SourceRangeSelector } from './model';
 import type { ChapterTextIndex } from './chapter-text-index';
-import { sourcePointToOffset } from './source-point';
+import { offsetToSourcePoint } from './source-point';
 import { createTextQuoteSelector } from './quote-match';
 import { createTextPositionSelector } from './text-position';
 import { createProgressionSelector } from './progression';
-import type { LocatorTextContext, SourcePoint, SourceRangeSelector } from './model';
 
-export interface CreateTargetInput {
-  /** Chapter href this selection belongs to. */
+export interface CreateTargetFromOffsetsInput {
+  /** Chapter href this annotation belongs to. */
   readonly href: string;
-  /** HitEntry at the selection start. */
-  readonly startEntry: HitEntry;
-  /** Character offset within startEntry. */
-  readonly startCharOffset: number;
-  /** HitEntry at the selection end. */
-  readonly endEntry: HitEntry;
-  /** Character offset within endEntry. */
-  readonly endCharOffset: number;
   /** Pre-built chapter text index. */
   readonly chapterIndex: ChapterTextIndex;
   /** Chapter position in spine order (0-based). */
   readonly chapterSpineIndex: number;
-  /** The selected text. */
-  readonly selectedText: string;
+  /** Start offset in the chapter's normalized text. */
+  readonly startOffset: number;
+  /** End offset in the chapter's normalized text. */
+  readonly endOffset: number;
 }
 
-export function createAnnotationTarget(input: CreateTargetInput): AnnotationTarget | undefined {
-  const startSourceRef = input.startEntry.sourceRef;
-  const endSourceRef = input.endEntry.sourceRef;
-  if (!startSourceRef || !endSourceRef) return undefined;
+/**
+ * Build an AnnotationTarget from normalized chapter offsets.
+ * Internally normalizes start/end (min/max), so callers don't need to guarantee order.
+ * Returns undefined if the range is empty or offsets can't be mapped to source points.
+ */
+export function createAnnotationTarget(
+  input: CreateTargetFromOffsetsInput,
+): AnnotationTarget | undefined {
+  // Normalize — always ensure start <= end
+  const lo = Math.min(input.startOffset, input.endOffset);
+  const hi = Math.max(input.startOffset, input.endOffset);
+  if (lo === hi) return undefined; // empty range
 
-  const startPoint: SourcePoint = {
-    nodePath: startSourceRef.nodePath,
-    textOffset: input.startCharOffset,
-  };
-  const endPoint: SourcePoint = {
-    nodePath: endSourceRef.nodePath,
-    textOffset: input.endCharOffset,
-  };
+  const { chapterIndex, href, chapterSpineIndex } = input;
+  const { normalizedText } = chapterIndex;
+
+  // Derive SourcePoints from offsets
+  const startPoint = offsetToSourcePoint(chapterIndex, lo);
+  const endPoint = offsetToSourcePoint(chapterIndex, hi);
+  if (!startPoint || !endPoint) return undefined;
 
   const sourceRange: SourceRangeSelector = {
     type: 'SourceRangeSelector',
@@ -50,37 +53,25 @@ export function createAnnotationTarget(input: CreateTargetInput): AnnotationTarg
     end: endPoint,
   };
 
-  // Resolve normalized offsets for other selectors
-  const startOffset = sourcePointToOffset(input.chapterIndex, startPoint);
-  const endOffset = sourcePointToOffset(input.chapterIndex, endPoint);
-  if (startOffset === undefined || endOffset === undefined) return undefined;
+  const textQuote = createTextQuoteSelector(chapterIndex, lo, hi);
+  const textPosition = createTextPositionSelector(lo, hi);
+  const progression = createProgressionSelector(chapterSpineIndex, lo, normalizedText.length);
 
-  const textQuote = createTextQuoteSelector(input.chapterIndex, startOffset, endOffset);
-  const textPosition = createTextPositionSelector(startOffset, endOffset);
-  const progression = createProgressionSelector(
-    input.chapterSpineIndex,
-    startOffset,
-    input.chapterIndex.normalizedText.length,
-  );
-
-  // Extract text context
-  const normalizedText = input.chapterIndex.normalizedText;
-  const text: LocatorTextContext = { highlight: input.selectedText };
-  if (startOffset > 0) {
-    (text as { before: string }).before = normalizedText.slice(
-      Math.max(0, startOffset - 32),
-      startOffset,
-    );
+  // Derive text context from the canonical source
+  const highlight = normalizedText.slice(lo, hi);
+  const text: LocatorTextContext = { highlight };
+  if (lo > 0) {
+    (text as { before: string }).before = normalizedText.slice(Math.max(0, lo - 32), lo);
   }
-  if (endOffset < normalizedText.length) {
+  if (hi < normalizedText.length) {
     (text as { after: string }).after = normalizedText.slice(
-      endOffset,
-      Math.min(normalizedText.length, endOffset + 32),
+      hi,
+      Math.min(normalizedText.length, hi + 32),
     );
   }
 
   return {
-    href: input.href,
+    href,
     selectors: { sourceRange, textQuote, textPosition, progression },
     text,
   };

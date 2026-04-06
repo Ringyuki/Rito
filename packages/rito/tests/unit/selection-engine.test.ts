@@ -259,6 +259,119 @@ describe('SelectionEngine', () => {
     });
   });
 
+  describe('reverse selection (regression)', () => {
+    it('getSelection() returns normalized range for reverse same-line drag', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 100, y: 10 });
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+      const range = engine.getSelection();
+      expect(range).toBeDefined();
+      if (range) expect(range.start.charIndex).toBeLessThanOrEqual(range.end.charIndex);
+    });
+
+    it('getSelection() returns normalized range for reverse multi-line drag', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 50, y: 30 });
+      engine.handlePointerMove({ x: 20, y: 10 });
+      engine.handlePointerUp({ x: 20, y: 10 });
+      const range = engine.getSelection();
+      expect(range).toBeDefined();
+      if (range) expect(range.start.lineIndex).toBeLessThanOrEqual(range.end.lineIndex);
+    });
+
+    it('getRects() produces rects for reverse selection', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 100, y: 10 });
+      engine.handlePointerMove({ x: 0, y: 10 });
+      engine.handlePointerUp({ x: 0, y: 10 });
+      expect(engine.getRects().length).toBeGreaterThan(0);
+    });
+
+    it('getText() returns correct text for reverse selection', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 50, y: 10 });
+      engine.handlePointerMove({ x: 0, y: 10 });
+      engine.handlePointerUp({ x: 0, y: 10 });
+      expect(engine.getText()).toBe('Hello');
+    });
+  });
+
+  describe('SelectionSnapshot', () => {
+    it('getSnapshot() returns null when no selection', () => {
+      const engine = createSelectionEngine();
+      expect(engine.getSnapshot()).toBeNull();
+    });
+
+    it('forward selection: anchor === start, focus === end', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+      const snap = engine.getSnapshot();
+      expect(snap).toBeDefined();
+      if (snap) {
+        expect(snap.anchor).toBe(snap.start);
+        expect(snap.focus).toBe(snap.end);
+      }
+    });
+
+    it('reverse selection: anchor === end, focus === start', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 50, y: 10 });
+      engine.handlePointerMove({ x: 0, y: 10 });
+      engine.handlePointerUp({ x: 0, y: 10 });
+      const snap = engine.getSnapshot();
+      expect(snap).toBeDefined();
+      if (snap) {
+        expect(snap.anchor).toBe(snap.end);
+        expect(snap.focus).toBe(snap.start);
+      }
+    });
+
+    it('cross-page selection: start on earlier page, end on later page', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(doubleSpread(), doubleConfig, measurer);
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 400, y: 10 });
+      engine.handlePointerUp({ x: 400, y: 10 });
+      const snap = engine.getSnapshot();
+      expect(snap).toBeDefined();
+      if (snap) expect(snap.start.pageIndex).toBeLessThan(snap.end.pageIndex);
+    });
+
+    it('reverse cross-page selection: anchor on later page, focus on earlier', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(doubleSpread(), doubleConfig, measurer);
+      engine.handlePointerDown({ x: 400, y: 10 });
+      engine.handlePointerMove({ x: 0, y: 10 });
+      engine.handlePointerUp({ x: 0, y: 10 });
+      const snap = engine.getSnapshot();
+      expect(snap).toBeDefined();
+      if (snap) {
+        expect(snap.start.pageIndex).toBeLessThan(snap.end.pageIndex);
+        expect(snap.anchor.pageIndex).toBeGreaterThan(snap.focus.pageIndex);
+      }
+    });
+
+    it('snapshot cleared after clear()', () => {
+      const engine = createSelectionEngine();
+      engine.setSpread(singleSpread(), singleConfig, measurer);
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+      expect(engine.getSnapshot()).not.toBeNull();
+      engine.clear();
+      expect(engine.getSnapshot()).toBeNull();
+    });
+  });
+
   describe('edge cases', () => {
     it('ignores pointer events before setSpread', () => {
       const engine = createSelectionEngine();

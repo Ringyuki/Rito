@@ -20,4 +20,4 @@ export { sourcePointToOffset, offsetToSourcePoint } from './source-point';
 export { createTextQuoteSelector, resolveTextQuoteSelector } from './quote-match';
 export { createTextPositionSelector, resolveTextPositionSelector } from './text-position';
 export { createProgressionSelector, resolveProgressionSelector } from './progression';
-export { createAnnotationTarget, type CreateTargetInput } from './create';
+export { createAnnotationTarget, type CreateTargetFromOffsetsInput } from './create';
