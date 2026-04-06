@@ -29,6 +29,10 @@ export interface LayoutConfigInput {
   readonly spreadGap?: number;
   /** Root font size in px, used to resolve rem units. Defaults to 16. */
   readonly rootFontSize?: number;
+  /** Global line-height multiplier override. Overrides CSS on body. */
+  readonly lineHeightOverride?: number;
+  /** Global font-family override. Overrides CSS on body. */
+  readonly fontFamilyOverride?: string;
 }
 
 /**
@@ -76,6 +80,12 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
     firstPageAlone: input.firstPageAlone ?? true,
     spreadGap: gap,
     rootFontSize: input.rootFontSize ?? 16,
+    ...(input.lineHeightOverride !== undefined
+      ? { lineHeightOverride: input.lineHeightOverride }
+      : {}),
+    ...(input.fontFamilyOverride !== undefined
+      ? { fontFamilyOverride: input.fontFamilyOverride }
+      : {}),
   };
 }
 

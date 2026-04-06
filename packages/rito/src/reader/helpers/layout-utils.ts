@@ -7,6 +7,8 @@ export function makeLayoutConfig(
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
   rootFontSize?: number,
+  lineHeightOverride?: number,
+  fontFamilyOverride?: string,
 ): LayoutConfig {
   return createLayoutConfig({
     width: options.width,
@@ -15,6 +17,8 @@ export function makeLayoutConfig(
     spread: spreadMode,
     spreadGap: options.spreadGap ?? 20,
     ...(rootFontSize !== undefined ? { rootFontSize } : {}),
+    ...(lineHeightOverride !== undefined ? { lineHeightOverride } : {}),
+    ...(fontFamilyOverride !== undefined ? { fontFamilyOverride } : {}),
   } satisfies LayoutConfigInput);
 }
 
@@ -39,6 +43,8 @@ export function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
     a.spreadMode === b.spreadMode &&
     a.firstPageAlone === b.firstPageAlone &&
     a.spreadGap === b.spreadGap &&
-    a.rootFontSize === b.rootFontSize
+    a.rootFontSize === b.rootFontSize &&
+    a.lineHeightOverride === b.lineHeightOverride &&
+    a.fontFamilyOverride === b.fontFamilyOverride
   );
 }

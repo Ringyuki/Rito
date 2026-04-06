@@ -43,6 +43,8 @@ export async function initReaderState(
     spreads: buildSpreads(resources.pages, config, getChapterStartPages(resources.chapterMap)),
     spreadRenderedListeners: new Set(),
     fontSizeOverride: undefined,
+    lineHeightOverride: undefined,
+    fontFamilyOverride: undefined,
   };
 }
 

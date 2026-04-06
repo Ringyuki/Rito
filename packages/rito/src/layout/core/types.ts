@@ -136,6 +136,10 @@ export interface LayoutConfig {
   readonly spreadGap: number;
   /** Root font size in px, used to resolve rem units. Defaults to 16. */
   readonly rootFontSize: number;
+  /** Global line-height multiplier override. When set, overrides CSS line-height on body. */
+  readonly lineHeightOverride?: number | undefined;
+  /** Global font-family override. When set, overrides CSS font-family on body. */
+  readonly fontFamilyOverride?: string | undefined;
 }
 
 /**

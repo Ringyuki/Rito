@@ -37,13 +37,22 @@ export function preparePaginationContext<T extends SizeLike>(
   lineBreaking?: 'greedy' | 'optimal',
 ): PreparedPaginationContext {
   const rules = buildRules(stylesheets);
+  let bodyStyle = computeBodyStyle(rules);
+
+  // Apply global typography overrides onto bodyStyle so they cascade via CSS inheritance
+  if (config.lineHeightOverride !== undefined) {
+    bodyStyle = { ...bodyStyle, lineHeight: config.lineHeightOverride };
+  }
+  if (config.fontFamilyOverride !== undefined) {
+    bodyStyle = { ...bodyStyle, fontFamily: config.fontFamilyOverride };
+  }
 
   return {
     contentWidth: config.pageWidth - config.marginLeft - config.marginRight,
     contentHeight: config.pageHeight - config.marginTop - config.marginBottom,
     layouter: createParagraphLayouter(measurer, lineBreaking),
     rules,
-    bodyStyle: computeBodyStyle(rules),
+    bodyStyle,
     imageSizes: images ? createImageSizeMap(images) : undefined,
   };
 }

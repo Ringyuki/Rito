@@ -60,6 +60,8 @@ function repaginate(
     { ...options, width, height },
     spreadMode,
     state.fontSizeOverride,
+    state.lineHeightOverride,
+    state.fontFamilyOverride,
   );
   state.spreadMode = spreadMode;
   if (layoutConfigEqual(state.config, newConfig)) return false;

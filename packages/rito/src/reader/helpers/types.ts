@@ -17,4 +17,8 @@ export interface ReaderState {
   spreadRenderedListeners: Set<SpreadRenderedCallback>;
   /** User font size override. When set, used as rootFontSize during repagination. */
   fontSizeOverride: number | undefined;
+  /** User line-height multiplier override. Cascades via body style. */
+  lineHeightOverride: number | undefined;
+  /** User font-family override. Cascades via body style. */
+  fontFamilyOverride: string | undefined;
 }

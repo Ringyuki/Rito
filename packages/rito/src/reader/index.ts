@@ -104,9 +104,8 @@ export interface Reader {
   /**
    * Update typography settings. Triggers re-pagination.
    * `fontSize` overrides rootFontSize (affects rem units and base size).
-   * `lineHeight` and `fontFamily` are accepted but not yet wired through
-   * the pagination pipeline — they will be implemented when style-level
-   * overrides are added.
+   * `lineHeight` overrides the body line-height multiplier (e.g. 1.5, 2.0).
+   * `fontFamily` overrides the body font-family (cascades to all elements unless CSS-overridden).
    */
   setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
 
@@ -190,6 +189,8 @@ function buildReaderMethods(
     measurer: state.assets.measurer as TextMeasurer,
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
       if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
+      if (opts.lineHeight !== undefined) state.lineHeightOverride = opts.lineHeight;
+      if (opts.fontFamily !== undefined) state.fontFamilyOverride = opts.fontFamily;
       return layoutControls.updateLayout(
         state.config.viewportWidth,
         state.config.viewportHeight,
