@@ -43,6 +43,8 @@ export interface ReaderControllerEvents {
     rects: readonly Rect[];
     /** Selection rects in viewport-logical space (includes margins, ready for overlay/UI). */
     viewportRects: readonly Rect[];
+    /** Rect of the active endpoint (focus / drag end) in viewport-logical space. Follows the user's pointer. */
+    focusRect: Rect | null;
   };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };

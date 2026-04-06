@@ -17,6 +17,8 @@ export interface SelectionState {
   readonly rects: readonly Rect[];
   /** Selection rects in viewport-logical space (includes margins). */
   readonly viewportRects: readonly Rect[];
+  /** Rect of the active endpoint (focus) in viewport-logical space. Follows the user's pointer. */
+  readonly focusRect: Rect | null;
   readonly hasSelection: boolean;
 }
 
@@ -28,12 +30,17 @@ export function useSelection(controller: ReaderController | null): SelectionStat
     text: '',
     rects: [],
     viewportRects: [],
+    focusRect: null,
     hasSelection: false,
   });
 
-  useControllerEvent(controller, 'selectionChange', ({ range, text, rects, viewportRects }) => {
-    setState({ range, text, rects, viewportRects, hasSelection: range !== null });
-  });
+  useControllerEvent(
+    controller,
+    'selectionChange',
+    ({ range, text, rects, viewportRects, focusRect }) => {
+      setState({ range, text, rects, viewportRects, focusRect, hasSelection: range !== null });
+    },
+  );
 
   const clear = useCallback(() => {
     controller?.clearSelection();

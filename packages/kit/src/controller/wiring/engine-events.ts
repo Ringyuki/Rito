@@ -13,11 +13,25 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
       const viewportRects = mapper
         ? rawRects.map((r) => mapper.spreadContentRectToViewport(r))
         : rawRects;
+
+      // focusRect: the rect at the active (focus) end of the selection.
+      // Rects are in document order, so forward selection → focus is last,
+      // backward selection → focus is first.
+      let focusRect: (typeof viewportRects)[number] | null = null;
+      if (viewportRects.length > 0) {
+        const snapshot = engines.selection.getSnapshot();
+        const isForward = !snapshot || snapshot.anchor === snapshot.start;
+        focusRect = isForward
+          ? (viewportRects[viewportRects.length - 1] ?? null)
+          : (viewportRects[0] ?? null);
+      }
+
       emitter.emit('selectionChange', {
         range,
         text: engines.selection.getText(),
         rects: rawRects,
         viewportRects,
+        focusRect,
       });
       refreshCurrentOverlay(deps);
     }),

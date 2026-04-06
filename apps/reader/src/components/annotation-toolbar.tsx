@@ -28,16 +28,15 @@ export function AnnotationToolbar({ selection, annotations, controller, renderSc
   const [note, setNote] = useState('');
   const [pickedColor, setPickedColor] = useState(ANNOTATION_COLORS[0].value as string);
 
-  if (!selection.hasSelection || selection.viewportRects.length === 0 || !selection.text) {
+  if (!selection.hasSelection || !selection.focusRect || !selection.text) {
     return null;
   }
 
-  const last = selection.viewportRects[selection.viewportRects.length - 1];
-  if (!last) return null;
+  const anchor = selection.focusRect;
 
-  // viewportRects already include margins — just multiply by renderScale for display
-  const top = last.y * renderScale - (showNote ? 110 : 40);
-  const left = (last.x + last.width / 2) * renderScale;
+  // focusRect is in viewport-logical space — multiply by renderScale for display
+  const top = anchor.y * renderScale - (showNote ? 110 : 40);
+  const left = (anchor.x + anchor.width / 2) * renderScale;
 
   const submit = (color: string, noteText?: string) => {
     if (!controller || !selection.range) return;

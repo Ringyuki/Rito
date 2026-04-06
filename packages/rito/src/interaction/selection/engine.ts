@@ -17,7 +17,8 @@ import type { LayoutConfig, Rect, Spread } from '../../layout/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import { buildHitMap, resolveCharPosition } from '../core/hit-map';
 import { getFirstTextPosition, getLastTextPosition } from '../core/text-traversal';
-import type { TextRange } from '../core/types';
+import type { TextPosition, TextRange } from '../core/types';
+import { compareTextPositions } from '../core/text-traversal';
 import { getSelectedText } from './range';
 import type { AnchoredPosition, SpreadContext } from './spread';
 import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
@@ -29,12 +30,33 @@ export interface PointerInput {
   readonly y: number;
 }
 
+/** Anchored endpoint with page awareness. */
+export interface PagedPosition {
+  readonly pageIndex: number;
+  readonly position: TextPosition;
+}
+
+/**
+ * Snapshot of the current selection with both user-intent and document-order semantics.
+ * - `anchor`/`focus`: pointer direction (where the user started / ended dragging)
+ * - `start`/`end`: document order (always start <= end)
+ */
+export interface SelectionSnapshot {
+  readonly anchor: PagedPosition;
+  readonly focus: PagedPosition;
+  readonly start: PagedPosition;
+  readonly end: PagedPosition;
+}
+
 export interface SelectionEngine {
   handlePointerDown(input: PointerInput): void;
   handlePointerMove(input: PointerInput): void;
   handlePointerUp(input: PointerInput): void;
   setSpread(spread: Spread, config: LayoutConfig, measurer: TextMeasurer): void;
+  /** Returns the selection range in document order (start <= end). */
   getSelection(): TextRange | null;
+  /** Returns a snapshot with both pointer-semantic and document-order endpoints. */
+  getSnapshot(): SelectionSnapshot | null;
   getText(): string;
   getRects(): readonly Rect[];
   getState(): SelectionState;
@@ -70,14 +92,27 @@ function createState(): EngineState {
   };
 }
 
+/** Returns the selection range in document order (start <= end). Always normalized. */
 function getRange(s: EngineState): TextRange | null {
+  const snap = getSnapshotFromState(s);
+  if (!snap) return null;
+  return { start: snap.start.position, end: snap.end.position };
+}
+
+/** Build a snapshot with both pointer-semantic (anchor/focus) and document-order (start/end) endpoints. */
+function getSnapshotFromState(s: EngineState): SelectionSnapshot | null {
   if (!s.anchor || !s.focus) return null;
-  if (s.anchor.pageIndex !== s.focus.pageIndex) {
-    const [a, b] =
-      s.anchor.pageIndex <= s.focus.pageIndex ? [s.anchor, s.focus] : [s.focus, s.anchor];
-    return { start: a.position, end: b.position };
-  }
-  return { start: s.anchor.position, end: s.focus.position };
+  const anchor: PagedPosition = { pageIndex: s.anchor.pageIndex, position: s.anchor.position };
+  const focus: PagedPosition = { pageIndex: s.focus.pageIndex, position: s.focus.position };
+
+  const anchorFirst =
+    s.anchor.pageIndex !== s.focus.pageIndex
+      ? s.anchor.pageIndex < s.focus.pageIndex
+      : compareTextPositions(s.anchor.position, s.focus.position) <= 0;
+
+  return anchorFirst
+    ? { anchor, focus, start: anchor, end: focus }
+    : { anchor, focus, start: focus, end: anchor };
 }
 
 function notify(s: EngineState): void {
@@ -155,6 +190,7 @@ function buildEngine(s: EngineState): SelectionEngine {
       engine.clear();
     },
     getSelection: () => getRange(s),
+    getSnapshot: () => getSnapshotFromState(s),
     getText: () => getTextFromState(s),
     getRects: () => getRectsFromState(s),
     getState: () => s.state,
