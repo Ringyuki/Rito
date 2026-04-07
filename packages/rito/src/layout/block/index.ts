@@ -4,7 +4,7 @@ import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import type { ListContext } from './list';
 import { FloatContext } from './float-context';
 import { layoutBlockNode, layoutFloatableImage } from './dispatch';
-import type { LayoutState } from './state';
+import { collapseMargin, type LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
 export type { ImageSizeMap } from './types';
@@ -42,7 +42,13 @@ export function layoutNodesAt(
       if (clearY > state.y) state.y = clearY;
     }
 
-    if (node.type === 'image' && node.src) {
+    if (node.type === 'text' && node.content === '\n') {
+      // Bare <br> between blocks: treat as a zero-margin anonymous block with one line of height.
+      // First settle the previous block's deferred bottom margin, then add the line gap.
+      collapseMargin(state, 0);
+      state.y += node.style.fontSize * node.style.lineHeight;
+      state.prevMarginBottom = 0;
+    } else if (node.type === 'image' && node.src) {
       layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
     } else if (node.type === 'block') {
       layoutBlockNode(

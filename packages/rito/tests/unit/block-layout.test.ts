@@ -129,6 +129,42 @@ describe('layoutBlocks', () => {
     expect(blocks[0]?.bounds.height).toBeGreaterThan(100);
   });
 
+  it('bare <br> between blocks produces correct gap including margins', () => {
+    // <p>A</p><br><p>B</p> with default p margins (top=16, bottom=16)
+    // The <br> acts as a zero-margin anonymous block that prevents margin collapse.
+    // Expected gap = p.marginBottom(16) + br lineHeight(24) + p.marginTop(16) = 56
+    const nodes: DocumentNode[] = [
+      block('p', [text('A')]),
+      { type: NODE_TYPES.Text, content: '\n' },
+      block('p', [text('B')]),
+    ];
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks).toHaveLength(2);
+    const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+    const secondTop = blocks[1]?.bounds.y ?? 0;
+    const gap = secondTop - firstBottom;
+    // Gap must include: prevMarginBottom(16) + lineHeight(24) + nextMarginTop(16) = 56
+    expect(gap).toBeCloseTo(56);
+  });
+
+  it('bare <br> between zero-margin blocks produces exactly one line height', () => {
+    const nodes: DocumentNode[] = [
+      block('p', [text('A')], { style: 'margin: 0' }),
+      { type: NODE_TYPES.Text, content: '\n' },
+      block('p', [text('B')], { style: 'margin: 0' }),
+    ];
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks).toHaveLength(2);
+    const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+    const secondTop = blocks[1]?.bounds.y ?? 0;
+    // No margins, just one line height: 16 * 1.5 = 24
+    expect(secondTop - firstBottom).toBeCloseTo(24);
+  });
+
   it('handles empty blocks', () => {
     const styled = resolveStyles([block('p', [])]);
     const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
