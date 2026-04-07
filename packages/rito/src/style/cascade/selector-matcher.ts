@@ -10,9 +10,15 @@ export interface SelectorTarget {
   readonly id?: string;
   /** All HTML attributes for attribute selector matching (e.g. [epub:type], [role]). */
   readonly attributes?: ReadonlyMap<string, string>;
+  /** The immediately preceding element sibling (for `+` combinator matching). */
+  readonly previousSibling?: SelectorTarget;
+  /** 0-based index among element siblings (for :first-child / :last-child). */
+  readonly siblingIndex?: number;
+  /** Total element sibling count in parent (for :last-child). */
+  readonly siblingCount?: number;
 }
 
-type Combinator = 'descendant' | 'child';
+type Combinator = 'descendant' | 'child' | 'adjacent-sibling';
 
 interface SelectorPart {
   compound: string;
@@ -41,9 +47,8 @@ export function matchesSelector(
   // Single-part selector: done
   if (parts.length === 1) return true;
 
-  // Multi-part: check ancestors for preceding parts
-  if (!ancestors || ancestors.length === 0) return false;
-  return matchesAncestorChain(parts.slice(0, -1), lastPart.combinator, ancestors);
+  // Multi-part: resolve the remaining chain
+  return matchesChain(parts.slice(0, -1), lastPart.combinator, target, ancestors ?? []);
 }
 
 /**
@@ -57,6 +62,8 @@ function parseSelectorParts(selector: string): SelectorPart[] {
   for (const token of tokens) {
     if (token === '>') {
       nextCombinator = 'child';
+    } else if (token === '+') {
+      nextCombinator = 'adjacent-sibling';
     } else {
       result.push({ compound: token, combinator: nextCombinator });
       nextCombinator = 'descendant';
@@ -99,12 +106,12 @@ function bracketAwareSplit(input: string): string[] {
       continue;
     }
 
-    if (ch === '>') {
+    if (ch === '>' || ch === '+') {
       if (current.trim()) {
         tokens.push(current.trim());
         current = '';
       }
-      tokens.push('>');
+      tokens.push(ch);
     } else if (ch === ' ' || ch === '\t' || ch === '\n') {
       if (current.trim()) {
         tokens.push(current.trim());
@@ -118,14 +125,24 @@ function bracketAwareSplit(input: string): string[] {
   return tokens;
 }
 
+const PSEUDO_CLASS_RE = /:(?:first-child|last-child)/g;
+
 /** Match a single compound selector (no spaces) against a target. */
 function matchesCompound(target: SelectorTarget, compound: string): boolean {
-  // Strip attribute selectors before matching tag/class/id tokens
-  const withoutAttrs = compound.replace(ATTR_SELECTOR_RE, '');
+  // Check pseudo-classes before stripping them
+  if (compound.includes(':first-child') && target.siblingIndex !== 0) return false;
+  if (compound.includes(':last-child')) {
+    if (target.siblingIndex === undefined || target.siblingCount === undefined) return false;
+    if (target.siblingIndex !== target.siblingCount - 1) return false;
+  }
+
+  // Strip attribute selectors and pseudo-classes before matching tag/class/id tokens
+  const withoutAttrs = compound.replace(ATTR_SELECTOR_RE, '').replace(PSEUDO_CLASS_RE, '');
   const tokens = withoutAttrs.match(SELECTOR_TOKEN_RE);
 
-  // A compound may be purely attribute-based, e.g. [epub:type="toc"]
-  if ((!tokens || tokens.length === 0) && !compound.includes('[')) return false;
+  // A compound may be purely attribute-based or pseudo-class-only
+  if ((!tokens || tokens.length === 0) && !compound.includes('[') && !compound.includes(':'))
+    return false;
 
   const nodeClasses: string[] = target.className?.split(/\s+/) ?? [];
 
@@ -189,38 +206,44 @@ function matchesAttributeSelectors(target: SelectorTarget, compound: string): bo
 }
 
 /**
- * Check if ancestor selector parts can be satisfied by the ancestor chain.
- * Each part uses its combinator to determine matching mode:
- * - descendant: can skip ancestors (search forward)
- * - child: must match the immediate next ancestor
+ * Resolve the selector chain walking right-to-left.
+ * - descendant: search forward through ancestors
+ * - child: must match immediate parent (ancestors[0])
+ * - adjacent-sibling: must match the current node's previousSibling
  *
- * @param innermostCombinator - The combinator between the last checked part and the target
+ * @param innermostCombinator - The combinator between the rightmost remaining part and the matched node
+ * @param matchedNode - The node that was just matched (target or a previousSibling)
  */
-function matchesAncestorChain(
+function matchesChain(
   parts: readonly SelectorPart[],
   innermostCombinator: Combinator,
+  matchedNode: SelectorTarget,
   ancestors: readonly SelectorTarget[],
 ): boolean {
   let ancestorIdx = 0;
   let currentCombinator = innermostCombinator;
+  let currentNode = matchedNode;
 
-  // Walk parts right-to-left (innermost ancestor first)
   for (let i = parts.length - 1; i >= 0; i--) {
     const part = parts[i];
     if (!part) return false;
 
-    if (currentCombinator === 'child') {
-      // Must match the immediate ancestor
+    if (currentCombinator === 'adjacent-sibling') {
+      const prev = currentNode.previousSibling;
+      if (!prev || !matchesCompound(prev, part.compound)) return false;
+      currentNode = prev;
+    } else if (currentCombinator === 'child') {
       const ancestor = ancestors[ancestorIdx];
       if (!ancestor || !matchesCompound(ancestor, part.compound)) return false;
+      currentNode = ancestor;
       ancestorIdx++;
     } else {
-      // Descendant: search forward through ancestors
       let found = false;
       while (ancestorIdx < ancestors.length) {
         const ancestor = ancestors[ancestorIdx];
         ancestorIdx++;
         if (ancestor && matchesCompound(ancestor, part.compound)) {
+          currentNode = ancestor;
           found = true;
           break;
         }

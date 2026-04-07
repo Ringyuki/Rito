@@ -74,9 +74,10 @@ interface IndexKeys {
 function extractIndexKeys(selector: string): IndexKeys {
   // Find the last compound part using a bracket-aware scan
   const last = extractLastCompound(selector);
-  // Strip attribute selectors before extracting tag/class/id keys
-  // Strip attribute selectors, respecting quoted values that may contain `]`
-  const stripped = last.replace(/\[(?:[^\]"']*(?:"[^"]*"|'[^']*')?)*\]/g, '');
+  // Strip attribute selectors and pseudo-classes before extracting tag/class/id keys
+  const stripped = last
+    .replace(/\[(?:[^\]"']*(?:"[^"]*"|'[^']*')?)*\]/g, '')
+    .replace(/:[\w-]+/g, '');
   const tokens = stripped.match(/[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g) ?? [];
 
   const tags: string[] = [];
@@ -117,7 +118,7 @@ function extractLastCompound(selector: string): string {
       continue;
     }
     if (bracketDepth > 0 || quoteChar !== '') continue;
-    if (ch === ' ' || ch === '\t' || ch === '>' || ch === '\n') {
+    if (ch === ' ' || ch === '\t' || ch === '>' || ch === '+' || ch === '\n') {
       lastStart = i + 1;
     }
   }

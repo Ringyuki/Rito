@@ -25,9 +25,50 @@ export function resolveStyles(
 ): readonly StyledNode[] {
   const base = parentStyle ?? DEFAULT_STYLE;
   const index = rules && rules.length > 0 ? buildRuleIndex(rules) : undefined;
+  return resolveNodesWithSiblings(nodes, base, rules, index, []);
+}
+
+/** Resolve nodes with sibling tracking for +, :first-child, :last-child. */
+function resolveNodesWithSiblings(
+  nodes: readonly DocumentNode[],
+  parentStyle: ComputedStyle,
+  rules: readonly CssRule[] | undefined,
+  index: RuleIndex | undefined,
+  ancestors: readonly SelectorTarget[],
+): StyledNode[] {
+  const elementNodes = nodes.filter(isElementNode);
+  const siblingCount = elementNodes.length;
+  let elementIndex = 0;
+  let prevTarget: SelectorTarget | undefined;
+
   return nodes
-    .map((node) => resolveNode(node, base, rules, index, []))
-    .filter((node) => node.style.display !== DISPLAY_VALUES.None);
+    .map((c) => {
+      const isElem = isElementNode(c);
+      const siblingInfo: SiblingInfo | undefined = isElem
+        ? {
+            siblingIndex: elementIndex,
+            siblingCount,
+            ...(prevTarget ? { previousSibling: prevTarget } : {}),
+          }
+        : undefined;
+      const result = resolveNode(c, parentStyle, rules, index, ancestors, siblingInfo);
+      if (isElem && siblingInfo) {
+        const tag = c.type === 'image' ? 'img' : (c as DocumentNode & { tag: string }).tag;
+        const attrs =
+          c.type === 'image'
+            ? undefined
+            : (c as DocumentNode & { attributes?: ElementAttributes }).attributes;
+        const { target } = extractNodeMeta(tag, attrs);
+        prevTarget = mergeSiblingInfo(target, siblingInfo);
+        elementIndex++;
+      }
+      return result;
+    })
+    .filter((n) => n.style.display !== DISPLAY_VALUES.None);
+}
+
+function isElementNode(node: DocumentNode): boolean {
+  return node.type === 'block' || node.type === 'inline' || node.type === 'image';
 }
 
 function resolveNode(
@@ -36,6 +77,7 @@ function resolveNode(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  siblingInfo?: SiblingInfo,
 ): StyledNode {
   switch (node.type) {
     case 'text':
@@ -47,18 +89,22 @@ function resolveNode(
         ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
       };
     case 'block':
-      return resolveBlockNode(node, parentStyle, rules, index, ancestors);
+      return resolveBlockNode(node, parentStyle, rules, index, ancestors, siblingInfo);
     case 'inline':
-      return resolveInlineNode(node, parentStyle, rules, index, ancestors);
-    case 'image':
+      return resolveInlineNode(node, parentStyle, rules, index, ancestors, siblingInfo);
+    case 'image': {
+      const baseTarget: SelectorTarget = { tag: 'img' };
+      const imgTarget = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
+      const imgStyle = applyCascade(parentStyle, imgTarget, undefined, rules, index, ancestors);
       return {
         type: 'image',
         src: node.src,
         alt: node.alt,
-        style: parentStyle,
+        style: imgStyle,
         children: [],
         ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
       };
+    }
   }
 }
 
@@ -68,8 +114,10 @@ function resolveBlockNode(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  siblingInfo?: SiblingInfo,
 ): StyledNode {
-  const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
   const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
@@ -89,8 +137,10 @@ function resolveInlineNode(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  siblingInfo?: SiblingInfo,
 ): StyledNode {
-  const { target, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
+  const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
   const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
@@ -110,10 +160,25 @@ function resolveChildren(
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
 ): StyledNode[] {
-  const childStyle = inheritableStyle(parentStyle);
-  return nodes
-    .map((c) => resolveNode(c, childStyle, rules, index, ancestors))
-    .filter((c) => c.style.display !== DISPLAY_VALUES.None);
+  return resolveNodesWithSiblings(nodes, inheritableStyle(parentStyle), rules, index, ancestors);
+}
+
+interface SiblingInfo {
+  siblingIndex: number;
+  siblingCount: number;
+  previousSibling?: SelectorTarget;
+}
+
+function mergeSiblingInfo(target: SelectorTarget, info: SiblingInfo): SelectorTarget {
+  const result: SelectorTarget = {
+    ...target,
+    siblingIndex: info.siblingIndex,
+    siblingCount: info.siblingCount,
+  };
+  if (info.previousSibling) {
+    return { ...result, previousSibling: info.previousSibling };
+  }
+  return result;
 }
 
 function extractNodeMeta(

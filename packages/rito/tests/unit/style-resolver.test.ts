@@ -16,6 +16,10 @@ function block(tag: string, children: DocumentNode[]): BlockNode {
   return { type: NODE_TYPES.Block, tag, children };
 }
 
+function image(src = 'cover.jpg', alt = ''): DocumentNode {
+  return { type: 'image', src, alt };
+}
+
 describe('resolveStyles', () => {
   it('applies default style to text nodes', () => {
     const result = resolveStyles([text('hello')]);
@@ -360,6 +364,96 @@ describe('resolveStyles', () => {
       const result = resolveStyles([block('h2', [text('Heading')])], undefined, rules);
       // h2 tag default is 24, but em should use parent (16) → 2 * 16 = 32
       expect(result[0]?.style.fontSize).toBeCloseTo(32);
+    });
+  });
+
+  describe('sibling selectors at root level', () => {
+    it('p + p matches second paragraph at root level', () => {
+      const rules = [
+        { selector: 'p + p', declarations: { color: 'red' }, rawDeclarations: 'color: red' },
+      ];
+      const result = resolveStyles(
+        [block('p', [text('A')]), block('p', [text('B')])],
+        undefined,
+        rules,
+      );
+      expect(result[0]?.style.color).toBe('#000000'); // first p: no match
+      expect(result[1]?.style.color).toBe('red'); // second p: match
+    });
+
+    it(':first-child matches first root element', () => {
+      const rules = [
+        {
+          selector: 'p:first-child',
+          declarations: { color: 'blue' },
+          rawDeclarations: 'color: blue',
+        },
+      ];
+      const result = resolveStyles(
+        [block('p', [text('First')]), block('p', [text('Second')])],
+        undefined,
+        rules,
+      );
+      expect(result[0]?.style.color).toBe('blue');
+      expect(result[1]?.style.color).toBe('#000000');
+    });
+
+    it(':last-child matches last root element', () => {
+      const rules = [
+        {
+          selector: 'p:last-child',
+          declarations: { color: 'green' },
+          rawDeclarations: 'color: green',
+        },
+      ];
+      const result = resolveStyles(
+        [block('p', [text('First')]), block('p', [text('Last')])],
+        undefined,
+        rules,
+      );
+      expect(result[0]?.style.color).toBe('#000000');
+      expect(result[1]?.style.color).toBe('green');
+    });
+
+    it('p + img matches image target at root level', () => {
+      const rules = [
+        { selector: 'p + img', declarations: { color: 'red' }, rawDeclarations: 'color: red' },
+      ];
+      const result = resolveStyles([block('p', [text('A')]), image()], undefined, rules);
+
+      expect(result[0]?.style.color).toBe('#000000');
+      expect(result[1]?.type).toBe('image');
+      expect(result[1]?.style.color).toBe('red');
+    });
+
+    it('img:first-child matches first root image', () => {
+      const rules = [
+        {
+          selector: 'img:first-child',
+          declarations: { color: 'blue' },
+          rawDeclarations: 'color: blue',
+        },
+      ];
+      const result = resolveStyles([image(), block('p', [text('Body')])], undefined, rules);
+
+      expect(result[0]?.type).toBe('image');
+      expect(result[0]?.style.color).toBe('blue');
+      expect(result[1]?.style.color).toBe('#000000');
+    });
+
+    it('img:last-child matches last root image', () => {
+      const rules = [
+        {
+          selector: 'img:last-child',
+          declarations: { color: 'green' },
+          rawDeclarations: 'color: green',
+        },
+      ];
+      const result = resolveStyles([block('p', [text('Lead')]), image()], undefined, rules);
+
+      expect(result[0]?.style.color).toBe('#000000');
+      expect(result[1]?.type).toBe('image');
+      expect(result[1]?.style.color).toBe('green');
     });
   });
 });

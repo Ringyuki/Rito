@@ -2,19 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { SelectorTarget } from '../../src/style/cascade/selector-matcher';
 import { matchesSelector } from '../../src/style/cascade/selector-matcher';
 
-function target(
-  tag: string,
-  opts?: { className?: string; id?: string; attributes?: ReadonlyMap<string, string> },
-): SelectorTarget {
-  const t: SelectorTarget & {
-    className?: string;
-    id?: string;
-    attributes?: ReadonlyMap<string, string>;
-  } = { tag };
-  if (opts?.className !== undefined) t.className = opts.className;
-  if (opts?.id !== undefined) t.id = opts.id;
-  if (opts?.attributes !== undefined) t.attributes = opts.attributes;
-  return t;
+function target(tag: string, opts?: Partial<Omit<SelectorTarget, 'tag'>>): SelectorTarget {
+  return { tag, ...opts };
 }
 
 describe('matchesSelector', () => {
@@ -259,6 +248,74 @@ describe('matchesSelector', () => {
     it('quoted value may contain ]: [title="a]b"]', () => {
       const attrs = new Map([['title', 'a]b']]);
       expect(matchesSelector(target('p', { attributes: attrs }), '[title="a]b"]')).toBe(true);
+    });
+  });
+
+  describe('adjacent sibling combinator +', () => {
+    it('h2 + p matches when previous sibling is h2', () => {
+      const prevSibling = target('h2');
+      const ancestors = [target('div')];
+      expect(
+        matchesSelector(target('p', { previousSibling: prevSibling }), 'h2 + p', ancestors),
+      ).toBe(true);
+    });
+
+    it('h2 + p rejects when previous sibling is h3', () => {
+      const prevSibling = target('h3');
+      expect(matchesSelector(target('p', { previousSibling: prevSibling }), 'h2 + p')).toBe(false);
+    });
+
+    it('h2 + p rejects when no previous sibling', () => {
+      expect(matchesSelector(target('p'), 'h2 + p')).toBe(false);
+    });
+
+    it('div h2 + p matches with ancestor and sibling', () => {
+      const prevSibling = target('h2');
+      const ancestors = [target('div')];
+      expect(
+        matchesSelector(target('p', { previousSibling: prevSibling }), 'div h2 + p', ancestors),
+      ).toBe(true);
+    });
+  });
+
+  describe(':first-child / :last-child', () => {
+    it(':first-child matches siblingIndex=0', () => {
+      expect(
+        matchesSelector(target('p', { siblingIndex: 0, siblingCount: 3 }), 'p:first-child'),
+      ).toBe(true);
+    });
+
+    it(':first-child rejects siblingIndex > 0', () => {
+      expect(
+        matchesSelector(target('p', { siblingIndex: 1, siblingCount: 3 }), 'p:first-child'),
+      ).toBe(false);
+    });
+
+    it(':last-child matches last element', () => {
+      expect(
+        matchesSelector(target('p', { siblingIndex: 2, siblingCount: 3 }), 'p:last-child'),
+      ).toBe(true);
+    });
+
+    it(':last-child rejects non-last element', () => {
+      expect(
+        matchesSelector(target('p', { siblingIndex: 0, siblingCount: 3 }), 'p:last-child'),
+      ).toBe(false);
+    });
+
+    it(':first-child works with descendant combinator', () => {
+      const ancestors = [target('ul')];
+      expect(
+        matchesSelector(
+          target('li', { siblingIndex: 0, siblingCount: 5 }),
+          'ul li:first-child',
+          ancestors,
+        ),
+      ).toBe(true);
+    });
+
+    it(':first-child without siblingIndex rejects', () => {
+      expect(matchesSelector(target('p'), 'p:first-child')).toBe(false);
     });
   });
 });
