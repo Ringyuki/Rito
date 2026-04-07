@@ -203,6 +203,8 @@ export interface ComputedStyle {
   readonly boxShadow: readonly BoxShadow[];
   /** Text shadow list. Empty means no shadow. */
   readonly textShadow: readonly TextShadow[];
+  /** CSS transform string. Render-only, no layout impact. */
+  readonly transform: string;
 }
 
 /** A single box-shadow value. */

@@ -55,6 +55,7 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
   right: 0,
   borderRadius: 0,
   opacity: 1,
+  transform: '',
 };
 
 /**
@@ -120,4 +121,5 @@ export const DEFAULT_STYLE: ComputedStyle = {
   widows: 2,
   boxShadow: [],
   textShadow: [],
+  transform: '',
 };

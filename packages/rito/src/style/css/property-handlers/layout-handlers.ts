@@ -2,6 +2,21 @@ import { parseDisplay, parsePageBreak } from '../value-parsers';
 import { assignLength } from './helpers';
 import type { PropertyHandlers } from './types';
 
+/**
+ * Percentage sizing for layout properties is intentionally not resolved here.
+ *
+ * CSS percentages on width/height/max-width/min-height/max-height depend on the
+ * containing block, but the style parser only knows the inherited font-size at
+ * this stage. Resolving `%` here would incorrectly treat it as font-relative and
+ * can cause severe regressions such as `width: 100%` collapsing to ~16px.
+ *
+ * Current policy: ignore bare percentage values until containing-block-based
+ * percentage resolution is modeled explicitly in layout.
+ */
+function isPercentage(value: string): boolean {
+  return value.trim().endsWith('%') && !value.includes('calc');
+}
+
 export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
   display: (result, value) => {
     const display = parseDisplay(value);
@@ -20,18 +35,23 @@ export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
     }
   },
   width: (result, value, emBase, rootFontSize) => {
+    if (isPercentage(value)) return;
     assignLength(result, 'width', value, emBase, rootFontSize, (width) => width > 0);
   },
   'max-width': (result, value, emBase, rootFontSize) => {
+    if (isPercentage(value)) return;
     assignLength(result, 'maxWidth', value, emBase, rootFontSize, (width) => width > 0);
   },
   height: (result, value, emBase, rootFontSize) => {
+    if (isPercentage(value)) return;
     assignLength(result, 'height', value, emBase, rootFontSize, (height) => height > 0);
   },
   'min-height': (result, value, emBase, rootFontSize) => {
+    if (isPercentage(value)) return;
     assignLength(result, 'minHeight', value, emBase, rootFontSize, (height) => height > 0);
   },
   'max-height': (result, value, emBase, rootFontSize) => {
+    if (isPercentage(value)) return;
     assignLength(result, 'maxHeight', value, emBase, rootFontSize, (height) => height > 0);
   },
   overflow: (result, value) => {

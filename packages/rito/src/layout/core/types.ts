@@ -93,6 +93,8 @@ export interface LayoutBlock {
   readonly widows?: number;
   /** Box shadows for the block. Render-only. */
   readonly boxShadow?: readonly BoxShadow[];
+  /** CSS transform string. Render-only, does not affect layout flow. */
+  readonly transform?: string;
 }
 
 /** Border edge in a layout block. */

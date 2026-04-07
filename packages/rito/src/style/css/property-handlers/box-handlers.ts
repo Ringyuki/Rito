@@ -49,4 +49,8 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
     const opacity = parseFloat(value.trim());
     if (!isNaN(opacity)) result.opacity = Math.max(0, Math.min(1, opacity));
   },
+  transform: (result, value) => {
+    const trimmed = value.trim();
+    if (trimmed && trimmed !== 'none') result.transform = trimmed;
+  },
 };

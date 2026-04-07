@@ -72,40 +72,41 @@ function parseSelectorParts(selector: string): SelectorPart[] {
   return result;
 }
 
-/** Split a selector on whitespace and `>`, preserving content inside `[...]` brackets. */
+/** Split a selector on whitespace, `>` and `+`, preserving content inside `[...]` brackets. */
 function bracketAwareSplit(input: string): string[] {
   const tokens: string[] = [];
   let current = '';
-  let bracketDepth = 0;
-  let quoteChar = '';
+  let depth = 0;
+  let quote = '';
 
   for (let i = 0; i < input.length; i++) {
     const ch = input.charAt(i);
-    if (bracketDepth > 0 && quoteChar === '' && (ch === '"' || ch === "'")) {
-      quoteChar = ch;
+    // Track quotes inside brackets
+    if (depth > 0 && quote === '' && (ch === '"' || ch === "'")) {
+      quote = ch;
       current += ch;
       continue;
     }
-    if (quoteChar !== '' && ch === quoteChar) {
-      quoteChar = '';
+    if (quote !== '' && ch === quote) {
+      quote = '';
       current += ch;
       continue;
     }
     if (ch === '[') {
-      bracketDepth++;
+      depth++;
       current += ch;
       continue;
     }
     if (ch === ']') {
-      bracketDepth = Math.max(0, bracketDepth - 1);
+      depth = Math.max(0, depth - 1);
       current += ch;
       continue;
     }
-    if (bracketDepth > 0 || quoteChar !== '') {
+    if (depth > 0 || quote !== '') {
       current += ch;
       continue;
     }
-
+    // Outside brackets: split on combinators and whitespace
     if (ch === '>' || ch === '+') {
       if (current.trim()) {
         tokens.push(current.trim());
@@ -171,38 +172,30 @@ function matchesAttributeSelectors(target: SelectorTarget, compound: string): bo
   let match: RegExpExecArray | null;
   while ((match = ATTR_SELECTOR_RE.exec(compound)) !== null) {
     const attrName = match[1];
-    const operator = match[2];
-    // Value can be in group 3 (double-quoted), 4 (single-quoted), or 5 (unquoted)
-    const attrValue = match[3] ?? match[4] ?? match[5];
     if (!attrName) continue;
-
+    const operator = match[2];
+    const attrValue = match[3] ?? match[4] ?? match[5];
     const actual = target.attributes?.get(attrName);
-
-    if (operator === undefined) {
-      // [attr] — existence check
-      if (actual === undefined) return false;
-    } else if (operator === '=') {
-      // [attr="val"] — exact match
-      if (actual !== attrValue) return false;
-    } else if (operator === '~=') {
-      // [attr~="val"] — whitespace-separated word match
-      if (actual === undefined || !actual.split(/\s+/).includes(attrValue ?? '')) return false;
-    } else if (operator === '|=') {
-      // [attr|="val"] — exact or prefix with hyphen
-      if (actual === undefined) return false;
-      if (actual !== attrValue && !actual.startsWith((attrValue ?? '') + '-')) return false;
-    } else if (operator === '^=') {
-      // [attr^="val"] — starts with
-      if (actual === undefined || !actual.startsWith(attrValue ?? '')) return false;
-    } else if (operator === '$=') {
-      // [attr$="val"] — ends with
-      if (actual === undefined || !actual.endsWith(attrValue ?? '')) return false;
-    } else if (operator === '*=') {
-      // [attr*="val"] — contains
-      if (actual === undefined || !actual.includes(attrValue ?? '')) return false;
-    }
+    if (!matchesAttrOperator(actual, operator, attrValue)) return false;
   }
   return true;
+}
+
+function matchesAttrOperator(
+  actual: string | undefined,
+  operator: string | undefined,
+  expected: string | undefined,
+): boolean {
+  if (operator === undefined) return actual !== undefined;
+  if (actual === undefined) return false;
+  const val = expected ?? '';
+  if (operator === '=') return actual === val;
+  if (operator === '~=') return actual.split(/\s+/).includes(val);
+  if (operator === '|=') return actual === val || actual.startsWith(val + '-');
+  if (operator === '^=') return actual.startsWith(val);
+  if (operator === '$=') return actual.endsWith(val);
+  if (operator === '*=') return actual.includes(val);
+  return false;
 }
 
 /**
