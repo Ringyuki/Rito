@@ -62,54 +62,65 @@ function resolveOnPage(
   chapterIndex: ChapterTextIndex,
   measurer: TextMeasurer,
 ): { range: TextRange; rects: readonly Rect[] } | undefined {
-  let startEntry: { entry: HitEntry; index: number; charOffset: number } | undefined;
-  let endEntry: { entry: HitEntry; index: number; charOffset: number } | undefined;
+  const endpoints = findOverlappingEntries(hitMap, targetStart, targetEnd, chapterIndex);
+  if (!endpoints) return undefined;
+
+  const range = buildTextRange(endpoints.start, endpoints.end);
+  const rects = getSelectionRects(hitMap, range, measurer);
+  return rects.length > 0 ? { range, rects } : undefined;
+}
+
+interface EntryMatch {
+  entry: HitEntry;
+  index: number;
+  charOffset: number;
+}
+
+function findOverlappingEntries(
+  hitMap: HitMap,
+  targetStart: number,
+  targetEnd: number,
+  chapterIndex: ChapterTextIndex,
+): { start: EntryMatch; end: EntryMatch } | undefined {
+  let startMatch: EntryMatch | undefined;
+  let endMatch: EntryMatch | undefined;
 
   for (let i = 0; i < hitMap.entries.length; i++) {
     const entry = hitMap.entries[i];
     if (!entry?.sourceRef) continue;
 
-    // Find the normalized offset range this entry covers using sourceTextOffset
     const srcOffset = entry.sourceTextOffset ?? 0;
-    const entryStartOffset = sourcePointToOffset(chapterIndex, {
+    const entryStart = sourcePointToOffset(chapterIndex, {
       nodePath: entry.sourceRef.nodePath,
       textOffset: srcOffset,
     });
-    if (entryStartOffset === undefined) continue;
+    if (entryStart === undefined) continue;
 
-    const entryEndOffset = entryStartOffset + entry.text.length;
+    const entryEnd = entryStart + entry.text.length;
+    if (entryEnd <= targetStart || entryStart >= targetEnd) continue;
 
-    // Check if this entry overlaps with our target range
-    if (entryEndOffset <= targetStart || entryStartOffset >= targetEnd) continue;
-
-    // First overlapping entry becomes the start
-    if (!startEntry) {
-      const charOffset = Math.max(0, targetStart - entryStartOffset);
-      startEntry = { entry, index: i, charOffset };
+    if (!startMatch) {
+      startMatch = { entry, index: i, charOffset: Math.max(0, targetStart - entryStart) };
     }
-
-    // Last overlapping entry becomes the end
-    const endCharOffset = Math.min(entry.text.length, targetEnd - entryStartOffset);
-    endEntry = { entry, index: i, charOffset: endCharOffset };
+    endMatch = { entry, index: i, charOffset: Math.min(entry.text.length, targetEnd - entryStart) };
   }
 
-  if (!startEntry || !endEntry) return undefined;
+  return startMatch && endMatch ? { start: startMatch, end: endMatch } : undefined;
+}
 
-  const range: TextRange = {
+function buildTextRange(start: EntryMatch, end: EntryMatch): TextRange {
+  return {
     start: {
-      blockIndex: startEntry.entry.blockIndex,
-      lineIndex: startEntry.entry.lineIndex,
-      runIndex: startEntry.entry.runIndex,
-      charIndex: startEntry.charOffset,
+      blockIndex: start.entry.blockIndex,
+      lineIndex: start.entry.lineIndex,
+      runIndex: start.entry.runIndex,
+      charIndex: start.charOffset,
     },
     end: {
-      blockIndex: endEntry.entry.blockIndex,
-      lineIndex: endEntry.entry.lineIndex,
-      runIndex: endEntry.entry.runIndex,
-      charIndex: endEntry.charOffset,
+      blockIndex: end.entry.blockIndex,
+      lineIndex: end.entry.lineIndex,
+      runIndex: end.entry.runIndex,
+      charIndex: end.charOffset,
     },
   };
-
-  const rects = getSelectionRects(hitMap, range, measurer);
-  return rects.length > 0 ? { range, rects } : undefined;
 }

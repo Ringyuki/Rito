@@ -4,8 +4,13 @@ import type { WiringDeps } from '../core/wiring-deps';
 import { resolveVisibleAnnotations } from '../annotation-resolution';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
-  const { engines, emitter } = deps;
+  wireSelectionEvents(deps, disposables);
+  wireSearchEvents(deps, disposables);
+  wireAnnotationStoreEvents(deps, disposables);
+}
 
+function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection): void {
+  const { engines, emitter } = deps;
   disposables.add(
     engines.selection.onSelectionChange((range) => {
       const rawRects = engines.selection.getRects();
@@ -14,23 +19,7 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
         ? rawRects.map((r) => mapper.spreadContentRectToViewport(r))
         : rawRects;
 
-      // focusRect: a zero-width caret at the exact focus (drag-end) edge.
-      // Rects are in document order with precise character boundaries, so:
-      // forward → right edge of last rect; backward → left edge of first rect.
-      let focusRect: { x: number; y: number; width: number; height: number } | null = null;
-      if (viewportRects.length > 0) {
-        const snapshot = engines.selection.getSnapshot();
-        const isForward = !snapshot || snapshot.anchor === snapshot.start;
-        const fr = isForward ? viewportRects[viewportRects.length - 1] : viewportRects[0];
-        if (fr) {
-          focusRect = {
-            x: isForward ? fr.x + fr.width : fr.x,
-            y: fr.y,
-            width: 0,
-            height: fr.height,
-          };
-        }
-      }
+      const focusRect = computeFocusRect(engines.selection, viewportRects);
 
       emitter.emit('selectionChange', {
         range,
@@ -42,14 +31,28 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
       refreshCurrentOverlay(deps);
     }),
   );
+}
 
+function computeFocusRect(
+  selection: WiringDeps['engines']['selection'],
+  viewportRects: readonly { x: number; y: number; width: number; height: number }[],
+): { x: number; y: number; width: number; height: number } | null {
+  if (viewportRects.length === 0) return null;
+  const snapshot = selection.getSnapshot();
+  const isForward = !snapshot || snapshot.anchor === snapshot.start;
+  const fr = isForward ? viewportRects[viewportRects.length - 1] : viewportRects[0];
+  if (!fr) return null;
+  return { x: isForward ? fr.x + fr.width : fr.x, y: fr.y, width: 0, height: fr.height };
+}
+
+function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): void {
+  const { engines, emitter } = deps;
   disposables.add(
     engines.search.onResultsChange((results) => {
       emitter.emit('searchResults', { results, activeIndex: engines.search.getActiveIndex() });
       refreshCurrentOverlay(deps);
     }),
   );
-
   disposables.add(
     engines.search.onActiveResultChange((idx) => {
       const results = engines.search.getResults();
@@ -57,21 +60,20 @@ export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollec
       refreshCurrentOverlay(deps);
     }),
   );
+}
 
-  // Wire annotation store changes (new source-anchored system)
+function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const store = deps.coordState.annotationStore;
-  if (store) {
-    disposables.add(
-      store.onChange((records) => {
-        // Re-resolve annotations against current layout
-        deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
-          store,
-          deps.coordState,
-          deps.reader,
-        );
-        emitter.emit('annotationsChange', { annotations: records });
-        refreshCurrentOverlay(deps);
-      }),
-    );
-  }
+  if (!store) return;
+  disposables.add(
+    store.onChange((records) => {
+      deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
+        store,
+        deps.coordState,
+        deps.reader,
+      );
+      deps.emitter.emit('annotationsChange', { annotations: records });
+      refreshCurrentOverlay(deps);
+    }),
+  );
 }

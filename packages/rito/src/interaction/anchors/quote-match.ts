@@ -44,7 +44,19 @@ export function resolveTextQuoteSelector(
   const text = index.normalizedText;
   if (exact.length === 0) return undefined;
 
-  // Collect all occurrences of the exact match
+  const matches = collectExactMatches(text, exact);
+  if (matches.length === 0) return undefined;
+  if (matches.length === 1) {
+    const single = matches[0];
+    if (single === undefined) return undefined;
+    return { start: single, end: single + exact.length };
+  }
+
+  const bestMatch = disambiguate(matches, text, exact, prefix, suffix);
+  return { start: bestMatch, end: bestMatch + exact.length };
+}
+
+function collectExactMatches(text: string, exact: string): number[] {
   const matches: number[] = [];
   let pos = 0;
   while (pos <= text.length - exact.length) {
@@ -53,40 +65,45 @@ export function resolveTextQuoteSelector(
     matches.push(idx);
     pos = idx + 1;
   }
+  return matches;
+}
 
-  if (matches.length === 0) return undefined;
-  if (matches.length === 1) {
-    const single = matches[0];
-    if (single === undefined) return undefined;
-    return { start: single, end: single + exact.length };
-  }
-
-  // Disambiguate using prefix/suffix scoring
+function disambiguate(
+  matches: readonly number[],
+  text: string,
+  exact: string,
+  prefix?: string,
+  suffix?: string,
+): number {
   let bestMatch = matches[0] ?? 0;
   let bestScore = -1;
-
   for (const matchStart of matches) {
-    let score = 0;
-    if (prefix) {
-      const before = text.slice(Math.max(0, matchStart - prefix.length), matchStart);
-      if (before.endsWith(prefix)) score += prefix.length;
-      else score += commonSuffixLength(before, prefix);
-    }
-    if (suffix) {
-      const after = text.slice(
-        matchStart + exact.length,
-        matchStart + exact.length + suffix.length,
-      );
-      if (after.startsWith(suffix)) score += suffix.length;
-      else score += commonPrefixLength(after, suffix);
-    }
+    const score = scoreMatch(matchStart, text, exact, prefix, suffix);
     if (score > bestScore) {
       bestScore = score;
       bestMatch = matchStart;
     }
   }
+  return bestMatch;
+}
 
-  return { start: bestMatch, end: bestMatch + exact.length };
+function scoreMatch(
+  matchStart: number,
+  text: string,
+  exact: string,
+  prefix?: string,
+  suffix?: string,
+): number {
+  let score = 0;
+  if (prefix) {
+    const before = text.slice(Math.max(0, matchStart - prefix.length), matchStart);
+    score += before.endsWith(prefix) ? prefix.length : commonSuffixLength(before, prefix);
+  }
+  if (suffix) {
+    const after = text.slice(matchStart + exact.length, matchStart + exact.length + suffix.length);
+    score += after.startsWith(suffix) ? suffix.length : commonPrefixLength(after, suffix);
+  }
+  return score;
 }
 
 function commonPrefixLength(a: string, b: string): number {

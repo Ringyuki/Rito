@@ -22,7 +22,7 @@ export { buildSpreads } from './layout/index';
 export { createLayoutConfig } from './layout/index';
 export { createTextMeasurer } from './render/index';
 export type { EpubDocument, LoadOptions, PaginationResult } from './runtime/index';
-export type { LayoutConfig, LayoutConfigInput } from './layout/index';
+export type { LayoutConfig, LayoutConfigInput, PaginationPolicy } from './layout/index';
 export type { TextMeasurer, TextMetrics } from './layout/index';
 export type { RenderOptions } from './render/index';
 export { paginateInWorker } from './workers/worker-paginator';

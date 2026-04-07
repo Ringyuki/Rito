@@ -10,6 +10,14 @@ export interface SearchState {
   readonly isActive: boolean;
 }
 
+const EMPTY_STATE: SearchState = {
+  results: [],
+  activeIndex: -1,
+  activeResult: undefined,
+  isActive: false,
+};
+
+// eslint-disable-next-line max-lines-per-function -- React hook with 6-line return type; hooks cannot be split further
 export function useSearch(controller: ReaderController | null): SearchState & {
   query: string;
   setQuery: (q: string) => void;
@@ -19,12 +27,7 @@ export function useSearch(controller: ReaderController | null): SearchState & {
   clear: () => void;
 } {
   const [query, setQueryState] = useState('');
-  const [state, setState] = useState<SearchState>({
-    results: [],
-    activeIndex: -1,
-    activeResult: undefined,
-    isActive: false,
-  });
+  const [state, setState] = useState(EMPTY_STATE);
 
   useControllerEvent(controller, 'searchResults', ({ results, activeIndex }) => {
     setState({
@@ -56,7 +59,7 @@ export function useSearch(controller: ReaderController | null): SearchState & {
   const clear = useCallback(() => {
     setQueryState('');
     controller?.clearSearch();
-    setState({ results: [], activeIndex: -1, activeResult: undefined, isActive: false });
+    setState(EMPTY_STATE);
   }, [controller]);
 
   const goTo = useCallback(

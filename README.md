@@ -67,49 +67,50 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 | `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking algorithm           |
 | `useWorker`        | `boolean`               | `false`                          | Paginate in a Web Worker          |
 | `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity             |
+| `paginationPolicy` | `PaginationPolicy`      | —                                | Widow/orphan control policy       |
 
 **Reader interface:**
 
-| Method / Property             | Description                                 |
-| ----------------------------- | ------------------------------------------- |
-| `renderSpread(index, scale?)` | Render a spread onto the canvas             |
-| `resize(w, h)`                | Resize viewport and re-paginate             |
-| `setSpreadMode(mode)`         | Switch single/double and re-paginate        |
-| `updateLayout(w, h, spread?)` | Update viewport/spread in one pass          |
-| `setTheme({ bg, fg })`        | Update colors (takes effect on next render) |
-| `findPage(tocEntry)`          | Map a TOC entry to a page index             |
-| `findSpread(pageIdx)`         | Find which spread contains a page           |
-| `resolveTocEntry(tocEntry)`   | Resolve a TOC entry to page + spread        |
-| `findActiveTocEntry(pageIdx)` | Find the current TOC entry for a page       |
-| `getCanvasSize(scale?)`       | Get canvas dimensions for current config    |
-| `getLayoutGeometry()`         | Get the current layout configuration        |
-| `getChapterTextIndices()`     | Get source-based chapter text indices       |
-| `setTypography(opts)`         | Re-paginate with typography overrides       |
-| `onSpreadRendered(cb)`        | Subscribe to render notifications           |
-| `dispose()`                   | Release all resources                       |
-| `metadata`                    | EPUB package metadata                       |
-| `totalSpreads`                | Number of spreads                           |
-| `toc`                         | Table of contents entries                   |
-| `pages` / `spreads`           | Computed pages and spreads                  |
-| `chapterMap`                  | Chapter-to-page-range mapping               |
-| `measurer`                    | Text measurer for interaction APIs          |
+| Method / Property                                | Description                                 |
+| ------------------------------------------------ | ------------------------------------------- |
+| `renderSpread(index, scale?)`                    | Render a spread onto the canvas             |
+| `resize(w, h)`                                   | Resize viewport and re-paginate             |
+| `setSpreadMode(mode)`                            | Switch single/double and re-paginate        |
+| `updateLayout(w, h, spread?, margin?)`           | Update viewport/spread/margin in one pass   |
+| `setTheme({ backgroundColor, foregroundColor })` | Update colors (takes effect on next render) |
+| `findPage(tocEntry)`                             | Map a TOC entry to a page index             |
+| `findSpread(pageIdx)`                            | Find which spread contains a page           |
+| `resolveTocEntry(tocEntry)`                      | Resolve a TOC entry to page + spread        |
+| `findActiveTocEntry(pageIdx)`                    | Find the current TOC entry for a page       |
+| `getCanvasSize(scale?)`                          | Get canvas dimensions for current config    |
+| `getLayoutGeometry()`                            | Get the current layout configuration        |
+| `getChapterTextIndices()`                        | Get source-based chapter text indices       |
+| `setTypography(opts)`                            | Re-paginate with typography overrides       |
+| `onSpreadRendered(cb)`                           | Subscribe to render notifications           |
+| `dispose()`                                      | Release all resources                       |
+| `metadata`                                       | EPUB package metadata                       |
+| `totalSpreads`                                   | Number of spreads                           |
+| `toc`                                            | Table of contents entries                   |
+| `pages` / `spreads`                              | Computed pages and spreads                  |
+| `chapterMap`                                     | Chapter-to-page-range mapping               |
+| `measurer`                                       | Text measurer for interaction APIs          |
 
 ### Stable Primitives
 
 The main entry re-exports a curated set of stable high-level functions for custom pipelines:
 
-| Function                             | Description                                      |
-| ------------------------------------ | ------------------------------------------------ |
-| `loadEpub(data, options?)`           | Parse an EPUB ArrayBuffer into an `EpubDocument` |
-| `prepare(doc, config, canvas)`       | Load fonts/images and paginate in one async step |
-| `render(spread, ctx, config, opts?)` | Render a spread to a 2D context                  |
-| `paginate(doc, config, measurer)`    | Lay out and paginate all chapters into `Page[]`  |
-| `buildSpreads(pages, config)`        | Group pages into `Spread[]`                      |
-| `createLayoutConfig(input)`          | Create a `LayoutConfig` from shorthand options   |
-| `getSpreadDimensions(config)`        | Compute canvas dimensions for a spread           |
-| `createTextMeasurer(canvas)`         | Create a `TextMeasurer` from a canvas element    |
-| `paginateInWorker(worker, ...)`      | Run pagination through a caller-provided Worker  |
-| `disposeResources(resources)`        | Release prepared resources                       |
+| Function                             | Description                                                     |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `loadEpub(data, options?)`           | Parse an EPUB ArrayBuffer into an `EpubDocument`                |
+| `prepare(doc, config, canvas)`       | Load fonts/images and paginate in one async step                |
+| `render(spread, ctx, config, opts?)` | Render a spread to a 2D context                                 |
+| `paginate(doc, config, measurer)`    | Lay out and paginate all chapters into `Page[]`                 |
+| `buildSpreads(pages, config)`        | Group pages into `Spread[]`                                     |
+| `createLayoutConfig(input)`          | Create a `LayoutConfig` from shorthand options                  |
+| `getSpreadDimensions(config)`        | Compute canvas dimensions for a spread                          |
+| `createTextMeasurer(canvas)`         | Create a `TextMeasurer` from a canvas element                   |
+| `paginateInWorker(worker, ...)`      | Pre-read chapters on the caller side, then paginate in a Worker |
+| `disposeResources(resources)`        | Release prepared resources                                      |
 
 ### Advanced Entry (`rito/advanced`)
 
@@ -148,7 +149,7 @@ Rito also exposes focused subpath entries for higher-level interaction and integ
 - Layout engine: block layout, greedy or Knuth-Plass line breaking, Liang hyphenation (`en-us`), floats, inline images, tables, lists, `margin: auto`, `vertical-align`, and `position: relative`.
 - Pagination with page-break awareness, widow/orphan control, and chapter-start-aware spread building.
 - Single-page and two-page spread modes.
-- Optional worker pagination for initial reader creation.
+- Optional worker pagination for layout computation after main-thread chapter pre-read.
 - Canvas rendering with theme support (background/foreground color override with WCAG contrast detection).
 - Source-anchored annotations that remain stable across repagination, spread-mode switches, and viewport changes.
 - Interaction primitives and engines for selection, search, annotations, reading position, and accessibility mirrors.
@@ -167,8 +168,9 @@ pnpm run dev:reader
 - **Selector subset** — supports element/class/ID/compound/descendant selectors only; no attribute selectors, sibling combinators, pseudo-elements, or media queries.
 - **Language support** — layout is left-to-right only; no RTL/BiDi, and bundled hyphenation patterns are currently `en-us` only.
 - **TOC / internal links** — fragment identifiers currently resolve to chapter start pages rather than exact anchor pages.
-- **Typography overrides** — `setTypography()` currently wires `fontSize`; `lineHeight` and `fontFamily` are accepted but not yet applied.
-- **Default loading model** — `loadEpub()` reads chapters lazily, but `createReader()` / `prepare()` still paginate the full spine up front and eagerly decode resources.
+- **Typography overrides** — `setTypography()` applies reader-wide root/body overrides (`fontSize`, `lineHeight`, `fontFamily`). It is intentionally coarse and does not rewrite EPUB-authored selectors.
+- **Default loading model** — `loadEpub()` exposes lazy `readChapter()`, but the ZIP archive is still inflated eagerly, and `createReader()` / `prepare()` still paginate the full spine up front and eagerly decode resources.
+- **Worker pagination scope** — `paginateInWorker()` / `createReader({ useWorker: true })` move layout work off the main thread, but chapter pre-read / XHTML parse still happen on the caller side before posting work to the Worker.
 - **Browser-oriented rendering pipeline** — `loadFonts`, `loadImages`, `prepare`, and worker pagination depend on browser APIs such as `FontFace`, `createImageBitmap`, `Worker`, and `OffscreenCanvas`.
 - **EPUB 3 first** — no explicit EPUB 2 compatibility layer.
 
@@ -226,4 +228,4 @@ apps/reader/
   src/lib/          Small app-specific helpers
 ```
 
-Public exports flow through `src/index.ts`. Internal APIs are available via `src/advanced.ts` (`rito/advanced`).
+The public API is split across `src/index.ts` and documented subpath entries such as `src/advanced.ts`, `src/selection.ts`, `src/search.ts`, `src/annotations.ts`, `src/position.ts`, `src/a11y.ts`, `src/dom.ts`, and `src/worker.ts`.

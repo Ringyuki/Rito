@@ -1,4 +1,4 @@
-import type { LayoutConfig } from './types';
+import type { LayoutConfig, PaginationPolicy } from './types';
 
 /** Shorthand input for creating a LayoutConfig. */
 export interface LayoutConfigInput {
@@ -33,6 +33,8 @@ export interface LayoutConfigInput {
   readonly lineHeightOverride?: number;
   /** Global font-family override. Overrides CSS on body. */
   readonly fontFamilyOverride?: string;
+  /** Runtime pagination policy for widow/orphan control. */
+  readonly paginationPolicy?: PaginationPolicy;
 }
 
 /**
@@ -86,6 +88,7 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
     ...(input.fontFamilyOverride !== undefined
       ? { fontFamilyOverride: input.fontFamilyOverride }
       : {}),
+    ...(input.paginationPolicy !== undefined ? { paginationPolicy: input.paginationPolicy } : {}),
   };
 }
 

@@ -275,6 +275,84 @@ describe('layoutBlocks', () => {
     });
   });
 
+  describe('container padding', () => {
+    it('applies paddingTop to child blocks', () => {
+      // div with paddingTop=20 wrapping a p (margin:0 to avoid margin interference)
+      const styled = resolveStyles([
+        block('div', [block('p', [text('Content')], { style: 'margin: 0' })], {
+          style: 'padding-top: 20px',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      // Child p should start at y=20 (paddingTop)
+      expect(blocks[0]?.bounds.y).toBe(20);
+    });
+
+    it('applies paddingBottom to push subsequent blocks down', () => {
+      const styled = resolveStyles([
+        block('div', [block('p', [text('Inside')], { style: 'margin: 0' })], {
+          style: 'padding-bottom: 30px; margin: 0',
+        }),
+        block('p', [text('After')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      const insideBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+      const afterTop = blocks[1]?.bounds.y ?? 0;
+      // Gap should include the 30px paddingBottom
+      expect(afterTop - insideBottom).toBeGreaterThanOrEqual(30);
+    });
+
+    it('applies paddingRight to narrow child content width', () => {
+      // With paddingLeft=20 + paddingRight=20, child width = 300-40 = 260
+      // At 300px: 31 chars/line (300 / 9.6) → 2 lines for 60 chars
+      // At 260px: 27 chars/line (260 / 9.6) → 3 lines for 60 chars
+      const longText = 'A'.repeat(60);
+      const styled = resolveStyles([
+        block('div', [block('p', [text(longText)], { style: 'margin: 0' })], {
+          style: 'padding-left: 20px; padding-right: 20px; margin: 0',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+      const narrowLineCount = blocks[0]?.children.length ?? 0;
+
+      // Compare with no padding
+      const styledNoPad = resolveStyles([
+        block('div', [block('p', [text(longText)], { style: 'margin: 0' })], {
+          style: 'margin: 0',
+        }),
+      ]);
+      const blocksNoPad = layoutBlocks(styledNoPad, CONTENT_WIDTH, layouter);
+      const wideLineCount = blocksNoPad[0]?.children.length ?? 0;
+
+      // Narrower width should produce more lines
+      expect(narrowLineCount).toBeGreaterThan(wideLineCount);
+    });
+
+    it('applies all four paddings together', () => {
+      const styled = resolveStyles([
+        block('div', [block('p', [text('Padded')], { style: 'margin: 0' })], {
+          style: 'padding: 10px 20px 30px 40px; margin: 0',
+        }),
+        block('p', [text('Next')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // First child should be offset by paddingTop=10 and indented by paddingLeft=40
+      expect(blocks[0]?.bounds.y).toBe(10);
+      expect(blocks[0]?.bounds.x).toBe(40);
+
+      // Second block should be pushed down by paddingBottom=30
+      const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+      const secondTop = blocks[1]?.bounds.y ?? 0;
+      expect(secondTop - firstBottom).toBeGreaterThanOrEqual(30);
+    });
+  });
+
   describe('box-sizing: border-box', () => {
     it('subtracts padding from width in border-box', () => {
       // width: 200px with 20px padding on each side
@@ -379,6 +457,216 @@ describe('layoutBlocks', () => {
       // centered in 300: x = (300 - 180) / 2 = 60
       expect(blocks[0]?.bounds.width).toBe(180);
       expect(blocks[0]?.bounds.x).toBe(60);
+    });
+  });
+
+  describe('block-level float', () => {
+    it('floats a block-level element to the left', () => {
+      const styled = resolveStyles([
+        block('div', [text('Floated')], { style: 'float: left; width: 100px; margin: 0' }),
+        block('p', [text('Wrapping text here')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Floated div at x=0
+      expect(blocks[0]?.bounds.x).toBe(0);
+      expect(blocks[0]?.bounds.width).toBe(100);
+      // Following p should have reduced width (300 - 100 = 200)
+      expect(blocks[1]?.bounds.width).toBe(200);
+      expect(blocks[1]?.bounds.x).toBe(100);
+    });
+
+    it('floats a block-level element to the right', () => {
+      const styled = resolveStyles([
+        block('aside', [text('Sidebar')], { style: 'float: right; width: 80px; margin: 0' }),
+        block('p', [text('Main content')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Floated aside at right edge: x = 300 - 80 = 220
+      expect(blocks[0]?.bounds.x).toBe(220);
+      // Following p should have narrower width
+      expect(blocks[1]?.bounds.width).toBe(220);
+    });
+
+    it('floated container block below earlier content has correct child Y', () => {
+      const styled = resolveStyles([
+        block('p', [text('Above')], { style: 'margin: 0' }),
+        block('div', [block('p', [text('Inside float')], { style: 'margin: 0' })], {
+          style: 'float: left; width: 100px; margin: 0',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      const floatBlock = blocks[1];
+      expect(floatBlock).toBeDefined();
+      expect(floatBlock?.bounds.y).toBeGreaterThan(0);
+      // Children inside the wrapper should be relative to the wrapper (start near y=0)
+      const floatY = floatBlock?.bounds.y ?? 0;
+      const firstChild = floatBlock?.children[0];
+      expect(firstChild).toBeDefined();
+      if (firstChild && 'bounds' in firstChild) {
+        expect(firstChild.bounds.y).toBeLessThan(floatY);
+      }
+    });
+
+    it('left float with margins reserves space including margins', () => {
+      const styled = resolveStyles([
+        block('div', [text('Float')], {
+          style: 'float: left; width: 100px; margin-left: 10px; margin-right: 20px',
+        }),
+        block('p', [text('Wrapping text')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Float should be offset by marginLeft
+      expect(blocks[0]?.bounds.x).toBe(10);
+      // Wrapped text width = 300 - (100 + 10 + 20) = 170
+      expect(blocks[1]?.bounds.width).toBe(170);
+    });
+
+    it('right float with margins positions correctly', () => {
+      const styled = resolveStyles([
+        block('div', [text('Float')], {
+          style: 'float: right; width: 80px; margin-left: 10px; margin-right: 15px',
+        }),
+        block('p', [text('Main content')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Float at right: x = 300 - 80 - 15 = 205
+      expect(blocks[0]?.bounds.x).toBe(205);
+      // Wrapped text width = 300 - (80 + 10 + 15) = 195
+      expect(blocks[1]?.bounds.width).toBe(195);
+    });
+
+    it('floated leaf block preserves padding and decorations', () => {
+      const styled = resolveStyles([
+        block('div', [text('Padded float')], {
+          style: 'float: left; width: 120px; padding: 5px; margin: 0',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      expect(blocks[0]?.bounds.height).toBeGreaterThan(0);
+    });
+
+    it('width:auto leaf float shrinks to fit content', () => {
+      // "Hi" = 2 chars × 0.6 × 16 = 19.2px — much less than 300
+      const styled = resolveStyles([
+        block('div', [text('Hi')], { style: 'float: right; margin: 0' }),
+        block('p', [text('Main')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Float should shrink to content width, not fill 300px
+      expect(blocks[0]?.bounds.width).toBeLessThan(CONTENT_WIDTH);
+      // Right-floated: x should be near the right edge
+      expect(blocks[0]?.bounds.x).toBeGreaterThan(0);
+    });
+
+    it('width:auto container float with <p> children shrinks to fit', () => {
+      // Floated div containing two short paragraphs — the common .fr pattern
+      // "Short" = 5 chars × 0.6 × 16 = 48px, "Hi" = 19.2px
+      // Container should shrink to the widest child's content, not the full 300px
+      const styled = resolveStyles([
+        block(
+          'div',
+          [
+            block('p', [text('Short')], { style: 'margin: 0' }),
+            block('p', [text('Hi')], { style: 'margin: 0' }),
+          ],
+          { style: 'float: right; margin: 0' },
+        ),
+        block('p', [text('Main content flows around')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      const floatBlock = blocks[0];
+      // Container should shrink to widest child content (~48px), not 300px
+      expect(floatBlock?.bounds.width).toBeLessThan(100);
+      // Right-floated: x should be near the right edge
+      expect(floatBlock?.bounds.x).toBeGreaterThan(CONTENT_WIDTH / 2);
+    });
+
+    it('two consecutive left floats stack horizontally', () => {
+      const styled = resolveStyles([
+        block('div', [text('A')], { style: 'float: left; width: 50px; margin: 0' }),
+        block('div', [text('B')], { style: 'float: left; width: 60px; margin: 0' }),
+        block('p', [text('Content')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(3);
+      // First float at x=0
+      expect(blocks[0]?.bounds.x).toBe(0);
+      // Second float at x=50 (after first float)
+      expect(blocks[1]?.bounds.x).toBe(50);
+      // Content should be narrowed by both floats (300 - 50 - 60 = 190)
+      expect(blocks[2]?.bounds.width).toBe(190);
+    });
+
+    it('explicit width is clamped to available width after margins', () => {
+      // width:400 exceeds 300 - 10 - 10 = 280 available
+      const styled = resolveStyles([
+        block('div', [text('Wide')], {
+          style: 'float: left; width: 400px; margin-left: 10px; margin-right: 10px',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(1);
+      // Should be clamped to 280 (300 - 10 - 10)
+      expect(blocks[0]?.bounds.width).toBe(280);
+    });
+
+    it('opposite-side floats that exceed line width push later float down', () => {
+      // Left float 200px + right float 200px = 400px > 300px container
+      // Right float pushed below left float. Paragraph wraps correctly around both.
+      const styled = resolveStyles([
+        block('div', [text('Left')], { style: 'float: left; width: 200px; margin: 0' }),
+        block('div', [text('Right')], { style: 'float: right; width: 200px; margin: 0' }),
+        block('p', [text('Content')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(3);
+      const leftFloat = blocks[0];
+      const rightFloat = blocks[1];
+      const paragraph = blocks[2];
+      // Right float pushed below left float
+      const leftBottom = (leftFloat?.bounds.y ?? 0) + (leftFloat?.bounds.height ?? 0);
+      expect(rightFloat?.bounds.y).toBeGreaterThanOrEqual(leftBottom);
+      expect(rightFloat?.bounds.x).toBe(100);
+
+      // Paragraph at y=0 should wrap around the LEFT float (200px),
+      // NOT the pushed-down right float
+      expect(paragraph?.bounds.y).toBe(0);
+      expect(paragraph?.bounds.width).toBe(100); // 300 - 200 left float
+      expect(paragraph?.bounds.x).toBe(200);
+    });
+
+    it('opposite-side floats that fit on same line do not push down', () => {
+      // Left 100px + right 100px = 200px < 300px — both fit
+      const styled = resolveStyles([
+        block('div', [text('L')], { style: 'float: left; width: 100px; margin: 0' }),
+        block('div', [text('R')], { style: 'float: right; width: 100px; margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks).toHaveLength(2);
+      // Both on the same row
+      expect(blocks[0]?.bounds.y).toBe(blocks[1]?.bounds.y);
+      expect(blocks[0]?.bounds.x).toBe(0);
+      expect(blocks[1]?.bounds.x).toBe(200);
     });
   });
 });

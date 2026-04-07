@@ -111,6 +111,45 @@ describe('widow/orphan control in trySplitBlock', () => {
   });
 });
 
+describe('PaginationPolicy in trySplitBlock', () => {
+  it('enabled:false disables widow/orphan enforcement (allows 1/N split)', () => {
+    const block = makeBlock(4, 24, { orphans: 3, widows: 3 });
+    // Without policy: orphans:3 + widows:3 > 4 lines → overflow split at height boundary
+    // With enabled:false: orphans=1, widows=1 → split at 1 line
+    const result = trySplitBlock(block, 24, { enabled: false });
+    expect(result).toBeDefined();
+    expect(result?.head.children).toHaveLength(1);
+    expect(result?.tail.children).toHaveLength(3);
+  });
+
+  it('custom defaultOrphans/defaultWidows override the hardcoded 2/2', () => {
+    // Block without CSS orphans/widows → falls back to policy defaults
+    const block = makeBlock(10, 24);
+    const result = trySplitBlock(block, 72, { defaultOrphans: 3, defaultWidows: 3 });
+    expect(result).toBeDefined();
+    // splitIndex from height = 3, bumped to defaultOrphans=3 → stays at 3
+    expect(result?.head.children).toHaveLength(3);
+    expect(result?.tail.children).toHaveLength(7);
+  });
+
+  it('CSS orphans/widows on block override policy defaults', () => {
+    // Block has CSS orphans:4, policy default is 3
+    const block = makeBlock(10, 24, { orphans: 4 });
+    const result = trySplitBlock(block, 72, { defaultOrphans: 3 });
+    expect(result).toBeDefined();
+    // CSS orphans:4 takes precedence over policy default 3
+    expect(result?.head.children).toHaveLength(4);
+  });
+
+  it('undefined policy behaves same as default (orphans:2, widows:2)', () => {
+    const block = makeBlock(10, 24);
+    const withPolicy = trySplitBlock(block, 48, undefined);
+    const withoutPolicy = trySplitBlock(block, 48);
+    expect(withPolicy?.head.children).toHaveLength(withoutPolicy?.head.children.length ?? 0);
+    expect(withPolicy?.tail.children).toHaveLength(withoutPolicy?.tail.children.length ?? 0);
+  });
+});
+
 describe('CSS parsing of orphans/widows', () => {
   it('parses orphans: 3', () => {
     const result = parseCssDeclarations('orphans: 3', 16);

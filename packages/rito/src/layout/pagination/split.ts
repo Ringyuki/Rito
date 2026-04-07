@@ -1,4 +1,4 @@
-import type { LayoutBlock, LineBox } from '../core/types';
+import type { LayoutBlock, LineBox, PaginationPolicy } from '../core/types';
 
 interface SplitResult {
   readonly head: LayoutBlock;
@@ -8,14 +8,18 @@ interface SplitResult {
 export function trySplitBlock(
   block: LayoutBlock,
   availableHeight: number,
+  policy?: PaginationPolicy,
 ): SplitResult | undefined {
   if (!block.children.every((child): child is LineBox => child.type === 'line-box')) {
     return undefined;
   }
 
   const lineBoxes = block.children;
-  const orphans = block.orphans ?? 2;
-  const widows = block.widows ?? 2;
+  const policyEnabled = policy?.enabled !== false;
+  const defaultOrphans = policy?.defaultOrphans ?? 2;
+  const defaultWidows = policy?.defaultWidows ?? 2;
+  const orphans = policyEnabled ? (block.orphans ?? defaultOrphans) : 1;
+  const widows = policyEnabled ? (block.widows ?? defaultWidows) : 1;
   const minTotal = orphans + widows;
 
   let splitIndex = findSplitIndex(lineBoxes, availableHeight);

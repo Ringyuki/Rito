@@ -102,6 +102,49 @@ describe('percentage length in margins', () => {
   });
 });
 
+describe('negative margin collapse', () => {
+  it('one positive + one negative → sum', () => {
+    // First block: marginBottom=16 (default p), second block: marginTop=-10
+    const { nodes } = parseXhtml(xhtml('<p>First</p><p style="margin-top: -10px;">Second</p>'));
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+    const secondTop = blocks[1]?.bounds.y ?? 0;
+    // collapsed = 16 + (-10) = 6
+    expect(secondTop - firstBottom).toBeCloseTo(6);
+  });
+
+  it('two negative margins → min (most negative)', () => {
+    const { nodes } = parseXhtml(
+      xhtml('<p style="margin-bottom: -20px;">First</p><p style="margin-top: -10px;">Second</p>'),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+    const secondTop = blocks[1]?.bounds.y ?? 0;
+    // collapsed = min(-20, -10) = -20 → second block overlaps first by 20px
+    expect(secondTop - firstBottom).toBeCloseTo(-20);
+  });
+
+  it('two positive margins → max (unchanged behavior)', () => {
+    const { nodes } = parseXhtml(
+      xhtml('<p style="margin-bottom: 20px;">First</p><p style="margin-top: 30px;">Second</p>'),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks.length).toBeGreaterThanOrEqual(2);
+    const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
+    const secondTop = blocks[1]?.bounds.y ?? 0;
+    // collapsed = max(20, 30) = 30
+    expect(secondTop - firstBottom).toBeCloseTo(30);
+  });
+});
+
 describe('global stylesheet rules affect real nodes', () => {
   const REAL_CSS = `
     body { line-height: 130%; text-align: justify; }

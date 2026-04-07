@@ -46,6 +46,10 @@ export function createTransitionEngine(
     originalSpread: null,
   };
 
+  return buildEngineInterface(state);
+}
+
+function buildEngineInterface(state: EngineState): TransitionEngine {
   const engine: TransitionEngine = {
     mount(container: HTMLElement): void {
       if (state.mounted) return;
@@ -85,7 +89,6 @@ export function createTransitionEngine(
       }
     },
   };
-
   return engine;
 }
 

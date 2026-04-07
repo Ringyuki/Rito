@@ -16,6 +16,7 @@ export function buildStyledRuns(
   ranges: readonly StyleRange[],
   measurer: TextMeasurer,
   atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
+  baseFontSize?: number,
 ): (TextRun | InlineAtom)[] {
   const runs: (TextRun | InlineAtom)[] = [];
   let x = startX;
@@ -25,42 +26,67 @@ export function buildStyledRuns(
     const globalPos = globalOffset + linePos;
     const atom = atoms.get(globalPos);
     if (atom) {
-      runs.push(buildInlineAtom(atom, x, lineHeight));
+      runs.push(buildInlineAtom(atom, x, lineHeight, baseFontSize));
       x += atom.width;
       linePos += 1;
       continue;
     }
 
-    const range = findRange(ranges, globalPos);
-    if (!range) break;
-
-    const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
-    const runText = stripORC(lineText.slice(linePos, rangeEnd));
-    if (runText.length === 0) {
-      linePos = rangeEnd;
-      continue;
-    }
-
-    const sourceTextOffset = globalPos - range.start;
-    const width = measurer.measureText(runText, range.style).width;
-    runs.push(
-      buildTextRun(
-        runText,
-        x,
-        lineHeight,
-        width,
-        range.style,
-        range.href,
-        range.sourceRef,
-        range.sourceText,
-        sourceTextOffset,
-      ),
+    const result = processRange(
+      lineText,
+      linePos,
+      globalPos,
+      globalOffset,
+      x,
+      lineHeight,
+      ranges,
+      measurer,
+      baseFontSize,
     );
-    x += width;
-    linePos = rangeEnd;
+    if (!result) break;
+    if (result.run) {
+      runs.push(result.run);
+      x += result.run.bounds.width;
+    }
+    linePos = result.nextPos;
   }
 
   return runs;
+}
+
+function processRange(
+  lineText: string,
+  linePos: number,
+  globalPos: number,
+  globalOffset: number,
+  x: number,
+  lineHeight: number,
+  ranges: readonly StyleRange[],
+  measurer: TextMeasurer,
+  baseFontSize?: number,
+): { run?: TextRun; nextPos: number } | undefined {
+  const range = findRange(ranges, globalPos);
+  if (!range) return undefined;
+
+  const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
+  const runText = stripORC(lineText.slice(linePos, rangeEnd));
+  if (runText.length === 0) return { nextPos: rangeEnd };
+
+  const sourceTextOffset = globalPos - range.start;
+  const width = measurer.measureText(runText, range.style).width;
+  const run = buildTextRun(
+    runText,
+    x,
+    lineHeight,
+    width,
+    range.style,
+    range.href,
+    range.sourceRef,
+    range.sourceText,
+    sourceTextOffset,
+    baseFontSize,
+  );
+  return { run, nextPos: rangeEnd };
 }
 
 export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {
@@ -77,11 +103,17 @@ function buildTextRun(
   sourceRef?: SourceRef,
   sourceText?: string,
   sourceTextOffset?: number,
+  baseFontSize?: number,
 ): TextRun {
   const run: TextRun = {
     type: 'text-run',
     text,
-    bounds: { x, y: computeVerticalAlignOffset(style, lineHeight), width, height: lineHeight },
+    bounds: {
+      x,
+      y: computeVerticalAlignOffset(style, lineHeight, baseFontSize),
+      width,
+      height: lineHeight,
+    },
     style,
     ...(sourceRef ? { sourceRef } : {}),
     ...(sourceText !== undefined ? { sourceText } : {}),
@@ -90,12 +122,17 @@ function buildTextRun(
   return href ? { ...run, href } : run;
 }
 
-function buildInlineAtom(atom: InlineAtomSegment, x: number, lineHeight: number): InlineAtom {
+function buildInlineAtom(
+  atom: InlineAtomSegment,
+  x: number,
+  lineHeight: number,
+  baseFontSize?: number,
+): InlineAtom {
   const result: InlineAtom = {
     type: 'inline-atom',
     bounds: {
       x,
-      y: computeVerticalAlignOffset(atom.style, lineHeight),
+      y: computeVerticalAlignOffset(atom.style, lineHeight, baseFontSize),
       width: atom.width,
       height: atom.height,
     },
@@ -119,13 +156,25 @@ function findRange(ranges: readonly StyleRange[], globalPos: number): StyleRange
   return undefined;
 }
 
-function computeVerticalAlignOffset(style: ComputedStyle, lineHeight: number): number {
-  const verticalAlign = style.verticalAlign;
-  if (verticalAlign === 'baseline' || verticalAlign === 'top' || verticalAlign === 'text-top') {
-    return 0;
-  }
+const ASCENT_RATIO = 0.8;
 
+function computeVerticalAlignOffset(
+  style: ComputedStyle,
+  lineHeight: number,
+  baseFontSize?: number,
+): number {
+  const verticalAlign = style.verticalAlign;
   switch (verticalAlign) {
+    case 'baseline': {
+      // Approximate baseline alignment: shift smaller-font runs down so
+      // their baseline (ascent) aligns with the line's baseline.
+      // baseFontSize is the paragraph's base font size (from baseStyle).
+      const base = baseFontSize ?? style.fontSize;
+      return ASCENT_RATIO * (base - style.fontSize);
+    }
+    case 'top':
+    case 'text-top':
+      return 0;
     case 'super':
       return -(style.fontSize * 0.4);
     case 'sub':

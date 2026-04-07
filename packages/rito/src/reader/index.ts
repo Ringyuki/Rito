@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page, Spread } from '../layout/core/types';
+import type { LayoutConfig, Page, PaginationPolicy, Spread } from '../layout/core/types';
 import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
@@ -40,6 +40,8 @@ export interface ReaderOptions {
   readonly useWorker?: boolean;
   /** Log verbosity level. Defaults to 'warn'. */
   readonly logLevel?: LogLevel;
+  /** Pagination policy for widow/orphan control. */
+  readonly paginationPolicy?: PaginationPolicy;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */

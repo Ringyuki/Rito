@@ -1,4 +1,4 @@
-import type { LayoutBlock, LayoutConfig, Page } from '../core/types';
+import type { LayoutBlock, LayoutConfig, Page, PaginationPolicy } from '../core/types';
 import { createPaginationState, emitPage, type PaginationState } from './state';
 import { forceSplitBlock, repositionBlock, trySplitBlock } from './split';
 
@@ -6,6 +6,7 @@ export function paginateBlocks(
   blocks: readonly LayoutBlock[],
   config: LayoutConfig,
 ): readonly Page[] {
+  const policy = config.paginationPolicy;
   const contentHeight = config.pageHeight - config.marginTop - config.marginBottom;
   if (contentHeight <= 0) {
     throw new Error(
@@ -19,7 +20,7 @@ export function paginateBlocks(
     if (!block) continue;
 
     const spacing = computeSpacing(blocks, index);
-    placeBlock(block, spacing, contentHeight, state);
+    placeBlock(block, spacing, contentHeight, state, policy);
   }
 
   if (state.pageBlocks.length > 0) {
@@ -42,6 +43,7 @@ function placeBlock(
   spacing: number,
   contentHeight: number,
   state: PaginationState,
+  policy?: PaginationPolicy,
 ): void {
   if (block.pageBreakBefore && state.pageBlocks.length > 0) {
     emitPage(state);
@@ -58,9 +60,9 @@ function placeBlock(
   }
 
   if (state.pageBlocks.length > 0) {
-    placeBlockOnFullPage(block, spacing, contentHeight, state);
+    placeBlockOnFullPage(block, spacing, contentHeight, state, policy);
   } else {
-    placeOversizedBlock(block, contentHeight, state);
+    placeOversizedBlock(block, contentHeight, state, policy);
   }
 }
 
@@ -69,9 +71,10 @@ function placeBlockOnFullPage(
   spacing: number,
   contentHeight: number,
   state: PaginationState,
+  policy?: PaginationPolicy,
 ): void {
   const remaining = contentHeight - state.usedHeight - spacing;
-  const split = remaining > 0 ? trySplitBlock(block, remaining) : undefined;
+  const split = remaining > 0 ? trySplitBlock(block, remaining, policy) : undefined;
 
   // No split possible, or head exceeds remaining space → start fresh page
   if (!split || split.head.bounds.height > remaining) {
@@ -81,31 +84,32 @@ function placeBlockOnFullPage(
       state.usedHeight += spacing;
       state.pageBlocks.push(repositionBlock(forced.head, state.usedHeight));
       emitPage(state);
-      placeBlock(forced.tail, 0, contentHeight, state);
+      placeBlock(forced.tail, 0, contentHeight, state, policy);
       return;
     }
     emitPage(state);
-    placeBlock(block, 0, contentHeight, state);
+    placeBlock(block, 0, contentHeight, state, policy);
     return;
   }
 
   state.usedHeight += spacing;
   state.pageBlocks.push(repositionBlock(split.head, state.usedHeight));
   emitPage(state);
-  placeBlock(split.tail, 0, contentHeight, state);
+  placeBlock(split.tail, 0, contentHeight, state, policy);
 }
 
 function placeOversizedBlock(
   block: LayoutBlock,
   contentHeight: number,
   state: PaginationState,
+  policy?: PaginationPolicy,
 ): void {
   // Try normal split (respects orphan/widow)
-  const split = trySplitBlock(block, contentHeight);
+  const split = trySplitBlock(block, contentHeight, policy);
   if (split && split.head.bounds.height <= contentHeight) {
     state.pageBlocks.push(repositionBlock(split.head, 0));
     emitPage(state);
-    placeBlock(split.tail, 0, contentHeight, state);
+    placeBlock(split.tail, 0, contentHeight, state, policy);
     return;
   }
 
@@ -114,7 +118,7 @@ function placeOversizedBlock(
   if (forced) {
     state.pageBlocks.push(repositionBlock(forced.head, 0));
     emitPage(state);
-    placeBlock(forced.tail, 0, contentHeight, state);
+    placeBlock(forced.tail, 0, contentHeight, state, policy);
     return;
   }
 

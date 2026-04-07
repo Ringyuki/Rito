@@ -231,4 +231,43 @@ describe('greedy layouter — vertical-align offsets', () => {
     expect(runs[0]?.bounds.y).toBe(0);
     expect(runs[1]?.bounds.y).toBeCloseTo(3.2);
   });
+
+  it('baseline alignment shifts smaller font down to align baselines', () => {
+    // Normal text (16px) + small text (12px), both baseline-aligned
+    // lineHeight = 16 * 1.5 = 24
+    // baseFontSize = 24 / 1.5 = 16
+    // Normal: offset = 0.8 * (16 - 16) = 0
+    // Small:  offset = 0.8 * (16 - 12) = 3.2
+    const segments = [seg('normal', { fontSize: 16 }), seg('small', { fontSize: 12 })];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    expect(lines).toHaveLength(1);
+    const runs = lines[0]?.runs ?? [];
+    expect(runs).toHaveLength(2);
+    expect(runs[0]?.bounds.y).toBe(0);
+    expect(runs[1]?.bounds.y).toBeCloseTo(3.2);
+  });
+
+  it('same-size baseline runs still have y=0', () => {
+    // When all runs have the same fontSize, baseline = top (no shift)
+    const segments = [seg('a', { fontSize: 16 }), seg('b', { fontSize: 16 })];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    const runs = lines[0]?.runs ?? [];
+    expect(runs[0]?.bounds.y).toBe(0);
+    expect(runs[1]?.bounds.y).toBe(0);
+  });
+
+  it('same-size run with different line-height stays at y=0', () => {
+    // A span with line-height:1 inside a paragraph with line-height:1.5
+    // should NOT shift vertically — baseline alignment depends on font size, not line-height
+    const segments = [
+      seg('normal', { fontSize: 16, lineHeight: 1.5 }),
+      seg('compact', { fontSize: 16, lineHeight: 1 }),
+    ];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    const runs = lines[0]?.runs ?? [];
+    expect(runs).toHaveLength(2);
+    // Both runs have the same fontSize — baseline alignment should give y=0 for both
+    expect(runs[0]?.bounds.y).toBe(0);
+    expect(runs[1]?.bounds.y).toBe(0);
+  });
 });

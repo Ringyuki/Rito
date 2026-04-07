@@ -6,6 +6,7 @@ export {
   type ImageElement,
   type LayoutBlock,
   type LayoutConfig,
+  type PaginationPolicy,
   type LineBox,
   type Page,
   type Spread,

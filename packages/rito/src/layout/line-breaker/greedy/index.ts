@@ -91,7 +91,16 @@ function layoutSingleLine(
   const lineText = preserveWs
     ? text.slice(pos, lineTextEnd)
     : text.slice(pos, lineTextEnd).trimEnd();
-  const runs = buildStyledRuns(lineText, pos, lineStartX, lineHeight, ranges, measurer, atoms);
+  const runs = buildStyledRuns(
+    lineText,
+    pos,
+    lineStartX,
+    lineHeight,
+    ranges,
+    measurer,
+    atoms,
+    baseStyle.fontSize,
+  );
 
   return { runs, width: getRunsWidth(runs), nextPos: lineTextEnd };
 }

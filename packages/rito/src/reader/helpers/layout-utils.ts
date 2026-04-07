@@ -19,6 +19,9 @@ export function makeLayoutConfig(
     ...(rootFontSize !== undefined ? { rootFontSize } : {}),
     ...(lineHeightOverride !== undefined ? { lineHeightOverride } : {}),
     ...(fontFamilyOverride !== undefined ? { fontFamilyOverride } : {}),
+    ...(options.paginationPolicy !== undefined
+      ? { paginationPolicy: options.paginationPolicy }
+      : {}),
   } satisfies LayoutConfigInput);
 }
 
@@ -45,6 +48,9 @@ export function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
     a.spreadGap === b.spreadGap &&
     a.rootFontSize === b.rootFontSize &&
     a.lineHeightOverride === b.lineHeightOverride &&
-    a.fontFamilyOverride === b.fontFamilyOverride
+    a.fontFamilyOverride === b.fontFamilyOverride &&
+    a.paginationPolicy?.enabled === b.paginationPolicy?.enabled &&
+    a.paginationPolicy?.defaultOrphans === b.paginationPolicy?.defaultOrphans &&
+    a.paginationPolicy?.defaultWidows === b.paginationPolicy?.defaultWidows
   );
 }

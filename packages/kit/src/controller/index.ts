@@ -1,5 +1,4 @@
 import type { Reader } from 'rito';
-import { buildSemanticTree, createA11yMirror, type A11yMirror } from 'rito/a11y';
 
 import { createTransitionEngine } from '../transition/index';
 import { createOverlayRenderer } from '../overlay/index';
@@ -19,6 +18,7 @@ import {
   wireSpreadRendered,
   wireUnifiedTouchHandler,
 } from './wiring/index';
+import { wireA11y } from './wiring/a11y';
 import { findAnnotationAtPos } from './wiring/annotation';
 import { findLinkAtPos } from './wiring/link';
 import { handleLinkClick } from './link-handler/index';
@@ -48,6 +48,56 @@ export function createController(
   const opts = options ?? {};
   const emitter = createEmitter<ReaderControllerEvents>();
   const disposables = createDisposableCollection();
+  const { internals, transition, overlay, modeManager, nav } = bootstrapRuntime(
+    reader,
+    canvas,
+    opts,
+    emitter,
+    disposables,
+  );
+
+  const keyboard = wireIntegrations(
+    internals,
+    transition,
+    modeManager,
+    emitter,
+    nav,
+    reader,
+    canvas,
+    internals.coordState,
+    disposables,
+  );
+  wireA11y(opts, transition, reader, disposables);
+
+  // Auto-return to gesture mode when selection is cleared
+  emitter.on('selectionChange', ({ range }) => {
+    if (range === null && modeManager.mode === 'selection') {
+      modeManager.setMode('gesture');
+    }
+  });
+
+  syncCanvasSize(internals, transition, overlay);
+  reader.renderSpread(0, internals.renderScale);
+
+  return buildController(
+    internals,
+    emitter,
+    disposables,
+    transition,
+    overlay,
+    keyboard,
+    modeManager,
+    nav,
+  );
+}
+
+function bootstrapRuntime(
+  reader: Reader,
+  canvas: HTMLCanvasElement,
+  opts: ControllerOptions,
+  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  disposables: ReturnType<typeof createDisposableCollection>,
+) {
   const transition = createTransitionEngine(canvas, opts.transition);
   const overlay = createOverlayRenderer();
   const modeManager = createInteractionModeManager(detectDefaultMode());
@@ -63,7 +113,6 @@ export function createController(
     coordState,
   };
 
-  // Provide navigation context so transition engine can pre-render adjacent spreads
   transition.setNavigationContext({
     get currentSpread() {
       return internals.currentSpread;
@@ -89,39 +138,8 @@ export function createController(
 
   wireSwipeCommit(transition, internals, emitter);
   wireAll(reader, internals, emitter, overlay, disposables, coordState, canvas);
-  const keyboard = wireIntegrations(
-    opts,
-    internals,
-    transition,
-    modeManager,
-    emitter,
-    nav,
-    reader,
-    canvas,
-    coordState,
-    disposables,
-  );
 
-  // Auto-return to gesture mode when selection is cleared
-  emitter.on('selectionChange', ({ range }) => {
-    if (range === null && modeManager.mode === 'selection') {
-      modeManager.setMode('gesture');
-    }
-  });
-
-  syncCanvasSize(internals, transition, overlay);
-  reader.renderSpread(0, internals.renderScale);
-
-  return buildController(
-    internals,
-    emitter,
-    disposables,
-    transition,
-    overlay,
-    keyboard,
-    modeManager,
-    nav,
-  );
+  return { internals, transition, overlay, modeManager, nav };
 }
 
 /**
@@ -143,9 +161,8 @@ function wireSwipeCommit(
   };
 }
 
-/** Wire touch gestures, keyboard shortcuts, and a11y mirror. Returns the KeyboardManager. */
+/** Wire touch gestures and keyboard shortcuts. Returns the KeyboardManager. */
 function wireIntegrations(
-  opts: ControllerOptions,
   internals: Internals,
   transition: ReturnType<typeof createTransitionEngine>,
   modeManager: ReturnType<typeof createInteractionModeManager>,
@@ -156,49 +173,16 @@ function wireIntegrations(
   coordState: ReturnType<typeof createCoordinatorState>,
   disposables: ReturnType<typeof createDisposableCollection>,
 ): ReturnType<typeof wireKeyboard> {
-  const wrapper = transition.mainCanvas.parentElement;
-  if (wrapper) {
-    const touchToContent = (touch: Touch) =>
-      toSpreadContent(
-        { clientX: touch.clientX, clientY: touch.clientY } as PointerEvent,
-        canvas,
-        coordState,
-      );
-    const wiringDeps = {
-      reader,
-      engines: internals.engines,
-      emitter,
-      overlay: undefined as never,
-      options: internals.options,
-      coordState,
-      canvas,
-      getCurrentSpread: () => internals.currentSpread,
-      setCurrentSpread: (i: number) => {
-        internals.currentSpread = i;
-      },
-      getRenderScale: () => internals.renderScale,
-    };
-    wireUnifiedTouchHandler(
-      wrapper,
-      transition,
-      internals.engines.selection,
-      modeManager,
-      touchToContent,
-      (pos) => {
-        // Annotation takes priority over link
-        const ann = findAnnotationAtPos(pos, wiringDeps);
-        if (ann) {
-          emitter.emit('annotationClick', { annotation: ann });
-          return;
-        }
-        const link = findLinkAtPos(pos, coordState);
-        if (link) {
-          handleLinkClick(link, reader, wiringDeps.setCurrentSpread, emitter);
-        }
-      },
-      disposables,
-    );
-  }
+  wireTouchGestures(
+    internals,
+    transition,
+    modeManager,
+    emitter,
+    reader,
+    canvas,
+    coordState,
+    disposables,
+  );
 
   const keyboard = wireKeyboard(
     {
@@ -226,8 +210,61 @@ function wireIntegrations(
     disposables,
   );
 
-  wireA11y(opts, transition, reader, disposables);
   return keyboard;
+}
+
+// eslint-disable-next-line max-lines-per-function -- orchestrator with 8-line signature; splitting further would fragment the touch wiring logic
+function wireTouchGestures(
+  internals: Internals,
+  transition: ReturnType<typeof createTransitionEngine>,
+  modeManager: ReturnType<typeof createInteractionModeManager>,
+  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  reader: Reader,
+  canvas: HTMLCanvasElement,
+  coordState: ReturnType<typeof createCoordinatorState>,
+  disposables: ReturnType<typeof createDisposableCollection>,
+): void {
+  const wrapper = transition.mainCanvas.parentElement;
+  if (!wrapper) return;
+
+  const touchToContent = (touch: Touch) =>
+    toSpreadContent(
+      { clientX: touch.clientX, clientY: touch.clientY } as PointerEvent,
+      canvas,
+      coordState,
+    );
+  const wiringDeps = {
+    reader,
+    engines: internals.engines,
+    emitter,
+    overlay: undefined as never,
+    options: internals.options,
+    coordState,
+    canvas,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (i: number) => {
+      internals.currentSpread = i;
+    },
+    getRenderScale: () => internals.renderScale,
+  };
+  const handleTap = (pos: { x: number; y: number }) => {
+    const ann = findAnnotationAtPos(pos, wiringDeps);
+    if (ann) {
+      emitter.emit('annotationClick', { annotation: ann });
+      return;
+    }
+    const link = findLinkAtPos(pos, coordState);
+    if (link) handleLinkClick(link, reader, wiringDeps.setCurrentSpread, emitter);
+  };
+  wireUnifiedTouchHandler(
+    wrapper,
+    transition,
+    internals.engines.selection,
+    modeManager,
+    touchToContent,
+    handleTap,
+    disposables,
+  );
 }
 
 function wireAll(
@@ -257,31 +294,4 @@ function wireAll(
   wireEngineEvents(deps, disposables);
   wirePositionTracker(deps, disposables);
   wireDomHelpers(deps, disposables);
-}
-
-function wireA11y(
-  opts: ControllerOptions,
-  transition: ReturnType<typeof createTransitionEngine>,
-  reader: Reader,
-  disposables: ReturnType<typeof createDisposableCollection>,
-): void {
-  if (!opts.a11y?.enabled) return;
-
-  const parent = opts.a11y.container ?? transition.mainCanvas.parentElement;
-  if (!parent) return;
-
-  const mirror: A11yMirror = createA11yMirror(parent);
-  disposables.add(() => {
-    mirror.dispose();
-  });
-
-  disposables.add(
-    reader.onSpreadRendered((_idx, spread) => {
-      const pages = [spread.left, spread.right].filter(
-        (p): p is NonNullable<typeof p> => p != null,
-      );
-      const trees = pages.flatMap((page) => buildSemanticTree(page));
-      mirror.update(trees);
-    }),
-  );
 }

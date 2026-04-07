@@ -60,6 +60,7 @@ function buildLineBoxes(
   const lines: LineBox[] = [];
   let lineStart = 0;
   let y = startY;
+  const baseFontSize = baseStyle.fontSize;
 
   for (let lineIndex = 0; lineIndex < breakPositions.length; lineIndex++) {
     const breakPos = breakPositions[lineIndex];
@@ -67,7 +68,15 @@ function buildLineBoxes(
     const isFirstLine = lineIndex === 0;
     const isLastLine = lineIndex === breakPositions.length - 1;
     const startX = isFirstLine && indent > 0 ? indent : 0;
-    const runs = buildLineRuns(items, lineStart, breakPos, startX, lineHeight, measurer);
+    const runs = buildLineRuns(
+      items,
+      lineStart,
+      breakPos,
+      startX,
+      lineHeight,
+      measurer,
+      baseFontSize,
+    );
 
     if (runs.length > 0) {
       const lineWidth = runs.reduce(
@@ -95,6 +104,7 @@ function buildLineRuns(
   startX: number,
   lineHeight: number,
   measurer: TextMeasurer,
+  baseFontSize: number,
 ): Run[] {
   const ctx: RunBuildContext = {
     runs: [],
@@ -103,6 +113,7 @@ function buildLineRuns(
     currentSegment: undefined,
     currentSourceOffset: 0,
     hasTrailingHyphen: false,
+    baseFontSize,
   };
 
   let index = skipLeadingNonContent(items, startIdx, endIdx);
@@ -112,7 +123,7 @@ function buildLineRuns(
 
     if (item.type === 'box' && item.atom) {
       flushRun(ctx, lineHeight, measurer);
-      ctx.runs.push(buildAtomRun(item.atom, ctx.x, lineHeight));
+      ctx.runs.push(buildAtomRun(item.atom, ctx.x, lineHeight, baseFontSize));
       ctx.x += item.atom.width;
     } else if (item.type === 'box') {
       appendBox(ctx, item.text, item.segment, lineHeight, measurer);
@@ -136,6 +147,8 @@ interface RunBuildContext {
   currentSourceOffset: number;
   /** Whether appendHyphenIfNeeded added an artificial '-' to currentText. */
   hasTrailingHyphen: boolean;
+  /** Paragraph base font size for baseline alignment. */
+  baseFontSize: number;
 }
 
 function appendBox(
@@ -168,7 +181,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
     text: ctx.currentText,
     bounds: {
       x: ctx.x,
-      y: computeVerticalAlignOffset(style, lineHeight),
+      y: computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize),
       width,
       height: lineHeight,
     },
@@ -228,12 +241,17 @@ function trimLastRun(runs: Run[], measurer: TextMeasurer): void {
   };
 }
 
-function buildAtomRun(atom: InlineAtomSegment, x: number, lineHeight: number): InlineAtom {
+function buildAtomRun(
+  atom: InlineAtomSegment,
+  x: number,
+  lineHeight: number,
+  baseFontSize: number,
+): InlineAtom {
   const base: InlineAtom = {
     type: 'inline-atom',
     bounds: {
       x,
-      y: computeVerticalAlignOffset(atom.style, lineHeight),
+      y: computeVerticalAlignOffset(atom.style, lineHeight, baseFontSize),
       width: atom.width,
       height: atom.height,
     },
@@ -246,13 +264,21 @@ function buildAtomRun(atom: InlineAtomSegment, x: number, lineHeight: number): I
   return base;
 }
 
-function computeVerticalAlignOffset(style: ComputedStyle, lineHeight: number): number {
-  const verticalAlign = style.verticalAlign;
-  if (verticalAlign === 'baseline' || verticalAlign === 'top' || verticalAlign === 'text-top') {
-    return 0;
-  }
+const ASCENT_RATIO = 0.8;
 
+function computeVerticalAlignOffset(
+  style: ComputedStyle,
+  lineHeight: number,
+  baseFontSize: number,
+): number {
+  const verticalAlign = style.verticalAlign;
   switch (verticalAlign) {
+    case 'baseline': {
+      return ASCENT_RATIO * (baseFontSize - style.fontSize);
+    }
+    case 'top':
+    case 'text-top':
+      return 0;
     case 'super':
       return -(style.fontSize * 0.4);
     case 'sub':

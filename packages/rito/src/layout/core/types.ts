@@ -110,6 +110,16 @@ export interface BlockBorders {
   readonly left: BlockBorderEdge;
 }
 
+/** Runtime pagination policy for widow/orphan control. */
+export interface PaginationPolicy {
+  /** Whether to enforce widow/orphan constraints. Defaults to true. */
+  readonly enabled?: boolean;
+  /** Default orphans value when CSS doesn't specify. Defaults to 2. */
+  readonly defaultOrphans?: number;
+  /** Default widows value when CSS doesn't specify. Defaults to 2. */
+  readonly defaultWidows?: number;
+}
+
 /**
  * Configuration for page dimensions, margins, and display mode.
  * All dimensional values are in logical pixels.
@@ -142,6 +152,8 @@ export interface LayoutConfig {
   readonly lineHeightOverride?: number | undefined;
   /** Global font-family override. When set, overrides CSS font-family on body. */
   readonly fontFamilyOverride?: string | undefined;
+  /** Runtime pagination policy for widow/orphan control. */
+  readonly paginationPolicy?: PaginationPolicy | undefined;
 }
 
 /**

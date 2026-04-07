@@ -17,68 +17,94 @@ import type { HitMap } from 'rito/advanced';
  * each run carries a `sourceTextOffset` indicating where it starts in the source
  * text node. We accumulate text per nodePath and compute correct source offsets.
  */
+interface BuildState {
+  spans: ChapterTextSpan[];
+  parts: string[];
+  offset: number;
+  nodeAccumulated: Map<string, { totalLength: number; sourceEnd: number }>;
+}
+
 export function buildChapterTextIndexFromHitMaps(
   href: string,
   hitMaps: readonly HitMap[],
 ): ChapterTextIndex {
-  const spans: ChapterTextSpan[] = [];
-  const parts: string[] = [];
-  let offset = 0;
-
-  // Track accumulated text length per nodePath to handle split text nodes
-  const nodeAccumulated = new Map<string, { totalLength: number; sourceEnd: number }>();
+  const state: BuildState = {
+    spans: [],
+    parts: [],
+    offset: 0,
+    nodeAccumulated: new Map(),
+  };
 
   for (const hitMap of hitMaps) {
     for (const entry of hitMap.entries) {
-      if (!entry.sourceRef || entry.text.length === 0) continue;
-
-      const pathKey = entry.sourceRef.nodePath.join(',');
-      const sourceTextOffset = entry.sourceTextOffset ?? 0;
-      const existing = nodeAccumulated.get(pathKey);
-
-      if (existing) {
-        // This is a continuation of a previously seen text node.
-        // Check if this run extends beyond what we've already accumulated.
-        const entrySourceEnd = sourceTextOffset + entry.text.length;
-        if (entrySourceEnd <= existing.sourceEnd) {
-          // Already covered by a previous entry — skip
-          continue;
-        }
-        // We need to add the new portion
-        const overlapLength = Math.max(0, existing.sourceEnd - sourceTextOffset);
-        const newText = entry.text.slice(overlapLength);
-        if (newText.length === 0) continue;
-
-        const newSourceStart = existing.sourceEnd;
-        spans.push({
-          nodePath: entry.sourceRef.nodePath,
-          sourceStart: newSourceStart,
-          sourceEnd: entrySourceEnd,
-          normalizedStart: offset,
-          normalizedEnd: offset + newText.length,
-        });
-        parts.push(newText);
-        offset += newText.length;
-        existing.totalLength += newText.length;
-        existing.sourceEnd = entrySourceEnd;
-      } else {
-        // First time seeing this text node
-        spans.push({
-          nodePath: entry.sourceRef.nodePath,
-          sourceStart: sourceTextOffset,
-          sourceEnd: sourceTextOffset + entry.text.length,
-          normalizedStart: offset,
-          normalizedEnd: offset + entry.text.length,
-        });
-        parts.push(entry.text);
-        offset += entry.text.length;
-        nodeAccumulated.set(pathKey, {
-          totalLength: entry.text.length,
-          sourceEnd: sourceTextOffset + entry.text.length,
-        });
+      if (entry.sourceRef && entry.text.length > 0) {
+        processEntry(state, entry);
       }
     }
   }
 
-  return { href, normalizedText: parts.join(''), spans };
+  return { href, normalizedText: state.parts.join(''), spans: state.spans };
+}
+
+function processEntry(state: BuildState, entry: HitMap['entries'][number]): void {
+  const sourceRef = entry.sourceRef;
+  if (!sourceRef) return;
+  const pathKey = sourceRef.nodePath.join(',');
+  const sourceTextOffset = entry.sourceTextOffset ?? 0;
+  const existing = state.nodeAccumulated.get(pathKey);
+
+  if (existing) {
+    appendContinuation(state, sourceRef.nodePath, entry.text, existing, sourceTextOffset);
+  } else {
+    appendFirstOccurrence(state, sourceRef.nodePath, entry.text, pathKey, sourceTextOffset);
+  }
+}
+
+function appendContinuation(
+  state: BuildState,
+  nodePath: readonly number[],
+  text: string,
+  existing: { totalLength: number; sourceEnd: number },
+  sourceTextOffset: number,
+): void {
+  const entrySourceEnd = sourceTextOffset + text.length;
+  if (entrySourceEnd <= existing.sourceEnd) return;
+
+  const overlapLength = Math.max(0, existing.sourceEnd - sourceTextOffset);
+  const newText = text.slice(overlapLength);
+  if (newText.length === 0) return;
+
+  state.spans.push({
+    nodePath,
+    sourceStart: existing.sourceEnd,
+    sourceEnd: entrySourceEnd,
+    normalizedStart: state.offset,
+    normalizedEnd: state.offset + newText.length,
+  });
+  state.parts.push(newText);
+  state.offset += newText.length;
+  existing.totalLength += newText.length;
+  existing.sourceEnd = entrySourceEnd;
+}
+
+function appendFirstOccurrence(
+  state: BuildState,
+  nodePath: readonly number[],
+  text: string,
+  pathKey: string,
+  sourceTextOffset: number,
+): void {
+  state.spans.push({
+    nodePath,
+    sourceStart: sourceTextOffset,
+    sourceEnd: sourceTextOffset + text.length,
+    normalizedStart: state.offset,
+    normalizedEnd: state.offset + text.length,
+  });
+  state.parts.push(text);
+  state.offset += text.length;
+  state.nodeAccumulated.set(pathKey, {
+    totalLength: text.length,
+    sourceEnd: sourceTextOffset + text.length,
+  });
 }
