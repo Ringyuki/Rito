@@ -29,6 +29,8 @@ export interface ElementAttributes {
   readonly href?: string;
   readonly colspan?: number;
   readonly rowspan?: number;
+  /** All raw attributes for CSS attribute selector matching. */
+  readonly allAttributes?: ReadonlyMap<string, string>;
 }
 
 /** An inline element (e.g. <em>, <strong>). */

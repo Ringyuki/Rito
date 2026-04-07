@@ -72,9 +72,12 @@ interface IndexKeys {
 
 /** Extract the simple selector keys from the last compound part of a selector. */
 function extractIndexKeys(selector: string): IndexKeys {
-  const parts = selector.trim().split(/\s+/);
-  const last = parts[parts.length - 1] ?? '';
-  const tokens = last.match(/[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g) ?? [];
+  // Find the last compound part using a bracket-aware scan
+  const last = extractLastCompound(selector);
+  // Strip attribute selectors before extracting tag/class/id keys
+  // Strip attribute selectors, respecting quoted values that may contain `]`
+  const stripped = last.replace(/\[(?:[^\]"']*(?:"[^"]*"|'[^']*')?)*\]/g, '');
+  const tokens = stripped.match(/[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g) ?? [];
 
   const tags: string[] = [];
   const classes: string[] = [];
@@ -87,6 +90,38 @@ function extractIndexKeys(selector: string): IndexKeys {
   }
 
   return { tags, classes, ids };
+}
+
+/** Extract the last compound selector part, respecting brackets and quotes. */
+function extractLastCompound(selector: string): string {
+  const trimmed = selector.trim();
+  let lastStart = 0;
+  let bracketDepth = 0;
+  let quoteChar = '';
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed.charAt(i);
+    if (bracketDepth > 0 && quoteChar === '' && (ch === '"' || ch === "'")) {
+      quoteChar = ch;
+      continue;
+    }
+    if (quoteChar !== '' && ch === quoteChar) {
+      quoteChar = '';
+      continue;
+    }
+    if (ch === '[') {
+      bracketDepth++;
+      continue;
+    }
+    if (ch === ']') {
+      bracketDepth = Math.max(0, bracketDepth - 1);
+      continue;
+    }
+    if (bracketDepth > 0 || quoteChar !== '') continue;
+    if (ch === ' ' || ch === '\t' || ch === '>' || ch === '\n') {
+      lastStart = i + 1;
+    }
+  }
+  return trimmed.slice(lastStart).trim();
 }
 
 function addTo(map: Map<string, CssRule[]>, key: string, rule: CssRule): void {

@@ -120,9 +120,14 @@ function extractNodeMeta(
   tag: string,
   attributes: ElementAttributes | undefined,
 ): { target: SelectorTarget; inlineCss: string | undefined } {
-  const target: { tag: string; className?: string; id?: string } = { tag };
+  const target: SelectorTarget & {
+    className?: string;
+    id?: string;
+    attributes?: ReadonlyMap<string, string>;
+  } = { tag };
   if (attributes?.class) target.className = attributes.class;
   if (attributes?.id) target.id = attributes.id;
+  if (attributes?.allAttributes) target.attributes = attributes.allAttributes;
   return { target, inlineCss: attributes?.style };
 }
 

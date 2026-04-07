@@ -136,6 +136,17 @@ describe('buildRuleIndex', () => {
     expect(mainCandidates).not.toContain(idDescendant);
   });
 
+  it('indexes tag+attribute selectors when quoted value contains ]', () => {
+    const attrRule = rule('div[title="a]b"]');
+    const index = buildRuleIndex([attrRule]);
+
+    const divCandidates = index.getCandidates('div', undefined, undefined);
+    expect(divCandidates).toContain(attrRule);
+
+    const pCandidates = index.getCandidates('p', undefined, undefined);
+    expect(pCandidates).not.toContain(attrRule);
+  });
+
   it('handles empty rules array', () => {
     const index = buildRuleIndex([]);
     const candidates = index.getCandidates('p', 'intro', 'ch1');

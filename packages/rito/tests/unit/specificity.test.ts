@@ -29,6 +29,10 @@ describe('calculateSpecificity', () => {
   it('element with multiple classes', () => {
     expect(calculateSpecificity('p.a.b')).toEqual([0, 2, 1]);
   });
+
+  it('attribute selector with quoted ] still counts once', () => {
+    expect(calculateSpecificity('[title="a]b"]')).toEqual([0, 1, 0]);
+  });
 });
 
 describe('compareSpecificity', () => {

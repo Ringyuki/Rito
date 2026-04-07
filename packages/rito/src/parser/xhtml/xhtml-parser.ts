@@ -168,13 +168,18 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const id = el.getAttribute('id') ?? undefined;
   const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
   const { colspan, rowspan } = extractTableCellSpans(el);
+
+  // Collect all attributes for CSS attribute selector matching
+  const allAttributes = collectAllAttributes(el);
+
   if (
     cls === undefined &&
     style === undefined &&
     id === undefined &&
     href === undefined &&
     colspan === undefined &&
-    rowspan === undefined
+    rowspan === undefined &&
+    allAttributes === undefined
   ) {
     return undefined;
   }
@@ -185,7 +190,20 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
     ...(href !== undefined ? { href } : {}),
     ...(colspan !== undefined ? { colspan } : {}),
     ...(rowspan !== undefined ? { rowspan } : {}),
+    ...(allAttributes !== undefined ? { allAttributes } : {}),
   } satisfies ElementAttributes;
+}
+
+function collectAllAttributes(el: Element): ReadonlyMap<string, string> | undefined {
+  if (el.attributes.length === 0) return undefined;
+  // Only create the map if there are attributes beyond the common ones
+  // that might be targeted by CSS attribute selectors
+  const map = new Map<string, string>();
+  for (let i = 0; i < el.attributes.length; i++) {
+    const attr = el.attributes[i];
+    if (attr) map.set(attr.name, attr.value);
+  }
+  return map.size > 0 ? map : undefined;
 }
 
 function extractTableCellSpans(el: Element): {

@@ -1,12 +1,19 @@
 import type { Specificity } from '../core/types';
 
 const SELECTOR_TOKEN_RE = /[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g;
+// Matches [...] including quoted values that may contain `]`
+const ATTR_SELECTOR_COUNT_RE = /\[(?:[^\]"']*(?:"[^"]*"|'[^']*')?)*\]/g;
 
-/** Calculate CSS specificity for a simple or compound selector. */
+/** Calculate CSS specificity for a selector (supports descendant, child, and attribute selectors). */
 export function calculateSpecificity(selector: string): Specificity {
-  const tokens = selector.match(SELECTOR_TOKEN_RE) ?? [];
+  // Count attribute selectors (each counts as one class-level specificity)
+  const attrCount = (selector.match(ATTR_SELECTOR_COUNT_RE) ?? []).length;
+
+  // Strip combinators and attribute selectors, then count remaining tokens
+  const stripped = selector.replace(/\s*>\s*/g, ' ').replace(ATTR_SELECTOR_COUNT_RE, '');
+  const tokens = stripped.match(SELECTOR_TOKEN_RE) ?? [];
   let ids = 0;
-  let classes = 0;
+  let classes = attrCount;
   let elements = 0;
 
   for (const token of tokens) {
