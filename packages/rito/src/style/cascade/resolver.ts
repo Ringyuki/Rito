@@ -54,10 +54,7 @@ function resolveNodesWithSiblings(
       const result = resolveNode(c, parentStyle, rules, index, ancestors, siblingInfo);
       if (isElem && siblingInfo) {
         const tag = c.type === 'image' ? 'img' : (c as DocumentNode & { tag: string }).tag;
-        const attrs =
-          c.type === 'image'
-            ? undefined
-            : (c as DocumentNode & { attributes?: ElementAttributes }).attributes;
+        const attrs = (c as DocumentNode & { attributes?: ElementAttributes }).attributes;
         const { target } = extractNodeMeta(tag, attrs);
         prevTarget = mergeSiblingInfo(target, siblingInfo);
         elementIndex++;
@@ -93,9 +90,9 @@ function resolveNode(
     case 'inline':
       return resolveInlineNode(node, parentStyle, rules, index, ancestors, siblingInfo);
     case 'image': {
-      const baseTarget: SelectorTarget = { tag: 'img' };
+      const { target: baseTarget, inlineCss } = extractNodeMeta('img', node.attributes);
       const imgTarget = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-      const imgStyle = applyCascade(parentStyle, imgTarget, undefined, rules, index, ancestors);
+      const imgStyle = applyCascade(parentStyle, imgTarget, inlineCss, rules, index, ancestors);
       return {
         type: 'image',
         src: node.src,

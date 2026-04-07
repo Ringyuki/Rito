@@ -56,6 +56,7 @@ export interface ImageNode {
   readonly type: 'image';
   readonly src: string;
   readonly alt: string;
+  readonly attributes?: ElementAttributes;
   readonly sourceRef?: SourceRef;
 }
 

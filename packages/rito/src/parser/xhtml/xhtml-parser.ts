@@ -1,4 +1,11 @@
-import type { BlockNode, DocumentNode, ElementAttributes, InlineNode, TextNode } from './types';
+import type {
+  BlockNode,
+  DocumentNode,
+  ElementAttributes,
+  ImageNode,
+  InlineNode,
+  TextNode,
+} from './types';
 import { NODE_TYPES } from './types';
 import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
@@ -134,8 +141,9 @@ function convertElement(
   if (tagName === 'img') {
     const src = el.getAttribute('src') ?? '';
     const alt = el.getAttribute('alt') ?? '';
-    if (src) return { type: 'image', src, alt, sourceRef };
-    return undefined;
+    if (!src) return undefined;
+    const imgNode: ImageNode = { type: 'image', src, alt, sourceRef };
+    return attributes ? { ...imgNode, attributes } : imgNode;
   }
 
   const inline: InlineNode = attributes
