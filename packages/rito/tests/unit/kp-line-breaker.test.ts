@@ -185,6 +185,36 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
       expect(lines[0]?.bounds.height).toBe(24);
     });
+
+    it('expands line box and shifts runs for mixed-size baseline (vol.1 case)', () => {
+      // Simulates: base fontSize=16, small span=16.64, large span=49.92
+      // Large run baseline offset = 0.8*(16-49.92) = -27.14 → extends above line
+      // Line box must expand and shift all runs so min_y = 0
+      const segments = [
+        seg('vol.', { fontSize: 16.64, lineHeight: 1.0 }),
+        seg('1', { fontSize: 49.92, lineHeight: 1.0 }),
+      ];
+      const lines = layouter.layoutParagraph(segments, 400, 0);
+      expect(lines).toHaveLength(1);
+      const runs = lines[0]?.runs ?? [];
+      expect(runs).toHaveLength(2);
+
+      // No run extends above the line box
+      for (const run of runs) {
+        expect(run.bounds.y).toBeGreaterThanOrEqual(0);
+      }
+
+      // Run heights match their own content height
+      expect(runs[0]?.bounds.height).toBeCloseTo(16.64);
+      expect(runs[1]?.bounds.height).toBeCloseTo(49.92);
+
+      // Line box contains all runs
+      const lineH = lines[0]?.bounds.height ?? 0;
+      expect(lineH).toBeGreaterThanOrEqual(49.92);
+      for (const run of runs) {
+        expect(run.bounds.y + run.bounds.height).toBeLessThanOrEqual(lineH + 0.01);
+      }
+    });
   });
 
   describe('newlines (forced breaks)', () => {

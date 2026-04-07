@@ -112,7 +112,7 @@ function buildTextRun(
       x,
       y: computeVerticalAlignOffset(style, lineHeight, baseFontSize),
       width,
-      height: lineHeight,
+      height: style.fontSize * style.lineHeight,
     },
     style,
     ...(sourceRef ? { sourceRef } : {}),

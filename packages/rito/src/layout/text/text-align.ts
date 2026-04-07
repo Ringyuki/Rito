@@ -3,6 +3,43 @@ import type { InlineAtom, LineBox, TextRun } from '../core/types';
 
 type Run = TextRun | InlineAtom;
 
+/**
+ * Compute effective line metrics from the actual bounding box of all runs.
+ * When baseline offsets push a run above y=0 (negative offset), the line box
+ * must expand and all runs shift down so nothing overflows the top.
+ *
+ * Returns `height` (the line box height) and `yShift` (the amount to add to
+ * every run's y to eliminate negative overflow).
+ */
+export function computeEffectiveLineMetrics(
+  runs: readonly Run[],
+  baseLineHeight: number,
+): { height: number; yShift: number } {
+  let minTop = 0;
+  let maxBottom = baseLineHeight;
+  for (const run of runs) {
+    const top = run.bounds.y;
+    const bottom =
+      run.type === 'text-run'
+        ? top + run.style.fontSize * run.style.lineHeight
+        : top + run.bounds.height;
+    if (top < minTop) minTop = top;
+    if (bottom > maxBottom) maxBottom = bottom;
+  }
+  const height = Math.max(baseLineHeight, maxBottom - minTop);
+  const yShift = minTop < 0 ? -minTop : 0;
+  return { height, yShift };
+}
+
+/** Shift all runs' y positions by a fixed amount. */
+export function shiftRunsY(runs: Run[], dy: number): void {
+  if (dy === 0) return;
+  for (let i = 0; i < runs.length; i++) {
+    const run = runs[i];
+    if (run) runs[i] = { ...run, bounds: { ...run.bounds, y: run.bounds.y + dy } };
+  }
+}
+
 export function applyAlign(
   runs: Run[],
   lineWidth: number,

@@ -2,7 +2,7 @@ import type { ComputedStyle } from '../../../style/core/types';
 import type { InlineAtom, LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
 import type { InlineAtomSegment, InlineSegment } from '../../text/styled-segment';
-import { applyAlign } from '../../text/text-align';
+import { applyAlign, computeEffectiveLineMetrics, shiftRunsY } from '../../text/text-align';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { findBreakPosition } from './breaks';
 import { buildLineContext, buildStyleRanges, consumeNewlines } from './context';
@@ -54,18 +54,20 @@ function layoutText(
     const result = layoutSingleLine(ctx, pos, isFirstLine, indent);
     pos = consumeNewlines(text, result.nextPos, ctx.preserveWs);
     const isLastLine = pos >= text.length;
+    const { height: effectiveLH, yShift } = computeEffectiveLineMetrics(result.runs, lineHeight);
+    shiftRunsY(result.runs, yShift);
     lines.push(
       applyAlign(
         result.runs,
         result.width,
         y,
-        lineHeight,
+        effectiveLH,
         maxWidth,
         baseStyle.textAlign,
         isLastLine,
       ),
     );
-    y += lineHeight;
+    y += effectiveLH;
     isFirstLine = false;
   }
 

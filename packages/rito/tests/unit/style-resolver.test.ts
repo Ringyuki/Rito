@@ -293,4 +293,58 @@ describe('resolveStyles', () => {
       expect(result[0]?.style.color).toBe('#000000');
     });
   });
+
+  describe('nested em font-size resolution', () => {
+    it('resolves em font-size on span relative to parent computed font-size', () => {
+      // <p class="em26"><span class="em04">vol.</span></p>
+      // p: font-size: 2.6em → 2.6 * 16 = 41.6px
+      // span: font-size: 0.4em → 0.4 * 41.6 = 16.64px (NOT 0.4 * 16 = 6.4!)
+      const rules = [
+        { selector: '.em26', declarations: {}, rawDeclarations: 'font-size: 2.6em' },
+        { selector: '.em04', declarations: {}, rawDeclarations: 'font-size: 0.4em' },
+      ];
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { class: 'em26' },
+        children: [
+          {
+            type: NODE_TYPES.Inline,
+            tag: 'span',
+            attributes: { class: 'em04' },
+            children: [text('vol.')],
+          },
+        ],
+      };
+      const result = resolveStyles([node], undefined, rules);
+      const p = result[0];
+      expect(p?.style.fontSize).toBeCloseTo(41.6); // 2.6 * 16
+
+      const span = p?.children[0];
+      expect(span?.style.fontSize).toBeCloseTo(16.64); // 0.4 * 41.6
+    });
+
+    it('resolves em12 span inside em26 parent correctly', () => {
+      const rules = [
+        { selector: '.em26', declarations: {}, rawDeclarations: 'font-size: 2.6em' },
+        { selector: '.em12', declarations: {}, rawDeclarations: 'font-size: 1.2em' },
+      ];
+      const node: DocumentNode = {
+        type: NODE_TYPES.Block,
+        tag: 'p',
+        attributes: { class: 'em26' },
+        children: [
+          {
+            type: NODE_TYPES.Inline,
+            tag: 'span',
+            attributes: { class: 'em12' },
+            children: [text('1')],
+          },
+        ],
+      };
+      const result = resolveStyles([node], undefined, rules);
+      const span = result[0]?.children[0];
+      expect(span?.style.fontSize).toBeCloseTo(49.92); // 1.2 * 41.6
+    });
+  });
 });

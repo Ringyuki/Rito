@@ -3,7 +3,7 @@ import type { InlineAtom, LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
 import type { InlineAtomSegment, InlineSegment, StyledSegment } from '../../text/styled-segment';
 import { isInlineAtom } from '../../text/styled-segment';
-import { applyAlign } from '../../text/text-align';
+import { applyAlign, computeEffectiveLineMetrics, shiftRunsY } from '../../text/text-align';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { buildKPItems } from './builder';
 import { emergencyBreaks, solveKP } from './solver';
@@ -83,10 +83,12 @@ function buildLineBoxes(
         (currentMax, run) => Math.max(currentMax, run.bounds.x + run.bounds.width),
         0,
       );
+      const { height: effectiveLH, yShift } = computeEffectiveLineMetrics(runs, lineHeight);
+      shiftRunsY(runs, yShift);
       lines.push(
-        applyAlign(runs, lineWidth, y, lineHeight, maxWidth, baseStyle.textAlign, isLastLine),
+        applyAlign(runs, lineWidth, y, effectiveLH, maxWidth, baseStyle.textAlign, isLastLine),
       );
-      y += lineHeight;
+      y += effectiveLH;
     }
 
     lineStart = breakPos + 1;
@@ -183,7 +185,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
       x: ctx.x,
       y: computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize),
       width,
-      height: lineHeight,
+      height: style.fontSize * style.lineHeight,
     },
     style,
     ...(ctx.currentSegment.sourceRef ? { sourceRef: ctx.currentSegment.sourceRef } : {}),

@@ -166,10 +166,10 @@ describe('greedy layouter — vertical-align offsets', () => {
     expect(run.bounds.y).toBe(0);
   });
 
-  it('super runs have negative y offset', () => {
+  it('super runs shift line box so run stays at y=0', () => {
     const run = firstRun([seg('x', { verticalAlign: VERTICAL_ALIGNS.Super })]);
-    // super shifts up by ~0.4 * fontSize = 0.4 * 16 = -6.4
-    expect(run.bounds.y).toBeCloseTo(-6.4);
+    // super raw offset = -6.4, but line box shifts all runs down so min_y = 0
+    expect(run.bounds.y).toBeCloseTo(0);
   });
 
   it('sub runs have positive y offset', () => {
@@ -216,8 +216,9 @@ describe('greedy layouter — vertical-align offsets', () => {
     expect(line).toBeDefined();
     const runs = line?.runs ?? [];
     expect(runs).toHaveLength(2);
-    expect(runs[0]?.bounds.y).toBe(0);
-    expect(runs[1]?.bounds.y).toBeCloseTo(-6.4);
+    // super raw offset = -6.4, shift = +6.4 → baseline run at 6.4, super run at 0
+    expect(runs[0]?.bounds.y).toBeCloseTo(6.4);
+    expect(runs[1]?.bounds.y).toBeCloseTo(0);
   });
 
   it('mixed baseline and sub runs on same line', () => {
@@ -269,5 +270,63 @@ describe('greedy layouter — vertical-align offsets', () => {
     // Both runs have the same fontSize — baseline alignment should give y=0 for both
     expect(runs[0]?.bounds.y).toBe(0);
     expect(runs[1]?.bounds.y).toBe(0);
+  });
+
+  it('line box height expands when a run has larger fontSize', () => {
+    // Base: fontSize=16, lineHeight=1.5 → baseLineHeight=24
+    // Large run: fontSize=32, lineHeight=1.5 → runHeight=48
+    // Baseline offset for large run: 0.8*(16-32) = -12.8 (extends above)
+    // Effective box: min_top=-12.8, max_bottom=max(24, -12.8+48=35.2) → height=48, yShift=12.8
+    const segments = [
+      seg('small', { fontSize: 16, lineHeight: 1.5 }),
+      seg('BIG', { fontSize: 32, lineHeight: 1.5 }),
+    ];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.bounds.height).toBeCloseTo(48);
+    // All runs should have non-negative y (shifted down to fit in the line box)
+    const runs = lines[0]?.runs ?? [];
+    for (const run of runs) {
+      expect(run.bounds.y).toBeGreaterThanOrEqual(0);
+    }
+  });
+
+  it('line box does not shrink when a run has smaller fontSize', () => {
+    const segments = [
+      seg('normal', { fontSize: 16, lineHeight: 1.5 }),
+      seg('tiny', { fontSize: 8, lineHeight: 1.5 }),
+    ];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.bounds.height).toBeCloseTo(24);
+  });
+
+  it('runs with negative baseline offset are shifted into the line box', () => {
+    // Simulates the vol.1 case: base=41.6, larger child=49.92
+    // Large run baseline offset: 0.8*(41.6-49.92) = -6.66 (above line box)
+    // After shift: large run y=0, small run y shifts down proportionally
+    const segments = [
+      seg('vol.', { fontSize: 16.64, lineHeight: 1.0 }),
+      seg('1', { fontSize: 49.92, lineHeight: 1.0 }),
+    ];
+    const lines = layouter.layoutParagraph(segments, 400, 0);
+    expect(lines).toHaveLength(1);
+    const runs = lines[0]?.runs ?? [];
+    expect(runs).toHaveLength(2);
+    const volRun = runs[0];
+    const oneRun = runs[1];
+    // The larger "1" run should start at y >= 0 (not negative)
+    expect(oneRun?.bounds.y).toBeGreaterThanOrEqual(0);
+    // The smaller "vol." run should be shifted further down (baseline aligned)
+    expect(volRun?.bounds.y).toBeGreaterThan(oneRun?.bounds.y ?? 0);
+    // Run heights reflect their own content height, not the base lineHeight
+    expect(volRun?.bounds.height).toBeCloseTo(16.64); // 16.64 * 1.0
+    expect(oneRun?.bounds.height).toBeCloseTo(49.92); // 49.92 * 1.0
+    // Line box must contain both runs (using run's actual height)
+    const lineH = lines[0]?.bounds.height ?? 0;
+    for (const run of runs) {
+      expect(run.bounds.y).toBeGreaterThanOrEqual(0);
+      expect(run.bounds.y + run.bounds.height).toBeLessThanOrEqual(lineH + 0.01);
+    }
   });
 });

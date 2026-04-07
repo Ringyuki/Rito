@@ -177,16 +177,20 @@ function applyRules(
 
   matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
 
-  // Pass 1: apply font-size from pre-parsed declarations (resolved against parent em)
-  let resolvedFontSize = style.fontSize;
+  // Pass 1: resolve font-size against the actual parent fontSize.
+  // Pre-parsed declarations used the root base (16px), which is wrong for nested em.
+  // em in font-size is always relative to the parent's computed font-size.
+  const parentFontSize = style.fontSize;
+  let resolvedFontSize = parentFontSize;
   for (const match of matches) {
-    if (match.declarations.fontSize !== undefined) {
-      resolvedFontSize = match.declarations.fontSize;
+    const reparsed = parseCssDeclarations(match.rawDeclarations, parentFontSize);
+    if (reparsed.fontSize !== undefined) {
+      resolvedFontSize = reparsed.fontSize;
     }
   }
 
-  // Pass 2: re-parse with the resolved font-size for em-dependent properties
-  // (font-size itself is kept from pass 1 since em in font-size is relative to parent)
+  // Pass 2: re-parse with the element's own font-size for em-dependent properties
+  // (margin, padding, etc. use the element's own font-size as em base)
   let result: ComputedStyle = { ...style, fontSize: resolvedFontSize };
   for (const match of matches) {
     const resolved = parseCssDeclarations(match.rawDeclarations, resolvedFontSize);
