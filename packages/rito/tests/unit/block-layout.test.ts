@@ -106,6 +106,29 @@ describe('layoutBlocks', () => {
     expect(blocks[1]?.children[0]?.type).toBe('line-box');
   });
 
+  it('figure with whitespace + image treats image as block (not inline)', () => {
+    // Simulates: <figure>\n  <img src="cover.jpg"/>\n</figure>
+    // Whitespace text nodes should NOT make this "mixed inline content"
+    const figureNode: DocumentNode = {
+      type: NODE_TYPES.Block,
+      tag: 'figure',
+      children: [
+        { type: NODE_TYPES.Text, content: '\n    ' },
+        { type: 'image' as const, src: 'cover.jpg', alt: '' },
+        { type: NODE_TYPES.Text, content: '\n  ' },
+      ],
+    };
+    const styled = resolveStyles([figureNode]);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    // The image should be laid out as a block-level image (large),
+    // not as an inline atom (fontSize-sized thumbnail)
+    expect(blocks).toHaveLength(1);
+    // Block image uses contentWidth, not fontSize
+    expect(blocks[0]?.bounds.width).toBe(CONTENT_WIDTH);
+    expect(blocks[0]?.bounds.height).toBeGreaterThan(100);
+  });
+
   it('handles empty blocks', () => {
     const styled = resolveStyles([block('p', [])]);
     const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);

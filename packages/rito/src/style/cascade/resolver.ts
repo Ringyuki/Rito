@@ -135,7 +135,10 @@ function applyCascade(
   ancestors: readonly SelectorTarget[],
 ): ComputedStyle {
   let style = applyTagStyle(parentStyle, target.tag);
-  style = applyRules(style, target, rules, index, ancestors);
+  // Pass the true parent fontSize for em resolution in font-size declarations.
+  // style.fontSize here may include tag defaults (e.g. h1→32), which must NOT
+  // be used as the em basis — CSS em in font-size is always relative to the parent.
+  style = applyRules(style, target, parentStyle.fontSize, rules, index, ancestors);
   style = applyInlineStyle(style, inlineCss, parentStyle.fontSize, style.fontSize);
   return style;
 }
@@ -155,6 +158,7 @@ interface MatchedRule {
 function applyRules(
   style: ComputedStyle,
   target: SelectorTarget,
+  parentFontSize: number,
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
@@ -177,11 +181,9 @@ function applyRules(
 
   matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
 
-  // Pass 1: resolve font-size against the actual parent fontSize.
-  // Pre-parsed declarations used the root base (16px), which is wrong for nested em.
-  // em in font-size is always relative to the parent's computed font-size.
-  const parentFontSize = style.fontSize;
-  let resolvedFontSize = parentFontSize;
+  // Pass 1: resolve font-size against the true parent fontSize (NOT tag defaults).
+  // em in font-size is always relative to the parent element's computed font-size.
+  let resolvedFontSize = style.fontSize;
   for (const match of matches) {
     const reparsed = parseCssDeclarations(match.rawDeclarations, parentFontSize);
     if (reparsed.fontSize !== undefined) {

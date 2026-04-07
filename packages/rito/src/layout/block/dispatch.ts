@@ -135,7 +135,10 @@ function hasMixedInlineContent(children: readonly StyledNode[]): boolean {
   let hasInline = false;
   let hasImage = false;
   for (const child of children) {
-    if (child.type === 'text' || child.type === 'inline') hasInline = true;
+    // Whitespace-only text nodes (indentation between tags) should not count as inline content.
+    // Without this, <figure>\n  <image/>\n</figure> is misclassified as mixed inline.
+    if (child.type === 'text' && child.content?.trim()) hasInline = true;
+    else if (child.type === 'inline') hasInline = true;
     if (child.type === 'image') hasImage = true;
   }
   return hasInline && hasImage;

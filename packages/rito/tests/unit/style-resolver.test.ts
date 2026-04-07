@@ -346,5 +346,20 @@ describe('resolveStyles', () => {
       const span = result[0]?.children[0];
       expect(span?.style.fontSize).toBeCloseTo(49.92); // 1.2 * 41.6
     });
+
+    it('h1 em font-size resolves against parent, not tag default', () => {
+      // h1 tag default: fontSize=32. Parent body: fontSize=16.
+      // CSS: h1 { font-size: 1.5em } → should be 1.5 * 16 = 24, NOT 1.5 * 32 = 48
+      const rules = [{ selector: 'h1', declarations: {}, rawDeclarations: 'font-size: 1.5em' }];
+      const result = resolveStyles([block('h1', [text('Title')])], undefined, rules);
+      expect(result[0]?.style.fontSize).toBeCloseTo(24); // 1.5 * 16 (parent)
+    });
+
+    it('h2 em font-size resolves against parent, not tag default of 24', () => {
+      const rules = [{ selector: 'h2', declarations: {}, rawDeclarations: 'font-size: 2em' }];
+      const result = resolveStyles([block('h2', [text('Heading')])], undefined, rules);
+      // h2 tag default is 24, but em should use parent (16) → 2 * 16 = 32
+      expect(result[0]?.style.fontSize).toBeCloseTo(32);
+    });
   });
 });
