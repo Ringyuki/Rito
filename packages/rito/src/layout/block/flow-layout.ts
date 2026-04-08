@@ -9,6 +9,16 @@ import {
   indentBlocks,
   layoutTextBlock,
 } from './primitives';
+import {
+  resolveMarginBottom,
+  resolveMarginLeft,
+  resolveMarginRight,
+  resolveMarginTop,
+  resolvePaddingBottom,
+  resolvePaddingLeft,
+  resolvePaddingRight,
+  resolvePaddingTop,
+} from './resolve-pct';
 import { collapseMargin, type LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
@@ -34,12 +44,15 @@ export function layoutContainerBlock(
   listCtx?: ListContext,
 ): void {
   const childListCtx = createListContext(node);
-  const { paddingTop, paddingRight, paddingBottom, paddingLeft } = node.style;
-  const collapsed = collapseContainerMarginTop(node, state, paddingTop);
+  const paddingTop = resolvePaddingTop(node.style, contentWidth);
+  const paddingRight = resolvePaddingRight(node.style, contentWidth);
+  const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
+  const paddingLeft = resolvePaddingLeft(node.style, contentWidth);
+  const collapsed = collapseContainerMarginTop(node, state, paddingTop, contentWidth);
 
   // Apply the container's own width/maxWidth constraint before subtracting padding
-  const ml = node.style.marginLeft;
-  const mr = node.style.marginRight;
+  const ml = resolveMarginLeft(node.style, contentWidth);
+  const mr = resolveMarginRight(node.style, contentWidth);
   let effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
   effectiveWidth = applySizeConstraints(effectiveWidth, node.style);
   const childWidth = effectiveWidth - paddingLeft - paddingRight;
@@ -68,7 +81,7 @@ export function layoutContainerBlock(
     const last = indented[indented.length - 1];
     if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
   }
-  state.prevMarginBottom = node.style.marginBottom;
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }
 
 /**
@@ -84,14 +97,15 @@ function collapseContainerMarginTop(
   node: StyledNode,
   state: LayoutState,
   paddingTop: number,
+  containerWidth: number,
 ): { startY: number; children: readonly StyledNode[] } {
   const hasTopSeparator = paddingTop > 0 || node.style.borderTop.width > 0;
   if (hasTopSeparator) {
-    collapseMargin(state, node.style.marginTop);
+    collapseMargin(state, resolveMarginTop(node.style, containerWidth));
     return { startY: state.y + paddingTop, children: node.children };
   }
-  const margins = [node.style.marginTop];
-  const children = collectAndZeroMarginChain(node.children, margins);
+  const margins = [resolveMarginTop(node.style, containerWidth)];
+  const children = collectAndZeroMarginChain(node.children, margins, containerWidth);
   collapseMargin(state, collapseMarginChain(margins));
   return { startY: state.y, children };
 }
@@ -128,15 +142,20 @@ function isFirstInFlow(c: StyledNode): boolean {
 function collectAndZeroMarginChain(
   children: readonly StyledNode[],
   margins: number[],
+  containerWidth: number,
 ): readonly StyledNode[] {
   const idx = children.findIndex(isFirstInFlow);
   if (idx < 0) return children;
   const child = children[idx];
   if (!child) return children;
-  margins.push(child.style.marginTop);
-  let modified: StyledNode = { ...child, style: { ...child.style, marginTop: 0 } };
+  margins.push(resolveMarginTop(child.style, containerWidth));
+  const { marginTopPct: _, ...styleWithoutPct } = child.style;
+  let modified: StyledNode = {
+    ...child,
+    style: { ...styleWithoutPct, marginTop: 0 },
+  };
   if (child.style.paddingTop <= 0 && child.style.borderTop.width <= 0) {
-    const nested = collectAndZeroMarginChain(modified.children, margins);
+    const nested = collectAndZeroMarginChain(modified.children, margins, containerWidth);
     if (nested !== modified.children) modified = { ...modified, children: nested };
   }
   const result = [...children];
@@ -163,10 +182,10 @@ export function layoutLeafBlock(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
-  collapseMargin(state, node.style.marginTop);
+  collapseMargin(state, resolveMarginTop(node.style, contentWidth));
 
-  const ml = node.style.marginLeft;
-  const mr = node.style.marginRight;
+  const ml = resolveMarginLeft(node.style, contentWidth);
+  const mr = resolveMarginRight(node.style, contentWidth);
   const mlAuto = node.style.marginLeftAuto;
   const mrAuto = node.style.marginRightAuto;
 
@@ -194,5 +213,5 @@ export function layoutLeafBlock(
   block = applyRelativeOffset(block, node.style);
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;
-  state.prevMarginBottom = node.style.marginBottom;
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }

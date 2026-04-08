@@ -3,6 +3,12 @@ import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types'
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
 import { computeChildrenHeight, extractBorders } from './helpers';
+import {
+  resolvePaddingBottom,
+  resolvePaddingLeft,
+  resolvePaddingRight,
+  resolvePaddingTop,
+} from './resolve-pct';
 import type { ImageSizeMap } from './types';
 
 const HR_THICKNESS = 1;
@@ -14,7 +20,11 @@ export function layoutTextBlock(
   layouter: ParagraphLayouter,
   imageSizes?: ImageSizeMap,
 ): LayoutBlock {
-  const { paddingTop, paddingBottom, paddingRight, paddingLeft, backgroundColor } = node.style;
+  const paddingTop = resolvePaddingTop(node.style, contentWidth);
+  const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
+  const paddingRight = resolvePaddingRight(node.style, contentWidth);
+  const paddingLeft = resolvePaddingLeft(node.style, contentWidth);
+  const { backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - paddingLeft;
   const segments = flattenInlineContent(node.children, imageSizes, node.href);
   const lineBoxes = layouter.layoutParagraph(

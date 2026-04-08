@@ -153,11 +153,21 @@ export interface ComputedStyle {
   readonly marginRight: number;
   readonly marginBottom: number;
   readonly marginLeft: number;
+  /** Percentage margin (0–100), resolved against containing block width at layout time. */
+  readonly marginTopPct?: number;
+  readonly marginRightPct?: number;
+  readonly marginBottomPct?: number;
+  readonly marginLeftPct?: number;
   readonly display: Display;
   readonly paddingTop: number;
   readonly paddingRight: number;
   readonly paddingBottom: number;
   readonly paddingLeft: number;
+  /** Percentage padding (0–100), resolved against containing block width at layout time. */
+  readonly paddingTopPct?: number;
+  readonly paddingRightPct?: number;
+  readonly paddingBottomPct?: number;
+  readonly paddingLeftPct?: number;
   readonly backgroundColor: string;
   readonly letterSpacing: number;
   readonly wordSpacing: number;

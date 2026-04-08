@@ -270,6 +270,30 @@ describe('parent-child margin collapsing', () => {
   });
 });
 
+describe('percentage margin resolution', () => {
+  it('margin-top percentage resolves against content width', () => {
+    const result = parseCssDeclarations('margin-top: 10%', BASE);
+    expect(result.marginTopPct).toBe(10);
+    expect(result.marginTop).toBeUndefined();
+  });
+
+  it('margin shorthand with percentage values', () => {
+    const result = parseCssDeclarations('margin: -1% 0 0 20%', BASE);
+    expect(result.marginTopPct).toBe(-1);
+    expect(result.marginLeftPct).toBe(20);
+    expect(result.marginRight).toBe(0);
+    expect(result.marginBottom).toBe(0);
+  });
+
+  it('percentage margin-left positions block correctly in layout', () => {
+    const { nodes } = parseXhtml(xhtml('<p style="margin-left: 20%;">Content</p>'));
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // 20% of 360 = 72, block should be indented by 72px
+    expect(blocks[0]?.bounds.x).toBeCloseTo(72);
+  });
+});
+
 describe('inline margin shorthand on real elements', () => {
   it('inline style margin: 0 overrides stylesheet margins', () => {
     const rules = parseCssRules('p { margin-top: 0.4em; margin-bottom: 0.4em; }', BASE);

@@ -63,9 +63,22 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
 /**
  * Strip non-inheritable properties from a style before passing to children.
  * In CSS, properties like width, margin, padding, border, etc. do not inherit.
+ * Percentage margin/padding fields (*Pct) are also stripped — they are non-inherited
+ * and must not leak from parent to child.
  */
 export function inheritableStyle(style: ComputedStyle): ComputedStyle {
-  return { ...style, ...NON_INHERITED_DEFAULTS };
+  const {
+    marginTopPct: _a,
+    marginRightPct: _b,
+    marginBottomPct: _c,
+    marginLeftPct: _d,
+    paddingTopPct: _e,
+    paddingRightPct: _f,
+    paddingBottomPct: _g,
+    paddingLeftPct: _h,
+    ...rest
+  } = style;
+  return { ...rest, ...NON_INHERITED_DEFAULTS };
 }
 
 /** Default style values used when no explicit style is specified. */

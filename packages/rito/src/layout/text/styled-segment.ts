@@ -1,5 +1,5 @@
 import type { SourceRef } from '../../parser/xhtml/types';
-import type { ComputedStyle, StyledNode } from '../../style/core/types';
+import type { ComputedStyle, StyledNode, VerticalAlign } from '../../style/core/types';
 import { DISPLAY_VALUES, TEXT_TRANSFORMS } from '../../style/core/types';
 import type { ImageSizeMap } from '../block/types';
 
@@ -69,7 +69,7 @@ function collectSegments(
   imageSizes?: ImageSizeMap,
   inheritedHref?: string,
   inheritedBgColor?: string,
-  inheritedVA?: string,
+  inheritedVA?: VerticalAlign,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
@@ -113,7 +113,11 @@ function collectSegments(
   }
 }
 
-function patchInheritedStyle(style: ComputedStyle, bgColor?: string, va?: string): ComputedStyle {
+function patchInheritedStyle(
+  style: ComputedStyle,
+  bgColor?: string,
+  va?: VerticalAlign,
+): ComputedStyle {
   const needsBg = bgColor && !style.backgroundColor;
   const needsVA = va && style.verticalAlign === 'baseline';
   if (!needsBg && !needsVA) return style;

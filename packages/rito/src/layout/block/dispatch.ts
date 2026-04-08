@@ -9,6 +9,7 @@ import type { ListContext } from './list';
 import { layoutHorizontalRule } from './primitives';
 import { layoutContainerBlock, layoutLeafBlock, type LayoutNodesAtFn } from './flow-layout';
 import { layoutFloatedBlock } from './float-layout';
+import { resolveMarginBottom, resolveMarginTop } from './resolve-pct';
 import { collapseMargin, type LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
@@ -19,7 +20,7 @@ export function layoutFloatableImage(
   contentHeight: number,
   imageSizes?: ImageSizeMap,
 ): void {
-  collapseMargin(state, node.style.marginTop);
+  collapseMargin(state, resolveMarginTop(node.style, contentWidth));
   const src = node.src ?? '';
   const imgBlock = layoutImageBlock(
     src,
@@ -49,7 +50,7 @@ export function layoutFloatableImage(
 
   state.blocks.push(imgBlock);
   state.y += imgBlock.bounds.height;
-  state.prevMarginBottom = node.style.marginBottom;
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }
 
 export function layoutBlockNode(
@@ -102,10 +103,10 @@ export function layoutBlockNode(
 }
 
 function placeHr(state: LayoutState, node: StyledNode, contentWidth: number): void {
-  collapseMargin(state, node.style.marginTop);
+  collapseMargin(state, resolveMarginTop(node.style, contentWidth));
   state.blocks.push(layoutHorizontalRule(contentWidth, state.y, node.style.color));
   state.y += 1;
-  state.prevMarginBottom = node.style.marginBottom;
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }
 
 function placeTable(
@@ -114,13 +115,13 @@ function placeTable(
   contentWidth: number,
   layouter: ParagraphLayouter,
 ): void {
-  collapseMargin(state, node.style.marginTop);
+  collapseMargin(state, resolveMarginTop(node.style, contentWidth));
   let block: LayoutBlock = layoutTable(node, contentWidth, state.y, layouter);
   if (node.tag) block = { ...block, semanticTag: node.tag };
   if (node.id) block = { ...block, anchorId: node.id };
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;
-  state.prevMarginBottom = node.style.marginBottom;
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }
 
 function hasBlockChildren(node: StyledNode): boolean {

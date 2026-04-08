@@ -23,7 +23,10 @@ export function resolveStyles(
   parentStyle?: ComputedStyle,
   rules?: readonly CssRule[],
 ): readonly StyledNode[] {
-  const base = parentStyle ?? DEFAULT_STYLE;
+  // Apply inheritableStyle to strip non-inherited properties (margin, padding, etc.)
+  // from the body/parent style. Only inherited properties (font, color, text-align)
+  // should cascade to top-level elements.
+  const base = parentStyle ? inheritableStyle(parentStyle) : DEFAULT_STYLE;
   const index = rules && rules.length > 0 ? buildRuleIndex(rules) : undefined;
   return resolveNodesWithSiblings(nodes, base, rules, index, []);
 }

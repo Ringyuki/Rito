@@ -3,6 +3,8 @@ import type { MutableStylePatch } from '../core/style-patch';
 
 export { evaluateCalc } from './calc';
 
+import { isPercentage } from './property-handlers/helpers';
+
 const DEFAULT_ROOT_FONT_SIZE = 16;
 type BoxSideKey =
   | 'marginTop'
@@ -13,6 +15,35 @@ type BoxSideKey =
   | 'paddingRight'
   | 'paddingBottom'
   | 'paddingLeft';
+
+type PctSideKey =
+  | 'marginTopPct'
+  | 'marginRightPct'
+  | 'marginBottomPct'
+  | 'marginLeftPct'
+  | 'paddingTopPct'
+  | 'paddingRightPct'
+  | 'paddingBottomPct'
+  | 'paddingLeftPct';
+
+const BOX_TO_PCT: Readonly<Record<BoxSideKey, PctSideKey>> = {
+  marginTop: 'marginTopPct',
+  marginRight: 'marginRightPct',
+  marginBottom: 'marginBottomPct',
+  marginLeft: 'marginLeftPct',
+  paddingTop: 'paddingTopPct',
+  paddingRight: 'paddingRightPct',
+  paddingBottom: 'paddingBottomPct',
+  paddingLeft: 'paddingLeftPct',
+};
+
+/** Try to store a percentage value. Returns true if the value was a percentage. */
+function tryAssignPct(result: MutableStylePatch, key: BoxSideKey, raw: string): boolean {
+  if (!isPercentage(raw)) return false;
+  const pct = parseFloat(raw.trim());
+  if (!isNaN(pct)) result[BOX_TO_PCT[key]] = pct;
+  return true;
+}
 type MarginSideKey = 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft';
 
 /** Parse a box-model length, rejecting % (needs containing-block resolution). */
@@ -66,35 +97,19 @@ export function applyBoxShorthand(
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): void {
   const parts = splitBoxValues(value.trim());
-  const values = parts.map((p) => parseBoxLength(p, parentFontSize, rootFontSize));
+  const mapping = resolveBoxMapping(parts);
   const [top, right, bottom, left] = keys;
 
-  if (parts.length === 1 && values[0] !== undefined) {
-    result[top] = values[0];
-    result[right] = values[0];
-    result[bottom] = values[0];
-    result[left] = values[0];
-  } else if (parts.length === 2) {
-    if (values[0] !== undefined) {
-      result[top] = values[0];
-      result[bottom] = values[0];
-    }
-    if (values[1] !== undefined) {
-      result[right] = values[1];
-      result[left] = values[1];
-    }
-  } else if (parts.length === 3) {
-    if (values[0] !== undefined) result[top] = values[0];
-    if (values[1] !== undefined) {
-      result[right] = values[1];
-      result[left] = values[1];
-    }
-    if (values[2] !== undefined) result[bottom] = values[2];
-  } else if (parts.length >= 4) {
-    if (values[0] !== undefined) result[top] = values[0];
-    if (values[1] !== undefined) result[right] = values[1];
-    if (values[2] !== undefined) result[bottom] = values[2];
-    if (values[3] !== undefined) result[left] = values[3];
+  for (const [key, raw] of [
+    [top, mapping.top],
+    [right, mapping.right],
+    [bottom, mapping.bottom],
+    [left, mapping.left],
+  ] as const) {
+    if (raw === undefined) continue;
+    if (tryAssignPct(result, key, raw)) continue;
+    const parsed = parseBoxLength(raw, parentFontSize, rootFontSize);
+    if (parsed !== undefined) result[key] = parsed;
   }
 }
 
@@ -130,6 +145,10 @@ export function applyBoxShorthandWithAuto(
       } else {
         result[key] = 0;
       }
+    } else if (tryAssignPct(result, key, raw)) {
+      // Percentage stored — clear auto flag if applicable
+      if (key === rightKey) result.marginRightAuto = false;
+      if (key === leftKey) result.marginLeftAuto = false;
     } else {
       const parsed = parseBoxLength(raw, parentFontSize, rootFontSize);
       if (parsed !== undefined) {

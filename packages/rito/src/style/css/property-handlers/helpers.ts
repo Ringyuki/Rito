@@ -18,9 +18,16 @@ export function isPercentage(value: string): boolean {
   return false;
 }
 
-type NumericStyleKey = {
-  [K in keyof ComputedStyle]: ComputedStyle[K] extends number | undefined ? K : never;
-}[keyof ComputedStyle];
+type NumericStyleKey = Exclude<
+  {
+    [K in keyof ComputedStyle]: K extends `${string}Pct`
+      ? never
+      : ComputedStyle[K] extends number | undefined
+        ? K
+        : never;
+  }[keyof ComputedStyle],
+  undefined
+>;
 
 type MarginKey = 'marginLeft' | 'marginRight';
 type MarginAutoFlag = 'marginLeftAuto' | 'marginRightAuto';
@@ -31,7 +38,7 @@ const AUTO_MARGIN_FLAGS: Readonly<Record<MarginKey, MarginAutoFlag>> = {
 };
 
 function setNumericValue(result: MutableStylePatch, key: NumericStyleKey, value: number): void {
-  Object.assign(result, { [key]: value });
+  (result as Record<string, unknown>)[key] = value;
 }
 
 export function assignLength(

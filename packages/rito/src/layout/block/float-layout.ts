@@ -11,6 +11,7 @@ import {
 } from './primitives';
 import type { FloatContext } from './float-context';
 import type { LayoutNodesAtFn } from './flow-layout';
+import { resolveMarginLeft, resolveMarginRight, resolveMarginTop } from './resolve-pct';
 import type { LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
@@ -26,8 +27,10 @@ export function layoutFloatedBlock(
 ): void {
   // Floats are out of normal flow — don't modify state.y or consume prevMarginBottom.
   // CSS §9.5.1: a float cannot appear above any earlier float.
-  const floatStartY = Math.max(state.y + node.style.marginTop, state.floats.getMaxStartY());
-  const { marginLeft: ml, marginRight: mr } = node.style;
+  const mt = resolveMarginTop(node.style, contentWidth);
+  const floatStartY = Math.max(state.y + mt, state.floats.getMaxStartY());
+  const ml = resolveMarginLeft(node.style, contentWidth);
+  const mr = resolveMarginRight(node.style, contentWidth);
   const side = node.style.float as 'left' | 'right';
   const availWidth = contentWidth - ml - mr;
   const layoutWidth = applySizeConstraints(availWidth, node.style);
