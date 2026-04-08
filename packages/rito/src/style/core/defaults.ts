@@ -11,6 +11,7 @@ import {
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
   TEXT_TRANSFORMS,
+  OBJECT_FIT_VALUES,
   VERTICAL_ALIGNS,
   WHITE_SPACES,
 } from './types';
@@ -56,6 +57,7 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
   borderRadius: 0,
   opacity: 1,
   transform: '',
+  objectFit: OBJECT_FIT_VALUES.Fill,
 };
 
 /**
@@ -122,4 +124,5 @@ export const DEFAULT_STYLE: ComputedStyle = {
   boxShadow: [],
   textShadow: [],
   transform: '',
+  objectFit: OBJECT_FIT_VALUES.Fill,
 };

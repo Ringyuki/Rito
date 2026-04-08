@@ -20,6 +20,14 @@ export function layoutImageBlock(
   if (style?.maxWidth && style.maxWidth > 0) width = Math.min(width, style.maxWidth);
   let height = style?.height && style.height > 0 ? style.height : width * aspect;
 
+  // Apply object-fit: contain — preserve intrinsic ratio within the CSS box
+  if (intrinsic && style?.objectFit === 'contain' && style.width > 0 && style.height > 0) {
+    const intrinsicRatio = intrinsic.width / intrinsic.height;
+    const boxRatio = width / height;
+    if (intrinsicRatio < boxRatio) width = height * intrinsicRatio;
+    else if (intrinsicRatio > boxRatio) height = width / intrinsicRatio;
+  }
+
   if (height > contentHeight) {
     height = contentHeight;
     width = height / aspect;

@@ -3,6 +3,7 @@ import {
   FONT_STYLES,
   FONT_WEIGHTS,
   LIST_STYLE_TYPES,
+  OBJECT_FIT_VALUES,
   TEXT_ALIGNMENTS,
   VERTICAL_ALIGNS,
   WHITE_SPACES,
@@ -45,6 +46,7 @@ const TAG_STYLES: Readonly<Record<string, PartialStyle>> = {
   th: { fontWeight: FONT_WEIGHTS.Bold },
   sup: { verticalAlign: VERTICAL_ALIGNS.Super, fontSize: 13 },
   sub: { verticalAlign: VERTICAL_ALIGNS.Sub, fontSize: 13 },
+  img: { objectFit: OBJECT_FIT_VALUES.Contain, boxSizing: 'border-box' as const },
 };
 
 /**

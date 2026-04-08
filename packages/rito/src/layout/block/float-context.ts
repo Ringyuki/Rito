@@ -38,6 +38,18 @@ export class FloatContext {
     return Math.max(leftY, rightY);
   }
 
+  /** Return the highest startY among all placed floats, or 0 if none. */
+  getMaxStartY(): number {
+    let max = 0;
+    for (const entry of this.leftFloats) {
+      if (entry.startY > max) max = entry.startY;
+    }
+    for (const entry of this.rightFloats) {
+      if (entry.startY > max) max = entry.startY;
+    }
+    return max;
+  }
+
   /** Return the lowest bottomY among all floats active at y, or y if none active. */
   getNextClearance(y: number): number {
     let minBottom = Infinity;

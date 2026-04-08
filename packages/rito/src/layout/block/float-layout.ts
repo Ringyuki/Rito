@@ -9,6 +9,7 @@ import {
   indentBlocks,
   layoutTextBlock,
 } from './primitives';
+import type { FloatContext } from './float-context';
 import type { LayoutNodesAtFn } from './flow-layout';
 import type { LayoutState } from './state';
 import type { ImageSizeMap } from './types';
@@ -23,17 +24,13 @@ export function layoutFloatedBlock(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
-  // Float margins don't collapse — advance by both margins directly
-  state.y += state.prevMarginBottom + node.style.marginTop;
-  state.prevMarginBottom = 0;
-
+  // Floats are out of normal flow — don't modify state.y or consume prevMarginBottom.
+  // CSS §9.5.1: a float cannot appear above any earlier float.
+  const floatStartY = Math.max(state.y + node.style.marginTop, state.floats.getMaxStartY());
   const { marginLeft: ml, marginRight: mr } = node.style;
   const side = node.style.float as 'left' | 'right';
   const availWidth = contentWidth - ml - mr;
-  const layoutWidth =
-    node.style.width > 0
-      ? Math.min(applySizeConstraints(node.style.width, node.style), availWidth)
-      : availWidth;
+  const layoutWidth = applySizeConstraints(availWidth, node.style);
 
   let block = hasBlockChildren(node)
     ? layoutFloatedContainer(
@@ -46,12 +43,11 @@ export function layoutFloatedBlock(
         listCtx,
       )
     : layoutFloatedLeaf(node, layoutWidth, layouter, imageSizes, listCtx);
-
   if (node.tag) block = { ...block, semanticTag: node.tag };
   if (node.id) block = { ...block, anchorId: node.id };
 
   const totalWidth = block.bounds.width + ml + mr;
-  const placeY = findFloatPlaceY(state, totalWidth, contentWidth);
+  const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth);
 
   const floatX =
     side === 'right'
@@ -89,10 +85,16 @@ function layoutFloatedContainer(
   const height = last ? last.bounds.y + last.bounds.height + paddingBottom : 0;
   const actualWidth =
     node.style.width > 0 ? layoutWidth : shrinkToFitWidth(indented, paddingRight, layoutWidth);
+  // After shrink-to-fit, text-align offsets and image centering are based on the
+  // original (larger) layout width and would be stale. Normalize to left-align.
+  const finalChildren =
+    node.style.width <= 0 && actualWidth < layoutWidth
+      ? normalizeChildPositions(indented)
+      : indented;
   return {
     type: 'layout-block',
     bounds: { x: 0, y: 0, width: actualWidth, height },
-    children: indented,
+    children: finalChildren,
   };
 }
 
@@ -108,22 +110,29 @@ function layoutFloatedLeaf(
   raw = applyRelativeOffset(raw, node.style);
   if (node.style.width <= 0) {
     const fitWidth = shrinkToFitWidth(raw.children, node.style.paddingRight, layoutWidth);
-    raw = { ...raw, bounds: { ...raw.bounds, width: fitWidth } };
+    const finalChildren =
+      fitWidth < layoutWidth ? normalizeChildPositions(raw.children) : raw.children;
+    raw = { ...raw, bounds: { ...raw.bounds, width: fitWidth }, children: finalChildren };
   }
   return raw;
 }
 
 /**
- * Search downward for a Y where the float fits alongside active floats.
+ * Search downward from startY for a Y where the float fits alongside active floats.
  * Read-only queries only — does not mutate FloatContext.
  */
-function findFloatPlaceY(state: LayoutState, totalWidth: number, contentWidth: number): number {
-  let placeY = state.y;
+function findFloatPlaceY(
+  startY: number,
+  floats: FloatContext,
+  totalWidth: number,
+  contentWidth: number,
+): number {
+  let placeY = startY;
   for (;;) {
-    const usedLeft = state.floats.getLeftWidth(placeY);
-    const usedRight = state.floats.getRightWidth(placeY);
+    const usedLeft = floats.getLeftWidth(placeY);
+    const usedRight = floats.getRightWidth(placeY);
     if (usedLeft + usedRight + totalWidth <= contentWidth) break;
-    const nextY = state.floats.getNextClearance(placeY);
+    const nextY = floats.getNextClearance(placeY);
     if (nextY <= placeY) break;
     placeY = nextY;
   }
@@ -143,20 +152,63 @@ function measureContentRight(children: readonly LayoutBlock['children'][number][
   let maxRight = 0;
   for (const child of children) {
     if (child.type === 'line-box') {
+      // Measure content span (maxRight – minLeft) to exclude text-align offsets.
+      // Text-align shifts all runs by the same offset; the span gives intrinsic width.
+      let minLeft = Infinity;
+      let lineMaxRight = 0;
       for (const run of child.runs) {
-        maxRight = Math.max(maxRight, child.bounds.x + run.bounds.x + run.bounds.width);
+        if (run.bounds.x < minLeft) minLeft = run.bounds.x;
+        const right = run.bounds.x + run.bounds.width;
+        if (right > lineMaxRight) lineMaxRight = right;
+      }
+      if (minLeft !== Infinity) {
+        maxRight = Math.max(maxRight, lineMaxRight - minLeft);
       }
     } else if (child.type === 'layout-block') {
       const nested = measureContentRight(child.children);
       maxRight = Math.max(maxRight, child.bounds.x + nested);
     } else if (child.type === 'image') {
-      // Image centering offset (bounds.x) is cosmetic — use intrinsic width only
       maxRight = Math.max(maxRight, child.bounds.width);
     } else if ('bounds' in child) {
       maxRight = Math.max(maxRight, child.bounds.x + child.bounds.width);
     }
   }
   return maxRight;
+}
+
+/**
+ * After shrink-to-fit, text-align offsets in line runs and image centering
+ * offsets are based on the original (larger) layout width. Strip them so
+ * content starts from x=0 within the shrunken container.
+ */
+function normalizeChildPositions(
+  children: readonly LayoutBlock['children'][number][],
+): readonly LayoutBlock['children'][number][] {
+  return children.map((child) => {
+    if (child.type === 'line-box') {
+      let minX = Infinity;
+      for (const run of child.runs) {
+        if (run.bounds.x < minX) minX = run.bounds.x;
+      }
+      if (minX > 0 && minX !== Infinity) {
+        return {
+          ...child,
+          runs: child.runs.map((r) => ({
+            ...r,
+            bounds: { ...r.bounds, x: r.bounds.x - minX },
+          })),
+        };
+      }
+      return child;
+    }
+    if (child.type === 'layout-block') {
+      return { ...child, children: normalizeChildPositions(child.children) };
+    }
+    if (child.type === 'image' && child.bounds.x > 0) {
+      return { ...child, bounds: { ...child.bounds, x: 0 } };
+    }
+    return child;
+  });
 }
 
 function hasBlockChildren(node: StyledNode): boolean {

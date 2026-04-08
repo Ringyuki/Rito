@@ -76,14 +76,16 @@ function buildSplitResult(
   const headLines = lineBoxes.slice(0, splitIndex);
   const tailLines = repositionLines(lineBoxes.slice(splitIndex));
 
+  // Destructure anchorId out — it belongs only on the head (first) half.
+  const { anchorId: _, ...blockWithoutAnchor } = block;
   return {
     head: {
-      type: 'layout-block',
+      ...block,
       bounds: { ...block.bounds, height: computeLinesHeight(headLines) },
       children: headLines,
     },
     tail: {
-      type: 'layout-block',
+      ...blockWithoutAnchor,
       bounds: { ...block.bounds, y: 0, height: computeLinesHeight(tailLines) },
       children: tailLines,
     },

@@ -53,4 +53,10 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
     const trimmed = value.trim();
     if (trimmed && trimmed !== 'none') result.transform = trimmed;
   },
+  'object-fit': (result, value) => {
+    const v = value.trim().toLowerCase();
+    if (v === 'fill' || v === 'contain' || v === 'cover' || v === 'scale-down') {
+      result.objectFit = v;
+    }
+  },
 };

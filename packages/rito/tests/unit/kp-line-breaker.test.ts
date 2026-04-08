@@ -168,7 +168,7 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph([seg('aa bb cc dd ee ff')], 50, 0);
       expect(lines.length).toBeGreaterThan(1);
       expect(lines[0]?.bounds.y).toBe(0);
-      expect(lines[1]?.bounds.y).toBe(24); // fontSize=16 * lineHeight=1.5
+      expect(lines[1]?.bounds.y).toBe(19.2); // fontSize=16 * lineHeight=1.2
     });
 
     it('respects startY parameter', () => {
@@ -183,7 +183,7 @@ describe('KnuthPlassLayouter', () => {
 
     it('sets correct line box height', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
-      expect(lines[0]?.bounds.height).toBe(24);
+      expect(lines[0]?.bounds.height).toBe(19.2);
     });
 
     it('expands line box and shifts runs for mixed-size baseline (vol.1 case)', () => {

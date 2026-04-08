@@ -180,14 +180,14 @@ describe('greedy layouter — vertical-align offsets', () => {
 
   it('middle runs are centered in line box', () => {
     const run = firstRun([seg('x', { verticalAlign: VERTICAL_ALIGNS.Middle })]);
-    // lineHeight = 16 * 1.5 = 24. middle = (24 - 16) / 2 = 4
-    expect(run.bounds.y).toBeCloseTo(4);
+    // lineHeight = 16 * 1.2 = 19.2. middle = (19.2 - 16) / 2 = 1.6
+    expect(run.bounds.y).toBeCloseTo(1.6);
   });
 
   it('bottom runs align to bottom of line box', () => {
     const run = firstRun([seg('x', { verticalAlign: VERTICAL_ALIGNS.Bottom })]);
-    // lineHeight = 24, fontSize = 16. bottom = 24 - 16 = 8
-    expect(run.bounds.y).toBeCloseTo(8);
+    // lineHeight = 19.2, fontSize = 16. bottom = 19.2 - 16 = 3.2
+    expect(run.bounds.y).toBeCloseTo(3.2);
   });
 
   it('top runs have y=0', () => {
@@ -202,7 +202,7 @@ describe('greedy layouter — vertical-align offsets', () => {
 
   it('text-bottom runs align to bottom', () => {
     const run = firstRun([seg('x', { verticalAlign: VERTICAL_ALIGNS.TextBottom })]);
-    expect(run.bounds.y).toBeCloseTo(8);
+    expect(run.bounds.y).toBeCloseTo(3.2);
   });
 
   it('mixed baseline and super runs on same line', () => {

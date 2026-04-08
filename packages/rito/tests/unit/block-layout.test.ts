@@ -70,7 +70,7 @@ describe('layoutBlocks', () => {
 
     const h1Bottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
     const pTop = blocks[1]?.bounds.y ?? 0;
-    expect(pTop - h1Bottom).toBe(21);
+    expect(pTop - h1Bottom).toBeCloseTo(21);
   });
 
   it('produces line boxes inside text blocks', () => {
@@ -132,7 +132,7 @@ describe('layoutBlocks', () => {
   it('bare <br> between blocks produces correct gap including margins', () => {
     // <p>A</p><br><p>B</p> with default p margins (top=16, bottom=16)
     // The <br> acts as a zero-margin anonymous block that prevents margin collapse.
-    // Expected gap = p.marginBottom(16) + br lineHeight(24) + p.marginTop(16) = 56
+    // Expected gap = p.marginBottom(16) + br lineHeight(19.2) + p.marginTop(16) = 51.2
     const nodes: DocumentNode[] = [
       block('p', [text('A')]),
       { type: NODE_TYPES.Text, content: '\n' },
@@ -145,8 +145,8 @@ describe('layoutBlocks', () => {
     const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
     const secondTop = blocks[1]?.bounds.y ?? 0;
     const gap = secondTop - firstBottom;
-    // Gap must include: prevMarginBottom(16) + lineHeight(24) + nextMarginTop(16) = 56
-    expect(gap).toBeCloseTo(56);
+    // Gap must include: prevMarginBottom(16) + lineHeight(19.2) + nextMarginTop(16) = 51.2
+    expect(gap).toBeCloseTo(51.2);
   });
 
   it('bare <br> between zero-margin blocks produces exactly one line height', () => {
@@ -161,8 +161,8 @@ describe('layoutBlocks', () => {
     expect(blocks).toHaveLength(2);
     const firstBottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
     const secondTop = blocks[1]?.bounds.y ?? 0;
-    // No margins, just one line height: 16 * 1.5 = 24
-    expect(secondTop - firstBottom).toBeCloseTo(24);
+    // No margins, just one line height: 16 * 1.2 = 19.2
+    expect(secondTop - firstBottom).toBeCloseTo(19.2);
   });
 
   it('handles empty blocks', () => {

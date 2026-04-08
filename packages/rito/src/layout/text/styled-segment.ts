@@ -126,6 +126,14 @@ function createImageAtom(node: StyledNode, imageSizes?: ImageSizeMap): InlineAto
     }
   }
 
+  // Apply object-fit: contain — preserve intrinsic ratio within the CSS box
+  if (intrinsic && node.style.objectFit === 'contain' && width > 0 && height > 0) {
+    const intrinsicRatio = intrinsic.width / intrinsic.height;
+    const boxRatio = width / height;
+    if (intrinsicRatio < boxRatio) width = height * intrinsicRatio;
+    else if (intrinsicRatio > boxRatio) height = width / intrinsicRatio;
+  }
+
   const atom: InlineAtomSegment = {
     type: 'inline-atom',
     width,

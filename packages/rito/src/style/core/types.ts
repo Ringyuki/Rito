@@ -128,6 +128,16 @@ export const POSITIONS = {
 
 export type Position = (typeof POSITIONS)[keyof typeof POSITIONS];
 
+/** Supported CSS object-fit values. */
+export const OBJECT_FIT_VALUES = {
+  Fill: 'fill',
+  Contain: 'contain',
+  Cover: 'cover',
+  ScaleDown: 'scale-down',
+} as const;
+
+export type ObjectFit = (typeof OBJECT_FIT_VALUES)[keyof typeof OBJECT_FIT_VALUES];
+
 /** Computed style for a layout element. */
 export interface ComputedStyle {
   readonly fontFamily: string;
@@ -205,6 +215,8 @@ export interface ComputedStyle {
   readonly textShadow: readonly TextShadow[];
   /** CSS transform string. Render-only, no layout impact. */
   readonly transform: string;
+  /** CSS object-fit for replaced elements (images). */
+  readonly objectFit: ObjectFit;
 }
 
 /** A single box-shadow value. */

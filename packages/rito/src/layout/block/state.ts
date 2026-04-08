@@ -9,14 +9,12 @@ export interface LayoutState {
 }
 
 /** CSS margin collapse: two positive → max, two negative → min, mixed → sum. */
+function computeCollapsedMargin(a: number, b: number): number {
+  if (a >= 0 && b >= 0) return Math.max(a, b);
+  if (a < 0 && b < 0) return Math.min(a, b);
+  return a + b;
+}
+
 export function collapseMargin(state: LayoutState, marginTop: number): void {
-  const a = state.prevMarginBottom;
-  const b = marginTop;
-  if (a >= 0 && b >= 0) {
-    state.y += Math.max(a, b);
-  } else if (a < 0 && b < 0) {
-    state.y += Math.min(a, b);
-  } else {
-    state.y += a + b;
-  }
+  state.y += computeCollapsedMargin(state.prevMarginBottom, marginTop);
 }

@@ -185,6 +185,91 @@ describe('global stylesheet rules affect real nodes', () => {
   });
 });
 
+describe('parent-child margin collapsing', () => {
+  it('collapses when child margin is larger than parent', () => {
+    const { nodes } = parseXhtml(
+      xhtml('<div style="margin-top: 10px;"><p style="margin: 20px 0 0 0;">Content</p></div>'),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // CSS: collapsed = max(10, 20) = 20
+    expect(blocks[0]?.bounds.y).toBeCloseTo(20);
+  });
+
+  it('collapses when parent margin is larger than child', () => {
+    const { nodes } = parseXhtml(
+      xhtml('<div style="margin-top: 30px;"><p style="margin: 10px 0 0 0;">Content</p></div>'),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // CSS: collapsed = max(30, 10) = 30
+    expect(blocks[0]?.bounds.y).toBeCloseTo(30);
+  });
+
+  it('does not collapse when parent has padding-top', () => {
+    const { nodes } = parseXhtml(
+      xhtml(
+        '<div style="margin-top: 10px; padding-top: 5px;"><p style="margin: 20px 0 0 0;">Content</p></div>',
+      ),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // Padding blocks collapsing: 10 (div margin) + 5 (padding) + 20 (p margin) = 35
+    expect(blocks[0]?.bounds.y).toBeCloseTo(35);
+  });
+
+  it('collapses equal margins', () => {
+    const { nodes } = parseXhtml(
+      xhtml('<div style="margin-top: 16px;"><p style="margin: 16px 0 0 0;">Content</p></div>'),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // CSS: collapsed = max(16, 16) = 16
+    expect(blocks[0]?.bounds.y).toBeCloseTo(16);
+  });
+
+  it('skips float children for collapsing', () => {
+    const { nodes } = parseXhtml(
+      xhtml(
+        '<div style="margin-top: 10px;"><div style="float: left;">F</div><p style="margin: 20px 0 0 0;">Content</p></div>',
+      ),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // First in-flow child is the <p>, not the float
+    // CSS: collapsed = max(10, 20) = 20
+    expect(blocks[1]?.bounds.y).toBeCloseTo(20);
+  });
+
+  it('float before first in-flow child is positioned after collapsed margin', () => {
+    const { nodes } = parseXhtml(
+      xhtml(
+        '<div><div style="float: left;">Float</div><div style="margin-top: 30px;"><p style="margin: 0;">Content</p></div></div>',
+      ),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // Outer div margin=0, inner div margin=30px
+    // CSS: collapsed = max(0, 30) = 30. Float is at 30, p is also at 30.
+    const floatBlock = blocks[0]; // float
+    const contentBlock = blocks[1]; // p
+    expect(floatBlock?.bounds.y).toBeCloseTo(30);
+    expect(contentBlock?.bounds.y).toBeCloseTo(30);
+  });
+
+  it('recursive parent-child collapsing through nested containers', () => {
+    const { nodes } = parseXhtml(
+      xhtml(
+        '<div style="margin-top: 10px;"><div style="margin-top: 30px;"><p style="margin: 20px 0 0 0;">Content</p></div></div>',
+      ),
+    );
+    const styled = resolveStyles(nodes);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+    // CSS: all three margins collapse = max(10, 30, 20) = 30
+    expect(blocks[0]?.bounds.y).toBeCloseTo(30);
+  });
+});
+
 describe('inline margin shorthand on real elements', () => {
   it('inline style margin: 0 overrides stylesheet margins', () => {
     const rules = parseCssRules('p { margin-top: 0.4em; margin-bottom: 0.4em; }', BASE);
