@@ -2,7 +2,7 @@
 
 A TypeScript-first Canvas-based EPUB rendering library.
 
-Rito is a rendering core for EPUB content. It loads EPUB archives, lazily reads XHTML spine chapters, resolves CSS, computes paginated layout (including tables, lists, floats, hyphenation, and widow/orphan control), and renders spreads onto an HTML Canvas with theme support.
+Rito is a rendering core for EPUB content. It loads EPUB archives, lazily reads XHTML spine chapters, resolves CSS (including child/sibling/attribute selectors, pseudo-classes, and per-chapter body styles), computes paginated layout (including tables, lists, floats, transforms, hyphenation, and widow/orphan control), and renders spreads onto an HTML Canvas with theme support.
 
 > [!WARNING]
 > Rito is still under development! We do not recommend that you use it in production environments, but of course we always welcome your PR!
