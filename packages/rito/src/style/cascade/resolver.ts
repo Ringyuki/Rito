@@ -122,6 +122,7 @@ function resolveBlockNode(
   const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
   let result: StyledNode = { type: 'block', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
+  if (node.attributes?.href) result = { ...result, href: node.attributes.href };
   if (node.attributes?.colspan) result = { ...result, colspan: node.attributes.colspan };
   if (node.attributes?.rowspan) result = { ...result, rowspan: node.attributes.rowspan };
   if (node.sourceRef) result = { ...result, sourceRef: node.sourceRef };

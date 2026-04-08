@@ -67,11 +67,17 @@ export class PaginationSession {
       const xhtml = this.doc.readChapter(spineItem.idref);
       if (!xhtml) continue;
 
-      const { nodes, warnings } = parseXhtml(xhtml);
+      const { nodes, warnings, bodyAttributes } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, spineItem.idref);
       this.chapterTextIndices.set(spineItem.idref, buildChapterTextIndex(spineItem.idref, nodes));
       const startPage = this.allPages.length;
-      const chapter = paginateChapterNodes(nodes, this.config, this.context, startPage);
+      const chapter = paginateChapterNodes(
+        nodes,
+        this.config,
+        this.context,
+        startPage,
+        bodyAttributes,
+      );
       if (chapter.pages.length === 0) continue;
 
       this.logger.debug('Chapter %s: %d blocks laid out', spineItem.idref, chapter.blockCount);

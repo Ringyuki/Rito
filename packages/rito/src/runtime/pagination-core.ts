@@ -6,9 +6,11 @@ import type { LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
 import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode } from '../parser/xhtml/types';
+import { matchesSelector } from '../style/cascade/selector-matcher';
 import { resolveStyles } from '../style/cascade/resolver';
 import { DEFAULT_STYLE } from '../style/core/defaults';
 import type { ComputedStyle, CssRule } from '../style/core/types';
+import { parseCssDeclarations } from '../style/css/property-parser';
 import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
 
@@ -62,8 +64,13 @@ export function paginateChapterNodes(
   config: LayoutConfig,
   context: PreparedPaginationContext,
   pageIndexOffset: number,
+  bodyAttributes?: { readonly class?: string; readonly style?: string },
 ): PaginatedChapterResult {
-  const styled = resolveStyles(nodes, context.bodyStyle, context.rules);
+  // Compute per-chapter body style (includes class-based rules like body.bg1)
+  const chapterBodyStyle = bodyAttributes
+    ? resolveBodyStyleWithAttrs(context.bodyStyle, context.rules, bodyAttributes)
+    : context.bodyStyle;
+  const styled = resolveStyles(nodes, chapterBodyStyle, context.rules);
   const blocks = layoutBlocks(
     styled,
     context.contentWidth,
@@ -75,7 +82,11 @@ export function paginateChapterNodes(
     return { pages: [], anchorMap: new Map<string, number>(), blockCount: 0 };
   }
 
-  const pages = indexPages(paginateBlocks(blocks, config), pageIndexOffset);
+  const bodyBg = chapterBodyStyle.backgroundColor || undefined;
+  const rawPages = paginateBlocks(blocks, config);
+  const pages = bodyBg
+    ? indexPages(rawPages, pageIndexOffset).map((p) => ({ ...p, bodyBackgroundColor: bodyBg }))
+    : indexPages(rawPages, pageIndexOffset);
   return {
     pages,
     anchorMap: collectAnchorsByPage(pages),
@@ -98,6 +109,28 @@ function buildRules(stylesheets: ReadonlyMap<string, string>): CssRule[] {
     rules.push(...parseCssRules(css, DEFAULT_STYLE.fontSize));
   }
   return rules;
+}
+
+function resolveBodyStyleWithAttrs(
+  baseBodyStyle: ComputedStyle,
+  rules: readonly CssRule[],
+  attrs: { readonly class?: string; readonly style?: string },
+): ComputedStyle {
+  let style = baseBodyStyle;
+  // Match rules against body element with class/id from the actual <body> tag
+  const target = attrs.class ? { tag: 'body', className: attrs.class } : { tag: 'body' };
+  for (const rule of rules) {
+    if (matchesSelector(target, rule.selector)) {
+      const resolved = parseCssDeclarations(rule.rawDeclarations, style.fontSize);
+      style = { ...style, ...resolved };
+    }
+  }
+  // Apply inline style if present
+  if (attrs.style) {
+    const inline = parseCssDeclarations(attrs.style, style.fontSize);
+    style = { ...style, ...inline };
+  }
+  return style;
 }
 
 function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {

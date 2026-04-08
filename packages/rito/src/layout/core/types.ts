@@ -169,6 +169,8 @@ export interface Page {
   readonly bounds: Rect;
   /** Layout blocks positioned within the page content area. */
   readonly content: readonly LayoutBlock[];
+  /** Per-chapter body background color (from EPUB stylesheet). */
+  readonly bodyBackgroundColor?: string;
 }
 
 /** A presentation-layer grouping of 1-2 pages for side-by-side display. */

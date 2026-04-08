@@ -413,9 +413,9 @@ describe('layoutBlocks', () => {
   });
 
   describe('box-sizing: border-box', () => {
-    it('subtracts padding from width in border-box', () => {
-      // width: 200px with 20px padding on each side
-      // content-area = 200 - 20 - 20 = 160px
+    it('border-box total width equals CSS width', () => {
+      // width: 200px with 20px padding on each side, box-sizing: border-box
+      // Total box = 200px. Content area = 200 - 20 - 20 = 160px (internal).
       const styled = resolveStyles([
         block('div', [text('Box')], {
           style: 'width: 200px; padding-left: 20px; padding-right: 20px; box-sizing: border-box',
@@ -424,23 +424,20 @@ describe('layoutBlocks', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       expect(blocks).toHaveLength(1);
-      // The block width should be 160 (content-area after subtracting padding)
-      expect(blocks[0]?.bounds.width).toBe(160);
+      expect(blocks[0]?.bounds.width).toBe(200);
     });
 
-    it('subtracts border from width in border-box', () => {
+    it('border-box with border: total width equals CSS width', () => {
       const styled = resolveStyles([
         block('div', [text('Bordered')], {
           style: 'width: 200px; border: 5px solid black; box-sizing: border-box',
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // content-area = 200 - 5 - 5 = 190
-      expect(blocks[0]?.bounds.width).toBe(190);
+      expect(blocks[0]?.bounds.width).toBe(200);
     });
 
-    it('subtracts both padding and border in border-box', () => {
+    it('border-box with padding and border: total width equals CSS width', () => {
       const styled = resolveStyles([
         block('div', [text('Both')], {
           style:
@@ -448,48 +445,41 @@ describe('layoutBlocks', () => {
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // content-area = 200 - 10 - 10 - 5 - 5 = 170
-      expect(blocks[0]?.bounds.width).toBe(170);
+      expect(blocks[0]?.bounds.width).toBe(200);
     });
 
-    it('does not subtract in content-box (default)', () => {
+    it('content-box: total width = CSS width + padding', () => {
       const styled = resolveStyles([
         block('div', [text('Content')], {
           style: 'width: 200px; padding-left: 20px; padding-right: 20px; box-sizing: content-box',
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // content-box: width is the content area, padding is extra
-      expect(blocks[0]?.bounds.width).toBe(200);
+      // content-box: total = 200 + 20 + 20 = 240
+      expect(blocks[0]?.bounds.width).toBe(240);
     });
 
-    it('defaults to content-box when not specified', () => {
+    it('defaults to content-box: total width includes padding', () => {
       const styled = resolveStyles([
         block('div', [text('Default')], {
           style: 'width: 200px; padding-left: 20px; padding-right: 20px',
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      expect(blocks[0]?.bounds.width).toBe(200);
+      expect(blocks[0]?.bounds.width).toBe(240);
     });
 
     it('does not go below zero in border-box', () => {
-      // width: 20px with 20px padding each side = 20 - 40 = clamp to 0
       const styled = resolveStyles([
         block('div', [text('Tiny')], {
           style: 'width: 20px; padding-left: 20px; padding-right: 20px; box-sizing: border-box',
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // Should clamp to minimum of 1 (Math.max(w, 1) in layoutLeafBlock)
       expect(blocks[0]?.bounds.width).toBeGreaterThanOrEqual(1);
     });
 
-    it('applies border-box to max-width as well', () => {
+    it('border-box max-width: total width capped at CSS max-width', () => {
       const styled = resolveStyles([
         block('div', [text('MaxW')], {
           style:
@@ -497,10 +487,8 @@ describe('layoutBlocks', () => {
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // max-width in border-box: 200 - 10 - 10 = 180 content max
-      // Available width = 300, so clamped to 180
-      expect(blocks[0]?.bounds.width).toBe(180);
+      // border-box max-width = 200 total
+      expect(blocks[0]?.bounds.width).toBe(200);
     });
 
     it('combines margin:auto centering with border-box', () => {
@@ -511,11 +499,9 @@ describe('layoutBlocks', () => {
         }),
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
-
-      // border-box content-area = 200 - 10 - 10 = 180
-      // centered in 300: x = (300 - 180) / 2 = 60
-      expect(blocks[0]?.bounds.width).toBe(180);
-      expect(blocks[0]?.bounds.x).toBe(60);
+      // border-box: total = 200. Centered in 300: x = (300 - 200) / 2 = 50
+      expect(blocks[0]?.bounds.width).toBe(200);
+      expect(blocks[0]?.bounds.x).toBe(50);
     });
   });
 

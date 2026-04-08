@@ -1,15 +1,20 @@
 import type { LayoutConfig } from '../layout/core/types';
 import type { ChapterRange } from '../runtime/types';
 import type { SpineItem, PackageDocument } from '../parser/epub/types';
-import type { DocumentNode } from '../parser/xhtml/types';
+import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import type { LogLevel } from '../utils/logger';
+
+export interface ChapterData {
+  readonly nodes: readonly DocumentNode[];
+  readonly bodyAttributes?: ElementAttributes;
+}
 
 /** Data sent from the main thread to the pagination worker. */
 export interface PaginateRequest {
   readonly type: 'paginate';
   readonly config: LayoutConfig;
-  /** Pre-parsed XHTML document nodes, keyed by spine idref. */
-  readonly chapters: ReadonlyMap<string, readonly DocumentNode[]>;
+  /** Pre-parsed XHTML document nodes with body attributes, keyed by spine idref. */
+  readonly chapters: ReadonlyMap<string, ChapterData>;
   /** Raw CSS stylesheet content, keyed by manifest id. */
   readonly stylesheets: ReadonlyMap<string, string>;
   /** Image dimensions for layout, keyed by href. */

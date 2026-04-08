@@ -14,20 +14,24 @@ export function layoutTextBlock(
   layouter: ParagraphLayouter,
   imageSizes?: ImageSizeMap,
 ): LayoutBlock {
-  const { paddingTop, paddingBottom, paddingRight, backgroundColor } = node.style;
-  const innerWidth = contentWidth - paddingRight - node.style.paddingLeft;
-  const segments = flattenInlineContent(node.children, imageSizes);
+  const { paddingTop, paddingBottom, paddingRight, paddingLeft, backgroundColor } = node.style;
+  const innerWidth = contentWidth - paddingRight - paddingLeft;
+  const segments = flattenInlineContent(node.children, imageSizes, node.href);
   const lineBoxes = layouter.layoutParagraph(
     segments,
     innerWidth > 0 ? innerWidth : contentWidth,
     0,
   );
+  // Shift line boxes by padding offsets
   const children =
-    paddingTop > 0
+    paddingTop > 0 || paddingLeft > 0
       ? lineBoxes.map((lineBox) => ({
           ...lineBox,
-          bounds: { ...lineBox.bounds, y: lineBox.bounds.y + paddingTop },
-          // Run bounds are relative to the line box — only shift line position.
+          bounds: {
+            ...lineBox.bounds,
+            x: lineBox.bounds.x + paddingLeft,
+            y: lineBox.bounds.y + paddingTop,
+          },
         }))
       : lineBoxes;
 
@@ -73,10 +77,15 @@ export function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): L
   return { ...block, relativeOffset: offset };
 }
 
+/**
+ * Apply CSS width/maxWidth constraints and return the total box width
+ * (including padding). layoutTextBlock subtracts padding from this to
+ * get the inner content width.
+ */
 export function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
   let width = availableWidth;
-  if (style.width > 0) width = Math.min(toBorderBox(style.width, style), availableWidth);
-  if (style.maxWidth > 0) width = Math.min(width, toBorderBox(style.maxWidth, style));
+  if (style.width > 0) width = Math.min(toTotalBox(style.width, style), availableWidth);
+  if (style.maxWidth > 0) width = Math.min(width, toTotalBox(style.maxWidth, style));
   return width;
 }
 
@@ -111,11 +120,20 @@ function computeRelativeOffset(style: ComputedStyle): RelativeOffset | undefined
   return { dx, dy };
 }
 
-function toBorderBox(value: number, style: ComputedStyle): number {
-  if (style.boxSizing !== 'border-box') return value;
-  const deduction =
-    style.paddingLeft + style.paddingRight + style.borderLeft.width + style.borderRight.width;
-  return Math.max(value - deduction, 0);
+/**
+ * Convert a CSS width/maxWidth value to total box width (content + padding + border).
+ * - content-box: CSS value is content width → add padding + border
+ * - border-box: CSS value IS the total box → return as-is
+ */
+function toTotalBox(value: number, style: ComputedStyle): number {
+  if (style.boxSizing === 'border-box') return value;
+  return (
+    value +
+    style.paddingLeft +
+    style.paddingRight +
+    style.borderLeft.width +
+    style.borderRight.width
+  );
 }
 
 function applyHeightConstraints(height: number, style: ComputedStyle): number {

@@ -17,7 +17,7 @@ export function render(
 ): void {
   const pixelRatio = options?.pixelRatio ?? 1;
 
-  // Fill the entire viewport (including spread gap) with background color
+  // 1. Fill entire viewport with reader theme background
   if (options?.backgroundColor) {
     ctx.save();
     ctx.scale(pixelRatio, pixelRatio);
@@ -26,6 +26,7 @@ export function render(
     ctx.restore();
   }
 
+  // 2. Render pages (each page fills its own area with bodyBackgroundColor if present)
   if (spread.left) {
     ctx.save();
     ctx.translate(0, 0);
@@ -39,6 +40,20 @@ export function render(
     ctx.translate(offsetX, 0);
     renderPage(spread.right, ctx, config, options);
     ctx.restore();
+  }
+
+  // 3. Fill gap between pages if both share the same body background
+  if (config.spreadMode === 'double' && config.spreadGap > 0) {
+    const leftBg = spread.left?.bodyBackgroundColor;
+    const rightBg = spread.right?.bodyBackgroundColor;
+    if (leftBg && leftBg === rightBg) {
+      ctx.save();
+      ctx.scale(pixelRatio, pixelRatio);
+      ctx.fillStyle = leftBg;
+      const gapX = config.pageWidth;
+      ctx.fillRect(gapX, 0, config.spreadGap, config.viewportHeight);
+      ctx.restore();
+    }
   }
 }
 

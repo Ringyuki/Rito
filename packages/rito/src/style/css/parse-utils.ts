@@ -15,6 +15,22 @@ type BoxSideKey =
   | 'paddingLeft';
 type MarginSideKey = 'marginTop' | 'marginRight' | 'marginBottom' | 'marginLeft';
 
+/** Parse a box-model length, rejecting % (needs containing-block resolution). */
+function parseBoxLength(
+  value: string,
+  parentFontSize: number,
+  rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+): number | undefined {
+  const trimmed = value.trim();
+  // Bare non-zero percentage
+  if (trimmed.endsWith('%') && !trimmed.includes('calc') && parseFloat(trimmed) !== 0) {
+    return undefined;
+  }
+  // calc() containing % — also unresolvable
+  if (trimmed.includes('calc') && trimmed.includes('%')) return undefined;
+  return parseLength(value, parentFontSize, rootFontSize);
+}
+
 /** Parse a CSS length value (px, pt, em, rem, %) to a number in px. */
 export function parseLength(
   value: string,
@@ -50,7 +66,7 @@ export function applyBoxShorthand(
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
 ): void {
   const parts = splitBoxValues(value.trim());
-  const values = parts.map((p) => parseLength(p, parentFontSize, rootFontSize));
+  const values = parts.map((p) => parseBoxLength(p, parentFontSize, rootFontSize));
   const [top, right, bottom, left] = keys;
 
   if (parts.length === 1 && values[0] !== undefined) {
@@ -115,7 +131,7 @@ export function applyBoxShorthandWithAuto(
         result[key] = 0;
       }
     } else {
-      const parsed = parseLength(raw, parentFontSize, rootFontSize);
+      const parsed = parseBoxLength(raw, parentFontSize, rootFontSize);
       if (parsed !== undefined) {
         result[key] = parsed;
         if (key === rightKey) result.marginRightAuto = false;

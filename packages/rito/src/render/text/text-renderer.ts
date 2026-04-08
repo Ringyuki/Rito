@@ -35,6 +35,13 @@ export function drawTextRun(
   const x = offsetX + run.bounds.x;
   const y = offsetY + run.bounds.y;
 
+  // Inline background color (e.g. <span> with background-color)
+  if (run.style.backgroundColor) {
+    ctx.fillStyle = run.style.backgroundColor;
+    ctx.fillRect(x, y, run.bounds.width, run.bounds.height);
+    ctx.fillStyle = color;
+  }
+
   if (run.style.textShadow.length > 0) {
     drawTextShadows(ctx, run, x, y, color);
   }

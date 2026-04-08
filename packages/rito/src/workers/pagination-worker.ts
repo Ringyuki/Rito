@@ -50,11 +50,17 @@ function paginateSpine(
   const anchorMap = new Map<string, number>();
 
   for (const spineItem of req.spine) {
-    const nodes = req.chapters.get(spineItem.idref);
-    if (!nodes || nodes.length === 0) continue;
+    const chapterData = req.chapters.get(spineItem.idref);
+    if (!chapterData || chapterData.nodes.length === 0) continue;
 
     const startPage = allPages.length;
-    const chapter = paginateChapterNodes(nodes, req.config, context, startPage);
+    const chapter = paginateChapterNodes(
+      chapterData.nodes,
+      req.config,
+      context,
+      startPage,
+      chapterData.bodyAttributes,
+    );
     if (chapter.pages.length === 0) continue;
 
     allPages.push(...chapter.pages);

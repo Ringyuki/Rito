@@ -36,7 +36,12 @@ export function layoutContainerBlock(
   collapseMargin(state, node.style.marginTop);
   const childListCtx = createListContext(node);
   const { paddingTop, paddingRight, paddingBottom, paddingLeft } = node.style;
-  const childWidth = contentWidth - paddingLeft - paddingRight;
+  // Apply the container's own width/maxWidth constraint before subtracting padding
+  const ml = node.style.marginLeft;
+  const mr = node.style.marginRight;
+  let effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
+  effectiveWidth = applySizeConstraints(effectiveWidth, node.style);
+  const childWidth = effectiveWidth - paddingLeft - paddingRight;
 
   const childBlocks = layoutNodesAt(
     node.children,
@@ -48,7 +53,20 @@ export function layoutContainerBlock(
     childListCtx ?? listCtx,
   );
 
-  const indented = paddingLeft > 0 ? indentBlocks(childBlocks, paddingLeft) : childBlocks;
+  // Apply margin:auto centering and left margin offset for the container
+  let xOffset = ml;
+  const mlAuto = node.style.marginLeftAuto;
+  const mrAuto = node.style.marginRightAuto;
+  if ((mlAuto || mrAuto) && effectiveWidth < contentWidth) {
+    const remaining = contentWidth - effectiveWidth;
+    if (mlAuto && mrAuto) {
+      xOffset = remaining / 2;
+    } else if (mlAuto) {
+      xOffset = remaining - mr;
+    }
+  }
+  const totalIndent = paddingLeft + xOffset;
+  const indented = totalIndent > 0 ? indentBlocks(childBlocks, totalIndent) : childBlocks;
   applyPageBreakFlags(indented, node.style);
   if (node.id && indented.length > 0) {
     const first = indented[0];

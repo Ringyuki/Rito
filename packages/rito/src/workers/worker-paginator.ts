@@ -3,11 +3,10 @@ import type { EpubDocument, PaginationResult } from '../runtime/types';
 import { logXhtmlWarnings } from '../runtime/xhtml-diagnostics';
 import type { LoadedAssets } from '../render/assets';
 import { createLogger, type LogLevel, type Logger } from '../utils/logger';
-import type { DocumentNode } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import { buildChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
-import type { PaginateRequest, WorkerResponse } from './types';
+import type { ChapterData, PaginateRequest, WorkerResponse } from './types';
 
 /**
  * Run pagination in a Web Worker using the provided Worker instance.
@@ -66,15 +65,15 @@ export function paginateInWorker(
 function preReadAndParseChapters(
   doc: EpubDocument,
   logger: Logger,
-): { chapters: Map<string, readonly DocumentNode[]>; textIndices: Map<string, ChapterTextIndex> } {
-  const chapters = new Map<string, readonly DocumentNode[]>();
+): { chapters: Map<string, ChapterData>; textIndices: Map<string, ChapterTextIndex> } {
+  const chapters = new Map<string, ChapterData>();
   const textIndices = new Map<string, ChapterTextIndex>();
   for (const item of doc.packageDocument.spine) {
     const xhtml = doc.readChapter(item.idref);
     if (xhtml) {
-      const { nodes, warnings } = parseXhtml(xhtml);
+      const { nodes, warnings, bodyAttributes } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, logger, item.idref);
-      chapters.set(item.idref, nodes);
+      chapters.set(item.idref, bodyAttributes ? { nodes, bodyAttributes } : { nodes });
       textIndices.set(item.idref, buildChapterTextIndex(item.idref, nodes));
     }
   }

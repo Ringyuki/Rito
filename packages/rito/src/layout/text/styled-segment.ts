@@ -43,9 +43,10 @@ export type InlineSegment = StyledSegment | InlineAtomSegment;
 export function flattenInlineContent(
   children: readonly StyledNode[],
   imageSizes?: ImageSizeMap,
+  inheritedHref?: string,
 ): readonly InlineSegment[] {
   const segments: InlineSegment[] = [];
-  collectSegments(children, segments, imageSizes);
+  collectSegments(children, segments, imageSizes, inheritedHref);
   return segments;
 }
 
@@ -67,15 +68,21 @@ function collectSegments(
   out: InlineSegment[],
   imageSizes?: ImageSizeMap,
   inheritedHref?: string,
+  inheritedBgColor?: string,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
       case 'text': {
         const raw = node.content ?? '';
         if (raw.length > 0) {
+          // Restore inline ancestor's backgroundColor (stripped by inheritableStyle)
+          const style =
+            inheritedBgColor && !node.style.backgroundColor
+              ? { ...node.style, backgroundColor: inheritedBgColor }
+              : node.style;
           const seg: StyledSegment = {
-            text: applyTextTransform(raw, node.style),
-            style: node.style,
+            text: applyTextTransform(raw, style),
+            style,
             ...(node.sourceRef ? { sourceRef: node.sourceRef, sourceText: raw } : {}),
           };
           out.push(inheritedHref ? { ...seg, href: inheritedHref } : seg);
@@ -84,7 +91,8 @@ function collectSegments(
       }
       case 'inline': {
         const href = node.href ?? inheritedHref;
-        collectSegments(node.children, out, imageSizes, href);
+        const bgColor = node.style.backgroundColor || inheritedBgColor;
+        collectSegments(node.children, out, imageSizes, href, bgColor);
         break;
       }
       case 'image':

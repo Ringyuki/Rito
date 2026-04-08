@@ -495,4 +495,55 @@ describe('parseCssDeclarations', () => {
       expect(result.opacity).toBeUndefined();
     });
   });
+
+  describe('percentage rejection on box-model properties', () => {
+    it('ignores width: 100%', () => {
+      expect(parseCssDeclarations('width: 100%', BASE_FONT_SIZE).width).toBeUndefined();
+    });
+
+    it('ignores max-width: 50%', () => {
+      expect(parseCssDeclarations('max-width: 50%', BASE_FONT_SIZE).maxWidth).toBeUndefined();
+    });
+
+    it('ignores height: 100%', () => {
+      expect(parseCssDeclarations('height: 100%', BASE_FONT_SIZE).height).toBeUndefined();
+    });
+
+    it('ignores margin-top: 10%', () => {
+      expect(parseCssDeclarations('margin-top: 10%', BASE_FONT_SIZE).marginTop).toBeUndefined();
+    });
+
+    it('ignores padding-left: 5%', () => {
+      expect(parseCssDeclarations('padding-left: 5%', BASE_FONT_SIZE).paddingLeft).toBeUndefined();
+    });
+
+    it('ignores width: calc(100% - 20px)', () => {
+      expect(
+        parseCssDeclarations('width: calc(100% - 20px)', BASE_FONT_SIZE).width,
+      ).toBeUndefined();
+    });
+
+    it('ignores padding-left: calc(50% - 1rem)', () => {
+      expect(
+        parseCssDeclarations('padding-left: calc(50% - 1rem)', BASE_FONT_SIZE).paddingLeft,
+      ).toBeUndefined();
+    });
+
+    it('ignores margin: -1% 0 0 20% (non-zero % parts)', () => {
+      const result = parseCssDeclarations('margin: -1% 0 0 20%', BASE_FONT_SIZE);
+      // non-zero % parts are ignored, zero parts resolve to 0
+      expect(result.marginTop).toBeUndefined();
+      expect(result.marginRight).toBe(0);
+      expect(result.marginBottom).toBe(0);
+      expect(result.marginLeft).toBeUndefined();
+    });
+
+    it('allows width: 0%', () => {
+      expect(parseCssDeclarations('width: 0%', BASE_FONT_SIZE).width).toBeUndefined();
+    });
+
+    it('allows calc without % (calc(10px + 1em))', () => {
+      expect(parseCssDeclarations('width: calc(10px + 1em)', BASE_FONT_SIZE).width).toBe(26);
+    });
+  });
 });

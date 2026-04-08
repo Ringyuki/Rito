@@ -72,7 +72,7 @@ export const DEFAULT_STYLE: ComputedStyle = {
   fontSize: 16,
   fontWeight: FONT_WEIGHTS.Normal,
   fontStyle: FONT_STYLES.Normal,
-  lineHeight: 1.5,
+  lineHeight: 1.2,
   textAlign: TEXT_ALIGNMENTS.Left,
   textDecoration: TEXT_DECORATIONS.None,
   textIndent: 0,

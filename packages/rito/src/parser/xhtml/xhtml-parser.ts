@@ -15,6 +15,8 @@ import { collapseWhitespace, isWhitespaceOnly } from './text-normalizer';
 export interface ParseResult {
   readonly nodes: readonly DocumentNode[];
   readonly warnings: readonly string[];
+  /** Attributes of the <body> element (class, style, id) for per-chapter styling. */
+  readonly bodyAttributes?: ElementAttributes;
 }
 
 /**
@@ -32,8 +34,9 @@ export function parseXhtml(xhtml: string): ParseResult {
   const body = doc.getElementsByTagName('body')[0] ?? doc.documentElement;
   const warnings: string[] = [];
   const nodes = convertChildren(body, warnings, false, []);
+  const bodyAttributes = extractAttributes(body);
 
-  return { nodes, warnings };
+  return bodyAttributes ? { nodes, warnings, bodyAttributes } : { nodes, warnings };
 }
 
 function convertChildren(
@@ -52,8 +55,27 @@ function convertChildren(
     const childPath = [...parentPath, emittedIndex];
     const node = convertNode(child, warnings, preserveWhitespace, childPath);
     if (node) {
-      result.push(node);
-      emittedIndex++;
+      // When an inline element (e.g. <a>) contains block children (e.g. <div>),
+      // unwrap it: hoist block children to this level so they participate in the
+      // parent's float context. Propagate href and inline style to block children.
+      // Known limitation: stylesheet-level anchor ancestor selectors (a { ... },
+      // a > div, a .title) are not preserved — only href and inline style transfer.
+      if (node.type === 'inline' && node.children.some((c) => c.type === 'block')) {
+        const href = node.attributes?.href;
+        const anchorStyle = node.attributes?.style;
+        for (const c of node.children) {
+          if (c.type === 'block') {
+            const merged = mergeAnchorAttrs(c.attributes, href, anchorStyle);
+            result.push(merged ? { ...c, attributes: merged } : c);
+          } else {
+            result.push(c);
+          }
+          emittedIndex++;
+        }
+      } else {
+        result.push(node);
+        emittedIndex++;
+      }
     }
   }
 
@@ -115,7 +137,6 @@ function convertElement(
     const imageNode = extractSvgImage(el, nodePath);
     if (imageNode) return imageNode;
   }
-
   if (classification === 'ignored') {
     warnings.push(`Unsupported element <${tagName}> skipped`);
     return undefined;
@@ -168,6 +189,22 @@ function extractSvgImage(svg: Element, nodePath: readonly number[]): DocumentNod
     }
   }
   return undefined;
+}
+
+/** Merge anchor href and inline style onto a block child's attributes. */
+function mergeAnchorAttrs(
+  childAttrs: ElementAttributes | undefined,
+  href: string | undefined,
+  anchorStyle: string | undefined,
+): ElementAttributes | undefined {
+  if (!href && !anchorStyle) return childAttrs;
+  const result = { ...childAttrs };
+  if (href && !result.href) result.href = href;
+  if (anchorStyle) {
+    // Prepend anchor style (lower priority) before child's own style
+    result.style = result.style ? `${anchorStyle}; ${result.style}` : anchorStyle;
+  }
+  return result;
 }
 
 function extractAttributes(el: Element): ElementAttributes | undefined {

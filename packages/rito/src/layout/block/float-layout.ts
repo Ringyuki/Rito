@@ -149,6 +149,9 @@ function measureContentRight(children: readonly LayoutBlock['children'][number][
     } else if (child.type === 'layout-block') {
       const nested = measureContentRight(child.children);
       maxRight = Math.max(maxRight, child.bounds.x + nested);
+    } else if (child.type === 'image') {
+      // Image centering offset (bounds.x) is cosmetic — use intrinsic width only
+      maxRight = Math.max(maxRight, child.bounds.width);
     } else if ('bounds' in child) {
       maxRight = Math.max(maxRight, child.bounds.x + child.bounds.width);
     }

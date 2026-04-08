@@ -2,6 +2,22 @@ import type { MutableStylePatch } from '../../core/style-patch';
 import type { ComputedStyle } from '../../core/types';
 import { parseLength } from '../parse-utils';
 
+/**
+ * Reject bare percentage values. CSS percentages on box-model properties
+ * (width, height, margin, padding) depend on the containing block, but
+ * parseLength incorrectly resolves them as font-relative. Ignore until
+ * containing-block resolution is modeled in layout.
+ */
+/** Reject values that depend on containing-block percentage resolution. */
+export function isPercentage(value: string): boolean {
+  const trimmed = value.trim();
+  // Bare percentage (not 0%)
+  if (trimmed.endsWith('%') && !trimmed.includes('calc') && parseFloat(trimmed) !== 0) return true;
+  // calc() containing % — also unresolvable without containing block
+  if (trimmed.includes('calc') && trimmed.includes('%')) return true;
+  return false;
+}
+
 type NumericStyleKey = {
   [K in keyof ComputedStyle]: ComputedStyle[K] extends number | undefined ? K : never;
 }[keyof ComputedStyle];
