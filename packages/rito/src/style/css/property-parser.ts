@@ -24,8 +24,14 @@ export function parseCssDeclarations(
     if (colonIndex === -1) continue;
 
     const property = declaration.slice(0, colonIndex).trim().toLowerCase();
-    const value = declaration.slice(colonIndex + 1).trim();
-    if (!property || !value) continue;
+    const raw = declaration.slice(colonIndex + 1).trim();
+    if (!property || !raw) continue;
+    // Strip !important — we don't implement priority but the value must parse correctly.
+    const value = raw.endsWith('!important')
+      ? raw.slice(0, -10).trim()
+      : raw.endsWith('! important')
+        ? raw.slice(0, -11).trim()
+        : raw;
 
     const handler = PROPERTY_HANDLERS[property];
     if (handler) handler(result, value, parentFontSize, rootFontSize);

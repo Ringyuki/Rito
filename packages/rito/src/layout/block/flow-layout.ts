@@ -35,11 +35,7 @@ export function layoutContainerBlock(
 ): void {
   const childListCtx = createListContext(node);
   const { paddingTop, paddingRight, paddingBottom, paddingLeft } = node.style;
-  const { startY, children: adjustedChildren } = collapseContainerMarginTop(
-    node,
-    state,
-    paddingTop,
-  );
+  const collapsed = collapseContainerMarginTop(node, state, paddingTop);
 
   // Apply the container's own width/maxWidth constraint before subtracting padding
   const ml = node.style.marginLeft;
@@ -49,11 +45,11 @@ export function layoutContainerBlock(
   const childWidth = effectiveWidth - paddingLeft - paddingRight;
 
   const childBlocks = layoutNodesAt(
-    adjustedChildren,
+    collapsed.children,
     childWidth > 0 ? childWidth : contentWidth,
     contentHeight,
     layouter,
-    startY,
+    collapsed.startY,
     imageSizes,
     childListCtx ?? listCtx,
   );

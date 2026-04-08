@@ -69,17 +69,16 @@ function collectSegments(
   imageSizes?: ImageSizeMap,
   inheritedHref?: string,
   inheritedBgColor?: string,
+  inheritedVA?: string,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
       case 'text': {
         const raw = node.content ?? '';
         if (raw.length > 0) {
-          // Restore inline ancestor's backgroundColor (stripped by inheritableStyle)
-          const style =
-            inheritedBgColor && !node.style.backgroundColor
-              ? { ...node.style, backgroundColor: inheritedBgColor }
-              : node.style;
+          // Restore non-inherited properties stripped by inheritableStyle:
+          // backgroundColor from inline ancestor, verticalAlign from <sup>/<sub>/etc.
+          const style = patchInheritedStyle(node.style, inheritedBgColor, inheritedVA);
           const seg: StyledSegment = {
             text: applyTextTransform(raw, style),
             style,
@@ -92,12 +91,19 @@ function collectSegments(
       case 'inline': {
         const href = node.href ?? inheritedHref;
         const bgColor = node.style.backgroundColor || inheritedBgColor;
-        collectSegments(node.children, out, imageSizes, href, bgColor);
+        const va = node.style.verticalAlign !== 'baseline' ? node.style.verticalAlign : inheritedVA;
+        collectSegments(node.children, out, imageSizes, href, bgColor, va);
         break;
       }
-      case 'image':
-        out.push(createImageAtom(node, imageSizes));
+      case 'image': {
+        const atom = createImageAtom(node, imageSizes);
+        if (inheritedVA && node.style.verticalAlign === 'baseline') {
+          out.push({ ...atom, style: { ...atom.style, verticalAlign: inheritedVA } });
+        } else {
+          out.push(atom);
+        }
         break;
+      }
       case 'block':
         if (node.style.display === DISPLAY_VALUES.InlineBlock) {
           out.push(createInlineBlockAtom(node));
@@ -105,6 +111,17 @@ function collectSegments(
         break;
     }
   }
+}
+
+function patchInheritedStyle(style: ComputedStyle, bgColor?: string, va?: string): ComputedStyle {
+  const needsBg = bgColor && !style.backgroundColor;
+  const needsVA = va && style.verticalAlign === 'baseline';
+  if (!needsBg && !needsVA) return style;
+  return {
+    ...style,
+    ...(needsBg ? { backgroundColor: bgColor } : {}),
+    ...(needsVA ? { verticalAlign: va } : {}),
+  };
 }
 
 function createImageAtom(node: StyledNode, imageSizes?: ImageSizeMap): InlineAtomSegment {
