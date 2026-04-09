@@ -54,8 +54,10 @@ export interface Reader {
   readonly totalSpreads: number;
   /** Table of contents entries. */
   readonly toc: readonly TocEntry[];
-  /** Chapter-to-page mapping for navigation. */
+  /** Chapter-to-page mapping for navigation. Key is spine idref. */
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
+  /** Mapping from spine idref to manifest href (for footnote key resolution). */
+  readonly manifestHrefMap: ReadonlyMap<string, string>;
   /** All computed pages. */
   readonly pages: readonly Page[];
   /** All computed spreads. */
@@ -164,7 +166,7 @@ function buildReader(
   const navigation = createReaderNavigation(doc, state, manifestHrefs);
 
   return Object.assign(
-    defineReaderAccessors(state, doc),
+    defineReaderAccessors(state, doc, manifestHrefs),
     buildReaderMethods(state, doc, canvas, ctx, layoutControls),
     layoutControls,
     navigation,

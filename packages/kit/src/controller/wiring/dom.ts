@@ -1,36 +1,36 @@
 import { bindClipboard } from 'rito/dom';
 import type { DisposableCollection } from '../../utils/disposable';
-import { handleLinkClick } from '../link-handler/index';
 import { bindLinkCursor } from './link';
-import { checkAnnotationClick, getAnnotationScreenCenter, findAnnotationAtPos } from './annotation';
+import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
 import { toSpreadContent, type WiringDeps } from '../core/wiring-deps';
 import { bindPointerEvents } from './pointer';
+import { dispatchClick } from './click-dispatch';
 
 /**
  * Bind pointer events, clipboard, and link cursor to the canvas.
  *
- * Pointer coordinates are converted from display-css to spread-content via the
- * CoordinateMapper stored in coordState. All offset formulas live in the mapper.
+ * Desktop single-clicks go through `dispatchClick()` for unified
+ * annotation / footnote / link / image handling.
  */
 export function wireDomHelpers(deps: WiringDeps, disposables: DisposableCollection): void {
-  const { canvas, engines, reader, emitter, coordState } = deps;
+  const { canvas, engines, emitter, coordState } = deps;
 
   const convert = (e: PointerEvent) => toSpreadContent(e, canvas, coordState);
 
   let hoveredAnnId: string | null = null;
 
+  // Pointer events: selection engine + single-click dispatch
   disposables.add(
     bindPointerEvents(canvas, engines.selection, convert, (pos) => {
-      checkAnnotationClick(pos, deps);
+      dispatchClick(pos, deps);
     }),
   );
   disposables.add(bindClipboard(canvas, engines.selection));
-  disposables.add(
-    bindLinkCursor(canvas, coordState, convert, (region) => {
-      handleLinkClick(region, reader, deps.setCurrentSpread, emitter);
-    }),
-  );
 
+  // Link cursor (hover only — clicks handled by dispatchClick above)
+  disposables.add(bindLinkCursor(canvas, coordState, convert));
+
+  // Annotation hover tracking
   const onMove = (e: PointerEvent): void => {
     const pos = convert(e);
     const ann = findAnnotationAtPos(pos, deps);

@@ -19,9 +19,7 @@ import {
   wireUnifiedTouchHandler,
 } from './wiring/index';
 import { wireA11y } from './wiring/a11y';
-import { findAnnotationAtPos } from './wiring/annotation';
-import { findLinkAtPos } from './wiring/link';
-import { handleLinkClick } from './link-handler/index';
+import { dispatchClick } from './wiring/click-dispatch';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
 
 export type {
@@ -213,7 +211,6 @@ function wireIntegrations(
   return keyboard;
 }
 
-// eslint-disable-next-line max-lines-per-function -- orchestrator with 8-line signature; splitting further would fragment the touch wiring logic
 function wireTouchGestures(
   internals: Internals,
   transition: ReturnType<typeof createTransitionEngine>,
@@ -248,13 +245,7 @@ function wireTouchGestures(
     getRenderScale: () => internals.renderScale,
   };
   const handleTap = (pos: { x: number; y: number }) => {
-    const ann = findAnnotationAtPos(pos, wiringDeps);
-    if (ann) {
-      emitter.emit('annotationClick', { annotation: ann });
-      return;
-    }
-    const link = findLinkAtPos(pos, coordState);
-    if (link) handleLinkClick(link, reader, wiringDeps.setCurrentSpread, emitter);
+    dispatchClick(pos, wiringDeps);
   };
   wireUnifiedTouchHandler(
     wrapper,

@@ -1,4 +1,4 @@
-import type { PackageMetadata, Page, Reader, Spread, TocEntry } from 'rito';
+import type { FootnoteEntry, PackageMetadata, Page, Reader, Spread, TocEntry } from 'rito';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
@@ -56,6 +56,26 @@ export interface ReaderControllerEvents {
   layoutChange: { spreads: readonly Spread[]; totalSpreads: number };
   transitionStart: { direction: 'forward' | 'backward' };
   transitionEnd: { direction: 'forward' | 'backward' };
+  /** Link clicked. Call `navigate()` to execute internal navigation. */
+  linkClick: {
+    href: string;
+    text: string;
+    type: 'internal' | 'external';
+    /** For internal links: call to navigate to the target spread. */
+    navigate: () => void;
+  };
+  /** Footnote reference clicked. `content` has the footnote entry. */
+  footnoteClick: {
+    id: string;
+    href: string;
+    content: FootnoteEntry;
+  };
+  /** Image clicked. `screenBounds` is in screen coordinates for lightbox positioning. */
+  imageClick: {
+    src: string;
+    alt: string;
+    screenBounds: Rect;
+  };
   /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */
   searchOpen: undefined;
   error: { message: string; source: string };
