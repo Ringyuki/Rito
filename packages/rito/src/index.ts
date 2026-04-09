@@ -22,6 +22,7 @@ export { buildSpreads } from './layout/index';
 export { createLayoutConfig } from './layout/index';
 export { createTextMeasurer } from './render/index';
 export type { EpubDocument, LoadOptions, PaginationResult } from './runtime/index';
+export type { FootnoteEntry } from './runtime/footnote-extractor';
 export type { LayoutConfig, LayoutConfigInput, PaginationPolicy } from './layout/index';
 export type { TextMeasurer, TextMetrics } from './layout/index';
 export type { RenderOptions } from './render/index';

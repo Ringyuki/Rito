@@ -1,6 +1,7 @@
 import type { Page } from '../layout/core/types';
 import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { PackageDocument, TocEntry } from '../parser/epub/types';
+import type { FootnoteEntry } from './footnote-extractor'; // re-exported via index.ts
 import type { Logger } from '../utils/logger';
 
 /**
@@ -41,6 +42,8 @@ export interface PaginationResult {
   readonly anchorMap: ReadonlyMap<string, number>;
   /** Source-based chapter text indices for annotation anchoring. */
   readonly chapterTextIndices: ReadonlyMap<string, ChapterTextIndex>;
+  /** Map from `manifestHref#fragment` to structured footnote entry. */
+  readonly footnoteMap: ReadonlyMap<string, FootnoteEntry>;
 }
 
 /**

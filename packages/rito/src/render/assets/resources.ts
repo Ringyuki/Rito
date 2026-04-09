@@ -1,5 +1,6 @@
 import type { LayoutConfig, Page } from '../../layout/core/types';
 import type { ChapterTextIndex } from '../../interaction/anchors/chapter-text-index';
+import type { FootnoteEntry } from '../../runtime/footnote-extractor';
 import type { ChapterRange, EpubDocument } from '../../runtime/types';
 import { loadFonts } from './font-loader';
 import { loadImages } from './image-loader';
@@ -25,6 +26,8 @@ export interface Resources {
   readonly anchorMap: ReadonlyMap<string, number>;
   /** Source-based chapter text indices for annotation anchoring. */
   readonly chapterTextIndices: ReadonlyMap<string, ChapterTextIndex>;
+  /** Map from `manifestHref#fragment` to structured footnote entry. */
+  readonly footnoteMap: ReadonlyMap<string, FootnoteEntry>;
 }
 
 /** Load fonts and decode images. Result is reusable across resizes. */
@@ -75,6 +78,7 @@ export function paginateWithAssets(
     chapterMap: result.chapterMap,
     anchorMap: result.anchorMap,
     chapterTextIndices: result.chapterTextIndices,
+    footnoteMap: result.footnoteMap,
   };
 }
 

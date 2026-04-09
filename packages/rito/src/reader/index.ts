@@ -4,7 +4,9 @@ import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
 import { disposeAssets } from '../render/assets';
 import { getSpreadDimensions } from '../render/spread';
+import type { FootnoteEntry } from '../runtime/footnote-extractor';
 import type { ChapterRange, EpubDocument } from '../runtime/types';
+// FootnoteEntry is a stable public type (text + html, no parser AST).
 import { loadEpub } from '../runtime/load-epub';
 import {
   createReaderLayoutControls,
@@ -100,6 +102,9 @@ export interface Reader {
   /** Get source-based chapter text indices (built from parsed XHTML, not layout output). */
   getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
 
+  /** Get footnote entries extracted from aside elements, keyed by `manifestHref#fragment`. */
+  getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
+
   /** Text measurer for use with interaction APIs (hit testing, selection). */
   readonly measurer: TextMeasurer;
 
@@ -188,6 +193,7 @@ function buildReaderMethods(
     },
     getLayoutGeometry: (): Readonly<LayoutConfig> => state.config,
     getChapterTextIndices: () => state.resources.chapterTextIndices,
+    getFootnotes: () => state.resources.footnoteMap,
     measurer: state.assets.measurer as TextMeasurer,
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
       if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
