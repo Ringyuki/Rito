@@ -31,6 +31,7 @@ export function ImageLightbox({ image, onClose }: Props) {
     <AnimatePresence>
       {image?.blobUrl && sb && (
         <motion.div
+          role="dialog"
           className="fixed inset-0 z-50"
           initial={{ backgroundColor: 'rgba(0,0,0,0)' }}
           animate={{ backgroundColor: 'rgba(0,0,0,0.8)' }}

@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useContainerSize } from '@rito/react';
+import { useContainerSize, useControllerEvent } from '@rito/react';
 import { Toolbar } from '@/components/toolbar';
 import { ProgressBar } from '@/components/progress-bar';
 import { TocSidebar } from '@/components/toc-sidebar';
@@ -16,6 +16,12 @@ export function App() {
   const reader = useReader(theme, containerSize.width, containerSize.height);
   const [tocOpen, setTocOpen] = useState(false);
   const overlay = useMobileOverlay();
+
+  // Suppress overlay toggle when a canvas tap triggers a content interaction
+  useControllerEvent(reader.controller, 'linkClick', overlay.suppress);
+  useControllerEvent(reader.controller, 'footnoteClick', overlay.suppress);
+  useControllerEvent(reader.controller, 'imageClick', overlay.suppress);
+  useControllerEvent(reader.controller, 'annotationClick', overlay.suppress);
 
   const handleFileLoad = useCallback(
     (data: ArrayBuffer) => {
