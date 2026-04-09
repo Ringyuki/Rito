@@ -1,6 +1,7 @@
 import type { TocEntry } from '../parser/epub/types';
 import type { SpineItem } from '../parser/epub/types';
 import type { Spread } from '../layout/core/types';
+import { buildHrefResolver } from '../utils/resolve-href';
 import type { ChapterRange } from './types';
 
 /**
@@ -10,6 +11,9 @@ import type { ChapterRange } from './types';
  * "chapter2.xhtml#section-1"). This function matches the href against spine items
  * and returns the corresponding start page.
  *
+ * When an `anchorMap` is provided and the href contains a `#fragment`, the function
+ * returns the precise page for that anchor rather than the chapter start page.
+ *
  * @returns The page index for the TOC entry, or undefined if not found.
  */
 export function findPageForTocEntry(
@@ -17,9 +21,30 @@ export function findPageForTocEntry(
   chapterMap: ReadonlyMap<string, ChapterRange>,
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
+  anchorMap?: ReadonlyMap<string, number>,
 ): number | undefined {
-  const spineIdref = findSpineItemForHref(entry.href, spine, manifestHrefs);
-  return spineIdref ? chapterMap.get(spineIdref)?.startPage : undefined;
+  const [hrefPath, fragment] = splitHrefAndFragment(entry.href);
+  if (!hrefPath) return undefined;
+
+  const spineIdref = findSpineItemForHref(hrefPath, spine, manifestHrefs);
+  if (!spineIdref) return undefined;
+
+  const chapterRange = chapterMap.get(spineIdref);
+  if (!chapterRange) return undefined;
+
+  // Try precise anchor lookup, scoped to the target chapter's page range
+  if (fragment && anchorMap) {
+    const anchorPage = anchorMap.get(fragment);
+    if (
+      anchorPage !== undefined &&
+      anchorPage >= chapterRange.startPage &&
+      anchorPage <= chapterRange.endPage
+    ) {
+      return anchorPage;
+    }
+  }
+
+  return chapterRange.startPage;
 }
 
 /** Find the spread index containing a given page index. */
@@ -41,8 +66,9 @@ export function resolveTocEntryLocation(
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
   spreads: readonly Spread[],
+  anchorMap?: ReadonlyMap<string, number>,
 ): { pageIndex: number; spreadIndex: number } | undefined {
-  const pageIndex = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs);
+  const pageIndex = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs, anchorMap);
   if (pageIndex === undefined) return undefined;
   const spreadIndex = findSpreadForPage(pageIndex, spreads);
   return spreadIndex === undefined ? undefined : { pageIndex, spreadIndex };
@@ -55,13 +81,14 @@ export function findActiveTocEntryForPage(
   chapterMap: ReadonlyMap<string, ChapterRange>,
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
+  anchorMap?: ReadonlyMap<string, number>,
 ): TocEntry | undefined {
   let bestEntry: TocEntry | undefined;
   let bestPage = -1;
 
   const visit = (entries: readonly TocEntry[]): void => {
     for (const entry of entries) {
-      const entryPage = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs);
+      const entryPage = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs, anchorMap);
       if (entryPage !== undefined && entryPage <= pageIndex && entryPage >= bestPage) {
         bestEntry = entry;
         bestPage = entryPage;
@@ -74,29 +101,31 @@ export function findActiveTocEntryForPage(
   return bestEntry;
 }
 
+/**
+ * Find the spine idref whose manifest href matches the given path (already fragment-stripped).
+ * Uses the same ambiguity-aware resolver as image/font resolution — ambiguous suffix/basename
+ * matches return undefined instead of silently picking the first hit.
+ */
 function findSpineItemForHref(
-  href: string,
+  hrefPath: string,
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
 ): string | undefined {
-  const hrefPath = stripFragment(href);
-  if (!hrefPath) return undefined;
-
-  for (const spineItem of spine) {
-    const itemHref = manifestHrefs.get(spineItem.idref);
-    if (itemHref && matchesManifestHref(itemHref, hrefPath)) {
-      return spineItem.idref;
-    }
+  // Build inverted map: manifestHref → idref (only for spine items)
+  const hrefToIdref = new Map<string, string>();
+  for (const item of spine) {
+    const href = manifestHrefs.get(item.idref);
+    if (href) hrefToIdref.set(href, item.idref);
   }
 
-  return undefined;
+  return buildHrefResolver(hrefToIdref)(hrefPath);
 }
 
-function stripFragment(href: string): string | undefined {
-  const [hrefPath] = href.split('#');
-  return hrefPath || undefined;
-}
-
-function matchesManifestHref(manifestHref: string, hrefPath: string): boolean {
-  return manifestHref === hrefPath || manifestHref.endsWith(`/${hrefPath}`);
+/** Split an href into [path, fragment]. Fragment is undefined when absent. */
+function splitHrefAndFragment(href: string): [string | undefined, string | undefined] {
+  const hashIdx = href.indexOf('#');
+  if (hashIdx < 0) return [href || undefined, undefined];
+  const path = href.slice(0, hashIdx) || undefined;
+  const fragment = href.slice(hashIdx + 1) || undefined;
+  return [path, fragment];
 }
