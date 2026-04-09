@@ -19,7 +19,7 @@ export interface CoordinatorState {
   mapper: CoordinateMapper | null;
   /** Source-anchored annotation store (new system). */
   annotationStore: AnnotationStore | null;
-  /** Chapter text indices keyed by href, for annotation resolution. */
+  /** Chapter text indices keyed by spine idref, for annotation resolution. */
   chapterIndices: Map<string, ChapterTextIndex>;
   /** Resolved annotations for current layout. */
   resolvedAnnotations: readonly ResolvedAnnotation[];

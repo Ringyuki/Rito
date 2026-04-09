@@ -1,5 +1,5 @@
 import type { Reader } from 'rito';
-import type { LinkRegion } from 'rito/advanced';
+import type { HitEntry, LinkRegion } from 'rito/advanced';
 import { findAnnotationAtPos } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
@@ -11,7 +11,7 @@ import type { WiringDeps } from '../core/wiring-deps';
  * 1. Annotation (existing highlight/note)
  * 2. Footnote link (href matches reader.getFootnotes())
  * 3. Regular link (internal or external)
- * 4. Image (requires HitEntry imageSrc enhancement — Phase 8 Step 5)
+ * 4. Image (standalone, not wrapped in a link)
  *
  * Both desktop single-click and touch tap route through this function.
  */
@@ -30,7 +30,28 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
     return;
   }
 
-  // 4. Image click — Phase 8 Step 5 (needs HitEntry imageSrc field)
+  // 4. Image click (standalone — not wrapped in a link)
+  const imageHit = findImageAtPos(pos, deps);
+  if (imageHit) {
+    const { coordState, canvas } = deps;
+    const mapper = coordState.mapper;
+    if (mapper) {
+      const resolved = mapper.spreadContentToPage(pos.x, pos.y);
+      if (resolved) {
+        const canvasRect = canvas.getBoundingClientRect();
+        const screenBounds = mapper.pageContentToScreen(
+          resolved.pageIndex,
+          imageHit.bounds,
+          canvasRect,
+        );
+        deps.emitter.emit('imageClick', {
+          src: imageHit.imageSrc ?? '',
+          alt: imageHit.imageAlt ?? '',
+          screenBounds,
+        });
+      }
+    }
+  }
 }
 
 function dispatchLinkClick(
@@ -144,4 +165,25 @@ function resolveFootnoteKey(
     if (keyFile === filePart || keyFile.endsWith(`/${filePart}`)) return key;
   }
   return null;
+}
+
+/**
+ * Strict bounds-check for an image at a spread-content position.
+ * Unlike hitTest() which falls back to the nearest entry on the same line,
+ * this only matches when the point is strictly inside the image bounds.
+ */
+function findImageAtPos(pos: { x: number; y: number }, deps: WiringDeps): HitEntry | undefined {
+  const { coordState } = deps;
+  if (!coordState.mapper) return undefined;
+  const resolved = coordState.mapper.spreadContentToPage(pos.x, pos.y);
+  if (!resolved) return undefined;
+  const hm = coordState.hitMaps.get(resolved.pageIndex);
+  if (!hm) return undefined;
+  const { x, y } = resolved;
+  for (const entry of hm.entries) {
+    if (!entry.imageSrc) continue;
+    const b = entry.bounds;
+    if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) return entry;
+  }
+  return undefined;
 }

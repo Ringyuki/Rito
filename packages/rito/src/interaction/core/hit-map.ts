@@ -1,4 +1,4 @@
-import type { InlineAtom, LineBox, Page, TextRun } from '../../layout/core/types';
+import type { InlineAtom, LayoutBlock, LineBox, Page, TextRun } from '../../layout/core/types';
 import type { ComputedStyle } from '../../style/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
@@ -6,6 +6,7 @@ import { walkPageLineBoxes } from './text-traversal';
 
 /**
  * Build a HitMap from a page's layout data.
+ * Registers text runs, inline atoms (with imageSrc), and block-level images.
  * All entry bounds are in **page-content** space (origin = top-left of content area, no margins).
  */
 export function buildHitMap(page: Page): HitMap {
@@ -13,6 +14,8 @@ export function buildHitMap(page: Page): HitMap {
   walkPageLineBoxes(page, ({ blockIndex, lineIndex, lineBox, originX, originY }) => {
     collectLineBox(entries, lineBox, originX, originY, blockIndex, lineIndex);
   });
+  // Also collect block-level images (not covered by line box traversal)
+  collectBlockImages(page.content, entries);
   return { entries, pageIndex: page.index };
 }
 
@@ -143,6 +146,8 @@ function atomEntry(
     runIndex,
     text: '',
     style: defaultStyle,
+    ...(atom.imageSrc ? { imageSrc: atom.imageSrc } : {}),
+    ...(atom.alt ? { imageAlt: atom.alt } : {}),
   };
   return atom.href ? { ...entry, href: atom.href } : entry;
 }
@@ -152,6 +157,38 @@ function findLineStyle(lineBox: LineBox): ComputedStyle | undefined {
     if (run.type === 'text-run') return run.style;
   }
   return undefined;
+}
+
+/** Walk layout blocks and register block-level ImageElement children as HitEntries. */
+function collectBlockImages(
+  blocks: readonly LayoutBlock['children'][number][],
+  entries: HitEntry[],
+  offsetX = 0,
+  offsetY = 0,
+  blockIndex = 0,
+): void {
+  for (const child of blocks) {
+    if (child.type === 'image') {
+      const imgEntry: HitEntry = {
+        bounds: absoluteBounds(child.bounds, offsetX, offsetY),
+        blockIndex,
+        lineIndex: 0,
+        runIndex: 0,
+        text: '',
+        style: {} as ComputedStyle,
+        imageSrc: child.src,
+      };
+      entries.push(child.alt ? { ...imgEntry, imageAlt: child.alt } : imgEntry);
+    } else if (child.type === 'layout-block') {
+      collectBlockImages(
+        child.children,
+        entries,
+        offsetX + child.bounds.x,
+        offsetY + child.bounds.y,
+        blockIndex,
+      );
+    }
+  }
 }
 
 function absoluteBounds(

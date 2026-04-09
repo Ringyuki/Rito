@@ -29,6 +29,10 @@ export interface HitEntry {
   readonly sourceText?: string;
   /** Offset of this entry's first character within the source text node. */
   readonly sourceTextOffset?: number;
+  /** Image source (for inline or block-level images). */
+  readonly imageSrc?: string;
+  /** Image alt text. */
+  readonly imageAlt?: string;
 }
 
 /** Precomputed coordinate-to-content mapping for a page. */
