@@ -49,6 +49,17 @@ function collectBlockLinks(
       collectLineLinks(out, child, bx, by);
     } else if (child.type === 'layout-block') {
       collectBlockLinks(out, child, bx, by);
+    } else if (child.type === 'image' && child.href) {
+      out.push({
+        bounds: {
+          x: bx + child.bounds.x,
+          y: by + child.bounds.y,
+          width: child.bounds.width,
+          height: child.bounds.height,
+        },
+        href: child.href,
+        text: child.alt ?? '',
+      });
     }
   }
 }

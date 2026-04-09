@@ -169,7 +169,7 @@ function collectBlockImages(
 ): void {
   for (const child of blocks) {
     if (child.type === 'image') {
-      const imgEntry: HitEntry = {
+      let imgEntry: HitEntry = {
         bounds: absoluteBounds(child.bounds, offsetX, offsetY),
         blockIndex,
         lineIndex: 0,
@@ -178,7 +178,9 @@ function collectBlockImages(
         style: {} as ComputedStyle,
         imageSrc: child.src,
       };
-      entries.push(child.alt ? { ...imgEntry, imageAlt: child.alt } : imgEntry);
+      if (child.alt) imgEntry = { ...imgEntry, imageAlt: child.alt };
+      if (child.href) imgEntry = { ...imgEntry, href: child.href };
+      entries.push(imgEntry);
     } else if (child.type === 'layout-block') {
       collectBlockImages(
         child.children,

@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TocEntry } from 'rito';
-import { useRitoReader, useSelection, useSearch, useAnnotations } from '@rito/react';
+import type { ReaderControllerEvents } from '@rito/kit';
+import {
+  useRitoReader,
+  useSelection,
+  useSearch,
+  useAnnotations,
+  useControllerEvent,
+} from '@rito/react';
 import { createLocalStoragePositionAdapter, createLocalStorageAdapter } from '@rito/kit';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
@@ -46,6 +53,22 @@ export function useReader(
   const selection = useSelection(rito.controller);
   const search = useSearch(rito.controller);
   const annotations = useAnnotations(rito.controller);
+
+  // Content interaction events
+  const [pendingLink, setPendingLink] = useState<ReaderControllerEvents['linkClick'] | null>(null);
+  const [footnote, setFootnote] = useState<ReaderControllerEvents['footnoteClick'] | null>(null);
+  const [lightboxImage, setLightboxImage] = useState<ReaderControllerEvents['imageClick'] | null>(
+    null,
+  );
+
+  useControllerEvent(rito.controller, 'linkClick', setPendingLink);
+  useControllerEvent(rito.controller, 'footnoteClick', setFootnote);
+  useControllerEvent(rito.controller, 'imageClick', setLightboxImage);
+  useControllerEvent(rito.controller, 'searchOpen', () => {
+    setSearchOpen(true);
+  });
+
+  const [searchOpen, setSearchOpen] = useState(false);
 
   // Resize + renderScale (only when values actually change, not on every render)
   useEffect(() => {
@@ -131,5 +154,20 @@ export function useReader(
     toggleSpreadMode,
     increaseFontSize,
     decreaseFontSize,
+    // Content interaction
+    pendingLink,
+    dismissLink: useCallback(() => {
+      setPendingLink(null);
+    }, []),
+    footnote,
+    dismissFootnote: useCallback(() => {
+      setFootnote(null);
+    }, []),
+    lightboxImage,
+    dismissLightbox: useCallback(() => {
+      setLightboxImage(null);
+    }, []),
+    searchOpen,
+    setSearchOpen,
   };
 }

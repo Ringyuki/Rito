@@ -4,6 +4,7 @@ import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
 import { disposeAssets } from '../render/assets';
 import { getSpreadDimensions } from '../render/spread';
+import { buildHrefResolver } from '../utils/resolve-href';
 import type { FootnoteEntry } from '../runtime/footnote-extractor';
 import type { ChapterRange, EpubDocument } from '../runtime/types';
 // FootnoteEntry is a stable public type (text + html, no parser AST).
@@ -107,6 +108,9 @@ export interface Reader {
   /** Get footnote entries extracted from aside elements, keyed by `manifestHref#fragment`. */
   getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
 
+  /** Create a blob URL for an EPUB image by its internal src path. Caller must revoke when done. */
+  getImageBlobUrl(src: string): string | undefined;
+
   /** Text measurer for use with interaction APIs (hit testing, selection). */
   readonly measurer: TextMeasurer;
 
@@ -196,6 +200,15 @@ function buildReaderMethods(
     getLayoutGeometry: (): Readonly<LayoutConfig> => state.config,
     getChapterTextIndices: () => state.resources.chapterTextIndices,
     getFootnotes: () => state.resources.footnoteMap,
+    getImageBlobUrl: (() => {
+      const resolve = buildHrefResolver(doc.images);
+      return (src: string): string | undefined => {
+        const bytes = resolve(src);
+        if (!bytes) return undefined;
+        const blob = new Blob([bytes.buffer as ArrayBuffer]);
+        return URL.createObjectURL(blob);
+      };
+    })(),
     measurer: state.assets.measurer as TextMeasurer,
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
       if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;

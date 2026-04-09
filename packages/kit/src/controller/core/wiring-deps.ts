@@ -15,6 +15,8 @@ export interface WiringDeps {
   getCurrentSpread: () => number;
   setCurrentSpread: (idx: number) => void;
   getRenderScale: () => number;
+  /** Navigate to a spread with transition animation. */
+  goToSpread: (index: number) => void;
 }
 
 /** Convert a PointerEvent to spread-content coordinates via the mapper. */

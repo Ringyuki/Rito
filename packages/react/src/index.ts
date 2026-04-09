@@ -14,6 +14,7 @@ export {
   type ReadingPositionState,
   useContainerSize,
   type ContainerSize,
+  useControllerEvent,
 } from './hooks/index';
 
 // Components

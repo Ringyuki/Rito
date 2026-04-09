@@ -51,6 +51,8 @@ export interface ImageElement {
   readonly type: 'image';
   readonly src: string;
   readonly alt?: string;
+  /** Hyperlink from a parent `<a>` element wrapping this image. */
+  readonly href?: string;
   readonly bounds: Rect;
 }
 

@@ -15,7 +15,6 @@ export function App() {
   const [containerRef, containerSize] = useContainerSize();
   const reader = useReader(theme, containerSize.width, containerSize.height);
   const [tocOpen, setTocOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const overlay = useMobileOverlay();
 
   const handleFileLoad = useCallback(
@@ -31,9 +30,9 @@ export function App() {
   }, [overlay]);
 
   const handleToggleSearch = useCallback(() => {
-    setSearchOpen(true);
+    reader.setSearchOpen(true);
     overlay.hide();
-  }, [overlay]);
+  }, [reader, overlay]);
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
@@ -72,7 +71,11 @@ export function App() {
 
       <Reader containerRef={containerRef} reader={reader} />
 
-      <SearchBar search={reader.search} open={searchOpen} onOpenChange={setSearchOpen} />
+      <SearchBar
+        search={reader.search}
+        open={reader.searchOpen}
+        onOpenChange={reader.setSearchOpen}
+      />
 
       <TocSidebar
         toc={reader.toc}

@@ -5,6 +5,9 @@ import { FileActions } from '@/components/file-actions';
 import { AnnotationToolbar } from '@/components/annotation-toolbar';
 import { AnnotationDialog } from '@/components/annotation-dialog';
 import { AnnotationTooltip } from '@/components/annotation-tooltip';
+import { FootnoteDrawer } from '@/components/footnote-drawer';
+import { LinkDialog } from '@/components/link-dialog';
+import { ImageLightbox } from '@/components/image-lightbox';
 import { type useReader } from '@/hooks/use-reader';
 
 interface ReaderProps {
@@ -66,6 +69,12 @@ export function Reader({ containerRef, reader }: ReaderProps) {
         annotations={reader.annotations}
         onClose={reader.annotations.clearClicked}
       />
+
+      <FootnoteDrawer footnote={reader.footnote} onClose={reader.dismissFootnote} />
+
+      <LinkDialog link={reader.pendingLink} onClose={reader.dismissLink} />
+
+      <ImageLightbox image={reader.lightboxImage} onClose={reader.dismissLightbox} />
     </main>
   );
 }

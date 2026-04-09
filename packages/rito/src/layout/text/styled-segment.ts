@@ -25,6 +25,7 @@ export interface InlineAtomSegment {
   readonly style: ComputedStyle;
   readonly imageSrc?: string;
   readonly alt?: string;
+  readonly href?: string;
   readonly sourceNode?: StyledNode;
 }
 
@@ -96,7 +97,8 @@ function collectSegments(
         break;
       }
       case 'image': {
-        const atom = createImageAtom(node, imageSizes);
+        let atom = createImageAtom(node, imageSizes);
+        if (inheritedHref) atom = { ...atom, href: inheritedHref };
         if (inheritedVA && node.style.verticalAlign === 'baseline') {
           out.push({ ...atom, style: { ...atom.style, verticalAlign: inheritedVA } });
         } else {

@@ -259,8 +259,10 @@ function buildAtomRun(
     },
   };
   if (atom.imageSrc !== undefined) {
-    const withSrc: InlineAtom = { ...base, imageSrc: atom.imageSrc };
-    return atom.alt ? { ...withSrc, alt: atom.alt } : withSrc;
+    let withSrc: InlineAtom = { ...base, imageSrc: atom.imageSrc };
+    if (atom.alt) withSrc = { ...withSrc, alt: atom.alt };
+    if (atom.href) withSrc = { ...withSrc, href: atom.href };
+    return withSrc;
   }
   if (atom.sourceNode) return { ...base, verticalAlign: atom.style.verticalAlign };
   return base;

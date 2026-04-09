@@ -138,8 +138,10 @@ function buildInlineAtom(
     },
   };
   if (atom.imageSrc !== undefined) {
-    const withSrc: InlineAtom = { ...result, imageSrc: atom.imageSrc };
-    return atom.alt ? { ...withSrc, alt: atom.alt } : withSrc;
+    let withSrc: InlineAtom = { ...result, imageSrc: atom.imageSrc };
+    if (atom.alt) withSrc = { ...withSrc, alt: atom.alt };
+    if (atom.href) withSrc = { ...withSrc, href: atom.href };
+    return withSrc;
   }
   if (atom.sourceNode) return { ...result, verticalAlign: atom.style.verticalAlign };
   return result;

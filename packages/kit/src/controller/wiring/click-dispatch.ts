@@ -23,10 +23,17 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
     return;
   }
 
-  // 2-3. Link click (footnote or regular)
+  // 2-3. Link click (footnote or regular) — check link map first, then hit map href fallback
   const link = findLinkAtPos(pos, deps.coordState);
   if (link) {
     dispatchLinkClick(link, pos, deps);
+    return;
+  }
+
+  // Fallback: hit map entry with href (e.g. <a> wrapping a block-level <img>)
+  const hrefHit = findHrefAtPos(pos, deps);
+  if (hrefHit) {
+    dispatchLinkClick({ bounds: hrefHit.bounds, href: hrefHit.href, text: '' }, pos, deps);
     return;
   }
 
@@ -47,6 +54,7 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
         deps.emitter.emit('imageClick', {
           src: imageHit.imageSrc ?? '',
           alt: imageHit.imageAlt ?? '',
+          blobUrl: imageHit.imageSrc ? deps.reader.getImageBlobUrl(imageHit.imageSrc) : undefined,
           screenBounds,
         });
       }
@@ -59,7 +67,7 @@ function dispatchLinkClick(
   pos: { x: number; y: number },
   deps: WiringDeps,
 ): void {
-  const { reader, emitter, setCurrentSpread } = deps;
+  const { reader, emitter } = deps;
   const href = region.href;
 
   // Check if this link targets a footnote (scoped by current chapter)
@@ -86,19 +94,25 @@ function dispatchLinkClick(
     return;
   }
 
-  // Internal link
+  // Internal link — resolve target page and TOC label
+  const syntheticEntry = { label: '', href, children: [] as never[] };
+  const targetPage = reader.findPage(syntheticEntry);
   const navigate = (): void => {
-    const page = reader.findPage({ label: '', href, children: [] });
-    if (page === undefined) return;
-    const spreadIdx = reader.findSpread(page);
+    if (targetPage === undefined) return;
+    const spreadIdx = reader.findSpread(targetPage);
     if (spreadIdx === undefined) return;
-    setCurrentSpread(spreadIdx);
-    const spread = reader.spreads[spreadIdx];
-    if (spread) emitter.emit('spreadChange', { spreadIndex: spreadIdx, spread });
-    reader.renderSpread(spreadIdx);
+    deps.goToSpread(spreadIdx);
   };
+  const resolvedLabel =
+    targetPage !== undefined ? reader.findActiveTocEntry(targetPage)?.label : undefined;
 
-  emitter.emit('linkClick', { href, text: region.text, type: 'internal', navigate });
+  emitter.emit('linkClick', {
+    href,
+    text: region.text,
+    type: 'internal',
+    resolvedLabel,
+    navigate,
+  });
 }
 
 /**
@@ -168,6 +182,32 @@ function resolveFootnoteKey(
 }
 
 /**
+ * Find a hit entry with an href at the given position.
+ * Covers cases where link-map misses (e.g. block-level <img> inside <a>)
+ * but the hit-map entry still carries the href from the parent anchor.
+ */
+function findHrefAtPos(
+  pos: { x: number; y: number },
+  deps: WiringDeps,
+): (HitEntry & { href: string }) | undefined {
+  const { coordState } = deps;
+  if (!coordState.mapper) return undefined;
+  const resolved = coordState.mapper.spreadContentToPage(pos.x, pos.y);
+  if (!resolved) return undefined;
+  const hm = coordState.hitMaps.get(resolved.pageIndex);
+  if (!hm) return undefined;
+  const { x, y } = resolved;
+  for (const entry of hm.entries) {
+    if (!entry.href) continue;
+    const b = entry.bounds;
+    if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) {
+      return entry as HitEntry & { href: string };
+    }
+  }
+  return undefined;
+}
+
+/**
  * Strict bounds-check for an image at a spread-content position.
  * Unlike hitTest() which falls back to the nearest entry on the same line,
  * this only matches when the point is strictly inside the image bounds.
@@ -181,7 +221,7 @@ function findImageAtPos(pos: { x: number; y: number }, deps: WiringDeps): HitEnt
   if (!hm) return undefined;
   const { x, y } = resolved;
   for (const entry of hm.entries) {
-    if (!entry.imageSrc) continue;
+    if (!entry.imageSrc || entry.href) continue; // skip images wrapped in links
     const b = entry.bounds;
     if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) return entry;
   }

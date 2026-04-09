@@ -30,6 +30,7 @@ export function layoutFloatableImage(
     imageSizes,
     node.style,
     node.alt,
+    node.href,
   );
 
   if (node.style.float === 'left' || node.style.float === 'right') {

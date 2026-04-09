@@ -135,7 +135,7 @@ function bootstrapRuntime(
   });
 
   wireSwipeCommit(transition, internals, emitter);
-  wireAll(reader, internals, emitter, overlay, disposables, coordState, canvas);
+  wireAll(reader, internals, emitter, overlay, disposables, coordState, canvas, nav);
 
   return { internals, transition, overlay, modeManager, nav };
 }
@@ -176,6 +176,7 @@ function wireIntegrations(
     transition,
     modeManager,
     emitter,
+    nav,
     reader,
     canvas,
     coordState,
@@ -216,6 +217,7 @@ function wireTouchGestures(
   transition: ReturnType<typeof createTransitionEngine>,
   modeManager: ReturnType<typeof createInteractionModeManager>,
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  nav: ReturnType<typeof createNavigation>,
   reader: Reader,
   canvas: HTMLCanvasElement,
   coordState: ReturnType<typeof createCoordinatorState>,
@@ -243,6 +245,9 @@ function wireTouchGestures(
       internals.currentSpread = i;
     },
     getRenderScale: () => internals.renderScale,
+    goToSpread: (i: number) => {
+      nav.goToSpread(i);
+    },
   };
   const handleTap = (pos: { x: number; y: number }) => {
     dispatchClick(pos, wiringDeps);
@@ -266,6 +271,7 @@ function wireAll(
   disposables: ReturnType<typeof createDisposableCollection>,
   coordState: ReturnType<typeof createCoordinatorState>,
   canvas: HTMLCanvasElement,
+  nav: ReturnType<typeof createNavigation>,
 ): void {
   const deps = {
     reader,
@@ -280,6 +286,9 @@ function wireAll(
       internals.currentSpread = i;
     },
     getRenderScale: () => internals.renderScale,
+    goToSpread: (i: number) => {
+      nav.goToSpread(i);
+    },
   };
   wireSpreadRendered(deps, disposables);
   wireEngineEvents(deps, disposables);

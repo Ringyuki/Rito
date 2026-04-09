@@ -61,6 +61,8 @@ export interface ReaderControllerEvents {
     href: string;
     text: string;
     type: 'internal' | 'external';
+    /** Resolved chapter/section label from TOC (internal links only). */
+    resolvedLabel?: string | undefined;
     /** For internal links: call to navigate to the target spread. */
     navigate: () => void;
   };
@@ -74,6 +76,8 @@ export interface ReaderControllerEvents {
   imageClick: {
     src: string;
     alt: string;
+    /** Object URL for displaying the image. Call `URL.revokeObjectURL()` when done. */
+    blobUrl: string | undefined;
     screenBounds: Rect;
   };
   /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */
