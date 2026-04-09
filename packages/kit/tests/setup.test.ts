@@ -6,16 +6,6 @@ describe('@rito/kit', () => {
     expect(mod.createController).toBeDefined();
   });
 
-  it('exports createTransitionEngine', async () => {
-    const mod = await import('../src/transition');
-    expect(mod.createTransitionEngine).toBeDefined();
-  });
-
-  it('exports createOverlayRenderer', async () => {
-    const mod = await import('../src/overlay');
-    expect(mod.createOverlayRenderer).toBeDefined();
-  });
-
   it('exports createKeyboardManager', async () => {
     const mod = await import('../src/keyboard');
     expect(mod.createKeyboardManager).toBeDefined();
@@ -25,5 +15,16 @@ describe('@rito/kit', () => {
     const mod = await import('../src/storage');
     expect(mod.createLocalStorageAdapter).toBeDefined();
     expect(mod.createLocalStoragePositionAdapter).toBeDefined();
+  });
+
+  it('exports OverlayLayer and Rect types from painter', async () => {
+    const mod = await import('../src/painter/types');
+    // Type-only exports — just verify the module loads
+    expect(mod).toBeDefined();
+  });
+
+  it('exports TransitionDriverOptions type from driver', async () => {
+    const mod = await import('../src/driver/types');
+    expect(mod.DEFAULT_TRANSITION_OPTIONS).toBeDefined();
   });
 });

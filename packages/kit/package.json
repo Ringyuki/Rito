@@ -13,14 +13,6 @@
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     },
-    "./transition": {
-      "import": "./dist/transition.mjs",
-      "types": "./dist/transition.d.mts"
-    },
-    "./overlay": {
-      "import": "./dist/overlay.mjs",
-      "types": "./dist/overlay.d.mts"
-    },
     "./keyboard": {
       "import": "./dist/keyboard.mjs",
       "types": "./dist/keyboard.d.mts"

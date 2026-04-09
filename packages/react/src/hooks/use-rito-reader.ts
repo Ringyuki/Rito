@@ -5,7 +5,7 @@ import {
   createController,
   type ControllerOptions,
   type ReaderController,
-  type TransitionOptions,
+  type TransitionDriverOptions,
 } from '@rito/kit';
 import { useControllerActions } from './use-controller-actions';
 
@@ -41,7 +41,7 @@ export interface RitoReaderActions {
     lineHeight?: number;
     fontFamily?: string;
   }) => boolean;
-  readonly configureTransition: (opts: Partial<TransitionOptions>) => void;
+  readonly configureTransition: (opts: Partial<TransitionDriverOptions>) => void;
 }
 
 interface InternalState {

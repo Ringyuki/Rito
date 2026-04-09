@@ -3,11 +3,10 @@ import type {
   Internals,
   Emitter,
   Disposables,
-  Transition,
-  Overlay,
   Keyboard,
   ModeManager,
   Nav,
+  RuntimeComponents,
 } from './types';
 import { buildLifecycle } from './lifecycle';
 import { buildReaderProxies } from './reader-proxies';
@@ -25,21 +24,22 @@ export function buildController(
   internals: Internals,
   emitter: Emitter,
   disposables: Disposables,
-  transition: Transition,
-  overlay: Overlay,
+  runtime: RuntimeComponents,
   keyboard: Keyboard,
   modeManager: ModeManager,
   nav: Nav,
 ): ReaderController {
   return {
-    ...buildLifecycle(disposables, transition, overlay),
+    ...buildLifecycle(disposables, runtime),
     ...buildReaderProxies(internals),
     ...nav,
-    ...buildLayoutActions(internals, emitter, transition, overlay),
-    ...buildSearchActions(internals, nav),
+    ...buildLayoutActions(internals, emitter, runtime),
+    ...buildSearchActions(internals, nav, runtime),
     ...buildSelectionAccessors(internals),
     ...buildAnnotationActions(internals),
     ...buildPositionActions(internals),
-    ...buildMisc(emitter, modeManager, transition, overlay, keyboard),
+    ...buildMisc(emitter, modeManager, keyboard, (update) => {
+      runtime.td.configure(update);
+    }),
   };
 }

@@ -1,10 +1,15 @@
 import type { Reader } from 'rito';
 
-import { createTransitionEngine } from '../transition/index';
-import { createOverlayRenderer } from '../overlay/index';
+import { createDisplaySurface } from '../painter/display-surface';
+import { createPageBufferPool } from '../painter/buffer-pool';
+import { mergeOverlayLayers } from './overlay/merger';
+import { buildOverlayData, buildAdjacentOverlayData } from './overlay/projection';
+import { createTransitionDriver } from '../driver/transition-driver';
+import { createFrameDriver } from '../driver/frame-driver';
 import { createEmitter } from '../utils/event-emitter';
 import { createDisposableCollection } from '../utils/disposable';
 import { createCoordinatorState } from './core/index';
+import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
 import { createNavigation } from './navigation/index';
 import { createEngines } from './engines/index';
@@ -21,6 +26,9 @@ import {
 import { wireA11y } from './wiring/a11y';
 import { dispatchClick } from './wiring/click-dispatch';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
+import type { OverlayLayer } from '../painter/types';
+import type { RuntimeComponents } from './facade/types';
+import type { GestureDeps } from './wiring/gesture';
 
 export type {
   ReaderController,
@@ -36,7 +44,7 @@ export type {
  * keyboard shortcuts, touch gestures, and optional accessibility mirror.
  *
  * The Reader must already be created via `createReader()` from rito core.
- * Call `mount(container)` to inject the visual infrastructure into the DOM.
+ * Call `mount(container)` to inject the display canvas into the DOM.
  */
 export function createController(
   reader: Reader,
@@ -46,47 +54,30 @@ export function createController(
   const opts = options ?? {};
   const emitter = createEmitter<ReaderControllerEvents>();
   const disposables = createDisposableCollection();
-  const { internals, transition, overlay, modeManager, nav } = bootstrapRuntime(
-    reader,
-    canvas,
-    opts,
-    emitter,
-    disposables,
-  );
 
-  const keyboard = wireIntegrations(
+  const { internals, runtime, nav } = bootstrapRuntime(reader, canvas, opts, emitter, disposables);
+
+  const { keyboard: kbd, modeManager: mm } = wireIntegrations(
     internals,
-    transition,
-    modeManager,
+    runtime,
     emitter,
     nav,
     reader,
     canvas,
-    internals.coordState,
     disposables,
   );
-  wireA11y(opts, transition, reader, disposables);
+  wireA11y(opts, canvas, reader, disposables);
 
-  // Auto-return to gesture mode when selection is cleared
-  emitter.on('selectionChange', ({ range }) => {
-    if (range === null && modeManager.mode === 'selection') {
-      modeManager.setMode('gesture');
-    }
-  });
+  syncCanvasSize(internals, runtime);
 
-  syncCanvasSize(internals, transition, overlay);
-  reader.renderSpread(0, internals.renderScale);
+  // Initial render via buffer pool
+  runtime.pool.assignSlot('curr', 0);
+  runtime.frameDriver.scheduleComposite();
 
-  return buildController(
-    internals,
-    emitter,
-    disposables,
-    transition,
-    overlay,
-    keyboard,
-    modeManager,
-    nav,
-  );
+  // Notify after first frame so coordinators build hitMaps etc.
+  reader.notifyActiveSpread(0);
+
+  return buildController(internals, emitter, disposables, runtime, kbd, mm, nav);
 }
 
 function bootstrapRuntime(
@@ -96,9 +87,9 @@ function bootstrapRuntime(
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
   disposables: ReturnType<typeof createDisposableCollection>,
 ) {
-  const transition = createTransitionEngine(canvas, opts.transition);
-  const overlay = createOverlayRenderer();
-  const modeManager = createInteractionModeManager(detectDefaultMode());
+  const surface = createDisplaySurface(canvas);
+  const pool = createPageBufferPool();
+  const td = createTransitionDriver(opts.transition);
   const coordState = createCoordinatorState();
   const engines = createEngines(reader, opts, coordState);
 
@@ -111,17 +102,84 @@ function bootstrapRuntime(
     coordState,
   };
 
-  transition.setNavigationContext({
-    get currentSpread() {
-      return internals.currentSpread;
-    },
-    get totalSpreads() {
-      return internals.reader.totalSpreads;
-    },
-    renderSpread: (idx: number) => {
-      internals.reader.renderSpread(idx, internals.renderScale);
-    },
+  const contentRenderer = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D): void => {
+    reader.renderSpreadTo(spreadIndex, ctx);
+  };
+
+  const overlayProvider = (spreadIndex: number): readonly OverlayLayer[] => {
+    const spread = reader.spreads[spreadIndex];
+    if (!spread) return [];
+
+    const isCurrent = spreadIndex === internals.currentSpread;
+    const mapper =
+      isCurrent && coordState.mapper
+        ? coordState.mapper
+        : createCoordinateMapper(reader.getLayoutGeometry(), spread, internals.renderScale);
+
+    // For current spread: use live coordState (has hitMaps, annotations).
+    // For adjacent spreads: build ephemeral hitMaps + resolve annotations on the fly,
+    // so search highlights and annotations are visible during page-turn animation.
+    const data = isCurrent
+      ? buildOverlayData(spread, engines, reader, coordState, mapper)
+      : buildAdjacentOverlayData(spread, engines, reader, coordState, mapper);
+
+    return mergeOverlayLayers(
+      data.selectionRects,
+      data.searchRects,
+      data.activeSearchRects,
+      data.annotationLayers,
+    );
+  };
+
+  const getBackingRatio = (): number => {
+    return reader.dpr * internals.renderScale;
+  };
+
+  const frameDriver = createFrameDriver({
+    surface,
+    pool,
+    transitionDriver: td,
+    contentRenderer,
+    overlayProvider,
+    getBackingRatio,
   });
+
+  // Wire transition settled events
+  td.onSettled((event) => {
+    if (event.committed) {
+      const dir = event.direction;
+      if (dir === 'forward') pool.rotateForward();
+      else pool.rotateBackward();
+
+      // Update currentSpread (idempotent for goToSpread, essential for gesture commits).
+      // Do NOT re-emit spreadChange — goToSpread already emitted it at navigation start.
+      internals.currentSpread = event.targetSpread;
+
+      // Rebuild coordinator after rotation (hitMaps, mapper, annotations).
+      reader.notifyActiveSpread(event.targetSpread);
+      scheduleIdlePrerender(
+        () => internals.currentSpread,
+        () => td.isAnimating,
+        reader,
+        pool,
+        contentRenderer,
+      );
+    } else {
+      // Gesture canceled or boundary elastic — revert state if it was changed.
+      // goToSpread sets currentSpread eagerly; on cancel we must undo.
+      const outgoing = event.targetSpread; // = outgoingSpread for cancel
+      if (internals.currentSpread !== outgoing) {
+        internals.currentSpread = outgoing;
+        reader.notifyActiveSpread(outgoing);
+        const spread = reader.spreads[outgoing];
+        if (spread) emitter.emit('spreadChange', { spreadIndex: outgoing, spread });
+      }
+    }
+    emitter.emit('transitionEnd', { direction: event.direction });
+    frameDriver.scheduleComposite();
+  });
+
+  const runtime: RuntimeComponents = { td, frameDriver, pool, surface };
 
   const nav = createNavigation({
     getReader: () => internals.reader,
@@ -131,59 +189,31 @@ function bootstrapRuntime(
     },
     getRenderScale: () => internals.renderScale,
     emitter,
-    transition,
+    td,
+    frameDriver,
+    pool,
+    contentRenderer,
   });
 
-  wireSwipeCommit(transition, internals, emitter);
-  wireAll(reader, internals, emitter, overlay, disposables, coordState, canvas, nav);
+  wireAll(reader, internals, emitter, frameDriver, disposables, coordState, canvas, nav);
 
-  return { internals, transition, overlay, modeManager, nav };
+  return { internals, runtime, nav };
 }
 
-/**
- * Swipe commit: the transition engine already pre-rendered and animated.
- * Only update bookkeeping and emit events — do NOT call nav.goTo (that would double-animate).
- */
-function wireSwipeCommit(
-  transition: ReturnType<typeof createTransitionEngine>,
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-): void {
-  transition.onSwipeCommit = (dir, targetSpreadIndex) => {
-    internals.currentSpread = targetSpreadIndex;
-    const spread = internals.reader.spreads[targetSpreadIndex];
-    if (spread) {
-      emitter.emit('spreadChange', { spreadIndex: targetSpreadIndex, spread });
-    }
-    emitter.emit('transitionEnd', { direction: dir });
-  };
-}
-
-/** Wire touch gestures and keyboard shortcuts. Returns the KeyboardManager. */
 function wireIntegrations(
   internals: Internals,
-  transition: ReturnType<typeof createTransitionEngine>,
-  modeManager: ReturnType<typeof createInteractionModeManager>,
+  runtime: RuntimeComponents,
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
   nav: ReturnType<typeof createNavigation>,
   reader: Reader,
   canvas: HTMLCanvasElement,
-  coordState: ReturnType<typeof createCoordinatorState>,
   disposables: ReturnType<typeof createDisposableCollection>,
-): ReturnType<typeof wireKeyboard> {
-  wireTouchGestures(
-    internals,
-    transition,
-    modeManager,
-    emitter,
-    nav,
-    reader,
-    canvas,
-    coordState,
-    disposables,
-  );
+) {
+  const mm = createInteractionModeManager(detectDefaultMode());
 
-  const keyboard = wireKeyboard(
+  wireTouchGestures(internals, runtime, mm, emitter, nav, reader, canvas, disposables);
+
+  const kbd = wireKeyboard(
     {
       emitter,
       nextSpread: () => {
@@ -196,12 +226,8 @@ function wireIntegrations(
         nav.goToSpread(i);
       },
       getTotalSpreads: () => internals.reader.totalSpreads,
-      searchNext: () => {
-        internals.engines.search.nextResult();
-      },
-      searchPrev: () => {
-        internals.engines.search.prevResult();
-      },
+      searchNext: () => internals.engines.search.nextResult(),
+      searchPrev: () => internals.engines.search.prevResult(),
       clearSearch: () => {
         internals.engines.search.clear();
       },
@@ -209,36 +235,48 @@ function wireIntegrations(
     disposables,
   );
 
-  return keyboard;
+  return { keyboard: kbd, modeManager: mm };
 }
 
 function wireTouchGestures(
   internals: Internals,
-  transition: ReturnType<typeof createTransitionEngine>,
+  runtime: RuntimeComponents,
   modeManager: ReturnType<typeof createInteractionModeManager>,
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
   nav: ReturnType<typeof createNavigation>,
   reader: Reader,
   canvas: HTMLCanvasElement,
-  coordState: ReturnType<typeof createCoordinatorState>,
   disposables: ReturnType<typeof createDisposableCollection>,
 ): void {
-  const wrapper = transition.mainCanvas.parentElement;
-  if (!wrapper) return;
-
   const touchToContent = (touch: Touch) =>
     toSpreadContent(
       { clientX: touch.clientX, clientY: touch.clientY } as PointerEvent,
       canvas,
-      coordState,
+      internals.coordState,
     );
+
+  const gestureDeps: GestureDeps = {
+    td: runtime.td,
+    frameDriver: runtime.frameDriver,
+    goToSpread: (i: number) => {
+      nav.goToSpread(i);
+    },
+    getCurrentSpread: () => internals.currentSpread,
+    getTotalSpreads: () => reader.totalSpreads,
+    commitPendingTransition: () => {
+      if (runtime.td.isAnimating) {
+        runtime.td.forceSettle();
+      }
+    },
+  };
+
   const wiringDeps = {
     reader,
     engines: internals.engines,
     emitter,
-    overlay: undefined as never,
+    frameDriver: runtime.frameDriver,
     options: internals.options,
-    coordState,
+    coordState: internals.coordState,
     canvas,
     getCurrentSpread: () => internals.currentSpread,
     setCurrentSpread: (i: number) => {
@@ -249,12 +287,14 @@ function wireTouchGestures(
       nav.goToSpread(i);
     },
   };
+
   const handleTap = (pos: { x: number; y: number }) => {
     dispatchClick(pos, wiringDeps);
   };
+
   wireUnifiedTouchHandler(
-    wrapper,
-    transition,
+    canvas,
+    gestureDeps,
     internals.engines.selection,
     modeManager,
     touchToContent,
@@ -267,7 +307,7 @@ function wireAll(
   reader: Reader,
   internals: Internals,
   emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  overlay: ReturnType<typeof createOverlayRenderer>,
+  frameDriver: ReturnType<typeof createFrameDriver>,
   disposables: ReturnType<typeof createDisposableCollection>,
   coordState: ReturnType<typeof createCoordinatorState>,
   canvas: HTMLCanvasElement,
@@ -277,7 +317,7 @@ function wireAll(
     reader,
     engines: internals.engines,
     emitter,
-    overlay,
+    frameDriver,
     options: internals.options,
     coordState,
     canvas,
@@ -294,4 +334,41 @@ function wireAll(
   wireEngineEvents(deps, disposables);
   wirePositionTracker(deps, disposables);
   wireDomHelpers(deps, disposables);
+}
+
+/**
+ * Schedule prerendering of adjacent spreads using requestIdleCallback.
+ * Falls back to setTimeout if rIC is unavailable.
+ *
+ * Uses a live getCurrentSpread getter so the callback always reads the
+ * current spread at execution time, not the value captured at scheduling time.
+ */
+function scheduleIdlePrerender(
+  getCurrentSpread: () => number,
+  isAnimating: () => boolean,
+  reader: Reader,
+  pool: ReturnType<typeof createPageBufferPool>,
+  contentRenderer: (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void,
+): void {
+  const schedule =
+    typeof requestIdleCallback !== 'undefined'
+      ? requestIdleCallback
+      : (cb: () => void) => setTimeout(cb, 1);
+
+  schedule(() => {
+    // Skip if a navigation is in progress — goToSpread has already set up
+    // the incoming slot, and overwriting it with prerender data would corrupt it.
+    if (isAnimating()) return;
+
+    const cs = getCurrentSpread();
+    const total = reader.totalSpreads;
+    if (cs + 1 < total) {
+      pool.assignSlot('next', cs + 1);
+      pool.ensureContent('next', contentRenderer);
+    }
+    if (cs - 1 >= 0) {
+      pool.assignSlot('prev', cs - 1);
+      pool.ensureContent('prev', contentRenderer);
+    }
+  });
 }

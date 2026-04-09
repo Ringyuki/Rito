@@ -1,6 +1,6 @@
 import { useCallback, type RefObject } from 'react';
 import type { TocEntry } from 'rito';
-import type { ReaderController, TransitionOptions } from '@rito/kit';
+import type { ReaderController, TransitionDriverOptions } from '@rito/kit';
 
 export interface ControllerActions {
   readonly nextSpread: () => void;
@@ -16,7 +16,7 @@ export interface ControllerActions {
     lineHeight?: number;
     fontFamily?: string;
   }) => boolean;
-  readonly configureTransition: (opts: Partial<TransitionOptions>) => void;
+  readonly configureTransition: (opts: Partial<TransitionDriverOptions>) => void;
 }
 
 /** Stable action callbacks that delegate to the current controller ref. */
@@ -41,7 +41,7 @@ export function useControllerActions(
       [],
     ),
     configureTransition: useCallback(
-      (o: Partial<TransitionOptions>) => ctrlRef.current?.configureTransition(o),
+      (o: Partial<TransitionDriverOptions>) => ctrlRef.current?.configureTransition(o),
       [],
     ),
   };

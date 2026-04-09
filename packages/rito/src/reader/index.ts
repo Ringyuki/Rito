@@ -15,6 +15,7 @@ import {
   defineReaderAccessors,
   initReaderState,
   renderSpreadToCanvas,
+  renderSpreadToContext,
   type ReaderState,
 } from './helpers';
 import type { LogLevel } from '../utils/logger';
@@ -67,6 +68,25 @@ export interface Reader {
   /** Render a spread by index onto the canvas. Pass scale for font-zoom rendering (DPR is handled internally). */
   renderSpread(index: number, scale?: number): void;
 
+  /**
+   * Render a spread into an arbitrary 2D context without resizing the canvas
+   * or firing onSpreadRendered listeners.
+   *
+   * The caller must size `ctx.canvas` to the desired backing store dimensions.
+   * The pixel ratio is derived from `ctx.canvas.width / viewportWidth`.
+   */
+  renderSpreadTo(
+    index: number,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ): void;
+
+  /**
+   * Fire onSpreadRendered listeners without painting.
+   * Use when a separate renderer has already produced the pixels and consumers
+   * only need the "active spread changed" signal.
+   */
+  notifyActiveSpread(index: number): void;
+
   /** Resize the reader viewport. Re-paginates the document synchronously. */
   resize(width: number, height: number): void;
 
@@ -101,6 +121,9 @@ export interface Reader {
 
   /** Get the current layout configuration (read-only). */
   getLayoutGeometry(): Readonly<LayoutConfig>;
+
+  /** Device pixel ratio used for rendering (from ReaderOptions or default). */
+  readonly dpr: number;
 
   /** Get source-based chapter text indices (built from parsed XHTML, not layout output). */
   getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
@@ -187,6 +210,17 @@ function buildReaderMethods(
   return {
     renderSpread: (index: number, scale = 1): void => {
       renderSpreadToCanvas(state, canvas, ctx, index, scale);
+    },
+    renderSpreadTo: (
+      index: number,
+      targetCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+    ): void => {
+      renderSpreadToContext(state, targetCtx, index);
+    },
+    notifyActiveSpread: (index: number): void => {
+      const spread = state.spreads[index];
+      if (!spread) return;
+      for (const cb of state.spreadRenderedListeners) cb(index, spread);
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;

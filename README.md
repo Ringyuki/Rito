@@ -73,7 +73,9 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 
 | Method / Property                                | Description                                 |
 | ------------------------------------------------ | ------------------------------------------- |
-| `renderSpread(index, scale?)`                    | Render a spread onto the canvas             |
+| `renderSpread(index, scale?)`                    | Render a spread onto the bound canvas       |
+| `renderSpreadTo(index, ctx)`                     | Render a spread to any 2D context           |
+| `notifyActiveSpread(index)`                      | Fire spread-change listeners without paint  |
 | `resize(w, h)`                                   | Resize viewport and re-paginate             |
 | `setSpreadMode(mode)`                            | Switch single/double and re-paginate        |
 | `updateLayout(w, h, spread?, margin?)`           | Update viewport/spread/margin in one pass   |
@@ -85,6 +87,8 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 | `getCanvasSize(scale?)`                          | Get canvas dimensions for current config    |
 | `getLayoutGeometry()`                            | Get the current layout configuration        |
 | `getChapterTextIndices()`                        | Get source-based chapter text indices       |
+| `getFootnotes()`                                 | Get extracted footnote entries              |
+| `getImageBlobUrl(src)`                           | Create a blob URL for an EPUB image         |
 | `setTypography(opts)`                            | Re-paginate with typography overrides       |
 | `onSpreadRendered(cb)`                           | Subscribe to render notifications           |
 | `dispose()`                                      | Release all resources                       |
@@ -93,6 +97,8 @@ Creates a fully initialized `Reader` from an EPUB `ArrayBuffer`. Parses the arch
 | `toc`                                            | Table of contents entries                   |
 | `pages` / `spreads`                              | Computed pages and spreads                  |
 | `chapterMap`                                     | Chapter-to-page-range mapping               |
+| `manifestHrefMap`                                | Spine idref → manifest href mapping         |
+| `dpr`                                            | Device pixel ratio used for rendering       |
 | `measurer`                                       | Text measurer for interaction APIs          |
 
 ### Stable Primitives
@@ -151,6 +157,9 @@ Rito also exposes focused subpath entries for higher-level interaction and integ
 - Single-page and two-page spread modes.
 - Optional worker pagination for layout computation after main-thread chapter pre-read.
 - Canvas rendering with theme support (background/foreground color override with WCAG contrast detection).
+- Canvas-in-Canvas compositing: single display canvas, three-slot OffscreenCanvas buffer pool, spring-physics page transitions with gesture tracking and interrupt support.
+- Overlays (selection, search highlights, annotations) painted into slot sub-buffers — highlights move with the page during transitions.
+- Content interaction events: unified click dispatch with priority (annotation > footnote > link > image), footnote extraction, image blob URLs for lightbox.
 - Source-anchored annotations that remain stable across repagination, spread-mode switches, and viewport changes.
 - Interaction primitives and engines for selection, search, annotations, reading position, and accessibility mirrors.
 
@@ -165,13 +174,14 @@ pnpm run dev:reader
 ## Current Limitations
 
 - **CSS subset** — optimized for EPUB book layout, not full browser CSS. No flexbox, grid, multicolumn layout, or `position: absolute/fixed/sticky`.
-- **Selector subset** — supports element/class/ID/compound/descendant selectors only; no attribute selectors, sibling combinators, pseudo-elements, or media queries.
+- **Selector subset** — supports element/class/ID/compound/descendant/child/adjacent-sibling selectors, attribute selectors, and `:first-child`/`:last-child` pseudo-classes. No `::before`/`::after` pseudo-elements, general sibling combinator (`~`), or `@media` queries.
 - **Language support** — layout is left-to-right only; no RTL/BiDi, and bundled hyphenation patterns are currently `en-us` only.
-- **TOC / internal links** — fragment identifiers currently resolve to chapter start pages rather than exact anchor pages.
+- **TOC / internal links** — fragment identifiers resolve to exact anchor pages via `anchorMap` (scoped to target chapter). Relative `../` paths are normalized via `buildHrefResolver` with ambiguity detection.
 - **Typography overrides** — `setTypography()` applies reader-wide root/body overrides (`fontSize`, `lineHeight`, `fontFamily`). It is intentionally coarse and does not rewrite EPUB-authored selectors.
 - **Default loading model** — `loadEpub()` exposes lazy `readChapter()`, but the ZIP archive is still inflated eagerly, and `createReader()` / `prepare()` still paginate the full spine up front and eagerly decode resources.
 - **Worker pagination scope** — `paginateInWorker()` / `createReader({ useWorker: true })` move layout work off the main thread, but chapter pre-read / XHTML parse still happen on the caller side before posting work to the Worker.
 - **Browser-oriented rendering pipeline** — `loadFonts`, `loadImages`, `prepare`, and worker pagination depend on browser APIs such as `FontFace`, `createImageBitmap`, `Worker`, and `OffscreenCanvas`.
+- **OffscreenCanvas required** — the Canvas-in-Canvas compositing architecture (`@rito/kit`) requires `OffscreenCanvas` support (Safari 16.4+, Chrome 69+, Firefox 105+).
 - **EPUB 3 first** — no explicit EPUB 2 compatibility layer.
 
 ## Development
@@ -213,8 +223,8 @@ packages/rito/
 
 packages/kit/
   src/controller/   ReaderController orchestration layer
-  src/transition/   Snapshot-based page-turn transitions
-  src/overlay/      Highlight overlay renderer
+  src/painter/      DisplaySurface, PageBufferPool, OverlayPainter
+  src/driver/       TransitionDriver (spring FSM), FrameDriver (rAF loop)
   src/keyboard/     Shortcut manager
   src/storage/      localStorage adapters
 

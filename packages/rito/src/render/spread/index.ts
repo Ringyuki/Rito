@@ -9,9 +9,14 @@ import { renderPage } from '../page';
  *
  * The canvas should be sized to `viewportWidth × viewportHeight` (× pixelRatio).
  */
+/**
+ * Accepts OffscreenCanvasRenderingContext2D via the union type.
+ * Internally cast to CanvasRenderingContext2D for downstream functions —
+ * both context types are structurally compatible for all 2D drawing operations used.
+ */
 export function render(
   spread: Spread,
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   config: LayoutConfig,
   options?: RenderOptions,
 ): void {
@@ -26,11 +31,13 @@ export function render(
     ctx.restore();
   }
 
-  // 2. Render pages (each page fills its own area with bodyBackgroundColor if present)
+  // 2. Render pages — cast to CanvasRenderingContext2D for downstream compatibility.
+  // OffscreenCanvasRenderingContext2D is structurally identical for all drawing ops used.
+  const drawCtx = ctx as CanvasRenderingContext2D;
   if (spread.left) {
     ctx.save();
     ctx.translate(0, 0);
-    renderPage(spread.left, ctx, config, options);
+    renderPage(spread.left, drawCtx, config, options);
     ctx.restore();
   }
 
@@ -38,7 +45,7 @@ export function render(
     const offsetX = Math.round((config.pageWidth + config.spreadGap) * pixelRatio);
     ctx.save();
     ctx.translate(offsetX, 0);
-    renderPage(spread.right, ctx, config, options);
+    renderPage(spread.right, drawCtx, config, options);
     ctx.restore();
   }
 

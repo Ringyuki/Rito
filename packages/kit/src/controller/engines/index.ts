@@ -1,2 +1,2 @@
 export { createEngines, getAnnotationStore } from './create';
-export { goToSearchResult, navigateToSearchIndex } from './search-navigation';
+export { goToSearchResult, navigateToSearchIndex, type SearchNavDeps } from './search-navigation';

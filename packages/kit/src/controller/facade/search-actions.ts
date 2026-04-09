@@ -1,24 +1,48 @@
 import type { SearchResult } from 'rito/search';
-import { goToSearchResult, navigateToSearchIndex } from '../engines/index';
-import type { Internals, Nav, SearchActionsSlice } from './types';
+import {
+  goToSearchResult,
+  navigateToSearchIndex,
+  type SearchNavDeps,
+} from '../engines/search-navigation';
+import type { Internals, Nav, RuntimeComponents, SearchActionsSlice } from './types';
 
-export function buildSearchActions(internals: Internals, nav: Nav): SearchActionsSlice {
+export function buildSearchActions(
+  internals: Internals,
+  nav: Nav,
+  runtime: RuntimeComponents,
+): SearchActionsSlice {
+  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): void => {
+    internals.reader.renderSpreadTo(idx, ctx);
+  };
+
+  const searchNavDeps: SearchNavDeps = {
+    reader: internals.reader,
+    nav,
+    pool: runtime.pool,
+    frameDriver: runtime.frameDriver,
+    contentRenderer,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (i) => {
+      internals.currentSpread = i;
+    },
+  };
+
   return {
     search(q: string): void {
       internals.engines.search.search(q);
     },
     searchNext(): SearchResult | undefined {
       const result = internals.engines.search.nextResult();
-      if (result) goToSearchResult(result, internals.reader, nav);
+      if (result) goToSearchResult(result, searchNavDeps);
       return result;
     },
     searchPrev(): SearchResult | undefined {
       const result = internals.engines.search.prevResult();
-      if (result) goToSearchResult(result, internals.reader, nav);
+      if (result) goToSearchResult(result, searchNavDeps);
       return result;
     },
     goToSearchResult(targetIndex: number): void {
-      navigateToSearchIndex(internals.engines.search, targetIndex, internals.reader, nav);
+      navigateToSearchIndex(internals.engines.search, targetIndex, searchNavDeps);
     },
     clearSearch(): void {
       internals.engines.search.clear();

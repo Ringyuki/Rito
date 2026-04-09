@@ -16,6 +16,7 @@ export function defineReaderAccessors(
       manifestHrefMap: { get: () => manifestHrefMap, enumerable: true },
       pages: { get: () => state.resources.pages, enumerable: true },
       spreads: { get: () => state.spreads, enumerable: true },
+      dpr: { get: () => state.dpr, enumerable: true },
     },
   );
 }

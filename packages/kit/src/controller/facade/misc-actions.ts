@@ -1,12 +1,12 @@
 import type { InteractionMode } from '../types';
-import type { Emitter, ModeManager, Transition, Overlay, Keyboard, MiscSlice } from './types';
+import type { TransitionDriverOptions } from '../../driver/types';
+import type { Emitter, ModeManager, Keyboard, MiscSlice } from './types';
 
 export function buildMisc(
   emitter: Emitter,
   modeManager: ModeManager,
-  transition: Transition,
-  overlay: Overlay,
   keyboard: Keyboard,
+  _configureTransition: (opts: Partial<TransitionDriverOptions>) => void,
 ): MiscSlice {
   const on: MiscSlice['on'] = (event, handler) => emitter.on(event, handler);
 
@@ -18,15 +18,9 @@ export function buildMisc(
       return modeManager.mode;
     },
     configureTransition(opts: Parameters<MiscSlice['configureTransition']>[0]): void {
-      transition.configure(opts);
+      _configureTransition(opts);
     },
     on,
-    get transitionEngine() {
-      return transition;
-    },
-    get overlayRenderer() {
-      return overlay;
-    },
     get emitter() {
       return emitter;
     },

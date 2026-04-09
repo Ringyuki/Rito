@@ -1,18 +1,17 @@
 import type { Reader } from 'rito';
 import { buildSemanticTree, createA11yMirror, type A11yMirror } from 'rito/a11y';
 import type { DisposableCollection } from '../../utils/disposable';
-import type { TransitionEngine } from '../../transition/types';
 import type { ControllerOptions } from '../types';
 
 export function wireA11y(
   opts: ControllerOptions,
-  transition: TransitionEngine,
+  canvas: HTMLCanvasElement,
   reader: Reader,
   disposables: DisposableCollection,
 ): void {
   if (!opts.a11y?.enabled) return;
 
-  const parent = opts.a11y.container ?? transition.mainCanvas.parentElement;
+  const parent = opts.a11y.container ?? canvas.parentElement;
   if (!parent) return;
 
   const mirror: A11yMirror = createA11yMirror(parent);

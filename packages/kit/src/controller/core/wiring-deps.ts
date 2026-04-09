@@ -1,5 +1,5 @@
 import type { Reader } from 'rito';
-import type { OverlayRenderer } from '../../overlay/types';
+import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 import type { ControllerOptions, ReaderControllerEvents } from '../types';
@@ -8,7 +8,7 @@ export interface WiringDeps {
   reader: Reader;
   engines: CoordinatorEngines;
   emitter: TypedEmitter<ReaderControllerEvents>;
-  overlay: OverlayRenderer;
+  frameDriver: FrameDriver;
   options: ControllerOptions;
   coordState: CoordinatorState;
   canvas: HTMLCanvasElement;

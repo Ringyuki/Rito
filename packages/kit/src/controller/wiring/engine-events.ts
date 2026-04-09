@@ -1,5 +1,4 @@
 import type { DisposableCollection } from '../../utils/disposable';
-import { refreshCurrentOverlay } from './spread';
 import type { WiringDeps } from '../core/wiring-deps';
 import { resolveVisibleAnnotations } from '../annotation-resolution';
 
@@ -28,7 +27,8 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
         viewportRects,
         focusRect,
       });
-      refreshCurrentOverlay(deps);
+      // Selection is per-spread — only invalidate current
+      deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
 }
@@ -50,14 +50,15 @@ function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): 
   disposables.add(
     engines.search.onResultsChange((results) => {
       emitter.emit('searchResults', { results, activeIndex: engines.search.getActiveIndex() });
-      refreshCurrentOverlay(deps);
+      // Search results are global — invalidate ALL slots so adjacent pages update too
+      deps.frameDriver.markAllOverlaysDirty();
     }),
   );
   disposables.add(
     engines.search.onActiveResultChange((idx) => {
       const results = engines.search.getResults();
       emitter.emit('searchActiveChange', { activeIndex: idx, result: results[idx] });
-      refreshCurrentOverlay(deps);
+      deps.frameDriver.markAllOverlaysDirty();
     }),
   );
 }
@@ -73,7 +74,8 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
         deps.reader,
       );
       deps.emitter.emit('annotationsChange', { annotations: records });
-      refreshCurrentOverlay(deps);
+      // Annotations are global — invalidate ALL slots
+      deps.frameDriver.markAllOverlaysDirty();
     }),
   );
 }

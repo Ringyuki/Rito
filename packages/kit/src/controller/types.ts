@@ -8,10 +8,8 @@ import type {
 import type { ReadingPosition } from 'rito/position';
 import type { SearchResult } from 'rito/search';
 import type { TextRange } from 'rito/selection';
-import type { TransitionOptions } from '../transition/types';
+import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
-import type { OverlayRenderer } from '../overlay/types';
-import type { TransitionEngine } from '../transition/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 
@@ -19,7 +17,7 @@ import type { TypedEmitter } from '../utils/event-emitter';
 export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
 
 export interface ControllerOptions {
-  readonly transition?: Partial<TransitionOptions> | undefined;
+  readonly transition?: Partial<TransitionDriverOptions> | undefined;
   /** Storage adapter for source-anchored annotation records. */
   readonly annotationStorage?: RecordStorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;
@@ -153,15 +151,13 @@ export interface ReaderController {
 
   setInteractionMode(mode: InteractionMode): void;
   readonly interactionMode: InteractionMode;
-  configureTransition(options: Partial<TransitionOptions>): void;
+  configureTransition(options: Partial<TransitionDriverOptions>): void;
 
   on<K extends keyof ReaderControllerEvents>(
     event: K,
     handler: (data: ReaderControllerEvents[K]) => void,
   ): () => void;
 
-  readonly transitionEngine: TransitionEngine;
-  readonly overlayRenderer: OverlayRenderer;
   readonly emitter: TypedEmitter<ReaderControllerEvents>;
   readonly keyboard: KeyboardManager;
 }

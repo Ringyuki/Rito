@@ -1,18 +1,3 @@
-// Re-export all subpath modules for convenience
-export {
-  createTransitionEngine,
-  type TransitionEngine,
-  type TransitionOptions,
-  type TransitionPreset,
-} from './transition/index';
-
-export {
-  createOverlayRenderer,
-  type OverlayLayer,
-  type OverlayRenderer,
-  type Rect,
-} from './overlay/index';
-
 export { createKeyboardManager, type KeyboardManager } from './keyboard/index';
 
 export {
@@ -29,6 +14,9 @@ export {
   type InteractionMode,
   type AddAnnotationInput,
 } from './controller/index';
+
+export type { OverlayLayer, Rect } from './painter/types';
+export type { TransitionDriverOptions } from './driver/types';
 
 export { createEmitter, type TypedEmitter } from './utils/event-emitter';
 export { createDisposableCollection, type DisposableCollection } from './utils/disposable';

@@ -44,7 +44,7 @@ export function useReader(
       ...getThemeOptions(theme),
     },
     controller: {
-      transition: { preset: 'slide' },
+      transition: { stiffness: 180, damping: 22 },
       positionStorage,
       annotationStorage,
     },
