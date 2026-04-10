@@ -4,4 +4,4 @@ export {
   type CoordinatorState,
   createCoordinatorState,
 } from './coordinator-state';
-export { type WiringDeps, toSpreadContent } from './wiring-deps';
+export { type WiringDeps, toSpreadContent, clientToSpreadContent } from './wiring-deps';

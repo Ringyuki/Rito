@@ -26,8 +26,18 @@ export function toSpreadContent(
   coordState: CoordinatorState,
 ): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
-  const cssX = e.clientX - rect.left;
-  const cssY = e.clientY - rect.top;
+  return clientToSpreadContent(e.clientX, e.clientY, rect, coordState);
+}
+
+/** Convert client coordinates to spread-content coordinates using a pre-computed rect. */
+export function clientToSpreadContent(
+  clientX: number,
+  clientY: number,
+  rect: DOMRect,
+  coordState: CoordinatorState,
+): { x: number; y: number } {
+  const cssX = clientX - rect.left;
+  const cssY = clientY - rect.top;
   if (!coordState.mapper) return { x: cssX, y: cssY };
   return coordState.mapper.cssToSpreadContent(cssX, cssY);
 }

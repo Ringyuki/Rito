@@ -39,27 +39,33 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
 
   // 4. Image click (standalone — not wrapped in a link)
   const imageHit = findImageAtPos(pos, deps);
-  if (imageHit) {
-    const { coordState, canvas } = deps;
-    const mapper = coordState.mapper;
-    if (mapper) {
-      const resolved = mapper.spreadContentToPage(pos.x, pos.y);
-      if (resolved) {
-        const canvasRect = canvas.getBoundingClientRect();
-        const screenBounds = mapper.pageContentToScreen(
-          resolved.pageIndex,
-          imageHit.bounds,
-          canvasRect,
-        );
-        deps.emitter.emit('imageClick', {
-          src: imageHit.imageSrc ?? '',
-          alt: imageHit.imageAlt ?? '',
-          blobUrl: imageHit.imageSrc ? deps.reader.getImageBlobUrl(imageHit.imageSrc) : undefined,
-          screenBounds,
-        });
-      }
-    }
+  if (imageHit) dispatchImageClick(pos, imageHit, deps);
+}
+
+function dispatchImageClick(pos: { x: number; y: number }, hit: HitEntry, deps: WiringDeps): void {
+  const { coordState, canvas } = deps;
+  const mapper = coordState.mapper;
+  if (!mapper) return;
+  const resolved = mapper.spreadContentToPage(pos.x, pos.y);
+  if (!resolved) return;
+
+  const canvasRect = canvas.getBoundingClientRect();
+  const screenBounds = mapper.pageContentToScreen(resolved.pageIndex, hit.bounds, canvasRect);
+
+  // Revoke previous blob URL before creating a new one
+  if (coordState.activeImageBlobUrl) {
+    URL.revokeObjectURL(coordState.activeImageBlobUrl);
+    coordState.activeImageBlobUrl = null;
   }
+  const blobUrl = hit.imageSrc ? deps.reader.getImageBlobUrl(hit.imageSrc) : undefined;
+  if (blobUrl) coordState.activeImageBlobUrl = blobUrl;
+
+  deps.emitter.emit('imageClick', {
+    src: hit.imageSrc ?? '',
+    alt: hit.imageAlt ?? '',
+    blobUrl,
+    screenBounds,
+  });
 }
 
 function dispatchLinkClick(

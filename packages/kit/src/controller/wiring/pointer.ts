@@ -14,6 +14,7 @@ export function bindPointerEvents(
     const pos = toContent(e);
     downPos = pos;
     engine.handlePointerDown(pos);
+    canvas.setPointerCapture(e.pointerId);
   };
   const onMove = (e: PointerEvent): void => {
     if (e.pointerType === 'touch') return;

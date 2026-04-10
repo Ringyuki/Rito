@@ -30,7 +30,7 @@ export function buildController(
   nav: Nav,
 ): ReaderController {
   return {
-    ...buildLifecycle(disposables, runtime),
+    ...buildLifecycle(disposables, runtime, internals.coordState),
     ...buildReaderProxies(internals),
     ...nav,
     ...buildLayoutActions(internals, emitter, runtime),

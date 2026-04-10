@@ -14,7 +14,7 @@ import { createInteractionModeManager, detectDefaultMode } from './interaction-m
 import { createNavigation } from './navigation/index';
 import { createEngines } from './engines/index';
 import { buildController, syncCanvasSize, type Internals } from './facade';
-import { toSpreadContent } from './core/wiring-deps';
+import { clientToSpreadContent } from './core/wiring-deps';
 import {
   wireDomHelpers,
   wireEngineEvents,
@@ -153,10 +153,10 @@ function bootstrapRuntime(
 
       // Update currentSpread (idempotent for goToSpread, essential for gesture commits).
       // Do NOT re-emit spreadChange — goToSpread already emitted it at navigation start.
+      // Do NOT call notifyActiveSpread — goToSpread already rebuilt coordinator state
+      // (hitMaps, mapper, annotations are keyed by spread/page index, unaffected by pool rotation).
       internals.currentSpread = event.targetSpread;
 
-      // Rebuild coordinator after rotation (hitMaps, mapper, annotations).
-      reader.notifyActiveSpread(event.targetSpread);
       scheduleIdlePrerender(
         () => internals.currentSpread,
         () => td.isAnimating,
@@ -248,10 +248,20 @@ function wireTouchGestures(
   canvas: HTMLCanvasElement,
   disposables: ReturnType<typeof createDisposableCollection>,
 ): void {
+  // Cache canvas rect for the duration of a touch gesture to avoid
+  // repeated getBoundingClientRect calls during high-frequency touchmove events.
+  let cachedRect: DOMRect | null = null;
+  const cacheCanvasRect = (): void => {
+    cachedRect = canvas.getBoundingClientRect();
+  };
+  const clearCanvasRect = (): void => {
+    cachedRect = null;
+  };
   const touchToContent = (touch: Touch) =>
-    toSpreadContent(
-      { clientX: touch.clientX, clientY: touch.clientY } as PointerEvent,
-      canvas,
+    clientToSpreadContent(
+      touch.clientX,
+      touch.clientY,
+      cachedRect ?? canvas.getBoundingClientRect(),
       internals.coordState,
     );
 
@@ -291,6 +301,15 @@ function wireTouchGestures(
   const handleTap = (pos: { x: number; y: number }) => {
     dispatchClick(pos, wiringDeps);
   };
+
+  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
+  canvas.addEventListener('touchend', clearCanvasRect);
+  canvas.addEventListener('touchcancel', clearCanvasRect);
+  disposables.add(() => {
+    canvas.removeEventListener('touchstart', cacheCanvasRect);
+    canvas.removeEventListener('touchend', clearCanvasRect);
+    canvas.removeEventListener('touchcancel', clearCanvasRect);
+  });
 
   wireUnifiedTouchHandler(
     canvas,

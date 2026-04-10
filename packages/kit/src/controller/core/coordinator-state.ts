@@ -23,6 +23,8 @@ export interface CoordinatorState {
   chapterIndices: Map<string, ChapterTextIndex>;
   /** Resolved annotations for current layout. */
   resolvedAnnotations: readonly ResolvedAnnotation[];
+  /** Active image blob URL (revoked automatically on next imageClick or dispose). */
+  activeImageBlobUrl: string | null;
 }
 
 export function createCoordinatorState(): CoordinatorState {
@@ -33,5 +35,6 @@ export function createCoordinatorState(): CoordinatorState {
     annotationStore: null,
     chapterIndices: new Map(),
     resolvedAnnotations: [],
+    activeImageBlobUrl: null,
   };
 }
