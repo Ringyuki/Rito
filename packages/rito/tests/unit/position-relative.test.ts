@@ -45,9 +45,9 @@ describe('position:relative', () => {
       expect(result.position).toBe('relative');
     });
 
-    it('ignores invalid position values', () => {
+    it('parses position: absolute', () => {
       const result = parseCssDeclarations('position: absolute', BASE_FONT_SIZE);
-      expect(result.position).toBeUndefined();
+      expect(result.position).toBe('absolute');
     });
 
     it('ignores position: fixed', () => {

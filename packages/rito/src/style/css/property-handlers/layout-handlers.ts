@@ -63,7 +63,7 @@ export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
   },
   position: (result, value) => {
     const position = value.trim().toLowerCase();
-    if (position === 'static' || position === 'relative') {
+    if (position === 'static' || position === 'relative' || position === 'absolute') {
       result.position = position;
     }
   },

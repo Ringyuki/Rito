@@ -50,6 +50,10 @@ export function layoutNodesAt(
       state.prevMarginBottom = 0;
     } else if (node.type === 'image' && node.src) {
       layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
+    } else if (node.type === 'block' && node.style.position === 'absolute') {
+      // Skip: absolute children are positioned by their containing block
+      // (layoutContainerBlock handles them when the parent is position:relative)
+      continue;
     } else if (node.type === 'block') {
       layoutBlockNode(
         state,

@@ -124,6 +124,7 @@ export type PageBreak = (typeof PAGE_BREAKS)[keyof typeof PAGE_BREAKS];
 export const POSITIONS = {
   Static: 'static',
   Relative: 'relative',
+  Absolute: 'absolute',
 } as const;
 
 export type Position = (typeof POSITIONS)[keyof typeof POSITIONS];

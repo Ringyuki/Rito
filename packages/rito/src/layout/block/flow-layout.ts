@@ -1,6 +1,7 @@
 import { DISPLAY_VALUES, type StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import { layoutAbsoluteChildren } from './absolute-layout';
 import { resolveHorizontalBoxMetrics, resolveHorizontalOffset } from './box-metrics';
 import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
@@ -79,6 +80,18 @@ export function layoutContainerBlock(
     if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
   }
   state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
+
+  placeAbsoluteChildren(
+    node,
+    state,
+    collapsed.startY,
+    totalIndent,
+    childWidth > 0 ? childWidth : contentWidth,
+    contentHeight,
+    layouter,
+    layoutNodesAt,
+    imageSizes,
+  );
 }
 
 /**
@@ -109,8 +122,46 @@ function collapseContainerMarginTop(
 
 function isFirstInFlow(c: StyledNode): boolean {
   return (
-    c.type === 'block' && c.style.float === 'none' && c.style.display !== DISPLAY_VALUES.InlineBlock
+    c.type === 'block' &&
+    c.style.float === 'none' &&
+    c.style.position !== 'absolute' &&
+    c.style.display !== DISPLAY_VALUES.InlineBlock
   );
+}
+
+function isAbsolute(c: StyledNode): boolean {
+  return c.type === 'block' && c.style.position === 'absolute';
+}
+
+/** Layout absolutely positioned children after in-flow layout is complete. */
+function placeAbsoluteChildren(
+  node: StyledNode,
+  state: LayoutState,
+  startY: number,
+  xOffset: number,
+  childWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+  layoutNodesAt: LayoutNodesAtFn,
+  imageSizes?: ImageSizeMap,
+): void {
+  const absoluteNodes = node.children.filter(isAbsolute);
+  if (absoluteNodes.length === 0) return;
+  const containingBox = {
+    x: xOffset,
+    y: startY,
+    width: childWidth,
+    height: state.y - startY,
+  };
+  const absBlocks = layoutAbsoluteChildren(
+    absoluteNodes,
+    containingBox,
+    contentHeight,
+    layouter,
+    layoutNodesAt,
+    imageSizes,
+  );
+  for (const ab of absBlocks) state.blocks.push(ab);
 }
 
 /**
