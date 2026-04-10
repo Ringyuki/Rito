@@ -60,13 +60,22 @@ export function useReader(
   const [lightboxImage, setLightboxImage] = useState<ReaderControllerEvents['imageClick'] | null>(
     null,
   );
+  const [lightboxActive, setLightboxActive] = useState(false);
 
   useControllerEvent(rito.controller, 'linkClick', setPendingLink);
   useControllerEvent(rito.controller, 'footnoteClick', setFootnote);
-  useControllerEvent(rito.controller, 'imageClick', setLightboxImage);
+  useControllerEvent(rito.controller, 'imageClick', (img) => {
+    setLightboxImage(img);
+    setLightboxActive(true);
+  });
   useControllerEvent(rito.controller, 'searchOpen', () => {
     setSearchOpen(true);
   });
+
+  // Disable keyboard navigation while lightbox is open (including exit animation)
+  useEffect(() => {
+    rito.controller?.keyboard.setEnabled(!lightboxActive);
+  }, [lightboxActive, rito.controller]);
 
   const [searchOpen, setSearchOpen] = useState(false);
 
@@ -166,6 +175,9 @@ export function useReader(
     lightboxImage,
     dismissLightbox: useCallback(() => {
       setLightboxImage(null);
+    }, []),
+    onLightboxExitComplete: useCallback(() => {
+      setLightboxActive(false);
     }, []),
     searchOpen,
     setSearchOpen,

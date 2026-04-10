@@ -74,7 +74,11 @@ export function Reader({ containerRef, reader }: ReaderProps) {
 
       <LinkDialog link={reader.pendingLink} onClose={reader.dismissLink} />
 
-      <ImageLightbox image={reader.lightboxImage} onClose={reader.dismissLightbox} />
+      <ImageLightbox
+        image={reader.lightboxImage}
+        onClose={reader.dismissLightbox}
+        onExitComplete={reader.onLightboxExitComplete}
+      />
     </main>
   );
 }

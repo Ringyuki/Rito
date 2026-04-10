@@ -1,34 +1,34 @@
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReaderControllerEvents } from '@rito/kit';
 
 interface Props {
   image: ReaderControllerEvents['imageClick'] | null;
   onClose: () => void;
+  onExitComplete?: () => void;
 }
 
-export function ImageLightbox({ image, onClose }: Props) {
-  const prevBlobUrl = useRef<string | undefined>(undefined);
-
-  // Revoke old blob URL when image changes or on unmount
-  useEffect(() => {
-    if (prevBlobUrl.current && prevBlobUrl.current !== image?.blobUrl) {
-      URL.revokeObjectURL(prevBlobUrl.current);
-    }
-    prevBlobUrl.current = image?.blobUrl;
-    return () => {
-      if (prevBlobUrl.current) URL.revokeObjectURL(prevBlobUrl.current);
-    };
-  }, [image?.blobUrl]);
-
+export function ImageLightbox({ image, onClose, onExitComplete }: Props) {
   const handleClose = useCallback(() => {
     onClose();
   }, [onClose]);
 
   const sb = image?.screenBounds;
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key === 'ArrowLeft' || e.key === 'ArrowRight' || e.key === 'Escape') {
+        handleClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [handleClose]);
+
   return (
-    <AnimatePresence>
+    <AnimatePresence {...(onExitComplete && { onExitComplete })}>
       {image?.blobUrl && sb && (
         <motion.div
           role="dialog"
