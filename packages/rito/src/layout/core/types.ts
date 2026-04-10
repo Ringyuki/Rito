@@ -22,6 +22,8 @@ export interface TextRun {
   readonly sourceText?: string;
   /** Offset of this run's first character within the source text node. */
   readonly sourceTextOffset?: number;
+  /** Ruby annotation text to render above the base text. */
+  readonly rubyAnnotation?: string;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */

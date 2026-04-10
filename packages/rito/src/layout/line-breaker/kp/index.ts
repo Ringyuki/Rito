@@ -29,7 +29,7 @@ export function createKnuthPlassLayouter(measurer: TextMeasurer): ParagraphLayou
       const items = buildKPItems(segments, measurer);
       if (items.length === 0) return [];
 
-      const effectiveWidth = indent > 0 ? maxWidth - indent : maxWidth;
+      const effectiveWidth = indent !== 0 ? maxWidth - indent : maxWidth;
       const breakPositions =
         solveKP(items, effectiveWidth) ?? emergencyBreaks(items, effectiveWidth);
 
@@ -67,7 +67,7 @@ function buildLineBoxes(
     if (breakPos === undefined) continue;
     const isFirstLine = lineIndex === 0;
     const isLastLine = lineIndex === breakPositions.length - 1;
-    const startX = isFirstLine && indent > 0 ? indent : 0;
+    const startX = isFirstLine && indent !== 0 ? indent : 0;
     const runs = buildLineRuns(
       items,
       lineStart,
@@ -160,7 +160,11 @@ function appendBox(
   lineHeight: number,
   measurer: TextMeasurer,
 ): void {
-  if (ctx.currentSegment?.style === segment.style && ctx.currentSegment.href === segment.href) {
+  if (
+    ctx.currentSegment?.style === segment.style &&
+    ctx.currentSegment.href === segment.href &&
+    ctx.currentSegment.rubyAnnotation === segment.rubyAnnotation
+  ) {
     ctx.currentText += text;
     return;
   }
@@ -176,17 +180,17 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
 
   const style = ctx.currentSegment.style;
   const href = ctx.currentSegment.href;
+  const ruby = ctx.currentSegment.rubyAnnotation;
   const flushedLength = ctx.currentText.length;
   const width = measurer.measureText(ctx.currentText, style).width;
-  const run: TextRun = {
+
+  const runY = computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize);
+  const runHeight = style.fontSize * style.lineHeight;
+
+  let run: TextRun = {
     type: 'text-run',
     text: ctx.currentText,
-    bounds: {
-      x: ctx.x,
-      y: computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize),
-      width,
-      height: style.fontSize * style.lineHeight,
-    },
+    bounds: { x: ctx.x, y: runY, width, height: runHeight },
     style,
     ...(ctx.currentSegment.sourceRef ? { sourceRef: ctx.currentSegment.sourceRef } : {}),
     ...(ctx.currentSegment.sourceText !== undefined
@@ -194,7 +198,9 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
       : {}),
     ...(ctx.currentSegment.sourceRef ? { sourceTextOffset: ctx.currentSourceOffset } : {}),
   };
-  ctx.runs.push(href ? { ...run, href } : run);
+  if (href) run = { ...run, href };
+  if (ruby) run = { ...run, rubyAnnotation: ruby };
+  ctx.runs.push(run);
   ctx.x += width;
   const sourceLength = ctx.hasTrailingHyphen ? flushedLength - 1 : flushedLength;
   ctx.currentSourceOffset += sourceLength;

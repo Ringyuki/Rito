@@ -82,8 +82,8 @@ function layoutSingleLine(
 ): { runs: (TextRun | InlineAtom)[]; width: number; nextPos: number } {
   const { text, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer, atoms } =
     ctx;
-  const effectiveMax = isFirstLine && indent > 0 ? maxWidth - indent : maxWidth;
-  const lineStartX = isFirstLine && indent > 0 ? indent : 0;
+  const effectiveMax = isFirstLine && indent !== 0 ? maxWidth - indent : maxWidth;
+  const lineStartX = isFirstLine && indent !== 0 ? indent : 0;
   const newlineIndex = text.indexOf('\n', pos);
   const lineEnd = newlineIndex >= 0 ? newlineIndex : text.length;
   const breakPos = allowWrap

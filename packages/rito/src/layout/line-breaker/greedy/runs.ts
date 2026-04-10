@@ -85,6 +85,7 @@ function processRange(
     range.sourceText,
     sourceTextOffset,
     baseFontSize,
+    range.rubyAnnotation,
   );
   return { run, nextPos: rangeEnd };
 }
@@ -104,22 +105,23 @@ function buildTextRun(
   sourceText?: string,
   sourceTextOffset?: number,
   baseFontSize?: number,
+  rubyAnnotation?: string,
 ): TextRun {
-  const run: TextRun = {
+  const y = computeVerticalAlignOffset(style, lineHeight, baseFontSize);
+  const height = style.fontSize * style.lineHeight;
+
+  let run: TextRun = {
     type: 'text-run',
     text,
-    bounds: {
-      x,
-      y: computeVerticalAlignOffset(style, lineHeight, baseFontSize),
-      width,
-      height: style.fontSize * style.lineHeight,
-    },
+    bounds: { x, y, width, height },
     style,
     ...(sourceRef ? { sourceRef } : {}),
     ...(sourceText !== undefined ? { sourceText } : {}),
     ...(sourceTextOffset !== undefined ? { sourceTextOffset } : {}),
   };
-  return href ? { ...run, href } : run;
+  if (href) run = { ...run, href };
+  if (rubyAnnotation) run = { ...run, rubyAnnotation };
+  return run;
 }
 
 function buildInlineAtom(

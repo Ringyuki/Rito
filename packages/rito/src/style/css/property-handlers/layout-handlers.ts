@@ -20,14 +20,24 @@ export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
     }
   },
   width: (result, value, emBase, rootFontSize, viewport) => {
-    if (isPercentage(value)) return;
+    if (isPercentage(value)) {
+      const pct = parseFloat(value.trim());
+      if (!isNaN(pct) && pct > 0) result.widthPct = pct;
+      return;
+    }
     assignLength(result, 'width', value, emBase, rootFontSize, (w) => w > 0, viewport);
   },
   'max-width': (result, value, emBase, rootFontSize, viewport) => {
-    if (isPercentage(value)) return;
+    if (isPercentage(value)) {
+      const pct = parseFloat(value.trim());
+      if (!isNaN(pct) && pct > 0) result.maxWidthPct = pct;
+      return;
+    }
     assignLength(result, 'maxWidth', value, emBase, rootFontSize, (w) => w > 0, viewport);
   },
   height: (result, value, emBase, rootFontSize, viewport) => {
+    // Percentage heights are not resolved — CSS % height requires a definite
+    // containing block height, which is rarely available in paginated EPUB layout.
     if (isPercentage(value)) return;
     assignLength(result, 'height', value, emBase, rootFontSize, (h) => h > 0, viewport);
   },

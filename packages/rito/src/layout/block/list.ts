@@ -40,19 +40,24 @@ export function addListMarker(
   node: StyledNode,
   listCtx: ListContext | undefined,
 ): LayoutBlock {
-  if (!listCtx || node.tag !== 'li' || listCtx.listStyleType === LIST_STYLE_TYPES.None) {
-    return block;
-  }
+  if (!listCtx || node.tag !== 'li') return block;
+  // list-style: none can be set on the <ul>/<ol> parent or on the <li> itself
+  if (listCtx.listStyleType === LIST_STYLE_TYPES.None) return block;
+  if (node.style.listStyleType === LIST_STYLE_TYPES.None) return block;
 
   listCtx.counter++;
   const firstLine = block.children[0];
   if (!firstLine || firstLine.type !== 'line-box') return block;
 
+  // Match marker y to the first text run's y (which may be shifted for ruby/vertical align)
+  const firstRun = firstLine.runs[0];
+  const markerY = firstRun ? firstRun.bounds.y : 0;
   const marker = createMarkerRun(
     listCtx.counter,
     listCtx.listStyleType,
     node.style,
     firstLine.bounds.height,
+    markerY,
   );
   const markerLine: LineBox = {
     ...firstLine,
@@ -82,11 +87,12 @@ function createMarkerRun(
   listStyleType: ListStyleType,
   style: ComputedStyle,
   lineHeight: number,
+  y: number,
 ): TextRun {
   return {
     type: 'text-run',
     text: formatListMarker(counter, listStyleType),
-    bounds: { x: -MARKER_AREA_WIDTH, y: 0, width: MARKER_AREA_WIDTH, height: lineHeight },
+    bounds: { x: -MARKER_AREA_WIDTH, y, width: MARKER_AREA_WIDTH, height: lineHeight },
     style,
   };
 }

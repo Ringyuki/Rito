@@ -3,10 +3,17 @@ import type { InlineAtom, LineBox, TextRun } from '../core/types';
 
 type Run = TextRun | InlineAtom;
 
+const RUBY_FONT_SCALE = 0.5;
+const RUBY_GAP = 1;
+
 /**
  * Compute effective line metrics from the actual bounding box of all runs.
  * When baseline offsets push a run above y=0 (negative offset), the line box
  * must expand and all runs shift down so nothing overflows the top.
+ *
+ * Ruby annotations add extra space above the line box without shifting the
+ * baseline — all runs stay at their original y positions, and the line box
+ * grows upward to accommodate the annotation.
  *
  * Returns `height` (the line box height) and `yShift` (the amount to add to
  * every run's y to eliminate negative overflow).
@@ -17,17 +24,21 @@ export function computeEffectiveLineMetrics(
 ): { height: number; yShift: number } {
   let minTop = 0;
   let maxBottom = baseLineHeight;
+  let rubyOverhang = 0;
   for (const run of runs) {
     const top = run.bounds.y;
-    const bottom =
-      run.type === 'text-run'
-        ? top + run.style.fontSize * run.style.lineHeight
-        : top + run.bounds.height;
+    const bottom = top + run.bounds.height;
     if (top < minTop) minTop = top;
     if (bottom > maxBottom) maxBottom = bottom;
+    // Track ruby overhang separately — it adds space above without shifting baseline
+    if (run.type === 'text-run' && run.rubyAnnotation) {
+      const overhang = run.style.fontSize * RUBY_FONT_SCALE + RUBY_GAP;
+      if (overhang > rubyOverhang) rubyOverhang = overhang;
+    }
   }
-  const height = Math.max(baseLineHeight, maxBottom - minTop);
-  const yShift = minTop < 0 ? -minTop : 0;
+  const contentHeight = Math.max(baseLineHeight, maxBottom - minTop);
+  const height = contentHeight + rubyOverhang;
+  const yShift = (minTop < 0 ? -minTop : 0) + rubyOverhang;
   return { height, yShift };
 }
 

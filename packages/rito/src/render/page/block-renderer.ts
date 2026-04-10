@@ -1,6 +1,13 @@
-import type { HorizontalRule, InlineAtom, LayoutBlock, LineBox } from '../../layout/core/types';
+import type {
+  HorizontalRule,
+  InlineAtom,
+  LayoutBlock,
+  LineBox,
+  TextRun,
+} from '../../layout/core/types';
 import { buildHrefResolver } from '../../utils/resolve-href';
-import { drawTextRun } from '../text/text-renderer';
+import { resolveTextColor } from '../../utils/color';
+import { drawRubyAnnotation, drawTextRun, RUBY_FONT_SCALE, RUBY_GAP } from '../text/text-renderer';
 import { renderBlockBackground } from './background-renderer';
 import { renderImage } from './image-renderer';
 import type { ColorOverride } from './types';
@@ -95,6 +102,61 @@ function renderLineBox(
     } else {
       drawTextRun(ctx, run, lineX, lineY, colorOverride);
     }
+  }
+
+  // Second pass: draw ruby annotations, grouping contiguous runs with the same annotation
+  renderRubyAnnotations(ctx, lineBox, lineX, lineY, colorOverride);
+}
+
+/**
+ * Scan text runs for ruby annotations and draw each annotation centered
+ * over its full base group (which may span multiple styled runs).
+ */
+function renderRubyAnnotations(
+  ctx: CanvasRenderingContext2D,
+  lineBox: LineBox,
+  lineX: number,
+  lineY: number,
+  colorOverride?: ColorOverride,
+): void {
+  const runs = lineBox.runs;
+  let i = 0;
+  while (i < runs.length) {
+    const run = runs[i];
+    if (!run || run.type !== 'text-run' || !run.rubyAnnotation) {
+      i++;
+      continue;
+    }
+
+    // Scan forward for contiguous text runs with the same annotation
+    const annotation = run.rubyAnnotation;
+    const groupStart = run;
+    let groupEndRun: TextRun = run;
+    let j = i + 1;
+    while (j < runs.length) {
+      const next = runs[j];
+      if (!next || next.type !== 'text-run' || next.rubyAnnotation !== annotation) break;
+      groupEndRun = next;
+      j++;
+    }
+
+    // Compute total base width and annotation position (above the base text)
+    const groupX = lineX + groupStart.bounds.x;
+    const annotationY =
+      lineY + groupStart.bounds.y - groupStart.style.fontSize * RUBY_FONT_SCALE - RUBY_GAP;
+    const groupWidth = groupEndRun.bounds.x + groupEndRun.bounds.width - groupStart.bounds.x;
+
+    const color = colorOverride
+      ? resolveTextColor(
+          groupStart.style.color,
+          colorOverride.backgroundColor,
+          colorOverride.foregroundColor,
+        )
+      : groupStart.style.color;
+
+    drawRubyAnnotation(ctx, annotation, groupX, annotationY, groupWidth, groupStart.style, color);
+
+    i = j;
   }
 }
 

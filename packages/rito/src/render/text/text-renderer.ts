@@ -55,6 +55,34 @@ export function drawTextRun(
   }
 }
 
+export const RUBY_FONT_SCALE = 0.5;
+export const RUBY_GAP = 1;
+
+/**
+ * Draw ruby annotation text inside the reserved space at the top of the run bounds.
+ * The line breaker already extended the run's bounds.y upward and bounds.height
+ * to include annotation space, so painting here stays within the line box.
+ */
+export function drawRubyAnnotation(
+  ctx: CanvasRenderingContext2D,
+  annotation: string,
+  x: number,
+  annotationY: number,
+  baseWidth: number,
+  style: TextRun['style'],
+  color: string,
+): void {
+  const rubyFontSize = style.fontSize * RUBY_FONT_SCALE;
+  ctx.save();
+  ctx.font = buildFontString({ ...style, fontSize: rubyFontSize });
+  ctx.fillStyle = color;
+  ctx.textBaseline = 'top';
+  const measured = ctx.measureText(annotation);
+  const rubyX = x + (baseWidth - measured.width) / 2;
+  ctx.fillText(annotation, rubyX, annotationY);
+  ctx.restore();
+}
+
 function drawLine(
   ctx: CanvasRenderingContext2D,
   x: number,

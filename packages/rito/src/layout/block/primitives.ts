@@ -92,10 +92,35 @@ export function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): L
  * (including padding). layoutTextBlock subtracts padding from this to
  * get the inner content width.
  */
-export function applySizeConstraints(availableWidth: number, style: ComputedStyle): number {
+/**
+ * Apply CSS width/maxWidth constraints and return the total box width.
+ *
+ * @param availableWidth - Maximum width the element can occupy (post-margin space).
+ * @param style - Computed style with width/maxWidth/widthPct/maxWidthPct.
+ * @param containerWidth - Containing block width for resolving percentages.
+ *   Defaults to availableWidth for backward compatibility.
+ */
+export function applySizeConstraints(
+  availableWidth: number,
+  style: ComputedStyle,
+  containerWidth: number = availableWidth,
+): number {
   let width = availableWidth;
-  if (style.width > 0) width = Math.min(toTotalBox(style.width, style), availableWidth);
-  if (style.maxWidth > 0) width = Math.min(width, toTotalBox(style.maxWidth, style));
+  const resolvedWidth =
+    style.width > 0
+      ? style.width
+      : style.widthPct !== undefined
+        ? (style.widthPct / 100) * containerWidth
+        : 0;
+  if (resolvedWidth > 0) width = Math.min(toTotalBox(resolvedWidth, style), availableWidth);
+
+  const resolvedMaxWidth =
+    style.maxWidth > 0
+      ? style.maxWidth
+      : style.maxWidthPct !== undefined
+        ? (style.maxWidthPct / 100) * containerWidth
+        : 0;
+  if (resolvedMaxWidth > 0) width = Math.min(width, toTotalBox(resolvedMaxWidth, style));
   return width;
 }
 

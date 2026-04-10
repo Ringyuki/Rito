@@ -28,14 +28,16 @@ export function buildStyleRanges(segments: readonly InlineSegment[]): {
     textParts.push(segment.text);
     if (segment.text.length === 0) continue;
 
-    const range: StyleRange = {
+    let range: StyleRange = {
       start: offset,
       end: offset + segment.text.length,
       style: segment.style,
       ...(segment.sourceRef ? { sourceRef: segment.sourceRef } : {}),
       ...(segment.sourceText !== undefined ? { sourceText: segment.sourceText } : {}),
     };
-    ranges.push(segment.href ? { ...range, href: segment.href } : range);
+    if (segment.href) range = { ...range, href: segment.href };
+    if (segment.rubyAnnotation) range = { ...range, rubyAnnotation: segment.rubyAnnotation };
+    ranges.push(range);
     offset += segment.text.length;
   }
 

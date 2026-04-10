@@ -2,6 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import { extractBorders } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import {
   applyRelativeOffset,
@@ -86,19 +87,26 @@ function layoutFloatedContainer(
   const indented = paddingLeft > 0 ? indentBlocks(childBlocks, paddingLeft) : childBlocks;
   const last = indented[indented.length - 1];
   const height = last ? last.bounds.y + last.bounds.height + paddingBottom : 0;
-  const actualWidth =
-    node.style.width > 0 ? layoutWidth : shrinkToFitWidth(indented, paddingRight, layoutWidth);
+  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
+  const actualWidth = hasExplicitWidth
+    ? layoutWidth
+    : shrinkToFitWidth(indented, paddingRight, layoutWidth);
   // After shrink-to-fit, text-align offsets and image centering are based on the
   // original (larger) layout width and would be stale. Normalize to left-align.
   const finalChildren =
-    node.style.width <= 0 && actualWidth < layoutWidth
-      ? normalizeChildPositions(indented)
-      : indented;
-  return {
+    !hasExplicitWidth && actualWidth < layoutWidth ? normalizeChildPositions(indented) : indented;
+  let block: LayoutBlock = {
     type: 'layout-block',
     bounds: { x: 0, y: 0, width: actualWidth, height },
     children: finalChildren,
   };
+  if (node.style.backgroundColor) block = { ...block, backgroundColor: node.style.backgroundColor };
+  const borders = extractBorders(node.style);
+  if (borders) block = { ...block, borders };
+  if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
+  if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
+  if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
+  return block;
 }
 
 function layoutFloatedLeaf(
@@ -111,7 +119,7 @@ function layoutFloatedLeaf(
   let raw = layoutTextBlock(node, Math.max(layoutWidth, 1), 0, layouter, imageSizes);
   raw = addListMarker(raw, node, listCtx);
   raw = applyRelativeOffset(raw, node.style);
-  if (node.style.width <= 0) {
+  if (node.style.width <= 0 && node.style.widthPct === undefined) {
     const fitWidth = shrinkToFitWidth(raw.children, node.style.paddingRight, layoutWidth);
     const finalChildren =
       fitWidth < layoutWidth ? normalizeChildPositions(raw.children) : raw.children;

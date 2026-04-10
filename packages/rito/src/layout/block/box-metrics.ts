@@ -25,9 +25,11 @@ export function resolveHorizontalBoxMetrics(
 ): HorizontalBoxMetrics {
   const marginLeft = resolveMarginLeft(style, containerWidth);
   const marginRight = resolveMarginRight(style, containerWidth);
-  let targetWidth =
+  const postMarginWidth =
     marginLeft + marginRight > 0 ? containerWidth - marginLeft - marginRight : containerWidth;
-  targetWidth = applySizeConstraints(targetWidth, style);
+  // Percentage widths resolve against the containing block (containerWidth),
+  // but the result is clamped to the post-margin available space.
+  const targetWidth = applySizeConstraints(postMarginWidth, style, containerWidth);
   return { marginLeft, marginRight, targetWidth };
 }
 

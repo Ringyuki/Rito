@@ -10,6 +10,8 @@ export interface StyledSegment {
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
+  /** Ruby annotation text (from `<rt>`) to render above the base text. */
+  readonly rubyAnnotation?: string;
 }
 
 /** Type guard: returns true if the segment is an inline atom. */
@@ -90,6 +92,10 @@ function collectSegments(
         break;
       }
       case 'inline': {
+        if (node.tag === 'ruby') {
+          collectRubySegments(node, out, inheritedHref, inheritedBgColor, inheritedVA);
+          break;
+        }
         const href = node.href ?? inheritedHref;
         const bgColor = node.style.backgroundColor || inheritedBgColor;
         const va = node.style.verticalAlign !== 'baseline' ? node.style.verticalAlign : inheritedVA;
@@ -113,6 +119,81 @@ function collectSegments(
         break;
     }
   }
+}
+
+/**
+ * Extract ruby base/annotation pairs from a `<ruby>` node.
+ *
+ * Handles two common patterns:
+ * 1. Paired: `<rb>漢</rb><rt>かん</rt><rb>字</rb><rt>じ</rt>`
+ * 2. Implicit base: `漢字<rt>かんじ</rt>` (text before `<rt>` is base)
+ *
+ * Each pair emits a separate segment with `rubyAnnotation`, preserving
+ * per-character alignment. `<rp>` content is discarded.
+ */
+function collectRubySegments(
+  ruby: StyledNode,
+  out: InlineSegment[],
+  inheritedHref?: string,
+  inheritedBgColor?: string,
+  inheritedVA?: VerticalAlign,
+): void {
+  // Collect base content as properly styled segments (preserving inline
+  // structure, hrefs, source refs), paired with plain-text annotation from <rt>.
+  // When a base group produces multiple segments (e.g. styled children inside <rb>),
+  // the annotation is attached to the first segment only.
+  let pendingBaseNodes: StyledNode[] = [];
+
+  const flushBase = (annotation: string): void => {
+    if (pendingBaseNodes.length === 0) return;
+    const baseSegments: InlineSegment[] = [];
+    collectSegments(
+      pendingBaseNodes,
+      baseSegments,
+      undefined,
+      inheritedHref,
+      inheritedBgColor,
+      inheritedVA,
+    );
+    if (annotation) {
+      for (let i = 0; i < baseSegments.length; i++) {
+        const seg = baseSegments[i];
+        if (seg && !isInlineAtom(seg)) {
+          baseSegments[i] = { ...seg, rubyAnnotation: annotation };
+        }
+      }
+    }
+    for (const seg of baseSegments) out.push(seg);
+    pendingBaseNodes = [];
+  };
+
+  for (const child of ruby.children) {
+    if (child.type === 'text') {
+      pendingBaseNodes.push(child);
+    } else if (child.type === 'inline') {
+      if (child.tag === 'rt') {
+        flushBase(extractText(child));
+      } else if (child.tag === 'rp') {
+        // Discard — fallback parentheses for non-ruby-capable renderers
+      } else if (child.tag === 'rb') {
+        // Flush any preceding bare text without annotation
+        flushBase('');
+        // Collect <rb> children as the new pending base
+        pendingBaseNodes = [...child.children];
+      } else {
+        pendingBaseNodes.push(child);
+      }
+    }
+  }
+  flushBase('');
+}
+
+/** Recursively extract plain text from a StyledNode tree. */
+function extractText(node: StyledNode): string {
+  if (node.type === 'text') return node.content ?? '';
+  let result = '';
+  for (const child of node.children) result += extractText(child);
+  return result;
 }
 
 function patchInheritedStyle(

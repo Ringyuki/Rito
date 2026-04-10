@@ -76,6 +76,8 @@ export function inheritableStyle(style: ComputedStyle): ComputedStyle {
     paddingRightPct: _f,
     paddingBottomPct: _g,
     paddingLeftPct: _h,
+    widthPct: _i,
+    maxWidthPct: _j,
     ...rest
   } = style;
   return { ...rest, ...NON_INHERITED_DEFAULTS };

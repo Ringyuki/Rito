@@ -182,8 +182,12 @@ export interface ComputedStyle {
   readonly clear: 'none' | 'left' | 'right' | 'both';
   /** Explicit width in px. 0 means auto (not set). */
   readonly width: number;
+  /** Percentage width (0–100), resolved against containing block width at layout time. */
+  readonly widthPct?: number;
   /** Maximum width in px. 0 means no constraint. */
   readonly maxWidth: number;
+  /** Percentage max-width (0–100), resolved against containing block width at layout time. */
+  readonly maxWidthPct?: number;
   /** Explicit height in px. 0 means auto (not set). */
   readonly height: number;
   /** Minimum height in px. undefined means no constraint. */

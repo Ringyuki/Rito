@@ -2,8 +2,12 @@ import { DISPLAY_VALUES, type StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutAbsoluteChildren } from './absolute-layout';
-import { resolveHorizontalBoxMetrics, resolveHorizontalOffset } from './box-metrics';
-import { applyPageBreakFlags, withPageBreaks } from './helpers';
+import {
+  resolveHorizontalBoxMetrics,
+  resolveHorizontalOffset,
+  type HorizontalBoxMetrics,
+} from './box-metrics';
+import { applyPageBreakFlags, extractBorders, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
 import {
@@ -44,6 +48,8 @@ export function layoutContainerBlock(
   const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
   const paddingLeft = resolvePaddingLeft(node.style, contentWidth);
   const collapsed = collapseContainerMarginTop(node, state, paddingTop, contentWidth);
+  // Capture the container's top edge (after margin collapse, before padding)
+  const containerTop = collapsed.startY - paddingTop;
 
   // Apply the container's own width/maxWidth constraint before subtracting padding
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
@@ -59,39 +65,133 @@ export function layoutContainerBlock(
     childListCtx ?? listCtx,
   );
 
-  const xOffset = resolveHorizontalOffset(
+  if (hasVisualDecorations(node)) {
+    // Wrapper mode: children are laid out with absolute y coordinates starting at startY.
+    // Convert to wrapper-relative coordinates: y relative to containerTop (includes paddingTop).
+    const localized = childBlocks.map((b) => ({
+      ...b,
+      bounds: { ...b.bounds, x: b.bounds.x + paddingLeft, y: b.bounds.y - containerTop },
+    }));
+    const wrapper = buildContainerWrapper(
+      node,
+      localized,
+      metrics,
+      contentWidth,
+      containerTop,
+      paddingBottom,
+    );
+    state.blocks.push(withPageBreaks(wrapper, node.style));
+    state.y = wrapper.bounds.y + wrapper.bounds.height;
+  } else {
+    // Flatten mode: indent children by padding + margin offset
+    const xOffset = resolveHorizontalOffset(
+      contentWidth,
+      metrics.targetWidth,
+      node.style,
+      metrics.marginLeft,
+      metrics.marginRight,
+    );
+    const totalIndent = paddingLeft + xOffset;
+    const indented = totalIndent > 0 ? indentBlocks(childBlocks, totalIndent) : childBlocks;
+    applyPageBreakFlags(indented, node.style);
+    if (node.id && indented.length > 0) {
+      const first = indented[0];
+      if (first) Object.assign(first, { anchorId: node.id });
+    }
+    for (const child of indented) state.blocks.push(child);
+    if (indented.length > 0) {
+      const last = indented[indented.length - 1];
+      if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
+    }
+  }
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
+
+  const wrapperX = resolveHorizontalOffset(
     contentWidth,
     metrics.targetWidth,
     node.style,
     metrics.marginLeft,
     metrics.marginRight,
   );
-  const totalIndent = paddingLeft + xOffset;
-  const indented = totalIndent > 0 ? indentBlocks(childBlocks, totalIndent) : childBlocks;
-  applyPageBreakFlags(indented, node.style);
-  if (node.id && indented.length > 0) {
-    const first = indented[0];
-    if (first) Object.assign(first, { anchorId: node.id });
-  }
-
-  for (const child of indented) state.blocks.push(child);
-  if (indented.length > 0) {
-    const last = indented[indented.length - 1];
-    if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
-  }
-  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
-
+  const xIndent = paddingLeft + wrapperX;
   placeAbsoluteChildren(
     node,
     state,
     collapsed.startY,
-    totalIndent,
+    xIndent,
     childWidth > 0 ? childWidth : contentWidth,
     contentHeight,
     layouter,
     layoutNodesAt,
     imageSizes,
   );
+}
+
+/** Check if a container node has visual decorations that need a wrapper block. */
+function hasVisualDecorations(node: StyledNode): boolean {
+  const s = node.style;
+  return !!(
+    s.backgroundColor ||
+    s.borderTop.width > 0 ||
+    s.borderRight.width > 0 ||
+    s.borderBottom.width > 0 ||
+    s.borderLeft.width > 0 ||
+    s.borderRadius > 0 ||
+    s.opacity < 1 ||
+    s.overflow === 'hidden' ||
+    s.boxShadow.length > 0
+  );
+}
+
+/** Build a wrapper LayoutBlock for a container with visual decorations. */
+function buildContainerWrapper(
+  node: StyledNode,
+  children: readonly LayoutBlock[],
+  metrics: HorizontalBoxMetrics,
+  containerWidth: number,
+  startY: number,
+  paddingBottom: number,
+): LayoutBlock {
+  // Children are already in wrapper-local coordinates (y starts at 0).
+  const lastChild = children[children.length - 1];
+  let height = lastChild
+    ? lastChild.bounds.y + lastChild.bounds.height + paddingBottom
+    : paddingBottom;
+  // Apply explicit CSS height if set (e.g. height: 12em)
+  if (node.style.height > 0) height = Math.max(height, node.style.height);
+  if (node.style.minHeight !== undefined && node.style.minHeight > 0) {
+    height = Math.max(height, node.style.minHeight);
+  }
+
+  const x = resolveHorizontalOffset(
+    containerWidth,
+    metrics.targetWidth,
+    node.style,
+    metrics.marginLeft,
+    metrics.marginRight,
+  );
+  let wrapper: LayoutBlock = {
+    type: 'layout-block',
+    bounds: { x, y: startY, width: metrics.targetWidth, height },
+    children,
+  };
+
+  if (node.tag) wrapper = { ...wrapper, semanticTag: node.tag };
+  if (node.id) wrapper = { ...wrapper, anchorId: node.id };
+  if (node.style.backgroundColor) {
+    wrapper = { ...wrapper, backgroundColor: node.style.backgroundColor };
+  }
+  const borders = extractBorders(node.style);
+  if (borders) wrapper = { ...wrapper, borders };
+  if (node.style.borderRadius > 0) {
+    wrapper = { ...wrapper, borderRadius: node.style.borderRadius };
+  }
+  if (node.style.opacity < 1) wrapper = { ...wrapper, opacity: node.style.opacity };
+  if (node.style.overflow === 'hidden') wrapper = { ...wrapper, overflow: 'hidden' };
+  if (node.style.boxShadow.length > 0) {
+    wrapper = { ...wrapper, boxShadow: node.style.boxShadow };
+  }
+  return wrapper;
 }
 
 /**

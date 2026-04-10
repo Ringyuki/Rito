@@ -10,6 +10,7 @@ export interface StyleRange {
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
+  readonly rubyAnnotation?: string;
 }
 
 export interface LineContext {
