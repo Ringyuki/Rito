@@ -1,7 +1,7 @@
 export { createKeyboardManager, type KeyboardManager } from './keyboard/index';
 
 export {
-  createLocalStorageAdapter,
+  createLocalStorageAnnotationAdapter,
   createLocalStoragePositionAdapter,
   type PositionStorageAdapter,
 } from './storage/index';

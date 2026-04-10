@@ -8,8 +8,8 @@ export interface ReadingPositionState {
 }
 
 export function useReadingPosition(controller: ReaderController | null): ReadingPositionState & {
-  save: () => void;
-  restore: () => number | undefined;
+  save: () => Promise<void>;
+  restore: () => Promise<number | undefined>;
 } {
   const [position, setPosition] = useState<ReadingPosition | null>(null);
 
@@ -17,10 +17,10 @@ export function useReadingPosition(controller: ReaderController | null): Reading
     setPosition(pos);
   });
 
-  const save = useCallback(() => {
-    controller?.savePosition();
+  const save = useCallback(async () => {
+    await controller?.savePosition();
   }, [controller]);
-  const restore = useCallback(() => controller?.restorePosition(), [controller]);
+  const restore = useCallback(async () => controller?.restorePosition(), [controller]);
 
   return { position, save, restore };
 }

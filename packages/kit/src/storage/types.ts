@@ -1,5 +1,5 @@
 export interface PositionStorageAdapter {
-  load(): string | null;
-  save(serialized: string): void;
-  clear(): void;
+  load(): Promise<string | null>;
+  save(serialized: string): Promise<void>;
+  clear(): Promise<void>;
 }

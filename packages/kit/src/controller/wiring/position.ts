@@ -8,7 +8,7 @@ export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCol
   disposables.add(
     tracker.onPositionChange((position) => {
       emitter.emit('positionChange', { position });
-      options.positionStorage?.save(tracker.serialize());
+      void options.positionStorage?.save(tracker.serialize());
     }),
   );
 }

@@ -13,7 +13,7 @@ describe('@rito/kit', () => {
 
   it('exports storage adapters', async () => {
     const mod = await import('../src/storage');
-    expect(mod.createLocalStorageAdapter).toBeDefined();
+    expect(mod.createLocalStorageAnnotationAdapter).toBeDefined();
     expect(mod.createLocalStoragePositionAdapter).toBeDefined();
   });
 

@@ -1,5 +1,5 @@
 export {
-  createLocalStorageAdapter,
+  createLocalStorageAnnotationAdapter,
   createLocalStoragePositionAdapter,
   type PositionStorageAdapter,
 } from './storage/index';

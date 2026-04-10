@@ -1,2 +1,5 @@
 export type { PositionStorageAdapter } from './types';
-export { createLocalStorageAdapter, createLocalStoragePositionAdapter } from './local-storage';
+export {
+  createLocalStorageAnnotationAdapter,
+  createLocalStoragePositionAdapter,
+} from './local-storage';

@@ -1,8 +1,8 @@
 import type { AnnotationRecord, RecordStorageAdapter } from 'rito/annotations';
 import type { PositionStorageAdapter } from './types';
 
-/** Storage adapter that persists AnnotationRecords to localStorage. */
-export function createLocalStorageAdapter(key: string): RecordStorageAdapter {
+/** Persist annotation records to localStorage under the given key. */
+export function createLocalStorageAnnotationAdapter(key: string): RecordStorageAdapter {
   return {
     load(): Promise<readonly AnnotationRecord[]> {
       try {
@@ -17,35 +17,38 @@ export function createLocalStorageAdapter(key: string): RecordStorageAdapter {
       try {
         localStorage.setItem(key, JSON.stringify(records));
       } catch {
-        // Storage full or unavailable — silently fail
+        // Storage full or unavailable
       }
       return Promise.resolve();
     },
   };
 }
 
+/** Persist reading position to localStorage under the given key. */
 export function createLocalStoragePositionAdapter(key: string): PositionStorageAdapter {
   return {
-    load(): string | null {
+    load(): Promise<string | null> {
       try {
-        return localStorage.getItem(key);
+        return Promise.resolve(localStorage.getItem(key));
       } catch {
-        return null;
+        return Promise.resolve(null);
       }
     },
-    save(serialized: string): void {
+    save(serialized: string): Promise<void> {
       try {
         localStorage.setItem(key, serialized);
       } catch {
         // Storage full or unavailable
       }
+      return Promise.resolve();
     },
-    clear(): void {
+    clear(): Promise<void> {
       try {
         localStorage.removeItem(key);
       } catch {
-        // Ignore
+        // Storage full or unavailable
       }
+      return Promise.resolve();
     },
   };
 }

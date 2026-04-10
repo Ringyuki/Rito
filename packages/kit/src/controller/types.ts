@@ -146,8 +146,8 @@ export interface ReaderController {
   updateAnnotation(id: string, patch: AnnotationRecordPatch): boolean;
   readonly annotations: readonly AnnotationRecord[];
 
-  restorePosition(): number | undefined;
-  savePosition(): void;
+  restorePosition(): Promise<number | undefined>;
+  savePosition(): Promise<void>;
 
   setInteractionMode(mode: InteractionMode): void;
   readonly interactionMode: InteractionMode;

@@ -8,7 +8,7 @@ import {
   useAnnotations,
   useControllerEvent,
 } from '@rito/react';
-import { createLocalStoragePositionAdapter, createLocalStorageAdapter } from '@rito/kit';
+import { createLocalStoragePositionAdapter, createLocalStorageAnnotationAdapter } from '@rito/kit';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const FONT_SCALE_STEP = 0.1;
@@ -16,7 +16,7 @@ const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
-const annotationStorage = createLocalStorageAdapter('rito-annotations');
+const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
 
 function getThemeOptions(theme: 'light' | 'dark') {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
@@ -98,8 +98,9 @@ export function useReader(
   // Restore position after load
   useEffect(() => {
     if (!rito.isLoaded || !rito.controller) return;
-    const idx = rito.controller.restorePosition();
-    if (idx !== undefined) rito.goToSpread(idx);
+    void rito.controller.restorePosition().then((idx) => {
+      if (idx !== undefined) rito.goToSpread(idx);
+    });
   }, [rito.isLoaded]);
 
   // Actions
