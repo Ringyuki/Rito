@@ -174,7 +174,7 @@ pnpm run dev:reader
 ## Current Limitations
 
 - **CSS subset** — optimized for EPUB book layout, not full browser CSS. No flexbox, grid, multicolumn layout, or `position: absolute/fixed/sticky`.
-- **Selector subset** — supports element/class/ID/compound/descendant/child/adjacent-sibling selectors, attribute selectors, and `:first-child`/`:last-child` pseudo-classes. No `::before`/`::after` pseudo-elements, general sibling combinator (`~`), or `@media` queries.
+- **Selector subset** — supports element/class/ID/compound/descendant/child/adjacent-sibling selectors, attribute selectors, `:first-child`/`:last-child` pseudo-classes, and `::before`/`::after` pseudo-elements (with `content` string values; `display:block` on inline hosts is demoted to inline). No general sibling combinator (`~`) or `@media` queries.
 - **Language support** — layout is left-to-right only; no RTL/BiDi, and bundled hyphenation patterns are currently `en-us` only.
 - **TOC / internal links** — fragment identifiers resolve to exact anchor pages via `anchorMap` (scoped to target chapter). Relative `../` paths are normalized via `buildHrefResolver` with ambiguity detection.
 - **Typography overrides** — `setTypography()` applies reader-wide root/body overrides (`fontSize`, `lineHeight`, `fontFamily`). It is intentionally coarse and does not rewrite EPUB-authored selectors.
