@@ -19,7 +19,7 @@ import { ProgressBar } from '@/components/progress-bar';
 import { FileActions } from '@/components/file-actions';
 import { cn } from '@/lib/utils';
 
-interface MobileOverlayProps {
+interface ReaderOverlayProps {
   visible: boolean;
   isLoaded: boolean;
   isLoading: boolean;
@@ -42,7 +42,7 @@ interface MobileOverlayProps {
   onFileLoad: (data: ArrayBuffer) => void;
 }
 
-export function MobileOverlay({
+export function ReaderOverlay({
   visible,
   isLoaded,
   isLoading,
@@ -63,13 +63,13 @@ export function MobileOverlay({
   onToggleSpread,
   onLoadDemo,
   onFileLoad,
-}: MobileOverlayProps): React.JSX.Element | null {
+}: ReaderOverlayProps): React.JSX.Element | null {
   const [moreOpen, setMoreOpen] = useState(false);
 
   return (
     <div
       className={cn(
-        'fixed inset-0 z-40 flex flex-col justify-between lg:hidden',
+        'fixed inset-0 z-40 flex flex-col justify-between',
         'transition-opacity duration-200',
         visible ? 'pointer-events-auto opacity-100' : 'pointer-events-none opacity-0',
       )}

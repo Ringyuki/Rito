@@ -1,13 +1,11 @@
 import { useCallback, useState } from 'react';
 import { useContainerSize, useControllerEvent } from '@rito/react';
-import { Toolbar } from '@/components/toolbar';
-import { ProgressBar } from '@/components/progress-bar';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
-import { MobileOverlay } from '@/components/mobile-overlay';
+import { ReaderOverlay } from '@/components/reader-overlay';
 import { useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
-import { useMobileOverlay } from '@/hooks/use-mobile-overlay';
+import { useOverlay } from '@/hooks/use-overlay';
 import { Reader } from '@/components/reader';
 
 export function App() {
@@ -15,7 +13,7 @@ export function App() {
   const [containerRef, containerSize] = useContainerSize();
   const reader = useReader(theme, containerSize.width, containerSize.height);
   const [tocOpen, setTocOpen] = useState(false);
-  const overlay = useMobileOverlay();
+  const overlay = useOverlay();
 
   // Suppress overlay toggle when a canvas tap triggers a content interaction
   useControllerEvent(reader.controller, 'linkClick', overlay.suppress);
@@ -42,39 +40,6 @@ export function App() {
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
-      <div className="hidden lg:contents">
-        <Toolbar
-          isLoaded={reader.isLoaded}
-          isLoading={reader.isLoading}
-          currentSpread={reader.currentSpread}
-          totalSpreads={reader.spreads.length}
-          spreadMode={reader.spreadMode}
-          bookTitle={reader.bookTitle}
-          theme={theme}
-          onLoadDemo={() => {
-            void reader.loadDemo();
-          }}
-          onFileLoad={handleFileLoad}
-          onPrev={reader.prevSpread}
-          onNext={reader.nextSpread}
-          fontScale={reader.fontScale}
-          onToggleSpread={reader.toggleSpreadMode}
-          onToggleTheme={toggleTheme}
-          onToggleToc={handleToggleToc}
-          onToggleSearch={handleToggleSearch}
-          onIncreaseFontSize={reader.increaseFontSize}
-          onDecreaseFontSize={reader.decreaseFontSize}
-        />
-      </div>
-
-      <div className="hidden lg:contents">
-        <ProgressBar
-          current={reader.currentSpread}
-          total={reader.spreads.length}
-          onSeek={reader.goToSpread}
-        />
-      </div>
-
       <Reader containerRef={containerRef} reader={reader} />
 
       <SearchBar
@@ -91,7 +56,7 @@ export function App() {
         activeChapterHref={reader.activeChapterHref}
       />
 
-      <MobileOverlay
+      <ReaderOverlay
         visible={overlay.visible}
         isLoaded={reader.isLoaded}
         isLoading={reader.isLoading}

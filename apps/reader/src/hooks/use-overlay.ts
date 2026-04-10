@@ -1,17 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-const MOBILE_BREAKPOINT = 640;
 const TAP_SLOP = 10;
 
 /**
- * Manages mobile overlay visibility with tap-to-toggle.
- * Tapping the center third of the viewport toggles the overlay.
- * Drags, interactive element taps, and desktop viewports are ignored.
+ * Manages overlay visibility with tap-to-toggle.
+ * Tapping the reader area toggles the overlay on all viewport sizes.
+ * Drags and interactive element taps are ignored.
  *
  * Call `suppress()` from content-interaction handlers (e.g. image/link/
  * footnote/annotation click) to prevent the next tap from toggling.
  */
-export function useMobileOverlay(): {
+export function useOverlay(): {
   visible: boolean;
   hide: () => void;
   toggle: () => void;
@@ -30,12 +29,13 @@ export function useMobileOverlay(): {
     };
 
     const onUp = (e: PointerEvent): void => {
-      if (window.innerWidth >= MOBILE_BREAKPOINT) return;
       if (Math.abs(e.clientX - downX) > TAP_SLOP || Math.abs(e.clientY - downY) > TAP_SLOP) return;
 
       const target = e.target as HTMLElement;
       if (
-        target.closest('button, a, input, textarea, [role="button"], [role="dialog"], [data-slot]')
+        target.closest(
+          'button, a, input, textarea, [role="button"], [role="dialog"], [data-slot], [data-state]',
+        )
       )
         return;
 
