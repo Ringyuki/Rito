@@ -1,18 +1,12 @@
 import { DISPLAY_VALUES, type StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import { resolveHorizontalBoxMetrics, resolveHorizontalOffset } from './box-metrics';
 import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
-import {
-  applyRelativeOffset,
-  applySizeConstraints,
-  indentBlocks,
-  layoutTextBlock,
-} from './primitives';
+import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
 import {
   resolveMarginBottom,
-  resolveMarginLeft,
-  resolveMarginRight,
   resolveMarginTop,
   resolvePaddingBottom,
   resolvePaddingLeft,
@@ -51,11 +45,8 @@ export function layoutContainerBlock(
   const collapsed = collapseContainerMarginTop(node, state, paddingTop, contentWidth);
 
   // Apply the container's own width/maxWidth constraint before subtracting padding
-  const ml = resolveMarginLeft(node.style, contentWidth);
-  const mr = resolveMarginRight(node.style, contentWidth);
-  let effectiveWidth = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
-  effectiveWidth = applySizeConstraints(effectiveWidth, node.style);
-  const childWidth = effectiveWidth - paddingLeft - paddingRight;
+  const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
+  const childWidth = metrics.targetWidth - paddingLeft - paddingRight;
 
   const childBlocks = layoutNodesAt(
     collapsed.children,
@@ -67,7 +58,13 @@ export function layoutContainerBlock(
     childListCtx ?? listCtx,
   );
 
-  const xOffset = computeAutoMarginOffset(ml, mr, node.style, effectiveWidth, contentWidth);
+  const xOffset = resolveHorizontalOffset(
+    contentWidth,
+    metrics.targetWidth,
+    node.style,
+    metrics.marginLeft,
+    metrics.marginRight,
+  );
   const totalIndent = paddingLeft + xOffset;
   const indented = totalIndent > 0 ? indentBlocks(childBlocks, totalIndent) : childBlocks;
   applyPageBreakFlags(indented, node.style);
@@ -108,25 +105,6 @@ function collapseContainerMarginTop(
   const children = collectAndZeroMarginChain(node.children, margins, containerWidth);
   collapseMargin(state, collapseMarginChain(margins));
   return { startY: state.y, children };
-}
-
-function computeAutoMarginOffset(
-  ml: number,
-  mr: number,
-  style: StyledNode['style'],
-  effectiveWidth: number,
-  contentWidth: number,
-): number {
-  let xOffset = ml;
-  if ((style.marginLeftAuto || style.marginRightAuto) && effectiveWidth < contentWidth) {
-    const remaining = contentWidth - effectiveWidth;
-    if (style.marginLeftAuto && style.marginRightAuto) {
-      xOffset = remaining / 2;
-    } else if (style.marginLeftAuto) {
-      xOffset = remaining - mr;
-    }
-  }
-  return xOffset;
 }
 
 function isFirstInFlow(c: StyledNode): boolean {
@@ -184,27 +162,21 @@ export function layoutLeafBlock(
 ): void {
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
 
-  const ml = resolveMarginLeft(node.style, contentWidth);
-  const mr = resolveMarginRight(node.style, contentWidth);
-  const mlAuto = node.style.marginLeftAuto;
-  const mrAuto = node.style.marginRightAuto;
+  const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
+  const floatIndent = state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
+  const width = Math.max(metrics.targetWidth - floatIndent, 1);
 
-  let width = ml + mr > 0 ? contentWidth - ml - mr : contentWidth;
-  width = applySizeConstraints(width, node.style);
-  width -= state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
-
-  let block = layoutTextBlock(node, Math.max(width, 1), state.y, layouter, imageSizes);
+  let block = layoutTextBlock(node, width, state.y, layouter, imageSizes);
   block = addListMarker(block, node, listCtx);
 
-  let xOffset = ml + state.floats.getLeftWidth(state.y);
-  if ((mlAuto || mrAuto) && block.bounds.width < contentWidth) {
-    const remaining = contentWidth - block.bounds.width;
-    if (mlAuto && mrAuto) {
-      xOffset = remaining / 2;
-    } else if (mlAuto) {
-      xOffset = remaining - mr;
-    }
-  }
+  const xOffset = resolveHorizontalOffset(
+    contentWidth,
+    block.bounds.width,
+    node.style,
+    metrics.marginLeft,
+    metrics.marginRight,
+    state.floats.getLeftWidth(state.y),
+  );
 
   if (xOffset > 0) {
     block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };

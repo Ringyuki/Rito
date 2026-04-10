@@ -9,6 +9,7 @@ import type { ListContext } from './list';
 import { layoutHorizontalRule } from './primitives';
 import { layoutContainerBlock, layoutLeafBlock, type LayoutNodesAtFn } from './flow-layout';
 import { layoutFloatedBlock } from './float-layout';
+import { resolveHorizontalBoxMetrics, resolveHorizontalOffset } from './box-metrics';
 import { resolveMarginBottom, resolveMarginTop } from './resolve-pct';
 import { collapseMargin, type LayoutState } from './state';
 import type { ImageSizeMap } from './types';
@@ -117,7 +118,21 @@ function placeTable(
   layouter: ParagraphLayouter,
 ): void {
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
-  let block: LayoutBlock = layoutTable(node, contentWidth, state.y, layouter);
+
+  const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
+  let block: LayoutBlock = layoutTable(node, metrics.targetWidth, state.y, layouter);
+
+  const xOffset = resolveHorizontalOffset(
+    contentWidth,
+    block.bounds.width,
+    node.style,
+    metrics.marginLeft,
+    metrics.marginRight,
+  );
+  if (xOffset > 0) {
+    block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
+  }
+
   if (node.tag) block = { ...block, semanticTag: node.tag };
   if (node.id) block = { ...block, anchorId: node.id };
   state.blocks.push(withPageBreaks(block, node.style));
