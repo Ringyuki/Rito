@@ -1,5 +1,10 @@
-import { stepSpring, type SpringState } from './spring';
 import { rubberBand } from './rubber-band';
+import {
+  getSlotPositions,
+  stepSettling,
+  stepBoundaryElastic,
+  forceSettleMode,
+} from './transition-steps';
 import type {
   DrawInstruction,
   SettledEvent,
@@ -53,9 +58,6 @@ export interface TransitionDriver {
 
   /**
    * Instantly complete the current animation: snap dx to target, trigger onSettled.
-   * For settling/tracking with a target: commits (rotation happens via onSettled).
-   * For boundary-elastic/tracking without target: cancels.
-   * Result: mode is idle, pool is rotated, state is clean for the next navigation.
    * Returns the residual dx at the moment of force-settle (for visual continuity).
    */
   forceSettle(): number;
@@ -113,17 +115,6 @@ export function createTransitionDriver(
   const settledListeners = new Set<(event: SettledEvent) => void>();
   let velocitySamples: VelocitySample[] = [];
 
-  /** Map mode to slot positions for draw instructions. */
-  function getSlotPositions(m: TransitionMode & { kind: 'tracking' | 'settling' }): {
-    outgoing: 'curr' | 'prev' | 'next';
-    incoming: 'curr' | 'prev' | 'next' | null;
-  } {
-    return {
-      outgoing: 'curr' as const,
-      incoming: m.incomingSpread !== null ? (m.direction === 'forward' ? 'next' : 'prev') : null,
-    };
-  }
-
   function emitSettled(event: SettledEvent): void {
     for (const cb of settledListeners) cb(event);
   }
@@ -158,15 +149,8 @@ export function createTransitionDriver(
     updateTracking(rawDx, timestamp): void {
       if (mode.kind !== 'tracking') return;
 
-      let dx: number;
-      if (mode.incomingSpread === null) {
-        // Boundary — apply rubber band
-        dx = rubberBand(rawDx, W, opts.elasticFactor);
-      } else {
-        dx = rawDx;
-      }
+      const dx = mode.incomingSpread === null ? rubberBand(rawDx, W, opts.elasticFactor) : rawDx;
 
-      // Sliding window velocity estimation
       velocitySamples.push({ dx, timestamp });
       if (velocitySamples.length > VELOCITY_WINDOW_SIZE) {
         velocitySamples.shift();
@@ -187,9 +171,7 @@ export function createTransitionDriver(
         return 'cancel';
       }
 
-      // Cancel if position OR velocity indicates the user is pulling back:
-      // - dx crossed zero (clearly reversed)
-      // - velocity opposes the commit direction (user is dragging back even if dx hasn't crossed 0)
+      // Cancel if position OR velocity indicates the user is pulling back
       const dxReversed =
         (direction === 'forward' && dx > 0) || (direction === 'backward' && dx < 0);
       const pullingBack =
@@ -200,21 +182,10 @@ export function createTransitionDriver(
       }
 
       // Commit decision: project current position + velocity forward in time.
-      // If projected position exceeds threshold, commit the transition.
       const projected = Math.abs(dx + vx * PROJECTION_MS);
       const committed = projected > opts.swipeThreshold || Math.abs(vx) > opts.velocityCommit;
-
       const target = committed ? (direction === 'forward' ? -W : W) : 0;
-      mode = {
-        kind: 'settling',
-        direction,
-        outgoingSpread,
-        incomingSpread,
-        target,
-        dx,
-        vx,
-      };
-
+      mode = { kind: 'settling', direction, outgoingSpread, incomingSpread, target, dx, vx };
       return committed ? 'commit' : 'cancel';
     },
 
@@ -266,116 +237,30 @@ export function createTransitionDriver(
         case 'idle':
           return { kind: 'single', slot: 'curr' };
 
-        case 'tracking': {
-          const slots = getSlotPositions(mode);
-          return {
-            kind: 'turning',
-            outgoing: slots.outgoing,
-            incoming: slots.incoming,
-            dx: mode.dx,
-          };
-        }
+        case 'tracking':
+          return { kind: 'turning', ...getSlotPositions(mode), dx: mode.dx };
 
         case 'settling': {
-          const spring: SpringState = { x: mode.dx, vx: mode.vx };
-          const settled = stepSpring(spring, mode.target, opts, dt);
-          mode.dx = spring.x;
-          mode.vx = spring.vx;
-
-          if (settled) {
-            const committed = mode.target !== 0;
-            const event: SettledEvent = {
-              direction: mode.direction,
-              committed,
-              targetSpread: committed
-                ? (mode.incomingSpread ?? mode.outgoingSpread)
-                : mode.outgoingSpread,
-            };
-            mode = { kind: 'idle' };
-            emitSettled(event);
-            return { kind: 'single', slot: 'curr' };
-          }
-
-          const slots = getSlotPositions(mode);
-          return {
-            kind: 'turning',
-            outgoing: slots.outgoing,
-            incoming: slots.incoming,
-            dx: mode.dx,
-          };
+          const result = stepSettling(mode, opts, dt);
+          mode = result.nextMode;
+          if (result.settled) emitSettled(result.settled);
+          return result.instruction;
         }
 
         case 'boundary-elastic': {
-          const spring: SpringState = { x: mode.dx, vx: mode.vx };
-          const settled = stepSpring(spring, 0, opts, dt);
-          mode.dx = spring.x;
-          mode.vx = spring.vx;
-
-          if (settled) {
-            const event: SettledEvent = {
-              direction: 'forward',
-              committed: false,
-              targetSpread: mode.slotSpread,
-            };
-            mode = { kind: 'idle' };
-            emitSettled(event);
-            return { kind: 'single', slot: 'curr' };
-          }
-
-          return {
-            kind: 'turning',
-            outgoing: 'curr',
-            incoming: null,
-            dx: mode.dx,
-          };
+          const result = stepBoundaryElastic(mode, opts, dt);
+          mode = result.nextMode;
+          if (result.settled) emitSettled(result.settled);
+          return result.instruction;
         }
       }
     },
 
     forceSettle(): number {
-      switch (mode.kind) {
-        case 'idle':
-          return 0;
-        case 'settling': {
-          const residualDx = mode.dx;
-          const committed = mode.target !== 0;
-          const event: SettledEvent = {
-            direction: mode.direction,
-            committed,
-            targetSpread: committed
-              ? (mode.incomingSpread ?? mode.outgoingSpread)
-              : mode.outgoingSpread,
-          };
-          mode = { kind: 'idle' };
-          emitSettled(event);
-          return residualDx;
-        }
-        case 'tracking': {
-          const residualDx = mode.dx;
-          const committed = mode.incomingSpread !== null;
-          const event: SettledEvent = {
-            direction: mode.direction,
-            committed,
-            targetSpread: committed
-              ? (mode.incomingSpread ?? mode.outgoingSpread)
-              : mode.outgoingSpread,
-          };
-          mode = { kind: 'idle' };
-          emitSettled(event);
-          return residualDx;
-        }
-        case 'boundary-elastic': {
-          const residualDx = mode.dx;
-          const event: SettledEvent = {
-            direction: 'forward',
-            committed: false,
-            targetSpread: mode.slotSpread,
-          };
-          mode = { kind: 'idle' };
-          emitSettled(event);
-          return residualDx;
-        }
-      }
+      const result = forceSettleMode(mode);
+      mode = { kind: 'idle' };
+      if (result.settled) emitSettled(result.settled);
+      return result.residualDx;
     },
 
     configure(update): void {

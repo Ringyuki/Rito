@@ -1,4 +1,5 @@
 import type { LayoutBlock, LineBox, Page, Rect } from '../../layout/core/types';
+import { offsetBounds } from './bounds';
 
 /** ARIA-compatible semantic roles derived from HTML tags. */
 export type SemanticRole =
@@ -37,7 +38,7 @@ function blockToSemantic(
 ): SemanticNode | undefined {
   const bx = offsetX + block.bounds.x;
   const by = offsetY + block.bounds.y;
-  const bounds = absoluteBounds(block.bounds, offsetX, offsetY);
+  const bounds = offsetBounds(block.bounds, offsetX, offsetY);
   const role = tagToRole(block.semanticTag);
   const level = parseHeadingLevel(block.semanticTag);
 
@@ -53,7 +54,7 @@ function blockToSemantic(
     } else if (child.type === 'image') {
       const imgNode: SemanticNode = {
         role: 'image',
-        bounds: absoluteBounds(child.bounds, bx, by),
+        bounds: offsetBounds(child.bounds, bx, by),
         children: [],
       };
       children.push(child.alt ? { ...imgNode, alt: child.alt } : imgNode);
@@ -88,7 +89,7 @@ function extractLineLinks(lineBox: LineBox, offsetX: number, offsetY: number): S
       role: 'link',
       href: run.href,
       text: run.text,
-      bounds: absoluteBounds(run.bounds, lx, ly),
+      bounds: offsetBounds(run.bounds, lx, ly),
       children: [],
     });
   }
@@ -120,8 +121,4 @@ function parseHeadingLevel(tag?: string): number | undefined {
   if (!tag || tag.length !== 2 || tag[0] !== 'h') return undefined;
   const n = parseInt(tag[1] ?? '', 10);
   return n >= 1 && n <= 6 ? n : undefined;
-}
-
-function absoluteBounds(b: Rect, offsetX: number, offsetY: number): Rect {
-  return { x: offsetX + b.x, y: offsetY + b.y, width: b.width, height: b.height };
 }

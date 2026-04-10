@@ -3,6 +3,8 @@ import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 import type { ControllerOptions, ReaderControllerEvents } from '../types';
+import type { Internals } from './internals';
+import type { NavigationActions } from '../navigation/index';
 
 export interface WiringDeps {
   reader: Reader;
@@ -17,6 +19,33 @@ export interface WiringDeps {
   getRenderScale: () => number;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
+}
+
+/** Build a WiringDeps object from internals + runtime components. */
+export function buildWiringDeps(
+  internals: Internals,
+  emitter: TypedEmitter<ReaderControllerEvents>,
+  frameDriver: FrameDriver,
+  canvas: HTMLCanvasElement,
+  nav: NavigationActions,
+): WiringDeps {
+  return {
+    reader: internals.reader,
+    engines: internals.engines,
+    emitter,
+    frameDriver,
+    options: internals.options,
+    coordState: internals.coordState,
+    canvas,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (i) => {
+      internals.currentSpread = i;
+    },
+    getRenderScale: () => internals.renderScale,
+    goToSpread: (i) => {
+      nav.goToSpread(i);
+    },
+  };
 }
 
 /** Convert a PointerEvent to spread-content coordinates via the mapper. */

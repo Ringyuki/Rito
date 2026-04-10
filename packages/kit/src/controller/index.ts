@@ -9,26 +9,25 @@ import { createFrameDriver } from '../driver/frame-driver';
 import { createEmitter } from '../utils/event-emitter';
 import { createDisposableCollection } from '../utils/disposable';
 import { createCoordinatorState } from './core/index';
+import { buildWiringDeps } from './core/wiring-deps';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
 import { createNavigation } from './navigation/index';
 import { createEngines } from './engines/index';
 import { buildController, syncCanvasSize, type Internals } from './facade';
-import { clientToSpreadContent } from './core/wiring-deps';
+import { scheduleIdlePrerender } from './prerender';
 import {
   wireDomHelpers,
   wireEngineEvents,
   wireKeyboard,
   wirePositionTracker,
   wireSpreadRendered,
-  wireUnifiedTouchHandler,
 } from './wiring/index';
 import { wireA11y } from './wiring/a11y';
-import { dispatchClick } from './wiring/click-dispatch';
+import { wireTouchGestures } from './wiring/touch';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
 import type { OverlayLayer } from '../painter/types';
 import type { RuntimeComponents } from './facade/types';
-import type { GestureDeps } from './wiring/gesture';
 
 export type {
   ReaderController,
@@ -106,34 +105,7 @@ function bootstrapRuntime(
     reader.renderSpreadTo(spreadIndex, ctx);
   };
 
-  const overlayProvider = (spreadIndex: number): readonly OverlayLayer[] => {
-    const spread = reader.spreads[spreadIndex];
-    if (!spread) return [];
-
-    const isCurrent = spreadIndex === internals.currentSpread;
-    const mapper =
-      isCurrent && coordState.mapper
-        ? coordState.mapper
-        : createCoordinateMapper(reader.getLayoutGeometry(), spread, internals.renderScale);
-
-    // For current spread: use live coordState (has hitMaps, annotations).
-    // For adjacent spreads: build ephemeral hitMaps + resolve annotations on the fly,
-    // so search highlights and annotations are visible during page-turn animation.
-    const data = isCurrent
-      ? buildOverlayData(spread, engines, reader, coordState, mapper)
-      : buildAdjacentOverlayData(spread, engines, reader, coordState, mapper);
-
-    return mergeOverlayLayers(
-      data.selectionRects,
-      data.searchRects,
-      data.activeSearchRects,
-      data.annotationLayers,
-    );
-  };
-
-  const getBackingRatio = (): number => {
-    return reader.dpr * internals.renderScale;
-  };
+  const overlayProvider = buildOverlayProvider(internals, engines, reader, coordState);
 
   const frameDriver = createFrameDriver({
     surface,
@@ -141,43 +113,10 @@ function bootstrapRuntime(
     transitionDriver: td,
     contentRenderer,
     overlayProvider,
-    getBackingRatio,
+    getBackingRatio: () => reader.dpr * internals.renderScale,
   });
 
-  // Wire transition settled events
-  td.onSettled((event) => {
-    if (event.committed) {
-      const dir = event.direction;
-      if (dir === 'forward') pool.rotateForward();
-      else pool.rotateBackward();
-
-      // Update currentSpread (idempotent for goToSpread, essential for gesture commits).
-      // Do NOT re-emit spreadChange — goToSpread already emitted it at navigation start.
-      // Do NOT call notifyActiveSpread — goToSpread already rebuilt coordinator state
-      // (hitMaps, mapper, annotations are keyed by spread/page index, unaffected by pool rotation).
-      internals.currentSpread = event.targetSpread;
-
-      scheduleIdlePrerender(
-        () => internals.currentSpread,
-        () => td.isAnimating,
-        reader,
-        pool,
-        contentRenderer,
-      );
-    } else {
-      // Gesture canceled or boundary elastic — revert state if it was changed.
-      // goToSpread sets currentSpread eagerly; on cancel we must undo.
-      const outgoing = event.targetSpread; // = outgoingSpread for cancel
-      if (internals.currentSpread !== outgoing) {
-        internals.currentSpread = outgoing;
-        reader.notifyActiveSpread(outgoing);
-        const spread = reader.spreads[outgoing];
-        if (spread) emitter.emit('spreadChange', { spreadIndex: outgoing, spread });
-      }
-    }
-    emitter.emit('transitionEnd', { direction: event.direction });
-    frameDriver.scheduleComposite();
-  });
+  wireSettledEvents(internals, td, pool, emitter, frameDriver, reader, contentRenderer);
 
   const runtime: RuntimeComponents = { td, frameDriver, pool, surface };
 
@@ -195,9 +134,85 @@ function bootstrapRuntime(
     contentRenderer,
   });
 
-  wireAll(reader, internals, emitter, frameDriver, disposables, coordState, canvas, nav);
+  // Wire all event-based integrations
+  const deps = buildWiringDeps(internals, emitter, frameDriver, canvas, nav);
+  wireSpreadRendered(deps, disposables);
+  wireEngineEvents(deps, disposables);
+  wirePositionTracker(deps, disposables);
+  wireDomHelpers(deps, disposables);
 
   return { internals, runtime, nav };
+}
+
+function buildOverlayProvider(
+  internals: Internals,
+  engines: Internals['engines'],
+  reader: Reader,
+  coordState: Internals['coordState'],
+): (spreadIndex: number) => readonly OverlayLayer[] {
+  return (spreadIndex) => {
+    const spread = reader.spreads[spreadIndex];
+    if (!spread) return [];
+
+    const isCurrent = spreadIndex === internals.currentSpread;
+    const mapper =
+      isCurrent && coordState.mapper
+        ? coordState.mapper
+        : createCoordinateMapper(reader.getLayoutGeometry(), spread, internals.renderScale);
+
+    const data = isCurrent
+      ? buildOverlayData(spread, engines, reader, coordState, mapper)
+      : buildAdjacentOverlayData(spread, engines, reader, coordState, mapper);
+
+    return mergeOverlayLayers(
+      data.selectionRects,
+      data.searchRects,
+      data.activeSearchRects,
+      data.annotationLayers,
+    );
+  };
+}
+
+function wireSettledEvents(
+  internals: Internals,
+  td: ReturnType<typeof createTransitionDriver>,
+  pool: ReturnType<typeof createPageBufferPool>,
+  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  frameDriver: ReturnType<typeof createFrameDriver>,
+  reader: Reader,
+  contentRenderer: (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void,
+): void {
+  td.onSettled((event) => {
+    if (event.committed) {
+      if (event.direction === 'forward') pool.rotateForward();
+      else pool.rotateBackward();
+
+      // Update currentSpread (idempotent for goToSpread, essential for gesture commits).
+      // Do NOT re-emit spreadChange — goToSpread already emitted it at navigation start.
+      // Do NOT call notifyActiveSpread — goToSpread already rebuilt coordinator state
+      // (hitMaps, mapper, annotations are keyed by spread/page index, unaffected by pool rotation).
+      internals.currentSpread = event.targetSpread;
+
+      scheduleIdlePrerender(
+        () => internals.currentSpread,
+        () => td.isAnimating,
+        reader,
+        pool,
+        contentRenderer,
+      );
+    } else {
+      // Gesture canceled or boundary elastic — revert state if it was changed.
+      const outgoing = event.targetSpread;
+      if (internals.currentSpread !== outgoing) {
+        internals.currentSpread = outgoing;
+        reader.notifyActiveSpread(outgoing);
+        const spread = reader.spreads[outgoing];
+        if (spread) emitter.emit('spreadChange', { spreadIndex: outgoing, spread });
+      }
+    }
+    emitter.emit('transitionEnd', { direction: event.direction });
+    frameDriver.scheduleComposite();
+  });
 }
 
 function wireIntegrations(
@@ -236,158 +251,4 @@ function wireIntegrations(
   );
 
   return { keyboard: kbd, modeManager: mm };
-}
-
-function wireTouchGestures(
-  internals: Internals,
-  runtime: RuntimeComponents,
-  modeManager: ReturnType<typeof createInteractionModeManager>,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  nav: ReturnType<typeof createNavigation>,
-  reader: Reader,
-  canvas: HTMLCanvasElement,
-  disposables: ReturnType<typeof createDisposableCollection>,
-): void {
-  // Cache canvas rect for the duration of a touch gesture to avoid
-  // repeated getBoundingClientRect calls during high-frequency touchmove events.
-  let cachedRect: DOMRect | null = null;
-  const cacheCanvasRect = (): void => {
-    cachedRect = canvas.getBoundingClientRect();
-  };
-  const clearCanvasRect = (): void => {
-    cachedRect = null;
-  };
-  const touchToContent = (touch: Touch) =>
-    clientToSpreadContent(
-      touch.clientX,
-      touch.clientY,
-      cachedRect ?? canvas.getBoundingClientRect(),
-      internals.coordState,
-    );
-
-  const gestureDeps: GestureDeps = {
-    td: runtime.td,
-    frameDriver: runtime.frameDriver,
-    goToSpread: (i: number) => {
-      nav.goToSpread(i);
-    },
-    getCurrentSpread: () => internals.currentSpread,
-    getTotalSpreads: () => reader.totalSpreads,
-    commitPendingTransition: () => {
-      if (runtime.td.isAnimating) {
-        runtime.td.forceSettle();
-      }
-    },
-  };
-
-  const wiringDeps = {
-    reader,
-    engines: internals.engines,
-    emitter,
-    frameDriver: runtime.frameDriver,
-    options: internals.options,
-    coordState: internals.coordState,
-    canvas,
-    getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i: number) => {
-      internals.currentSpread = i;
-    },
-    getRenderScale: () => internals.renderScale,
-    goToSpread: (i: number) => {
-      nav.goToSpread(i);
-    },
-  };
-
-  const handleTap = (pos: { x: number; y: number }) => {
-    dispatchClick(pos, wiringDeps);
-  };
-
-  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
-  canvas.addEventListener('touchend', clearCanvasRect);
-  canvas.addEventListener('touchcancel', clearCanvasRect);
-  disposables.add(() => {
-    canvas.removeEventListener('touchstart', cacheCanvasRect);
-    canvas.removeEventListener('touchend', clearCanvasRect);
-    canvas.removeEventListener('touchcancel', clearCanvasRect);
-  });
-
-  wireUnifiedTouchHandler(
-    canvas,
-    gestureDeps,
-    internals.engines.selection,
-    modeManager,
-    touchToContent,
-    handleTap,
-    disposables,
-  );
-}
-
-function wireAll(
-  reader: Reader,
-  internals: Internals,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  frameDriver: ReturnType<typeof createFrameDriver>,
-  disposables: ReturnType<typeof createDisposableCollection>,
-  coordState: ReturnType<typeof createCoordinatorState>,
-  canvas: HTMLCanvasElement,
-  nav: ReturnType<typeof createNavigation>,
-): void {
-  const deps = {
-    reader,
-    engines: internals.engines,
-    emitter,
-    frameDriver,
-    options: internals.options,
-    coordState,
-    canvas,
-    getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i: number) => {
-      internals.currentSpread = i;
-    },
-    getRenderScale: () => internals.renderScale,
-    goToSpread: (i: number) => {
-      nav.goToSpread(i);
-    },
-  };
-  wireSpreadRendered(deps, disposables);
-  wireEngineEvents(deps, disposables);
-  wirePositionTracker(deps, disposables);
-  wireDomHelpers(deps, disposables);
-}
-
-/**
- * Schedule prerendering of adjacent spreads using requestIdleCallback.
- * Falls back to setTimeout if rIC is unavailable.
- *
- * Uses a live getCurrentSpread getter so the callback always reads the
- * current spread at execution time, not the value captured at scheduling time.
- */
-function scheduleIdlePrerender(
-  getCurrentSpread: () => number,
-  isAnimating: () => boolean,
-  reader: Reader,
-  pool: ReturnType<typeof createPageBufferPool>,
-  contentRenderer: (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void,
-): void {
-  const schedule =
-    typeof requestIdleCallback !== 'undefined'
-      ? requestIdleCallback
-      : (cb: () => void) => setTimeout(cb, 1);
-
-  schedule(() => {
-    // Skip if a navigation is in progress — goToSpread has already set up
-    // the incoming slot, and overwriting it with prerender data would corrupt it.
-    if (isAnimating()) return;
-
-    const cs = getCurrentSpread();
-    const total = reader.totalSpreads;
-    if (cs + 1 < total) {
-      pool.assignSlot('next', cs + 1);
-      pool.ensureContent('next', contentRenderer);
-    }
-    if (cs - 1 >= 0) {
-      pool.assignSlot('prev', cs - 1);
-      pool.ensureContent('prev', contentRenderer);
-    }
-  });
 }

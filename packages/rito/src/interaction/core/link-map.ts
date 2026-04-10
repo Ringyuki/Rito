@@ -1,11 +1,4 @@
-import type {
-  InlineAtom,
-  LayoutBlock,
-  LineBox,
-  Page,
-  Rect,
-  TextRun,
-} from '../../layout/core/types';
+import type { LayoutBlock, LineBox, Page, Rect } from '../../layout/core/types';
 import type { LinkRegion } from './types';
 
 /**
@@ -74,7 +67,7 @@ function collectLineLinks(
   const ly = offsetY + lineBox.bounds.y;
 
   for (const run of lineBox.runs) {
-    const href = getRunHref(run);
+    const href = run.href;
     if (!href) continue;
 
     out.push({
@@ -88,10 +81,6 @@ function collectLineLinks(
       text: run.type === 'text-run' ? run.text : '',
     });
   }
-}
-
-function getRunHref(run: TextRun | InlineAtom): string | undefined {
-  return run.href;
 }
 
 /**

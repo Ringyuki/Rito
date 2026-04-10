@@ -89,14 +89,8 @@ function dispatchLinkClick(
 
   // External link
   if (href.startsWith('http://') || href.startsWith('https://')) {
-    emitter.emit('linkClick', {
-      href,
-      text: region.text,
-      type: 'external',
-      navigate: () => {
-        window.open(href, '_blank', 'noopener');
-      },
-    });
+    const navigate = () => window.open(href, '_blank', 'noopener');
+    emitter.emit('linkClick', { href, text: region.text, type: 'external', navigate });
     return;
   }
 

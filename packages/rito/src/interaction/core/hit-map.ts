@@ -2,6 +2,7 @@ import type { InlineAtom, LayoutBlock, LineBox, Page, TextRun } from '../../layo
 import type { ComputedStyle } from '../../style/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
+import { offsetBounds } from './bounds';
 import { walkPageLineBoxes } from './text-traversal';
 
 /**
@@ -117,7 +118,7 @@ function textRunEntry(
   runIndex: number,
 ): HitEntry {
   const entry: HitEntry = {
-    bounds: absoluteBounds(run.bounds, offsetX, offsetY),
+    bounds: offsetBounds(run.bounds, offsetX, offsetY),
     blockIndex,
     lineIndex,
     runIndex,
@@ -140,7 +141,7 @@ function atomEntry(
   defaultStyle: ComputedStyle,
 ): HitEntry {
   const entry: HitEntry = {
-    bounds: absoluteBounds(atom.bounds, offsetX, offsetY),
+    bounds: offsetBounds(atom.bounds, offsetX, offsetY),
     blockIndex,
     lineIndex,
     runIndex,
@@ -170,7 +171,7 @@ function collectBlockImages(
   for (const child of blocks) {
     if (child.type === 'image') {
       let imgEntry: HitEntry = {
-        bounds: absoluteBounds(child.bounds, offsetX, offsetY),
+        bounds: offsetBounds(child.bounds, offsetX, offsetY),
         blockIndex,
         lineIndex: 0,
         runIndex: 0,
@@ -191,17 +192,4 @@ function collectBlockImages(
       );
     }
   }
-}
-
-function absoluteBounds(
-  bounds: { x: number; y: number; width: number; height: number },
-  offsetX: number,
-  offsetY: number,
-) {
-  return {
-    x: offsetX + bounds.x,
-    y: offsetY + bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-  };
 }
