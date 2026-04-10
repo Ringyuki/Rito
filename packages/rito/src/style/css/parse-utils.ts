@@ -51,6 +51,7 @@ function parseBoxLength(
   value: string,
   parentFontSize: number,
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+  viewport?: Viewport,
 ): number | undefined {
   const trimmed = value.trim();
   // Bare non-zero percentage
@@ -59,14 +60,21 @@ function parseBoxLength(
   }
   // calc() containing % — also unresolvable
   if (trimmed.includes('calc') && trimmed.includes('%')) return undefined;
-  return parseLength(value, parentFontSize, rootFontSize);
+  return parseLength(value, parentFontSize, rootFontSize, viewport);
 }
 
-/** Parse a CSS length value (px, pt, em, rem, %) to a number in px. */
+/** Viewport dimensions for resolving vh/vw units. */
+export interface Viewport {
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Parse a CSS length value (px, pt, em, rem, %, vh, vw) to a number in px. */
 export function parseLength(
   value: string,
   parentFontSize: number,
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+  viewport?: Viewport,
 ): number | undefined {
   const trimmed = value.trim().toLowerCase();
 
@@ -78,6 +86,8 @@ export function parseLength(
   if (trimmed.endsWith('px')) return parseFloat(trimmed);
   if (trimmed.endsWith('pt')) return parseFloat(trimmed) * (4 / 3);
   if (trimmed.endsWith('rem')) return parseFloat(trimmed) * rootFontSize;
+  if (trimmed.endsWith('vh') && viewport) return (parseFloat(trimmed) / 100) * viewport.height;
+  if (trimmed.endsWith('vw') && viewport) return (parseFloat(trimmed) / 100) * viewport.width;
   if (trimmed.endsWith('em')) return parseFloat(trimmed) * parentFontSize;
   if (trimmed.endsWith('%')) return (parseFloat(trimmed) / 100) * parentFontSize;
   const num = parseFloat(trimmed);
@@ -95,6 +105,7 @@ export function applyBoxShorthand(
   parentFontSize: number,
   keys: readonly [BoxSideKey, BoxSideKey, BoxSideKey, BoxSideKey],
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+  viewport?: Viewport,
 ): void {
   const parts = splitBoxValues(value.trim());
   const mapping = resolveBoxMapping(parts);
@@ -108,7 +119,7 @@ export function applyBoxShorthand(
   ] as const) {
     if (raw === undefined) continue;
     if (tryAssignPct(result, key, raw)) continue;
-    const parsed = parseBoxLength(raw, parentFontSize, rootFontSize);
+    const parsed = parseBoxLength(raw, parentFontSize, rootFontSize, viewport);
     if (parsed !== undefined) result[key] = parsed;
   }
 }
@@ -123,6 +134,7 @@ export function applyBoxShorthandWithAuto(
   parentFontSize: number,
   keys: readonly [MarginSideKey, MarginSideKey, MarginSideKey, MarginSideKey],
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+  viewport?: Viewport,
 ): void {
   const parts = splitBoxValues(value.trim());
   const [topKey, rightKey, bottomKey, leftKey] = keys;
@@ -150,7 +162,7 @@ export function applyBoxShorthandWithAuto(
       if (key === rightKey) result.marginRightAuto = false;
       if (key === leftKey) result.marginLeftAuto = false;
     } else {
-      const parsed = parseBoxLength(raw, parentFontSize, rootFontSize);
+      const parsed = parseBoxLength(raw, parentFontSize, rootFontSize, viewport);
       if (parsed !== undefined) {
         result[key] = parsed;
         if (key === rightKey) result.marginRightAuto = false;

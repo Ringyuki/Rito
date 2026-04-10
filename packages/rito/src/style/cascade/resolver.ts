@@ -4,6 +4,7 @@ import { getTagStyle } from '../core/tag-styles';
 import type { ComputedStyle, CssRule, Specificity, StyledNode } from '../core/types';
 import { DISPLAY_VALUES } from '../core/types';
 import { parseCssDeclarations } from '../css/property-parser';
+import type { Viewport } from '../css/parse-utils';
 import { type RuleIndex, buildRuleIndex } from './rule-index';
 import type { SelectorTarget } from './selector-matcher';
 import { matchesSelector } from './selector-matcher';
@@ -23,13 +24,14 @@ export function resolveStyles(
   nodes: readonly DocumentNode[],
   parentStyle?: ComputedStyle,
   rules?: readonly CssRule[],
+  viewport?: Viewport,
 ): readonly StyledNode[] {
   // Apply inheritableStyle to strip non-inherited properties (margin, padding, etc.)
   // from the body/parent style. Only inherited properties (font, color, text-align)
   // should cascade to top-level elements.
   const base = parentStyle ? inheritableStyle(parentStyle) : DEFAULT_STYLE;
   const index = rules && rules.length > 0 ? buildRuleIndex(rules) : undefined;
-  return resolveNodesWithSiblings(nodes, base, rules, index, []);
+  return resolveNodesWithSiblings(nodes, base, rules, index, [], viewport);
 }
 
 /** Resolve nodes with sibling tracking for +, :first-child, :last-child. */
@@ -39,6 +41,7 @@ function resolveNodesWithSiblings(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  viewport?: Viewport,
 ): StyledNode[] {
   const elementNodes = nodes.filter(isElementNode);
   const siblingCount = elementNodes.length;
@@ -55,7 +58,7 @@ function resolveNodesWithSiblings(
             ...(prevTarget ? { previousSibling: prevTarget } : {}),
           }
         : undefined;
-      const result = resolveNode(c, parentStyle, rules, index, ancestors, siblingInfo);
+      const result = resolveNode(c, parentStyle, rules, index, ancestors, siblingInfo, viewport);
       if (isElem && siblingInfo) {
         const tag = c.type === 'image' ? 'img' : (c as DocumentNode & { tag: string }).tag;
         const attrs = (c as DocumentNode & { attributes?: ElementAttributes }).attributes;
@@ -79,6 +82,7 @@ function resolveNode(
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
   siblingInfo?: SiblingInfo,
+  viewport?: Viewport,
 ): StyledNode {
   switch (node.type) {
     case 'text':
@@ -90,13 +94,21 @@ function resolveNode(
         ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
       };
     case 'block':
-      return resolveBlockNode(node, parentStyle, rules, index, ancestors, siblingInfo);
+      return resolveBlockNode(node, parentStyle, rules, index, ancestors, siblingInfo, viewport);
     case 'inline':
-      return resolveInlineNode(node, parentStyle, rules, index, ancestors, siblingInfo);
+      return resolveInlineNode(node, parentStyle, rules, index, ancestors, siblingInfo, viewport);
     case 'image': {
       const { target: baseTarget, inlineCss } = extractNodeMeta('img', node.attributes);
       const imgTarget = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-      const imgStyle = applyCascade(parentStyle, imgTarget, inlineCss, rules, index, ancestors);
+      const imgStyle = applyCascade(
+        parentStyle,
+        imgTarget,
+        inlineCss,
+        rules,
+        index,
+        ancestors,
+        viewport,
+      );
       return {
         type: 'image',
         src: node.src,
@@ -116,14 +128,22 @@ function resolveBlockNode(
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
   siblingInfo?: SiblingInfo,
+  viewport?: Viewport,
 ): StyledNode {
   const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
   const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
   }
-  const resolved = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const resolved = resolveChildren(
+    node.children,
+    style,
+    rules,
+    index,
+    [target, ...ancestors],
+    viewport,
+  );
   const children = injectPseudoElements(resolved, style, target, rules, index, ancestors);
   let result: StyledNode = { type: 'block', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
@@ -141,14 +161,22 @@ function resolveInlineNode(
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
   siblingInfo?: SiblingInfo,
+  viewport?: Viewport,
 ): StyledNode {
   const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
   const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors);
+  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
-  const resolved = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const resolved = resolveChildren(
+    node.children,
+    style,
+    rules,
+    index,
+    [target, ...ancestors],
+    viewport,
+  );
   const children = injectPseudoElements(resolved, style, target, rules, index, ancestors, true);
   let result: StyledNode = { type: 'inline', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
@@ -163,8 +191,16 @@ function resolveChildren(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  viewport?: Viewport,
 ): StyledNode[] {
-  return resolveNodesWithSiblings(nodes, inheritableStyle(parentStyle), rules, index, ancestors);
+  return resolveNodesWithSiblings(
+    nodes,
+    inheritableStyle(parentStyle),
+    rules,
+    index,
+    ancestors,
+    viewport,
+  );
 }
 
 interface SiblingInfo {
@@ -207,13 +243,11 @@ function applyCascade(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  viewport?: Viewport,
 ): ComputedStyle {
   let style = applyTagStyle(parentStyle, target.tag);
-  // Pass the true parent fontSize for em resolution in font-size declarations.
-  // style.fontSize here may include tag defaults (e.g. h1→32), which must NOT
-  // be used as the em basis — CSS em in font-size is always relative to the parent.
-  style = applyRules(style, target, parentStyle.fontSize, rules, index, ancestors);
-  style = applyInlineStyle(style, inlineCss, parentStyle.fontSize, style.fontSize);
+  style = applyRules(style, target, parentStyle.fontSize, rules, index, ancestors, viewport);
+  style = applyInlineStyle(style, inlineCss, parentStyle.fontSize, style.fontSize, viewport);
   return style;
 }
 
@@ -236,6 +270,7 @@ function applyRules(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  viewport?: Viewport,
 ): ComputedStyle {
   if (!rules || rules.length === 0) return style;
 
@@ -256,20 +291,28 @@ function applyRules(
   matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
 
   // Pass 1: resolve font-size against the true parent fontSize (NOT tag defaults).
-  // em in font-size is always relative to the parent element's computed font-size.
   let resolvedFontSize = style.fontSize;
   for (const match of matches) {
-    const reparsed = parseCssDeclarations(match.rawDeclarations, parentFontSize);
+    const reparsed = parseCssDeclarations(
+      match.rawDeclarations,
+      parentFontSize,
+      parentFontSize,
+      viewport,
+    );
     if (reparsed.fontSize !== undefined) {
       resolvedFontSize = reparsed.fontSize;
     }
   }
 
   // Pass 2: re-parse with the element's own font-size for em-dependent properties
-  // (margin, padding, etc. use the element's own font-size as em base)
   let result: ComputedStyle = { ...style, fontSize: resolvedFontSize };
   for (const match of matches) {
-    const resolved = parseCssDeclarations(match.rawDeclarations, resolvedFontSize);
+    const resolved = parseCssDeclarations(
+      match.rawDeclarations,
+      resolvedFontSize,
+      resolvedFontSize,
+      viewport,
+    );
     result = { ...result, ...resolved, fontSize: resolvedFontSize };
   }
   return result;
@@ -285,15 +328,16 @@ function applyInlineStyle(
   inlineCss: string | undefined,
   parentEmBasis: number,
   currentFontSize: number,
+  viewport?: Viewport,
 ): ComputedStyle {
   if (!inlineCss) return style;
 
   // Pass 1: parse with parent em basis to resolve font-size correctly
-  const pass1 = parseCssDeclarations(inlineCss, parentEmBasis);
+  const pass1 = parseCssDeclarations(inlineCss, parentEmBasis, parentEmBasis, viewport);
   const resolvedFontSize = pass1.fontSize ?? currentFontSize;
 
   // Pass 2: re-parse with the resolved font-size for em-dependent properties
-  const pass2 = parseCssDeclarations(inlineCss, resolvedFontSize);
+  const pass2 = parseCssDeclarations(inlineCss, resolvedFontSize, resolvedFontSize, viewport);
   if (Object.keys(pass2).length === 0) return style;
 
   // Keep font-size from pass 1 (em in font-size is relative to parent)

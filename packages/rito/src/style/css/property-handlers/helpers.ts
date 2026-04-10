@@ -1,6 +1,6 @@
 import type { MutableStylePatch } from '../../core/style-patch';
 import type { ComputedStyle } from '../../core/types';
-import { parseLength } from '../parse-utils';
+import { parseLength, type Viewport } from '../parse-utils';
 
 /**
  * Reject bare percentage values. CSS percentages on box-model properties
@@ -48,8 +48,9 @@ export function assignLength(
   emBase: number,
   rootFontSize: number,
   predicate: (resolved: number) => boolean = () => true,
+  viewport?: Viewport,
 ): void {
-  const resolved = parseLength(value, emBase, rootFontSize);
+  const resolved = parseLength(value, emBase, rootFontSize, viewport);
   if (resolved !== undefined && predicate(resolved)) {
     setNumericValue(result, key, resolved);
   }
@@ -61,6 +62,7 @@ export function assignMarginLength(
   value: string,
   emBase: number,
   rootFontSize: number,
+  viewport?: Viewport,
 ): void {
   if (value.trim().toLowerCase() === 'auto') {
     setNumericValue(result, key, 0);
@@ -68,7 +70,7 @@ export function assignMarginLength(
     return;
   }
 
-  const resolved = parseLength(value, emBase, rootFontSize);
+  const resolved = parseLength(value, emBase, rootFontSize, viewport);
   if (resolved !== undefined) {
     setNumericValue(result, key, resolved);
     result[AUTO_MARGIN_FLAGS[key]] = false;

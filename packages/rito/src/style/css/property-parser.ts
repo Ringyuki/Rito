@@ -1,6 +1,7 @@
 import type { ComputedStyle } from '../core/types';
 import type { MutableStylePatch } from '../core/style-patch';
 import { PROPERTY_HANDLERS } from './property-handlers';
+import type { Viewport } from './parse-utils';
 
 const DEFAULT_ROOT_FONT_SIZE = 16;
 
@@ -11,11 +12,13 @@ const DEFAULT_ROOT_FONT_SIZE = 16;
  * @param css - The raw CSS declaration string.
  * @param parentFontSize - The em basis in px (inherited font size).
  * @param rootFontSize - The rem basis in px (root element font size, default 16).
+ * @param viewport - Viewport dimensions for resolving vh/vw units.
  */
 export function parseCssDeclarations(
   css: string,
   parentFontSize: number,
   rootFontSize: number = DEFAULT_ROOT_FONT_SIZE,
+  viewport?: Viewport,
 ): Partial<ComputedStyle> {
   const result: MutableStylePatch = {};
 
@@ -34,7 +37,7 @@ export function parseCssDeclarations(
         : raw;
 
     const handler = PROPERTY_HANDLERS[property];
-    if (handler) handler(result, value, parentFontSize, rootFontSize);
+    if (handler) handler(result, value, parentFontSize, rootFontSize, viewport);
   }
 
   return result;

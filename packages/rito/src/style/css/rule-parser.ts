@@ -11,11 +11,19 @@ export function parseCssRules(css: string, baseFontSize: number): readonly CssRu
   const rules: CssRule[] = [];
 
   for (const block of blocks) {
+    // Pre-parse without viewport for eagerly-resolvable properties.
+    // Rules are kept as long as their raw body contains any recognized property,
+    // because viewport-relative values (vh/vw) can only be resolved later
+    // when viewport dimensions are available. rawDeclarations is re-parsed
+    // in the cascade with full context.
     const declarations = parseCssDeclarations(block.body, baseFontSize);
-    // Keep pseudo-element rules even if only `content` is declared
-    // (content is not in PROPERTY_HANDLERS, so declarations may be empty)
     const hasPseudoElement = /::?(?:before|after)\b/i.test(block.selector);
-    if (Object.keys(declarations).length === 0 && !hasPseudoElement) continue;
+    if (
+      Object.keys(declarations).length === 0 &&
+      !hasPseudoElement &&
+      !hasViewportUnits(block.body)
+    )
+      continue;
 
     const selectors = block.selector
       .split(',')
@@ -99,6 +107,16 @@ function parseFontFaceBody(body: string): FontFaceRule | undefined {
   if (weight) result.weight = weight;
   if (style) result.style = style;
   return result;
+}
+
+/**
+ * Check if a raw CSS body contains viewport-relative values (vh/vw)
+ * that couldn't be resolved without a viewport context.
+ * This prevents rules with only vh/vw declarations from being dropped
+ * during the pre-parse phase.
+ */
+function hasViewportUnits(body: string): boolean {
+  return /\d+v[hw]\b/i.test(body);
 }
 
 function stripComments(css: string): string {

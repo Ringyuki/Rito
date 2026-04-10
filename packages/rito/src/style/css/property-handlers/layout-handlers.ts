@@ -19,25 +19,25 @@ export const LAYOUT_PROPERTY_HANDLERS: PropertyHandlers = {
       result.clear = clear;
     }
   },
-  width: (result, value, emBase, rootFontSize) => {
+  width: (result, value, emBase, rootFontSize, viewport) => {
     if (isPercentage(value)) return;
-    assignLength(result, 'width', value, emBase, rootFontSize, (width) => width > 0);
+    assignLength(result, 'width', value, emBase, rootFontSize, (w) => w > 0, viewport);
   },
-  'max-width': (result, value, emBase, rootFontSize) => {
+  'max-width': (result, value, emBase, rootFontSize, viewport) => {
     if (isPercentage(value)) return;
-    assignLength(result, 'maxWidth', value, emBase, rootFontSize, (width) => width > 0);
+    assignLength(result, 'maxWidth', value, emBase, rootFontSize, (w) => w > 0, viewport);
   },
-  height: (result, value, emBase, rootFontSize) => {
+  height: (result, value, emBase, rootFontSize, viewport) => {
     if (isPercentage(value)) return;
-    assignLength(result, 'height', value, emBase, rootFontSize, (height) => height > 0);
+    assignLength(result, 'height', value, emBase, rootFontSize, (h) => h > 0, viewport);
   },
-  'min-height': (result, value, emBase, rootFontSize) => {
+  'min-height': (result, value, emBase, rootFontSize, viewport) => {
     if (isPercentage(value)) return;
-    assignLength(result, 'minHeight', value, emBase, rootFontSize, (height) => height > 0);
+    assignLength(result, 'minHeight', value, emBase, rootFontSize, (h) => h > 0, viewport);
   },
-  'max-height': (result, value, emBase, rootFontSize) => {
+  'max-height': (result, value, emBase, rootFontSize, viewport) => {
     if (isPercentage(value)) return;
-    assignLength(result, 'maxHeight', value, emBase, rootFontSize, (height) => height > 0);
+    assignLength(result, 'maxHeight', value, emBase, rootFontSize, (h) => h > 0, viewport);
   },
   overflow: (result, value) => {
     const overflow = value.trim().toLowerCase();

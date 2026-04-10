@@ -11,6 +11,7 @@ import { resolveStyles } from '../style/cascade/resolver';
 import { DEFAULT_STYLE } from '../style/core/defaults';
 import type { ComputedStyle, CssRule } from '../style/core/types';
 import { parseCssDeclarations } from '../style/css/property-parser';
+import type { Viewport } from '../style/css/parse-utils';
 import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
 
@@ -38,8 +39,9 @@ export function preparePaginationContext<T extends SizeLike>(
   images?: ReadonlyMap<string, T>,
   lineBreaking?: 'greedy' | 'optimal',
 ): PreparedPaginationContext {
+  const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
   const rules = buildRules(stylesheets);
-  let bodyStyle = computeBodyStyle(rules);
+  let bodyStyle = computeBodyStyle(rules, viewport);
 
   // Apply global typography overrides onto bodyStyle so they cascade via CSS inheritance
   if (config.lineHeightOverride !== undefined) {
@@ -67,10 +69,11 @@ export function paginateChapterNodes(
   bodyAttributes?: { readonly class?: string; readonly style?: string },
 ): PaginatedChapterResult {
   // Compute per-chapter body style (includes class-based rules like body.bg1)
+  const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
   const chapterBodyStyle = bodyAttributes
-    ? resolveBodyStyleWithAttrs(context.bodyStyle, context.rules, bodyAttributes)
+    ? resolveBodyStyleWithAttrs(context.bodyStyle, context.rules, bodyAttributes, viewport)
     : context.bodyStyle;
-  const styled = resolveStyles(nodes, chapterBodyStyle, context.rules);
+  const styled = resolveStyles(nodes, chapterBodyStyle, context.rules, viewport);
   const blocks = layoutBlocks(
     styled,
     context.contentWidth,
@@ -115,29 +118,39 @@ function resolveBodyStyleWithAttrs(
   baseBodyStyle: ComputedStyle,
   rules: readonly CssRule[],
   attrs: { readonly class?: string; readonly style?: string },
+  viewport?: Viewport,
 ): ComputedStyle {
   let style = baseBodyStyle;
-  // Match rules against body element with class/id from the actual <body> tag
   const target = attrs.class ? { tag: 'body', className: attrs.class } : { tag: 'body' };
   for (const rule of rules) {
     if (matchesSelector(target, rule.selector)) {
-      const resolved = parseCssDeclarations(rule.rawDeclarations, style.fontSize);
+      const resolved = parseCssDeclarations(
+        rule.rawDeclarations,
+        style.fontSize,
+        style.fontSize,
+        viewport,
+      );
       style = { ...style, ...resolved };
     }
   }
-  // Apply inline style if present
   if (attrs.style) {
-    const inline = parseCssDeclarations(attrs.style, style.fontSize);
+    const inline = parseCssDeclarations(attrs.style, style.fontSize, style.fontSize, viewport);
     style = { ...style, ...inline };
   }
   return style;
 }
 
-function computeBodyStyle(rules: readonly CssRule[]): ComputedStyle {
+function computeBodyStyle(rules: readonly CssRule[], viewport?: Viewport): ComputedStyle {
   let style: ComputedStyle = DEFAULT_STYLE;
   for (const rule of rules) {
     if (rule.selector === 'body' || rule.selector === 'html') {
-      style = { ...style, ...rule.declarations };
+      const resolved = parseCssDeclarations(
+        rule.rawDeclarations,
+        style.fontSize,
+        style.fontSize,
+        viewport,
+      );
+      style = { ...style, ...resolved };
     }
   }
   return style;
