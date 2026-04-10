@@ -7,6 +7,7 @@ import { parseCssDeclarations } from '../css/property-parser';
 import { type RuleIndex, buildRuleIndex } from './rule-index';
 import type { SelectorTarget } from './selector-matcher';
 import { matchesSelector } from './selector-matcher';
+import { injectPseudoElements } from './pseudo-elements';
 import { calculateSpecificity, compareSpecificity } from './specificity';
 
 /**
@@ -122,7 +123,8 @@ function resolveBlockNode(
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
   }
-  const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const resolved = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const children = injectPseudoElements(resolved, style, target, rules, index, ancestors);
   let result: StyledNode = { type: 'block', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
   if (node.attributes?.href) result = { ...result, href: node.attributes.href };
@@ -146,7 +148,8 @@ function resolveInlineNode(
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
-  const children = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const resolved = resolveChildren(node.children, style, rules, index, [target, ...ancestors]);
+  const children = injectPseudoElements(resolved, style, target, rules, index, ancestors, true);
   let result: StyledNode = { type: 'inline', tag: node.tag, style, children };
   if (node.attributes?.id) result = { ...result, id: node.attributes.id };
   if (node.attributes?.href) result = { ...result, href: node.attributes.href };

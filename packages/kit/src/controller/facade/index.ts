@@ -1,4 +1,5 @@
-import type { ReaderController } from '../types';
+import type { Reader } from 'rito';
+import type { ControllerOptions, ReaderController } from '../types';
 import type {
   Internals,
   Emitter,
@@ -28,9 +29,12 @@ export function buildController(
   keyboard: Keyboard,
   modeManager: ModeManager,
   nav: Nav,
+  opts: ControllerOptions,
+  canvas: HTMLCanvasElement,
+  reader: Reader,
 ): ReaderController {
   return {
-    ...buildLifecycle(disposables, runtime, internals.coordState),
+    ...buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
     ...buildReaderProxies(internals),
     ...nav,
     ...buildLayoutActions(internals, emitter, runtime),

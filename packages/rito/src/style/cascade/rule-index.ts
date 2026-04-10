@@ -76,6 +76,7 @@ function extractIndexKeys(selector: string): IndexKeys {
   const last = extractLastCompound(selector);
   // Strip attribute selectors and pseudo-classes before extracting tag/class/id keys
   const stripped = last
+    .replace(/::?(?:before|after)$/i, '')
     .replace(/\[(?:[^\]"']*(?:"[^"]*"|'[^']*')?)*\]/g, '')
     .replace(/:[\w-]+/g, '');
   const tokens = stripped.match(/[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g) ?? [];

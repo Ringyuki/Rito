@@ -1,3 +1,4 @@
+const PSEUDO_ELEMENT_RE = /::?(?:before|after)$/i;
 const SELECTOR_TOKEN_RE = /[#.]?[a-zA-Z][a-zA-Z0-9_-]*/g;
 // Matches [attr], [attr=val], [attr="val"], [attr='val'], and operator variants (~=, |=, ^=, $=, *=)
 const ATTR_SELECTOR_RE =
@@ -196,6 +197,18 @@ function matchesAttrOperator(
   if (operator === '$=') return actual.endsWith(val);
   if (operator === '*=') return actual.includes(val);
   return false;
+}
+
+/** Extract pseudo-element type from a selector, if present. */
+export function extractPseudoElement(selector: string): 'before' | 'after' | undefined {
+  const m = PSEUDO_ELEMENT_RE.exec(selector);
+  if (!m) return undefined;
+  return m[0].replace(/^::?/, '') as 'before' | 'after';
+}
+
+/** Strip the pseudo-element suffix from a selector. */
+export function stripPseudoElement(selector: string): string {
+  return selector.replace(PSEUDO_ELEMENT_RE, '');
 }
 
 /**

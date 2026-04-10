@@ -23,7 +23,6 @@ import {
   wirePositionTracker,
   wireSpreadRendered,
 } from './wiring/index';
-import { wireA11y } from './wiring/a11y';
 import { wireTouchGestures } from './wiring/touch';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
 import type { OverlayLayer } from '../painter/types';
@@ -65,8 +64,6 @@ export function createController(
     canvas,
     disposables,
   );
-  wireA11y(opts, canvas, reader, disposables);
-
   syncCanvasSize(internals, runtime);
 
   // Initial render via buffer pool
@@ -76,7 +73,18 @@ export function createController(
   // Notify after first frame so coordinators build hitMaps etc.
   reader.notifyActiveSpread(0);
 
-  return buildController(internals, emitter, disposables, runtime, kbd, mm, nav);
+  return buildController(
+    internals,
+    emitter,
+    disposables,
+    runtime,
+    kbd,
+    mm,
+    nav,
+    opts,
+    canvas,
+    reader,
+  );
 }
 
 function bootstrapRuntime(

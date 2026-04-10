@@ -12,7 +12,10 @@ export function parseCssRules(css: string, baseFontSize: number): readonly CssRu
 
   for (const block of blocks) {
     const declarations = parseCssDeclarations(block.body, baseFontSize);
-    if (Object.keys(declarations).length === 0) continue;
+    // Keep pseudo-element rules even if only `content` is declared
+    // (content is not in PROPERTY_HANDLERS, so declarations may be empty)
+    const hasPseudoElement = /::?(?:before|after)\b/i.test(block.selector);
+    if (Object.keys(declarations).length === 0 && !hasPseudoElement) continue;
 
     const selectors = block.selector
       .split(',')

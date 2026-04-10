@@ -1,3 +1,6 @@
+import type { Reader } from 'rito';
+import { wireA11y } from '../wiring/a11y';
+import type { ControllerOptions } from '../types';
 import type { CoordinatorState } from '../core/coordinator-state';
 import type { Internals, Disposables, LifecycleSlice, RuntimeComponents } from './types';
 
@@ -15,10 +18,14 @@ export function buildLifecycle(
   disposables: Disposables,
   runtime: RuntimeComponents,
   coordState: CoordinatorState,
+  opts: ControllerOptions,
+  canvas: HTMLCanvasElement,
+  reader: Reader,
 ): LifecycleSlice {
   return {
     mount(container: HTMLElement): void {
       container.appendChild(runtime.surface.canvas);
+      wireA11y(opts, canvas, reader, disposables);
     },
     dispose(): void {
       if (coordState.activeImageBlobUrl) {

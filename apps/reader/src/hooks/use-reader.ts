@@ -47,6 +47,9 @@ export function useReader(
       transition: { stiffness: 180, damping: 22 },
       positionStorage,
       annotationStorage,
+      a11y: {
+        enabled: true,
+      },
     },
   });
 
