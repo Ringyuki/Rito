@@ -57,7 +57,7 @@ export function buildLineContext(
     baseStyle,
     ranges,
     maxWidth,
-    lineHeight: baseStyle.fontSize * baseStyle.lineHeight,
+    lineHeight: baseStyle.lineHeightPx ?? baseStyle.fontSize * baseStyle.lineHeight,
     measurer,
     preserveWs: baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap',
     allowWrap: baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap',

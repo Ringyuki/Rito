@@ -32,7 +32,18 @@ export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
   },
   'line-height': (result, value, emBase, rootFontSize) => {
     const lineHeight = parseLineHeight(value, emBase, rootFontSize);
-    if (lineHeight !== undefined) result.lineHeight = lineHeight;
+    if (lineHeight === undefined) return;
+    result.lineHeight = lineHeight;
+    // CSS spec: line-height with units (em, px, %, rem) computes to an absolute
+    // px value and inherits as-is. Unitless line-height inherits as a multiplier.
+    const trimmed = value.trim().toLowerCase();
+    const isUnitless = /^[\d.]+$/.test(trimmed);
+    if (!isUnitless) {
+      result.lineHeightPx = lineHeight * emBase;
+    } else {
+      // Explicitly clear any inherited absolute value
+      delete result.lineHeightPx;
+    }
   },
   'letter-spacing': (result, value, emBase, rootFontSize) => {
     assignLength(result, 'letterSpacing', value, emBase, rootFontSize);

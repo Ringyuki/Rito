@@ -24,7 +24,7 @@ export function createKnuthPlassLayouter(measurer: TextMeasurer): ParagraphLayou
       const fullText = segments.map((s) => (isInlineAtom(s) ? '\uFFFC' : s.text)).join('');
       if (fullText.trim().length === 0 && !fullText.includes('\n') && !hasAtoms) return [];
 
-      const lineHeight = firstStyle.fontSize * firstStyle.lineHeight;
+      const lineHeight = firstStyle.lineHeightPx ?? firstStyle.fontSize * firstStyle.lineHeight;
       const indent = firstStyle.textIndent;
       const items = buildKPItems(segments, measurer);
       if (items.length === 0) return [];
@@ -185,7 +185,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   const width = measurer.measureText(ctx.currentText, style).width;
 
   const runY = computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize);
-  const runHeight = style.fontSize * style.lineHeight;
+  const runHeight = style.lineHeightPx ?? style.fontSize * style.lineHeight;
 
   let run: TextRun = {
     type: 'text-run',

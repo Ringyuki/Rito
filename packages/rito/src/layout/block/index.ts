@@ -46,7 +46,7 @@ export function layoutNodesAt(
       // Bare <br> between blocks: treat as a zero-margin anonymous block with one line of height.
       // First settle the previous block's deferred bottom margin, then add the line gap.
       collapseMargin(state, 0);
-      state.y += node.style.fontSize * node.style.lineHeight;
+      state.y += node.style.lineHeightPx ?? node.style.fontSize * node.style.lineHeight;
       state.prevMarginBottom = 0;
     } else if (node.type === 'image' && node.src) {
       layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);

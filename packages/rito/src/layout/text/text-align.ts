@@ -26,11 +26,26 @@ export function computeEffectiveLineMetrics(
   let maxBottom = baseLineHeight;
   let rubyOverhang = 0;
   for (const run of runs) {
-    const top = run.bounds.y;
-    const bottom = top + run.bounds.height;
+    let top: number;
+    let bottom: number;
+
+    if (run.type === 'text-run' && run.style.lineHeightPx !== undefined) {
+      // CSS half-leading model: the inline box height is determined by
+      // lineHeightPx, not the full content extent. When lineHeightPx < fontSize,
+      // half-leading is negative and the inline box is smaller than the content
+      // area. Content extends beyond but doesn't affect line box sizing.
+      // This separation is key: run.bounds.y is the CONTENT top (for rendering),
+      // but the INLINE BOX top (for layout) is shifted inward by halfLeading.
+      const halfLeading = (run.style.fontSize - run.style.lineHeightPx) / 2;
+      top = run.bounds.y + halfLeading;
+      bottom = top + run.style.lineHeightPx;
+    } else {
+      top = run.bounds.y;
+      bottom = top + run.bounds.height;
+    }
+
     if (top < minTop) minTop = top;
     if (bottom > maxBottom) maxBottom = bottom;
-    // Track ruby overhang separately — it adds space above without shifting baseline
     if (run.type === 'text-run' && run.rubyAnnotation) {
       const overhang = run.style.fontSize * RUBY_FONT_SCALE + RUBY_GAP;
       if (overhang > rubyOverhang) rubyOverhang = overhang;

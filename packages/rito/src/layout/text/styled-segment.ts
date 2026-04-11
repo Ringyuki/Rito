@@ -263,7 +263,7 @@ function createImageAtom(node: StyledNode, imageSizes?: ImageSizeMap): InlineAto
     width = fontSize;
     height = fontSize;
   } else if (intrinsic && node.style.width <= 0 && node.style.height <= 0) {
-    const lineH = fontSize * node.style.lineHeight;
+    const lineH = node.style.lineHeightPx ?? fontSize * node.style.lineHeight;
     if (height > lineH) {
       const scale = lineH / height;
       width = width * scale;
@@ -294,6 +294,9 @@ function createInlineBlockAtom(node: StyledNode): InlineAtomSegment {
   // Fallback width: 5em heuristic — inline-block children are not yet fully laid
   // out at segment collection time, so we approximate with a generous default.
   const width = node.style.width > 0 ? node.style.width : fontSize * 5;
-  const height = node.style.height > 0 ? node.style.height : fontSize * node.style.lineHeight;
+  const height =
+    node.style.height > 0
+      ? node.style.height
+      : (node.style.lineHeightPx ?? fontSize * node.style.lineHeight);
   return { type: 'inline-atom', width, height, style: node.style, sourceNode: node };
 }

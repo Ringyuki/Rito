@@ -98,9 +98,10 @@ describe('parseCssDeclarations', () => {
       });
     });
 
-    it('parses px value as ratio to parent font size', () => {
+    it('parses px value as ratio to parent font size with absolute px', () => {
       expect(parseCssDeclarations('line-height: 24px', BASE_FONT_SIZE)).toEqual({
         lineHeight: 1.5,
+        lineHeightPx: 24,
       });
     });
   });

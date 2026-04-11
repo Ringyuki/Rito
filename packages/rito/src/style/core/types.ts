@@ -146,6 +146,13 @@ export interface ComputedStyle {
   readonly fontWeight: FontWeight;
   readonly fontStyle: FontStyle;
   readonly lineHeight: number;
+  /**
+   * Absolute line-height in px, set when CSS line-height has units (em, px, rem, %).
+   * When set, this value inherits as-is and takes priority over the `lineHeight`
+   * multiplier. CSS `line-height: 1em` computes to an absolute px value and
+   * inherits that value, while unitless `line-height: 1` inherits as a multiplier.
+   */
+  readonly lineHeightPx?: number;
   readonly textAlign: TextAlignment;
   readonly textDecoration: TextDecoration;
   readonly textIndent: number;

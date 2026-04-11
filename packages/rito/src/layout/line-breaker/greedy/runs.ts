@@ -108,7 +108,7 @@ function buildTextRun(
   rubyAnnotation?: string,
 ): TextRun {
   const y = computeVerticalAlignOffset(style, lineHeight, baseFontSize);
-  const height = style.fontSize * style.lineHeight;
+  const height = style.lineHeightPx ?? style.fontSize * style.lineHeight;
 
   let run: TextRun = {
     type: 'text-run',
@@ -170,9 +170,6 @@ function computeVerticalAlignOffset(
   const verticalAlign = style.verticalAlign;
   switch (verticalAlign) {
     case 'baseline': {
-      // Approximate baseline alignment: shift smaller-font runs down so
-      // their baseline (ascent) aligns with the line's baseline.
-      // baseFontSize is the paragraph's base font size (from baseStyle).
       const base = baseFontSize ?? style.fontSize;
       return ASCENT_RATIO * (base - style.fontSize);
     }
@@ -180,12 +177,10 @@ function computeVerticalAlignOffset(
     case 'text-top':
       return 0;
     case 'super': {
-      // CSS super: establish baseline position, then raise by ~40% of parent font.
       const base = baseFontSize ?? style.fontSize;
       return ASCENT_RATIO * (base - style.fontSize) - base * 0.4;
     }
     case 'sub': {
-      // CSS sub: establish baseline position, then lower by ~20% of parent font.
       const base = baseFontSize ?? style.fontSize;
       return ASCENT_RATIO * (base - style.fontSize) + base * 0.2;
     }

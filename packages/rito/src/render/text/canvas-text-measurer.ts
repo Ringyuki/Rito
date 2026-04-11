@@ -44,7 +44,7 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
         cache.set(cacheKey, width);
       }
 
-      return { width, height: style.fontSize * style.lineHeight };
+      return { width, height: style.lineHeightPx ?? style.fontSize * style.lineHeight };
     },
 
     clearCache(): void {
