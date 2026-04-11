@@ -22,22 +22,24 @@ export function useOverlay(): {
   useEffect(() => {
     let downX = 0;
     let downY = 0;
+    let downInInteractive = false;
+
+    const INTERACTIVE_SELECTOR =
+      'button, a, input, textarea, [role="button"], [role="dialog"], [data-slot], [data-state]';
 
     const onDown = (e: PointerEvent): void => {
       downX = e.clientX;
       downY = e.clientY;
+      // Capture at pointerdown – the element may be unmounted before pointerup
+      // (e.g. clicking a dialog overlay causes immediate teardown).
+      downInInteractive = !!(e.target as HTMLElement).closest(INTERACTIVE_SELECTOR);
     };
 
     const onUp = (e: PointerEvent): void => {
       if (Math.abs(e.clientX - downX) > TAP_SLOP || Math.abs(e.clientY - downY) > TAP_SLOP) return;
 
       const target = e.target as HTMLElement;
-      if (
-        target.closest(
-          'button, a, input, textarea, [role="button"], [role="dialog"], [data-slot], [data-state]',
-        )
-      )
-        return;
+      if (downInInteractive || target.closest(INTERACTIVE_SELECTOR)) return;
 
       // Defer to next macrotask: on mobile, pointerup fires before touchend,
       // but the kit gesture handler dispatches content-interaction events

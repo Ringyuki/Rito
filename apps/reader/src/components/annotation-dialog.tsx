@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ResolvedAnnotation } from 'rito/annotations';
 import {
   Dialog,
@@ -23,6 +23,11 @@ export function AnnotationDialog({ annotation, annotations, onClose }: Props) {
   const [note, setNote] = useState('');
   const [color, setColor] = useState(ANNOTATION_COLORS[0].value as string);
 
+  // Keep last non-null value so content stays visible during close animation
+  const staleRef = useRef(annotation);
+  if (annotation) staleRef.current = annotation;
+  const display = annotation ?? staleRef.current;
+
   // Sync local state when a different annotation is opened
   useEffect(() => {
     if (annotation) {
@@ -31,23 +36,23 @@ export function AnnotationDialog({ annotation, annotations, onClose }: Props) {
     }
   }, [annotation?.id]);
 
-  if (!annotation) return null;
-
   const handleSave = () => {
+    if (!display) return;
     const patch: { color: string; note?: string } = { color };
     if (note) patch.note = note;
-    annotations.update(annotation.id, patch);
+    annotations.update(display.id, patch);
     onClose();
   };
 
   const handleDelete = () => {
-    annotations.remove(annotation.id);
+    if (!display) return;
+    annotations.remove(display.id);
     onClose();
   };
 
   return (
     <Dialog
-      open
+      open={annotation !== null}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}

@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import type { ReaderControllerEvents } from '@rito/kit';
 import {
   Dialog,
@@ -16,18 +17,21 @@ interface Props {
 }
 
 export function LinkDialog({ link, onClose }: Props) {
-  if (!link) return null;
+  // Keep last non-null value so content stays visible during close animation
+  const staleRef = useRef(link);
+  if (link) staleRef.current = link;
+  const display = link ?? staleRef.current;
 
-  const isExternal = link.type === 'external';
+  const isExternal = display?.type === 'external';
 
   const handleNavigate = () => {
-    link.navigate();
+    display?.navigate();
     onClose();
   };
 
   return (
     <Dialog
-      open
+      open={link !== null}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
@@ -55,11 +59,11 @@ export function LinkDialog({ link, onClose }: Props) {
         </DialogHeader>
 
         {isExternal ? (
-          <p className="truncate rounded-md bg-muted px-3 py-2 font-mono text-sm">{link.href}</p>
+          <p className="truncate rounded-md bg-muted px-3 py-2 font-mono text-sm">{display.href}</p>
         ) : (
-          link.resolvedLabel && (
+          display?.resolvedLabel && (
             <p className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
-              {link.resolvedLabel}
+              {display.resolvedLabel}
             </p>
           )
         )}
