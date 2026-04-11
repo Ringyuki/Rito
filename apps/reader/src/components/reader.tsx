@@ -72,7 +72,12 @@ export function Reader({ containerRef, reader }: ReaderProps) {
 
       <FootnoteDrawer footnote={reader.footnote} onClose={reader.dismissFootnote} />
 
-      <LinkDialog link={reader.pendingLink} onClose={reader.dismissLink} />
+      <LinkDialog
+        link={reader.pendingLink}
+        currentSpread={reader.currentSpread}
+        goToSpread={reader.goToSpread}
+        onClose={reader.dismissLink}
+      />
 
       <ImageLightbox
         image={reader.lightboxImage}

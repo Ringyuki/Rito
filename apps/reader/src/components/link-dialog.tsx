@@ -1,4 +1,5 @@
 import { useRef } from 'react';
+import { toast } from 'sonner';
 import type { ReaderControllerEvents } from '@rito/kit';
 import {
   Dialog,
@@ -13,10 +14,12 @@ import { BookOpen, ExternalLink } from 'lucide-react';
 
 interface Props {
   link: ReaderControllerEvents['linkClick'] | null;
+  currentSpread: number;
+  goToSpread: (index: number) => void;
   onClose: () => void;
 }
 
-export function LinkDialog({ link, onClose }: Props) {
+export function LinkDialog({ link, currentSpread, goToSpread, onClose }: Props) {
   // Keep last non-null value so content stays visible during close animation
   const staleRef = useRef(link);
   if (link) staleRef.current = link;
@@ -25,8 +28,22 @@ export function LinkDialog({ link, onClose }: Props) {
   const isExternal = display?.type === 'external';
 
   const handleNavigate = () => {
+    const from = currentSpread;
     display?.navigate();
     onClose();
+    if (!isExternal) {
+      toast('Jumped to linked section', {
+        position: 'top-center',
+        description: display?.resolvedLabel,
+        action: {
+          label: 'Go back',
+          onClick: () => {
+            goToSpread(from);
+          },
+        },
+        duration: 5000,
+      });
+    }
   };
 
   return (

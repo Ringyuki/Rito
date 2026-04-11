@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useContainerSize, useControllerEvent } from '@rito/react';
+import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
 import { ReaderOverlay } from '@/components/reader-overlay';
@@ -55,6 +56,8 @@ export function App() {
         onNavigate={reader.navigateToTocEntry}
         activeChapterHref={reader.activeChapterHref}
       />
+
+      <Toaster />
 
       <ReaderOverlay
         visible={overlay.visible}
