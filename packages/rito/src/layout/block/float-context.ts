@@ -50,6 +50,16 @@ export class FloatContext {
     return max;
   }
 
+  /** Maximum total width of left floats active at any y in [fromY, toY). */
+  getMaxLeftWidthInRange(fromY: number, toY: number): number {
+    return maxWidthInRange(this.leftFloats, fromY, toY);
+  }
+
+  /** Maximum total width of right floats active at any y in [fromY, toY). */
+  getMaxRightWidthInRange(fromY: number, toY: number): number {
+    return maxWidthInRange(this.rightFloats, fromY, toY);
+  }
+
   /** Return the lowest bottomY among all floats active at y, or y if none active. */
   getNextClearance(y: number): number {
     let minBottom = Infinity;
@@ -63,13 +73,36 @@ export class FloatContext {
   }
 }
 
+/**
+ * Sub-pixel tolerance for float overlap checks. Font metrics (ascent/descent)
+ * can make a float's rendered height slightly larger than fontSize × lineHeight.
+ * Without tolerance, a 0.96px gap between two floats can flip which column a
+ * subsequent float lands in, producing visually different layouts from browsers.
+ */
+const FLOAT_TOLERANCE = 1;
+
 /** Sum widths of floats whose vertical range [startY, bottomY) includes y. */
 function sumActiveWidths(floats: readonly FloatEntry[], y: number): number {
   let total = 0;
   for (const entry of floats) {
-    if (y >= entry.startY && y < entry.bottomY) total += entry.width;
+    if (y >= entry.startY && y < entry.bottomY + FLOAT_TOLERANCE) total += entry.width;
   }
   return total;
+}
+
+/**
+ * Maximum total width of floats active at any y in [fromY, toY).
+ * Checks at each float boundary within the range (where active sets change).
+ */
+function maxWidthInRange(floats: readonly FloatEntry[], fromY: number, toY: number): number {
+  let max = sumActiveWidths(floats, fromY);
+  for (const entry of floats) {
+    // Check at each float's startY within range (where a new float becomes active)
+    if (entry.startY > fromY && entry.startY < toY) {
+      max = Math.max(max, sumActiveWidths(floats, entry.startY));
+    }
+  }
+  return max;
 }
 
 function maxBottomY(floats: readonly FloatEntry[]): number {

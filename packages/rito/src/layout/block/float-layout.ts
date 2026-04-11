@@ -12,7 +12,15 @@ import {
 } from './primitives';
 import type { FloatContext } from './float-context';
 import type { LayoutNodesAtFn } from './flow-layout';
-import { resolveMarginLeft, resolveMarginRight, resolveMarginTop } from './resolve-pct';
+import {
+  resolveMarginLeft,
+  resolveMarginRight,
+  resolveMarginTop,
+  resolvePaddingBottom,
+  resolvePaddingLeft,
+  resolvePaddingRight,
+  resolvePaddingTop,
+} from './resolve-pct';
 import type { LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
@@ -27,9 +35,13 @@ export function layoutFloatedBlock(
   listCtx?: ListContext,
 ): void {
   // Floats are out of normal flow — don't modify state.y or consume prevMarginBottom.
-  // CSS §9.5.1: a float cannot appear above any earlier float.
+  // CSS §9.5.1 rule 5: a float's outer (margin-edge) top may not be above
+  // any earlier float's outer top. Since all floats share the same state.y
+  // (the current flow position), their margin-edge tops are all at state.y,
+  // so the constraint is naturally satisfied. Horizontal overlap is resolved
+  // by findFloatPlaceY() which pushes floats down when they don't fit.
   const mt = resolveMarginTop(node.style, contentWidth);
-  const floatStartY = Math.max(state.y + mt, state.floats.getMaxStartY());
+  const floatStartY = state.y + mt;
   const ml = resolveMarginLeft(node.style, contentWidth);
   const mr = resolveMarginRight(node.style, contentWidth);
   const side = node.style.float as 'left' | 'right';
@@ -51,12 +63,19 @@ export function layoutFloatedBlock(
   if (node.id) block = { ...block, anchorId: node.id };
 
   const totalWidth = block.bounds.width + ml + mr;
-  const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth);
+  const floatHeight = block.bounds.height;
+  const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth, floatHeight);
 
+  // Use the maximum existing float width across the full height range
+  // to prevent overlapping with floats that start partway down.
+  const bottomY = placeY + floatHeight;
   const floatX =
     side === 'right'
-      ? contentWidth - block.bounds.width - mr - state.floats.getRightWidth(placeY)
-      : ml + state.floats.getLeftWidth(placeY);
+      ? contentWidth -
+        block.bounds.width -
+        mr -
+        state.floats.getMaxRightWidthInRange(placeY, bottomY)
+      : ml + state.floats.getMaxLeftWidthInRange(placeY, bottomY);
 
   block = { ...block, bounds: { ...block.bounds, x: floatX, y: placeY } };
   state.blocks.push(block);
@@ -73,7 +92,10 @@ function layoutFloatedContainer(
   listCtx?: ListContext,
 ): LayoutBlock {
   const childListCtx = createListContext(node);
-  const { paddingTop, paddingRight, paddingBottom, paddingLeft } = node.style;
+  const paddingTop = resolvePaddingTop(node.style, layoutWidth);
+  const paddingRight = resolvePaddingRight(node.style, layoutWidth);
+  const paddingBottom = resolvePaddingBottom(node.style, layoutWidth);
+  const paddingLeft = resolvePaddingLeft(node.style, layoutWidth);
   const childWidth = layoutWidth - paddingLeft - paddingRight;
   const childBlocks = layoutNodesAt(
     node.children,
@@ -106,6 +128,7 @@ function layoutFloatedContainer(
   if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
   if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
+  if (node.style.transform) block = { ...block, transform: node.style.transform };
   return block;
 }
 
@@ -129,7 +152,8 @@ function layoutFloatedLeaf(
 }
 
 /**
- * Search downward from startY for a Y where the float fits alongside active floats.
+ * Search downward from startY for a Y where the float fits alongside active floats
+ * across its entire height range [placeY, placeY + height).
  * Read-only queries only — does not mutate FloatContext.
  */
 function findFloatPlaceY(
@@ -137,11 +161,13 @@ function findFloatPlaceY(
   floats: FloatContext,
   totalWidth: number,
   contentWidth: number,
+  height: number,
 ): number {
   let placeY = startY;
   for (;;) {
-    const usedLeft = floats.getLeftWidth(placeY);
-    const usedRight = floats.getRightWidth(placeY);
+    const bottomY = placeY + height;
+    const usedLeft = floats.getMaxLeftWidthInRange(placeY, bottomY);
+    const usedRight = floats.getMaxRightWidthInRange(placeY, bottomY);
     if (usedLeft + usedRight + totalWidth <= contentWidth) break;
     const nextY = floats.getNextClearance(placeY);
     if (nextY <= placeY) break;
@@ -177,7 +203,10 @@ function measureContentRight(children: readonly LayoutBlock['children'][number][
       }
     } else if (child.type === 'layout-block') {
       const nested = measureContentRight(child.children);
-      maxRight = Math.max(maxRight, child.bounds.x + nested);
+      // Also account for first-line absolute right edge so that text-indent
+      // (which won't be normalized away) doesn't overflow the shrunken container.
+      const firstLineRight = measureFirstLineAbsRight(child.children);
+      maxRight = Math.max(maxRight, child.bounds.x + nested, child.bounds.x + firstLineRight);
     } else if (child.type === 'image') {
       maxRight = Math.max(maxRight, child.bounds.width);
     } else if ('bounds' in child) {
@@ -187,16 +216,37 @@ function measureContentRight(children: readonly LayoutBlock['children'][number][
   return maxRight;
 }
 
+/** Absolute right edge of the first line-box (includes text-indent offset). */
+function measureFirstLineAbsRight(children: readonly LayoutBlock['children'][number][]): number {
+  for (const child of children) {
+    if (child.type === 'line-box') {
+      let right = 0;
+      for (const run of child.runs) {
+        right = Math.max(right, run.bounds.x + run.bounds.width);
+      }
+      return right;
+    }
+    if (child.type === 'layout-block') return measureFirstLineAbsRight(child.children);
+  }
+  return 0;
+}
+
 /**
  * After shrink-to-fit, text-align offsets in line runs and image centering
  * offsets are based on the original (larger) layout width. Strip them so
  * content starts from x=0 within the shrunken container.
+ *
+ * When recursing into layout-blocks, the first line-box is preserved to
+ * avoid stripping CSS text-indent (which only affects the first line).
  */
 function normalizeChildPositions(
   children: readonly LayoutBlock['children'][number][],
+  preserveFirstLine = false,
 ): readonly LayoutBlock['children'][number][] {
-  return children.map((child) => {
+  return children.map((child, index) => {
     if (child.type === 'line-box') {
+      // Preserve text-indent on the first line of each block.
+      if (preserveFirstLine && index === 0) return child;
       let minX = Infinity;
       for (const run of child.runs) {
         if (run.bounds.x < minX) minX = run.bounds.x;
@@ -213,7 +263,7 @@ function normalizeChildPositions(
       return child;
     }
     if (child.type === 'layout-block') {
-      return { ...child, children: normalizeChildPositions(child.children) };
+      return { ...child, children: normalizeChildPositions(child.children, true) };
     }
     if (child.type === 'image' && child.bounds.x > 0) {
       return { ...child, bounds: { ...child.bounds, x: 0 } };

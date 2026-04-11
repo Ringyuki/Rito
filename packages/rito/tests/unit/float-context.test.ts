@@ -19,10 +19,10 @@ describe('FloatContext', () => {
       expect(ctx.getLeftWidth(199)).toBe(80);
     });
 
-    it('reports 0 when Y is at or past bottomY', () => {
+    it('reports 0 when Y is past bottomY + tolerance', () => {
       const ctx = new FloatContext();
       ctx.addFloat('left', 80, 0, 200);
-      expect(ctx.getLeftWidth(200)).toBe(0);
+      expect(ctx.getLeftWidth(202)).toBe(0);
       expect(ctx.getLeftWidth(300)).toBe(0);
     });
 
@@ -49,10 +49,10 @@ describe('FloatContext', () => {
       expect(ctx.getRightWidth(149)).toBe(60);
     });
 
-    it('reports 0 when Y is at or past bottomY', () => {
+    it('reports 0 when Y is past bottomY + tolerance', () => {
       const ctx = new FloatContext();
       ctx.addFloat('right', 60, 0, 150);
-      expect(ctx.getRightWidth(150)).toBe(0);
+      expect(ctx.getRightWidth(152)).toBe(0);
       expect(ctx.getRightWidth(200)).toBe(0);
     });
 
@@ -84,7 +84,7 @@ describe('FloatContext', () => {
       const ctx = new FloatContext();
       ctx.addFloat('left', 80, 0, 200);
       ctx.addFloat('left', 50, 0, 300);
-      expect(ctx.getLeftWidth(300)).toBe(0);
+      expect(ctx.getLeftWidth(302)).toBe(0);
     });
   });
 
@@ -109,7 +109,7 @@ describe('FloatContext', () => {
       const ctx = new FloatContext();
       ctx.addFloat('right', 60, 0, 150);
       ctx.addFloat('right', 40, 0, 250);
-      expect(ctx.getRightWidth(250)).toBe(0);
+      expect(ctx.getRightWidth(252)).toBe(0);
     });
   });
 
@@ -283,13 +283,13 @@ describe('FloatContext', () => {
       expect(ctx.getLeftWidth(50)).toBe(200);
       expect(ctx.getRightWidth(50)).toBe(0);
 
-      // At y=100: left expired, right active
-      expect(ctx.getLeftWidth(100)).toBe(0);
-      expect(ctx.getRightWidth(100)).toBe(200);
+      // At y=102: left expired (past tolerance), right active
+      expect(ctx.getLeftWidth(102)).toBe(0);
+      expect(ctx.getRightWidth(102)).toBe(200);
 
-      // At y=200: both expired
-      expect(ctx.getLeftWidth(200)).toBe(0);
-      expect(ctx.getRightWidth(200)).toBe(0);
+      // At y=202: both expired (past tolerance)
+      expect(ctx.getLeftWidth(202)).toBe(0);
+      expect(ctx.getRightWidth(202)).toBe(0);
     });
 
     it('getNextClearance respects startY', () => {

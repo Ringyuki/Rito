@@ -87,7 +87,7 @@ function layoutSingleLine(
   const newlineIndex = text.indexOf('\n', pos);
   const lineEnd = newlineIndex >= 0 ? newlineIndex : text.length;
   const breakPos = allowWrap
-    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms)
+    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms, ranges)
     : lineEnd;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
   const lineText = preserveWs

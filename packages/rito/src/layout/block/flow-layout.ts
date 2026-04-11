@@ -139,7 +139,8 @@ function hasVisualDecorations(node: StyledNode): boolean {
     s.borderRadius > 0 ||
     s.opacity < 1 ||
     s.overflow === 'hidden' ||
-    s.boxShadow.length > 0
+    s.boxShadow.length > 0 ||
+    s.transform
   );
 }
 
@@ -190,6 +191,9 @@ function buildContainerWrapper(
   if (node.style.overflow === 'hidden') wrapper = { ...wrapper, overflow: 'hidden' };
   if (node.style.boxShadow.length > 0) {
     wrapper = { ...wrapper, boxShadow: node.style.boxShadow };
+  }
+  if (node.style.transform) {
+    wrapper = { ...wrapper, transform: node.style.transform };
   }
   return wrapper;
 }

@@ -179,10 +179,16 @@ function computeVerticalAlignOffset(
     case 'top':
     case 'text-top':
       return 0;
-    case 'super':
-      return -(style.fontSize * 0.4);
-    case 'sub':
-      return style.fontSize * 0.2;
+    case 'super': {
+      // CSS super: establish baseline position, then raise by ~40% of parent font.
+      const base = baseFontSize ?? style.fontSize;
+      return ASCENT_RATIO * (base - style.fontSize) - base * 0.4;
+    }
+    case 'sub': {
+      // CSS sub: establish baseline position, then lower by ~20% of parent font.
+      const base = baseFontSize ?? style.fontSize;
+      return ASCENT_RATIO * (base - style.fontSize) + base * 0.2;
+    }
     case 'middle':
       return (lineHeight - style.fontSize) / 2;
     case 'bottom':
