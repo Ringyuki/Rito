@@ -20,12 +20,14 @@ export function layoutTable(
     };
   }
 
+  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
   const colWidths = computeColumnWidths(
     model.rows,
     model.colCount,
     contentWidth,
     layouter,
     model.occupied,
+    hasExplicitWidth,
   );
 
   const rowBlocks: LayoutBlock[] = [];
@@ -46,9 +48,10 @@ export function layoutTable(
     currentY += height;
   }
 
+  const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
   return {
     type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height: currentY },
+    bounds: { x: 0, y, width: totalWidth, height: currentY },
     children: rowBlocks,
   };
 }

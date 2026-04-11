@@ -66,6 +66,23 @@ function applyTextTransform(text: string, style: ComputedStyle): string {
   }
 }
 
+/** Inline padding values to propagate from parent inline elements. */
+interface InlinePadding {
+  paddingTop: number;
+  paddingRight: number;
+  paddingBottom: number;
+  paddingLeft: number;
+}
+
+function hasInlinePadding(style: ComputedStyle): boolean {
+  return (
+    style.paddingTop > 0 ||
+    style.paddingRight > 0 ||
+    style.paddingBottom > 0 ||
+    style.paddingLeft > 0
+  );
+}
+
 function collectSegments(
   nodes: readonly StyledNode[],
   out: InlineSegment[],
@@ -73,6 +90,8 @@ function collectSegments(
   inheritedHref?: string,
   inheritedBgColor?: string,
   inheritedVA?: VerticalAlign,
+  inheritedPadding?: InlinePadding,
+  inheritedBorderRadius?: number,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
@@ -81,7 +100,14 @@ function collectSegments(
         if (raw.length > 0) {
           // Restore non-inherited properties stripped by inheritableStyle:
           // backgroundColor from inline ancestor, verticalAlign from <sup>/<sub>/etc.
-          const style = patchInheritedStyle(node.style, inheritedBgColor, inheritedVA);
+          // Also restore inline padding and borderRadius for background rendering.
+          const style = patchInheritedStyle(
+            node.style,
+            inheritedBgColor,
+            inheritedVA,
+            inheritedPadding,
+            inheritedBorderRadius,
+          );
           const seg: StyledSegment = {
             text: applyTextTransform(raw, style),
             style,
@@ -99,7 +125,16 @@ function collectSegments(
         const href = node.href ?? inheritedHref;
         const bgColor = node.style.backgroundColor || inheritedBgColor;
         const va = node.style.verticalAlign !== 'baseline' ? node.style.verticalAlign : inheritedVA;
-        collectSegments(node.children, out, imageSizes, href, bgColor, va);
+        const pad = hasInlinePadding(node.style)
+          ? {
+              paddingTop: node.style.paddingTop,
+              paddingRight: node.style.paddingRight,
+              paddingBottom: node.style.paddingBottom,
+              paddingLeft: node.style.paddingLeft,
+            }
+          : inheritedPadding;
+        const br = node.style.borderRadius > 0 ? node.style.borderRadius : inheritedBorderRadius;
+        collectSegments(node.children, out, imageSizes, href, bgColor, va, pad, br);
         break;
       }
       case 'image': {
@@ -200,14 +235,20 @@ function patchInheritedStyle(
   style: ComputedStyle,
   bgColor?: string,
   va?: VerticalAlign,
+  padding?: InlinePadding,
+  borderRadius?: number,
 ): ComputedStyle {
   const needsBg = bgColor && !style.backgroundColor;
   const needsVA = va && style.verticalAlign === 'baseline';
-  if (!needsBg && !needsVA) return style;
+  const needsPad = padding && !hasInlinePadding(style);
+  const needsBR = borderRadius && borderRadius > 0 && style.borderRadius <= 0;
+  if (!needsBg && !needsVA && !needsPad && !needsBR) return style;
   return {
     ...style,
     ...(needsBg ? { backgroundColor: bgColor } : {}),
     ...(needsVA ? { verticalAlign: va } : {}),
+    ...(needsPad ? padding : {}),
+    ...(needsBR ? { borderRadius } : {}),
   };
 }
 

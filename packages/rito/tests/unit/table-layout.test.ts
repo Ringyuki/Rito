@@ -56,7 +56,9 @@ describe('layoutTable', () => {
     ]);
     const result = layoutTable(table, 400, 0, createLayouter());
     expect(result.children).toHaveLength(2);
-    expect(result.bounds.width).toBe(400);
+    // Auto-width table shrinks to fit content
+    expect(result.bounds.width).toBeGreaterThan(0);
+    expect(result.bounds.width).toBeLessThanOrEqual(400);
     expect(result.bounds.height).toBeGreaterThan(0);
   });
 
@@ -122,8 +124,8 @@ describe('layoutTable', () => {
       expect(row).toBeDefined();
       if (!row || row.type !== 'layout-block') return;
 
-      // Total width should be 400
-      expect(childWidth(row, 0) + childWidth(row, 1)).toBeCloseTo(400, 1);
+      // Total width should match the table's shrink-to-fit width
+      expect(childWidth(row, 0) + childWidth(row, 1)).toBe(result.bounds.width);
     });
 
     it('uses widest cell per column across multiple rows', () => {
@@ -149,8 +151,8 @@ describe('layoutTable', () => {
 
       // Column 0 should get significantly more space
       expect(childWidth(row, 0)).toBeGreaterThan(childWidth(row, 1));
-      // Min width for col1 is 17.6; it should be at least that
-      expect(childWidth(row, 1)).toBeGreaterThanOrEqual(17.6);
+      // Min width for col1 covers the single character "A" (at least 9px)
+      expect(childWidth(row, 1)).toBeGreaterThanOrEqual(9);
     });
 
     it('handles three columns with varied content', () => {
@@ -168,7 +170,7 @@ describe('layoutTable', () => {
       // MediumLength (12 chars) > Short (5 chars) > X (1 char)
       expect(w1).toBeGreaterThan(w0);
       expect(w0).toBeGreaterThan(w2);
-      expect(w0 + w1 + w2).toBeCloseTo(600, 1);
+      expect(w0 + w1 + w2).toBe(result.bounds.width);
     });
 
     it('overflows when minimum widths exceed table width', () => {

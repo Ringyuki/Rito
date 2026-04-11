@@ -2,7 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutTableCellContent } from './cell-layout';
-import { CELL_PADDING, columnX, computeChildrenHeight, offsetChildren, spanWidth } from './shared';
+import { columnX, computeChildrenHeight, offsetChildren, spanWidth } from './shared';
 
 export function layoutTableRow(
   row: StyledNode,
@@ -63,15 +63,19 @@ function layoutRowCells(
 
     const colSpan = cell.colspan ?? 1;
     const cellWidth = spanWidth(colWidths, col, colSpan);
-    const contentWidth = Math.max(cellWidth - CELL_PADDING * 2, 1);
+    const pt = cell.style.paddingTop;
+    const pr = cell.style.paddingRight;
+    const pb = cell.style.paddingBottom;
+    const pl = cell.style.paddingLeft;
+    const contentWidth = Math.max(cellWidth - pl - pr, 1);
     const children = layoutTableCellContent(cell, contentWidth, layouter);
-    const cellHeight = computeChildrenHeight(children) + CELL_PADDING * 2;
+    const cellHeight = computeChildrenHeight(children) + pt + pb;
 
     maxCellHeight = Math.max(maxCellHeight, cellHeight);
     cellBlocks.push({
       type: 'layout-block',
       bounds: { x: columnX(colWidths, col), y: 0, width: cellWidth, height: cellHeight },
-      children: offsetChildren(children, CELL_PADDING, CELL_PADDING),
+      children: offsetChildren(children, pl, pt),
     });
     col += colSpan;
   }

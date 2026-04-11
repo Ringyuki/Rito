@@ -37,8 +37,28 @@ export function drawTextRun(
 
   // Inline background color (e.g. <span> with background-color)
   if (run.style.backgroundColor) {
+    const pl = run.style.paddingLeft;
+    const pr = run.style.paddingRight;
+    const pt = run.style.paddingTop;
+    const pb = run.style.paddingBottom;
+    const bgX = x - pl;
+    const bgY = y - pt;
+    const bgW = run.bounds.width + pl + pr;
+    const bgH = run.bounds.height + pt + pb;
     ctx.fillStyle = run.style.backgroundColor;
-    ctx.fillRect(x, y, run.bounds.width, run.bounds.height);
+    if (run.style.borderRadius > 0) {
+      const r = Math.min(run.style.borderRadius, bgW / 2, bgH / 2);
+      ctx.beginPath();
+      ctx.moveTo(bgX + r, bgY);
+      ctx.arcTo(bgX + bgW, bgY, bgX + bgW, bgY + bgH, r);
+      ctx.arcTo(bgX + bgW, bgY + bgH, bgX, bgY + bgH, r);
+      ctx.arcTo(bgX, bgY + bgH, bgX, bgY, r);
+      ctx.arcTo(bgX, bgY, bgX + bgW, bgY, r);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillRect(bgX, bgY, bgW, bgH);
+    }
     ctx.fillStyle = color;
   }
 

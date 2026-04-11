@@ -3,7 +3,7 @@ import type { LineBox } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import type { InlineSegment, StyledSegment } from '../text/styled-segment';
 import { flattenInlineContent, isInlineAtom } from '../text/styled-segment';
-import { CELL_PADDING, isCellNode } from './shared';
+import { isCellNode } from './shared';
 
 const LARGE_WIDTH = 1e6;
 
@@ -18,12 +18,22 @@ export function computeColumnWidths(
   tableWidth: number,
   layouter: ParagraphLayouter,
   occupied: readonly (readonly boolean[])[],
+  hasExplicitWidth = false,
 ): readonly number[] {
   const colMin = new Array<number>(colCount).fill(0);
   const colPref = new Array<number>(colCount).fill(0);
 
   gatherColumnConstraints(rows, colCount, layouter, occupied, colMin, colPref);
-  return distributeWidths(colMin, colPref, tableWidth);
+
+  // For auto-width tables (no explicit CSS width), use the preferred content
+  // width capped at the container width, instead of stretching to fill.
+  const effectiveWidth = hasExplicitWidth
+    ? tableWidth
+    : Math.min(
+        colPref.reduce((sum, w) => sum + w, 0),
+        tableWidth,
+      );
+  return distributeWidths(colMin, colPref, effectiveWidth);
 }
 
 function gatherColumnConstraints(
@@ -98,13 +108,20 @@ function distributeWidths(
 }
 
 function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellWidthInfo {
-  const padding = CELL_PADDING * 2;
+  const hPad = cell.style.paddingLeft + cell.style.paddingRight;
   const segments = flattenInlineContent(cell.children);
-  if (segments.length === 0) return { minWidth: padding, prefWidth: padding };
 
+  // Respect CSS width on the cell (e.g. .w50 { width: 5em })
+  const cssWidth = cell.style.width > 0 ? cell.style.width + hPad : 0;
+
+  if (segments.length === 0)
+    return { minWidth: Math.max(hPad, cssWidth), prefWidth: Math.max(hPad, cssWidth) };
+
+  const contentMin = measureMinimumWidth(segments, layouter) + hPad;
+  const contentPref = measurePreferredWidth(segments, layouter) + hPad;
   return {
-    minWidth: measureMinimumWidth(segments, layouter) + padding,
-    prefWidth: measurePreferredWidth(segments, layouter) + padding,
+    minWidth: Math.max(contentMin, cssWidth),
+    prefWidth: Math.max(contentPref, cssWidth),
   };
 }
 
