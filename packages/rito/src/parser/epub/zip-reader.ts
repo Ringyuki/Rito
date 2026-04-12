@@ -1,5 +1,5 @@
-import { unzipSync } from 'fflate';
 import { EpubParseError } from './errors';
+import { unzip } from './unzip';
 
 export interface ZipReader {
   readFile(path: string): Uint8Array;
@@ -9,7 +9,7 @@ export interface ZipReader {
 }
 
 export function createZipReader(data: ArrayBuffer): ZipReader {
-  let entries: Record<string, Uint8Array> | null = unzipSync(new Uint8Array(data));
+  let entries: Record<string, Uint8Array> | null = unzip(new Uint8Array(data));
   const paths = Object.keys(entries);
 
   return {
