@@ -74,7 +74,7 @@ function processRange(
 
   const sourceTextOffset = globalPos - range.start;
   const width = measurer.measureText(runText, range.style).width;
-  const run = buildTextRun(
+  let run = buildTextRun(
     runText,
     x,
     lineHeight,
@@ -87,6 +87,11 @@ function processRange(
     baseFontSize,
     range.rubyAnnotation,
   );
+  // Only mark fragment edges on the true first/last slice of the range.
+  // When a range wraps across lines, intermediate slices must not redraw
+  // left/right borders.
+  if (range.borderStart && globalPos === range.start) run = { ...run, borderStart: true };
+  if (range.borderEnd && rangeEnd + globalOffset >= range.end) run = { ...run, borderEnd: true };
   return { run, nextPos: rangeEnd };
 }
 

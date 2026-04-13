@@ -11,6 +11,8 @@ export interface StyleRange {
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
   readonly rubyAnnotation?: string;
+  readonly borderStart?: boolean;
+  readonly borderEnd?: boolean;
 }
 
 export interface LineContext {

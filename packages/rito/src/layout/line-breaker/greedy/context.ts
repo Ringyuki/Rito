@@ -37,6 +37,8 @@ export function buildStyleRanges(segments: readonly InlineSegment[]): {
     };
     if (segment.href) range = { ...range, href: segment.href };
     if (segment.rubyAnnotation) range = { ...range, rubyAnnotation: segment.rubyAnnotation };
+    if (segment.borderStart) range = { ...range, borderStart: true };
+    if (segment.borderEnd) range = { ...range, borderEnd: true };
     ranges.push(range);
     offset += segment.text.length;
   }

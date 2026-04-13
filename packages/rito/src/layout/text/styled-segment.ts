@@ -12,6 +12,10 @@ export interface StyledSegment {
   readonly sourceText?: string;
   /** Ruby annotation text (from `<rt>`) to render above the base text. */
   readonly rubyAnnotation?: string;
+  /** True if this is the first fragment of a bordered inline box. */
+  readonly borderStart?: boolean;
+  /** True if this is the last fragment of a bordered inline box. */
+  readonly borderEnd?: boolean;
 }
 
 /** Type guard: returns true if the segment is an inline atom. */
@@ -74,6 +78,14 @@ interface InlinePadding {
   paddingLeft: number;
 }
 
+/** Inline border values to propagate from parent inline elements. */
+interface InlineBorders {
+  borderTop: ComputedStyle['borderTop'];
+  borderRight: ComputedStyle['borderRight'];
+  borderBottom: ComputedStyle['borderBottom'];
+  borderLeft: ComputedStyle['borderLeft'];
+}
+
 function hasInlinePadding(style: ComputedStyle): boolean {
   return (
     style.paddingTop > 0 ||
@@ -81,6 +93,26 @@ function hasInlinePadding(style: ComputedStyle): boolean {
     style.paddingBottom > 0 ||
     style.paddingLeft > 0
   );
+}
+
+function hasInlineBorders(style: ComputedStyle): boolean {
+  return (
+    style.borderTop.width > 0 ||
+    style.borderRight.width > 0 ||
+    style.borderBottom.width > 0 ||
+    style.borderLeft.width > 0
+  );
+}
+
+/** Merge parent and child borders per-side: child overrides parent on sides it sets. */
+function mergeBorders(parent: InlineBorders | undefined, child: InlineBorders): InlineBorders {
+  if (!parent) return child;
+  return {
+    borderTop: child.borderTop.width > 0 ? child.borderTop : parent.borderTop,
+    borderRight: child.borderRight.width > 0 ? child.borderRight : parent.borderRight,
+    borderBottom: child.borderBottom.width > 0 ? child.borderBottom : parent.borderBottom,
+    borderLeft: child.borderLeft.width > 0 ? child.borderLeft : parent.borderLeft,
+  };
 }
 
 function collectSegments(
@@ -92,6 +124,7 @@ function collectSegments(
   inheritedVA?: VerticalAlign,
   inheritedPadding?: InlinePadding,
   inheritedBorderRadius?: number,
+  inheritedBorders?: InlineBorders,
 ): void {
   for (const node of nodes) {
     switch (node.type) {
@@ -99,14 +132,15 @@ function collectSegments(
         const raw = node.content ?? '';
         if (raw.length > 0) {
           // Restore non-inherited properties stripped by inheritableStyle:
-          // backgroundColor from inline ancestor, verticalAlign from <sup>/<sub>/etc.
-          // Also restore inline padding and borderRadius for background rendering.
+          // backgroundColor, verticalAlign, padding, borderRadius, and borders
+          // from inline ancestors.
           const style = patchInheritedStyle(
             node.style,
             inheritedBgColor,
             inheritedVA,
             inheritedPadding,
             inheritedBorderRadius,
+            inheritedBorders,
           );
           const seg: StyledSegment = {
             text: applyTextTransform(raw, style),
@@ -134,7 +168,36 @@ function collectSegments(
             }
           : inheritedPadding;
         const br = node.style.borderRadius > 0 ? node.style.borderRadius : inheritedBorderRadius;
-        collectSegments(node.children, out, imageSizes, href, bgColor, va, pad, br);
+        const ownBorders = hasInlineBorders(node.style);
+        const borders = ownBorders
+          ? mergeBorders(inheritedBorders, {
+              borderTop: node.style.borderTop,
+              borderRight: node.style.borderRight,
+              borderBottom: node.style.borderBottom,
+              borderLeft: node.style.borderLeft,
+            })
+          : inheritedBorders;
+        const beforeLen = out.length;
+        collectSegments(node.children, out, imageSizes, href, bgColor, va, pad, br, borders);
+        // Mark first/last fragments so the renderer only draws left/right
+        // borders at the true edges of this inline box.
+        if (ownBorders && out.length > beforeLen) {
+          // Find first and last text segments (skipping atoms)
+          let firstIdx = -1;
+          let lastIdx = -1;
+          for (let si = beforeLen; si < out.length; si++) {
+            if (!isInlineAtom(out[si] as InlineSegment)) {
+              if (firstIdx < 0) firstIdx = si;
+              lastIdx = si;
+            }
+          }
+          if (firstIdx >= 0) {
+            const first = out[firstIdx] as StyledSegment;
+            out[firstIdx] = { ...first, borderStart: true };
+            const last = out[lastIdx] as StyledSegment;
+            out[lastIdx] = { ...last, borderEnd: true };
+          }
+        }
         break;
       }
       case 'image': {
@@ -237,18 +300,30 @@ function patchInheritedStyle(
   va?: VerticalAlign,
   padding?: InlinePadding,
   borderRadius?: number,
+  borders?: InlineBorders,
 ): ComputedStyle {
   const needsBg = bgColor && !style.backgroundColor;
   const needsVA = va && style.verticalAlign === 'baseline';
   const needsPad = padding && !hasInlinePadding(style);
   const needsBR = borderRadius && borderRadius > 0 && style.borderRadius <= 0;
-  if (!needsBg && !needsVA && !needsPad && !needsBR) return style;
+  const needsBorders = borders !== undefined;
+  if (!needsBg && !needsVA && !needsPad && !needsBR && !needsBorders) return style;
+  // Merge inherited borders per-side: only override sides the child hasn't set.
+  const mergedBorders = needsBorders
+    ? {
+        borderTop: style.borderTop.width > 0 ? style.borderTop : borders.borderTop,
+        borderRight: style.borderRight.width > 0 ? style.borderRight : borders.borderRight,
+        borderBottom: style.borderBottom.width > 0 ? style.borderBottom : borders.borderBottom,
+        borderLeft: style.borderLeft.width > 0 ? style.borderLeft : borders.borderLeft,
+      }
+    : {};
   return {
     ...style,
     ...(needsBg ? { backgroundColor: bgColor } : {}),
     ...(needsVA ? { verticalAlign: va } : {}),
     ...(needsPad ? padding : {}),
     ...(needsBR ? { borderRadius } : {}),
+    ...mergedBorders,
   };
 }
 

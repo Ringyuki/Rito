@@ -62,6 +62,9 @@ export function drawTextRun(
     ctx.fillStyle = color;
   }
 
+  // Inline borders (e.g. <i class="ibox1"> with border-left/border-bottom)
+  drawInlineBorders(ctx, run, x, y);
+
   if (run.style.textShadow.length > 0) {
     drawTextShadows(ctx, run, x, y, color);
   }
@@ -101,6 +104,143 @@ export function drawRubyAnnotation(
   const rubyX = x + (baseWidth - measured.width) / 2;
   ctx.fillText(annotation, rubyX, annotationY);
   ctx.restore();
+}
+
+/**
+ * Draw borders for inline elements (spans, i, em, etc.).
+ * Left border is only drawn on the first fragment (borderStart),
+ * right border only on the last fragment (borderEnd).
+ * Top/bottom borders are drawn on every fragment.
+ */
+function drawInlineBorders(
+  ctx: CanvasRenderingContext2D,
+  run: TextRun,
+  x: number,
+  y: number,
+): void {
+  const { borderTop, borderRight, borderBottom, borderLeft } = run.style;
+  const hasAny =
+    borderTop.width > 0 || borderRight.width > 0 || borderBottom.width > 0 || borderLeft.width > 0;
+  if (!hasAny) return;
+
+  // Only draw left/right borders on the correct fragment edge
+  const drawLeft = borderLeft.width > 0 && borderLeft.style !== 'none' && run.borderStart === true;
+  const drawRight = borderRight.width > 0 && borderRight.style !== 'none' && run.borderEnd === true;
+  const drawTop = borderTop.width > 0 && borderTop.style !== 'none';
+  const drawBottom = borderBottom.width > 0 && borderBottom.style !== 'none';
+  if (!drawLeft && !drawRight && !drawTop && !drawBottom) return;
+
+  const pl = run.style.paddingLeft;
+  const pr = run.style.paddingRight;
+  const pt = run.style.paddingTop;
+  const pb = run.style.paddingBottom;
+  const bx = x - pl;
+  const by = y - pt;
+  const bw = run.bounds.width + pl + pr;
+  const bh = run.bounds.height + pt + pb;
+
+  // When all four sides are drawn and border-radius is set, use a rounded
+  // rect stroke to match the rounded inline background fill geometry.
+  const r = run.style.borderRadius;
+  const allFour = drawTop && drawRight && drawBottom && drawLeft;
+  ctx.save();
+  if (allFour && r > 0) {
+    const cr = Math.min(r, bw / 2, bh / 2);
+    // Draw per-side with quadrant clipping to preserve individual colors/widths
+    const cx = bx + bw / 2;
+    const cy = by + bh / 2;
+    const sides: readonly [typeof borderTop, number, number, number, number][] = [
+      [borderTop, bx, by, bx + bw, by],
+      [borderRight, bx + bw, by, bx + bw, by + bh],
+      [borderBottom, bx + bw, by + bh, bx, by + bh],
+      [borderLeft, bx, by + bh, bx, by],
+    ];
+    for (const [edge, x1, y1, x2, y2] of sides) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.closePath();
+      ctx.clip();
+      ctx.strokeStyle = edge.color;
+      ctx.lineWidth = edge.width;
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(bx + cr, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + bh, cr);
+      ctx.arcTo(bx + bw, by + bh, bx, by + bh, cr);
+      ctx.arcTo(bx, by + bh, bx, by, cr);
+      ctx.arcTo(bx, by, bx + bw, by, cr);
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+    }
+  } else {
+    if (drawTop)
+      drawBorderEdge(
+        ctx,
+        borderTop,
+        bx,
+        by + borderTop.width / 2,
+        bx + bw,
+        by + borderTop.width / 2,
+      );
+    if (drawBottom)
+      drawBorderEdge(
+        ctx,
+        borderBottom,
+        bx,
+        by + bh - borderBottom.width / 2,
+        bx + bw,
+        by + bh - borderBottom.width / 2,
+      );
+    if (drawLeft)
+      drawBorderEdge(
+        ctx,
+        borderLeft,
+        bx + borderLeft.width / 2,
+        by,
+        bx + borderLeft.width / 2,
+        by + bh,
+      );
+    if (drawRight)
+      drawBorderEdge(
+        ctx,
+        borderRight,
+        bx + bw - borderRight.width / 2,
+        by,
+        bx + bw - borderRight.width / 2,
+        by + bh,
+      );
+  }
+  ctx.restore();
+}
+
+function drawBorderEdge(
+  ctx: CanvasRenderingContext2D,
+  edge: { width: number; color: string; style: string },
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+): void {
+  ctx.strokeStyle = edge.color;
+  ctx.lineWidth = edge.width;
+  if (edge.style === 'dotted') {
+    ctx.setLineDash([0.001, edge.width * 1.5]);
+    ctx.lineCap = 'round';
+  } else if (edge.style === 'dashed') {
+    ctx.setLineDash([edge.width * 3, edge.width * 2]);
+    ctx.lineCap = 'butt';
+  } else {
+    ctx.setLineDash([]);
+    ctx.lineCap = 'butt';
+  }
+  ctx.beginPath();
+  ctx.moveTo(x1, y1);
+  ctx.lineTo(x2, y2);
+  ctx.stroke();
 }
 
 function drawLine(

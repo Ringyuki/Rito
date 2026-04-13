@@ -61,6 +61,10 @@ function buildLineBoxes(
   let lineStart = 0;
   let y = startY;
   const baseFontSize = baseStyle.fontSize;
+  // Track segments that have already emitted runs to prevent duplicate borderStart
+  const startedSegments = new Set<StyledSegment>();
+  // Track last-run location for each borderEnd segment (applied post-hoc)
+  const borderEndTracker = new Map<StyledSegment, RunLocation>();
 
   for (let lineIndex = 0; lineIndex < breakPositions.length; lineIndex++) {
     const breakPos = breakPositions[lineIndex];
@@ -76,6 +80,9 @@ function buildLineBoxes(
       lineHeight,
       measurer,
       baseFontSize,
+      startedSegments,
+      borderEndTracker,
+      lines.length,
     );
 
     if (runs.length > 0) {
@@ -94,7 +101,24 @@ function buildLineBoxes(
     lineStart = breakPos + 1;
   }
 
+  // Apply borderEnd markers from the tracking map
+  for (const [, loc] of borderEndTracker) {
+    const line = lines[loc.lineIdx];
+    if (!line) continue;
+    const runs = line.runs as Run[];
+    const run = runs[loc.runIdx];
+    if (run && run.type === 'text-run') {
+      runs[loc.runIdx] = { ...run, borderEnd: true };
+    }
+  }
+
   return lines;
+}
+
+/** Tracks the location of the last run emitted for each borderEnd segment. */
+interface RunLocation {
+  lineIdx: number;
+  runIdx: number;
 }
 
 type Run = TextRun | InlineAtom;
@@ -107,6 +131,9 @@ function buildLineRuns(
   lineHeight: number,
   measurer: TextMeasurer,
   baseFontSize: number,
+  startedSegments: Set<StyledSegment>,
+  borderEndTracker: Map<StyledSegment, RunLocation>,
+  lineIdx: number,
 ): Run[] {
   const ctx: RunBuildContext = {
     runs: [],
@@ -116,6 +143,9 @@ function buildLineRuns(
     currentSourceOffset: 0,
     hasTrailingHyphen: false,
     baseFontSize,
+    startedSegments,
+    borderEndTracker,
+    lineIdx,
   };
 
   let index = skipLeadingNonContent(items, startIdx, endIdx);
@@ -151,6 +181,12 @@ interface RunBuildContext {
   hasTrailingHyphen: boolean;
   /** Paragraph base font size for baseline alignment. */
   baseFontSize: number;
+  /** Segments that have already emitted at least one run (cross-line tracking). */
+  startedSegments: Set<StyledSegment>;
+  /** Tracks last-run location for each borderEnd segment (for post-hoc marking). */
+  borderEndTracker: Map<StyledSegment, RunLocation>;
+  /** Current line index (for borderEndTracker). */
+  lineIdx: number;
 }
 
 function appendBox(
@@ -163,7 +199,12 @@ function appendBox(
   if (
     ctx.currentSegment?.style === segment.style &&
     ctx.currentSegment.href === segment.href &&
-    ctx.currentSegment.rubyAnnotation === segment.rubyAnnotation
+    ctx.currentSegment.rubyAnnotation === segment.rubyAnnotation &&
+    // Don't merge across border fragment boundaries: if the current segment
+    // ends a bordered inline or the new one starts one, keep them separate
+    // so borderStart/borderEnd markers stay on the correct runs.
+    !ctx.currentSegment.borderEnd &&
+    !segment.borderStart
   ) {
     ctx.currentText += text;
     return;
@@ -200,7 +241,18 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   };
   if (href) run = { ...run, href };
   if (ruby) run = { ...run, rubyAnnotation: ruby };
+  // Only mark borderStart on the very first run of this segment (across all lines).
+  const isFirst = !ctx.startedSegments.has(ctx.currentSegment);
+  if (isFirst) ctx.startedSegments.add(ctx.currentSegment);
+  if (ctx.currentSegment.borderStart && isFirst) run = { ...run, borderStart: true };
   ctx.runs.push(run);
+  // Track this run as the latest for borderEnd (last writer wins after all lines)
+  if (ctx.currentSegment.borderEnd) {
+    ctx.borderEndTracker.set(ctx.currentSegment, {
+      lineIdx: ctx.lineIdx,
+      runIdx: ctx.runs.length - 1,
+    });
+  }
   ctx.x += width;
   const sourceLength = ctx.hasTrailingHyphen ? flushedLength - 1 : flushedLength;
   ctx.currentSourceOffset += sourceLength;

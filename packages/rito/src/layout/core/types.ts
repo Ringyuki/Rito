@@ -24,6 +24,10 @@ export interface TextRun {
   readonly sourceTextOffset?: number;
   /** Ruby annotation text to render above the base text. */
   readonly rubyAnnotation?: string;
+  /** First fragment of a bordered inline box — draw left border. */
+  readonly borderStart?: boolean;
+  /** Last fragment of a bordered inline box — draw right border. */
+  readonly borderEnd?: boolean;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */
