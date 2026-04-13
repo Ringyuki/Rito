@@ -27,6 +27,12 @@ export function buildKPItems(segments: readonly InlineSegment[], measurer: TextM
     const { text, style } = textSeg;
     if (text.length === 0) continue;
 
+    // Add zero-width box for left border+padding inset so it counts toward line width
+    if (textSeg.borderStart) {
+      const inset = style.borderLeft.width + style.paddingLeft;
+      if (inset > 0) items.push(createBox(inset, '', textSeg));
+    }
+
     const spaceWidth = measurer.measureText(' ', style).width;
     const stretchFactor = spaceWidth * 1.5;
     const shrinkFactor = spaceWidth * 0.5;
@@ -40,6 +46,12 @@ export function buildKPItems(segments: readonly InlineSegment[], measurer: TextM
       } else {
         addWordItems(items, token, textSeg, measurer);
       }
+    }
+
+    // Add zero-width box for right border+padding inset
+    if (textSeg.borderEnd) {
+      const inset = style.paddingRight + style.borderRight.width;
+      if (inset > 0) items.push(createBox(inset, '', textSeg));
     }
   }
 

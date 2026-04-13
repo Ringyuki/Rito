@@ -41,8 +41,10 @@ export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
     if (!isUnitless) {
       result.lineHeightPx = lineHeight * emBase;
     } else {
-      // Explicitly clear any inherited absolute value
-      delete result.lineHeightPx;
+      // Explicitly clear any inherited absolute value.
+      // Use assignment (not delete) so the key survives object spread:
+      // { ...parent, ...patch } only overrides when the key exists in patch.
+      result.lineHeightPx = undefined;
     }
   },
   'letter-spacing': (result, value, emBase, rootFontSize) => {

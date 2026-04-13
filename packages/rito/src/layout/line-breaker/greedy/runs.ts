@@ -46,7 +46,7 @@ export function buildStyledRuns(
     if (!result) break;
     if (result.run) {
       runs.push(result.run);
-      x += result.run.bounds.width;
+      x += result.insetLeft + result.run.bounds.width + result.insetRight;
     }
     linePos = result.nextPos;
   }
@@ -64,19 +64,27 @@ function processRange(
   ranges: readonly StyleRange[],
   measurer: TextMeasurer,
   baseFontSize?: number,
-): { run?: TextRun; nextPos: number } | undefined {
+): { run?: TextRun; nextPos: number; insetLeft: number; insetRight: number } | undefined {
   const range = findRange(ranges, globalPos);
   if (!range) return undefined;
 
   const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
   const runText = stripORC(lineText.slice(linePos, rangeEnd));
-  if (runText.length === 0) return { nextPos: rangeEnd };
+  if (runText.length === 0) return { nextPos: rangeEnd, insetLeft: 0, insetRight: 0 };
+
+  // Only mark fragment edges on the true first/last slice of the range.
+  // When a range wraps across lines, intermediate slices must not redraw
+  // left/right borders.
+  const isStart = range.borderStart === true && globalPos === range.start;
+  const isEnd = range.borderEnd === true && rangeEnd + globalOffset >= range.end;
+  const insetLeft = isStart ? range.style.borderLeft.width + range.style.paddingLeft : 0;
+  const insetRight = isEnd ? range.style.paddingRight + range.style.borderRight.width : 0;
 
   const sourceTextOffset = globalPos - range.start;
   const width = measurer.measureText(runText, range.style).width;
   let run = buildTextRun(
     runText,
-    x,
+    x + insetLeft,
     lineHeight,
     width,
     range.style,
@@ -87,16 +95,22 @@ function processRange(
     baseFontSize,
     range.rubyAnnotation,
   );
-  // Only mark fragment edges on the true first/last slice of the range.
-  // When a range wraps across lines, intermediate slices must not redraw
-  // left/right borders.
-  if (range.borderStart && globalPos === range.start) run = { ...run, borderStart: true };
-  if (range.borderEnd && rangeEnd + globalOffset >= range.end) run = { ...run, borderEnd: true };
-  return { run, nextPos: rangeEnd };
+  if (isStart) run = { ...run, borderStart: true };
+  if (isEnd) run = { ...run, borderEnd: true };
+  return { run, nextPos: rangeEnd, insetLeft, insetRight };
 }
 
 export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {
-  return runs.reduce((maxWidth, run) => Math.max(maxWidth, run.bounds.x + run.bounds.width), 0);
+  let width = 0;
+  for (const run of runs) {
+    let right = run.bounds.x + run.bounds.width;
+    // Account for trailing border+padding that extends past the text
+    if (run.type === 'text-run' && run.borderEnd) {
+      right += run.style.paddingRight + run.style.borderRight.width;
+    }
+    width = Math.max(width, right);
+  }
+  return width;
 }
 
 function buildTextRun(

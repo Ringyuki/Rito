@@ -225,6 +225,15 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   const flushedLength = ctx.currentText.length;
   const width = measurer.measureText(ctx.currentText, style).width;
 
+  // Only mark borderStart on the very first run of this segment (across all lines).
+  const isFirst = !ctx.startedSegments.has(ctx.currentSegment);
+  if (isFirst) ctx.startedSegments.add(ctx.currentSegment);
+  const isStart = ctx.currentSegment.borderStart === true && isFirst;
+
+  // Compute inline border+padding insets so runs don't overlap
+  const insetLeft = isStart ? style.borderLeft.width + style.paddingLeft : 0;
+  if (insetLeft > 0) ctx.x += insetLeft;
+
   const runY = computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize);
   const runHeight = style.lineHeightPx ?? style.fontSize * style.lineHeight;
 
@@ -241,10 +250,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   };
   if (href) run = { ...run, href };
   if (ruby) run = { ...run, rubyAnnotation: ruby };
-  // Only mark borderStart on the very first run of this segment (across all lines).
-  const isFirst = !ctx.startedSegments.has(ctx.currentSegment);
-  if (isFirst) ctx.startedSegments.add(ctx.currentSegment);
-  if (ctx.currentSegment.borderStart && isFirst) run = { ...run, borderStart: true };
+  if (isStart) run = { ...run, borderStart: true };
   ctx.runs.push(run);
   // Track this run as the latest for borderEnd (last writer wins after all lines)
   if (ctx.currentSegment.borderEnd) {
@@ -254,6 +260,15 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
     });
   }
   ctx.x += width;
+
+  // Add right inset — borderEnd is resolved post-hoc, but we can detect it
+  // when the current segment has borderEnd and this is likely the last flush.
+  // The actual borderEnd mark is applied later by the caller, but we reserve
+  // horizontal space here so subsequent runs are positioned correctly.
+  if (ctx.currentSegment.borderEnd) {
+    ctx.x += style.paddingRight + style.borderRight.width;
+  }
+
   const sourceLength = ctx.hasTrailingHyphen ? flushedLength - 1 : flushedLength;
   ctx.currentSourceOffset += sourceLength;
   ctx.currentText = '';

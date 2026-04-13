@@ -41,10 +41,17 @@ export function drawTextRun(
     const pr = run.style.paddingRight;
     const pt = run.style.paddingTop;
     const pb = run.style.paddingBottom;
-    const bgX = x - pl;
-    const bgY = y - pt;
-    const bgW = run.bounds.width + pl + pr;
-    const bgH = run.bounds.height + pt + pb;
+    const bl = run.borderStart ? run.style.borderLeft.width : 0;
+    const br = run.borderEnd ? run.style.borderRight.width : 0;
+    const bt = run.style.borderTop.width;
+    const bb = run.style.borderBottom.width;
+    // CSS half-leading: the content area is centered on the text (em square).
+    // bounds.y is the text top; shift up by halfLeading so padding is symmetric.
+    const hl = Math.max(0, (run.bounds.height - run.style.fontSize) / 2);
+    const bgX = x - pl - bl;
+    const bgY = y - hl - pt - bt;
+    const bgW = run.bounds.width + pl + pr + bl + br;
+    const bgH = run.bounds.height + pt + pb + bt + bb;
     ctx.fillStyle = run.style.backgroundColor;
     if (run.style.borderRadius > 0) {
       const r = Math.min(run.style.borderRadius, bgW / 2, bgH / 2);
@@ -134,10 +141,16 @@ function drawInlineBorders(
   const pr = run.style.paddingRight;
   const pt = run.style.paddingTop;
   const pb = run.style.paddingBottom;
-  const bx = x - pl;
-  const by = y - pt;
-  const bw = run.bounds.width + pl + pr;
-  const bh = run.bounds.height + pt + pb;
+  const bl = run.borderStart ? borderLeft.width : 0;
+  const br = run.borderEnd ? borderRight.width : 0;
+  const bt = borderTop.width;
+  const bb = borderBottom.width;
+  // CSS half-leading: center the border box on the text, not the content-area top
+  const hl = Math.max(0, (run.bounds.height - run.style.fontSize) / 2);
+  const bx = x - pl - bl;
+  const by = y - hl - pt - bt;
+  const bw = run.bounds.width + pl + pr + bl + br;
+  const bh = run.bounds.height + pt + pb + bt + bb;
 
   // When all four sides are drawn and border-radius is set, use a rounded
   // rect stroke to match the rounded inline background fill geometry.
