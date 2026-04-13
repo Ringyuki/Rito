@@ -1,13 +1,30 @@
 import type { BoxShadow } from '../../style/core/types';
 import type { LayoutBlock } from '../../layout/core/types';
 
+/** Resolved border-radius with separate horizontal and vertical radii. */
+export interface ResolvedRadius {
+  readonly rx: number;
+  readonly ry: number;
+}
+
+/** Resolve a block's effective border-radius (px or percentage → per-axis px). */
+export function resolveBlockRadius(block: LayoutBlock): ResolvedRadius {
+  if (block.borderRadiusPct !== undefined) {
+    const pct = block.borderRadiusPct / 100;
+    return { rx: pct * block.bounds.width, ry: pct * block.bounds.height };
+  }
+  const r = block.borderRadius ?? 0;
+  return { rx: r, ry: r };
+}
+
 export function renderBlockBackground(
   ctx: CanvasRenderingContext2D,
   block: LayoutBlock,
   blockX: number,
   blockY: number,
-  radius: number,
+  { rx, ry }: ResolvedRadius,
 ): void {
+  const hasRadius = rx > 0 || ry > 0;
   if (block.boxShadow && block.boxShadow.length > 0) {
     renderBoxShadows(
       ctx,
@@ -16,14 +33,15 @@ export function renderBlockBackground(
       blockY,
       block.bounds.width,
       block.bounds.height,
-      radius,
+      rx,
+      ry,
     );
   }
 
   if (block.backgroundColor) {
     ctx.fillStyle = block.backgroundColor;
-    if (radius > 0) {
-      traceRoundedRect(ctx, blockX, blockY, block.bounds.width, block.bounds.height, radius);
+    if (hasRadius) {
+      traceRoundedRect(ctx, blockX, blockY, block.bounds.width, block.bounds.height, rx, ry);
       ctx.fill();
     } else {
       ctx.fillRect(blockX, blockY, block.bounds.width, block.bounds.height);
@@ -31,7 +49,7 @@ export function renderBlockBackground(
   }
 
   if (!block.borders) return;
-  if (radius > 0) {
+  if (hasRadius) {
     renderRoundedBorders(
       ctx,
       block.borders,
@@ -39,7 +57,8 @@ export function renderBlockBackground(
       blockY,
       block.bounds.width,
       block.bounds.height,
-      radius,
+      rx,
+      ry,
     );
     return;
   }
@@ -74,34 +93,142 @@ function renderRoundedBorders(
   y: number,
   w: number,
   h: number,
-  r: number,
+  rx: number,
+  ry: number = rx,
 ): void {
-  const edge = borders.top;
-  if (edge.width <= 0) return;
-  ctx.save();
-  ctx.strokeStyle = edge.color;
-  ctx.lineWidth = edge.width;
-  ctx.setLineDash(getDashPattern(edge.style, edge.width));
-  traceRoundedRect(ctx, x, y, w, h, r);
-  ctx.stroke();
-  ctx.restore();
+  const { top, right, bottom, left } = borders;
+  const hasAny = top.width > 0 || right.width > 0 || bottom.width > 0 || left.width > 0;
+  if (!hasAny) return;
+
+  const uniform =
+    top.width === right.width &&
+    right.width === bottom.width &&
+    bottom.width === left.width &&
+    top.color === right.color &&
+    right.color === bottom.color &&
+    bottom.color === left.color &&
+    top.style === right.style &&
+    right.style === bottom.style &&
+    bottom.style === left.style;
+
+  if (uniform) {
+    // All sides fully identical — simple stroke
+    ctx.save();
+    ctx.strokeStyle = top.color;
+    if (top.style === 'dotted') {
+      const dotWidth = top.width * 0.75;
+      ctx.lineWidth = dotWidth;
+      ctx.setLineDash([0.001, top.width * 1.5]);
+      ctx.lineCap = 'round';
+    } else {
+      ctx.lineWidth = top.width;
+      ctx.setLineDash(getDashPattern(top.style, top.width));
+      ctx.lineCap = 'butt';
+    }
+    traceRoundedRect(ctx, x, y, w, h, rx, ry);
+    ctx.stroke();
+    ctx.restore();
+    return;
+  }
+
+  // Non-uniform borders: draw each side in its own clipped quadrant.
+  // The quadrant clip (diagonal from center to adjacent corners) matches how
+  // browsers transition between different-colored sides at corners.
+  const crx = Math.min(rx, w / 2);
+  const cry = Math.min(ry, h / 2);
+  const maxBorder = Math.max(top.width, right.width, bottom.width, left.width);
+  const ix = x + left.width;
+  const iy = y + top.width;
+  const iw = w - left.width - right.width;
+  const ih = h - top.width - bottom.width;
+  const irx = Math.max(0, crx - maxBorder);
+  const iry = Math.max(0, cry - maxBorder);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  const sides: readonly [typeof top, number, number, number, number][] = [
+    [top, x, y, x + w, y],
+    [right, x + w, y, x + w, y + h],
+    [bottom, x + w, y + h, x, y + h],
+    [left, x, y + h, x, y],
+  ];
+
+  for (const [edge, x1, y1, x2, y2] of sides) {
+    if (edge.width <= 0) continue;
+    ctx.save();
+    // Clip to this side's quadrant (triangle from center to two corners)
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(x1, y1);
+    ctx.lineTo(x2, y2);
+    ctx.closePath();
+    ctx.clip();
+
+    if (edge.style !== 'solid') {
+      // Stroke approach preserves dotted/dashed styling per-side
+      ctx.strokeStyle = edge.color;
+      if (edge.style === 'dotted') {
+        const dotWidth = edge.width * 0.75;
+        ctx.lineWidth = dotWidth;
+        ctx.setLineDash([0.001, edge.width * 1.5]);
+        ctx.lineCap = 'round';
+      } else {
+        ctx.lineWidth = edge.width;
+        ctx.setLineDash(getDashPattern(edge.style, edge.width));
+        ctx.lineCap = 'butt';
+      }
+      traceRoundedRect(ctx, x, y, w, h, crx, cry);
+      ctx.stroke();
+    } else {
+      // Fill approach for solid borders — smooth width transition
+      ctx.fillStyle = edge.color;
+      ctx.beginPath();
+      traceRoundedRect(ctx, x, y, w, h, crx, cry);
+      if (iw > 0 && ih > 0) {
+        traceBoxPathCCW(ctx, ix, iy, iw, ih, irx, iry);
+      }
+      ctx.fill('evenodd');
+    }
+    ctx.restore();
+  }
 }
 
-function traceRoundedRect(
+/**
+ * Trace a rounded rectangle path (clockwise). When `ry` differs from `rx`,
+ * corners are elliptical arcs, matching CSS percentage border-radius.
+ */
+export function traceRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
   w: number,
   h: number,
-  r: number,
+  rx: number,
+  ry: number = rx,
 ): void {
-  const clampedRadius = Math.min(r, w / 2, h / 2);
+  const crx = Math.min(rx, w / 2);
+  const cry = Math.min(ry, h / 2);
   ctx.beginPath();
-  ctx.moveTo(x + clampedRadius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, clampedRadius);
-  ctx.arcTo(x + w, y + h, x, y + h, clampedRadius);
-  ctx.arcTo(x, y + h, x, y, clampedRadius);
-  ctx.arcTo(x, y, x + w, y, clampedRadius);
+  if (crx === cry) {
+    // Circular corners — use arcTo for simplicity
+    ctx.moveTo(x + crx, y);
+    ctx.arcTo(x + w, y, x + w, y + h, crx);
+    ctx.arcTo(x + w, y + h, x, y + h, crx);
+    ctx.arcTo(x, y + h, x, y, crx);
+    ctx.arcTo(x, y, x + w, y, crx);
+  } else {
+    // Elliptical corners — use ctx.ellipse() for each quarter
+    const PI = Math.PI;
+    ctx.moveTo(x + crx, y);
+    ctx.lineTo(x + w - crx, y);
+    ctx.ellipse(x + w - crx, y + cry, crx, cry, 0, -PI / 2, 0);
+    ctx.lineTo(x + w, y + h - cry);
+    ctx.ellipse(x + w - crx, y + h - cry, crx, cry, 0, 0, PI / 2);
+    ctx.lineTo(x + crx, y + h);
+    ctx.ellipse(x + crx, y + h - cry, crx, cry, 0, PI / 2, PI);
+    ctx.lineTo(x, y + cry);
+    ctx.ellipse(x + crx, y + cry, crx, cry, 0, PI, PI * 1.5);
+  }
   ctx.closePath();
 }
 
@@ -114,8 +241,18 @@ function strokeBorder(
   y2: number,
 ): void {
   ctx.strokeStyle = edge.color;
-  ctx.lineWidth = edge.width;
-  ctx.setLineDash(getDashPattern(edge.style, edge.width));
+  if (edge.style === 'dotted') {
+    // Browsers render dotted border dots smaller than the full border-width.
+    // Use ~75% of border-width as dot diameter; spacing based on original width.
+    const dotWidth = edge.width * 0.75;
+    ctx.lineWidth = dotWidth;
+    ctx.setLineDash([0.001, edge.width * 1.5]);
+    ctx.lineCap = 'round';
+  } else {
+    ctx.lineWidth = edge.width;
+    ctx.setLineDash(getDashPattern(edge.style, edge.width));
+    ctx.lineCap = 'butt';
+  }
   const snap = edge.width % 2 === 1 ? 0.5 : 0;
   ctx.beginPath();
   ctx.moveTo(Math.round(x1) + snap, Math.round(y1) + snap);
@@ -124,7 +261,11 @@ function strokeBorder(
 }
 
 function getDashPattern(style: 'solid' | 'dotted' | 'dashed', width: number): number[] {
-  if (style === 'dotted') return [width, width];
+  // For dotted: near-zero dash + gap. With lineCap='round', the zero-length
+  // dash becomes a circle of diameter lineWidth. Round caps extend lineWidth/2
+  // into the gap on each side, so visual gap = gap - lineWidth.
+  // Using gap = 1.5 × width gives visual gap ≈ 0.5 × width, matching browsers.
+  if (style === 'dotted') return [0.001, width * 1.5];
   if (style === 'dashed') return [width * 3, width * 2];
   return [];
 }
@@ -144,13 +285,13 @@ function renderBoxShadows(
   y: number,
   w: number,
   h: number,
-  radius: number,
+  rx: number,
+  ry: number = rx,
 ): void {
-  // Render in reverse order (first in list = topmost = rendered last)
   for (let i = shadows.length - 1; i >= 0; i--) {
     const s = shadows[i];
     if (!s || s.inset) continue;
-    renderSingleBoxShadow(ctx, s, x, y, w, h, radius);
+    renderSingleBoxShadow(ctx, s, x, y, w, h, rx, ry);
   }
 }
 
@@ -161,23 +302,28 @@ function renderSingleBoxShadow(
   y: number,
   w: number,
   h: number,
-  radius: number,
+  rx: number,
+  ry: number = rx,
 ): void {
   ctx.save();
+
+  // Canvas shadowBlur/shadowOffset are in output-bitmap (device-pixel) coordinates
+  // and are NOT scaled by ctx.scale(). Scale them manually to match the current DPR,
+  // consistent with how text-shadow handles this (see text-shadow.ts).
+  const dpr = ctx.getTransform().a || 1;
 
   // Inverse clip: outer rect CW + inner box CCW → only outside the box is drawable
   const pad = s.blur * 2 + Math.abs(s.offsetX) + Math.abs(s.offsetY) + Math.max(s.spread, 0) + 50;
   ctx.beginPath();
   ctx.rect(x - pad, y - pad, w + pad * 2, h + pad * 2);
-  // Trace inner box path in reverse (will be subtracted by evenodd)
-  traceBoxPathCCW(ctx, x, y, w, h, radius);
+  traceBoxPathCCW(ctx, x, y, w, h, rx, ry);
   ctx.clip('evenodd');
 
   // Set shadow and fill the (spread-expanded) box shape → shadow appears outside
   ctx.shadowColor = s.color;
-  ctx.shadowBlur = s.blur;
-  ctx.shadowOffsetX = s.offsetX;
-  ctx.shadowOffsetY = s.offsetY;
+  ctx.shadowBlur = s.blur * dpr;
+  ctx.shadowOffsetX = s.offsetX * dpr;
+  ctx.shadowOffsetY = s.offsetY * dpr;
   ctx.fillStyle = s.color;
   const sp = s.spread;
   const expandedW = w + sp * 2;
@@ -186,9 +332,10 @@ function renderSingleBoxShadow(
     ctx.restore();
     return;
   }
-  const expandedR = Math.max(0, radius + sp); // clamp: negative spread can shrink radius below 0
-  if (expandedR > 0) {
-    traceRoundedRect(ctx, x - sp, y - sp, expandedW, expandedH, expandedR);
+  const expandedRx = Math.max(0, rx + sp);
+  const expandedRy = Math.max(0, ry + sp);
+  if (expandedRx > 0 || expandedRy > 0) {
+    traceRoundedRect(ctx, x - sp, y - sp, expandedW, expandedH, expandedRx, expandedRy);
   } else {
     ctx.beginPath();
     ctx.rect(x - sp, y - sp, expandedW, expandedH);
@@ -206,14 +353,28 @@ function traceBoxPathCCW(
   w: number,
   h: number,
   radius: number,
+  radiusY: number = radius,
 ): void {
-  if (radius > 0) {
-    const r = Math.min(radius, w / 2, h / 2);
-    ctx.moveTo(x + r, y);
-    ctx.arcTo(x, y, x, y + h, r);
-    ctx.arcTo(x, y + h, x + w, y + h, r);
-    ctx.arcTo(x + w, y + h, x + w, y, r);
-    ctx.arcTo(x + w, y, x, y, r);
+  const rx = Math.min(radius, w / 2);
+  const ry = Math.min(radiusY, h / 2);
+  if (rx > 0 || ry > 0) {
+    if (rx === ry) {
+      ctx.moveTo(x + rx, y);
+      ctx.arcTo(x, y, x, y + h, rx);
+      ctx.arcTo(x, y + h, x + w, y + h, rx);
+      ctx.arcTo(x + w, y + h, x + w, y, rx);
+      ctx.arcTo(x + w, y, x, y, rx);
+    } else {
+      const PI = Math.PI;
+      ctx.moveTo(x + rx, y);
+      ctx.ellipse(x + rx, y + ry, rx, ry, 0, -PI / 2, PI, true);
+      ctx.lineTo(x, y + h - ry);
+      ctx.ellipse(x + rx, y + h - ry, rx, ry, 0, PI, PI / 2, true);
+      ctx.lineTo(x + w - rx, y + h);
+      ctx.ellipse(x + w - rx, y + h - ry, rx, ry, 0, PI / 2, 0, true);
+      ctx.lineTo(x + w, y + ry);
+      ctx.ellipse(x + w - rx, y + ry, rx, ry, 0, 0, -PI / 2, true);
+    }
   } else {
     ctx.moveTo(x, y);
     ctx.lineTo(x, y + h);

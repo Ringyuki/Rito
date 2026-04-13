@@ -7,7 +7,12 @@ import {
   resolveHorizontalOffset,
   type HorizontalBoxMetrics,
 } from './box-metrics';
-import { applyPageBreakFlags, extractBorders, withPageBreaks } from './helpers';
+import {
+  applyPageBreakFlags,
+  extractBorders,
+  resolveBorderRadius,
+  withPageBreaks,
+} from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
 import {
@@ -51,9 +56,12 @@ export function layoutContainerBlock(
   // Capture the container's top edge (after margin collapse, before padding)
   const containerTop = collapsed.startY - paddingTop;
 
-  // Apply the container's own width/maxWidth constraint before subtracting padding
+  // Apply the container's own width/maxWidth constraint before subtracting padding.
+  // metrics.targetWidth is the border-box width (via toTotalBox), so subtract
+  // both padding and border to get the true content area for children.
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
-  const childWidth = metrics.targetWidth - paddingLeft - paddingRight;
+  const borderH = node.style.borderLeft.width + node.style.borderRight.width;
+  const childWidth = metrics.targetWidth - paddingLeft - paddingRight - borderH;
 
   const childBlocks = layoutNodesAt(
     collapsed.children,
@@ -67,10 +75,17 @@ export function layoutContainerBlock(
 
   if (hasVisualDecorations(node)) {
     // Wrapper mode: children are laid out with absolute y coordinates starting at startY.
-    // Convert to wrapper-relative coordinates: y relative to containerTop (includes paddingTop).
+    // Convert to wrapper-relative coordinates. Include border offsets so children
+    // are positioned inside the border edges (matching the horizontal toTotalBox model).
+    const borderTop = node.style.borderTop.width;
+    const borderLeft = node.style.borderLeft.width;
     const localized = childBlocks.map((b) => ({
       ...b,
-      bounds: { ...b.bounds, x: b.bounds.x + paddingLeft, y: b.bounds.y - containerTop },
+      bounds: {
+        ...b.bounds,
+        x: b.bounds.x + borderLeft + paddingLeft,
+        y: b.bounds.y - containerTop + borderTop,
+      },
     }));
     const wrapper = buildContainerWrapper(
       node,
@@ -78,6 +93,7 @@ export function layoutContainerBlock(
       metrics,
       contentWidth,
       containerTop,
+      paddingTop,
       paddingBottom,
     );
     state.blocks.push(withPageBreaks(wrapper, node.style));
@@ -137,6 +153,7 @@ function hasVisualDecorations(node: StyledNode): boolean {
     s.borderBottom.width > 0 ||
     s.borderLeft.width > 0 ||
     s.borderRadius > 0 ||
+    s.borderRadiusPct !== undefined ||
     s.opacity < 1 ||
     s.overflow === 'hidden' ||
     s.boxShadow.length > 0 ||
@@ -151,15 +168,27 @@ function buildContainerWrapper(
   metrics: HorizontalBoxMetrics,
   containerWidth: number,
   startY: number,
+  paddingTop: number,
   paddingBottom: number,
 ): LayoutBlock {
-  // Children are already in wrapper-local coordinates (y starts at 0).
+  // Children are already in wrapper-local coordinates with borderTop offset,
+  // so their y-coordinates include borderTop. Add paddingBottom + borderBottom
+  // for the full border-box height.
   const lastChild = children[children.length - 1];
+  const borderTop = node.style.borderTop.width;
+  const borderBottom = node.style.borderBottom.width;
   let height = lastChild
-    ? lastChild.bounds.y + lastChild.bounds.height + paddingBottom
-    : paddingBottom;
-  // Apply explicit CSS height if set (e.g. height: 12em)
-  if (node.style.height > 0) height = Math.max(height, node.style.height);
+    ? lastChild.bounds.y + lastChild.bounds.height + paddingBottom + borderBottom
+    : paddingBottom + borderTop + borderBottom;
+  // Apply explicit CSS height — this IS the height, not a minimum.
+  // Content overflow is handled by the overflow property, not by growing the box.
+  if (node.style.height > 0) {
+    const borderV = borderTop + borderBottom;
+    height =
+      node.style.boxSizing === 'border-box'
+        ? node.style.height
+        : node.style.height + paddingTop + paddingBottom + borderV;
+  }
   if (node.style.minHeight !== undefined && node.style.minHeight > 0) {
     height = Math.max(height, node.style.minHeight);
   }
@@ -184,8 +213,9 @@ function buildContainerWrapper(
   }
   const borders = extractBorders(node.style);
   if (borders) wrapper = { ...wrapper, borders };
-  if (node.style.borderRadius > 0) {
-    wrapper = { ...wrapper, borderRadius: node.style.borderRadius };
+  const radiusProps = resolveBorderRadius(node.style, metrics.targetWidth, height);
+  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
+    wrapper = { ...wrapper, ...radiusProps };
   }
   if (node.style.opacity < 1) wrapper = { ...wrapper, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') wrapper = { ...wrapper, overflow: 'hidden' };
@@ -318,8 +348,14 @@ export function layoutLeafBlock(
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
 
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
-  const floatIndent = state.floats.getLeftWidth(state.y) + state.floats.getRightWidth(state.y);
-  const width = Math.max(metrics.targetWidth - floatIndent, 1);
+  // CSS line boxes avoid float margin boxes. Margins and float reservations
+  // on the same side don't stack — the effective indent is the larger of the two.
+  // Subtract only the EXTRA float space beyond what the margin already reserves.
+  const leftFloat = state.floats.getLeftWidth(state.y);
+  const rightFloat = state.floats.getRightWidth(state.y);
+  const extraLeft = Math.max(0, leftFloat - metrics.marginLeft);
+  const extraRight = Math.max(0, rightFloat - metrics.marginRight);
+  const width = Math.max(metrics.targetWidth - extraLeft - extraRight, 1);
 
   let block = layoutTextBlock(node, width, state.y, layouter, imageSizes);
   block = addListMarker(block, node, listCtx);
@@ -330,7 +366,7 @@ export function layoutLeafBlock(
     node.style,
     metrics.marginLeft,
     metrics.marginRight,
-    state.floats.getLeftWidth(state.y),
+    extraLeft,
   );
 
   if (xOffset > 0) {

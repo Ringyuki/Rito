@@ -225,6 +225,8 @@ export interface ComputedStyle {
   readonly right: number;
   /** Border radius in px. 0 means no rounding. Render-only, no layout impact. */
   readonly borderRadius: number;
+  /** Percentage border-radius (0–100), resolved against element dimensions at layout time. */
+  readonly borderRadiusPct?: number;
   /** Opacity (0-1). 1 means fully opaque. Render-only, no layout impact. */
   readonly opacity: number;
   /** Minimum lines before a page break (CSS orphans). Default 2. */

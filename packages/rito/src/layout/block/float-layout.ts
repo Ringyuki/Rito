@@ -2,7 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
-import { extractBorders } from './helpers';
+import { extractBorders, resolveBorderRadius } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import {
   applyRelativeOffset,
@@ -96,19 +96,42 @@ function layoutFloatedContainer(
   const paddingRight = resolvePaddingRight(node.style, layoutWidth);
   const paddingBottom = resolvePaddingBottom(node.style, layoutWidth);
   const paddingLeft = resolvePaddingLeft(node.style, layoutWidth);
-  const childWidth = layoutWidth - paddingLeft - paddingRight;
+  const borderTop = node.style.borderTop.width;
+  const borderLeft = node.style.borderLeft.width;
+  const borderRight = node.style.borderRight.width;
+  // Subtract both padding and border from the border-box layoutWidth
+  // to get the true content area width available for children.
+  const childWidth = layoutWidth - paddingLeft - paddingRight - borderLeft - borderRight;
+  const childStartY = borderTop + paddingTop;
   const childBlocks = layoutNodesAt(
     node.children,
     childWidth > 0 ? childWidth : layoutWidth,
     contentHeight,
     layouter,
-    paddingTop,
+    childStartY,
     imageSizes,
     childListCtx ?? listCtx,
   );
-  const indented = paddingLeft > 0 ? indentBlocks(childBlocks, paddingLeft) : childBlocks;
+  const childIndent = borderLeft + paddingLeft;
+  const indented = childIndent > 0 ? indentBlocks(childBlocks, childIndent) : childBlocks;
   const last = indented[indented.length - 1];
-  const height = last ? last.bounds.y + last.bounds.height + paddingBottom : 0;
+  const borderBottom = node.style.borderBottom.width;
+  // Children start at borderTop + paddingTop, so their y-coordinates already
+  // include borderTop. Add paddingBottom + borderBottom for the full border-box.
+  let height = last ? last.bounds.y + last.bounds.height + paddingBottom + borderBottom : 0;
+  // Apply explicit CSS height — this IS the height, not a minimum.
+  // Content overflow is handled by the overflow property, not by growing the box.
+  if (node.style.height > 0) {
+    const borderV = borderTop + borderBottom;
+    height =
+      node.style.boxSizing === 'border-box'
+        ? node.style.height
+        : node.style.height + paddingTop + paddingBottom + borderV;
+  }
+  // minHeight IS a floor — the box can grow beyond it.
+  if (node.style.minHeight !== undefined && node.style.minHeight > 0) {
+    height = Math.max(height, node.style.minHeight);
+  }
   const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
   const actualWidth = hasExplicitWidth
     ? layoutWidth
@@ -125,9 +148,13 @@ function layoutFloatedContainer(
   if (node.style.backgroundColor) block = { ...block, backgroundColor: node.style.backgroundColor };
   const borders = extractBorders(node.style);
   if (borders) block = { ...block, borders };
-  if (node.style.borderRadius > 0) block = { ...block, borderRadius: node.style.borderRadius };
+  const radiusProps = resolveBorderRadius(node.style, actualWidth, height);
+  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
+    block = { ...block, ...radiusProps };
+  }
   if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
+  if (node.style.boxShadow.length > 0) block = { ...block, boxShadow: node.style.boxShadow };
   if (node.style.transform) block = { ...block, transform: node.style.transform };
   return block;
 }

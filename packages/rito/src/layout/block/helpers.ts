@@ -2,6 +2,26 @@ import type { ComputedStyle } from '../../style/core/types';
 import { PAGE_BREAKS } from '../../style/core/types';
 import type { BlockBorders, LayoutBlock, LineBox } from '../core/types';
 
+/**
+ * Build border-radius fields for a LayoutBlock from a computed style.
+ * Percentage values are passed through as `borderRadiusPct` for the renderer
+ * to resolve per-axis (producing correct elliptical corners). Absolute values
+ * are returned as `borderRadius` in px.
+ */
+export function resolveBorderRadius(
+  style: ComputedStyle,
+  _width: number,
+  _height: number,
+): { borderRadius?: number; borderRadiusPct?: number } {
+  if (style.borderRadiusPct !== undefined) {
+    return { borderRadiusPct: style.borderRadiusPct };
+  }
+  if (style.borderRadius > 0) {
+    return { borderRadius: style.borderRadius };
+  }
+  return {};
+}
+
 export function extractBorders(style: ComputedStyle): BlockBorders | undefined {
   const { borderTop, borderRight, borderBottom, borderLeft } = style;
   const hasAny =

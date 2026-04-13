@@ -2,7 +2,7 @@ import type { ComputedStyle, StyledNode } from '../../style/core/types';
 import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
-import { computeChildrenHeight, extractBorders } from './helpers';
+import { computeChildrenHeight, extractBorders, resolveBorderRadius } from './helpers';
 import {
   resolvePaddingBottom,
   resolvePaddingLeft,
@@ -71,7 +71,10 @@ function applyBlockDecorations(
   if (backgroundColor) result = { ...result, backgroundColor };
   const borders = extractBorders(node.style);
   if (borders) result = { ...result, borders };
-  if (node.style.borderRadius > 0) result = { ...result, borderRadius: node.style.borderRadius };
+  const radiusProps = resolveBorderRadius(node.style, block.bounds.width, block.bounds.height);
+  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
+    result = { ...result, ...radiusProps };
+  }
   if (node.style.opacity < 1) result = { ...result, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') result = { ...result, overflow: 'hidden' };
   if (node.style.orphans !== 2) result = { ...result, orphans: node.style.orphans };

@@ -1,5 +1,6 @@
+import { parseLength } from '../parse-utils';
 import { parseBorder } from '../value-parsers';
-import { assignLength } from './helpers';
+import { isPercentage } from './helpers';
 import type { PropertyHandlers } from './types';
 
 export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
@@ -42,8 +43,22 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
       result.boxSizing = boxSizing;
     }
   },
-  'border-radius': (result, value, emBase, rootFontSize) => {
-    assignLength(result, 'borderRadius', value, emBase, rootFontSize, (radius) => radius >= 0);
+  'border-radius': (result, value, emBase, rootFontSize, viewport) => {
+    if (isPercentage(value)) {
+      const pct = parseFloat(value.trim());
+      if (!isNaN(pct) && pct >= 0) {
+        result.borderRadiusPct = pct;
+        result.borderRadius = 0;
+      }
+      return;
+    }
+    // Parse length directly so we can guard the borderRadiusPct clear:
+    // invalid values (e.g. "foo") must not erase an earlier valid percentage.
+    const parsed = parseLength(value, emBase, rootFontSize, viewport);
+    if (parsed !== undefined && parsed >= 0) {
+      result.borderRadius = parsed;
+      delete (result as Record<string, unknown>)['borderRadiusPct'];
+    }
   },
   opacity: (result, value) => {
     const opacity = parseFloat(value.trim());

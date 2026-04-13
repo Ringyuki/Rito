@@ -246,8 +246,16 @@ function applyCascade(
   viewport?: Viewport,
 ): ComputedStyle {
   let style = applyTagStyle(parentStyle, target.tag);
-  style = applyRules(style, target, parentStyle.fontSize, rules, index, ancestors, viewport);
-  style = applyInlineStyle(style, inlineCss, parentStyle.fontSize, style.fontSize, viewport);
+  style = applyUnifiedRules(
+    style,
+    target,
+    parentStyle.fontSize,
+    rules,
+    index,
+    ancestors,
+    inlineCss,
+    viewport,
+  );
   return style;
 }
 
@@ -263,18 +271,39 @@ interface MatchedRule {
   readonly specificity: Specificity;
 }
 
-function applyRules(
+/** Inline style specificity — higher than any selector. */
+const INLINE_SPECIFICITY: Specificity = [Infinity, 0, 0];
+
+/**
+ * Unified cascade: stylesheet rules + inline style resolved together.
+ *
+ * CSS em values in `font-size` resolve against the **parent** font-size,
+ * while em values in other properties resolve against the element's own
+ * computed font-size. A two-pass approach handles this:
+ *
+ * - Pass 1: determine the final font-size from ALL sources (rules + inline)
+ * - Pass 2: re-parse ALL declarations with that final font-size
+ *
+ * When rules and inline were processed separately, an inline `font-size`
+ * could not retroactively fix em-dependent stylesheet properties
+ * (e.g. `.lh { line-height: 1em }` resolved against the wrong font-size).
+ */
+function applyUnifiedRules(
   style: ComputedStyle,
   target: SelectorTarget,
   parentFontSize: number,
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  inlineCss: string | undefined,
   viewport?: Viewport,
 ): ComputedStyle {
-  if (!rules || rules.length === 0) return style;
-
-  const candidates = index ? index.getCandidates(target.tag, target.className, target.id) : rules;
+  const candidates =
+    rules && rules.length > 0
+      ? index
+        ? index.getCandidates(target.tag, target.className, target.id)
+        : rules
+      : [];
 
   const matches: MatchedRule[] = [];
   for (const rule of candidates) {
@@ -286,11 +315,20 @@ function applyRules(
       });
     }
   }
-  if (matches.length === 0) return style;
 
+  // Add inline style as the highest-priority entry
+  if (inlineCss) {
+    matches.push({
+      rawDeclarations: inlineCss,
+      declarations: parseCssDeclarations(inlineCss, parentFontSize, parentFontSize, viewport),
+      specificity: INLINE_SPECIFICITY,
+    });
+  }
+
+  if (matches.length === 0) return style;
   matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
 
-  // Pass 1: resolve font-size against the true parent fontSize (NOT tag defaults).
+  // Pass 1: resolve font-size from ALL sources against the parent fontSize.
   let resolvedFontSize = style.fontSize;
   for (const match of matches) {
     const reparsed = parseCssDeclarations(
@@ -304,7 +342,7 @@ function applyRules(
     }
   }
 
-  // Pass 2: re-parse with the element's own font-size for em-dependent properties
+  // Pass 2: re-parse ALL declarations with the element's final font-size.
   let result: ComputedStyle = { ...style, fontSize: resolvedFontSize };
   for (const match of matches) {
     const resolved = parseCssDeclarations(
@@ -316,30 +354,4 @@ function applyRules(
     result = { ...result, ...resolved, fontSize: resolvedFontSize };
   }
   return result;
-}
-
-/**
- * Apply inline style with two-stage em resolution:
- * - font-size in inline style resolves against parent (parentEmBasis)
- * - all other em properties resolve against the element's own computed font-size
- */
-function applyInlineStyle(
-  style: ComputedStyle,
-  inlineCss: string | undefined,
-  parentEmBasis: number,
-  currentFontSize: number,
-  viewport?: Viewport,
-): ComputedStyle {
-  if (!inlineCss) return style;
-
-  // Pass 1: parse with parent em basis to resolve font-size correctly
-  const pass1 = parseCssDeclarations(inlineCss, parentEmBasis, parentEmBasis, viewport);
-  const resolvedFontSize = pass1.fontSize ?? currentFontSize;
-
-  // Pass 2: re-parse with the resolved font-size for em-dependent properties
-  const pass2 = parseCssDeclarations(inlineCss, resolvedFontSize, resolvedFontSize, viewport);
-  if (Object.keys(pass2).length === 0) return style;
-
-  // Keep font-size from pass 1 (em in font-size is relative to parent)
-  return { ...style, ...pass2, fontSize: resolvedFontSize };
 }

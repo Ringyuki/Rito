@@ -83,6 +83,9 @@ export interface LayoutBlock {
   readonly borders?: BlockBorders;
   /** Border radius in px for rounded corners. Render-only. */
   readonly borderRadius?: number;
+  /** Border radius as a percentage (0–100). Resolved per-axis at render time
+   *  to produce correct elliptical corners (rx = pct/100 × width, ry = pct/100 × height). */
+  readonly borderRadiusPct?: number;
   /** Opacity (0-1) for the block. Render-only. */
   readonly opacity?: number;
   readonly pageBreakBefore?: boolean;

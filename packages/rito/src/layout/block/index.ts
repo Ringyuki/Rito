@@ -36,10 +36,19 @@ export function layoutNodesAt(
   };
 
   for (const node of nodes) {
-    state.floats.clearExpired(state.y);
+    // clearExpired is NOT called unconditionally: negative margin-top can pull
+    // a block back into an "expired" float's range, and range-checking in
+    // sumActiveWidths naturally handles this without removing entries.
+    //
+    // After CSS `clear`, however, floats below state.y are pruned so that
+    // later floats with negative margins don't collide with stale entries
+    // from a previous float group. Trade-off: a post-clear in-flow sibling
+    // pulled back by negative margin won't interact with the pruned floats.
+    // This matches browser behavior for typical EPUB float-group patterns.
     if (node.style.clear !== 'none') {
       const clearY = state.floats.getClearY(node.style.clear);
       if (clearY > state.y) state.y = clearY;
+      state.floats.clearExpired(state.y);
     }
 
     if (node.type === 'text' && node.content === '\n') {

@@ -56,6 +56,7 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
   right: 0,
   borderRadius: 0,
   opacity: 1,
+  boxShadow: [],
   transform: '',
   objectFit: OBJECT_FIT_VALUES.Fill,
 };
@@ -78,6 +79,7 @@ export function inheritableStyle(style: ComputedStyle): ComputedStyle {
     paddingLeftPct: _h,
     widthPct: _i,
     maxWidthPct: _j,
+    borderRadiusPct: _k,
     ...rest
   } = style;
   return { ...rest, ...NON_INHERITED_DEFAULTS };

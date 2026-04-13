@@ -8,7 +8,7 @@ import type {
 import { buildHrefResolver } from '../../utils/resolve-href';
 import { resolveTextColor } from '../../utils/color';
 import { drawRubyAnnotation, drawTextRun, RUBY_FONT_SCALE, RUBY_GAP } from '../text/text-renderer';
-import { renderBlockBackground } from './background-renderer';
+import { renderBlockBackground, resolveBlockRadius, traceRoundedRect } from './background-renderer';
 import { renderImage } from './image-renderer';
 import type { ColorOverride } from './types';
 
@@ -42,13 +42,26 @@ export function renderBlock(
 
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
-  renderBlockBackground(ctx, block, blockX, blockY, block.borderRadius ?? 0);
+  const radius = resolveBlockRadius(block);
+  renderBlockBackground(ctx, block, blockX, blockY, radius);
 
   const clipping = block.overflow === 'hidden';
   if (clipping) {
     ctx.save();
-    ctx.beginPath();
-    ctx.rect(blockX, blockY, block.bounds.width, block.bounds.height);
+    if (radius.rx > 0 || radius.ry > 0) {
+      traceRoundedRect(
+        ctx,
+        blockX,
+        blockY,
+        block.bounds.width,
+        block.bounds.height,
+        radius.rx,
+        radius.ry,
+      );
+    } else {
+      ctx.beginPath();
+      ctx.rect(blockX, blockY, block.bounds.width, block.bounds.height);
+    }
     ctx.clip();
   }
 
