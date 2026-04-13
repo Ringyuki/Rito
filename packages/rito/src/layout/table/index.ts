@@ -20,11 +20,22 @@ export function layoutTable(
     };
   }
 
+  // Table padding and border insets — rows are laid out inside these
+  const paddingTop = node.style.paddingTop;
+  const paddingRight = node.style.paddingRight;
+  const paddingBottom = node.style.paddingBottom;
+  const paddingLeft = node.style.paddingLeft;
+  const borderTop = node.style.borderTop.width;
+  const borderRight = node.style.borderRight.width;
+  const borderBottom = node.style.borderBottom.width;
+  const borderLeft = node.style.borderLeft.width;
+  const innerWidth = contentWidth - paddingLeft - paddingRight - borderLeft - borderRight;
+
   const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
   const colWidths = computeColumnWidths(
     model.rows,
     model.colCount,
-    contentWidth,
+    innerWidth > 0 ? innerWidth : contentWidth,
     layouter,
     model.occupied,
     hasExplicitWidth,
@@ -48,10 +59,23 @@ export function layoutTable(
     currentY += height;
   }
 
-  const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+  // Offset rows by table border + padding so content sits inside the box
+  const dx = borderLeft + paddingLeft;
+  const dy = borderTop + paddingTop;
+  const children =
+    dx > 0 || dy > 0
+      ? rowBlocks.map((b) => ({
+          ...b,
+          bounds: { ...b.bounds, x: b.bounds.x + dx, y: b.bounds.y + dy },
+        }))
+      : rowBlocks;
+
+  const colTotal = colWidths.reduce((sum, w) => sum + w, 0);
+  const totalWidth = colTotal + paddingLeft + paddingRight + borderLeft + borderRight;
+  const totalHeight = currentY + paddingTop + paddingBottom + borderTop + borderBottom;
   return {
     type: 'layout-block',
-    bounds: { x: 0, y, width: totalWidth, height: currentY },
-    children: rowBlocks,
+    bounds: { x: 0, y, width: totalWidth, height: totalHeight },
+    children,
   };
 }

@@ -24,23 +24,29 @@ export function layoutTextBlock(
   const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
   const paddingRight = resolvePaddingRight(node.style, contentWidth);
   const paddingLeft = resolvePaddingLeft(node.style, contentWidth);
+  const borderTop = node.style.borderTop.width;
+  const borderBottom = node.style.borderBottom.width;
+  const borderLeft = node.style.borderLeft.width;
+  const borderRight = node.style.borderRight.width;
   const { backgroundColor } = node.style;
-  const innerWidth = contentWidth - paddingRight - paddingLeft;
+  const innerWidth = contentWidth - paddingRight - paddingLeft - borderLeft - borderRight;
   const segments = flattenInlineContent(node.children, imageSizes, node.href);
   const lineBoxes = layouter.layoutParagraph(
     segments,
     innerWidth > 0 ? innerWidth : contentWidth,
     0,
   );
-  // Shift line boxes by padding offsets
+  // Shift line boxes by border + padding offsets so content sits inside the border edges
+  const dx = borderLeft + paddingLeft;
+  const dy = borderTop + paddingTop;
   const children =
-    paddingTop > 0 || paddingLeft > 0
+    dy > 0 || dx > 0
       ? lineBoxes.map((lineBox) => ({
           ...lineBox,
           bounds: {
             ...lineBox.bounds,
-            x: lineBox.bounds.x + paddingLeft,
-            y: lineBox.bounds.y + paddingTop,
+            x: lineBox.bounds.x + dx,
+            y: lineBox.bounds.y + dy,
           },
         }))
       : lineBoxes;
@@ -52,7 +58,7 @@ export function layoutTextBlock(
       y,
       width: contentWidth,
       height: applyHeightConstraints(
-        paddingTop + computeChildrenHeight(lineBoxes) + paddingBottom,
+        borderTop + paddingTop + computeChildrenHeight(lineBoxes) + paddingBottom + borderBottom,
         node.style,
       ),
     },

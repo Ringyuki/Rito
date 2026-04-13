@@ -1,7 +1,8 @@
 import type { StyledNode } from '../../style/core/types';
-import type { LayoutBlock, LineBox } from '../core/types';
+import type { HorizontalRule, ImageElement, LayoutBlock, LineBox } from '../core/types';
 
-export const CELL_PADDING = 4;
+/** Union of all possible LayoutBlock children. */
+type BlockChild = LineBox | LayoutBlock | ImageElement | HorizontalRule;
 
 export function isCellNode(node: StyledNode): boolean {
   return node.type === 'block' && (node.tag === 'td' || node.tag === 'th');
@@ -19,17 +20,17 @@ export function spanWidth(colWidths: readonly number[], col: number, span: numbe
   return width;
 }
 
-export function computeChildrenHeight(children: readonly (LineBox | LayoutBlock)[]): number {
+export function computeChildrenHeight(children: readonly BlockChild[]): number {
   if (children.length === 0) return 0;
   const last = children[children.length - 1];
   return last ? last.bounds.y + last.bounds.height : 0;
 }
 
 export function offsetChildren(
-  children: readonly (LineBox | LayoutBlock)[],
+  children: readonly BlockChild[],
   dx: number,
   dy: number,
-): (LineBox | LayoutBlock)[] {
+): BlockChild[] {
   return children.map((child) => {
     if (child.type === 'line-box') {
       return {

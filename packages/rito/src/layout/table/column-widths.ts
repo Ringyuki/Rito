@@ -109,10 +109,30 @@ function distributeWidths(
 
 function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellWidthInfo {
   const hPad = cell.style.paddingLeft + cell.style.paddingRight;
-  const segments = flattenInlineContent(cell.children);
 
   // Respect CSS width on the cell (e.g. .w50 { width: 5em })
   const cssWidth = cell.style.width > 0 ? cell.style.width + hPad : 0;
+
+  // When the cell contains block-level children (e.g. <p>, <div> inside <td>),
+  // flattenInlineContent skips them and returns empty segments, resulting in
+  // a near-zero preferred width.  Recursively measure block children instead.
+  const hasBlockChildren = cell.children.some((c) => c.type === 'block' || c.type === 'image');
+
+  if (hasBlockChildren) {
+    let maxMin = 0;
+    let maxPref = 0;
+    for (const child of cell.children) {
+      const info = measureNodeWidths(child, layouter);
+      maxMin = Math.max(maxMin, info.minWidth);
+      maxPref = Math.max(maxPref, info.prefWidth);
+    }
+    return {
+      minWidth: Math.max(maxMin + hPad, cssWidth),
+      prefWidth: Math.max(maxPref + hPad, cssWidth),
+    };
+  }
+
+  const segments = flattenInlineContent(cell.children);
 
   if (segments.length === 0)
     return { minWidth: Math.max(hPad, cssWidth), prefWidth: Math.max(hPad, cssWidth) };
@@ -122,6 +142,60 @@ function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellW
   return {
     minWidth: Math.max(contentMin, cssWidth),
     prefWidth: Math.max(contentPref, cssWidth),
+  };
+}
+
+/**
+ * Recursively measure a node's intrinsic min/preferred width.
+ * For block nodes with nested block children, returns the max across children.
+ * For leaf blocks (inline content only), measures via the paragraph layouter.
+ */
+function measureNodeWidths(node: StyledNode, layouter: ParagraphLayouter): CellWidthInfo {
+  // Bare text/inline nodes inside a block-level cell are ignored here, matching
+  // layoutTableCellContent which routes hasBlockChildren cells through layoutBlocks
+  // (which also skips bare inline siblings of block children).
+  if (node.type === 'text' || node.type === 'inline') {
+    return { minWidth: 0, prefWidth: 0 };
+  }
+
+  if (node.type === 'image') {
+    const w = node.style.width > 0 ? node.style.width : node.style.fontSize;
+    return { minWidth: w, prefWidth: w };
+  }
+
+  // Block node
+  const hPad = node.style.paddingLeft + node.style.paddingRight;
+  const hBorder = node.style.borderLeft.width + node.style.borderRight.width;
+  const extra = hPad + hBorder;
+
+  // Explicit CSS width takes precedence
+  if (node.style.width > 0) {
+    const boxWidth =
+      node.style.boxSizing === 'border-box' ? node.style.width : node.style.width + extra;
+    return { minWidth: boxWidth, prefWidth: boxWidth };
+  }
+
+  // Recurse into nested block children
+  const hasBlockChildren = node.children.some((c) => c.type === 'block' || c.type === 'image');
+
+  if (hasBlockChildren) {
+    let maxMin = 0;
+    let maxPref = 0;
+    for (const child of node.children) {
+      const info = measureNodeWidths(child, layouter);
+      maxMin = Math.max(maxMin, info.minWidth);
+      maxPref = Math.max(maxPref, info.prefWidth);
+    }
+    return { minWidth: maxMin + extra, prefWidth: maxPref + extra };
+  }
+
+  // Leaf block: measure inline content
+  const segments = flattenInlineContent(node.children);
+  if (segments.length === 0) return { minWidth: extra, prefWidth: extra };
+
+  return {
+    minWidth: measureMinimumWidth(segments, layouter) + extra,
+    prefWidth: measurePreferredWidth(segments, layouter) + extra,
   };
 }
 
@@ -160,11 +234,17 @@ function measureMinimumWidth(
 function maxLineContentWidth(lines: readonly LineBox[]): number {
   let max = 0;
   for (const line of lines) {
-    let lineWidth = 0;
+    if (line.runs.length === 0) continue;
+    let minX = Infinity;
+    let maxRight = 0;
     for (const run of line.runs) {
-      lineWidth = Math.max(lineWidth, run.bounds.x + run.bounds.width);
+      minX = Math.min(minX, run.bounds.x);
+      maxRight = Math.max(maxRight, run.bounds.x + run.bounds.width);
     }
-    max = Math.max(max, lineWidth);
+    // Use span (maxRight - minX) instead of absolute maxRight so that
+    // center/right text-align offsets within LARGE_WIDTH don't inflate
+    // the measured content width.
+    max = Math.max(max, maxRight - minX);
   }
   return max;
 }
