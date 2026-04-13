@@ -85,3 +85,14 @@ export function applyPageBreakFlags(blocks: readonly LayoutBlock[], style: Compu
     if (last) Object.assign(last, { pageBreakAfter: true });
   }
 }
+
+/** Apply background-image properties from ComputedStyle to a LayoutBlock. */
+export function applyBackgroundImage(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
+  if (!style.backgroundImage) return block;
+  let result: LayoutBlock = { ...block, backgroundImage: style.backgroundImage };
+  if (style.backgroundSize) result = { ...result, backgroundSize: style.backgroundSize };
+  if (style.backgroundRepeat) result = { ...result, backgroundRepeat: style.backgroundRepeat };
+  if (style.backgroundPosition)
+    result = { ...result, backgroundPosition: style.backgroundPosition };
+  return result;
+}

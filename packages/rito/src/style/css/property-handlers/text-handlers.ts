@@ -44,7 +44,7 @@ export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
       // Explicitly clear any inherited absolute value.
       // Use assignment (not delete) so the key survives object spread:
       // { ...parent, ...patch } only overrides when the key exists in patch.
-      result.lineHeightPx = undefined;
+      (result as Record<string, unknown>)['lineHeightPx'] = undefined;
     }
   },
   'letter-spacing': (result, value, emBase, rootFontSize) => {

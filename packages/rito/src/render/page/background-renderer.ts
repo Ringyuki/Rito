@@ -1,5 +1,6 @@
 import type { BoxShadow } from '../../style/core/types';
 import type { LayoutBlock } from '../../layout/core/types';
+import { buildHrefResolver } from '../../utils/resolve-href';
 
 /** Resolved border-radius with separate horizontal and vertical radii. */
 export interface ResolvedRadius {
@@ -23,6 +24,7 @@ export function renderBlockBackground(
   blockX: number,
   blockY: number,
   { rx, ry }: ResolvedRadius,
+  images?: ReadonlyMap<string, ImageBitmap>,
 ): void {
   const hasRadius = rx > 0 || ry > 0;
   if (block.boxShadow && block.boxShadow.length > 0) {
@@ -48,6 +50,10 @@ export function renderBlockBackground(
     }
   }
 
+  if (block.backgroundImage && images) {
+    renderBackgroundImage(ctx, block, blockX, blockY, rx, ry, images);
+  }
+
   if (!block.borders) return;
   if (hasRadius) {
     renderRoundedBorders(
@@ -63,6 +69,83 @@ export function renderBlockBackground(
     return;
   }
   renderBorders(ctx, block.borders, blockX, blockY, block.bounds.width, block.bounds.height);
+}
+
+function renderBackgroundImage(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  blockX: number,
+  blockY: number,
+  rx: number,
+  ry: number,
+  images: ReadonlyMap<string, ImageBitmap>,
+): void {
+  if (!block.backgroundImage) return;
+  const resolve = buildHrefResolver(images);
+  const bitmap = resolve(block.backgroundImage);
+  if (!bitmap) return;
+
+  const w = block.bounds.width;
+  const h = block.bounds.height;
+  const hasRadius = rx > 0 || ry > 0;
+
+  ctx.save();
+  // Clip to block bounds (respecting border-radius) so image doesn't overflow
+  if (hasRadius) {
+    traceRoundedRect(ctx, blockX, blockY, w, h, rx, ry);
+    ctx.clip();
+  } else {
+    ctx.beginPath();
+    ctx.rect(blockX, blockY, w, h);
+    ctx.clip();
+  }
+
+  const size = block.backgroundSize ?? 'auto';
+  const imgW = bitmap.width;
+  const imgH = bitmap.height;
+  let drawW = imgW;
+  let drawH = imgH;
+
+  if (size === 'cover') {
+    const scale = Math.max(w / imgW, h / imgH);
+    drawW = imgW * scale;
+    drawH = imgH * scale;
+  } else if (size === 'contain') {
+    const scale = Math.min(w / imgW, h / imgH);
+    drawW = imgW * scale;
+    drawH = imgH * scale;
+  }
+
+  // Parse background-position (default: center center for cover/contain, 0 0 for auto)
+  let drawX = blockX;
+  let drawY = blockY;
+  const pos = block.backgroundPosition ?? (size === 'auto' ? '0% 0%' : 'center center');
+  const parts = pos.split(/\s+/);
+  const hPos = parts[0] ?? 'center';
+  const vPos = parts[1] ?? 'center';
+
+  if (hPos === 'center') drawX = blockX + (w - drawW) / 2;
+  else if (hPos === 'right') drawX = blockX + w - drawW;
+  // 'left' or default: drawX = blockX
+
+  if (vPos === 'center') drawY = blockY + (h - drawH) / 2;
+  else if (vPos === 'bottom') drawY = blockY + h - drawH;
+  // 'top' or default: drawY = blockY
+
+  if (block.backgroundRepeat !== 'no-repeat' && drawW > 0 && drawH > 0) {
+    // Tile from the positioned origin in both directions to cover the block.
+    // Start from the first tile edge at or before blockX/blockY.
+    const startX = drawX - Math.ceil((drawX - blockX) / drawW) * drawW;
+    const startY = drawY - Math.ceil((drawY - blockY) / drawH) * drawH;
+    for (let ty = startY; ty < blockY + h; ty += drawH) {
+      for (let tx = startX; tx < blockX + w; tx += drawW) {
+        ctx.drawImage(bitmap, tx, ty, drawW, drawH);
+      }
+    }
+  } else {
+    ctx.drawImage(bitmap, drawX, drawY, drawW, drawH);
+  }
+  ctx.restore();
 }
 
 function renderBorders(

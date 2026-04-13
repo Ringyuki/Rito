@@ -2,7 +2,12 @@ import type { ComputedStyle, StyledNode } from '../../style/core/types';
 import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
-import { computeChildrenHeight, extractBorders, resolveBorderRadius } from './helpers';
+import {
+  applyBackgroundImage,
+  computeChildrenHeight,
+  extractBorders,
+  resolveBorderRadius,
+} from './helpers';
 import {
   resolvePaddingBottom,
   resolvePaddingLeft,
@@ -87,6 +92,9 @@ function applyBlockDecorations(
   if (node.style.widows !== 2) result = { ...result, widows: node.style.widows };
   if (node.style.boxShadow.length > 0) result = { ...result, boxShadow: node.style.boxShadow };
   if (node.style.transform) result = { ...result, transform: node.style.transform };
+  if (node.style.backgroundImage) {
+    result = applyBackgroundImage(result, node.style);
+  }
   return result;
 }
 

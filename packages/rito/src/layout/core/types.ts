@@ -106,6 +106,14 @@ export interface LayoutBlock {
   readonly boxShadow?: readonly BoxShadow[];
   /** CSS transform string. Render-only, does not affect layout flow. */
   readonly transform?: string;
+  /** Background image URL. Render-only. */
+  readonly backgroundImage?: string;
+  /** Background size mode. */
+  readonly backgroundSize?: 'cover' | 'contain' | 'auto';
+  /** Background repeat mode. */
+  readonly backgroundRepeat?: 'repeat' | 'no-repeat';
+  /** Background position. */
+  readonly backgroundPosition?: string;
 }
 
 /** Border edge in a layout block. */

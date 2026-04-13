@@ -2,7 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
-import { extractBorders, resolveBorderRadius } from './helpers';
+import { applyBackgroundImage, extractBorders, resolveBorderRadius } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import {
   applyRelativeOffset,
@@ -156,6 +156,9 @@ function layoutFloatedContainer(
   if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
   if (node.style.boxShadow.length > 0) block = { ...block, boxShadow: node.style.boxShadow };
   if (node.style.transform) block = { ...block, transform: node.style.transform };
+  if (node.style.backgroundImage) {
+    block = applyBackgroundImage(block, node.style);
+  }
   return block;
 }
 

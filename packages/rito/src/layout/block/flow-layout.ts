@@ -8,6 +8,7 @@ import {
   type HorizontalBoxMetrics,
 } from './box-metrics';
 import {
+  applyBackgroundImage,
   applyPageBreakFlags,
   extractBorders,
   resolveBorderRadius,
@@ -157,7 +158,8 @@ function hasVisualDecorations(node: StyledNode): boolean {
     s.opacity < 1 ||
     s.overflow === 'hidden' ||
     s.boxShadow.length > 0 ||
-    s.transform
+    s.transform ||
+    s.backgroundImage
   );
 }
 
@@ -224,6 +226,9 @@ function buildContainerWrapper(
   }
   if (node.style.transform) {
     wrapper = { ...wrapper, transform: node.style.transform };
+  }
+  if (node.style.backgroundImage) {
+    wrapper = applyBackgroundImage(wrapper, node.style);
   }
   return wrapper;
 }

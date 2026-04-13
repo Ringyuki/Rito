@@ -80,6 +80,10 @@ export function inheritableStyle(style: ComputedStyle): ComputedStyle {
     widthPct: _i,
     maxWidthPct: _j,
     borderRadiusPct: _k,
+    backgroundImage: _l,
+    backgroundSize: _m,
+    backgroundRepeat: _n,
+    backgroundPosition: _o,
     ...rest
   } = style;
   return { ...rest, ...NON_INHERITED_DEFAULTS };

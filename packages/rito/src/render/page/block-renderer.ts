@@ -43,7 +43,7 @@ export function renderBlock(
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
   const radius = resolveBlockRadius(block);
-  renderBlockBackground(ctx, block, blockX, blockY, radius);
+  renderBlockBackground(ctx, block, blockX, blockY, radius, images);
 
   const clipping = block.overflow === 'hidden';
   if (clipping) {

@@ -241,6 +241,14 @@ export interface ComputedStyle {
   readonly transform: string;
   /** CSS object-fit for replaced elements (images). */
   readonly objectFit: ObjectFit;
+  /** CSS background-image URL (resolved from `url(...)` syntax). */
+  readonly backgroundImage?: string;
+  /** CSS background-size. */
+  readonly backgroundSize?: 'cover' | 'contain' | 'auto';
+  /** CSS background-repeat. */
+  readonly backgroundRepeat?: 'repeat' | 'no-repeat';
+  /** CSS background-position. */
+  readonly backgroundPosition?: string;
 }
 
 /** A single box-shadow value. */
