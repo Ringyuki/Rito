@@ -348,13 +348,14 @@ export function layoutLeafBlock(
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
 
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
-  // CSS line boxes avoid float margin boxes. Margins and float reservations
-  // on the same side don't stack — the effective indent is the larger of the two.
-  // Subtract only the EXTRA float space beyond what the margin already reserves.
+  // CSS line boxes avoid float margin boxes. When a positive margin and a
+  // float reserve space on the same side, they don't stack — use the larger.
+  // Negative margins expand the block beyond the container and must not be
+  // clamped against float reservations (extraLeft/Right stay 0 when no float).
   const leftFloat = state.floats.getLeftWidth(state.y);
   const rightFloat = state.floats.getRightWidth(state.y);
-  const extraLeft = Math.max(0, leftFloat - metrics.marginLeft);
-  const extraRight = Math.max(0, rightFloat - metrics.marginRight);
+  const extraLeft = leftFloat > 0 ? Math.max(0, leftFloat - metrics.marginLeft) : 0;
+  const extraRight = rightFloat > 0 ? Math.max(0, rightFloat - metrics.marginRight) : 0;
   const width = Math.max(metrics.targetWidth - extraLeft - extraRight, 1);
 
   let block = layoutTextBlock(node, width, state.y, layouter, imageSizes);
@@ -369,7 +370,7 @@ export function layoutLeafBlock(
     extraLeft,
   );
 
-  if (xOffset > 0) {
+  if (xOffset !== 0) {
     block = { ...block, bounds: { ...block.bounds, x: block.bounds.x + xOffset } };
   }
   if (node.id) block = { ...block, anchorId: node.id };
