@@ -1,12 +1,46 @@
 import type { BoxShadow } from '../../style/core/types';
-import type { BackgroundPosition, LengthPct } from '../../style/core/paint-types';
-import type { LayoutBlock } from '../../layout/core/types';
+import type { BackgroundPosition, BorderPaintEdge, LengthPct } from '../../style/core/paint-types';
+import type { BlockBorderPaint, BorderBox, LayoutBlock } from '../../layout/core/types';
 import { buildHrefResolver } from '../../utils/resolve-href';
 
 /** Resolved border-radius with separate horizontal and vertical radii. */
 export interface ResolvedRadius {
   readonly rx: number;
   readonly ry: number;
+}
+
+/** Local "combined" border edge used by the internal border drawing helpers:
+ *  merges width (from BorderBox) with color/style (from BlockBorderPaint). */
+interface RenderBorderEdge {
+  readonly width: number;
+  readonly color: string;
+  readonly style: 'solid' | 'dotted' | 'dashed';
+}
+interface RenderBorders {
+  readonly top: RenderBorderEdge;
+  readonly right: RenderBorderEdge;
+  readonly bottom: RenderBorderEdge;
+  readonly left: RenderBorderEdge;
+}
+
+const ZERO_EDGE: RenderBorderEdge = { width: 0, color: '#000', style: 'solid' };
+
+function toRenderBorders(
+  borderBox: BorderBox | undefined,
+  paint: BlockBorderPaint | undefined,
+): RenderBorders | undefined {
+  if (!borderBox && !paint) return undefined;
+  return {
+    top: toEdge(borderBox?.topWidth, paint?.top),
+    right: toEdge(borderBox?.rightWidth, paint?.right),
+    bottom: toEdge(borderBox?.bottomWidth, paint?.bottom),
+    left: toEdge(borderBox?.leftWidth, paint?.left),
+  };
+}
+
+function toEdge(width: number | undefined, paint: BorderPaintEdge | undefined): RenderBorderEdge {
+  if (width === undefined || width <= 0 || !paint) return ZERO_EDGE;
+  return { width, color: paint.color, style: paint.style };
 }
 
 const DEFAULT_POS_AUTO: BackgroundPosition = {
@@ -27,11 +61,13 @@ function resolvePosAxis(v: LengthPct, containerSize: number, imageSize: number):
 
 /** Resolve a block's effective border-radius (px or percentage → per-axis px). */
 export function resolveBlockRadius(block: LayoutBlock): ResolvedRadius {
-  if (block.borderRadiusPct !== undefined) {
-    const pct = block.borderRadiusPct / 100;
+  const radius = block.paint?.radius;
+  if (!radius) return { rx: 0, ry: 0 };
+  if (radius.pct !== undefined) {
+    const pct = radius.pct / 100;
     return { rx: pct * block.bounds.width, ry: pct * block.bounds.height };
   }
-  const r = block.borderRadius ?? 0;
+  const r = radius.px ?? 0;
   return { rx: r, ry: r };
 }
 
@@ -43,11 +79,14 @@ export function renderBlockBackground(
   { rx, ry }: ResolvedRadius,
   images?: ReadonlyMap<string, ImageBitmap>,
 ): void {
+  const paint = block.paint;
+  const background = paint?.background;
   const hasRadius = rx > 0 || ry > 0;
-  if (block.boxShadow && block.boxShadow.length > 0) {
+
+  if (paint?.boxShadow && paint.boxShadow.length > 0) {
     renderBoxShadows(
       ctx,
-      block.boxShadow,
+      paint.boxShadow,
       blockX,
       blockY,
       block.bounds.width,
@@ -57,8 +96,8 @@ export function renderBlockBackground(
     );
   }
 
-  if (block.backgroundColor) {
-    ctx.fillStyle = block.backgroundColor;
+  if (background?.color) {
+    ctx.fillStyle = background.color;
     if (hasRadius) {
       traceRoundedRect(ctx, blockX, blockY, block.bounds.width, block.bounds.height, rx, ry);
       ctx.fill();
@@ -67,15 +106,16 @@ export function renderBlockBackground(
     }
   }
 
-  if (block.backgroundImage && images) {
-    renderBackgroundImage(ctx, block, blockX, blockY, rx, ry, images);
+  if (background?.image && images) {
+    renderBackgroundImage(ctx, block, background, blockX, blockY, rx, ry, images);
   }
 
-  if (!block.borders) return;
+  const borders = toRenderBorders(block.borderBox, paint?.border);
+  if (!borders) return;
   if (hasRadius) {
     renderRoundedBorders(
       ctx,
-      block.borders,
+      borders,
       blockX,
       blockY,
       block.bounds.width,
@@ -85,21 +125,22 @@ export function renderBlockBackground(
     );
     return;
   }
-  renderBorders(ctx, block.borders, blockX, blockY, block.bounds.width, block.bounds.height);
+  renderBorders(ctx, borders, blockX, blockY, block.bounds.width, block.bounds.height);
 }
 
 function renderBackgroundImage(
   ctx: CanvasRenderingContext2D,
   block: LayoutBlock,
+  background: NonNullable<NonNullable<LayoutBlock['paint']>['background']>,
   blockX: number,
   blockY: number,
   rx: number,
   ry: number,
   images: ReadonlyMap<string, ImageBitmap>,
 ): void {
-  if (!block.backgroundImage) return;
+  if (!background.image) return;
   const resolve = buildHrefResolver(images);
-  const bitmap = resolve(block.backgroundImage);
+  const bitmap = resolve(background.image);
   if (!bitmap) return;
 
   const w = block.bounds.width;
@@ -117,7 +158,7 @@ function renderBackgroundImage(
     ctx.clip();
   }
 
-  const size = block.backgroundSize ?? 'auto';
+  const size = background.size ?? 'auto';
   const imgW = bitmap.width;
   const imgH = bitmap.height;
   let drawW = imgW;
@@ -136,11 +177,11 @@ function renderBackgroundImage(
   // Resolve background-position against the block box. Default when unset:
   // 0% 0% for size=auto, 50% 50% for cover/contain.
   const pos: BackgroundPosition =
-    block.backgroundPosition ?? (size === 'auto' ? DEFAULT_POS_AUTO : DEFAULT_POS_CENTER);
+    background.position ?? (size === 'auto' ? DEFAULT_POS_AUTO : DEFAULT_POS_CENTER);
   const drawX = blockX + resolvePosAxis(pos.x, w, drawW);
   const drawY = blockY + resolvePosAxis(pos.y, h, drawH);
 
-  if (block.backgroundRepeat !== 'no-repeat' && drawW > 0 && drawH > 0) {
+  if (background.repeat !== 'no-repeat' && drawW > 0 && drawH > 0) {
     // Tile from the positioned origin in both directions to cover the block.
     // Start from the first tile edge at or before blockX/blockY.
     const startX = drawX - Math.ceil((drawX - blockX) / drawW) * drawW;
@@ -158,7 +199,7 @@ function renderBackgroundImage(
 
 function renderBorders(
   ctx: CanvasRenderingContext2D,
-  borders: NonNullable<LayoutBlock['borders']>,
+  borders: RenderBorders,
   x: number,
   y: number,
   w: number,
@@ -179,7 +220,7 @@ function renderBorders(
 
 function renderRoundedBorders(
   ctx: CanvasRenderingContext2D,
-  borders: NonNullable<LayoutBlock['borders']>,
+  borders: RenderBorders,
   x: number,
   y: number,
   w: number,

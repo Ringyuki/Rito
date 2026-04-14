@@ -15,19 +15,26 @@ import { drawTextRun } from '../../src/render/text/text-renderer';
 import type { TextRun } from '../../src/layout/core/types';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
+import { runPaintFromStyle } from '../../src/layout/text/run-paint-from-style';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
 function calls(records: readonly unknown[]): CanvasCall[] {
   return (records as ReadonlyArray<CanvasCall>).filter(isCall);
 }
 
-function makeRun(style: ComputedStyle, overrides: Partial<TextRun> = {}): TextRun {
+interface RunOverrides {
+  readonly borderStart?: boolean;
+  readonly borderEnd?: boolean;
+}
+
+function makeRun(style: ComputedStyle, overrides: RunOverrides = {}): TextRun {
+  const start = overrides.borderStart === true;
+  const end = overrides.borderEnd === true;
   return {
     type: 'text-run',
     text: 'sample',
     bounds: { x: 0, y: 0, width: 60, height: 24 },
-    style,
-    ...overrides,
+    paint: runPaintFromStyle(style, { start, end }),
   };
 }
 

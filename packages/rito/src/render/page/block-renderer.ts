@@ -3,12 +3,11 @@ import type {
   InlineAtom,
   LayoutBlock,
   LineBox,
-  TextRun,
+  RubyAnnotation,
 } from '../../layout/core/types';
 import type { LengthPct, TransformFn } from '../../style/core/paint-types';
 import { buildHrefResolver } from '../../utils/resolve-href';
-import { resolveTextColor } from '../../utils/color';
-import { drawRubyAnnotation, drawTextRun, RUBY_FONT_SCALE, RUBY_GAP } from '../text/text-renderer';
+import { drawRubyAnnotation, drawTextRun } from '../text/text-renderer';
 import { renderBlockBackground, resolveBlockRadius, traceRoundedRect } from './background-renderer';
 import { renderImage } from './image-renderer';
 import type { ColorOverride } from './types';
@@ -21,13 +20,14 @@ export function renderBlock(
   images?: ReadonlyMap<string, ImageBitmap>,
   colorOverride?: ColorOverride,
 ): void {
-  const relativeOffset = block.relativeOffset;
-  if (relativeOffset) {
+  const paint = block.paint;
+  const visualOffset = paint?.visualOffset;
+  if (visualOffset) {
     ctx.save();
-    ctx.translate(relativeOffset.dx, relativeOffset.dy);
+    ctx.translate(visualOffset.dx, visualOffset.dy);
   }
 
-  const transforms = block.transform;
+  const transforms = paint?.transform;
   const hasTransform = transforms !== undefined && transforms.length > 0;
   if (hasTransform) {
     ctx.save();
@@ -36,10 +36,10 @@ export function renderBlock(
     applyTransform(ctx, transforms, cx, cy, block.bounds.width, block.bounds.height);
   }
 
-  const hasOpacity = block.opacity !== undefined && block.opacity < 1;
+  const hasOpacity = paint?.opacity !== undefined && paint.opacity < 1;
   if (hasOpacity) {
     ctx.save();
-    ctx.globalAlpha = block.opacity;
+    ctx.globalAlpha = paint.opacity ?? 1;
   }
 
   const blockX = offsetX + block.bounds.x;
@@ -47,7 +47,7 @@ export function renderBlock(
   const radius = resolveBlockRadius(block);
   renderBlockBackground(ctx, block, blockX, blockY, radius, images);
 
-  const clipping = block.overflow === 'hidden';
+  const clipping = paint?.clipToBounds === true;
   if (clipping) {
     ctx.save();
     if (radius.rx > 0 || radius.ry > 0) {
@@ -74,7 +74,7 @@ export function renderBlock(
   if (clipping) ctx.restore();
   if (hasOpacity) ctx.restore();
   if (hasTransform) ctx.restore();
-  if (relativeOffset) ctx.restore();
+  if (visualOffset) ctx.restore();
 }
 
 function renderChild(
@@ -114,65 +114,24 @@ function renderLineBox(
   for (const run of lineBox.runs) {
     if (run.type === 'inline-atom') {
       renderInlineAtom(ctx, run, lineX, lineY, images);
+    } else if (run.type === 'ruby-annotation') {
+      renderRuby(ctx, run, lineX, lineY, colorOverride);
     } else {
       drawTextRun(ctx, run, lineX, lineY, colorOverride);
     }
   }
-
-  // Second pass: draw ruby annotations, grouping contiguous runs with the same annotation
-  renderRubyAnnotations(ctx, lineBox, lineX, lineY, colorOverride);
 }
 
-/**
- * Scan text runs for ruby annotations and draw each annotation centered
- * over its full base group (which may span multiple styled runs).
- */
-function renderRubyAnnotations(
+function renderRuby(
   ctx: CanvasRenderingContext2D,
-  lineBox: LineBox,
-  lineX: number,
-  lineY: number,
+  ruby: RubyAnnotation,
+  offsetX: number,
+  offsetY: number,
   colorOverride?: ColorOverride,
 ): void {
-  const runs = lineBox.runs;
-  let i = 0;
-  while (i < runs.length) {
-    const run = runs[i];
-    if (!run || run.type !== 'text-run' || !run.rubyAnnotation) {
-      i++;
-      continue;
-    }
-
-    // Scan forward for contiguous text runs with the same annotation
-    const annotation = run.rubyAnnotation;
-    const groupStart = run;
-    let groupEndRun: TextRun = run;
-    let j = i + 1;
-    while (j < runs.length) {
-      const next = runs[j];
-      if (!next || next.type !== 'text-run' || next.rubyAnnotation !== annotation) break;
-      groupEndRun = next;
-      j++;
-    }
-
-    // Compute total base width and annotation position (above the base text)
-    const groupX = lineX + groupStart.bounds.x;
-    const annotationY =
-      lineY + groupStart.bounds.y - groupStart.style.fontSize * RUBY_FONT_SCALE - RUBY_GAP;
-    const groupWidth = groupEndRun.bounds.x + groupEndRun.bounds.width - groupStart.bounds.x;
-
-    const color = colorOverride
-      ? resolveTextColor(
-          groupStart.style.color,
-          colorOverride.backgroundColor,
-          colorOverride.foregroundColor,
-        )
-      : groupStart.style.color;
-
-    drawRubyAnnotation(ctx, annotation, groupX, annotationY, groupWidth, groupStart.style, color);
-
-    i = j;
-  }
+  // Geometry + paint are already laid out by the text-align pass; render
+  // consumes them without re-deriving anything.
+  drawRubyAnnotation(ctx, ruby, offsetX, offsetY, colorOverride);
 }
 
 let cachedAtomResolver:
@@ -218,9 +177,9 @@ function renderHorizontalRule(
   const rawY = offsetY + hr.bounds.y + hr.bounds.height / 2;
   const snap = hr.bounds.height % 2 === 1 ? 0.5 : 0;
   const y = Math.round(rawY) + snap;
-  const style = hr.borderStyle ?? 'solid';
+  const style = hr.paint.style;
   ctx.save();
-  ctx.strokeStyle = hr.color;
+  ctx.strokeStyle = hr.paint.color;
   if (style === 'dotted') {
     const dotWidth = hr.bounds.height * 0.75;
     ctx.lineWidth = dotWidth;

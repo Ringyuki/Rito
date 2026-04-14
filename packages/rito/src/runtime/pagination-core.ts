@@ -88,7 +88,10 @@ export function paginateChapterNodes(
   const bodyBg = chapterBodyStyle.backgroundColor || undefined;
   const rawPages = paginateBlocks(blocks, config);
   const pages = bodyBg
-    ? indexPages(rawPages, pageIndexOffset).map((p) => ({ ...p, bodyBackgroundColor: bodyBg }))
+    ? indexPages(rawPages, pageIndexOffset).map((p) => ({
+        ...p,
+        paint: { backgroundColor: bodyBg },
+      }))
     : indexPages(rawPages, pageIndexOffset);
   return {
     pages,

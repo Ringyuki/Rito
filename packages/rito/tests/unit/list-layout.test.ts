@@ -3,9 +3,16 @@ import { createListContext, addListMarker } from '../../src/layout/block/list';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import { LIST_STYLE_TYPES } from '../../src/style/core/types';
 import type { ListStyleType, StyledNode } from '../../src/style/core/types';
-import type { InlineAtom, LayoutBlock, LineBox, TextRun } from '../../src/layout/core/types';
+import type {
+  InlineAtom,
+  LayoutBlock,
+  LineBox,
+  RubyAnnotation,
+  TextRun,
+} from '../../src/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
-function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;
 }
 
@@ -14,11 +21,11 @@ function makeNode(tag: string, listStyleType: ListStyleType = LIST_STYLE_TYPES.D
 }
 
 function makeBlock(lineText = 'test'): LayoutBlock {
-  const run = {
+  const run: TextRun = {
     type: 'text-run' as const,
     text: lineText,
     bounds: { x: 0, y: 0, width: 50, height: 20 },
-    style: DEFAULT_STYLE,
+    paint: DEFAULT_RUN_PAINT,
   };
   const line: LineBox = {
     type: 'line-box',

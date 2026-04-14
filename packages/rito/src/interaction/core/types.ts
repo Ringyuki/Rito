@@ -1,6 +1,6 @@
 import type { Rect } from '../../layout/core/types';
 import type { SourceRef } from '../../parser/xhtml/types';
-import type { ComputedStyle } from '../../style/core/types';
+import type { MeasurePaint } from '../../style/core/paint-types';
 
 /** A position within the text content of a page. */
 export interface TextPosition {
@@ -23,7 +23,9 @@ export interface HitEntry {
   readonly lineIndex: number;
   readonly runIndex: number;
   readonly text: string;
-  readonly style: ComputedStyle;
+  /** Minimal paint subset the measurer needs to resolve char positions.
+   *  Absent on non-text entries (inline atoms, block images). */
+  readonly measure?: MeasurePaint;
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;

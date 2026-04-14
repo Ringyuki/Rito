@@ -1,5 +1,6 @@
 import type { TextAlignment } from '../../style/core/types';
-import type { InlineAtom, LineBox, TextRun } from '../core/types';
+import type { InlineAtom, LineBox, RubyAnnotation, TextRun } from '../core/types';
+import { readRubyTag } from '../line-breaker/greedy/runs';
 
 type Run = TextRun | InlineAtom;
 
@@ -29,16 +30,16 @@ export function computeEffectiveLineMetrics(
     let top: number;
     let bottom: number;
 
-    if (run.type === 'text-run' && run.style.lineHeightPx !== undefined) {
-      // CSS half-leading model: the inline box height is determined by
-      // lineHeightPx, not the full content extent. When lineHeightPx < fontSize,
-      // half-leading is negative and the inline box is smaller than the content
-      // area. Content extends beyond but doesn't affect line box sizing.
-      // This separation is key: run.bounds.y is the CONTENT top (for rendering),
-      // but the INLINE BOX top (for layout) is shifted inward by halfLeading.
-      const halfLeading = (run.style.fontSize - run.style.lineHeightPx) / 2;
+    if (run.type === 'text-run' && run.lineHeightPx !== undefined) {
+      // CSS half-leading model: the inline box height is set by lineHeightPx,
+      // not the content extent. When lineHeightPx < fontSize, half-leading is
+      // negative and the inline box is smaller than the content area. Content
+      // extends beyond but doesn't affect line box sizing. run.bounds.y is
+      // the CONTENT top (for rendering); the INLINE BOX top is shifted inward
+      // by halfLeading.
+      const halfLeading = (run.paint.font.sizePx - run.lineHeightPx) / 2;
       top = run.bounds.y + halfLeading;
-      bottom = top + run.style.lineHeightPx;
+      bottom = top + run.lineHeightPx;
     } else {
       top = run.bounds.y;
       bottom = top + run.bounds.height;
@@ -46,8 +47,8 @@ export function computeEffectiveLineMetrics(
 
     if (top < minTop) minTop = top;
     if (bottom > maxBottom) maxBottom = bottom;
-    if (run.type === 'text-run' && run.rubyAnnotation) {
-      const overhang = run.style.fontSize * RUBY_FONT_SCALE + RUBY_GAP;
+    if (run.type === 'text-run' && readRubyTag(run) !== undefined) {
+      const overhang = run.paint.font.sizePx * RUBY_FONT_SCALE + RUBY_GAP;
       if (overhang > rubyOverhang) rubyOverhang = overhang;
     }
   }
@@ -85,11 +86,84 @@ export function applyAlign(
     runs = justifyRuns(runs, lineWidth, maxWidth);
   }
 
+  // Emit standalone RubyAnnotation children for any runs carrying a ruby tag.
+  // Contiguous runs sharing the same tag group into a single annotation.
+  const finalRuns = extractRubyAnnotations(runs, y);
+
   return {
     type: 'line-box',
     bounds: { x: 0, y, width: maxWidth, height: lineHeight },
-    runs,
+    runs: finalRuns,
   };
+}
+
+/** Walk runs in order; whenever a contiguous group of TextRuns carries the
+ *  same ruby tag, emit a `RubyAnnotation` node positioned above the group's
+ *  base text and insert it between the group and the next run. */
+function extractRubyAnnotations(
+  runs: readonly Run[],
+  lineY: number,
+): (TextRun | InlineAtom | RubyAnnotation)[] {
+  const out: (TextRun | InlineAtom | RubyAnnotation)[] = [];
+  let i = 0;
+  while (i < runs.length) {
+    const run = runs[i];
+    if (!run) {
+      i++;
+      continue;
+    }
+    const tag = run.type === 'text-run' ? readRubyTag(run) : undefined;
+    if (run.type !== 'text-run' || tag === undefined) {
+      out.push(run);
+      i++;
+      continue;
+    }
+
+    // Gather contiguous text runs sharing the same tag.
+    const groupStart = run;
+    let groupEnd = run;
+    let j = i + 1;
+    while (j < runs.length) {
+      const next = runs[j];
+      if (!next || next.type !== 'text-run' || readRubyTag(next) !== tag) break;
+      groupEnd = next;
+      j++;
+    }
+
+    // Push the base runs as-is.
+    for (let k = i; k < j; k++) {
+      const r = runs[k];
+      if (r) out.push(r);
+    }
+
+    // Emit the annotation positioned above the group.
+    const rubyFontSize = groupStart.paint.font.sizePx * RUBY_FONT_SCALE;
+    const annotationY = lineY + groupStart.bounds.y - rubyFontSize - RUBY_GAP;
+    const groupLeft = groupStart.bounds.x;
+    const groupRight = groupEnd.bounds.x + groupEnd.bounds.width;
+    out.push({
+      type: 'ruby-annotation',
+      text: tag,
+      bounds: {
+        x: groupLeft,
+        y: annotationY,
+        width: groupRight - groupLeft,
+        height: rubyFontSize,
+      },
+      paint: {
+        color: groupStart.paint.color,
+        font: {
+          style: groupStart.paint.font.style,
+          weight: groupStart.paint.font.weight,
+          sizePx: rubyFontSize,
+          family: groupStart.paint.font.family,
+        },
+      },
+    });
+
+    i = j;
+  }
+  return out;
 }
 
 function justifyRuns(runs: Run[], lineWidth: number, maxWidth: number): Run[] {

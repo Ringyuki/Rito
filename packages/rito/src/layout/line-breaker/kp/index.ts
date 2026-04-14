@@ -1,11 +1,13 @@
 import type { ComputedStyle } from '../../../style/core/types';
 import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
-import type { InlineAtom, LineBox, TextRun } from '../../core/types';
+import type { InlineAtom, LineBox, RubyAnnotation, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
 import type { InlineAtomSegment, InlineSegment, StyledSegment } from '../../text/styled-segment';
 import { isInlineAtom } from '../../text/styled-segment';
+import { runPaintFromStyle, withTrailingEndEdge } from '../../text/run-paint-from-style';
 import { applyAlign, computeEffectiveLineMetrics, shiftRunsY } from '../../text/text-align';
 import type { TextMeasurer } from '../../text/text-measurer';
+import { attachRuby } from '../greedy/runs';
 import { buildKPItems } from './builder';
 import { emergencyBreaks, solveKP } from './solver';
 import type { KPItem } from './types';
@@ -104,17 +106,19 @@ function buildLineBoxes(
     lineStart = breakPos + 1;
   }
 
-  // Apply trailing-edge markers (borderEnd, inlineMarginRight) to the
+  // Apply trailing-edge markers (border end, inlineMarginRight) to the
   // last emitted run of each segment. Tracker uses segment identity as key
   // so post-hoc markers can't drift onto an earlier slice of the same segment.
   for (const [segment, loc] of trailingEdgeTracker) {
     const line = lines[loc.lineIdx];
     if (!line) continue;
-    const runs = line.runs as Run[];
+    const runs = line.runs as (TextRun | InlineAtom | RubyAnnotation)[];
     const run = runs[loc.runIdx];
     if (run && run.type === 'text-run') {
-      let patched = run;
-      if (segment.borderEnd) patched = { ...patched, borderEnd: true };
+      let patched: TextRun = run;
+      if (segment.borderEnd) {
+        patched = { ...patched, paint: withTrailingEndEdge(patched.paint, segment.style) };
+      }
       if (segment.inlineMarginRight) {
         patched = { ...patched, inlineMarginRight: segment.inlineMarginRight };
       }
@@ -253,7 +257,8 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
     type: 'text-run',
     text: ctx.currentText,
     bounds: { x: ctx.x, y: runY, width, height: runHeight },
-    style,
+    paint: runPaintFromStyle(style, { start: isStart, end: false }),
+    ...(style.lineHeightPx !== undefined ? { lineHeightPx: style.lineHeightPx } : {}),
     ...(ctx.currentSegment.sourceRef ? { sourceRef: ctx.currentSegment.sourceRef } : {}),
     ...(ctx.currentSegment.sourceText !== undefined
       ? { sourceText: ctx.currentSegment.sourceText }
@@ -261,8 +266,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
     ...(ctx.currentSegment.sourceRef ? { sourceTextOffset: ctx.currentSourceOffset } : {}),
   };
   if (href) run = { ...run, href };
-  if (ruby) run = { ...run, rubyAnnotation: ruby };
-  if (isStart) run = { ...run, borderStart: true };
+  if (ruby) attachRuby(run, ruby);
   ctx.runs.push(run);
   // Record latest run for each segment (last writer wins after all lines
   // are built). Trailing-edge markers (borderEnd, inlineMarginRight) are
@@ -324,12 +328,19 @@ function trimLastRun(runs: Run[], measurer: TextMeasurer): void {
   const trimmed = lastRun.text.trimEnd();
   if (trimmed.length === lastRun.text.length) return;
 
+  // Re-measure with the paint's font + wordSpacing only (MeasurePaint shape).
+  const paint = {
+    font: lastRun.paint.font,
+    ...(lastRun.paint.wordSpacingPx !== undefined
+      ? { wordSpacingPx: lastRun.paint.wordSpacingPx }
+      : {}),
+  };
   runs[runs.length - 1] = {
     ...lastRun,
     text: trimmed,
     bounds: {
       ...lastRun.bounds,
-      width: measurer.measureText(trimmed, measurePaintFromStyle(lastRun.style)).width,
+      width: measurer.measureText(trimmed, paint).width,
     },
   };
 }
@@ -355,7 +366,6 @@ function buildAtomRun(
     if (atom.href) withSrc = { ...withSrc, href: atom.href };
     return withSrc;
   }
-  if (atom.sourceNode) return { ...base, verticalAlign: atom.style.verticalAlign };
   return base;
 }
 

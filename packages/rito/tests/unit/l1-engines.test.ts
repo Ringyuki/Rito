@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPositionTracker } from '../../src/interaction/position';
 import { createSearchEngine } from '../../src/interaction/search';
 import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../../src/layout/core/types';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
 function makeRun(text: string, x: number): TextRun {
   return {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: text.length * 10, height: 20 },
-    style: DEFAULT_STYLE,
+    paint: DEFAULT_RUN_PAINT,
   };
 }
 

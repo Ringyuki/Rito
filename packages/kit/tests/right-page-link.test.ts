@@ -9,16 +9,14 @@ import { describe, expect, it } from 'vitest';
 import { buildLinkMap, hitTestLink } from 'rito/advanced';
 import type { LayoutBlock, LineBox, TextRun } from 'rito/advanced';
 import type { Page } from 'rito';
-import { DEFAULT_STYLE } from 'rito/advanced';
-
-const style = { ...DEFAULT_STYLE, fontSize: 10 };
+import { DEFAULT_RUN_PAINT } from 'rito/advanced';
 
 function makeLink(text: string, x: number, href: string): TextRun {
   return {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: text.length * 10, height: 20 },
-    style,
+    paint: DEFAULT_RUN_PAINT,
     href,
   };
 }

@@ -1,6 +1,5 @@
 import type { InlineAtom, LayoutBlock, LineBox, Page, TextRun } from '../../layout/core/types';
-import type { ComputedStyle } from '../../style/core/types';
-import { measurePaintFromStyle } from '../../style/css/font-shorthand';
+import type { MeasurePaint } from '../../style/core/paint-types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
 import { offsetBounds } from './bounds';
@@ -50,10 +49,10 @@ export function resolveCharPosition(
   measurer: TextMeasurer,
 ): TextPosition | undefined {
   const entry = hitTest(hitMap, x, y);
-  if (!entry || entry.text.length === 0) return undefined;
+  if (!entry || entry.text.length === 0 || !entry.measure) return undefined;
 
   const localX = x - entry.bounds.x;
-  const charIndex = findCharIndex(entry.text, entry.bounds.width, localX, measurer, entry.style);
+  const charIndex = findCharIndex(entry.text, entry.bounds.width, localX, measurer, entry.measure);
   return {
     blockIndex: entry.blockIndex,
     lineIndex: entry.lineIndex,
@@ -67,13 +66,11 @@ function findCharIndex(
   totalWidth: number,
   targetX: number,
   measurer: TextMeasurer,
-  style: ComputedStyle,
+  paint: MeasurePaint,
 ): number {
   if (targetX <= 0) return 0;
   if (targetX >= totalWidth) return text.length;
 
-  // Hoist paint derivation out of the binary-search loop.
-  const paint = measurePaintFromStyle(style);
   let lo = 0;
   let hi = text.length;
   while (lo < hi) {
@@ -101,14 +98,17 @@ function collectLineBox(
     if (!run) continue;
     if (run.type === 'text-run') {
       entries.push(textRunEntry(run, lineOriginX, lineOriginY, blockIndex, lineIndex, ri));
-    } else {
-      const fallbackStyle = findLineStyle(lineBox);
-      if (fallbackStyle)
-        entries.push(
-          atomEntry(run, lineOriginX, lineOriginY, blockIndex, lineIndex, ri, fallbackStyle),
-        );
+    } else if (run.type === 'inline-atom') {
+      entries.push(atomEntry(run, lineOriginX, lineOriginY, blockIndex, lineIndex, ri));
     }
+    // Ruby annotations are not hit targets — they don't produce selectable text.
   }
+}
+
+function measurePaintFromRun(run: TextRun): MeasurePaint {
+  return run.paint.wordSpacingPx !== undefined
+    ? { font: run.paint.font, wordSpacingPx: run.paint.wordSpacingPx }
+    : { font: run.paint.font };
 }
 
 function textRunEntry(
@@ -125,7 +125,7 @@ function textRunEntry(
     lineIndex,
     runIndex,
     text: run.text,
-    style: run.style,
+    measure: measurePaintFromRun(run),
     ...(run.sourceRef ? { sourceRef: run.sourceRef } : {}),
     ...(run.sourceText !== undefined ? { sourceText: run.sourceText } : {}),
     ...(run.sourceTextOffset !== undefined ? { sourceTextOffset: run.sourceTextOffset } : {}),
@@ -140,26 +140,19 @@ function atomEntry(
   blockIndex: number,
   lineIndex: number,
   runIndex: number,
-  defaultStyle: ComputedStyle,
 ): HitEntry {
+  // Inline atoms (images, inline-blocks) carry no text and need no measurer;
+  // the hit map only treats them as positional targets.
   const entry: HitEntry = {
     bounds: offsetBounds(atom.bounds, offsetX, offsetY),
     blockIndex,
     lineIndex,
     runIndex,
     text: '',
-    style: defaultStyle,
     ...(atom.imageSrc ? { imageSrc: atom.imageSrc } : {}),
     ...(atom.alt ? { imageAlt: atom.alt } : {}),
   };
   return atom.href ? { ...entry, href: atom.href } : entry;
-}
-
-function findLineStyle(lineBox: LineBox): ComputedStyle | undefined {
-  for (const run of lineBox.runs) {
-    if (run.type === 'text-run') return run.style;
-  }
-  return undefined;
 }
 
 /** Walk layout blocks and register block-level ImageElement children as HitEntries. */
@@ -178,7 +171,6 @@ function collectBlockImages(
         lineIndex: 0,
         runIndex: 0,
         text: '',
-        style: {} as ComputedStyle,
         imageSrc: child.src,
       };
       if (child.alt) imgEntry = { ...imgEntry, imageAlt: child.alt };

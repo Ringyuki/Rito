@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAlign } from '../../src/layout/text/text-align';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 import type { TextRun } from '../../src/layout/core/types';
 
 function makeRun(text: string, x: number, width: number): TextRun {
@@ -8,7 +8,7 @@ function makeRun(text: string, x: number, width: number): TextRun {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width, height: 16 },
-    style: DEFAULT_STYLE,
+    paint: DEFAULT_RUN_PAINT,
   };
 }
 

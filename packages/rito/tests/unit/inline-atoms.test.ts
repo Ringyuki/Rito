@@ -12,7 +12,7 @@ import { resolveStyles } from '../../src/style/cascade/resolver';
 import type { DocumentNode } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 import type { ImageSizeMap } from '../../src/layout/block/types';
-import type { InlineAtom, TextRun } from '../../src/layout/core/types';
+import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
 
 const measurer = createMockTextMeasurer(0.6);
 const greedyLayouter = createGreedyLayouter(measurer);
@@ -28,7 +28,7 @@ function atomSeg(width: number, height: number, imageSrc?: string): InlineAtomSe
   return base;
 }
 
-function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;
 }
 

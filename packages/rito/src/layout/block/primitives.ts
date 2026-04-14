@@ -1,13 +1,9 @@
 import type { ComputedStyle, StyledNode } from '../../style/core/types';
-import type { HorizontalRule, LayoutBlock, RelativeOffset } from '../core/types';
+import type { HorizontalRule, LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
-import {
-  applyBackgroundImage,
-  computeChildrenHeight,
-  extractBorders,
-  resolveBorderRadius,
-} from './helpers';
+import { computeChildrenHeight } from './helpers';
+import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import {
   resolvePaddingBottom,
   resolvePaddingLeft,
@@ -33,7 +29,6 @@ export function layoutTextBlock(
   const borderBottom = node.style.borderBottom.width;
   const borderLeft = node.style.borderLeft.width;
   const borderRight = node.style.borderRight.width;
-  const { backgroundColor } = node.style;
   const innerWidth = contentWidth - paddingRight - paddingLeft - borderLeft - borderRight;
   const segments = flattenInlineContent(node.children, imageSizes, node.href);
   const lineBoxes = layouter.layoutParagraph(
@@ -69,39 +64,29 @@ export function layoutTextBlock(
     },
     children,
   };
-  return applyBlockDecorations(block, node, backgroundColor);
+  return applyBlockDecorations(block, node);
 }
 
-function applyBlockDecorations(
-  block: LayoutBlock,
-  node: StyledNode,
-  backgroundColor: string,
-): LayoutBlock {
+function applyBlockDecorations(block: LayoutBlock, node: StyledNode): LayoutBlock {
   let result = block;
   if (node.tag) result = { ...result, semanticTag: node.tag };
-  if (backgroundColor) result = { ...result, backgroundColor };
-  const borders = extractBorders(node.style);
-  if (borders) result = { ...result, borders };
-  const radiusProps = resolveBorderRadius(node.style, block.bounds.width, block.bounds.height);
-  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
-    result = { ...result, ...radiusProps };
-  }
-  if (node.style.opacity < 1) result = { ...result, opacity: node.style.opacity };
-  if (node.style.overflow === 'hidden') result = { ...result, overflow: 'hidden' };
+  const borderBox = borderBoxFromStyle(node.style);
+  if (borderBox) result = { ...result, borderBox };
   if (node.style.orphans !== 2) result = { ...result, orphans: node.style.orphans };
   if (node.style.widows !== 2) result = { ...result, widows: node.style.widows };
-  if (node.style.boxShadow.length > 0) result = { ...result, boxShadow: node.style.boxShadow };
-  if (node.style.transform.length > 0) result = { ...result, transform: node.style.transform };
-  if (node.style.backgroundImage) {
-    result = applyBackgroundImage(result, node.style);
-  }
+  const paint = blockPaintFromStyle(node.style);
+  if (paint) result = { ...result, paint };
   return result;
 }
 
 export function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): LayoutBlock {
   const offset = computeRelativeOffset(style);
   if (!offset) return block;
-  return { ...block, relativeOffset: offset };
+  const prevPaint = block.paint;
+  return {
+    ...block,
+    paint: { ...(prevPaint ?? {}), visualOffset: offset },
+  };
 }
 
 /**
@@ -161,8 +146,7 @@ export function layoutHorizontalRule(
   const hr: HorizontalRule = {
     type: 'hr',
     bounds: { x: 0, y: 0, width: contentWidth, height },
-    color,
-    ...(borderStyle !== 'solid' ? { borderStyle } : {}),
+    paint: { color, style: borderStyle },
   };
   return {
     type: 'layout-block',
@@ -171,7 +155,7 @@ export function layoutHorizontalRule(
   };
 }
 
-function computeRelativeOffset(style: ComputedStyle): RelativeOffset | undefined {
+function computeRelativeOffset(style: ComputedStyle): { dx: number; dy: number } | undefined {
   if (style.position !== 'relative') return undefined;
   const dy = style.top !== 0 ? style.top : style.bottom !== 0 ? -style.bottom : 0;
   const dx = style.left !== 0 ? style.left : style.right !== 0 ? -style.right : 0;

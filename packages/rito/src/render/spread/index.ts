@@ -51,8 +51,8 @@ export function render(
 
   // 3. Fill gap between pages if both share the same body background
   if (config.spreadMode === 'double' && config.spreadGap > 0) {
-    const leftBg = spread.left?.bodyBackgroundColor;
-    const rightBg = spread.right?.bodyBackgroundColor;
+    const leftBg = spread.left?.paint?.backgroundColor;
+    const rightBg = spread.right?.paint?.backgroundColor;
     if (leftBg && leftBg === rightBg) {
       ctx.save();
       ctx.scale(pixelRatio, pixelRatio);

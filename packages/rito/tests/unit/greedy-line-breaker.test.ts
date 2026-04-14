@@ -4,9 +4,9 @@ import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
 import type { InlineSegment } from '../../src/layout/text/styled-segment';
-import type { InlineAtom, TextRun } from '../../src/layout/core/types';
+import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
 
-function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;
 }
 

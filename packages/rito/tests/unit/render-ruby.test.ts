@@ -1,31 +1,34 @@
 /**
- * Phase 0 characterization: ruby annotation positioning.
+ * Phase 2 characterization: ruby annotation render.
  *
- * Pins down the current render-time geometry:
- *   - annotationY = lineY + groupStart.bounds.y - fontSize * RUBY_FONT_SCALE (0.5) - RUBY_GAP (1)
- *   - annotation font size = style.fontSize * 0.5
- *   - horizontal centering over the full contiguous base group
- *   - contiguous runs with the SAME rubyAnnotation string are grouped into one label
+ * Post-Phase-2, ruby is an independent `RubyAnnotation` LineBox child produced
+ * by the layout's text-align pass. The renderer just consumes `ruby.bounds`
+ * and `ruby.paint` — there is no on-the-fly grouping or geometry derivation.
  *
- * Phase 2 will move this geometry into a standalone RubyAnnotation LineBox node;
- * these assertions must then be rewritten to target that new node, not the
- * renderer's on-the-fly computation.
+ * These tests pin the render-time behavior:
+ *   - rubyX = offsetX + ruby.bounds.x + (ruby.bounds.width - measured.width) / 2
+ *   - rubyY = offsetY + ruby.bounds.y
+ *   - ctx.font is derived from ruby.paint.font (e.g. sizePx=10 for a 20px base)
+ *   - base text fillText still runs for each adjacent TextRun
+ *   - drawRubyAnnotation is wrapped in save/restore
+ *
+ * Contiguous-group formation is a LAYOUT responsibility (see text-align tests);
+ * here we only verify that a single RubyAnnotation spanning a group is
+ * rendered exactly once.
  */
 import { describe, expect, it } from 'vitest';
 import { renderBlock } from '../../src/render/page/block-renderer';
-import type { LayoutBlock, TextRun, LineBox } from '../../src/layout/core/types';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import type {
+  LayoutBlock,
+  LineBox,
+  Rect,
+  RubyAnnotation,
+  RunPaint,
+  TextRun,
+} from '../../src/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 import type { CanvasCall, CanvasPropertySet, CanvasRecord } from '../helpers/mock-canvas-context';
 import { isCall } from '../helpers/mock-canvas-context';
-
-/**
- * Expected ruby geometry constants (mirrored from text-renderer).
- * These are intentionally inlined in assertions below so a silent change
- * to the upstream constants is caught by failing tests.
- *
- * RUBY_FONT_SCALE = 0.5 — annotation font = baseFontSize × 0.5
- * RUBY_GAP = 1 — pixel gap between annotation bottom and base top
- */
 
 /**
  * Variant mock that also stubs ctx.measureText so drawRubyAnnotation's
@@ -78,18 +81,51 @@ function makeRun(
   text: string,
   x: number,
   width: number,
-  overrides: Partial<TextRun> = {},
+  paint: RunPaint = DEFAULT_RUN_PAINT,
 ): TextRun {
   return {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width, height: 24 },
-    style: DEFAULT_STYLE,
-    ...overrides,
+    paint,
   };
 }
 
-function makeLine(runs: TextRun[], y: number): LineBox {
+function makeRubyPaint(baseFontSizePx: number, family = 'serif'): RunPaint {
+  return {
+    ...DEFAULT_RUN_PAINT,
+    font: { ...DEFAULT_RUN_PAINT.font, sizePx: baseFontSizePx * 0.5, family },
+  };
+}
+
+/** Build a RubyAnnotation node whose bounds cover `[baseX, baseX+baseWidth]`
+ *  horizontally and whose Y mirrors what the layout's text-align pass emits:
+ *    bounds.y = baseY - baseFontSize * 0.5 - 1
+ *  Vertical height is `baseFontSize * 0.5` (same as paint.font.sizePx).
+ */
+function makeRuby(
+  text: string,
+  baseX: number,
+  baseY: number,
+  baseWidth: number,
+  baseFontSize: number,
+): RubyAnnotation {
+  const annotationFont = baseFontSize * 0.5;
+  const bounds: Rect = {
+    x: baseX,
+    y: baseY - annotationFont - 1,
+    width: baseWidth,
+    height: annotationFont,
+  };
+  return {
+    type: 'ruby-annotation',
+    text,
+    bounds,
+    paint: makeRubyPaint(baseFontSize),
+  };
+}
+
+function makeLine(runs: readonly (TextRun | RubyAnnotation)[], y: number): LineBox {
   return {
     type: 'line-box',
     bounds: { x: 0, y, width: 400, height: 24 },
@@ -105,79 +141,86 @@ function wrapBlock(children: LineBox[]): LayoutBlock {
   };
 }
 
-describe('Phase 0 — ruby annotation positioning', () => {
+describe('Phase 2 — ruby annotation render', () => {
   it('annotationY = lineY + run.y - fontSize * 0.5 - 1', () => {
     const { ctx, records } = createRubyMockContext();
-    const run = makeRun('漢', 20, 16, { rubyAnnotation: 'かん' });
-    const block = wrapBlock([makeLine([run], 30)]);
+    const base = makeRun('漢', 20, 16);
+    // Base run has bounds.y=0, fontSize=16. Layout places the ruby at
+    // bounds.y = 0 - 8 - 1 = -9 (relative to the line).
+    const ruby = makeRuby('かん', 20, 0, 16, 16);
+    const block = wrapBlock([makeLine([base, ruby], 30)]);
 
     renderBlock(ctx, block, 0, 0);
 
-    // Two fillText calls: base text + annotation. The annotation is the LAST one
-    // because ruby is painted in the second pass (renderRubyAnnotations after renderLineBox).
+    // Two fillText calls: base text + annotation (annotation is emitted last
+    // because it comes after `base` in the runs array).
     const fillTexts = calls(records).filter((c) => c.method === 'fillText');
     expect(fillTexts).toHaveLength(2);
 
-    // Annotation fillText args: [annotation, rubyX, annotationY]
     const annotationCall = fillTexts[1];
-    // lineY = 0 + 0 + lineBox.y (30) = 30; run.y = 0
-    // annotationY = 30 + 0 - 16 * 0.5 - 1 = 30 - 8 - 1 = 21
+    // lineY = 0 + 30; ruby.bounds.y = -9 → rubyY = 30 + (-9) = 21
     expect(annotationCall?.args[0]).toBe('かん');
     expect(annotationCall?.args[2]).toBe(21);
   });
 
   it('annotationY shifts by caller offsetY', () => {
     const { ctx, records } = createRubyMockContext();
-    const run = makeRun('漢', 0, 16, { rubyAnnotation: 'かん' });
-    const block = wrapBlock([makeLine([run], 0)]);
+    const base = makeRun('漢', 0, 16);
+    const ruby = makeRuby('かん', 0, 0, 16, 16);
+    const block = wrapBlock([makeLine([base, ruby], 0)]);
 
     renderBlock(ctx, block, 100, 50);
 
     const fillTexts = calls(records).filter((c) => c.method === 'fillText');
     const annotationCall = fillTexts[1];
-    // offsetY=50, run.y=0, fontSize=16 → annotationY = 50 - 8 - 1 = 41
+    // offsetY=50, lineBox.y=0, ruby.bounds.y=-9 → rubyY = 50 + 0 + (-9) = 41
     expect(annotationCall?.args[2]).toBe(41);
   });
 
   it('annotation font size is fontSize * 0.5 and replaces ctx.font', () => {
     const { ctx, records } = createRubyMockContext();
-    const style = { ...DEFAULT_STYLE, fontSize: 20, fontFamily: 'serif' };
-    const run = makeRun('漢', 0, 20, { style, rubyAnnotation: 'かん' });
-    const block = wrapBlock([makeLine([run], 0)]);
+    const basePaint: RunPaint = {
+      ...DEFAULT_RUN_PAINT,
+      font: { ...DEFAULT_RUN_PAINT.font, sizePx: 20, family: 'serif' },
+    };
+    const base = makeRun('漢', 0, 20, basePaint);
+    const ruby = makeRuby('かん', 0, 0, 20, 20);
+    const block = wrapBlock([makeLine([base, ruby], 0)]);
 
     renderBlock(ctx, block, 0, 0);
 
-    // font is set twice: once for base text (20px), once for ruby (10px).
+    // font is set at least twice: once for base text (20px), once for ruby (10px).
     const fonts = records.filter(
       (r): r is CanvasPropertySet => !isCall(r) && r.property === 'font',
     );
     expect(fonts.length).toBeGreaterThanOrEqual(2);
-    // Base font should contain "20px", ruby font should contain "10px".
     expect(String(fonts[0]?.value)).toContain('20px');
     expect(fonts.some((f) => String(f.value).includes('10px'))).toBe(true);
   });
 
   it('rubyX centers annotation horizontally over base group width', () => {
     const { ctx, records } = createRubyMockContext();
-    // Single run at x=20 width=40. Annotation has 2 chars → measure=20 (fake).
-    const run = makeRun('漢字', 20, 40, { rubyAnnotation: 'か' });
-    const block = wrapBlock([makeLine([run], 0)]);
+    // Single base run at x=20 width=40. The ruby's bounds mirror the group.
+    const base = makeRun('漢字', 20, 40);
+    const ruby = makeRuby('か', 20, 0, 40, 16);
+    const block = wrapBlock([makeLine([base, ruby], 0)]);
 
     renderBlock(ctx, block, 0, 0);
 
     const fillTexts = calls(records).filter((c) => c.method === 'fillText');
     const annotationCall = fillTexts[1];
-    // groupX = 0 + 20 = 20; baseWidth = 40; measured = 10 (1 char * 10)
-    // rubyX = 20 + (40 - 10) / 2 = 35
+    // measured = 10 (1 char × 10); rubyX = 0 + 20 + (40 - 10)/2 = 35
     expect(annotationCall?.args[1]).toBe(35);
   });
 
-  it('contiguous runs with the same rubyAnnotation form ONE label over full span', () => {
+  it('one RubyAnnotation spanning two adjacent base runs renders a single label', () => {
     const { ctx, records } = createRubyMockContext();
-    // Two consecutive runs share the same rubyAnnotation.
-    const r1 = makeRun('漢', 10, 16, { rubyAnnotation: 'かんじ' });
-    const r2 = makeRun('字', 26, 16, { rubyAnnotation: 'かんじ' });
-    const block = wrapBlock([makeLine([r1, r2], 0)]);
+    // Layout's text-align pass would produce a single RubyAnnotation whose
+    // bounds span the full base group: x=10, width=32.
+    const r1 = makeRun('漢', 10, 16);
+    const r2 = makeRun('字', 26, 16);
+    const ruby = makeRuby('かんじ', 10, 0, 32, 16);
+    const block = wrapBlock([makeLine([r1, r2, ruby], 0)]);
 
     renderBlock(ctx, block, 0, 0);
 
@@ -185,19 +228,18 @@ describe('Phase 0 — ruby annotation positioning', () => {
     // 2 base text fills + 1 annotation fill = 3
     expect(fillTexts).toHaveLength(3);
     const annotationCall = fillTexts[2];
-    // groupStart.bounds.x = 10; groupEnd.bounds.x + width = 26 + 16 = 42
-    // groupX = 10; groupWidth = 42 - 10 = 32
-    // measured = 3 * 10 = 30
-    // rubyX = 10 + (32 - 30) / 2 = 11
+    // measured = 3 × 10 = 30; rubyX = 0 + 10 + (32 - 30)/2 = 11
     expect(annotationCall?.args[0]).toBe('かんじ');
     expect(annotationCall?.args[1]).toBe(11);
   });
 
-  it('runs with DIFFERENT rubyAnnotations produce separate labels', () => {
+  it('two separate RubyAnnotations produce two labels', () => {
     const { ctx, records } = createRubyMockContext();
-    const r1 = makeRun('漢', 10, 16, { rubyAnnotation: 'かん' });
-    const r2 = makeRun('字', 26, 16, { rubyAnnotation: 'じ' });
-    const block = wrapBlock([makeLine([r1, r2], 0)]);
+    const r1 = makeRun('漢', 10, 16);
+    const r2 = makeRun('字', 26, 16);
+    const ruby1 = makeRuby('かん', 10, 0, 16, 16);
+    const ruby2 = makeRuby('じ', 26, 0, 16, 16);
+    const block = wrapBlock([makeLine([r1, r2, ruby1, ruby2], 0)]);
 
     renderBlock(ctx, block, 0, 0);
 
@@ -210,7 +252,7 @@ describe('Phase 0 — ruby annotation positioning', () => {
     expect(ann2?.args[0]).toBe('じ');
   });
 
-  it('run without rubyAnnotation emits no annotation fillText', () => {
+  it('base run with no sibling RubyAnnotation emits no annotation fillText', () => {
     const { ctx, records } = createRubyMockContext();
     const run = makeRun('漢', 0, 16);
     const block = wrapBlock([makeLine([run], 0)]);
@@ -223,8 +265,9 @@ describe('Phase 0 — ruby annotation positioning', () => {
 
   it('ruby save/restore wraps annotation drawing (isolates font change)', () => {
     const { ctx, records } = createRubyMockContext();
-    const run = makeRun('漢', 0, 16, { rubyAnnotation: 'か' });
-    const block = wrapBlock([makeLine([run], 0)]);
+    const base = makeRun('漢', 0, 16);
+    const ruby = makeRuby('か', 0, 0, 16, 16);
+    const block = wrapBlock([makeLine([base, ruby], 0)]);
 
     renderBlock(ctx, block, 0, 0);
 

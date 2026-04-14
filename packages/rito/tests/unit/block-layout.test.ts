@@ -320,7 +320,7 @@ describe('layoutBlocks', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       expect(blocks).toHaveLength(1);
-      expect(blocks[0]?.overflow).toBe('hidden');
+      expect(blocks[0]?.paint?.clipToBounds).toBe(true);
     });
 
     it('does not set overflow when visible (default)', () => {
@@ -330,7 +330,7 @@ describe('layoutBlocks', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       expect(blocks).toHaveLength(1);
-      expect(blocks[0]?.overflow).toBeUndefined();
+      expect(blocks[0]?.paint?.clipToBounds).toBeUndefined();
     });
   });
 

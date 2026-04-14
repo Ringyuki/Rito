@@ -3,9 +3,10 @@ import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutTable } from '../table';
-import { extractBorders, resolveBorderRadius, withPageBreaks } from './helpers';
+import { withPageBreaks } from './helpers';
 import { layoutImageBlock } from './image';
 import type { ListContext } from './list';
+import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import { layoutHorizontalRule } from './primitives';
 import { layoutContainerBlock, layoutLeafBlock, type LayoutNodesAtFn } from './flow-layout';
 import { layoutFloatedBlock } from './float-layout';
@@ -146,18 +147,10 @@ function placeTable(
   if (node.id) block = { ...block, anchorId: node.id };
 
   // Apply visual decorations (borders, background, etc.) from the table element
-  if (node.style.backgroundColor) {
-    block = { ...block, backgroundColor: node.style.backgroundColor };
-  }
-  const borders = extractBorders(node.style);
-  if (borders) block = { ...block, borders };
-  const radiusProps = resolveBorderRadius(node.style, block.bounds.width, block.bounds.height);
-  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
-    block = { ...block, ...radiusProps };
-  }
-  if (node.style.boxShadow.length > 0) {
-    block = { ...block, boxShadow: node.style.boxShadow };
-  }
+  const borderBox = borderBoxFromStyle(node.style);
+  if (borderBox) block = { ...block, borderBox };
+  const paint = blockPaintFromStyle(node.style);
+  if (paint) block = { ...block, paint };
 
   state.blocks.push(withPageBreaks(block, node.style));
   state.y += block.bounds.height;

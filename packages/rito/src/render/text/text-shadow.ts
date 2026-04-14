@@ -15,7 +15,8 @@ export function drawTextShadows(
   y: number,
   color: string,
 ): void {
-  const shadows = run.style.textShadow;
+  const shadows = run.paint.textShadow ?? [];
+  if (shadows.length === 0) return;
   const { padLeft, padRight, padTop, padBottom } = computeShadowPadding(shadows);
   const logicalW = run.bounds.width + padLeft + padRight;
   const logicalH = run.bounds.height + padTop + padBottom;
@@ -116,6 +117,8 @@ function syncTextState(
   dst.font = src.font;
   dst.textBaseline = 'top';
   dst.fillStyle = color;
-  dst.wordSpacing = run.style.wordSpacing !== 0 ? `${String(run.style.wordSpacing)}px` : '';
-  dst.letterSpacing = run.style.letterSpacing !== 0 ? `${String(run.style.letterSpacing)}px` : '';
+  dst.wordSpacing =
+    run.paint.wordSpacingPx !== undefined ? `${String(run.paint.wordSpacingPx)}px` : '';
+  dst.letterSpacing =
+    run.paint.letterSpacingPx !== undefined ? `${String(run.paint.letterSpacingPx)}px` : '';
 }

@@ -33,7 +33,7 @@ describe('<hr> layout', () => {
     const rule = findHr(blocks);
     expect(rule).toBeDefined();
     expect(rule?.bounds.height).toBe(1);
-    expect(rule?.borderStyle).toBeUndefined(); // solid is the default — not stored
+    expect(rule?.paint.style).toBe('solid'); // Phase 2: HrPaint.style is always explicit; 'solid' is the default.
   });
 
   it('honors border-top width, color, and dotted style', () => {
@@ -51,8 +51,8 @@ describe('<hr> layout', () => {
     const rule = findHr(blocks);
     expect(rule).toBeDefined();
     expect(rule?.bounds.height).toBe(2);
-    expect(rule?.color).toBe('red');
-    expect(rule?.borderStyle).toBe('dotted');
+    expect(rule?.paint.color).toBe('red');
+    expect(rule?.paint.style).toBe('dotted');
   });
 
   it('honors dashed style on border-top', () => {
@@ -62,8 +62,8 @@ describe('<hr> layout', () => {
     const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
     const rule = findHr(blocks);
     expect(rule?.bounds.height).toBe(3);
-    expect(rule?.borderStyle).toBe('dashed');
-    expect(rule?.color).toBe('#123456');
+    expect(rule?.paint.style).toBe('dashed');
+    expect(rule?.paint.color).toBe('#123456');
   });
 
   it('advances state.y by the full border-top height', () => {

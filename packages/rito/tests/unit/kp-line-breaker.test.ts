@@ -6,10 +6,10 @@ import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
 import type { InlineSegment } from '../../src/layout/text/styled-segment';
-import type { InlineAtom, TextRun } from '../../src/layout/core/types';
+import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 
-function textOf(run: TextRun | InlineAtom | undefined): string | undefined {
+function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;
 }
 
@@ -310,10 +310,10 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph(segments, 100, 0);
       expect(lines.length).toBeGreaterThan(1);
 
-      // Collect all text-runs originating from THIS segment (identified by style reference)
+      // Collect all text-runs originating from THIS segment (the only segment in the test)
       const textRuns = lines
         .flatMap((l) => l.runs)
-        .filter((r): r is TextRun => r.type === 'text-run' && r.style === DEFAULT_STYLE);
+        .filter((r): r is TextRun => r.type === 'text-run');
 
       const last = textRuns[textRuns.length - 1];
       const middle = textRuns.slice(0, -1);

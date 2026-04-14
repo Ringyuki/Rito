@@ -64,19 +64,31 @@ export {
 
 // ── Layout (primitives) ────────────────────────────────────────────
 export {
-  type LayoutBlock,
+  type BlockBackgroundPaint,
+  type BlockBorderPaint,
+  type BlockPaint,
+  type BlockRadius,
+  type BorderBox,
   type HorizontalRule,
+  type HrPaint,
   type ImageElement,
-  type BlockBorders,
+  type LayoutBlock,
   type LineBox,
-  type TextRun,
+  type PagePaint,
+  type RubyAnnotation,
+  type RunBorder,
+  type RunBorderEdge,
+  type RunDecoration,
+  type RunPaint,
   type StyledSegment,
+  type TextRun,
   flattenInlineContent,
   type ParagraphLayouter,
   createGreedyLayouter,
   layoutBlocks,
   paginateBlocks,
 } from './layout/index';
+export { DEFAULT_RUN_PAINT } from './layout/text/run-paint-from-style';
 
 // ── Render (primitives) ────────────────────────────────────────────
 export {

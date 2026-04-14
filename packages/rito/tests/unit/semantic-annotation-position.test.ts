@@ -12,7 +12,7 @@ import type {
   TextRun,
 } from '../../src/layout/core/types';
 import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
 const mockMeasurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),
@@ -23,7 +23,7 @@ function makeRun(text: string, x: number, href?: string): TextRun {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: text.length * 10, height: 20 },
-    style: DEFAULT_STYLE,
+    paint: DEFAULT_RUN_PAINT,
   };
   return href ? { ...run, href } : run;
 }

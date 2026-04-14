@@ -9,9 +9,12 @@ import type {
   TextRun,
 } from '../../src/layout/core/types';
 import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
-const style = { ...DEFAULT_STYLE, fontSize: 10 };
+const runPaint = {
+  ...DEFAULT_RUN_PAINT,
+  font: { ...DEFAULT_RUN_PAINT.font, sizePx: 10 },
+};
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),
@@ -22,7 +25,7 @@ function makeRun(text: string, x: number): TextRun {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: text.length * 10, height: 20 },
-    style,
+    paint: runPaint,
   };
 }
 

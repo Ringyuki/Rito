@@ -18,19 +18,53 @@ import {
   resolveBlockRadius,
 } from '../../src/render/page/background-renderer';
 import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
-import type { LayoutBlock } from '../../src/layout/core/types';
+import type { BackgroundPosition } from '../../src/style/core/paint-types';
+import type { BlockPaint, LayoutBlock } from '../../src/layout/core/types';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
 function calls(records: readonly unknown[]): CanvasCall[] {
   return (records as ReadonlyArray<CanvasCall>).filter(isCall);
 }
 
-function makeBlock(overrides: Partial<LayoutBlock> = {}): LayoutBlock {
+interface BlockOverrides {
+  readonly backgroundColor?: string;
+  readonly backgroundImage?: string;
+  readonly backgroundSize?: 'cover' | 'contain' | 'auto';
+  readonly backgroundRepeat?: 'repeat' | 'no-repeat';
+  readonly backgroundPosition?: BackgroundPosition;
+  readonly borderRadius?: number;
+  readonly borderRadiusPct?: number;
+}
+
+function makeBlock(overrides: BlockOverrides = {}): LayoutBlock {
+  type MutableBlockPaint = {
+    -readonly [K in keyof BlockPaint]: BlockPaint[K];
+  };
+  const paint: MutableBlockPaint = {};
+  const bg: {
+    color?: string;
+    image?: string;
+    size?: 'cover' | 'contain' | 'auto';
+    repeat?: 'repeat' | 'no-repeat';
+    position?: BackgroundPosition;
+  } = {};
+  if (overrides.backgroundColor !== undefined) bg.color = overrides.backgroundColor;
+  if (overrides.backgroundImage !== undefined) bg.image = overrides.backgroundImage;
+  if (overrides.backgroundSize !== undefined) bg.size = overrides.backgroundSize;
+  if (overrides.backgroundRepeat !== undefined) bg.repeat = overrides.backgroundRepeat;
+  if (overrides.backgroundPosition !== undefined) bg.position = overrides.backgroundPosition;
+  if (Object.keys(bg).length > 0) paint.background = bg;
+
+  const radius: { px?: number; pct?: number } = {};
+  if (overrides.borderRadius !== undefined) radius.px = overrides.borderRadius;
+  if (overrides.borderRadiusPct !== undefined) radius.pct = overrides.borderRadiusPct;
+  if (Object.keys(radius).length > 0) paint.radius = radius;
+
   return {
     type: 'layout-block',
     bounds: { x: 0, y: 0, width: 200, height: 100 },
     children: [],
-    ...overrides,
+    ...(Object.keys(paint).length > 0 ? { paint } : {}),
   };
 }
 

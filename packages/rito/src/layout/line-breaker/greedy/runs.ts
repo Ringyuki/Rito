@@ -4,6 +4,7 @@ import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import type { InlineAtom, TextRun } from '../../core/types';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
+import { runPaintFromStyle } from '../../text/run-paint-from-style';
 import type { StyleRange } from './types';
 
 /** Object Replacement Character used as placeholder for inline atoms. */
@@ -92,6 +93,8 @@ function processRange(
     lineHeight,
     width,
     range.style,
+    isStart,
+    isEnd,
     range.href,
     range.sourceRef,
     range.sourceText,
@@ -99,8 +102,6 @@ function processRange(
     baseFontSize,
     range.rubyAnnotation,
   );
-  if (isStart) run = { ...run, borderStart: true };
-  if (isEnd) run = { ...run, borderEnd: true };
   if (marginRight > 0) run = { ...run, inlineMarginRight: marginRight };
   return {
     run,
@@ -114,9 +115,11 @@ export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {
   let width = 0;
   for (const run of runs) {
     let right = run.bounds.x + run.bounds.width;
-    // Account for trailing border+padding and inline margin that extend past the text
     if (run.type === 'text-run') {
-      if (run.borderEnd) right += run.style.paddingRight + run.style.borderRight.width;
+      // Trailing inline box extension (right padding + right border) past text.
+      if (run.paint.border?.end) {
+        right += (run.paint.padding?.right ?? 0) + run.paint.border.end.widthPx;
+      }
       if (run.inlineMarginRight) right += run.inlineMarginRight;
     }
     width = Math.max(width, right);
@@ -130,6 +133,8 @@ function buildTextRun(
   lineHeight: number,
   width: number,
   style: ComputedStyle,
+  isStart: boolean,
+  isEnd: boolean,
   href?: string,
   sourceRef?: SourceRef,
   sourceText?: string,
@@ -144,14 +149,31 @@ function buildTextRun(
     type: 'text-run',
     text,
     bounds: { x, y, width, height },
-    style,
+    paint: runPaintFromStyle(style, { start: isStart, end: isEnd }),
+    ...(style.lineHeightPx !== undefined ? { lineHeightPx: style.lineHeightPx } : {}),
     ...(sourceRef ? { sourceRef } : {}),
     ...(sourceText !== undefined ? { sourceText } : {}),
     ...(sourceTextOffset !== undefined ? { sourceTextOffset } : {}),
   };
   if (href) run = { ...run, href };
-  if (rubyAnnotation) run = { ...run, rubyAnnotation };
+  // Ruby annotation: stash on the TextRun via a symbol-like field so the
+  // LineBox finalizer can pick it up and emit a standalone RubyAnnotation
+  // child. TextRun itself no longer carries `rubyAnnotation` — keeps the
+  // render contract clean.
+  if (rubyAnnotation) attachRuby(run, rubyAnnotation);
   return run;
+}
+
+/** Scratch store used by the LineBox finalizer to recover which runs carry
+ *  ruby labels. Not part of the public TextRun shape — the finalizer reads
+ *  it, emits a standalone RubyAnnotation child, and the symbol key becomes
+ *  inert once it's out of scope. */
+export const RUBY_TAG = Symbol('ruby');
+export function attachRuby(run: TextRun, text: string): void {
+  (run as unknown as { [RUBY_TAG]?: string })[RUBY_TAG] = text;
+}
+export function readRubyTag(run: TextRun): string | undefined {
+  return (run as unknown as { [RUBY_TAG]?: string })[RUBY_TAG];
 }
 
 function buildInlineAtom(
@@ -175,7 +197,6 @@ function buildInlineAtom(
     if (atom.href) withSrc = { ...withSrc, href: atom.href };
     return withSrc;
   }
-  if (atom.sourceNode) return { ...result, verticalAlign: atom.style.verticalAlign };
   return result;
 }
 

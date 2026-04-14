@@ -12,9 +12,7 @@ import { createLayoutConfig } from 'rito';
 import type { Page, Spread, TextMeasurer } from 'rito';
 import { createSelectionEngine } from 'rito/selection';
 import type { LayoutBlock, LineBox, TextRun } from 'rito/advanced';
-import { DEFAULT_STYLE } from 'rito/advanced';
-
-const style = { ...DEFAULT_STYLE, fontSize: 10 };
+import { DEFAULT_RUN_PAINT } from 'rito/advanced';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),
@@ -25,7 +23,7 @@ function makeRun(text: string, x: number): TextRun {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: text.length * 10, height: 20 },
-    style,
+    paint: DEFAULT_RUN_PAINT,
   };
 }
 

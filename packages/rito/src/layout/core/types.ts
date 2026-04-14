@@ -1,8 +1,22 @@
 // Layout types. No Canvas API dependency.
 
 import type { SourceRef } from '../../parser/xhtml/types';
-import type { BoxShadow, ComputedStyle } from '../../style/core/types';
-import type { BackgroundPosition, TransformFn } from '../../style/core/paint-types';
+import type { BlockPaint, BorderBox, HrPaint, PagePaint, RunPaint } from './paint';
+
+export type {
+  BlockBackgroundPaint,
+  BlockBorderPaint,
+  BlockPaint,
+  BlockRadius,
+  BorderBox,
+  HrPaint,
+  PagePaint,
+  RunBorder,
+  RunBorderEdge,
+  RunDecoration,
+  RunPaint,
+  Spacing,
+} from './paint';
 
 /** Represents a rectangular region in layout space. */
 export interface Rect {
@@ -17,20 +31,31 @@ export interface TextRun {
   readonly type: 'text-run';
   readonly text: string;
   readonly bounds: Rect;
-  readonly style: ComputedStyle;
+  readonly paint: RunPaint;
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
   /** Offset of this run's first character within the source text node. */
   readonly sourceTextOffset?: number;
-  /** Ruby annotation text to render above the base text. */
-  readonly rubyAnnotation?: string;
-  /** First fragment of a bordered inline box — draw left border. */
-  readonly borderStart?: boolean;
-  /** Last fragment of a bordered inline box — draw right border. */
-  readonly borderEnd?: boolean;
   /** Trailing inline margin-right (from the inline element wrapping this run). */
   readonly inlineMarginRight?: number;
+  /**
+   * Present when CSS `line-height` was an absolute value (px/em/rem/%). Used
+   * by the line-box metrics pass to compute half-leading against the run's
+   * font-size. Absent = line-height is the multiplier already factored into
+   * `bounds.height`.
+   */
+  readonly lineHeightPx?: number;
+}
+
+/** A ruby annotation rendered above a span of base text. Produced as a
+ *  standalone LineBox child whose bounds are already positioned absolutely
+ *  above the base group it annotates. */
+export interface RubyAnnotation {
+  readonly type: 'ruby-annotation';
+  readonly text: string;
+  readonly bounds: Rect;
+  readonly paint: RunPaint;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */
@@ -38,21 +63,17 @@ export interface InlineAtom {
   readonly type: 'inline-atom';
   readonly bounds: Rect;
   readonly imageSrc?: string;
-  /**
-   * Nested layout block for inline-block elements.
-   * Currently unused — reserved for future inline-block content rendering.
-   */
+  /** Nested layout block for inline-block elements. Reserved for future use. */
   readonly block?: LayoutBlock;
-  readonly verticalAlign?: string;
   readonly href?: string;
   readonly alt?: string;
 }
 
-/** A laid-out line box containing text runs and inline atoms. */
+/** A laid-out line box containing text runs, inline atoms, and ruby labels. */
 export interface LineBox {
   readonly type: 'line-box';
   readonly bounds: Rect;
-  readonly runs: readonly (TextRun | InlineAtom)[];
+  readonly runs: readonly (TextRun | InlineAtom | RubyAnnotation)[];
 }
 
 /** A laid-out image element. */
@@ -69,18 +90,12 @@ export interface ImageElement {
 export interface HorizontalRule {
   readonly type: 'hr';
   readonly bounds: Rect;
-  readonly color: string;
-  /** Border style (solid, dotted, dashed). Defaults to solid. */
-  readonly borderStyle?: 'solid' | 'dotted' | 'dashed';
+  readonly paint: HrPaint;
 }
 
-/** Visual offset for position:relative elements. */
-export interface RelativeOffset {
-  readonly dx: number;
-  readonly dy: number;
-}
-
-/** A laid-out block containing line boxes, nested blocks, images, or horizontal rules. */
+/** A laid-out block. The top-level fields are geometry + semantics +
+ *  pagination; all render-only metadata (background, border paint, opacity,
+ *  transform, shadow, clipping, visual offsets) lives on `paint`. */
 export interface LayoutBlock {
   readonly type: 'layout-block';
   readonly bounds: Rect;
@@ -88,53 +103,16 @@ export interface LayoutBlock {
   readonly anchorId?: string;
   /** Source HTML tag name for semantic mapping (e.g. 'h1', 'p', 'blockquote'). */
   readonly semanticTag?: string;
-  readonly backgroundColor?: string;
-  readonly borders?: BlockBorders;
-  /** Border radius in px for rounded corners. Render-only. */
-  readonly borderRadius?: number;
-  /** Border radius as a percentage (0–100). Resolved per-axis at render time
-   *  to produce correct elliptical corners (rx = pct/100 × width, ry = pct/100 × height). */
-  readonly borderRadiusPct?: number;
-  /** Opacity (0-1) for the block. Render-only. */
-  readonly opacity?: number;
+  /** Physical border widths (geometry, already baked into bounds). */
+  readonly borderBox?: BorderBox;
   readonly pageBreakBefore?: boolean;
   readonly pageBreakAfter?: boolean;
-  /** Visual offset from position:relative (does not affect layout flow). */
-  readonly relativeOffset?: RelativeOffset;
-  /** When 'hidden', the renderer clips children to block bounds. */
-  readonly overflow?: 'hidden';
   /** Minimum lines before a page break (CSS orphans). */
   readonly orphans?: number;
   /** Minimum lines after a page break (CSS widows). */
   readonly widows?: number;
-  /** Box shadows for the block. Render-only. */
-  readonly boxShadow?: readonly BoxShadow[];
-  /** CSS transform as a pre-parsed list of functions. Render-only, does not
-   * affect layout flow. Empty or missing = no transform. */
-  readonly transform?: readonly TransformFn[];
-  /** Background image URL. Render-only. */
-  readonly backgroundImage?: string;
-  /** Background size mode. */
-  readonly backgroundSize?: 'cover' | 'contain' | 'auto';
-  /** Background repeat mode. */
-  readonly backgroundRepeat?: 'repeat' | 'no-repeat';
-  /** Background position pre-parsed to per-axis LengthPct. */
-  readonly backgroundPosition?: BackgroundPosition;
-}
-
-/** Border edge in a layout block. */
-export interface BlockBorderEdge {
-  readonly width: number;
-  readonly color: string;
-  readonly style: 'solid' | 'dotted' | 'dashed';
-}
-
-/** Border widths, colors, and styles for a layout block. */
-export interface BlockBorders {
-  readonly top: BlockBorderEdge;
-  readonly right: BlockBorderEdge;
-  readonly bottom: BlockBorderEdge;
-  readonly left: BlockBorderEdge;
+  /** Render-only paint aggregate. Absent = no decoration beyond geometry. */
+  readonly paint?: BlockPaint;
 }
 
 /** Runtime pagination policy for widow/orphan control. */
@@ -194,8 +172,8 @@ export interface Page {
   readonly bounds: Rect;
   /** Layout blocks positioned within the page content area. */
   readonly content: readonly LayoutBlock[];
-  /** Per-chapter body background color (from EPUB stylesheet). */
-  readonly bodyBackgroundColor?: string;
+  /** Render-only page-level paint (per-chapter body background etc). */
+  readonly paint?: PagePaint;
 }
 
 /** A presentation-layer grouping of 1-2 pages for side-by-side display. */

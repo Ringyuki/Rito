@@ -4,6 +4,7 @@ import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { Page } from '../../src/layout/core/types';
 import { createLayoutConfig } from '../../src/layout/core/config';
+import { DEFAULT_RUN_PAINT, runPaintFromStyle } from '../../src/layout/text/run-paint-from-style';
 
 const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 
@@ -23,7 +24,7 @@ function makeSimplePage(texts: string[]): Page {
       type: 'text-run' as const,
       text,
       bounds: { x: 0, y: 0, width: text.length * 10, height: 24 },
-      style: DEFAULT_STYLE,
+      paint: DEFAULT_RUN_PAINT,
     };
     const lb = {
       type: 'line-box' as const,
@@ -125,7 +126,7 @@ describe('renderPage', () => {
                   type: 'text-run',
                   text: 'Bold text',
                   bounds: { x: 0, y: 0, width: 100, height: 24 },
-                  style: boldStyle,
+                  paint: runPaintFromStyle(boldStyle, { start: false, end: false }),
                 },
               ],
             },
@@ -269,7 +270,7 @@ describe('renderPage', () => {
                       type: 'text-run',
                       text: 'Nested',
                       bounds: { x: 0, y: 0, width: 60, height: 24 },
-                      style: DEFAULT_STYLE,
+                      paint: DEFAULT_RUN_PAINT,
                     },
                   ],
                 },
@@ -304,7 +305,7 @@ describe('renderPage', () => {
         {
           type: 'layout-block',
           bounds: { x: 10, y: 20, width: 200, height: 50 },
-          overflow: 'hidden',
+          paint: { clipToBounds: true },
           children: [
             {
               type: 'line-box',
@@ -314,7 +315,7 @@ describe('renderPage', () => {
                   type: 'text-run',
                   text: 'Clipped',
                   bounds: { x: 0, y: 0, width: 70, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },
@@ -338,7 +339,7 @@ describe('renderPage', () => {
         {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 100, height: 30 },
-          overflow: 'hidden',
+          paint: { clipToBounds: true },
           children: [
             {
               type: 'line-box',
@@ -348,7 +349,7 @@ describe('renderPage', () => {
                   type: 'text-run',
                   text: 'Test',
                   bounds: { x: 0, y: 0, width: 40, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },
@@ -383,8 +384,10 @@ describe('renderPage', () => {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 200, height: 100 },
           children: [],
-          backgroundColor: '#ff0000',
-          borderRadius: 8,
+          paint: {
+            background: { color: '#ff0000' },
+            radius: { px: 8 },
+          },
         },
       ]);
       renderPage(page, mock.ctx, CONFIG);
@@ -405,7 +408,7 @@ describe('renderPage', () => {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 200, height: 100 },
           children: [],
-          backgroundColor: '#ff0000',
+          paint: { background: { color: '#ff0000' } },
         },
       ]);
       renderPage(page, mock.ctx, CONFIG);
@@ -423,12 +426,15 @@ describe('renderPage', () => {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 200, height: 100 },
           children: [],
-          borderRadius: 10,
-          borders: {
-            top: { width: 2, color: '#000', style: 'solid' },
-            right: { width: 2, color: '#000', style: 'solid' },
-            bottom: { width: 2, color: '#000', style: 'solid' },
-            left: { width: 2, color: '#000', style: 'solid' },
+          borderBox: { topWidth: 2, rightWidth: 2, bottomWidth: 2, leftWidth: 2 },
+          paint: {
+            radius: { px: 10 },
+            border: {
+              top: { color: '#000', style: 'solid' },
+              right: { color: '#000', style: 'solid' },
+              bottom: { color: '#000', style: 'solid' },
+              left: { color: '#000', style: 'solid' },
+            },
           },
         },
       ]);
@@ -457,12 +463,12 @@ describe('renderPage', () => {
                   type: 'text-run',
                   text: 'Faded',
                   bounds: { x: 0, y: 0, width: 50, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },
           ],
-          opacity: 0.5,
+          paint: { opacity: 0.5 },
         },
       ]);
       renderPage(page, mock.ctx, CONFIG);
@@ -487,7 +493,7 @@ describe('renderPage', () => {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 200, height: 100 },
           children: [],
-          opacity: 0.3,
+          paint: { opacity: 0.3 },
         },
       ]);
       renderPage(page, mock.ctx, CONFIG);

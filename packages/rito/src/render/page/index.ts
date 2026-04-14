@@ -29,8 +29,9 @@ export function renderPage(
   // Page background: prefer EPUB body bg, then reader theme.
   // In spread mode the spread renderer already fills the viewport with the correct bg,
   // but standalone page rendering (single mode, tests) still needs per-page fill.
-  if (page.bodyBackgroundColor) {
-    ctx.fillStyle = page.bodyBackgroundColor;
+  const pageBg = page.paint?.backgroundColor;
+  if (pageBg) {
+    ctx.fillStyle = pageBg;
     ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
   } else if (options?.backgroundColor) {
     ctx.fillStyle = options.backgroundColor;

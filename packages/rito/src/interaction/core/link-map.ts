@@ -67,6 +67,9 @@ function collectLineLinks(
   const ly = offsetY + lineBox.bounds.y;
 
   for (const run of lineBox.runs) {
+    // Ruby annotations don't participate in linking; only text runs and
+    // inline atoms carry an `href`.
+    if (run.type === 'ruby-annotation') continue;
     const href = run.href;
     if (!href) continue;
 

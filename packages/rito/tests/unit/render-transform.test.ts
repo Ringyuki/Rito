@@ -22,7 +22,7 @@ function makeBlock(transform: string): LayoutBlock {
     type: 'layout-block',
     bounds: { x: 0, y: 0, width: 100, height: 60 },
     children: [],
-    transform: parseTransform(transform),
+    paint: { transform: parseTransform(transform) },
   };
 }
 

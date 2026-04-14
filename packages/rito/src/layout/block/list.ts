@@ -1,6 +1,7 @@
 import { LIST_STYLE_TYPES } from '../../style/core/types';
 import type { ComputedStyle, ListStyleType, StyledNode } from '../../style/core/types';
 import type { LayoutBlock, LineBox, TextRun } from '../core/types';
+import { runPaintFromStyle } from '../text/run-paint-from-style';
 
 const MARKER_AREA_WIDTH = 24;
 const BULLET = '\u2022';
@@ -93,7 +94,7 @@ function createMarkerRun(
     type: 'text-run',
     text: formatListMarker(counter, listStyleType),
     bounds: { x: -MARKER_AREA_WIDTH, y, width: MARKER_AREA_WIDTH, height: lineHeight },
-    style,
+    paint: runPaintFromStyle(style, { start: false, end: false }),
   };
 }
 

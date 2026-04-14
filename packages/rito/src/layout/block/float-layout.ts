@@ -2,8 +2,8 @@ import type { StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
-import { applyBackgroundImage, extractBorders, resolveBorderRadius } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
+import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import {
   applyRelativeOffset,
   applySizeConstraints,
@@ -145,20 +145,10 @@ function layoutFloatedContainer(
     bounds: { x: 0, y: 0, width: actualWidth, height },
     children: finalChildren,
   };
-  if (node.style.backgroundColor) block = { ...block, backgroundColor: node.style.backgroundColor };
-  const borders = extractBorders(node.style);
-  if (borders) block = { ...block, borders };
-  const radiusProps = resolveBorderRadius(node.style, actualWidth, height);
-  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
-    block = { ...block, ...radiusProps };
-  }
-  if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
-  if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
-  if (node.style.boxShadow.length > 0) block = { ...block, boxShadow: node.style.boxShadow };
-  if (node.style.transform.length > 0) block = { ...block, transform: node.style.transform };
-  if (node.style.backgroundImage) {
-    block = applyBackgroundImage(block, node.style);
-  }
+  const borderBox = borderBoxFromStyle(node.style);
+  if (borderBox) block = { ...block, borderBox };
+  const paint = blockPaintFromStyle(node.style);
+  if (paint) block = { ...block, paint };
   return block;
 }
 

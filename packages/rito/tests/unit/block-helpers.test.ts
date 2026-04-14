@@ -1,25 +1,28 @@
 import { describe, it, expect } from 'vitest';
 import {
-  extractBorders,
   computeChildrenHeight,
   withPageBreaks,
   applyPageBreakFlags,
 } from '../../src/layout/block/helpers';
+import { blockPaintFromStyle, borderBoxFromStyle } from '../../src/layout/block/paint-from-style';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
 
-describe('extractBorders', () => {
-  it('returns undefined when all borders are none', () => {
-    expect(extractBorders(DEFAULT_STYLE)).toBeUndefined();
+describe('borderBoxFromStyle + blockPaintFromStyle', () => {
+  it('returns undefined border box + no border paint when all sides are none', () => {
+    expect(borderBoxFromStyle(DEFAULT_STYLE)).toBeUndefined();
+    expect(blockPaintFromStyle(DEFAULT_STYLE)).toBeUndefined();
   });
 
-  it('extracts solid border', () => {
+  it('extracts solid border widths and paint', () => {
     const style = {
       ...DEFAULT_STYLE,
       borderTop: { width: 1, color: '#000', style: 'solid' as const },
     };
-    const borders = extractBorders(style);
-    expect(borders?.top).toEqual({ width: 1, color: '#000', style: 'solid' });
+    const box = borderBoxFromStyle(style);
+    expect(box?.topWidth).toBe(1);
+    const paint = blockPaintFromStyle(style);
+    expect(paint?.border?.top).toEqual({ color: '#000', style: 'solid' });
   });
 
   it('extracts dashed border', () => {
@@ -27,8 +30,10 @@ describe('extractBorders', () => {
       ...DEFAULT_STYLE,
       borderBottom: { width: 2, color: 'red', style: 'dashed' as const },
     };
-    const borders = extractBorders(style);
-    expect(borders?.bottom).toEqual({ width: 2, color: 'red', style: 'dashed' });
+    const box = borderBoxFromStyle(style);
+    expect(box?.bottomWidth).toBe(2);
+    const paint = blockPaintFromStyle(style);
+    expect(paint?.border?.bottom).toEqual({ color: 'red', style: 'dashed' });
   });
 
   it('ignores zero-width borders', () => {
@@ -36,7 +41,8 @@ describe('extractBorders', () => {
       ...DEFAULT_STYLE,
       borderTop: { width: 0, color: '#000', style: 'solid' as const },
     };
-    expect(extractBorders(style)).toBeUndefined();
+    expect(borderBoxFromStyle(style)).toBeUndefined();
+    expect(blockPaintFromStyle(style)).toBeUndefined();
   });
 });
 

@@ -7,14 +7,9 @@ import {
   resolveHorizontalOffset,
   type HorizontalBoxMetrics,
 } from './box-metrics';
-import {
-  applyBackgroundImage,
-  applyPageBreakFlags,
-  extractBorders,
-  resolveBorderRadius,
-  withPageBreaks,
-} from './helpers';
+import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
+import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
 import {
   resolveMarginBottom,
@@ -210,26 +205,10 @@ function buildContainerWrapper(
 
   if (node.tag) wrapper = { ...wrapper, semanticTag: node.tag };
   if (node.id) wrapper = { ...wrapper, anchorId: node.id };
-  if (node.style.backgroundColor) {
-    wrapper = { ...wrapper, backgroundColor: node.style.backgroundColor };
-  }
-  const borders = extractBorders(node.style);
-  if (borders) wrapper = { ...wrapper, borders };
-  const radiusProps = resolveBorderRadius(node.style, metrics.targetWidth, height);
-  if (radiusProps.borderRadius || radiusProps.borderRadiusPct) {
-    wrapper = { ...wrapper, ...radiusProps };
-  }
-  if (node.style.opacity < 1) wrapper = { ...wrapper, opacity: node.style.opacity };
-  if (node.style.overflow === 'hidden') wrapper = { ...wrapper, overflow: 'hidden' };
-  if (node.style.boxShadow.length > 0) {
-    wrapper = { ...wrapper, boxShadow: node.style.boxShadow };
-  }
-  if (node.style.transform.length > 0) {
-    wrapper = { ...wrapper, transform: node.style.transform };
-  }
-  if (node.style.backgroundImage) {
-    wrapper = applyBackgroundImage(wrapper, node.style);
-  }
+  const borderBox = borderBoxFromStyle(node.style);
+  if (borderBox) wrapper = { ...wrapper, borderBox };
+  const paint = blockPaintFromStyle(node.style);
+  if (paint) wrapper = { ...wrapper, paint };
   return wrapper;
 }
 

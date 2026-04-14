@@ -5,9 +5,12 @@ import { getSelectedText, getSelectionRects } from '../../src/interaction/select
 import { buildSearchIndex, search } from '../../src/interaction/search';
 import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
 import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
-const monospaceStyle = { ...DEFAULT_STYLE, fontSize: 10 };
+const monospacePaint = {
+  ...DEFAULT_RUN_PAINT,
+  font: { ...DEFAULT_RUN_PAINT.font, sizePx: 10 },
+};
 
 const mockMeasurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),
@@ -19,7 +22,7 @@ function makeRun(text: string, x: number, href?: string): TextRun {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: w, height: 20 },
-    style: monospaceStyle,
+    paint: monospacePaint,
   };
   return href ? { ...run, href } : run;
 }

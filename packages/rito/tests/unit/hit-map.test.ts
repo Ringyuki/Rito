@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { buildHitMap, buildLinkMap, hitTest, hitTestLink } from '../../src/interaction/core';
 import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
 function makeRun(text: string, x: number, w: number, href?: string): TextRun {
   const run: TextRun = {
     type: 'text-run',
     text,
     bounds: { x, y: 0, width: w, height: 20 },
-    style: DEFAULT_STYLE,
+    paint: DEFAULT_RUN_PAINT,
   };
   return href ? { ...run, href } : run;
 }

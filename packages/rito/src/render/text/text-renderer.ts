@@ -1,6 +1,5 @@
-import type { TextRun } from '../../layout/core/types';
+import type { RubyAnnotation, TextRun } from '../../layout/core/types';
 import { buildFontString } from './font-string';
-import { fontShorthandFromStyle } from '../../style/css/font-shorthand';
 import { resolveTextColor } from '../../utils/color';
 import { drawTextShadows } from './text-shadow';
 
@@ -18,30 +17,29 @@ export function drawTextRun(
   offsetY: number,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
-  ctx.font = buildFontString(fontShorthandFromStyle(run.style));
+  const paint = run.paint;
+  ctx.font = buildFontString(paint.font);
 
   const color = colorOverride
-    ? resolveTextColor(
-        run.style.color,
-        colorOverride.backgroundColor,
-        colorOverride.foregroundColor,
-      )
-    : run.style.color;
+    ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+    : paint.color;
 
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
-  ctx.wordSpacing = run.style.wordSpacing !== 0 ? `${String(run.style.wordSpacing)}px` : '';
-  ctx.letterSpacing = run.style.letterSpacing !== 0 ? `${String(run.style.letterSpacing)}px` : '';
+  ctx.wordSpacing = paint.wordSpacingPx !== undefined ? `${String(paint.wordSpacingPx)}px` : '';
+  ctx.letterSpacing =
+    paint.letterSpacingPx !== undefined ? `${String(paint.letterSpacingPx)}px` : '';
 
   const x = offsetX + run.bounds.x;
   const y = offsetY + run.bounds.y;
 
-  // Inline background color (e.g. <span> with background-color)
-  if (run.style.backgroundColor) {
+  // Inline background color (e.g. <span> with background-color).
+  if (paint.backgroundColor) {
     const { x: bgX, y: bgY, width: bgW, height: bgH } = computeInlineBoxRect(run, x, y);
-    ctx.fillStyle = run.style.backgroundColor;
-    if (run.style.borderRadius > 0) {
-      const r = Math.min(run.style.borderRadius, bgW / 2, bgH / 2);
+    ctx.fillStyle = paint.backgroundColor;
+    const radius = paint.backgroundRadius ?? 0;
+    if (radius > 0) {
+      const r = Math.min(radius, bgW / 2, bgH / 2);
       ctx.beginPath();
       ctx.moveTo(bgX + r, bgY);
       ctx.arcTo(bgX + bgW, bgY, bgX + bgW, bgY + bgH, r);
@@ -56,88 +54,81 @@ export function drawTextRun(
     ctx.fillStyle = color;
   }
 
-  // Inline borders (e.g. <i class="ibox1"> with border-left/border-bottom)
+  // Inline borders (e.g. <i class="ibox1"> with border-left/border-bottom).
   drawInlineBorders(ctx, run, x, y);
 
-  if (run.style.textShadow.length > 0) {
+  if (paint.textShadow && paint.textShadow.length > 0) {
     drawTextShadows(ctx, run, x, y, color);
   }
 
   ctx.fillText(run.text, x, y);
 
-  if (run.style.textDecoration === 'underline') {
-    drawLine(ctx, x, y + run.style.fontSize, run.bounds.width, color);
-  } else if (run.style.textDecoration === 'line-through') {
-    drawLine(ctx, x, y + run.style.fontSize * 0.5, run.bounds.width, color);
+  // Pre-computed decoration geometry — render just strokes the line.
+  const decoration = paint.decoration;
+  if (decoration) {
+    drawLine(ctx, x, y + decoration.y, run.bounds.width, decoration.color, decoration.thickness);
   }
 }
 
-export const RUBY_FONT_SCALE = 0.5;
-export const RUBY_GAP = 1;
-
-/**
- * Draw ruby annotation text inside the reserved space at the top of the run bounds.
- * The line breaker already extended the run's bounds.y upward and bounds.height
- * to include annotation space, so painting here stays within the line box.
- */
 /**
  * Compute the inline-box rect (background/border area) for a text run.
- * The rect covers the content area (font-size), plus padding, plus border
- * on sides where the run is the first/last fragment of its inline box.
- * Line-height is not included — inline backgrounds/borders are CSS content-area,
- * not line-box, per Chrome/Firefox inline semantics.
+ * The rect covers the content area (font-size) plus any padding and side
+ * border contributions present in the run's paint. Line-height is deliberately
+ * excluded — inline backgrounds/borders follow the CSS content-area box, not
+ * the line-box, per Chrome/Firefox semantics.
  */
 function computeInlineBoxRect(
   run: TextRun,
   textX: number,
   textY: number,
 ): { x: number; y: number; width: number; height: number } {
-  const pl = run.style.paddingLeft;
-  const pr = run.style.paddingRight;
-  const pt = run.style.paddingTop;
-  const pb = run.style.paddingBottom;
-  const bl = run.borderStart ? run.style.borderLeft.width : 0;
-  const br = run.borderEnd ? run.style.borderRight.width : 0;
-  const bt = run.style.borderTop.width;
-  const bb = run.style.borderBottom.width;
+  const paint = run.paint;
+  const padding = paint.padding;
+  const border = paint.border;
+  const pl = padding?.left ?? 0;
+  const pr = padding?.right ?? 0;
+  const pt = padding?.top ?? 0;
+  const pb = padding?.bottom ?? 0;
+  const bl = border?.start?.widthPx ?? 0;
+  const br = border?.end?.widthPx ?? 0;
+  const bt = border?.top?.widthPx ?? 0;
+  const bb = border?.bottom?.widthPx ?? 0;
   return {
     x: textX - pl - bl,
     y: textY - pt - bt,
     width: run.bounds.width + pl + pr + bl + br,
-    height: run.style.fontSize + pt + pb + bt + bb,
+    height: paint.font.sizePx + pt + pb + bt + bb,
   };
 }
 
 export function drawRubyAnnotation(
   ctx: CanvasRenderingContext2D,
-  annotation: string,
-  x: number,
-  annotationY: number,
-  baseWidth: number,
-  style: TextRun['style'],
-  color: string,
+  ruby: RubyAnnotation,
+  offsetX: number,
+  offsetY: number,
+  colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
-  const rubyFontSize = style.fontSize * RUBY_FONT_SCALE;
+  const paint = ruby.paint;
+  const color = colorOverride
+    ? resolveTextColor(paint.color, colorOverride.backgroundColor, colorOverride.foregroundColor)
+    : paint.color;
   ctx.save();
-  ctx.font = buildFontString({
-    style: style.fontStyle,
-    weight: style.fontWeight,
-    sizePx: rubyFontSize,
-    family: style.fontFamily,
-  });
+  ctx.font = buildFontString(paint.font);
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
-  const measured = ctx.measureText(annotation);
-  const rubyX = x + (baseWidth - measured.width) / 2;
-  ctx.fillText(annotation, rubyX, annotationY);
+  // Center the annotation horizontally over its pre-computed bounds.
+  const measured = ctx.measureText(ruby.text);
+  const rubyX = offsetX + ruby.bounds.x + (ruby.bounds.width - measured.width) / 2;
+  const rubyY = offsetY + ruby.bounds.y;
+  ctx.fillText(ruby.text, rubyX, rubyY);
   ctx.restore();
 }
 
 /**
  * Draw borders for inline elements (spans, i, em, etc.).
- * Left border is only drawn on the first fragment (borderStart),
- * right border only on the last fragment (borderEnd).
- * Top/bottom borders are drawn on every fragment.
+ * Start / end (left / right) borders only appear on the first / last
+ * fragment of a multi-line inline span (layout decides); top / bottom
+ * appear on every fragment.
  */
 function drawInlineBorders(
   ctx: CanvasRenderingContext2D,
@@ -145,35 +136,29 @@ function drawInlineBorders(
   x: number,
   y: number,
 ): void {
-  const { borderTop, borderRight, borderBottom, borderLeft } = run.style;
-  const hasAny =
-    borderTop.width > 0 || borderRight.width > 0 || borderBottom.width > 0 || borderLeft.width > 0;
-  if (!hasAny) return;
-
-  // Only draw left/right borders on the correct fragment edge
-  const drawLeft = borderLeft.width > 0 && borderLeft.style !== 'none' && run.borderStart === true;
-  const drawRight = borderRight.width > 0 && borderRight.style !== 'none' && run.borderEnd === true;
-  const drawTop = borderTop.width > 0 && borderTop.style !== 'none';
-  const drawBottom = borderBottom.width > 0 && borderBottom.style !== 'none';
-  if (!drawLeft && !drawRight && !drawTop && !drawBottom) return;
+  const border = run.paint.border;
+  if (!border) return;
+  const { top, bottom, start, end } = border;
+  if (!top && !bottom && !start && !end) return;
 
   const { x: bx, y: by, width: bw, height: bh } = computeInlineBoxRect(run, x, y);
 
-  // When all four sides are drawn and border-radius is set, use a rounded
+  // When all four sides are drawn and background-radius is set, use a rounded
   // rect stroke to match the rounded inline background fill geometry.
-  const r = run.style.borderRadius;
-  const allFour = drawTop && drawRight && drawBottom && drawLeft;
+  const r = run.paint.backgroundRadius ?? 0;
+  const allFour = top && bottom && start && end;
   ctx.save();
   if (allFour && r > 0) {
     const cr = Math.min(r, bw / 2, bh / 2);
-    // Draw per-side with quadrant clipping to preserve individual colors/widths
     const cx = bx + bw / 2;
     const cy = by + bh / 2;
-    const sides: readonly [typeof borderTop, number, number, number, number][] = [
-      [borderTop, bx, by, bx + bw, by],
-      [borderRight, bx + bw, by, bx + bw, by + bh],
-      [borderBottom, bx + bw, by + bh, bx, by + bh],
-      [borderLeft, bx, by + bh, bx, by],
+    // Inside the `allFour` branch TS has already narrowed top/right/bottom/left
+    // to non-undefined, so every sides entry is a drawable edge.
+    const sides: readonly [NonNullable<typeof top>, number, number, number, number][] = [
+      [top, bx, by, bx + bw, by],
+      [end, bx + bw, by, bx + bw, by + bh],
+      [bottom, bx + bw, by + bh, bx, by + bh],
+      [start, bx, by + bh, bx, by],
     ];
     for (const [edge, x1, y1, x2, y2] of sides) {
       ctx.save();
@@ -183,8 +168,8 @@ function drawInlineBorders(
       ctx.lineTo(x2, y2);
       ctx.closePath();
       ctx.clip();
-      ctx.strokeStyle = edge.color;
-      ctx.lineWidth = edge.width;
+      ctx.strokeStyle = edge.paint.color;
+      ctx.lineWidth = edge.widthPx;
       ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(bx + cr, by);
@@ -197,61 +182,75 @@ function drawInlineBorders(
       ctx.restore();
     }
   } else {
-    if (drawTop)
+    if (top) {
       drawBorderEdge(
         ctx,
-        borderTop,
+        top.widthPx,
+        top.paint.style,
+        top.paint.color,
         bx,
-        by + borderTop.width / 2,
+        by + top.widthPx / 2,
         bx + bw,
-        by + borderTop.width / 2,
+        by + top.widthPx / 2,
       );
-    if (drawBottom)
+    }
+    if (bottom) {
       drawBorderEdge(
         ctx,
-        borderBottom,
+        bottom.widthPx,
+        bottom.paint.style,
+        bottom.paint.color,
         bx,
-        by + bh - borderBottom.width / 2,
+        by + bh - bottom.widthPx / 2,
         bx + bw,
-        by + bh - borderBottom.width / 2,
+        by + bh - bottom.widthPx / 2,
       );
-    if (drawLeft)
+    }
+    if (start) {
       drawBorderEdge(
         ctx,
-        borderLeft,
-        bx + borderLeft.width / 2,
+        start.widthPx,
+        start.paint.style,
+        start.paint.color,
+        bx + start.widthPx / 2,
         by,
-        bx + borderLeft.width / 2,
+        bx + start.widthPx / 2,
         by + bh,
       );
-    if (drawRight)
+    }
+    if (end) {
       drawBorderEdge(
         ctx,
-        borderRight,
-        bx + bw - borderRight.width / 2,
+        end.widthPx,
+        end.paint.style,
+        end.paint.color,
+        bx + bw - end.widthPx / 2,
         by,
-        bx + bw - borderRight.width / 2,
+        bx + bw - end.widthPx / 2,
         by + bh,
       );
+    }
   }
   ctx.restore();
 }
 
 function drawBorderEdge(
   ctx: CanvasRenderingContext2D,
-  edge: { width: number; color: string; style: string },
+  width: number,
+  style: 'solid' | 'dotted' | 'dashed',
+  color: string,
   x1: number,
   y1: number,
   x2: number,
   y2: number,
 ): void {
-  ctx.strokeStyle = edge.color;
-  ctx.lineWidth = edge.width;
-  if (edge.style === 'dotted') {
-    ctx.setLineDash([0.001, edge.width * 1.5]);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = width;
+  if (style === 'dotted') {
+    ctx.setLineDash([0.001, width * 1.5]);
     ctx.lineCap = 'round';
-  } else if (edge.style === 'dashed') {
-    ctx.setLineDash([edge.width * 3, edge.width * 2]);
+  } else if (style === 'dashed') {
+    ctx.setLineDash([width * 3, width * 2]);
     ctx.lineCap = 'butt';
   } else {
     ctx.setLineDash([]);
@@ -269,9 +268,10 @@ function drawLine(
   y: number,
   width: number,
   color: string,
+  thickness: number,
 ): void {
   ctx.strokeStyle = color;
-  ctx.lineWidth = 1;
+  ctx.lineWidth = thickness;
   ctx.beginPath();
   ctx.moveTo(x, y);
   ctx.lineTo(x + width, y);

@@ -12,6 +12,7 @@ import { renderPage } from '../../src/render/page';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createLayoutConfig } from '../../src/layout/core/config';
 import type { Page } from '../../src/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 
 const BASE_FONT_SIZE = 16;
 const measurer = createMockTextMeasurer(0.6);
@@ -137,7 +138,7 @@ describe('position:relative', () => {
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: 0, dy: 10 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: 0, dy: 10 });
     });
 
     it('attaches relativeOffset with left', () => {
@@ -146,7 +147,7 @@ describe('position:relative', () => {
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: 20, dy: 0 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: 20, dy: 0 });
     });
 
     it('top wins over bottom per CSS spec', () => {
@@ -158,7 +159,7 @@ describe('position:relative', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       // top wins, so dy = 10 (not -30)
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: 0, dy: 10 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: 0, dy: 10 });
     });
 
     it('left wins over right per CSS spec', () => {
@@ -170,7 +171,7 @@ describe('position:relative', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       // left wins, so dx = 15 (not -25)
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: 15, dy: 0 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: 15, dy: 0 });
     });
 
     it('uses bottom when top is 0', () => {
@@ -180,7 +181,7 @@ describe('position:relative', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       // bottom: 5px means dy = -5
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: 0, dy: -5 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: 0, dy: -5 });
     });
 
     it('uses right when left is 0', () => {
@@ -190,14 +191,14 @@ describe('position:relative', () => {
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
       // right: 8px means dx = -8
-      expect(blocks[0]?.relativeOffset).toEqual({ dx: -8, dy: 0 });
+      expect(blocks[0]?.paint?.visualOffset).toEqual({ dx: -8, dy: 0 });
     });
 
     it('does not attach relativeOffset for position:static', () => {
       const styled = resolveStyles([block('p', [text('Static')], { style: 'position: static' })]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
-      expect(blocks[0]?.relativeOffset).toBeUndefined();
+      expect(blocks[0]?.paint?.visualOffset).toBeUndefined();
     });
 
     it('does not attach relativeOffset when all offsets are zero', () => {
@@ -206,7 +207,7 @@ describe('position:relative', () => {
       ]);
       const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
-      expect(blocks[0]?.relativeOffset).toBeUndefined();
+      expect(blocks[0]?.paint?.visualOffset).toBeUndefined();
     });
   });
 
@@ -225,7 +226,7 @@ describe('position:relative', () => {
         {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 360, height: 24 },
-          relativeOffset: { dx: 10, dy: 5 },
+          paint: { visualOffset: { dx: 10, dy: 5 } },
           children: [
             {
               type: 'line-box',
@@ -235,7 +236,7 @@ describe('position:relative', () => {
                   type: 'text-run',
                   text: 'Shifted',
                   bounds: { x: 0, y: 0, width: 70, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },
@@ -255,7 +256,7 @@ describe('position:relative', () => {
         {
           type: 'layout-block',
           bounds: { x: 0, y: 0, width: 360, height: 24 },
-          relativeOffset: { dx: 10, dy: 5 },
+          paint: { visualOffset: { dx: 10, dy: 5 } },
           children: [
             {
               type: 'line-box',
@@ -265,7 +266,7 @@ describe('position:relative', () => {
                   type: 'text-run',
                   text: 'Shifted',
                   bounds: { x: 0, y: 0, width: 70, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },
@@ -301,7 +302,7 @@ describe('position:relative', () => {
                   type: 'text-run',
                   text: 'Normal',
                   bounds: { x: 0, y: 0, width: 60, height: 24 },
-                  style: DEFAULT_STYLE,
+                  paint: DEFAULT_RUN_PAINT,
                 },
               ],
             },

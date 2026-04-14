@@ -1,8 +1,7 @@
 import type { Page, Rect } from '../../layout/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
-import type { ComputedStyle } from '../../style/core/types';
-import { measurePaintFromStyle } from '../../style/css/font-shorthand';
-import type { HitMap, TextPosition, TextRange } from '../core/types';
+import type { MeasurePaint } from '../../style/core/paint-types';
+import type { HitEntry, HitMap, TextPosition, TextRange } from '../core/types';
 import { isSameTextRun, normalizeTextRange, walkPageTextRuns } from '../core/text-traversal';
 
 /**
@@ -85,17 +84,11 @@ function sameRun(
   return isSameTextRun(pos, target);
 }
 
-function sliceRunRect(
-  entry: { bounds: Rect; text: string; style: { fontSize: number } },
-  from: number,
-  to: number,
-  measurer: TextMeasurer,
-): Rect {
+function sliceRunRect(entry: HitEntry, from: number, to: number, measurer: TextMeasurer): Rect {
   if (from === 0 && to >= entry.text.length) return entry.bounds;
+  if (!entry.measure) return entry.bounds;
 
-  // HitEntry.style still holds a full ComputedStyle (Phase 2 will slim it
-  // to MeasurePaint). Derive the measurer's paint subset lazily here.
-  const paint = measurePaintFromStyle(entry.style as ComputedStyle);
+  const paint: MeasurePaint = entry.measure;
   const startX = from > 0 ? measurer.measureText(entry.text.slice(0, from), paint).width : 0;
   const endX = measurer.measureText(entry.text.slice(0, to), paint).width;
   return {
