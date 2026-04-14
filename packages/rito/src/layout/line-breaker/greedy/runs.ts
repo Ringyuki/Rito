@@ -1,5 +1,6 @@
 import type { SourceRef } from '../../../parser/xhtml/types';
 import type { ComputedStyle } from '../../../style/core/types';
+import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import type { InlineAtom, TextRun } from '../../core/types';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
@@ -84,7 +85,7 @@ function processRange(
   const marginRight = rangeEnd + globalOffset >= range.end ? (range.inlineMarginRight ?? 0) : 0;
 
   const sourceTextOffset = globalPos - range.start;
-  const width = measurer.measureText(runText, range.style).width;
+  const width = measurer.measureText(runText, measurePaintFromStyle(range.style)).width;
   let run = buildTextRun(
     runText,
     x + marginLeft + insetLeft,

@@ -1,4 +1,5 @@
 import type { ComputedStyle } from '../../../style/core/types';
+import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import { findHyphenationPoints } from '../../text/hyphenation';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
@@ -102,7 +103,10 @@ function measureSliceRanged(
     }
 
     if (sliceEnd > pos) {
-      width += measurer.measureText(text.slice(pos, sliceEnd), rangeStyle).width;
+      width += measurer.measureText(
+        text.slice(pos, sliceEnd),
+        measurePaintFromStyle(rangeStyle),
+      ).width;
     }
 
     // Add right inset when we've reached the end of the range
@@ -133,20 +137,21 @@ function measureSliceSimple(
   measurer: TextMeasurer,
   atoms: ReadonlyMap<number, InlineAtomSegment>,
 ): number {
+  const paint = measurePaintFromStyle(style);
   if (atoms.size === 0) {
-    return measurer.measureText(text.slice(start, end), style).width;
+    return measurer.measureText(text.slice(start, end), paint).width;
   }
   let width = 0;
   let textStart = start;
   for (let i = start; i < end; i++) {
     const atom = atoms.get(i);
     if (atom) {
-      if (i > textStart) width += measurer.measureText(text.slice(textStart, i), style).width;
+      if (i > textStart) width += measurer.measureText(text.slice(textStart, i), paint).width;
       width += atom.width;
       textStart = i + 1;
     }
   }
-  if (textStart < end) width += measurer.measureText(text.slice(textStart, end), style).width;
+  if (textStart < end) width += measurer.measureText(text.slice(textStart, end), paint).width;
   return width;
 }
 
@@ -181,6 +186,7 @@ function tryHyphenation(
   const points = findHyphenationPoints(word);
   if (points.length === 0) return 0;
 
+  const paint = measurePaintFromStyle(style);
   for (let index = points.length - 1; index >= 0; index--) {
     const point = points[index];
     if (point === undefined) continue;
@@ -189,7 +195,7 @@ function tryHyphenation(
     if (breakAt <= start || breakAt >= fitPos + 2) continue;
 
     const candidate = text.slice(start, breakAt) + '-';
-    if (measurer.measureText(candidate, style).width <= maxWidth) {
+    if (measurer.measureText(candidate, paint).width <= maxWidth) {
       return breakAt;
     }
   }

@@ -1,4 +1,5 @@
 import type { ComputedStyle } from '../../../style/core/types';
+import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import type { InlineAtom, LineBox, TextRun } from '../../core/types';
 import type { ParagraphLayouter } from '../../text/paragraph-layouter';
 import type { InlineAtomSegment, InlineSegment, StyledSegment } from '../../text/styled-segment';
@@ -233,7 +234,7 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   const href = ctx.currentSegment.href;
   const ruby = ctx.currentSegment.rubyAnnotation;
   const flushedLength = ctx.currentText.length;
-  const width = measurer.measureText(ctx.currentText, style).width;
+  const width = measurer.measureText(ctx.currentText, measurePaintFromStyle(style)).width;
 
   // Only mark borderStart on the very first run of this segment (across all lines).
   const isFirst = !ctx.startedSegments.has(ctx.currentSegment);
@@ -328,7 +329,7 @@ function trimLastRun(runs: Run[], measurer: TextMeasurer): void {
     text: trimmed,
     bounds: {
       ...lastRun.bounds,
-      width: measurer.measureText(trimmed, lastRun.style).width,
+      width: measurer.measureText(trimmed, measurePaintFromStyle(lastRun.style)).width,
     },
   };
 }

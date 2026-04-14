@@ -17,6 +17,7 @@ import {
   renderBlockBackground,
   resolveBlockRadius,
 } from '../../src/render/page/background-renderer';
+import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
 import type { LayoutBlock } from '../../src/layout/core/types';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
@@ -164,10 +165,11 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
   describe('position (no-repeat)', () => {
     function drawSingle(pos: string, size: 'cover' | 'contain' | 'auto'): unknown[] {
       const mock = createMockCanvasContext();
+      const parsed = parseBackgroundPosition(pos);
       const block = makeBlock({
         backgroundImage: HREF,
         backgroundSize: size,
-        backgroundPosition: pos,
+        ...(parsed ? { backgroundPosition: parsed } : {}),
         backgroundRepeat: 'no-repeat',
       });
       renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
@@ -195,25 +197,28 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
       expect(drawSingle('center top', 'contain')).toEqual([50, 0, 100, 100]);
     });
 
-    it('single-token position defaults second axis to center (fallback)', () => {
-      // Current impl: parts = ['center'], hPos='center', vPos = parts[1] ?? 'center'
+    it('single-token position defaults second axis to center', () => {
+      // parseBackgroundPosition('center') → { x:50%, y:50% }
       expect(drawSingle('center', 'contain')).toEqual([50, 0, 100, 100]);
     });
 
-    it('unknown keyword falls back to left/top (default branch)', () => {
-      // 'foo bar' — neither matches center/right nor center/bottom
-      expect(drawSingle('foo bar', 'contain')).toEqual([0, 0, 100, 100]);
+    it('unknown keyword → parser returns undefined → paint uses size default', () => {
+      // Phase 1: 'foo bar' is unparseable. Paint falls back to size-dependent
+      // default (50% 50% for contain), i.e. centered.
+      expect(drawSingle('foo bar', 'contain')).toEqual([50, 0, 100, 100]);
     });
 
-    it('percentage tokens fall back to left/top (current parser is keyword-only)', () => {
-      // NOTE: Phase 1 will resolve percentages structurally. Current parser
-      // treats '50%' as an unknown keyword and falls through to left/top.
-      expect(drawSingle('50% 50%', 'contain')).toEqual([0, 0, 100, 100]);
+    it('percentage tokens resolve structurally (50% 50% centers)', () => {
+      // Phase 1: parser returns { x:50%, y:50% } → centered.
+      expect(drawSingle('50% 50%', 'contain')).toEqual([50, 0, 100, 100]);
+    });
+
+    it('pixel position offsets from origin (10px 20px)', () => {
+      // drawX = 0 + 10, drawY = 0 + 20; image 100×100 not scaled (contain → 100×100)
+      expect(drawSingle('10px 20px', 'contain')).toEqual([10, 20, 100, 100]);
     });
 
     it('omitted backgroundPosition defaults to "0% 0%" for size=auto', () => {
-      // '0% 0%' split = ['0%','0%'] — neither matches known keywords,
-      // falls to left/top default.
       const mock = createMockCanvasContext();
       const block = makeBlock({
         backgroundImage: HREF,

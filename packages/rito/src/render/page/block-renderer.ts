@@ -5,6 +5,7 @@ import type {
   LineBox,
   TextRun,
 } from '../../layout/core/types';
+import type { LengthPct, TransformFn } from '../../style/core/paint-types';
 import { buildHrefResolver } from '../../utils/resolve-href';
 import { resolveTextColor } from '../../utils/color';
 import { drawRubyAnnotation, drawTextRun, RUBY_FONT_SCALE, RUBY_GAP } from '../text/text-renderer';
@@ -26,12 +27,13 @@ export function renderBlock(
     ctx.translate(relativeOffset.dx, relativeOffset.dy);
   }
 
-  const hasTransform = block.transform !== undefined && block.transform.length > 0;
+  const transforms = block.transform;
+  const hasTransform = transforms !== undefined && transforms.length > 0;
   if (hasTransform) {
     ctx.save();
     const cx = offsetX + block.bounds.x + block.bounds.width / 2;
     const cy = offsetY + block.bounds.y + block.bounds.height / 2;
-    applyTransform(ctx, block.transform, cx, cy);
+    applyTransform(ctx, transforms, cx, cy, block.bounds.width, block.bounds.height);
   }
 
   const hasOpacity = block.opacity !== undefined && block.opacity < 1;
@@ -237,69 +239,34 @@ function renderHorizontalRule(
   ctx.restore();
 }
 
-const TRANSFORM_FN_RE = /(rotate|scale|scaleX|scaleY|translate|translateX|translateY)\(([^)]+)\)/g;
-const DEG_TO_RAD = Math.PI / 180;
-
-/** Apply CSS transform functions around the given center point. */
+/** Apply a pre-parsed list of transform functions around the given center
+ *  point. Percentage lengths in `translate` resolve against the block's
+ *  bounds width / height, matching CSS transform semantics. */
 function applyTransform(
   ctx: CanvasRenderingContext2D,
-  transform: string,
+  transforms: readonly TransformFn[],
   cx: number,
   cy: number,
+  boxW: number,
+  boxH: number,
 ): void {
   ctx.translate(cx, cy);
-  TRANSFORM_FN_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = TRANSFORM_FN_RE.exec(transform)) !== null) {
-    if (match[1]) applyTransformFn(ctx, match[1], match[2]?.trim() ?? '');
+  for (const fn of transforms) {
+    switch (fn.kind) {
+      case 'rotate':
+        ctx.rotate(fn.rad);
+        break;
+      case 'scale':
+        ctx.scale(fn.sx, fn.sy);
+        break;
+      case 'translate':
+        ctx.translate(resolveLengthPct(fn.x, boxW), resolveLengthPct(fn.y, boxH));
+        break;
+    }
   }
   ctx.translate(-cx, -cy);
 }
 
-function applyTransformFn(ctx: CanvasRenderingContext2D, fn: string, args: string): void {
-  if (fn === 'rotate') {
-    const angle = parseAngle(args);
-    if (angle !== undefined) ctx.rotate(angle);
-  } else if (fn === 'scale') {
-    const parts = args.split(',').map((s) => parseFloat(s.trim()));
-    const sx = parts[0] ?? 1;
-    const sy = parts[1] ?? sx;
-    if (!isNaN(sx) && !isNaN(sy)) ctx.scale(sx, sy);
-  } else if (fn === 'scaleX') {
-    const v = parseFloat(args);
-    if (!isNaN(v)) ctx.scale(v, 1);
-  } else if (fn === 'scaleY') {
-    const v = parseFloat(args);
-    if (!isNaN(v)) ctx.scale(1, v);
-  } else if (fn === 'translate') {
-    const parts = args.split(',').map((s) => parseLengthValue(s.trim()));
-    ctx.translate(parts[0] ?? 0, parts[1] ?? 0);
-  } else if (fn === 'translateX') {
-    ctx.translate(parseLengthValue(args), 0);
-  } else if (fn === 'translateY') {
-    ctx.translate(0, parseLengthValue(args));
-  }
-}
-
-function parseAngle(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (trimmed.endsWith('deg')) {
-    const n = parseFloat(trimmed);
-    return isNaN(n) ? undefined : n * DEG_TO_RAD;
-  }
-  if (trimmed.endsWith('rad')) {
-    const n = parseFloat(trimmed);
-    return isNaN(n) ? undefined : n;
-  }
-  if (trimmed.endsWith('turn')) {
-    const n = parseFloat(trimmed);
-    return isNaN(n) ? undefined : n * 2 * Math.PI;
-  }
-  const n = parseFloat(trimmed);
-  return isNaN(n) ? undefined : n * DEG_TO_RAD;
-}
-
-function parseLengthValue(value: string): number {
-  const n = parseFloat(value);
-  return isNaN(n) ? 0 : n;
+function resolveLengthPct(v: LengthPct, basis: number): number {
+  return v.unit === 'percent' ? (v.value / 100) * basis : v.value;
 }

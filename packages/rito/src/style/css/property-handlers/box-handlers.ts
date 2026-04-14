@@ -1,7 +1,11 @@
 import { parseLength } from '../parse-utils';
+import { parseBackgroundPosition } from '../parse-background-position';
+import { parseTransform } from '../parse-transform';
 import { parseBorder } from '../value-parsers';
 import { isPercentage } from './helpers';
 import type { PropertyHandlers } from './types';
+
+const DEFAULT_BG_POS_AUTO = parseBackgroundPosition('0% 0%');
 
 export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
   border: (result, value, emBase, rootFontSize) => {
@@ -39,7 +43,7 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
     result.backgroundColor = '';
     result.backgroundSize = 'auto';
     result.backgroundRepeat = 'repeat';
-    result.backgroundPosition = '0% 0%';
+    if (DEFAULT_BG_POS_AUTO) result.backgroundPosition = DEFAULT_BG_POS_AUTO;
     // backgroundImage needs the Record cast for exactOptionalPropertyTypes
     (result as Record<string, unknown>)['backgroundImage'] = undefined;
 
@@ -76,6 +80,7 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
       'left',
       'right',
     ]);
+    const positionTokens: string[] = [];
     for (const token of tokens) {
       const lower = token.toLowerCase();
       if (lower === 'no-repeat') result.backgroundRepeat = 'no-repeat';
@@ -89,13 +94,15 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
         lower === 'left' ||
         lower === 'right'
       ) {
-        result.backgroundPosition = result.backgroundPosition
-          ? `${result.backgroundPosition} ${lower}`
-          : lower;
+        positionTokens.push(lower);
       } else if (!BG_KEYWORDS.has(lower)) {
         // Anything not a keyword is treated as a color value
         result.backgroundColor = token;
       }
+    }
+    if (positionTokens.length > 0) {
+      const parsed = parseBackgroundPosition(positionTokens.join(' '));
+      if (parsed) result.backgroundPosition = parsed;
     }
   },
   'background-image': (result, value) => {
@@ -117,8 +124,8 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
     else if (v === 'repeat') result.backgroundRepeat = 'repeat';
   },
   'background-position': (result, value) => {
-    const v = value.trim().toLowerCase();
-    if (v) result.backgroundPosition = v;
+    const parsed = parseBackgroundPosition(value);
+    if (parsed) result.backgroundPosition = parsed;
   },
   'box-sizing': (result, value) => {
     const boxSizing = value.trim().toLowerCase();
@@ -148,8 +155,8 @@ export const BOX_PROPERTY_HANDLERS: PropertyHandlers = {
     if (!isNaN(opacity)) result.opacity = Math.max(0, Math.min(1, opacity));
   },
   transform: (result, value) => {
-    const trimmed = value.trim();
-    if (trimmed && trimmed !== 'none') result.transform = trimmed;
+    const fns = parseTransform(value);
+    if (fns.length > 0) result.transform = fns;
   },
   'object-fit': (result, value) => {
     const v = value.trim().toLowerCase();

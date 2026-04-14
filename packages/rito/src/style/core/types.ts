@@ -1,6 +1,7 @@
 // Style types — computed CSS properties used by the layout and render layers.
 
 import type { SourceRef } from '../../parser/xhtml/types';
+import type { BackgroundPosition, FontShorthand, TransformFn } from './paint-types';
 
 /** Supported font weight values (CSS numeric scale 100-900). */
 export const FONT_WEIGHTS = {
@@ -141,6 +142,13 @@ export type ObjectFit = (typeof OBJECT_FIT_VALUES)[keyof typeof OBJECT_FIT_VALUE
 
 /** Computed style for a layout element. */
 export interface ComputedStyle {
+  /**
+   * Pre-assembled font shorthand — mirrors fontFamily/fontSize/fontWeight/fontStyle
+   * so downstream consumers (measurer, renderer) can read a single object
+   * instead of recombining scattered font-* fields. Assembled by the style
+   * cascade finalizer (see {@link fontShorthandFromStyle}).
+   */
+  readonly font: FontShorthand;
   readonly fontFamily: string;
   readonly fontSize: number;
   readonly fontWeight: FontWeight;
@@ -237,8 +245,11 @@ export interface ComputedStyle {
   readonly boxShadow: readonly BoxShadow[];
   /** Text shadow list. Empty means no shadow. */
   readonly textShadow: readonly TextShadow[];
-  /** CSS transform string. Render-only, no layout impact. */
-  readonly transform: string;
+  /**
+   * CSS transform, pre-parsed into a list of structured functions. Empty
+   * array means no transform. Render-only, no layout impact.
+   */
+  readonly transform: readonly TransformFn[];
   /** CSS object-fit for replaced elements (images). */
   readonly objectFit: ObjectFit;
   /** CSS background-image URL (resolved from `url(...)` syntax). */
@@ -247,8 +258,11 @@ export interface ComputedStyle {
   readonly backgroundSize?: 'cover' | 'contain' | 'auto';
   /** CSS background-repeat. */
   readonly backgroundRepeat?: 'repeat' | 'no-repeat';
-  /** CSS background-position. */
-  readonly backgroundPosition?: string;
+  /**
+   * CSS background-position pre-parsed to per-axis LengthPct. `undefined` =
+   * not set; paint defaults to `0% 0%` for size=auto or `50% 50%` for cover/contain.
+   */
+  readonly backgroundPosition?: BackgroundPosition;
 }
 
 /** A single box-shadow value. */

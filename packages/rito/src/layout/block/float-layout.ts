@@ -155,7 +155,7 @@ function layoutFloatedContainer(
   if (node.style.opacity < 1) block = { ...block, opacity: node.style.opacity };
   if (node.style.overflow === 'hidden') block = { ...block, overflow: 'hidden' };
   if (node.style.boxShadow.length > 0) block = { ...block, boxShadow: node.style.boxShadow };
-  if (node.style.transform) block = { ...block, transform: node.style.transform };
+  if (node.style.transform.length > 0) block = { ...block, transform: node.style.transform };
   if (node.style.backgroundImage) {
     block = applyBackgroundImage(block, node.style);
   }

@@ -1,3 +1,4 @@
+import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import { findHyphenationPoints } from '../../text/hyphenation';
 import type { InlineSegment, StyledSegment } from '../../text/styled-segment';
 import { isInlineAtom } from '../../text/styled-segment';
@@ -33,7 +34,8 @@ export function buildKPItems(segments: readonly InlineSegment[], measurer: TextM
       if (inset > 0) items.push(createBox(inset, '', textSeg));
     }
 
-    const spaceWidth = measurer.measureText(' ', style).width;
+    const paint = measurePaintFromStyle(style);
+    const spaceWidth = measurer.measureText(' ', paint).width;
     const stretchFactor = spaceWidth * 1.5;
     const shrinkFactor = spaceWidth * 0.5;
 
@@ -102,28 +104,29 @@ function addWordItems(
   measurer: TextMeasurer,
 ): void {
   const { style } = segment;
+  const paint = measurePaintFromStyle(style);
   const hyphenPoints = findHyphenationPoints(word);
 
   if (hyphenPoints.length === 0) {
-    items.push(createBox(measurer.measureText(word, style).width, word, segment));
+    items.push(createBox(measurer.measureText(word, paint).width, word, segment));
     return;
   }
 
-  const hyphenWidth = measurer.measureText('-', style).width;
+  const hyphenWidth = measurer.measureText('-', paint).width;
   let prevPos = 0;
 
   for (const point of hyphenPoints) {
     if (point <= prevPos || point >= word.length) continue;
 
     const fragment = word.slice(prevPos, point);
-    items.push(createBox(measurer.measureText(fragment, style).width, fragment, segment));
+    items.push(createBox(measurer.measureText(fragment, paint).width, fragment, segment));
     items.push(createPenalty(hyphenWidth, HYPHEN_PENALTY, true));
     prevPos = point;
   }
 
   if (prevPos < word.length) {
     const fragment = word.slice(prevPos);
-    items.push(createBox(measurer.measureText(fragment, style).width, fragment, segment));
+    items.push(createBox(measurer.measureText(fragment, paint).width, fragment, segment));
   }
 }
 

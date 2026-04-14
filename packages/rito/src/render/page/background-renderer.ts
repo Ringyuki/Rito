@@ -1,4 +1,5 @@
 import type { BoxShadow } from '../../style/core/types';
+import type { BackgroundPosition, LengthPct } from '../../style/core/paint-types';
 import type { LayoutBlock } from '../../layout/core/types';
 import { buildHrefResolver } from '../../utils/resolve-href';
 
@@ -6,6 +7,22 @@ import { buildHrefResolver } from '../../utils/resolve-href';
 export interface ResolvedRadius {
   readonly rx: number;
   readonly ry: number;
+}
+
+const DEFAULT_POS_AUTO: BackgroundPosition = {
+  x: { unit: 'percent', value: 0 },
+  y: { unit: 'percent', value: 0 },
+};
+const DEFAULT_POS_CENTER: BackgroundPosition = {
+  x: { unit: 'percent', value: 50 },
+  y: { unit: 'percent', value: 50 },
+};
+
+/** Resolve a CSS background-position axis value into an offset from the box
+ *  origin. Percentages anchor `pct` of the image to `pct` of the container. */
+function resolvePosAxis(v: LengthPct, containerSize: number, imageSize: number): number {
+  if (v.unit === 'percent') return ((containerSize - imageSize) * v.value) / 100;
+  return v.value;
 }
 
 /** Resolve a block's effective border-radius (px or percentage → per-axis px). */
@@ -116,21 +133,12 @@ function renderBackgroundImage(
     drawH = imgH * scale;
   }
 
-  // Parse background-position (default: center center for cover/contain, 0 0 for auto)
-  let drawX = blockX;
-  let drawY = blockY;
-  const pos = block.backgroundPosition ?? (size === 'auto' ? '0% 0%' : 'center center');
-  const parts = pos.split(/\s+/);
-  const hPos = parts[0] ?? 'center';
-  const vPos = parts[1] ?? 'center';
-
-  if (hPos === 'center') drawX = blockX + (w - drawW) / 2;
-  else if (hPos === 'right') drawX = blockX + w - drawW;
-  // 'left' or default: drawX = blockX
-
-  if (vPos === 'center') drawY = blockY + (h - drawH) / 2;
-  else if (vPos === 'bottom') drawY = blockY + h - drawH;
-  // 'top' or default: drawY = blockY
+  // Resolve background-position against the block box. Default when unset:
+  // 0% 0% for size=auto, 50% 50% for cover/contain.
+  const pos: BackgroundPosition =
+    block.backgroundPosition ?? (size === 'auto' ? DEFAULT_POS_AUTO : DEFAULT_POS_CENTER);
+  const drawX = blockX + resolvePosAxis(pos.x, w, drawW);
+  const drawY = blockY + resolvePosAxis(pos.y, h, drawH);
 
   if (block.backgroundRepeat !== 'no-repeat' && drawW > 0 && drawH > 0) {
     // Tile from the positioned origin in both directions to cover the block.

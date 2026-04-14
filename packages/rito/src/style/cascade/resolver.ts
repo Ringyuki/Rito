@@ -3,6 +3,7 @@ import { DEFAULT_STYLE, inheritableStyle } from '../core/defaults';
 import { getTagStyle } from '../core/tag-styles';
 import type { ComputedStyle, CssRule, Specificity, StyledNode } from '../core/types';
 import { DISPLAY_VALUES } from '../core/types';
+import { fontShorthandFromStyle } from '../css/font-shorthand';
 import { parseCssDeclarations } from '../css/property-parser';
 import type { Viewport } from '../css/parse-utils';
 import { type RuleIndex, buildRuleIndex } from './rule-index';
@@ -256,7 +257,13 @@ function applyCascade(
     inlineCss,
     viewport,
   );
-  return style;
+  return finalizeStyle(style);
+}
+
+/** Assemble pre-computed paint-ready fields (font shorthand, ...) once all
+ *  cascade sources have been merged. */
+function finalizeStyle(style: ComputedStyle): ComputedStyle {
+  return { ...style, font: fontShorthandFromStyle(style) };
 }
 
 function applyTagStyle(parentStyle: ComputedStyle, tag: string): ComputedStyle {

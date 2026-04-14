@@ -9,17 +9,20 @@
  */
 import { describe, expect, it } from 'vitest';
 import { renderBlock } from '../../src/render/page/block-renderer';
+import { parseTransform } from '../../src/style/css/parse-transform';
 import type { LayoutBlock } from '../../src/layout/core/types';
 import { createMockCanvasContext, type CanvasCall, isCall } from '../helpers/mock-canvas-context';
 
 const DEG_TO_RAD = Math.PI / 180;
 
+/** Build a block with its CSS transform string pre-parsed into structured
+ *  TransformFn[], mirroring the style cascade's behavior. */
 function makeBlock(transform: string): LayoutBlock {
   return {
     type: 'layout-block',
     bounds: { x: 0, y: 0, width: 100, height: 60 },
     children: [],
-    transform,
+    transform: parseTransform(transform),
   };
 }
 
@@ -121,14 +124,29 @@ describe('Phase 0 — transform characterization', () => {
       expect(translates[1]?.args).toEqual([0, 15]);
     });
 
-    it('translate(20%, 30%) CURRENTLY parses % as bare number (parseFloat behavior)', () => {
-      // NOTE: Phase 1 changes this — `%` will be resolved against the box
-      // dimensions via the new LengthPct type. When that lands, this assertion
-      // must be replaced with the box-relative expected value.
+    it('translate(20%, 30%) resolves against block bounds (box-relative)', () => {
+      // Phase 1: % is structured via LengthPct and resolved at paint time.
+      // Block is 100×60 → 20% of 100 = 20, 30% of 60 = 18.
       const mock = createMockCanvasContext();
       renderBlock(mock.ctx, makeBlock('translate(20%, 30%)'), 0, 0);
       const translates = calls(mock.records).filter((c) => c.method === 'translate');
-      expect(translates[1]?.args).toEqual([20, 30]);
+      expect(translates[1]?.args).toEqual([20, 18]);
+    });
+
+    it('translateX(50%) resolves against block width only', () => {
+      const mock = createMockCanvasContext();
+      renderBlock(mock.ctx, makeBlock('translateX(50%)'), 0, 0);
+      const translates = calls(mock.records).filter((c) => c.method === 'translate');
+      // 50% of 100 = 50
+      expect(translates[1]?.args).toEqual([50, 0]);
+    });
+
+    it('translateY(50%) resolves against block height only', () => {
+      const mock = createMockCanvasContext();
+      renderBlock(mock.ctx, makeBlock('translateY(50%)'), 0, 0);
+      const translates = calls(mock.records).filter((c) => c.method === 'translate');
+      // 50% of 60 = 30
+      expect(translates[1]?.args).toEqual([0, 30]);
     });
 
     it('translate(10px) with only one arg sets y to 0 (missing → 0)', () => {
@@ -174,21 +192,21 @@ describe('Phase 0 — transform characterization', () => {
   });
 
   describe('unknown / unsupported functions', () => {
-    it('matrix() is silently ignored (regex does not match)', () => {
+    it('matrix() is dropped during parse → no transform emitted at all', () => {
+      // Phase 1: parseTransform drops unsupported functions. If nothing valid
+      // remains, LayoutBlock.transform is empty and renderBlock skips the
+      // entire transform path (no centering translates either).
       const mock = createMockCanvasContext();
       renderBlock(mock.ctx, makeBlock('matrix(1, 0, 0, 1, 10, 20)'), 0, 0);
       const hasRotate = calls(mock.records).some((c) => c.method === 'rotate');
       const hasScale = calls(mock.records).some((c) => c.method === 'scale');
-      // Only the two centering translates should be emitted; no inner ops.
       const translates = calls(mock.records).filter((c) => c.method === 'translate');
       expect(hasRotate).toBe(false);
       expect(hasScale).toBe(false);
-      expect(translates).toHaveLength(2);
-      expect(translates[0]?.args).toEqual([CX, CY]);
-      expect(translates[1]?.args).toEqual([-CX, -CY]);
+      expect(translates).toHaveLength(0);
     });
 
-    it('skew() is silently ignored', () => {
+    it('skew() is dropped during parse → no transform emitted at all', () => {
       const mock = createMockCanvasContext();
       renderBlock(mock.ctx, makeBlock('skew(10deg)'), 0, 0);
       const hasRotate = calls(mock.records).some((c) => c.method === 'rotate');
@@ -196,7 +214,15 @@ describe('Phase 0 — transform characterization', () => {
       const translates = calls(mock.records).filter((c) => c.method === 'translate');
       expect(hasRotate).toBe(false);
       expect(hasScale).toBe(false);
-      expect(translates).toHaveLength(2);
+      expect(translates).toHaveLength(0);
+    });
+
+    it('mixed: rotate(45deg) matrix(...) keeps the supported one', () => {
+      // parseTransform drops matrix() but retains rotate(45deg).
+      const mock = createMockCanvasContext();
+      renderBlock(mock.ctx, makeBlock('rotate(45deg) matrix(1, 0, 0, 1, 10, 20)'), 0, 0);
+      const rotate = calls(mock.records).find((c) => c.method === 'rotate');
+      expect(rotate?.args[0]).toBeCloseTo(45 * DEG_TO_RAD, 10);
     });
   });
 

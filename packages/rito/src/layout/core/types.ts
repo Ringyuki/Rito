@@ -2,6 +2,7 @@
 
 import type { SourceRef } from '../../parser/xhtml/types';
 import type { BoxShadow, ComputedStyle } from '../../style/core/types';
+import type { BackgroundPosition, TransformFn } from '../../style/core/paint-types';
 
 /** Represents a rectangular region in layout space. */
 export interface Rect {
@@ -108,16 +109,17 @@ export interface LayoutBlock {
   readonly widows?: number;
   /** Box shadows for the block. Render-only. */
   readonly boxShadow?: readonly BoxShadow[];
-  /** CSS transform string. Render-only, does not affect layout flow. */
-  readonly transform?: string;
+  /** CSS transform as a pre-parsed list of functions. Render-only, does not
+   * affect layout flow. Empty or missing = no transform. */
+  readonly transform?: readonly TransformFn[];
   /** Background image URL. Render-only. */
   readonly backgroundImage?: string;
   /** Background size mode. */
   readonly backgroundSize?: 'cover' | 'contain' | 'auto';
   /** Background repeat mode. */
   readonly backgroundRepeat?: 'repeat' | 'no-repeat';
-  /** Background position. */
-  readonly backgroundPosition?: string;
+  /** Background position pre-parsed to per-axis LengthPct. */
+  readonly backgroundPosition?: BackgroundPosition;
 }
 
 /** Border edge in a layout block. */

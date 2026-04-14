@@ -1,5 +1,6 @@
 import type { InlineAtom, LayoutBlock, LineBox, Page, TextRun } from '../../layout/core/types';
 import type { ComputedStyle } from '../../style/core/types';
+import { measurePaintFromStyle } from '../../style/css/font-shorthand';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { HitEntry, HitMap, TextPosition } from './types';
 import { offsetBounds } from './bounds';
@@ -71,12 +72,13 @@ function findCharIndex(
   if (targetX <= 0) return 0;
   if (targetX >= totalWidth) return text.length;
 
-  // Binary search for the character boundary closest to targetX.
+  // Hoist paint derivation out of the binary-search loop.
+  const paint = measurePaintFromStyle(style);
   let lo = 0;
   let hi = text.length;
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
-    const w = measurer.measureText(text.slice(0, mid + 1), style).width;
+    const w = measurer.measureText(text.slice(0, mid + 1), paint).width;
     if (w <= targetX) {
       lo = mid + 1;
     } else {

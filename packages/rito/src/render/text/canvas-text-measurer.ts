@@ -1,4 +1,4 @@
-import type { ComputedStyle } from '../../style/core/types';
+import type { MeasurePaint } from '../../style/core/paint-types';
 import type { TextMeasurer, TextMetrics } from '../../layout/text/text-measurer';
 import { buildFontString } from './font-string';
 
@@ -27,9 +27,10 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
   const cache = new Map<string, number>();
 
   return {
-    measureText(text: string, style: ComputedStyle): TextMetrics {
-      const font = buildFontString(style);
-      const cacheKey = font + '\0' + String(style.wordSpacing) + '\0' + text;
+    measureText(text: string, paint: MeasurePaint): TextMetrics {
+      const font = buildFontString(paint.font);
+      const ws = paint.wordSpacingPx ?? 0;
+      const cacheKey = font + '\0' + String(ws) + '\0' + text;
       let width = cache.get(cacheKey);
 
       if (width === undefined) {
@@ -37,14 +38,15 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
         const metrics = ctx.measureText(text);
         const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
         width = Math.max(metrics.width, inkWidth);
-        if (style.wordSpacing !== 0) {
+        if (ws !== 0) {
           const spaces = text.split(' ').length - 1;
-          width += spaces * style.wordSpacing;
+          width += spaces * ws;
         }
         cache.set(cacheKey, width);
       }
 
-      return { width, height: style.lineHeightPx ?? style.fontSize * style.lineHeight };
+      // Content-box height only — layout must not source line-box height from here.
+      return { width, height: paint.font.sizePx };
     },
 
     clearCache(): void {

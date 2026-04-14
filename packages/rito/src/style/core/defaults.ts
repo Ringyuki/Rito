@@ -57,7 +57,7 @@ const NON_INHERITED_DEFAULTS: Partial<ComputedStyle> = {
   borderRadius: 0,
   opacity: 1,
   boxShadow: [],
-  transform: '',
+  transform: [],
   objectFit: OBJECT_FIT_VALUES.Fill,
 };
 
@@ -91,6 +91,12 @@ export function inheritableStyle(style: ComputedStyle): ComputedStyle {
 
 /** Default style values used when no explicit style is specified. */
 export const DEFAULT_STYLE: ComputedStyle = {
+  font: {
+    style: FONT_STYLES.Normal,
+    weight: FONT_WEIGHTS.Normal,
+    sizePx: 16,
+    family: 'serif',
+  },
   fontFamily: 'serif',
   fontSize: 16,
   fontWeight: FONT_WEIGHTS.Normal,
@@ -144,6 +150,6 @@ export const DEFAULT_STYLE: ComputedStyle = {
   widows: 2,
   boxShadow: [],
   textShadow: [],
-  transform: '',
+  transform: [],
   objectFit: OBJECT_FIT_VALUES.Fill,
 };

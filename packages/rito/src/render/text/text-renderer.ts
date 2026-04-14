@@ -1,5 +1,6 @@
 import type { TextRun } from '../../layout/core/types';
 import { buildFontString } from './font-string';
+import { fontShorthandFromStyle } from '../../style/css/font-shorthand';
 import { resolveTextColor } from '../../utils/color';
 import { drawTextShadows } from './text-shadow';
 
@@ -17,7 +18,7 @@ export function drawTextRun(
   offsetY: number,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
-  ctx.font = buildFontString(run.style);
+  ctx.font = buildFontString(fontShorthandFromStyle(run.style));
 
   const color = colorOverride
     ? resolveTextColor(
@@ -118,7 +119,12 @@ export function drawRubyAnnotation(
 ): void {
   const rubyFontSize = style.fontSize * RUBY_FONT_SCALE;
   ctx.save();
-  ctx.font = buildFontString({ ...style, fontSize: rubyFontSize });
+  ctx.font = buildFontString({
+    style: style.fontStyle,
+    weight: style.fontWeight,
+    sizePx: rubyFontSize,
+    family: style.fontFamily,
+  });
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
   const measured = ctx.measureText(annotation);
