@@ -39,9 +39,9 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
         const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
         width = Math.max(metrics.width, inkWidth);
         if (ws !== 0) {
-          // Counting runtime text spaces (NOT CSS parsing) — Canvas doesn't
-          // honour `wordSpacing` consistently across browsers, so we add it
-          // manually per ASCII space in the measured substring.
+          // Canvas doesn't honour `wordSpacing` consistently across browsers,
+          // so we add it manually per ASCII space in the measured substring.
+          // ARCH-ALLOW: runtime text space count, not CSS value parsing.
           const spaces = text.split(' ').length - 1;
           width += spaces * ws;
         }
