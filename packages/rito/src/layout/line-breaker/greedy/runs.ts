@@ -79,12 +79,15 @@ function processRange(
   const isEnd = range.borderEnd === true && rangeEnd + globalOffset >= range.end;
   const insetLeft = isStart ? range.style.borderLeft.width + range.style.paddingLeft : 0;
   const insetRight = isEnd ? range.style.paddingRight + range.style.borderRight.width : 0;
+  // Inline margins create spacing outside the border/background
+  const marginLeft = globalPos === range.start ? (range.inlineMarginLeft ?? 0) : 0;
+  const marginRight = rangeEnd + globalOffset >= range.end ? (range.inlineMarginRight ?? 0) : 0;
 
   const sourceTextOffset = globalPos - range.start;
   const width = measurer.measureText(runText, range.style).width;
   let run = buildTextRun(
     runText,
-    x + insetLeft,
+    x + marginLeft + insetLeft,
     lineHeight,
     width,
     range.style,
@@ -97,16 +100,23 @@ function processRange(
   );
   if (isStart) run = { ...run, borderStart: true };
   if (isEnd) run = { ...run, borderEnd: true };
-  return { run, nextPos: rangeEnd, insetLeft, insetRight };
+  if (marginRight > 0) run = { ...run, inlineMarginRight: marginRight };
+  return {
+    run,
+    nextPos: rangeEnd,
+    insetLeft: insetLeft + marginLeft,
+    insetRight: insetRight + marginRight,
+  };
 }
 
 export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {
   let width = 0;
   for (const run of runs) {
     let right = run.bounds.x + run.bounds.width;
-    // Account for trailing border+padding that extends past the text
-    if (run.type === 'text-run' && run.borderEnd) {
-      right += run.style.paddingRight + run.style.borderRight.width;
+    // Account for trailing border+padding and inline margin that extend past the text
+    if (run.type === 'text-run') {
+      if (run.borderEnd) right += run.style.paddingRight + run.style.borderRight.width;
+      if (run.inlineMarginRight) right += run.inlineMarginRight;
     }
     width = Math.max(width, right);
   }

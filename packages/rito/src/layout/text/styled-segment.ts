@@ -12,6 +12,10 @@ export interface StyledSegment {
   readonly sourceText?: string;
   /** Ruby annotation text (from `<rt>`) to render above the base text. */
   readonly rubyAnnotation?: string;
+  /** Inline margin-left in px (from the inline element, not inherited). */
+  readonly inlineMarginLeft?: number;
+  /** Inline margin-right in px (from the inline element, not inherited). */
+  readonly inlineMarginRight?: number;
   /** True if this is the first fragment of a bordered inline box. */
   readonly borderStart?: boolean;
   /** True if this is the last fragment of a bordered inline box. */
@@ -181,8 +185,9 @@ function collectSegments(
         collectSegments(node.children, out, imageSizes, href, bgColor, va, pad, br, borders);
         // Mark first/last fragments so the renderer only draws left/right
         // borders at the true edges of this inline box.
-        if (ownBorders && out.length > beforeLen) {
-          // Find first and last text segments (skipping atoms)
+        // Mark first/last fragments for borders and inline margins
+        const hasInlineMargin = node.style.marginLeft > 0 || node.style.marginRight > 0;
+        if ((ownBorders || hasInlineMargin) && out.length > beforeLen) {
           let firstIdx = -1;
           let lastIdx = -1;
           for (let si = beforeLen; si < out.length; si++) {
@@ -193,9 +198,17 @@ function collectSegments(
           }
           if (firstIdx >= 0) {
             const first = out[firstIdx] as StyledSegment;
-            out[firstIdx] = { ...first, borderStart: true };
+            out[firstIdx] = {
+              ...first,
+              ...(ownBorders ? { borderStart: true } : {}),
+              ...(node.style.marginLeft > 0 ? { inlineMarginLeft: node.style.marginLeft } : {}),
+            };
             const last = out[lastIdx] as StyledSegment;
-            out[lastIdx] = { ...last, borderEnd: true };
+            out[lastIdx] = {
+              ...last,
+              ...(ownBorders ? { borderEnd: true } : {}),
+              ...(node.style.marginRight > 0 ? { inlineMarginRight: node.style.marginRight } : {}),
+            };
           }
         }
         break;

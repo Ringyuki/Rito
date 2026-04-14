@@ -28,6 +28,8 @@ export interface TextRun {
   readonly borderStart?: boolean;
   /** Last fragment of a bordered inline box — draw right border. */
   readonly borderEnd?: boolean;
+  /** Trailing inline margin-right (from the inline element wrapping this run). */
+  readonly inlineMarginRight?: number;
 }
 
 /** An atomic inline unit (inline-block or inline image) within a line. */
@@ -67,6 +69,8 @@ export interface HorizontalRule {
   readonly type: 'hr';
   readonly bounds: Rect;
   readonly color: string;
+  /** Border style (solid, dotted, dashed). Defaults to solid. */
+  readonly borderStyle?: 'solid' | 'dotted' | 'dashed';
 }
 
 /** Visual offset for position:relative elements. */

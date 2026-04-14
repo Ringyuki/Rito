@@ -13,6 +13,8 @@ export interface StyleRange {
   readonly rubyAnnotation?: string;
   readonly borderStart?: boolean;
   readonly borderEnd?: boolean;
+  readonly inlineMarginLeft?: number;
+  readonly inlineMarginRight?: number;
 }
 
 export interface LineContext {

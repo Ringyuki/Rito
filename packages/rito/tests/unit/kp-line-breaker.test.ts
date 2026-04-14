@@ -300,6 +300,47 @@ describe('KnuthPlassLayouter', () => {
       expect(lines).toHaveLength(1);
     });
   });
+
+  describe('inline margin', () => {
+    it('stamps inlineMarginRight only on the final run of a wrapped segment', () => {
+      // Segment with spaces so KP has breakable glue points; with marginRight
+      // that must wrap across multiple lines at width 100.
+      const text = 'one two three four five six seven eight nine ten';
+      const segments: InlineSegment[] = [{ text, style: DEFAULT_STYLE, inlineMarginRight: 15 }];
+      const lines = layouter.layoutParagraph(segments, 100, 0);
+      expect(lines.length).toBeGreaterThan(1);
+
+      // Collect all text-runs originating from THIS segment (identified by style reference)
+      const textRuns = lines
+        .flatMap((l) => l.runs)
+        .filter((r): r is TextRun => r.type === 'text-run' && r.style === DEFAULT_STYLE);
+
+      const last = textRuns[textRuns.length - 1];
+      const middle = textRuns.slice(0, -1);
+
+      expect(last?.inlineMarginRight).toBe(15);
+      for (const run of middle) {
+        expect(run.inlineMarginRight).toBeUndefined();
+      }
+    });
+
+    it('offsets subsequent runs by inlineMarginLeft', () => {
+      // Use distinct style objects so appendBox does NOT merge A and B into one run.
+      const styleA: ComputedStyle = { ...DEFAULT_STYLE };
+      const styleB: ComputedStyle = { ...DEFAULT_STYLE };
+      const segments: InlineSegment[] = [
+        { text: 'A', style: styleA },
+        { text: 'B', style: styleB, inlineMarginLeft: 10 },
+      ];
+      const lines = layouter.layoutParagraph(segments, 500, 0);
+      const runs = lines[0]?.runs ?? [];
+      const aRun = runs.find((r) => r.type === 'text-run' && r.text === 'A') as TextRun;
+      const bRun = runs.find((r) => r.type === 'text-run' && r.text === 'B') as TextRun;
+      expect(aRun).toBeDefined();
+      expect(bRun).toBeDefined();
+      expect(bRun.bounds.x - (aRun.bounds.x + aRun.bounds.width)).toBeGreaterThanOrEqual(10);
+    });
+  });
 });
 
 function stdDev(values: number[]): number {

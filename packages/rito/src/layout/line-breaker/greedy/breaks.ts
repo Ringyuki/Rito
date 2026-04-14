@@ -86,9 +86,10 @@ function measureSliceRanged(
     const rangeStyle = range?.style ?? fallbackStyle;
     const rangeEnd = range ? Math.min(range.end, end) : end;
 
-    // Include inline border+padding insets when the slice covers the range edges
-    if (range?.borderStart && pos === range.start) {
-      width += rangeStyle.borderLeft.width + rangeStyle.paddingLeft;
+    // Include inline border+padding+margin insets when the slice covers the range edges
+    if (range && pos === range.start) {
+      if (range.borderStart) width += rangeStyle.borderLeft.width + rangeStyle.paddingLeft;
+      if (range.inlineMarginLeft) width += range.inlineMarginLeft;
     }
 
     // Measure text up to the next atom or range boundary
@@ -104,9 +105,10 @@ function measureSliceRanged(
       width += measurer.measureText(text.slice(pos, sliceEnd), rangeStyle).width;
     }
 
-    // Add right inset when we've reached the end of a borderEnd range
-    if (range?.borderEnd && sliceEnd >= range.end) {
-      width += rangeStyle.paddingRight + rangeStyle.borderRight.width;
+    // Add right inset when we've reached the end of the range
+    if (range && sliceEnd >= range.end) {
+      if (range.borderEnd) width += rangeStyle.paddingRight + rangeStyle.borderRight.width;
+      if (range.inlineMarginRight) width += range.inlineMarginRight;
     }
 
     pos = sliceEnd;

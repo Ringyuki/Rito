@@ -29,6 +29,37 @@ describe('parseCssDeclarations', () => {
     it('parses em value relative to parent', () => {
       expect(parseCssDeclarations('font-size: 1.5em', BASE_FONT_SIZE)).toEqual({ fontSize: 24 });
     });
+
+    describe('absolute-size keywords', () => {
+      const cases: [string, number][] = [
+        ['xx-small', 9],
+        ['x-small', 10],
+        ['small', 13],
+        ['medium', 16],
+        ['large', 18],
+        ['x-large', 24],
+        ['xx-large', 32],
+        ['xxx-large', 48],
+      ];
+      for (const [keyword, px] of cases) {
+        it(`parses ${keyword} → ${px.toString()}px (independent of parent)`, () => {
+          // Absolute keywords ignore the parent emBase
+          expect(parseCssDeclarations(`font-size: ${keyword}`, 40).fontSize).toBe(px);
+        });
+      }
+    });
+
+    describe('relative-size keywords', () => {
+      it('larger scales parent font-size by 1.2×', () => {
+        expect(parseCssDeclarations('font-size: larger', 20).fontSize).toBeCloseTo(24);
+        expect(parseCssDeclarations('font-size: larger', 40).fontSize).toBeCloseTo(48);
+      });
+
+      it('smaller scales parent font-size by ~0.833×', () => {
+        expect(parseCssDeclarations('font-size: smaller', 24).fontSize).toBeCloseTo(20, 1);
+        expect(parseCssDeclarations('font-size: smaller', 12).fontSize).toBeCloseTo(10, 1);
+      });
+    });
   });
 
   describe('font-family', () => {

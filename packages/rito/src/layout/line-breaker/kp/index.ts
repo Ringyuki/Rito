@@ -63,8 +63,10 @@ function buildLineBoxes(
   const baseFontSize = baseStyle.fontSize;
   // Track segments that have already emitted runs to prevent duplicate borderStart
   const startedSegments = new Set<StyledSegment>();
-  // Track last-run location for each borderEnd segment (applied post-hoc)
-  const borderEndTracker = new Map<StyledSegment, RunLocation>();
+  // Track last-run location per segment for post-hoc trailing-edge markers
+  // (borderEnd, inlineMarginRight). The map records the most recently emitted
+  // run for each segment; the final post-pass stamps markers onto that run.
+  const trailingEdgeTracker = new Map<StyledSegment, RunLocation>();
 
   for (let lineIndex = 0; lineIndex < breakPositions.length; lineIndex++) {
     const breakPos = breakPositions[lineIndex];
@@ -81,7 +83,7 @@ function buildLineBoxes(
       measurer,
       baseFontSize,
       startedSegments,
-      borderEndTracker,
+      trailingEdgeTracker,
       lines.length,
     );
 
@@ -101,14 +103,21 @@ function buildLineBoxes(
     lineStart = breakPos + 1;
   }
 
-  // Apply borderEnd markers from the tracking map
-  for (const [, loc] of borderEndTracker) {
+  // Apply trailing-edge markers (borderEnd, inlineMarginRight) to the
+  // last emitted run of each segment. Tracker uses segment identity as key
+  // so post-hoc markers can't drift onto an earlier slice of the same segment.
+  for (const [segment, loc] of trailingEdgeTracker) {
     const line = lines[loc.lineIdx];
     if (!line) continue;
     const runs = line.runs as Run[];
     const run = runs[loc.runIdx];
     if (run && run.type === 'text-run') {
-      runs[loc.runIdx] = { ...run, borderEnd: true };
+      let patched = run;
+      if (segment.borderEnd) patched = { ...patched, borderEnd: true };
+      if (segment.inlineMarginRight) {
+        patched = { ...patched, inlineMarginRight: segment.inlineMarginRight };
+      }
+      runs[loc.runIdx] = patched;
     }
   }
 
@@ -132,7 +141,7 @@ function buildLineRuns(
   measurer: TextMeasurer,
   baseFontSize: number,
   startedSegments: Set<StyledSegment>,
-  borderEndTracker: Map<StyledSegment, RunLocation>,
+  trailingEdgeTracker: Map<StyledSegment, RunLocation>,
   lineIdx: number,
 ): Run[] {
   const ctx: RunBuildContext = {
@@ -144,7 +153,7 @@ function buildLineRuns(
     hasTrailingHyphen: false,
     baseFontSize,
     startedSegments,
-    borderEndTracker,
+    trailingEdgeTracker,
     lineIdx,
   };
 
@@ -183,9 +192,10 @@ interface RunBuildContext {
   baseFontSize: number;
   /** Segments that have already emitted at least one run (cross-line tracking). */
   startedSegments: Set<StyledSegment>;
-  /** Tracks last-run location for each borderEnd segment (for post-hoc marking). */
-  borderEndTracker: Map<StyledSegment, RunLocation>;
-  /** Current line index (for borderEndTracker). */
+  /** Last-run location per segment carrying a trailing-edge marker
+   *  (borderEnd and/or inlineMarginRight) — stamped post-hoc. */
+  trailingEdgeTracker: Map<StyledSegment, RunLocation>;
+  /** Current line index (for trailingEdgeTracker). */
   lineIdx: number;
 }
 
@@ -230,8 +240,9 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   if (isFirst) ctx.startedSegments.add(ctx.currentSegment);
   const isStart = ctx.currentSegment.borderStart === true && isFirst;
 
-  // Compute inline border+padding insets so runs don't overlap
-  const insetLeft = isStart ? style.borderLeft.width + style.paddingLeft : 0;
+  // Compute inline border+padding+margin insets so runs don't overlap
+  const marginLeft = isFirst ? (ctx.currentSegment.inlineMarginLeft ?? 0) : 0;
+  const insetLeft = (isStart ? style.borderLeft.width + style.paddingLeft : 0) + marginLeft;
   if (insetLeft > 0) ctx.x += insetLeft;
 
   const runY = computeVerticalAlignOffset(style, lineHeight, ctx.baseFontSize);
@@ -252,21 +263,27 @@ function flushRun(ctx: RunBuildContext, lineHeight: number, measurer: TextMeasur
   if (ruby) run = { ...run, rubyAnnotation: ruby };
   if (isStart) run = { ...run, borderStart: true };
   ctx.runs.push(run);
-  // Track this run as the latest for borderEnd (last writer wins after all lines)
-  if (ctx.currentSegment.borderEnd) {
-    ctx.borderEndTracker.set(ctx.currentSegment, {
+  // Record latest run for each segment (last writer wins after all lines
+  // are built). Trailing-edge markers (borderEnd, inlineMarginRight) are
+  // stamped onto this run by the post-pass in buildLineBoxes — never here,
+  // so intermediate slices of a cross-line segment stay clean.
+  if (ctx.currentSegment.borderEnd || ctx.currentSegment.inlineMarginRight) {
+    ctx.trailingEdgeTracker.set(ctx.currentSegment, {
       lineIdx: ctx.lineIdx,
       runIdx: ctx.runs.length - 1,
     });
   }
   ctx.x += width;
 
-  // Add right inset — borderEnd is resolved post-hoc, but we can detect it
-  // when the current segment has borderEnd and this is likely the last flush.
-  // The actual borderEnd mark is applied later by the caller, but we reserve
-  // horizontal space here so subsequent runs are positioned correctly.
+  // Add right inset — reserve space for trailing border/padding/margin so
+  // subsequent runs are positioned after the inline box's right edge. When
+  // the segment continues on a later line, ctx is discarded at line end and
+  // the extra x is harmless; the tracker stamps the final marker elsewhere.
   if (ctx.currentSegment.borderEnd) {
     ctx.x += style.paddingRight + style.borderRight.width;
+  }
+  if (ctx.currentSegment.inlineMarginRight) {
+    ctx.x += ctx.currentSegment.inlineMarginRight;
   }
 
   const sourceLength = ctx.hasTrailingHyphen ? flushedLength - 1 : flushedLength;

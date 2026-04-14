@@ -181,4 +181,50 @@ describe('GreedyParagraphLayouter', () => {
       expect(textOf(lines[0]?.runs[0])).toContain('a');
     });
   });
+
+  describe('inline margin', () => {
+    it('includes inline margin in line-width budget (triggers break)', () => {
+      // "aaaa" = 4 chars * 9.6 = 38.4px text. Plus 30+30 margin = 98.4px total.
+      // Width 60 → text alone fits, but with margins it must break.
+      const segments: InlineSegment[] = [
+        { text: 'aaaa', style: DEFAULT_STYLE, inlineMarginLeft: 30, inlineMarginRight: 30 },
+      ];
+      const lines = layouter.layoutParagraph(segments, 60, 0);
+      // Without the margin in the budget, this would fit on one line.
+      // With it, we expect it either to break or at least not overflow 60px.
+      const firstLine = lines[0];
+      expect(firstLine).toBeDefined();
+      const runsRightEdge = Math.max(
+        ...(firstLine?.runs.map((r) => {
+          const trailing = r.type === 'text-run' && r.inlineMarginRight ? r.inlineMarginRight : 0;
+          return r.bounds.x + r.bounds.width + trailing;
+        }) ?? [0]),
+      );
+      expect(runsRightEdge).toBeLessThanOrEqual(60 + 0.01);
+    });
+
+    it('stamps inlineMarginRight on the last run of the segment', () => {
+      const segments: InlineSegment[] = [
+        { text: 'hi', style: DEFAULT_STYLE, inlineMarginRight: 5 },
+        { text: ' world', style: DEFAULT_STYLE },
+      ];
+      const lines = layouter.layoutParagraph(segments, 500, 0);
+      const runs = lines[0]?.runs ?? [];
+      const hiRun = runs.find((r) => r.type === 'text-run' && r.text === 'hi');
+      expect(hiRun?.type).toBe('text-run');
+      expect((hiRun as TextRun).inlineMarginRight).toBe(5);
+    });
+
+    it('offsets subsequent runs by inlineMarginLeft', () => {
+      const segments: InlineSegment[] = [
+        { text: 'A', style: DEFAULT_STYLE },
+        { text: 'B', style: DEFAULT_STYLE, inlineMarginLeft: 10 },
+      ];
+      const lines = layouter.layoutParagraph(segments, 500, 0);
+      const runs = lines[0]?.runs ?? [];
+      const aRun = runs.find((r) => r.type === 'text-run' && r.text === 'A') as TextRun;
+      const bRun = runs.find((r) => r.type === 'text-run' && r.text === 'B') as TextRun;
+      expect(bRun.bounds.x - (aRun.bounds.x + aRun.bounds.width)).toBeGreaterThanOrEqual(10);
+    });
+  });
 });

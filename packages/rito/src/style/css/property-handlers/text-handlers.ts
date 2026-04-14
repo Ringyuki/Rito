@@ -12,11 +12,40 @@ import {
 import { assignLength } from './helpers';
 import type { PropertyHandlers } from './types';
 
+/** CSS absolute-size keywords → px (based on 16px medium). */
+const FONT_SIZE_ABSOLUTE: Record<string, number> = {
+  'xx-small': 9,
+  'x-small': 10,
+  small: 13,
+  medium: 16,
+  large: 18,
+  'x-large': 24,
+  'xx-large': 32,
+  'xxx-large': 48,
+};
+
+/** CSS relative font-size keywords — multiplier applied to parent font-size. */
+const FONT_SIZE_RELATIVE: Record<string, number> = {
+  smaller: 0.833, // ~one step down (1 / 1.2)
+  larger: 1.2, // ~one step up
+};
+
 export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
   color: (result, value) => {
     result.color = value;
   },
   'font-size': (result, value, emBase, rootFontSize) => {
+    const key = value.trim().toLowerCase();
+    const absolute = FONT_SIZE_ABSOLUTE[key];
+    if (absolute !== undefined) {
+      result.fontSize = absolute;
+      return;
+    }
+    const relative = FONT_SIZE_RELATIVE[key];
+    if (relative !== undefined) {
+      result.fontSize = emBase * relative;
+      return;
+    }
     assignLength(result, 'fontSize', value, emBase, rootFontSize);
   },
   'font-family': (result, value) => {

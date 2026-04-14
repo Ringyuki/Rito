@@ -106,8 +106,17 @@ export function layoutBlockNode(
 
 function placeHr(state: LayoutState, node: StyledNode, contentWidth: number): void {
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
-  state.blocks.push(layoutHorizontalRule(contentWidth, state.y, node.style.color));
-  state.y += 1;
+  // Use border-top properties if set (e.g. border-top: 2px dotted green),
+  // otherwise fall back to the element's color with 1px solid.
+  // NOTE: Only border-top is honored. Full CSS lets an <hr> render as any side
+  // of a border box; supporting that would require a different layout type.
+  const bt = node.style.borderTop;
+  const useBorder = bt.width > 0 && bt.style !== 'none';
+  const hrColor = useBorder ? bt.color : node.style.color;
+  const hrHeight = useBorder ? bt.width : 1;
+  const hrStyle = useBorder ? bt.style : 'solid';
+  state.blocks.push(layoutHorizontalRule(contentWidth, state.y, hrColor, hrHeight, hrStyle));
+  state.y += hrHeight;
   state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
 }
 

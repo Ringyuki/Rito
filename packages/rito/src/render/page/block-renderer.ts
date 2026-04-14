@@ -216,9 +216,20 @@ function renderHorizontalRule(
   const rawY = offsetY + hr.bounds.y + hr.bounds.height / 2;
   const snap = hr.bounds.height % 2 === 1 ? 0.5 : 0;
   const y = Math.round(rawY) + snap;
+  const style = hr.borderStyle ?? 'solid';
   ctx.save();
   ctx.strokeStyle = hr.color;
-  ctx.lineWidth = hr.bounds.height;
+  if (style === 'dotted') {
+    const dotWidth = hr.bounds.height * 0.75;
+    ctx.lineWidth = dotWidth;
+    ctx.setLineDash([0.001, hr.bounds.height * 1.5]);
+    ctx.lineCap = 'round';
+  } else if (style === 'dashed') {
+    ctx.lineWidth = hr.bounds.height;
+    ctx.setLineDash([hr.bounds.height * 3, hr.bounds.height * 2]);
+  } else {
+    ctx.lineWidth = hr.bounds.height;
+  }
   ctx.beginPath();
   ctx.moveTo(Math.round(x), y);
   ctx.lineTo(Math.round(x + hr.bounds.width), y);

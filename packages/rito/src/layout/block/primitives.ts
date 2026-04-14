@@ -151,15 +151,22 @@ export function indentBlocks(
   }));
 }
 
-export function layoutHorizontalRule(contentWidth: number, y: number, color: string): LayoutBlock {
+export function layoutHorizontalRule(
+  contentWidth: number,
+  y: number,
+  color: string,
+  height: number = HR_THICKNESS,
+  borderStyle: 'solid' | 'dotted' | 'dashed' = 'solid',
+): LayoutBlock {
   const hr: HorizontalRule = {
     type: 'hr',
-    bounds: { x: 0, y: 0, width: contentWidth, height: HR_THICKNESS },
+    bounds: { x: 0, y: 0, width: contentWidth, height },
     color,
+    ...(borderStyle !== 'solid' ? { borderStyle } : {}),
   };
   return {
     type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height: HR_THICKNESS },
+    bounds: { x: 0, y, width: contentWidth, height },
     children: [hr],
   };
 }

@@ -37,21 +37,7 @@ export function drawTextRun(
 
   // Inline background color (e.g. <span> with background-color)
   if (run.style.backgroundColor) {
-    const pl = run.style.paddingLeft;
-    const pr = run.style.paddingRight;
-    const pt = run.style.paddingTop;
-    const pb = run.style.paddingBottom;
-    const bl = run.borderStart ? run.style.borderLeft.width : 0;
-    const br = run.borderEnd ? run.style.borderRight.width : 0;
-    const bt = run.style.borderTop.width;
-    const bb = run.style.borderBottom.width;
-    // CSS half-leading: the content area is centered on the text (em square).
-    // bounds.y is the text top; shift up by halfLeading so padding is symmetric.
-    const hl = Math.max(0, (run.bounds.height - run.style.fontSize) / 2);
-    const bgX = x - pl - bl;
-    const bgY = y - hl - pt - bt;
-    const bgW = run.bounds.width + pl + pr + bl + br;
-    const bgH = run.bounds.height + pt + pb + bt + bb;
+    const { x: bgX, y: bgY, width: bgW, height: bgH } = computeInlineBoxRect(run, x, y);
     ctx.fillStyle = run.style.backgroundColor;
     if (run.style.borderRadius > 0) {
       const r = Math.min(run.style.borderRadius, bgW / 2, bgH / 2);
@@ -93,6 +79,34 @@ export const RUBY_GAP = 1;
  * The line breaker already extended the run's bounds.y upward and bounds.height
  * to include annotation space, so painting here stays within the line box.
  */
+/**
+ * Compute the inline-box rect (background/border area) for a text run.
+ * The rect covers the content area (font-size), plus padding, plus border
+ * on sides where the run is the first/last fragment of its inline box.
+ * Line-height is not included — inline backgrounds/borders are CSS content-area,
+ * not line-box, per Chrome/Firefox inline semantics.
+ */
+function computeInlineBoxRect(
+  run: TextRun,
+  textX: number,
+  textY: number,
+): { x: number; y: number; width: number; height: number } {
+  const pl = run.style.paddingLeft;
+  const pr = run.style.paddingRight;
+  const pt = run.style.paddingTop;
+  const pb = run.style.paddingBottom;
+  const bl = run.borderStart ? run.style.borderLeft.width : 0;
+  const br = run.borderEnd ? run.style.borderRight.width : 0;
+  const bt = run.style.borderTop.width;
+  const bb = run.style.borderBottom.width;
+  return {
+    x: textX - pl - bl,
+    y: textY - pt - bt,
+    width: run.bounds.width + pl + pr + bl + br,
+    height: run.style.fontSize + pt + pb + bt + bb,
+  };
+}
+
 export function drawRubyAnnotation(
   ctx: CanvasRenderingContext2D,
   annotation: string,
@@ -137,20 +151,7 @@ function drawInlineBorders(
   const drawBottom = borderBottom.width > 0 && borderBottom.style !== 'none';
   if (!drawLeft && !drawRight && !drawTop && !drawBottom) return;
 
-  const pl = run.style.paddingLeft;
-  const pr = run.style.paddingRight;
-  const pt = run.style.paddingTop;
-  const pb = run.style.paddingBottom;
-  const bl = run.borderStart ? borderLeft.width : 0;
-  const br = run.borderEnd ? borderRight.width : 0;
-  const bt = borderTop.width;
-  const bb = borderBottom.width;
-  // CSS half-leading: center the border box on the text, not the content-area top
-  const hl = Math.max(0, (run.bounds.height - run.style.fontSize) / 2);
-  const bx = x - pl - bl;
-  const by = y - hl - pt - bt;
-  const bw = run.bounds.width + pl + pr + bl + br;
-  const bh = run.bounds.height + pt + pb + bt + bb;
+  const { x: bx, y: by, width: bw, height: bh } = computeInlineBoxRect(run, x, y);
 
   // When all four sides are drawn and border-radius is set, use a rounded
   // rect stroke to match the rounded inline background fill geometry.
