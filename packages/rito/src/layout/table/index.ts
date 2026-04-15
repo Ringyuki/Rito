@@ -1,6 +1,7 @@
 import type { StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import type { ImageSizeMap } from '../block/types';
 import { computeColumnWidths } from './column-widths';
 import { buildTableModel } from './model';
 import { layoutTableRow } from './row-layout';
@@ -10,6 +11,7 @@ export function layoutTable(
   contentWidth: number,
   y: number,
   layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
 ): LayoutBlock {
   const model = buildTableModel(node);
   if (!model) {
@@ -54,6 +56,7 @@ export function layoutTable(
       currentY,
       layouter,
       model.occupied[rowIndex] ?? [],
+      imageSizes,
     );
     rowBlocks.push(block);
     currentY += height;

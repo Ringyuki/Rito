@@ -85,7 +85,7 @@ export class PaginationSession {
       const xhtml = this.doc.readChapter(spineItem.idref);
       if (!xhtml) continue;
 
-      const { nodes: rawNodes, warnings, bodyAttributes } = parseXhtml(xhtml);
+      const { nodes: rawNodes, warnings, bodyAttributes, stylesheetHrefs } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, spineItem.idref);
       const chapterHref = this.hrefMap.get(spineItem.idref) ?? spineItem.idref;
       const { filtered: nodes, footnotes } = extractChapterFootnotes(rawNodes, chapterHref);
@@ -99,6 +99,7 @@ export class PaginationSession {
         this.context,
         startPage,
         bodyAttributes,
+        stylesheetHrefs,
       );
       if (chapter.pages.length === 0) continue;
 
@@ -136,13 +137,15 @@ export class PaginationSession {
       string,
       { readonly class?: string; readonly style?: string }
     >();
+    const stylesheetHrefsByIdref = new Map<string, readonly string[]>();
     for (const item of spine) {
       const xhtml = this.doc.readChapter(item.idref);
       if (!xhtml) continue;
-      const { nodes, warnings, bodyAttributes } = parseXhtml(xhtml);
+      const { nodes, warnings, bodyAttributes, stylesheetHrefs } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, item.idref);
       allNodesByIdref.set(item.idref, nodes);
       if (bodyAttributes) bodyAttrsByIdref.set(item.idref, bodyAttributes);
+      if (stylesheetHrefs) stylesheetHrefsByIdref.set(item.idref, stylesheetHrefs);
     }
 
     // Full-book footnote extraction (two-phase across ALL chapters)
@@ -158,12 +161,14 @@ export class PaginationSession {
       this.chapterTextIndices.set(item.idref, buildChapterTextIndex(item.idref, nodes));
       const startPage = this.allPages.length;
       const bodyAttributes = bodyAttrsByIdref.get(item.idref);
+      const chapterStylesheetHrefs = stylesheetHrefsByIdref.get(item.idref);
       const chapter = paginateChapterNodes(
         nodes,
         this.config,
         this.context,
         startPage,
         bodyAttributes,
+        chapterStylesheetHrefs,
       );
       if (chapter.pages.length === 0) continue;
 

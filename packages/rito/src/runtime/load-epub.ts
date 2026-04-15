@@ -94,7 +94,7 @@ function loadManifestResources(
 
   for (const item of pkg.manifest) {
     if (item.mediaType === 'text/css') {
-      stylesheets.set(item.id, reader.readTextFile(opfDir + item.href));
+      stylesheets.set(item.href, reader.readTextFile(opfDir + item.href));
     } else if (FONT_MEDIA_TYPES.has(item.mediaType)) {
       fonts.set(item.href, reader.readFile(opfDir + item.href));
     } else if (item.mediaType.startsWith('image/')) {

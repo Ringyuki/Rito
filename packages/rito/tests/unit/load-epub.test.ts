@@ -48,7 +48,7 @@ describe('loadEpub', () => {
     const doc = loadEpub(data);
 
     expect(doc.stylesheets.size).toBe(1);
-    expect(doc.stylesheets.get('css1')).toContain('color: red');
+    expect(doc.stylesheets.get('styles/main.css')).toContain('color: red');
   });
 
   it('returns empty stylesheets map when no CSS exists', () => {

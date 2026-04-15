@@ -17,6 +17,8 @@ export interface ParseResult {
   readonly warnings: readonly string[];
   /** Attributes of the <body> element (class, style, id) for per-chapter styling. */
   readonly bodyAttributes?: ElementAttributes;
+  /** Relative hrefs of `<link rel="stylesheet">` tags from the chapter `<head>`. */
+  readonly stylesheetHrefs?: readonly string[];
 }
 
 /**
@@ -35,8 +37,14 @@ export function parseXhtml(xhtml: string): ParseResult {
   const warnings: string[] = [];
   const nodes = convertChildren(body, warnings, false, []);
   const bodyAttributes = extractAttributes(body);
+  const stylesheetHrefs = extractStylesheetHrefs(doc);
 
-  return bodyAttributes ? { nodes, warnings, bodyAttributes } : { nodes, warnings };
+  const result: ParseResult = { nodes, warnings };
+  if (bodyAttributes)
+    (result as { bodyAttributes: ElementAttributes }).bodyAttributes = bodyAttributes;
+  if (stylesheetHrefs.length > 0)
+    (result as { stylesheetHrefs: readonly string[] }).stylesheetHrefs = stylesheetHrefs;
+  return result;
 }
 
 function convertChildren(
@@ -237,6 +245,17 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
     ...(rowspan !== undefined ? { rowspan } : {}),
     ...(allAttributes !== undefined ? { allAttributes } : {}),
   } satisfies ElementAttributes;
+}
+
+/** Extract `<link rel="stylesheet">` hrefs from the document's `<head>`. */
+function extractStylesheetHrefs(doc: Document): string[] {
+  const hrefs: string[] = [];
+  const links = doc.querySelectorAll('link[rel="stylesheet"]');
+  for (let i = 0; i < links.length; i++) {
+    const href = links[i]?.getAttribute('href');
+    if (href) hrefs.push(href);
+  }
+  return hrefs;
 }
 
 function collectAllAttributes(el: Element): ReadonlyMap<string, string> | undefined {

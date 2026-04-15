@@ -71,7 +71,7 @@ export function layoutBlockNode(
     return;
   }
   if (node.tag === 'table') {
-    placeTable(state, node, contentWidth, layouter);
+    placeTable(state, node, contentWidth, layouter, imageSizes);
     return;
   }
 
@@ -126,11 +126,12 @@ function placeTable(
   node: StyledNode,
   contentWidth: number,
   layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
 ): void {
   collapseMargin(state, resolveMarginTop(node.style, contentWidth));
 
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
-  let block: LayoutBlock = layoutTable(node, metrics.targetWidth, state.y, layouter);
+  let block: LayoutBlock = layoutTable(node, metrics.targetWidth, state.y, layouter, imageSizes);
 
   const xOffset = resolveHorizontalOffset(
     contentWidth,

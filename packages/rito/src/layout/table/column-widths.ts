@@ -126,10 +126,16 @@ function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellW
       maxMin = Math.max(maxMin, info.minWidth);
       maxPref = Math.max(maxPref, info.prefWidth);
     }
-    return {
-      minWidth: Math.max(maxMin + hPad, cssWidth),
-      prefWidth: Math.max(maxPref + hPad, cssWidth),
-    };
+    const contentMin = maxMin + hPad;
+    const contentPref = maxPref + hPad;
+    // When CSS width is set, use it as the preferred width. Content that
+    // overflows will wrap within the constrained column. The minimum is
+    // capped at cssWidth so that the table doesn't expand beyond its
+    // container just because of content intrinsic width.
+    if (cssWidth > 0) {
+      return { minWidth: Math.min(contentMin, cssWidth), prefWidth: cssWidth };
+    }
+    return { minWidth: contentMin, prefWidth: contentPref };
   }
 
   const segments = flattenInlineContent(cell.children);
@@ -139,10 +145,10 @@ function measureCellWidths(cell: StyledNode, layouter: ParagraphLayouter): CellW
 
   const contentMin = measureMinimumWidth(segments, layouter) + hPad;
   const contentPref = measurePreferredWidth(segments, layouter) + hPad;
-  return {
-    minWidth: Math.max(contentMin, cssWidth),
-    prefWidth: Math.max(contentPref, cssWidth),
-  };
+  if (cssWidth > 0) {
+    return { minWidth: Math.min(contentMin, cssWidth), prefWidth: cssWidth };
+  }
+  return { minWidth: contentMin, prefWidth: contentPref };
 }
 
 /**
@@ -207,6 +213,12 @@ function measurePreferredWidth(
   return maxLineContentWidth(lines);
 }
 
+/**
+ * CJK Unified Ideographs and related ranges where line breaks are allowed
+ * between any two characters (CSS `word-break: normal` behavior).
+ */
+const CJK_RE = /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\u{20000}-\u{2FA1F}]/u;
+
 function measureMinimumWidth(
   segments: readonly InlineSegment[],
   layouter: ParagraphLayouter,
@@ -219,16 +231,43 @@ function measureMinimumWidth(
       continue;
     }
     const textSeg: StyledSegment = segment;
-    const words = textSeg.text.split(/\s+/).filter((word) => word.length > 0);
-    for (const word of words) {
-      const wordSegment: StyledSegment = { text: word, style: textSeg.style };
-      const lines = layouter.layoutParagraph([wordSegment], LARGE_WIDTH, 0);
+    const chunks = splitIntoBreakableChunks(textSeg.text);
+    for (const chunk of chunks) {
+      const chunkSegment: StyledSegment = { text: chunk, style: textSeg.style };
+      const lines = layouter.layoutParagraph([chunkSegment], LARGE_WIDTH, 0);
       const width = maxLineContentWidth(lines);
       if (width > maxWordWidth) maxWordWidth = width;
     }
   }
 
   return maxWordWidth;
+}
+
+/**
+ * Split text into minimum breakable chunks. Latin text breaks on whitespace;
+ * CJK characters are individually breakable (each character is its own chunk).
+ */
+function splitIntoBreakableChunks(text: string): string[] {
+  const chunks: string[] = [];
+  let current = '';
+  for (const ch of text) {
+    if (/\s/.test(ch)) {
+      if (current) {
+        chunks.push(current);
+        current = '';
+      }
+    } else if (CJK_RE.test(ch)) {
+      if (current) {
+        chunks.push(current);
+        current = '';
+      }
+      chunks.push(ch);
+    } else {
+      current += ch;
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
 }
 
 function maxLineContentWidth(lines: readonly LineBox[]): number {

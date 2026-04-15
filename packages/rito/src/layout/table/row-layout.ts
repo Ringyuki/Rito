@@ -2,6 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import type { VerticalAlign } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import type { ImageSizeMap } from '../block/types';
 import { resolveMarginBottom } from '../block/resolve-pct';
 import { layoutTableCellContent } from './cell-layout';
 import { columnX, computeChildrenHeight, offsetChildren, spanWidth } from './shared';
@@ -19,6 +20,7 @@ export function layoutTableRow(
   y: number,
   layouter: ParagraphLayouter,
   rowOccupied: readonly boolean[],
+  imageSizes?: ImageSizeMap,
 ): { block: LayoutBlock; height: number } {
   const { cellBlocks, maxCellHeight } = layoutRowCells(
     row,
@@ -26,6 +28,7 @@ export function layoutTableRow(
     colWidths,
     layouter,
     rowOccupied,
+    imageSizes,
   );
   const totalWidth = colWidths.reduce((sum, width) => sum + width, 0);
 
@@ -55,6 +58,7 @@ function layoutRowCells(
   colWidths: readonly number[],
   layouter: ParagraphLayouter,
   rowOccupied: readonly boolean[],
+  imageSizes?: ImageSizeMap,
 ): { cellBlocks: CellResult[]; maxCellHeight: number } {
   const cells = row.children.filter((child) => child.type === 'block');
   const cellBlocks: CellResult[] = [];
@@ -80,7 +84,7 @@ function layoutRowCells(
       continue;
     }
 
-    const result = layoutSingleCell(cell, colWidths, col, layouter);
+    const result = layoutSingleCell(cell, colWidths, col, layouter, imageSizes);
     maxCellHeight = Math.max(maxCellHeight, result.contentHeight);
     cellBlocks.push(result);
     col += cell.colspan ?? 1;
@@ -94,6 +98,7 @@ function layoutSingleCell(
   colWidths: readonly number[],
   col: number,
   layouter: ParagraphLayouter,
+  imageSizes?: ImageSizeMap,
 ): CellResult {
   const colSpan = cell.colspan ?? 1;
   const cellWidth = spanWidth(colWidths, col, colSpan);
@@ -102,7 +107,7 @@ function layoutSingleCell(
   const pb = cell.style.paddingBottom;
   const pl = cell.style.paddingLeft;
   const contentWidth = Math.max(cellWidth - pl - pr, 1);
-  const children = layoutTableCellContent(cell, contentWidth, layouter);
+  const children = layoutTableCellContent(cell, contentWidth, layouter, imageSizes);
   // Include trailing bottom margin of the last block child — layoutBlocks
   // tracks it in state.prevMarginBottom but it's never materialized in the
   // block bounds.  Inside a table cell this margin contributes to cell height.
