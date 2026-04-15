@@ -1,26 +1,39 @@
 import { useCallback, useState } from 'react';
-import { useContainerSize, useControllerEvent } from '@rito/react';
+import { useContainerSize } from '@rito/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
-import { ReaderOverlay } from '@/components/reader-overlay';
+import { SettingsPanel, DEFAULT_SETTINGS } from '@/components/settings-panel';
 import { useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
-import { useOverlay } from '@/hooks/use-overlay';
 import { Reader } from '@/components/reader';
 
 export function App() {
-  const { theme, toggle: toggleTheme } = useTheme();
+  const { theme, toggle: toggleTheme, setTheme } = useTheme();
   const [containerRef, containerSize] = useContainerSize();
   const reader = useReader(theme, containerSize.width, containerSize.height);
   const [tocOpen, setTocOpen] = useState(false);
-  const overlay = useOverlay();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Suppress overlay toggle when a canvas tap triggers a content interaction
-  useControllerEvent(reader.controller, 'linkClick', overlay.suppress);
-  useControllerEvent(reader.controller, 'footnoteClick', overlay.suppress);
-  useControllerEvent(reader.controller, 'imageClick', overlay.suppress);
-  useControllerEvent(reader.controller, 'annotationClick', overlay.suppress);
+  const handleToggleSearch = useCallback(() => {
+    reader.setSearchOpen(true);
+  }, [reader]);
+
+  const handleOpenToc = useCallback(() => {
+    setTocOpen(true);
+  }, []);
+
+  const handleToggleSettings = useCallback(() => {
+    setSettingsOpen((o) => !o);
+  }, []);
+
+  const handleRestoreDefaults = useCallback(() => {
+    reader.setFontScale(DEFAULT_SETTINGS.fontScale);
+    reader.setLineHeight(DEFAULT_SETTINGS.lineHeight);
+    reader.setFontPreset(DEFAULT_SETTINGS.fontPreset);
+    reader.setSpreadMode(DEFAULT_SETTINGS.spreadMode);
+    setTheme(DEFAULT_SETTINGS.theme);
+  }, [reader, setTheme]);
 
   const handleFileLoad = useCallback(
     (data: ArrayBuffer) => {
@@ -29,19 +42,23 @@ export function App() {
     [reader],
   );
 
-  const handleToggleToc = useCallback(() => {
-    setTocOpen((o) => !o);
-    overlay.hide();
-  }, [overlay]);
-
-  const handleToggleSearch = useCallback(() => {
-    reader.setSearchOpen(true);
-    overlay.hide();
-  }, [reader, overlay]);
+  const handleLoadDemo = useCallback(() => {
+    void reader.loadDemo();
+  }, [reader]);
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">
-      <Reader containerRef={containerRef} reader={reader} />
+      <Reader
+        containerRef={containerRef}
+        reader={reader}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onOpenToc={handleOpenToc}
+        onOpenSearch={handleToggleSearch}
+        onOpenSettings={handleToggleSettings}
+        onLoadDemo={handleLoadDemo}
+        onFileLoad={handleFileLoad}
+      />
 
       <SearchBar
         search={reader.search}
@@ -59,29 +76,22 @@ export function App() {
 
       <Toaster />
 
-      <ReaderOverlay
-        visible={overlay.visible}
-        isLoaded={reader.isLoaded}
-        isLoading={reader.isLoading}
-        bookTitle={reader.bookTitle}
-        theme={theme}
-        currentSpread={reader.currentSpread}
-        totalSpreads={reader.spreads.length}
-        fontScale={reader.fontScale}
-        spreadMode={reader.spreadMode}
-        onSeek={reader.goToSpread}
-        onPrev={reader.prevSpread}
-        onNext={reader.nextSpread}
-        onToggleToc={handleToggleToc}
-        onToggleSearch={handleToggleSearch}
-        onIncreaseFontSize={reader.increaseFontSize}
-        onDecreaseFontSize={reader.decreaseFontSize}
-        onToggleTheme={toggleTheme}
-        onToggleSpread={reader.toggleSpreadMode}
-        onLoadDemo={() => {
-          void reader.loadDemo();
+      <SettingsPanel
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        settings={{
+          fontScale: reader.fontScale,
+          lineHeight: reader.lineHeight,
+          fontPreset: reader.fontPreset,
+          spreadMode: reader.spreadMode,
+          theme,
         }}
-        onFileLoad={handleFileLoad}
+        onFontScaleChange={reader.setFontScale}
+        onLineHeightChange={reader.setLineHeight}
+        onFontPresetChange={reader.setFontPreset}
+        onSpreadModeChange={reader.setSpreadMode}
+        onThemeChange={setTheme}
+        onRestoreDefaults={handleRestoreDefaults}
       />
     </div>
   );

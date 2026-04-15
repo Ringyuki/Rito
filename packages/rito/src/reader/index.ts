@@ -139,11 +139,21 @@ export interface Reader {
 
   /**
    * Update typography settings. Triggers re-pagination.
+   *
+   * For each property:
+   * - `undefined` (or omitted) — no change
+   * - `null` — clear the override, fall back to the book's natural value
+   * - explicit value — set as override
+   *
    * `fontSize` overrides rootFontSize (affects rem units and base size).
    * `lineHeight` overrides the body line-height multiplier (e.g. 1.5, 2.0).
    * `fontFamily` overrides the body font-family (cascades to all elements unless CSS-overridden).
    */
-  setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
+  setTypography(opts: {
+    fontSize?: number | null;
+    lineHeight?: number | null;
+    fontFamily?: string | null;
+  }): boolean;
 
   /** Subscribe to spread render events. Returns unsubscribe function. */
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
@@ -244,10 +254,14 @@ function buildReaderMethods(
       };
     })(),
     measurer: state.assets.measurer as TextMeasurer,
-    setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
-      if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize;
-      if (opts.lineHeight !== undefined) state.lineHeightOverride = opts.lineHeight;
-      if (opts.fontFamily !== undefined) state.fontFamilyOverride = opts.fontFamily;
+    setTypography(opts: {
+      fontSize?: number | null;
+      lineHeight?: number | null;
+      fontFamily?: string | null;
+    }): boolean {
+      if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize ?? undefined;
+      if (opts.lineHeight !== undefined) state.lineHeightOverride = opts.lineHeight ?? undefined;
+      if (opts.fontFamily !== undefined) state.fontFamilyOverride = opts.fontFamily ?? undefined;
       return layoutControls.updateLayout(
         state.config.viewportWidth,
         state.config.viewportHeight,

@@ -8,16 +8,36 @@ import { AnnotationTooltip } from '@/components/annotation-tooltip';
 import { FootnoteDrawer } from '@/components/footnote-drawer';
 import { LinkDialog } from '@/components/link-dialog';
 import { ImageLightbox } from '@/components/image-lightbox';
+import { ReaderContextMenu } from '@/components/reader-context-menu';
 import { type useReader } from '@/hooks/use-reader';
+import { Button } from '@/components/ui/button';
+import { SiGithub } from '@icons-pack/react-simple-icons';
 
 interface ReaderProps {
   containerRef: (node: HTMLElement | null) => void;
   reader: ReturnType<typeof useReader>;
+  theme: 'light' | 'dark';
+  onToggleTheme: () => void;
+  onOpenToc: () => void;
+  onOpenSearch: () => void;
+  onOpenSettings: () => void;
+  onLoadDemo: () => void;
+  onFileLoad: (data: ArrayBuffer) => void;
 }
 
-export function Reader({ containerRef, reader }: ReaderProps) {
+export function Reader({
+  containerRef,
+  reader,
+  theme,
+  onToggleTheme,
+  onOpenToc,
+  onOpenSearch,
+  onOpenSettings,
+  onLoadDemo,
+  onFileLoad,
+}: ReaderProps) {
   return (
-    <main ref={containerRef} className="relative flex flex-1 bg-muted/30">
+    <main ref={containerRef} className="relative flex flex-1 bg-muted/30 select-none">
       {reader.isLoading && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-muted-foreground">
           <Loader2 className="h-8 w-8 animate-spin" />
@@ -25,18 +45,22 @@ export function Reader({ containerRef, reader }: ReaderProps) {
         </div>
       )}
 
+      {!reader.isLoaded && (
+        <div className="fixed z-20 top-0 w-full p-4 flex gap-2 items-center justify-center text-muted-foreground">
+          <span className="text-sm font-medium">Rito Reader</span>
+          <a href="https://github.com/Ringyuki/Rito" target="_blank" rel="noopener noreferrer">
+            <Button variant="ghost" size="icon">
+              <SiGithub className="h-4 w-4" />
+            </Button>
+          </a>
+        </div>
+      )}
+
       {!reader.isLoaded && !reader.isLoading && !reader.error && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-muted-foreground">
           <p className="text-lg font-medium">Open an EPUB to start reading</p>
           <div className="flex gap-3">
-            <FileActions
-              onLoadDemo={() => {
-                void reader.loadDemo();
-              }}
-              onFileLoad={(data) => {
-                void reader.loadFromArrayBuffer(data);
-              }}
-            />
+            <FileActions onLoadDemo={onLoadDemo} onFileLoad={onFileLoad} />
           </div>
         </div>
       )}
@@ -49,11 +73,22 @@ export function Reader({ containerRef, reader }: ReaderProps) {
         </div>
       )}
 
-      <RitoReader
-        controller={reader.controller}
-        className="relative flex flex-1 items-center justify-center select-none"
-        placeholder={<Placeholder />}
-      />
+      <ReaderContextMenu
+        reader={reader}
+        theme={theme}
+        onToggleTheme={onToggleTheme}
+        onOpenToc={onOpenToc}
+        onOpenSearch={onOpenSearch}
+        onOpenSettings={onOpenSettings}
+        onLoadDemo={onLoadDemo}
+        onFileLoad={onFileLoad}
+      >
+        <RitoReader
+          controller={reader.controller}
+          className="relative flex flex-1 items-center justify-center select-none"
+          placeholder={<Placeholder />}
+        />
+      </ReaderContextMenu>
 
       <AnnotationToolbar
         selection={reader.selection}

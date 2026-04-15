@@ -20,11 +20,11 @@ export function TocSidebar({
 }: TocSidebarProps) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="left" className="w-72 p-0">
-        <SheetHeader className="border-b border-border px-4 py-3">
-          <SheetTitle className="text-sm">Contents</SheetTitle>
+      <SheetContent side="right" className="w-full sm:max-w-sm">
+        <SheetHeader>
+          <SheetTitle>Contents</SheetTitle>
         </SheetHeader>
-        <ScrollArea className="h-[calc(100%-3rem)]">
+        <ScrollArea className="h-[calc(100vh-5rem)]">
           <nav className="p-2">
             {toc.length === 0 ? (
               <p className="px-3 py-2 text-sm text-muted-foreground">No table of contents</p>

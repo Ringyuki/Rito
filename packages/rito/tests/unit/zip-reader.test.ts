@@ -45,9 +45,7 @@ describe('createZipReader', () => {
 
   it('rejects an HTML error page with diagnostic message', () => {
     const html = new TextEncoder().encode('<!DOCTYPE html><html><body>404</body></html>');
-    expect(() => createZipReader(html.buffer)).toThrow(
-      'received an HTML/XML document',
-    );
+    expect(() => createZipReader(html.buffer)).toThrow('received an HTML/XML document');
   });
 
   it('rejects non-ZIP binary data with first-bytes hint', () => {

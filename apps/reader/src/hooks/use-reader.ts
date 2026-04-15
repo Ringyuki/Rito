@@ -15,6 +15,14 @@ const FONT_SCALE_STEP = 0.1;
 const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
 
+export type FontPreset = 'default' | 'serif' | 'sans' | 'mono';
+
+const FONT_STACKS: Record<Exclude<FontPreset, 'default'>, string> = {
+  serif: 'Georgia, "Times New Roman", serif',
+  sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
+};
+
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
 
@@ -30,6 +38,8 @@ export function useReader(
 ) {
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
   const [fontScale, setFontScale] = useState(1.2);
+  const [lineHeight, setLineHeightState] = useState(1.5);
+  const [fontPreset, setFontPresetState] = useState<FontPreset>('default');
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth / fontScale) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight / fontScale) : 0;
@@ -95,6 +105,17 @@ export function useReader(
     rito.setTheme(getThemeOptions(theme));
   }, [theme, rito.controller]);
 
+  // Sync typography (lineHeight + fontPreset) when they change after load.
+  // Skipped until the reader is loaded: setTypography is a no-op without a document.
+  useEffect(() => {
+    if (!rito.controller || !rito.isLoaded) return;
+    const fontFamily = fontPreset === 'default' ? undefined : FONT_STACKS[fontPreset];
+    rito.setTypography({
+      lineHeight,
+      ...(fontFamily !== undefined ? { fontFamily } : {}),
+    });
+  }, [lineHeight, fontPreset, rito.controller, rito.isLoaded]);
+
   // Restore position after load
   useEffect(() => {
     if (!rito.isLoaded || !rito.controller) return;
@@ -128,12 +149,35 @@ export function useReader(
     });
   }, [rito]);
 
+  const setSpreadMode = useCallback(
+    (mode: 'single' | 'double') => {
+      setSpreadModeState((prev) => {
+        if (prev === mode) return prev;
+        rito.setSpreadMode(mode);
+        return mode;
+      });
+    },
+    [rito],
+  );
+
   const increaseFontSize = useCallback(() => {
     setFontScale((s) => Math.min(s + FONT_SCALE_STEP, FONT_SCALE_MAX));
   }, []);
 
   const decreaseFontSize = useCallback(() => {
     setFontScale((s) => Math.max(s - FONT_SCALE_STEP, FONT_SCALE_MIN));
+  }, []);
+
+  const setFontScaleClamped = useCallback((v: number) => {
+    setFontScale(Math.max(FONT_SCALE_MIN, Math.min(v, FONT_SCALE_MAX)));
+  }, []);
+
+  const setLineHeight = useCallback((v: number) => {
+    setLineHeightState(v);
+  }, []);
+
+  const setFontPreset = useCallback((v: FontPreset) => {
+    setFontPresetState(v);
   }, []);
 
   const navigateToTocEntry = useCallback(
@@ -159,14 +203,20 @@ export function useReader(
     annotations,
     spreadMode,
     fontScale,
+    lineHeight,
+    fontPreset,
     bookTitle,
     activeChapterHref,
     loadFromArrayBuffer,
     loadDemo,
     navigateToTocEntry,
     toggleSpreadMode,
+    setSpreadMode,
     increaseFontSize,
     decreaseFontSize,
+    setFontScale: setFontScaleClamped,
+    setLineHeight,
+    setFontPreset,
     // Content interaction
     pendingLink,
     dismissLink: useCallback(() => {

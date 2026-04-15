@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
+    "@icons-pack/react-simple-icons": "^13.13.0",
     "@rito/kit": "workspace:*",
     "@rito/react": "workspace:*",
     "class-variance-authority": "^0.7.1",

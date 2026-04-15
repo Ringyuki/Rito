@@ -1,6 +1,7 @@
 import { BookOpen, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFileLoader } from '@/hooks/use-file-loader';
+import { ContextMenuItem } from '@/components/ui/context-menu';
 
 interface FileActionsProps {
   isLoading?: boolean;
@@ -48,6 +49,33 @@ export function FileActions({
         {openLabel}
       </Button>
       <input ref={inputRef} type="file" accept=".epub" className="hidden" onChange={handleChange} />
+    </>
+  );
+}
+
+export function FileActionsContextMenu({
+  isLoading,
+  onLoadDemo,
+  onOpenFile,
+  demoLabel = 'Load Demo',
+  openLabel = 'Open File',
+}: {
+  isLoading?: boolean;
+  onLoadDemo: () => void;
+  onOpenFile: () => void;
+  demoLabel?: string;
+  openLabel?: string;
+}) {
+  return (
+    <>
+      <ContextMenuItem onSelect={onLoadDemo} disabled={isLoading ?? false}>
+        <BookOpen className="h-4 w-4" />
+        {demoLabel}
+      </ContextMenuItem>
+      <ContextMenuItem onSelect={onOpenFile} disabled={isLoading ?? false}>
+        <FileUp className="h-4 w-4" />
+        {openLabel}
+      </ContextMenuItem>
     </>
   );
 }
