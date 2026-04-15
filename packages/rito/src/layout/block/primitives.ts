@@ -51,17 +51,20 @@ export function layoutTextBlock(
         }))
       : lineBoxes;
 
+  let height =
+    borderTop + paddingTop + computeChildrenHeight(lineBoxes) + paddingBottom + borderBottom;
+  if (node.style.height > 0) {
+    const borderV = borderTop + borderBottom;
+    height =
+      node.style.boxSizing === 'border-box'
+        ? node.style.height
+        : node.style.height + paddingTop + paddingBottom + borderV;
+  }
+  height = applyHeightConstraints(height, node.style);
+
   const block: LayoutBlock = {
     type: 'layout-block',
-    bounds: {
-      x: 0,
-      y,
-      width: contentWidth,
-      height: applyHeightConstraints(
-        borderTop + paddingTop + computeChildrenHeight(lineBoxes) + paddingBottom + borderBottom,
-        node.style,
-      ),
-    },
+    bounds: { x: 0, y, width: contentWidth, height },
     children,
   };
   return applyBlockDecorations(block, node);

@@ -5,6 +5,13 @@ export interface RenderOptions {
   /** Fill color for the page background. If omitted, no background is drawn. */
   readonly backgroundColor?: string;
   /**
+   * Body background color resolved at the spread level (for dual-page mode).
+   * When set, overrides `page.paint?.backgroundColor` so that adjacent pages
+   * share a unified background when only one of them specifies a body bg.
+   * This is an internal field set by the spread renderer.
+   */
+  readonly spreadBodyBg?: string;
+  /**
    * Override text color for theme support (e.g. dark mode).
    * When set, text whose original color has insufficient contrast against
    * {@link backgroundColor} will be rendered in this color instead.

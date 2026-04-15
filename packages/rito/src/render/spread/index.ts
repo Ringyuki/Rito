@@ -1,6 +1,7 @@
 import type { LayoutConfig, Spread } from '../../layout/core/types';
 import type { RenderOptions } from '../core/types';
 import { renderPage } from '../page';
+import { resolveSpreadBodyBackground } from './spread-background';
 
 /**
  * Render a spread onto a CanvasRenderingContext2D.
@@ -31,13 +32,28 @@ export function render(
     ctx.restore();
   }
 
-  // 2. Render pages — cast to CanvasRenderingContext2D for downstream compatibility.
-  // OffscreenCanvasRenderingContext2D is structurally identical for all drawing ops used.
+  // 2. If there's a unified body bg across the spread, fill the ENTIRE viewport
+  //    with it before rendering pages. This covers both pages + the gap between
+  //    them in one pass, avoiding sub-pixel seams from separate fills.
+  const bodyBg = resolveSpreadBodyBackground(spread, config);
+  if (bodyBg) {
+    ctx.save();
+    ctx.scale(pixelRatio, pixelRatio);
+    ctx.fillStyle = bodyBg;
+    ctx.fillRect(0, 0, config.viewportWidth, config.viewportHeight);
+    ctx.restore();
+  }
+
+  // 3. Render pages. When the spread has a unified body bg, pass it via
+  //    spreadBodyBg so renderPage skips redundant per-page background fills.
+  const pageOptions: RenderOptions | undefined = bodyBg
+    ? { ...options, spreadBodyBg: bodyBg }
+    : options;
   const drawCtx = ctx as CanvasRenderingContext2D;
   if (spread.left) {
     ctx.save();
     ctx.translate(0, 0);
-    renderPage(spread.left, drawCtx, config, options);
+    renderPage(spread.left, drawCtx, config, pageOptions);
     ctx.restore();
   }
 
@@ -45,22 +61,8 @@ export function render(
     const offsetX = Math.round((config.pageWidth + config.spreadGap) * pixelRatio);
     ctx.save();
     ctx.translate(offsetX, 0);
-    renderPage(spread.right, drawCtx, config, options);
+    renderPage(spread.right, drawCtx, config, pageOptions);
     ctx.restore();
-  }
-
-  // 3. Fill gap between pages if both share the same body background
-  if (config.spreadMode === 'double' && config.spreadGap > 0) {
-    const leftBg = spread.left?.paint?.backgroundColor;
-    const rightBg = spread.right?.paint?.backgroundColor;
-    if (leftBg && leftBg === rightBg) {
-      ctx.save();
-      ctx.scale(pixelRatio, pixelRatio);
-      ctx.fillStyle = leftBg;
-      const gapX = config.pageWidth;
-      ctx.fillRect(gapX, 0, config.spreadGap, config.viewportHeight);
-      ctx.restore();
-    }
   }
 }
 

@@ -26,16 +26,15 @@ export function renderPage(
   ctx.save();
   ctx.scale(pixelRatio, pixelRatio);
 
-  // Page background: prefer EPUB body bg, then reader theme.
-  // In spread mode the spread renderer already fills the viewport with the correct bg,
-  // but standalone page rendering (single mode, tests) still needs per-page fill.
-  const pageBg = page.paint?.backgroundColor;
-  if (pageBg) {
-    ctx.fillStyle = pageBg;
-    ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
-  } else if (options?.backgroundColor) {
-    ctx.fillStyle = options.backgroundColor;
-    ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
+  // Page background: spreadBodyBg means the spread renderer already filled the
+  // entire viewport with the unified body bg — skip here to avoid double-fill.
+  // Otherwise fall back to per-page EPUB body bg or reader theme bg.
+  if (!options?.spreadBodyBg) {
+    const pageBg = page.paint?.backgroundColor ?? options?.backgroundColor;
+    if (pageBg) {
+      ctx.fillStyle = pageBg;
+      ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
+    }
   }
 
   ctx.beginPath();
