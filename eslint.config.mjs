@@ -65,8 +65,8 @@ export default defineConfig([
   },
   {
     // Layout / render boundary enforcement (see AGENTS.md "Layout / Render
-    // boundary" + REFACTOR_PLAN.md §1). render/ must consume the paint-ready
-    // types from layout/core, never the raw CSS-level ComputedStyle.
+    // boundary"). render/ must consume paint-ready layout types instead of
+    // the raw CSS-level ComputedStyle.
     files: ['packages/rito/src/render/**/*.ts'],
     rules: {
       'no-restricted-imports': [
@@ -77,7 +77,7 @@ export default defineConfig([
               regex: 'style/core/types$',
               importNames: ['ComputedStyle'],
               message:
-                'render/ must not consume ComputedStyle. Use RunPaint / BlockPaint / HrPaint / PagePaint / MeasurePaint from layout/core (via layout/core/paint) instead. See REFACTOR_PLAN.md §1.',
+                'render/ must not consume ComputedStyle. Use paint-ready types from layout/core (RunPaint / BlockPaint / HrPaint / PagePaint) and shared structured paint primitives from style/core/paint-types instead.',
             },
           ],
         },

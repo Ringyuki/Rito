@@ -107,9 +107,9 @@ describe('Coordinate system math expectations', () => {
       const spreadContentX = rightPageContentOffset + 50;
       expect(spreadContentX).toBe(contentWidth + contentGap + 50);
 
-      // The current code flattens link regions without offsetting right page.
-      // This means a hit test at spreadContentX would compare against raw x=50,
-      // which would miss. This is the confirmed P0 bug.
+      // Historical note: older flattened-region handling compared this
+      // spread-space x against raw page-local x=50 and missed the link.
+      // The current page-aware mapper avoids that class of bug.
     });
   });
 

@@ -5,7 +5,8 @@
  * They are a safety net against regressions — any change that re-introduces
  * a violated pattern should fail CI before it lands.
  *
- * The invariants come straight from REFACTOR_PLAN.md §1:
+ * The invariants come from the post-Phase-2 layout / render boundary
+ * documented in AGENTS.md and encoded by the paint-ready layout types:
  *  1. layout produces paint-ready data; render only consumes it
  *  2. render does no CSS string parsing or semantic derivation
  *  3. each piece of info is produced in exactly one place

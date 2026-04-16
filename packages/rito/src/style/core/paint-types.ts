@@ -1,12 +1,13 @@
 /**
- * Paint-ready structured types.
+ * Shared paint-ready structured types.
  *
  * These types carry CSS values that, after style cascade resolution, are
- * already in a shape that render layers can consume without any further
- * string parsing or derivation.
+ * already in a shape that layout, render, and interaction helpers can
+ * consume without further string parsing or derivation.
  *
- * The structural shapes also front-load the data layout needed by the
- * Phase 2 BlockPaint / RunPaint consolidation.
+ * The higher-level paint aggregates live in `layout/core/paint.ts`; this
+ * module holds the reusable leaf primitives that are shared across those
+ * aggregates and text measurement helpers.
  */
 
 /** Length with explicit unit. Percentages are resolved against a host box at
@@ -38,8 +39,8 @@ export interface FontShorthand {
   readonly family: string;
 }
 
-/** Minimal paint subset required by TextMeasurer. Carries exactly what the
- * measurer needs to compute text advance, nothing more. */
+/** Minimal paint subset required by TextMeasurer. Shared by layout, render,
+ * and interaction code that only needs text-advance inputs. */
 export interface MeasurePaint {
   readonly font: FontShorthand;
   readonly wordSpacingPx?: number;

@@ -1,9 +1,11 @@
 /**
- * Phase 0 — Characterization test: right-page link hit testing.
+ * Regression-note test: right-page link hit-testing geometry.
  *
- * This test reproduces the confirmed P0 bug: links on the right page of a
- * double-page spread cannot be hit because rebuildLinkRegions() flattens
- * left and right page regions without offsetting the right page.
+ * `buildLinkMap()` is page-local by design. Older controller code used to
+ * flatten left/right page regions into one spread-space list without
+ * offsetting the right page, which made right-page links unclickable in
+ * double-page mode. The current controller keeps regions per-page and maps
+ * spread coordinates back into page space before hit-testing.
  */
 import { describe, expect, it } from 'vitest';
 import { buildLinkMap, hitTestLink } from 'rito/advanced';
@@ -37,7 +39,7 @@ function makePage(blocks: LayoutBlock[], index: number): Page {
   return { index, bounds: { x: 0, y: 0, width: 300, height: 400 }, content: blocks };
 }
 
-describe('Right-page link hit testing (P0 bug)', () => {
+describe('Right-page link hit-testing geometry', () => {
   // Simulates the spread geometry:
   // contentWidth = 300, contentGap = 100, so right page content starts at x = 400
   const CONTENT_WIDTH = 300;
@@ -70,10 +72,10 @@ describe('Right-page link hit testing (P0 bug)', () => {
     expect(hit?.href).toBe('http://left.com');
   });
 
-  describe('right page link in flattened region list (current broken behavior)', () => {
-    // This simulates what rebuildLinkRegions currently does:
-    // flat-concat left and right page regions without offsetting
-    it('FAILS: right page link cannot be hit at spread-content coordinates', () => {
+  describe('historical flattened-region bug model', () => {
+    // This simulates the pre-fix controller approach:
+    // flat-concat left and right page regions without offsetting.
+    it('shows why naive spread-space hit-testing missed the right page', () => {
       const leftRegions = buildLinkMap(leftPage);
       const rightRegions = buildLinkMap(rightPage);
       const flatRegions = [...leftRegions, ...rightRegions];
@@ -82,18 +84,19 @@ describe('Right-page link hit testing (P0 bug)', () => {
       const spreadX = CONTENT_WIDTH + CONTENT_GAP + 55;
       const hit = hitTestLink(flatRegions, spreadX, 15);
 
-      // BUG: This returns undefined because the right page region
-      // has bounds.x = 50, not 450
-      expect(hit).toBeUndefined(); // Confirms the bug exists
+      // The right-page region still has page-local x = 50 instead of spread
+      // x = 450, so a spread-space hit test misses it.
+      expect(hit).toBeUndefined();
     });
   });
 
-  describe('right page link with correct per-page offset (expected fix)', () => {
-    it('should hit right page link when regions are properly offset', () => {
+  describe('correctly offset spread-space model', () => {
+    it('hits the right-page link when the page offset is applied', () => {
       const leftRegions = buildLinkMap(leftPage);
       const rightRegions = buildLinkMap(rightPage);
 
-      // After fix: right page regions should be offset by rightPageContentOffset
+      // Equivalent to converting spread-space coordinates back into the
+      // right page's local coordinate system before hit-testing.
       const rightPageOffset = CONTENT_WIDTH + CONTENT_GAP;
       const offsetRightRegions = rightRegions.map((r) => ({
         ...r,
