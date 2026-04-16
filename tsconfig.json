@@ -3,6 +3,14 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "paths": {
+      "@ritojs/core": ["./packages/rito/src/index.ts"],
+      "@ritojs/core/*": ["./packages/rito/src/*"],
+      "@ritojs/kit": ["./packages/kit/src/index.ts"],
+      "@ritojs/kit/*": ["./packages/kit/src/*"],
+      "@ritojs/react": ["./packages/react/src/index.ts"],
+      "@ritojs/react/*": ["./packages/react/src/*"]
+    },
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
