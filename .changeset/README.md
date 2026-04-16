@@ -4,7 +4,7 @@ Rito uses Changesets to manage version bumps and release publishing for the publ
 
 Public release group:
 
-- `rito`
+- `@rito/core`
 - `@rito/kit`
 - `@rito/react`
 
@@ -30,7 +30,7 @@ pnpm release:publish --tag next
 Guidance:
 
 - create a changeset for every user-visible public-package change
-- for public releases, include `rito`, `@rito/kit`, and `@rito/react` together in the same changeset
+- for public releases, include `@rito/core`, `@rito/kit`, and `@rito/react` together in the same changeset
 - choose `patch` for fixes/docs/low-risk additive work
 - choose `minor` for breaking or migration-relevant changes while the project remains pre-1.0
 - keep internal public-package runtime dependencies on `workspace:^` in source manifests

@@ -54,7 +54,7 @@ This keeps pagination and rendering decoupled and testable.
 
 ## Public API Strategy
 
-The main `rito` entry is intentionally small:
+The main `@rito/core` entry is intentionally small:
 
 - `createReader()`
 - stable high-level primitives
@@ -62,8 +62,8 @@ The main `rito` entry is intentionally small:
 
 Lower-level capabilities are exposed through:
 
-- `rito/advanced`
-- focused subpaths like `rito/selection`, `rito/search`, and `rito/annotations`
+- `@rito/core/advanced`
+- focused subpaths like `@rito/core/selection`, `@rito/core/search`, and `@rito/core/annotations`
 
 This keeps the main entry practical for app developers while still making expert tooling possible.
 

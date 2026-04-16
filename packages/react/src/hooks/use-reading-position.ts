@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ReaderController } from '@rito/kit';
-import type { ReadingPosition } from 'rito/position';
+import type { ReadingPosition } from '@rito/core/position';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface ReadingPositionState {

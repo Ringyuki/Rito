@@ -1,6 +1,6 @@
 # `@rito/kit`
 
-`@rito/kit` is the framework-agnostic orchestration layer built on top of `rito`.
+`@rito/kit` is the framework-agnostic orchestration layer built on top of `@rito/core`.
 
 Use it when the core `Reader` is too low-level and you want a production-oriented reading surface:
 
@@ -43,7 +43,7 @@ Supporting exports:
 ## Typical Use
 
 ```ts
-import { createReader } from 'rito';
+import { createReader } from '@rito/core';
 import { createController } from '@rito/kit';
 
 const container = document.getElementById('reader');

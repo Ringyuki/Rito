@@ -1,9 +1,9 @@
-import type { Reader } from 'rito';
-import { createSelectionEngine } from 'rito/selection';
-import { createSearchEngine } from 'rito/search';
-import { createAnnotationStore } from 'rito/annotations';
-import type { AnnotationStore } from 'rito/annotations';
-import { createPositionTracker } from 'rito/position';
+import type { Reader } from '@rito/core';
+import { createSelectionEngine } from '@rito/core/selection';
+import { createSearchEngine } from '@rito/core/search';
+import { createAnnotationStore } from '@rito/core/annotations';
+import type { AnnotationStore } from '@rito/core/annotations';
+import { createPositionTracker } from '@rito/core/position';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { ControllerOptions } from '../types';
 

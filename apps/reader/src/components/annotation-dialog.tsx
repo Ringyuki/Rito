@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ResolvedAnnotation } from 'rito/annotations';
+import type { ResolvedAnnotation } from '@rito/core/annotations';
 import {
   Dialog,
   DialogContent,

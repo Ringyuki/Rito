@@ -1,4 +1,4 @@
-import type { SelectionEngine } from 'rito/selection';
+import type { SelectionEngine } from '@rito/core/selection';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { InteractionModeManager } from '../interaction-mode/index';

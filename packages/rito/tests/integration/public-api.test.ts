@@ -20,15 +20,15 @@ describe('public API surface', () => {
 
   it('does not export internal APIs from main entry', async () => {
     const api = await import('../../src/index');
-    // Parser internals should be in rito/advanced
+    // Parser internals should be in @rito/core/advanced
     expect((api as Record<string, unknown>)['NODE_TYPES']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseXhtml']).toBeUndefined();
     expect((api as Record<string, unknown>)['createZipReader']).toBeUndefined();
-    // Style internals should be in rito/advanced
+    // Style internals should be in @rito/core/advanced
     expect((api as Record<string, unknown>)['DEFAULT_STYLE']).toBeUndefined();
     expect((api as Record<string, unknown>)['resolveStyles']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseCssDeclarations']).toBeUndefined();
-    // Layout internals should be in rito/advanced
+    // Layout internals should be in @rito/core/advanced
     expect((api as Record<string, unknown>)['layoutBlocks']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateBlocks']).toBeUndefined();
     // Advanced runtime / render helpers should be kept off the main entry

@@ -1,4 +1,4 @@
-import type { SelectionEngine } from 'rito/selection';
+import type { SelectionEngine } from '@rito/core/selection';
 
 export function bindPointerEvents(
   canvas: HTMLCanvasElement,

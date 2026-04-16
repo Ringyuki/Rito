@@ -1,6 +1,6 @@
 # `@rito/react`
 
-`@rito/react` is the React integration layer on top of `rito` and `@rito/kit`.
+`@rito/react` is the React integration layer on top of `@rito/core` and `@rito/kit`.
 
 Use it when you want hooks for reader lifecycle and state, plus a mount component
 for the controller-managed reading surface.
@@ -110,7 +110,7 @@ The controller remains the source of truth.
 
 - Use `@rito/react` if you want fast app integration and React state bindings.
 - Use `@rito/kit` directly if you want non-React UI or a custom state layer.
-- Use only `rito` if you only need rendering and core primitives.
+- Use only `@rito/core` if you only need rendering and core primitives.
 
 ## Related Docs
 

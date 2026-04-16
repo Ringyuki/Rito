@@ -1,6 +1,6 @@
-import type { Reader } from 'rito';
-import type { SearchResult } from 'rito/search';
-import type { createSearchEngine } from 'rito/search';
+import type { Reader } from '@rito/core';
+import type { SearchResult } from '@rito/core/search';
+import type { createSearchEngine } from '@rito/core/search';
 import type { createNavigation } from '../navigation/index';
 import type { PageBufferPool, ContentRenderer } from '../../painter/buffer-pool';
 import type { FrameDriver } from '../../driver/frame-driver';

@@ -2,8 +2,8 @@
  * Unit tests for CoordinateMapper — pure coordinate math.
  */
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from 'rito';
-import type { Page, Spread } from 'rito';
+import { createLayoutConfig } from '@rito/core';
+import type { Page, Spread } from '@rito/core';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 
 function makePage(index: number): Page {

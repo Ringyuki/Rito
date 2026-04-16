@@ -1,6 +1,6 @@
 # Stable Primitives
 
-These exports come from the main `rito` entry and are intended for custom pipelines.
+These exports come from the main `@rito/core` entry and are intended for custom pipelines.
 
 ## Pipeline Overview
 
@@ -13,7 +13,7 @@ import {
   paginate,
   buildSpreads,
   render,
-} from 'rito';
+} from '@rito/core';
 ```
 
 Typical flow:
@@ -50,7 +50,7 @@ import {
   paginate,
   buildSpreads,
   render,
-} from 'rito';
+} from '@rito/core';
 
 const doc = loadEpub(epubData);
 const config = createLayoutConfig({

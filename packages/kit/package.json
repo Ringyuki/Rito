@@ -2,7 +2,7 @@
   "name": "@rito/kit",
   "type": "module",
   "version": "0.6.0",
-  "description": "Framework-agnostic controller, overlays, and transitions for rito",
+  "description": "Framework-agnostic controller, overlays, and transitions for @rito/core",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -56,7 +56,7 @@
     "access": "public"
   },
   "dependencies": {
-    "rito": "workspace:^"
+    "@rito/core": "workspace:^"
   },
   "devDependencies": {
     "tsdown": "^0.21.7",

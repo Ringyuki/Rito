@@ -1,4 +1,4 @@
-import type { Reader } from 'rito';
+import type { Reader } from '@rito/core';
 import type { PageBufferPool, ContentRenderer } from '../painter/buffer-pool';
 
 /**

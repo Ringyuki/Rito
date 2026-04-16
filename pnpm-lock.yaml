@@ -47,6 +47,9 @@ importers:
       '@icons-pack/react-simple-icons':
         specifier: ^13.13.0
         version: 13.13.0(react@19.2.4)
+      '@rito/core':
+        specifier: workspace:*
+        version: link:../../packages/rito
       '@rito/kit':
         specifier: workspace:*
         version: link:../../packages/kit
@@ -80,9 +83,6 @@ importers:
       react-dom:
         specifier: ^19.1.0
         version: 19.2.4(react@19.2.4)
-      rito:
-        specifier: workspace:*
-        version: link:../../packages/rito
       shadcn:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@25.5.0)(typescript@6.0.2)
@@ -120,7 +120,7 @@ importers:
 
   packages/kit:
     dependencies:
-      rito:
+      '@rito/core':
         specifier: workspace:^
         version: link:../rito
     devDependencies:
@@ -133,12 +133,12 @@ importers:
 
   packages/react:
     dependencies:
+      '@rito/core':
+        specifier: workspace:^
+        version: link:../rito
       '@rito/kit':
         specifier: workspace:^
         version: link:../kit
-      rito:
-        specifier: workspace:^
-        version: link:../rito
     devDependencies:
       '@types/react':
         specifier: ^19.1.6

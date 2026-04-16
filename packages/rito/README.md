@@ -1,20 +1,20 @@
-# rito
+# @rito/core
 
 TypeScript-first Canvas-based EPUB rendering engine.
 
-`rito` is the core package in the Rito monorepo. It parses EPUB archives, resolves a
+`@rito/core` is the core package in the Rito monorepo. It parses EPUB archives, resolves a
 book-oriented CSS subset, paginates chapters, and renders pages or spreads into Canvas.
 
 ## Install
 
 ```bash
-pnpm add rito
+pnpm add @rito/core
 ```
 
 ## Quick Start
 
 ```ts
-import { createReader } from 'rito';
+import { createReader } from '@rito/core';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -37,8 +37,8 @@ reader.renderSpread(0);
 
 - `createReader()` for the standard browser-side flow
 - stable primitives such as `loadEpub`, `prepare`, `paginate`, `buildSpreads`, and `render`
-- expert entry points such as `rito/advanced`
-- focused subpaths such as `rito/selection`, `rito/search`, `rito/annotations`, `rito/position`, `rito/a11y`, and `rito/dom`
+- expert entry points such as `@rito/core/advanced`
+- focused subpaths such as `@rito/core/selection`, `@rito/core/search`, `@rito/core/annotations`, `@rito/core/position`, `@rito/core/a11y`, and `@rito/core/dom`
 
 ## Documentation
 

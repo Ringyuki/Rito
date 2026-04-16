@@ -1,8 +1,8 @@
-import type { SelectionEngine } from 'rito/selection';
-import type { SearchEngine } from 'rito/search';
-import type { AnnotationStore, ResolvedAnnotation, ChapterTextIndex } from 'rito/annotations';
-import type { PositionTracker } from 'rito/position';
-import type { HitMap, LinkRegion } from 'rito/advanced';
+import type { SelectionEngine } from '@rito/core/selection';
+import type { SearchEngine } from '@rito/core/search';
+import type { AnnotationStore, ResolvedAnnotation, ChapterTextIndex } from '@rito/core/annotations';
+import type { PositionTracker } from '@rito/core/position';
+import type { HitMap, LinkRegion } from '@rito/core/advanced';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 
 export interface CoordinatorEngines {

@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { ReaderController } from '@rito/kit';
-import type { SearchResult } from 'rito/search';
+import type { SearchResult } from '@rito/core/search';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface SearchState {

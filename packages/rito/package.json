@@ -1,5 +1,5 @@
 {
-  "name": "rito",
+  "name": "@rito/core",
   "type": "module",
   "version": "0.6.0",
   "description": "Canvas-based EPUB rendering engine",
@@ -73,6 +73,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "dependencies": {
     "fflate": "^0.8.2"

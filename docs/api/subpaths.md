@@ -2,10 +2,10 @@
 
 Rito exposes focused subpath entries for higher-level interaction and integration helpers.
 
-## `rito/selection`
+## `@rito/core/selection`
 
 ```ts
-import { createSelectionEngine } from 'rito/selection';
+import { createSelectionEngine } from '@rito/core/selection';
 ```
 
 Exports:
@@ -24,10 +24,10 @@ Use when:
 - you want stateful text selection behavior without `@rito/kit`
 - you are wiring your own pointer model around page content
 
-## `rito/search`
+## `@rito/core/search`
 
 ```ts
-import { createSearchEngine } from 'rito/search';
+import { createSearchEngine } from '@rito/core/search';
 ```
 
 Exports:
@@ -43,10 +43,10 @@ Use when:
 - you want full-text search as a focused module
 - you are building your own search UI and navigation
 
-## `rito/annotations`
+## `@rito/core/annotations`
 
 ```ts
-import { createAnnotationStore, resolveAnnotations } from 'rito/annotations';
+import { createAnnotationStore, resolveAnnotations } from '@rito/core/annotations';
 ```
 
 Exports:
@@ -84,10 +84,10 @@ Use when:
 - you want source-anchored highlights, underlines, or notes
 - you need annotation data to survive repagination and viewport changes
 
-## `rito/position`
+## `@rito/core/position`
 
 ```ts
-import { createPositionTracker } from 'rito/position';
+import { createPositionTracker } from '@rito/core/position';
 ```
 
 Exports:
@@ -101,10 +101,10 @@ Use when:
 - you need resumable reading position tracking
 - you want a focused reading-progress module
 
-## `rito/a11y`
+## `@rito/core/a11y`
 
 ```ts
-import { createA11yMirror, buildSemanticTree } from 'rito/a11y';
+import { createA11yMirror, buildSemanticTree } from '@rito/core/a11y';
 ```
 
 Exports:
@@ -119,10 +119,10 @@ Use when:
 
 - you need an accessibility mirror or semantic structure derived from paginated content
 
-## `rito/dom`
+## `@rito/core/dom`
 
 ```ts
-import { bindPointerEvents, bindClipboard, bindLinkCursor } from 'rito/dom';
+import { bindPointerEvents, bindClipboard, bindLinkCursor } from '@rito/core/dom';
 ```
 
 Exports:
@@ -138,6 +138,6 @@ Use when:
 
 ## Guidance
 
-- Use these subpaths when you want focused functionality without importing `rito/advanced`.
+- Use these subpaths when you want focused functionality without importing `@rito/core/advanced`.
 - If you want the full reading-surface controller layer, prefer [`@rito/kit`](../integrations/kit.md).
 - If you want React integration, prefer [`@rito/react`](../integrations/react.md).

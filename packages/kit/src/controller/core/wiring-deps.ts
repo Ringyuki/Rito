@@ -1,4 +1,4 @@
-import type { Reader } from 'rito';
+import type { Reader } from '@rito/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';

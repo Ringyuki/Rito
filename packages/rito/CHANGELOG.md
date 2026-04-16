@@ -1,4 +1,4 @@
-# rito
+# @rito/core
 
 ## 0.6.0
 
@@ -6,4 +6,4 @@
 
 - Prepare the public release surface for the Rito packages.
 
-  This release removes worker pagination from `rito`, fixes controller and React lifecycle issues found during prepublish review, and adds package-level documentation plus release metadata for the public packages.
+  This release removes worker pagination from the core package, fixes controller and React lifecycle issues found during prepublish review, and adds package-level documentation plus release metadata for the public packages.

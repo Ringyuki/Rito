@@ -1,4 +1,4 @@
-// Legacy geometry utilities — still exported via rito/advanced
+// Legacy geometry utilities — still exported via @rito/core/advanced
 export { resolveAnnotationRects } from './geometry';
 export type { Annotation, AnnotationRenderData } from './geometry';
 

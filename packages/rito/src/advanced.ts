@@ -1,5 +1,5 @@
 // Rito internal APIs — parser, style resolver, layout engine, render primitives.
-// Import from `rito` instead unless you need direct access to internals.
+// Import from `@rito/core` instead unless you need direct access to internals.
 
 // ── Runtime (advanced) ─────────────────────────────────────────────
 export {

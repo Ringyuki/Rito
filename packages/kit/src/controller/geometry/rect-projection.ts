@@ -1,4 +1,4 @@
-import type { Rect } from 'rito/advanced';
+import type { Rect } from '@rito/core/advanced';
 import type { LayoutGeometry, PageGeometry } from './coordinate-mapper';
 
 export function spreadContentRectToViewport(g: LayoutGeometry, rect: Rect): Rect {

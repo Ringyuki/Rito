@@ -1,6 +1,6 @@
 # @rito/react
 
-React hooks and components for `rito` and `@rito/kit`.
+React hooks and components for `@rito/core` and `@rito/kit`.
 
 `@rito/react` provides the highest-level integration layer in the Rito stack:
 React hooks for reader lifecycle and state, plus a mount component for the
@@ -9,7 +9,7 @@ controller-managed reading surface.
 ## Install
 
 ```bash
-pnpm add react react-dom rito @rito/kit @rito/react
+pnpm add react react-dom @rito/core @rito/kit @rito/react
 ```
 
 ## Quick Start

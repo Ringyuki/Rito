@@ -1,4 +1,4 @@
-import { bindClipboard } from 'rito/dom';
+import { bindClipboard } from '@rito/core/dom';
 import type { DisposableCollection } from '../../utils/disposable';
 import { bindLinkCursor } from './link';
 import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';

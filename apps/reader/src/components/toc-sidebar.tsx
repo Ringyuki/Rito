@@ -1,4 +1,4 @@
-import type { TocEntry } from 'rito';
+import type { TocEntry } from '@rito/core';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';

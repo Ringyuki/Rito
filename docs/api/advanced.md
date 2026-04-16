@@ -1,18 +1,18 @@
 # Advanced Entry
 
 ```ts
-import { parseXhtml, resolveStyles, layoutBlocks, renderPage } from 'rito/advanced';
+import { parseXhtml, resolveStyles, layoutBlocks, renderPage } from '@rito/core/advanced';
 ```
 
-`rito/advanced` exposes expert-facing parser, style, layout, render, model, diagnostics,
+`@rito/core/advanced` exposes expert-facing parser, style, layout, render, model, diagnostics,
 and pure interaction primitives.
 
-Use this entry only when the main `rito` API is too high-level for your needs.
+Use this entry only when the main `@rito/core` API is too high-level for your needs.
 
 ## Stability Guidance
 
-- Prefer the main `rito` entry for app-facing code.
-- Prefer `rito/advanced` only for custom pipelines, low-level tooling, or engine work.
+- Prefer the main `@rito/core` entry for app-facing code.
+- Prefer `@rito/core/advanced` only for custom pipelines, low-level tooling, or engine work.
 - Types and helpers here are intentionally lower-level and require more architectural discipline.
 
 ## Parser

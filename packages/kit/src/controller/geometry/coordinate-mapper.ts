@@ -12,8 +12,8 @@
  * Every offset formula lives here — no other file should hard-code margin/gap arithmetic.
  */
 
-import type { LayoutConfig, Spread } from 'rito';
-import type { Rect } from 'rito/advanced';
+import type { LayoutConfig, Spread } from '@rito/core';
+import type { Rect } from '@rito/core/advanced';
 import { buildSelectionConfig } from './selection-config';
 import { resolveSpreadPage } from './page-resolution';
 import { spreadContentRectToViewport, toViewport, scaleRect, toScreen } from './rect-projection';

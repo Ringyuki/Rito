@@ -2,8 +2,8 @@
  * Spread-level coordination: rebuilds interaction state and marks overlay dirty
  * whenever a spread is rendered or needs a visual refresh.
  */
-import type { Reader, Spread } from 'rito';
-import { buildHitMap, buildLinkMap } from 'rito/advanced';
+import type { Reader, Spread } from '@rito/core';
+import { buildHitMap, buildLinkMap } from '@rito/core/advanced';
 import type { DisposableCollection } from '../../utils/disposable';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';

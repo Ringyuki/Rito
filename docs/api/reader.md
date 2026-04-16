@@ -3,7 +3,7 @@
 ## `createReader(data, canvas, options)`
 
 ```ts
-import { createReader } from 'rito';
+import { createReader } from '@rito/core';
 ```
 
 Creates a ready-to-render `Reader` from an EPUB `ArrayBuffer`.

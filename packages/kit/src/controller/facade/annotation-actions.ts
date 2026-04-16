@@ -1,4 +1,4 @@
-import type { AnnotationRecord, AnnotationRecordPatch } from 'rito/annotations';
+import type { AnnotationRecord, AnnotationRecordPatch } from '@rito/core/annotations';
 import type { AddAnnotationInput } from '../types';
 import type { Internals, AnnotationActionsSlice } from './types';
 import { buildAnnotationTargetFromSnapshot } from '../annotation-resolution/target-builder';

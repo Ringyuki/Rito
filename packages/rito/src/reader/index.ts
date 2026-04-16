@@ -167,7 +167,7 @@ export interface Reader {
  *
  * @example
  * ```ts
- * import { createReader } from 'rito';
+ * import { createReader } from '@rito/core';
  *
  * const reader = await createReader(epubData, canvas, {
  *   width: 800, height: 600, margin: 40, spread: 'double',

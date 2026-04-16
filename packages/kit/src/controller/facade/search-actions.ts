@@ -1,4 +1,4 @@
-import type { SearchResult } from 'rito/search';
+import type { SearchResult } from '@rito/core/search';
 import {
   goToSearchResult,
   navigateToSearchIndex,

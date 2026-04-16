@@ -1,4 +1,4 @@
-import type { Reader } from 'rito';
+import type { Reader } from '@rito/core';
 import type { ControllerOptions, ReaderController } from '../types';
 import type {
   Internals,

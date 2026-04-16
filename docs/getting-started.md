@@ -8,14 +8,14 @@ and renders pages or spreads into Canvas.
 
 If you want a ready-to-use rendering surface with transitions and overlays, use:
 
-- `rito` for core rendering
+- `@rito/core` for core rendering
 - `@rito/kit` for a controller layer
 - `@rito/react` for React apps
 
 ## Install
 
 ```bash
-pnpm add rito
+pnpm add @rito/core
 ```
 
 Optional packages:
@@ -34,7 +34,7 @@ pnpm run build
 ## Smallest Core Example
 
 ```ts
-import { createReader } from 'rito';
+import { createReader } from '@rito/core';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -89,7 +89,7 @@ reader.dispose();
 
 - Use `createReader()` if you want the standard browser-side flow.
 - Use the stable primitives if you want your own load/paginate/render pipeline.
-- Use `rito/advanced` only when you need lower-level parser, style, layout, or render internals.
+- Use `@rito/core/advanced` only when you need lower-level parser, style, layout, or render internals.
 - Use `@rito/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
 - Use `@rito/react` when you want React hooks and a mount component.
 

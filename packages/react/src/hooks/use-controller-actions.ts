@@ -1,5 +1,5 @@
 import { useCallback, type RefObject } from 'react';
-import type { TocEntry } from 'rito';
+import type { TocEntry } from '@rito/core';
 import type { ReaderController, TransitionDriverOptions } from '@rito/kit';
 
 export interface ControllerActions {

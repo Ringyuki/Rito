@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TocEntry } from 'rito';
+import type { TocEntry } from '@rito/core';
 import type { ReaderControllerEvents } from '@rito/kit';
 import {
   useRitoReader,

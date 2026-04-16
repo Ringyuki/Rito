@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PackageMetadata, Reader, Spread, TocEntry } from 'rito';
-import { createReader, type ReaderOptions } from 'rito';
+import type { PackageMetadata, Reader, Spread, TocEntry } from '@rito/core';
+import { createReader, type ReaderOptions } from '@rito/core';
 import {
   createController,
   type ControllerOptions,
@@ -67,7 +67,7 @@ const INITIAL: InternalState = {
 };
 
 /**
- * Full-lifecycle hook for rito.
+ * Full-lifecycle hook for the Rito reader stack.
  * Handles canvas creation, Reader + Controller instantiation, event sync, and cleanup.
  */
 export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & RitoReaderActions {

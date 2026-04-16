@@ -2,9 +2,9 @@
 
 Rito is split into a small public core package plus optional integration layers:
 
-- [`rito`](../README.md) — core EPUB parser, layout, pagination, rendering, and stable interaction primitives
+- [`@rito/core`](../README.md) — core EPUB parser, layout, pagination, rendering, and stable interaction primitives
 - [`@rito/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
-- [`@rito/react`](./integrations/react.md) — React hooks and mount component built on top of `rito` and `@rito/kit`
+- [`@rito/react`](./integrations/react.md) — React hooks and mount component built on top of `@rito/core` and `@rito/kit`
 
 ## Start Here
 
@@ -19,8 +19,8 @@ Rito is split into a small public core package plus optional integration layers:
 
 - [Reader API](./api/reader.md) — `createReader()`, `ReaderOptions`, `Reader`
 - [Stable Primitives](./api/primitives.md) — `loadEpub`, `prepare`, `paginate`, `render`, and related helpers
-- [Advanced Entry](./api/advanced.md) — `rito/advanced` exports for expert use
-- [Specialized Subpaths](./api/subpaths.md) — `rito/selection`, `search`, `annotations`, `position`, `a11y`, `dom`
+- [Advanced Entry](./api/advanced.md) — `@rito/core/advanced` exports for expert use
+- [Specialized Subpaths](./api/subpaths.md) — `@rito/core/selection`, `search`, `annotations`, `position`, `a11y`, `dom`
 
 ## Integrations
 

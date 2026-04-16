@@ -8,11 +8,11 @@
  * 3. Selection rects are in spread-content space, not viewport-logical
  */
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from 'rito';
-import type { Page, Spread, TextMeasurer } from 'rito';
-import { createSelectionEngine } from 'rito/selection';
-import type { LayoutBlock, LineBox, TextRun } from 'rito/advanced';
-import { DEFAULT_RUN_PAINT } from 'rito/advanced';
+import { createLayoutConfig } from '@rito/core';
+import type { Page, Spread, TextMeasurer } from '@rito/core';
+import { createSelectionEngine } from '@rito/core/selection';
+import type { LayoutBlock, LineBox, TextRun } from '@rito/core/advanced';
+import { DEFAULT_RUN_PAINT } from '@rito/core/advanced';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),

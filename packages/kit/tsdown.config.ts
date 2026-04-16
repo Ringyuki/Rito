@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
-  external: ['rito'],
+  external: ['@rito/core'],
 });

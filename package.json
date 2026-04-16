@@ -10,7 +10,7 @@
     "release:publish": "pnpm publish -r",
     "dev": "pnpm -r --parallel run dev",
     "dev:reader": "pnpm --filter @rito/reader dev",
-    "dev:rito": "pnpm --filter rito dev",
+    "dev:rito": "pnpm --filter ./packages/rito dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
