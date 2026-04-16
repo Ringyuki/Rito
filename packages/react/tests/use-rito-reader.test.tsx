@@ -2,6 +2,7 @@
 
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
+import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Reader } from 'rito';
 import type { ReaderController } from '@rito/kit';
@@ -60,6 +61,25 @@ function expectDefined<T>(value: T | undefined): T {
   return value as T;
 }
 
+function createReaderStub(
+  overrides?: Partial<Pick<Reader, 'totalSpreads' | 'metadata' | 'toc' | 'spreads'>>,
+): Reader {
+  return {
+    dispose: vi.fn(),
+    totalSpreads: overrides?.totalSpreads ?? 1,
+    metadata: overrides?.metadata ?? null,
+    toc: overrides?.toc ?? [],
+    spreads: overrides?.spreads ?? [],
+  } as unknown as Reader;
+}
+
+function createControllerStub(): ReaderController {
+  return {
+    dispose: vi.fn(),
+    on: vi.fn(() => vi.fn()),
+  } as unknown as ReaderController;
+}
+
 describe('useRitoReader', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -80,17 +100,8 @@ describe('useRitoReader', () => {
   });
 
   it('treats promised data as loading before reader creation starts', async () => {
-    const fakeReader = {
-      dispose: vi.fn(),
-      totalSpreads: 1,
-      metadata: null,
-      toc: [],
-      spreads: [],
-    } as unknown as Reader;
-    const fakeController = {
-      dispose: vi.fn(),
-      on: vi.fn(() => () => {}),
-    } as unknown as ReaderController;
+    const fakeReader = createReaderStub();
+    const fakeController = createControllerStub();
     createReaderMock.mockResolvedValue(fakeReader);
     createControllerMock.mockReturnValue(fakeController);
 
@@ -129,5 +140,100 @@ describe('useRitoReader', () => {
     expect(createReaderMock).toHaveBeenCalledTimes(1);
     expect(expectHookValue(latest).isLoading).toBe(false);
     expect(expectHookValue(latest).isLoaded).toBe(true);
+  });
+
+  it('ignores stale in-flight load completions from older requests', async () => {
+    const staleReaderDispose = vi.fn();
+    const staleReader = {
+      ...createReaderStub({
+        metadata: { title: 'stale' } as unknown as Reader['metadata'],
+      }),
+      dispose: staleReaderDispose,
+    } as Reader;
+    const activeReader = createReaderStub({
+      totalSpreads: 3,
+      metadata: { title: 'active' } as unknown as Reader['metadata'],
+    });
+    const activeController = createControllerStub();
+    const staleReaderDeferred = createDeferred<Reader>();
+
+    createReaderMock
+      .mockReturnValueOnce(staleReaderDeferred.promise)
+      .mockResolvedValueOnce(activeReader);
+    createControllerMock.mockReturnValue(activeController);
+
+    const options: UseRitoReaderOptions = {
+      reader: { width: 800, height: 600 },
+    };
+
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={options}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+
+    let firstLoad: Promise<void> | undefined;
+    let secondLoad: Promise<void> | undefined;
+
+    act(() => {
+      firstLoad = expectHookValue(latest).load(Promise.resolve(new ArrayBuffer(8)));
+    });
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(createReaderMock).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      secondLoad = expectHookValue(latest).load(Promise.resolve(new ArrayBuffer(16)));
+    });
+    await act(async () => {
+      await expectDefined(secondLoad);
+    });
+
+    expect(createReaderMock).toHaveBeenCalledTimes(2);
+    expect(createControllerMock).toHaveBeenCalledTimes(1);
+    expect(expectHookValue(latest).metadata).toEqual(activeReader.metadata);
+    expect(expectHookValue(latest).totalSpreads).toBe(3);
+
+    staleReaderDeferred.resolve(staleReader);
+    await act(async () => {
+      await expectDefined(firstLoad);
+    });
+
+    expect(staleReaderDispose).toHaveBeenCalledTimes(1);
+    expect(createControllerMock).toHaveBeenCalledTimes(1);
+    expect(expectHookValue(latest).metadata).toEqual(activeReader.metadata);
+    expect(expectHookValue(latest).totalSpreads).toBe(3);
+  });
+
+  it('renders safely without document during server rendering', () => {
+    const options: UseRitoReaderOptions = {
+      reader: { width: 800, height: 600 },
+    };
+    const originalDocument = globalThis.document;
+
+    Object.defineProperty(globalThis, 'document', {
+      value: undefined,
+      configurable: true,
+    });
+
+    try {
+      expect(() => {
+        renderToString(<Harness options={options} onValue={() => {}} />);
+      }).not.toThrow();
+    } finally {
+      Object.defineProperty(globalThis, 'document', {
+        value: originalDocument,
+        configurable: true,
+      });
+    }
   });
 });

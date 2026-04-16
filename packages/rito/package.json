@@ -1,12 +1,21 @@
 {
   "name": "rito",
   "type": "module",
-  "version": "0.5.5",
-  "private": true,
-  "description": "A TypeScript Canvas-based EPUB rendering library",
+  "version": "0.6.0",
+  "description": "Canvas-based EPUB rendering engine",
+  "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "homepage": "https://github.com/Ringyuki/Rito/tree/master/packages/rito#readme",
+  "bugs": {
+    "url": "https://github.com/Ringyuki/Rito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ringyuki/Rito.git",
+    "directory": "packages/rito"
+  },
   "keywords": [
     "epub",
     "canvas",
@@ -14,12 +23,10 @@
     "ebook",
     "typesetting",
     "layout",
-    "pagination"
+    "pagination",
+    "reader"
   ],
-  "sideEffects": [
-    "./dist/worker.mjs",
-    "./src/worker.ts"
-  ],
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
@@ -28,10 +35,6 @@
     "./advanced": {
       "import": "./dist/advanced.mjs",
       "types": "./dist/advanced.d.mts"
-    },
-    "./worker": {
-      "import": "./dist/worker.mjs",
-      "types": "./dist/worker.d.mts"
     },
     "./selection": {
       "import": "./dist/selection.mjs",
@@ -60,7 +63,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsdown",

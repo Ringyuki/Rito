@@ -1,12 +1,28 @@
 {
   "name": "@rito/react",
   "type": "module",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.6.0",
   "description": "React hooks and components for rito",
+  "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "homepage": "https://github.com/Ringyuki/Rito/tree/master/packages/react#readme",
+  "bugs": {
+    "url": "https://github.com/Ringyuki/Rito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ringyuki/Rito.git",
+    "directory": "packages/react"
+  },
+  "keywords": [
+    "epub",
+    "canvas",
+    "reader",
+    "react",
+    "hooks"
+  ],
   "sideEffects": false,
   "exports": {
     ".": {
@@ -24,7 +40,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsdown",
@@ -34,19 +51,22 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "rito": "workspace:^",
+    "@rito/kit": "workspace:^"
+  },
   "peerDependencies": {
     "react": ">=18.0.0",
-    "react-dom": ">=18.0.0",
-    "rito": "workspace:*",
-    "@rito/kit": "workspace:*"
+    "react-dom": ">=18.0.0"
   },
   "devDependencies": {
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
-    "rito": "workspace:*",
-    "@rito/kit": "workspace:*",
     "tsdown": "^0.21.7",
     "vitest": "^4.1.2"
   }

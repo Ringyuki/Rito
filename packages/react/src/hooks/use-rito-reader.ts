@@ -71,52 +71,88 @@ const INITIAL: InternalState = {
  * Handles canvas creation, Reader + Controller instantiation, event sync, and cleanup.
  */
 export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & RitoReaderActions {
-  const canvasRef = useRef(document.createElement('canvas'));
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const readerRef = useRef<Reader | null>(null);
   const ctrlRef = useRef<ReaderController | null>(null);
+  const detachEventsRef = useRef<(() => void) | null>(null);
+  const loadRequestIdRef = useRef(0);
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const [state, setState] = useState(INITIAL);
+
+  const detachEvents = useCallback((): void => {
+    detachEventsRef.current?.();
+    detachEventsRef.current = null;
+  }, []);
+
+  const disposeCurrent = useCallback((): void => {
+    detachEvents();
+    ctrlRef.current?.dispose();
+    readerRef.current?.dispose();
+    ctrlRef.current = null;
+    readerRef.current = null;
+  }, [detachEvents]);
+
   useEffect(
     () => () => {
-      ctrlRef.current?.dispose();
-      readerRef.current?.dispose();
+      loadRequestIdRef.current++;
+      disposeCurrent();
     },
-    [],
+    [disposeCurrent],
   );
-  const load = useCallback(async (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => {
-    const opts = optionsRef.current;
-    setState((s) => ({ ...s, isLoading: true, error: null }));
-    try {
-      const resolvedData = await data;
-      const reader = await createReader(resolvedData, canvasRef.current, opts.reader);
-      // Dispose old instances only after the new reader is fully ready —
-      // no await gap between dispose and reassignment, so concurrent
-      // effects (resize, theme) never see a disposed-but-referenced state.
-      ctrlRef.current?.dispose();
-      readerRef.current?.dispose();
-      readerRef.current = reader;
-      const ctrl = createController(reader, canvasRef.current, opts.controller);
-      ctrlRef.current = ctrl;
-      subscribeEvents(ctrl, setState);
-      setState({
-        isLoaded: true,
-        isLoading: false,
-        error: null,
-        currentSpread: 0,
-        totalSpreads: reader.totalSpreads,
-        metadata: reader.metadata,
-        toc: reader.toc,
-        spreads: reader.spreads,
-      });
-    } catch (err) {
-      setState((s) => ({
-        ...s,
-        isLoading: false,
-        error: err instanceof Error ? err.message : String(err),
-      }));
-    }
-  }, []);
+
+  const load = useCallback(
+    async (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => {
+      const requestId = ++loadRequestIdRef.current;
+      const opts = optionsRef.current;
+      setState((s) => ({ ...s, isLoading: true, error: null }));
+      try {
+        const resolvedData = await data;
+        if (requestId !== loadRequestIdRef.current) return;
+
+        const canvas = getOrCreateCanvas(canvasRef);
+        if (!canvas) {
+          throw new Error('useRitoReader requires a browser document to create a canvas');
+        }
+
+        const reader = await createReader(resolvedData, canvas, opts.reader);
+        if (requestId !== loadRequestIdRef.current) {
+          reader.dispose();
+          return;
+        }
+
+        const ctrl = createController(reader, canvas, opts.controller);
+        if (requestId !== loadRequestIdRef.current) {
+          ctrl.dispose();
+          reader.dispose();
+          return;
+        }
+
+        disposeCurrent();
+        readerRef.current = reader;
+        ctrlRef.current = ctrl;
+        detachEventsRef.current = subscribeEvents(ctrl, setState);
+        setState({
+          isLoaded: true,
+          isLoading: false,
+          error: null,
+          currentSpread: 0,
+          totalSpreads: reader.totalSpreads,
+          metadata: reader.metadata,
+          toc: reader.toc,
+          spreads: reader.spreads,
+        });
+      } catch (err) {
+        if (requestId !== loadRequestIdRef.current) return;
+        setState((s) => ({
+          ...s,
+          isLoading: false,
+          error: err instanceof Error ? err.message : String(err),
+        }));
+      }
+    },
+    [disposeCurrent],
+  );
   const actions = useControllerActions(ctrlRef);
   return { controller: ctrlRef.current, ...state, load, ...actions };
 }
@@ -124,14 +160,29 @@ export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & 
 function subscribeEvents(
   ctrl: ReaderController,
   setState: React.Dispatch<React.SetStateAction<InternalState>>,
-): void {
-  ctrl.on('spreadChange', ({ spreadIndex }) => {
-    setState((s) => ({ ...s, currentSpread: spreadIndex }));
-  });
-  ctrl.on('layoutChange', ({ spreads, totalSpreads }) => {
-    setState((s) => ({ ...s, spreads, totalSpreads }));
-  });
-  ctrl.on('error', ({ message }) => {
-    setState((s) => ({ ...s, error: message }));
-  });
+): () => void {
+  const unsubscribers = [
+    ctrl.on('spreadChange', ({ spreadIndex }) => {
+      setState((s) => ({ ...s, currentSpread: spreadIndex }));
+    }),
+    ctrl.on('layoutChange', ({ spreads, totalSpreads }) => {
+      setState((s) => ({ ...s, spreads, totalSpreads }));
+    }),
+    ctrl.on('error', ({ message }) => {
+      setState((s) => ({ ...s, error: message }));
+    }),
+  ];
+  return () => {
+    for (const unsubscribe of unsubscribers) unsubscribe();
+  };
+}
+
+function getOrCreateCanvas(canvasRef: {
+  current: HTMLCanvasElement | null;
+}): HTMLCanvasElement | null {
+  if (canvasRef.current) return canvasRef.current;
+  if (typeof document === 'undefined') return null;
+  const canvas = document.createElement('canvas');
+  canvasRef.current = canvas;
+  return canvas;
 }

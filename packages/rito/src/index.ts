@@ -26,4 +26,3 @@ export type { FootnoteEntry } from './runtime/footnote-extractor';
 export type { LayoutConfig, LayoutConfigInput, PaginationPolicy } from './layout/index';
 export type { TextMeasurer, TextMetrics } from './layout/index';
 export type { RenderOptions } from './render/index';
-export { paginateInWorker } from './workers/worker-paginator';

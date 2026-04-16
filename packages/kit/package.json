@@ -1,12 +1,29 @@
 {
   "name": "@rito/kit",
   "type": "module",
-  "version": "0.1.0",
-  "private": true,
-  "description": "Framework-agnostic reader building blocks for rito",
+  "version": "0.6.0",
+  "description": "Framework-agnostic controller, overlays, and transitions for rito",
+  "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.mts",
+  "homepage": "https://github.com/Ringyuki/Rito/tree/master/packages/kit#readme",
+  "bugs": {
+    "url": "https://github.com/Ringyuki/Rito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ringyuki/Rito.git",
+    "directory": "packages/kit"
+  },
+  "keywords": [
+    "epub",
+    "canvas",
+    "reader",
+    "controller",
+    "overlay",
+    "transition"
+  ],
   "sideEffects": false,
   "exports": {
     ".": {
@@ -24,7 +41,8 @@
     "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsdown",
@@ -34,11 +52,13 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
-  "peerDependencies": {
-    "rito": "workspace:*"
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "rito": "workspace:^"
   },
   "devDependencies": {
-    "rito": "workspace:*",
     "tsdown": "^0.21.7",
     "vitest": "^4.1.2"
   }

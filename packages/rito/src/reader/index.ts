@@ -40,8 +40,6 @@ export interface ReaderOptions {
   readonly devicePixelRatio?: number;
   /** Line-breaking algorithm. 'greedy' is fast, 'optimal' uses Knuth-Plass for more even line lengths. Defaults to 'greedy'. */
   readonly lineBreaking?: 'greedy' | 'optimal';
-  /** Run pagination in a Web Worker to avoid blocking the main thread. Defaults to false. */
-  readonly useWorker?: boolean;
   /** Log verbosity level. Defaults to 'warn'. */
   readonly logLevel?: LogLevel;
   /** Pagination policy for widow/orphan control. */

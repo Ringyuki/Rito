@@ -7,7 +7,9 @@ export function buildLayoutActions(
   runtime: RuntimeComponents,
 ): LayoutActionsSlice {
   const emitLayoutChange = (): void => {
-    internals.currentSpread = Math.min(internals.currentSpread, internals.reader.totalSpreads - 1);
+    const previousSpread = internals.currentSpread;
+    const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
+    internals.currentSpread = Math.min(internals.currentSpread, maxSpreadIndex);
     syncCanvasSize(internals, runtime);
     runtime.pool.invalidateAllContent();
     runtime.pool.assignSlot('curr', internals.currentSpread);
@@ -17,6 +19,15 @@ export function buildLayoutActions(
       spreads: internals.reader.spreads,
       totalSpreads: internals.reader.totalSpreads,
     });
+    if (internals.currentSpread !== previousSpread) {
+      const spread = internals.reader.spreads[internals.currentSpread];
+      if (spread) {
+        emitter.emit('spreadChange', {
+          spreadIndex: internals.currentSpread,
+          spread,
+        });
+      }
+    }
     internals.reader.notifyActiveSpread(internals.currentSpread);
   };
 
@@ -36,7 +47,10 @@ export function buildLayoutActions(
       runtime.frameDriver.scheduleComposite();
     },
     setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
-      return internals.reader.setTypography(opts);
+      const changed = internals.reader.setTypography(opts);
+      if (!changed) return false;
+      emitLayoutChange();
+      return true;
     },
     setRenderScale(scale: number): void {
       if (scale === internals.renderScale) return;

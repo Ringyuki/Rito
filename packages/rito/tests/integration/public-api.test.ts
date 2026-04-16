@@ -16,7 +16,6 @@ describe('public API surface', () => {
     expect(api.createLayoutConfig).toBeDefined();
     expect(api.createTextMeasurer).toBeDefined();
     expect(api.getSpreadDimensions).toBeDefined();
-    expect(api.paginateInWorker).toBeDefined();
   });
 
   it('does not export internal APIs from main entry', async () => {
@@ -41,6 +40,7 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['paginateWithAssets']).toBeUndefined();
     expect((api as Record<string, unknown>)['disposeAssets']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLazyImageLoader']).toBeUndefined();
+    expect((api as Record<string, unknown>)['paginateInWorker']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLogger']).toBeUndefined();
   });
 

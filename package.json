@@ -1,9 +1,13 @@
 {
   "name": "Rito",
-  "private": true,
   "type": "module",
   "scripts": {
     "build": "pnpm -r run build",
+    "changeset": "changeset",
+    "release:status": "changeset status --verbose",
+    "release:pack-check": "node ./scripts/check-release-tarballs.mjs",
+    "version-packages": "changeset version",
+    "release:publish": "pnpm publish -r",
     "dev": "pnpm -r --parallel run dev",
     "dev:reader": "pnpm --filter @rito/reader dev",
     "dev:rito": "pnpm --filter rito dev",
@@ -21,6 +25,7 @@
     "*": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^25.5.0",
     "eslint": "^10.1.0",

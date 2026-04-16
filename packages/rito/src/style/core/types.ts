@@ -221,15 +221,15 @@ export interface ComputedStyle {
   readonly verticalAlign: VerticalAlign;
   readonly pageBreakBefore: PageBreak;
   readonly pageBreakAfter: PageBreak;
-  /** CSS position property. Only 'static' and 'relative' are supported. */
+  /** CSS position property. Supports `static`, `relative`, and `absolute`. */
   readonly position: Position;
-  /** Offset top in px for position:relative. */
+  /** Offset top in px for positioned elements. */
   readonly top: number;
-  /** Offset left in px for position:relative. */
+  /** Offset left in px for positioned elements. */
   readonly left: number;
-  /** Offset bottom in px for position:relative. */
+  /** Offset bottom in px for positioned elements. */
   readonly bottom: number;
-  /** Offset right in px for position:relative. */
+  /** Offset right in px for positioned elements. */
   readonly right: number;
   /** Border radius in px. 0 means no rounding. Render-only, no layout impact. */
   readonly borderRadius: number;
