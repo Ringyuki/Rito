@@ -1,20 +1,20 @@
-# @rito/core
+# @ritojs/core
 
 TypeScript-first Canvas-based EPUB rendering engine.
 
-`@rito/core` is the core package in the Rito monorepo. It parses EPUB archives, resolves a
+`@ritojs/core` is the core package in the Rito monorepo. It parses EPUB archives, resolves a
 book-oriented CSS subset, paginates chapters, and renders pages or spreads into Canvas.
 
 ## Install
 
 ```bash
-pnpm add @rito/core
+pnpm add @ritojs/core
 ```
 
 ## Quick Start
 
 ```ts
-import { createReader } from '@rito/core';
+import { createReader } from '@ritojs/core';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -37,8 +37,8 @@ reader.renderSpread(0);
 
 - `createReader()` for the standard browser-side flow
 - stable primitives such as `loadEpub`, `prepare`, `paginate`, `buildSpreads`, and `render`
-- expert entry points such as `@rito/core/advanced`
-- focused subpaths such as `@rito/core/selection`, `@rito/core/search`, `@rito/core/annotations`, `@rito/core/position`, `@rito/core/a11y`, and `@rito/core/dom`
+- expert entry points such as `@ritojs/core/advanced`
+- focused subpaths such as `@ritojs/core/selection`, `@ritojs/core/search`, `@ritojs/core/annotations`, `@ritojs/core/position`, `@ritojs/core/a11y`, and `@ritojs/core/dom`
 
 ## Documentation
 
@@ -52,5 +52,5 @@ reader.renderSpread(0);
 
 ## Related Packages
 
-- [`@rito/kit`](https://github.com/Ringyuki/Rito/tree/master/packages/kit) for transitions, overlays, and controller orchestration
-- [`@rito/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React hooks and components
+- [`@ritojs/kit`](https://github.com/Ringyuki/Rito/tree/master/packages/kit) for transitions, overlays, and controller orchestration
+- [`@ritojs/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React hooks and components

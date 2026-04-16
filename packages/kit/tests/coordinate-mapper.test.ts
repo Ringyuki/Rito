@@ -6,7 +6,7 @@
  * scenarios are confirmed bugs in the existing code.
  */
 import { describe, expect, it } from 'vitest';
-import { createLayoutConfig } from '@rito/core';
+import { createLayoutConfig } from '@ritojs/core';
 
 // ── Coordinate math expectations ──��──────────────────────────────────
 

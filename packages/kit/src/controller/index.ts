@@ -1,4 +1,4 @@
-import type { Reader } from '@rito/core';
+import type { Reader } from '@ritojs/core';
 
 import { createDisplaySurface } from '../painter/display-surface';
 import { createPageBufferPool } from '../painter/buffer-pool';
@@ -41,7 +41,7 @@ export type {
  * transitions, overlays, selection, search, annotations, position tracking,
  * keyboard shortcuts, touch gestures, and optional accessibility mirror.
  *
- * The Reader must already be created via `createReader()` from `@rito/core`.
+ * The Reader must already be created via `createReader()` from `@ritojs/core`.
  * Call `mount(container)` to inject the display canvas into the DOM.
  */
 export function createController(

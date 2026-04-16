@@ -1,4 +1,4 @@
-import type { ResolvedAnnotation } from '@rito/core/annotations';
+import type { ResolvedAnnotation } from '@ritojs/core/annotations';
 import type { WiringDeps } from '../core/wiring-deps';
 
 export function checkAnnotationClick(pos: { x: number; y: number }, deps: WiringDeps): void {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('@rito/react', () => {
+describe('@ritojs/react', () => {
   it('exports hooks', async () => {
     const mod = await import('../src/hooks');
     expect(mod.useRitoReader).toBeDefined();

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import type { ReaderController } from '@rito/kit';
+import type { ReaderController } from '@ritojs/kit';
 
 export interface ReaderProps {
   readonly controller: ReaderController | null;

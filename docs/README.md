@@ -2,9 +2,9 @@
 
 Rito is split into a small public core package plus optional integration layers:
 
-- [`@rito/core`](../README.md) — core EPUB parser, layout, pagination, rendering, and stable interaction primitives
-- [`@rito/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
-- [`@rito/react`](./integrations/react.md) — React hooks and mount component built on top of `@rito/core` and `@rito/kit`
+- [`@ritojs/core`](../README.md) — core EPUB parser, layout, pagination, rendering, and stable interaction primitives
+- [`@ritojs/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
+- [`@ritojs/react`](./integrations/react.md) — React hooks and mount component built on top of `@ritojs/core` and `@ritojs/kit`
 
 ## Start Here
 
@@ -19,13 +19,13 @@ Rito is split into a small public core package plus optional integration layers:
 
 - [Reader API](./api/reader.md) — `createReader()`, `ReaderOptions`, `Reader`
 - [Stable Primitives](./api/primitives.md) — `loadEpub`, `prepare`, `paginate`, `render`, and related helpers
-- [Advanced Entry](./api/advanced.md) — `@rito/core/advanced` exports for expert use
-- [Specialized Subpaths](./api/subpaths.md) — `@rito/core/selection`, `search`, `annotations`, `position`, `a11y`, `dom`
+- [Advanced Entry](./api/advanced.md) — `@ritojs/core/advanced` exports for expert use
+- [Specialized Subpaths](./api/subpaths.md) — `@ritojs/core/selection`, `search`, `annotations`, `position`, `a11y`, `dom`
 
 ## Integrations
 
-- [Using `@rito/kit`](./integrations/kit.md)
-- [Using `@rito/react`](./integrations/react.md)
+- [Using `@ritojs/kit`](./integrations/kit.md)
+- [Using `@ritojs/react`](./integrations/react.md)
 
 ## Recommended Reading Order
 

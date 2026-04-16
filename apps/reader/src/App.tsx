@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { useContainerSize } from '@rito/react';
+import { useContainerSize } from '@ritojs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';

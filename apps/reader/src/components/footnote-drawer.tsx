@@ -1,4 +1,4 @@
-import type { ReaderControllerEvents } from '@rito/kit';
+import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   Drawer,
   DrawerContent,

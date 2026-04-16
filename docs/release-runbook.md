@@ -18,9 +18,9 @@ Before publishing:
    - `npm whoami`
 2. confirm your account or token satisfies npm publish 2FA requirements
 3. confirm the public package names are:
-   - `@rito/core`
-   - `@rito/kit`
-   - `@rito/react`
+   - `@ritojs/core`
+   - `@ritojs/kit`
+   - `@ritojs/react`
 
 ## Step 1: Confirm Pending Release State
 
@@ -38,9 +38,9 @@ pnpm changeset
 
 For public releases in this repo, include all three public packages in the same changeset:
 
-- `@rito/core`
-- `@rito/kit`
-- `@rito/react`
+- `@ritojs/core`
+- `@ritojs/kit`
+- `@ritojs/react`
 
 ## Step 2: Apply Version Bumps
 
@@ -59,9 +59,9 @@ Review the result in:
 Confirm:
 
 - all three package versions match
-- the core package name is `@rito/core`
-- `@rito/kit` depends on `@rito/core`
-- `@rito/react` depends on `@rito/core` and `@rito/kit`
+- the core package name is `@ritojs/core`
+- `@ritojs/kit` depends on `@ritojs/core`
+- `@ritojs/react` depends on `@ritojs/core` and `@ritojs/kit`
 
 ## Step 3: Refresh The Lockfile
 
@@ -143,19 +143,19 @@ git push origin vX.Y.Z
 ## Step 10: Post-Publish Verification
 
 ```bash
-npm view @rito/core version dist-tags
-npm view @rito/kit version dist-tags
-npm view @rito/react version dist-tags
-npm view @rito/core@next version
-npm view @rito/kit@next version
-npm view @rito/react@next version
+npm view @ritojs/core version dist-tags
+npm view @ritojs/kit version dist-tags
+npm view @ritojs/react version dist-tags
+npm view @ritojs/core@next version
+npm view @ritojs/kit@next version
+npm view @ritojs/react@next version
 ```
 
 ## Quick Checklist
 
 1. versions match across all three public packages
-2. package names are `@rito/core`, `@rito/kit`, `@rito/react`
-3. docs and READMEs reflect `@rito/core`
+2. package names are `@ritojs/core`, `@ritojs/kit`, `@ritojs/react`
+3. docs and READMEs reflect `@ritojs/core`
 4. `pnpm run check` passed
 5. `pnpm release:pack-check` passed
 6. release commit created

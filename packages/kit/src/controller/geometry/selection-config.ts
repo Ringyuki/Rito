@@ -1,5 +1,5 @@
-import { createLayoutConfig } from '@rito/core';
-import type { LayoutConfig } from '@rito/core';
+import { createLayoutConfig } from '@ritojs/core';
+import type { LayoutConfig } from '@ritojs/core';
 import type { LayoutGeometry } from './coordinate-mapper';
 
 export function buildSelectionConfig(

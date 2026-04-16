@@ -7,5 +7,5 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
-  external: ['@rito/core', '@rito/kit', 'react', 'react-dom', 'react/jsx-runtime'],
+  external: ['@ritojs/core', '@ritojs/kit', 'react', 'react-dom', 'react/jsx-runtime'],
 });

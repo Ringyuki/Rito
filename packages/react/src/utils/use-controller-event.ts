@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import type { ReaderController, ReaderControllerEvents } from '@rito/kit';
+import type { ReaderController, ReaderControllerEvents } from '@ritojs/kit';
 
 /**
  * Subscribe to a typed controller event.

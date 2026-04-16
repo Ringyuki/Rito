@@ -1,8 +1,8 @@
 {
-  "name": "@rito/react",
+  "name": "@ritojs/react",
   "type": "module",
   "version": "0.6.0",
-  "description": "React hooks and components for @rito/core",
+  "description": "React hooks and components for @ritojs/core",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -55,8 +55,8 @@
     "access": "public"
   },
   "dependencies": {
-    "@rito/core": "workspace:^",
-    "@rito/kit": "workspace:^"
+    "@ritojs/core": "workspace:^",
+    "@ritojs/kit": "workspace:^"
   },
   "peerDependencies": {
     "react": ">=18.0.0",

@@ -8,20 +8,20 @@ and renders pages or spreads into Canvas.
 
 If you want a ready-to-use rendering surface with transitions and overlays, use:
 
-- `@rito/core` for core rendering
-- `@rito/kit` for a controller layer
-- `@rito/react` for React apps
+- `@ritojs/core` for core rendering
+- `@ritojs/kit` for a controller layer
+- `@ritojs/react` for React apps
 
 ## Install
 
 ```bash
-pnpm add @rito/core
+pnpm add @ritojs/core
 ```
 
 Optional packages:
 
 ```bash
-pnpm add @rito/kit @rito/react
+pnpm add @ritojs/kit @ritojs/react
 ```
 
 If you are working inside this repository instead of consuming the published packages:
@@ -34,7 +34,7 @@ pnpm run build
 ## Smallest Core Example
 
 ```ts
-import { createReader } from '@rito/core';
+import { createReader } from '@ritojs/core';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -89,9 +89,9 @@ reader.dispose();
 
 - Use `createReader()` if you want the standard browser-side flow.
 - Use the stable primitives if you want your own load/paginate/render pipeline.
-- Use `@rito/core/advanced` only when you need lower-level parser, style, layout, or render internals.
-- Use `@rito/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
-- Use `@rito/react` when you want React hooks and a mount component.
+- Use `@ritojs/core/advanced` only when you need lower-level parser, style, layout, or render internals.
+- Use `@ritojs/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
+- Use `@ritojs/react` when you want React hooks and a mount component.
 
 ## Next Steps
 

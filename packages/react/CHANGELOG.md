@@ -1,4 +1,4 @@
-# @rito/react
+# @ritojs/react
 
 ## 0.6.0
 
@@ -11,5 +11,5 @@
 ### Patch Changes
 
 - Updated dependencies
-  - @rito/core@0.6.0
-  - @rito/kit@0.6.0
+  - @ritojs/core@0.6.0
+  - @ritojs/kit@0.6.0

@@ -3,7 +3,7 @@
 ## `createReader(data, canvas, options)`
 
 ```ts
-import { createReader } from '@rito/core';
+import { createReader } from '@ritojs/core';
 ```
 
 Creates a ready-to-render `Reader` from an EPUB `ArrayBuffer`.
@@ -111,7 +111,7 @@ It does not rewrite EPUB-authored selectors.
 - you want to paginate once and render to multiple contexts
 - you want tighter control over resource loading and lifecycle
 
-### Prefer `@rito/kit` / `@rito/react` when
+### Prefer `@ritojs/kit` / `@ritojs/react` when
 
 - you need transitions, overlays, selection/search/annotation wiring, keyboard, or storage
 - you are building app UI rather than only rendering pages

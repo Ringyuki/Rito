@@ -3,9 +3,9 @@
   "changelog": "@changesets/cli/changelog",
   "commit": false,
   "fixed": [],
-  "linked": [["@rito/core", "@rito/kit", "@rito/react"]],
+  "linked": [["@ritojs/core", "@ritojs/kit", "@ritojs/react"]],
   "access": "public",
   "baseBranch": "master",
   "updateInternalDependencies": "patch",
-  "ignore": ["@rito/reader"]
+  "ignore": ["@ritojs/reader"]
 }

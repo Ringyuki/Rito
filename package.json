@@ -9,7 +9,7 @@
     "version-packages": "changeset version",
     "release:publish": "pnpm publish -r",
     "dev": "pnpm -r --parallel run dev",
-    "dev:reader": "pnpm --filter @rito/reader dev",
+    "dev:reader": "pnpm --filter @ritojs/reader dev",
     "dev:rito": "pnpm --filter ./packages/rito dev",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

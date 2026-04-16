@@ -1,4 +1,4 @@
-import type { Reader } from '@rito/core';
+import type { Reader } from '@ritojs/core';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { DisposableCollection } from '../../utils/disposable';
 import type { ReaderControllerEvents } from '../types';

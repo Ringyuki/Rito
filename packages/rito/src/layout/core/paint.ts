@@ -104,7 +104,7 @@ export interface RunBorder {
 
 // Spacing (inline-box padding insets, 4 sides) is imported below from the
 // shared `model` types so a single canonical shape is re-exported from
-// `@rito/core/advanced`.
+// `@ritojs/core/advanced`.
 import type { Spacing } from '../../model/types';
 export type { Spacing } from '../../model/types';
 

@@ -1,6 +1,6 @@
-# `@rito/kit`
+# `@ritojs/kit`
 
-`@rito/kit` is the framework-agnostic orchestration layer built on top of `@rito/core`.
+`@ritojs/kit` is the framework-agnostic orchestration layer built on top of `@ritojs/core`.
 
 Use it when the core `Reader` is too low-level and you want a production-oriented reading surface:
 
@@ -13,7 +13,7 @@ Use it when the core `Reader` is too low-level and you want a production-oriente
 ## Main Exports
 
 ```ts
-import { createController } from '@rito/kit';
+import { createController } from '@ritojs/kit';
 ```
 
 Core exports:
@@ -43,8 +43,8 @@ Supporting exports:
 ## Typical Use
 
 ```ts
-import { createReader } from '@rito/core';
-import { createController } from '@rito/kit';
+import { createReader } from '@ritojs/core';
+import { createController } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
 const canvas = document.createElement('canvas');
@@ -69,7 +69,7 @@ overlay canvas, and interaction bindings are attached under that container.
 
 ## Responsibilities
 
-`@rito/kit` adds the app-facing interaction layer on top of core rendering:
+`@ritojs/kit` adds the app-facing interaction layer on top of core rendering:
 
 - display-surface management
 - buffer pool and overlay composition
@@ -80,7 +80,7 @@ overlay canvas, and interaction bindings are attached under that container.
 
 ## When Not To Use It
 
-Skip `@rito/kit` when:
+Skip `@ritojs/kit` when:
 
 - you only need page rendering into a canvas
 - you already have a controller/orchestration layer
@@ -90,4 +90,4 @@ Skip `@rito/kit` when:
 
 - [Reader API](../api/reader.md)
 - [Specialized Subpaths](../api/subpaths.md)
-- [Using `@rito/react`](./react.md)
+- [Using `@ritojs/react`](./react.md)

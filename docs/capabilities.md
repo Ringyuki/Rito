@@ -72,7 +72,7 @@ This page describes what Rito is designed to support today.
 
 ## Reader Surface / Controller Layer
 
-Through `@rito/kit` and `@rito/react`, the ecosystem also supports:
+Through `@ritojs/kit` and `@ritojs/react`, the ecosystem also supports:
 
 - animated page transitions
 - overlay rendering for selection, search, and annotations

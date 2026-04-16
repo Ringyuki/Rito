@@ -1,6 +1,6 @@
 import { useCallback, type RefObject } from 'react';
-import type { TocEntry } from '@rito/core';
-import type { ReaderController, TransitionDriverOptions } from '@rito/kit';
+import type { TocEntry } from '@ritojs/core';
+import type { ReaderController, TransitionDriverOptions } from '@ritojs/kit';
 
 export interface ControllerActions {
   readonly nextSpread: () => void;

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PackageMetadata, Reader, Spread, TocEntry } from '@rito/core';
-import { createReader, type ReaderOptions } from '@rito/core';
+import type { PackageMetadata, Reader, Spread, TocEntry } from '@ritojs/core';
+import { createReader, type ReaderOptions } from '@ritojs/core';
 import {
   createController,
   type ControllerOptions,
   type ReaderController,
   type TransitionDriverOptions,
-} from '@rito/kit';
+} from '@ritojs/kit';
 import { useControllerActions } from './use-controller-actions';
 
 export interface UseRitoReaderOptions {

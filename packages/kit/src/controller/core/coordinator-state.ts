@@ -1,8 +1,12 @@
-import type { SelectionEngine } from '@rito/core/selection';
-import type { SearchEngine } from '@rito/core/search';
-import type { AnnotationStore, ResolvedAnnotation, ChapterTextIndex } from '@rito/core/annotations';
-import type { PositionTracker } from '@rito/core/position';
-import type { HitMap, LinkRegion } from '@rito/core/advanced';
+import type { SelectionEngine } from '@ritojs/core/selection';
+import type { SearchEngine } from '@ritojs/core/search';
+import type {
+  AnnotationStore,
+  ResolvedAnnotation,
+  ChapterTextIndex,
+} from '@ritojs/core/annotations';
+import type { PositionTracker } from '@ritojs/core/position';
+import type { HitMap, LinkRegion } from '@ritojs/core/advanced';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 
 export interface CoordinatorEngines {

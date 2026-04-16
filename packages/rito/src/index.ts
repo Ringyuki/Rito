@@ -1,6 +1,6 @@
 // Rito — Canvas-based EPUB rendering library.
 // Use `createReader()` for the standard flow, or import primitives for custom pipelines.
-// Internal APIs (parser, style resolver, layout engine) are in `@rito/core/advanced`.
+// Internal APIs (parser, style resolver, layout engine) are in `@ritojs/core/advanced`.
 
 // ── Primary API ────────────────────────────────────────────────────
 export { createReader, type Reader, type ReaderOptions } from './reader';

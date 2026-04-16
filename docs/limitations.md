@@ -36,7 +36,7 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 - browser-oriented rendering pipeline
 - core rendering depends on browser APIs such as `FontFace` and `createImageBitmap`
 - `OffscreenCanvas` is supported by the core but not required for the basic `Reader` path
-- `@rito/kit` assumes `OffscreenCanvas` support for its compositing architecture
+- `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing architecture
 
 ## Format Scope
 

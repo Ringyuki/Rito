@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('@rito/kit', () => {
+describe('@ritojs/kit', () => {
   it('exports createController', async () => {
     const mod = await import('../src/index');
     expect(mod.createController).toBeDefined();

@@ -1,6 +1,6 @@
-# `@rito/react`
+# `@ritojs/react`
 
-`@rito/react` is the React integration layer on top of `@rito/core` and `@rito/kit`.
+`@ritojs/react` is the React integration layer on top of `@ritojs/core` and `@ritojs/kit`.
 
 Use it when you want hooks for reader lifecycle and state, plus a mount component
 for the controller-managed reading surface.
@@ -8,7 +8,7 @@ for the controller-managed reading surface.
 ## Main Exports
 
 ```ts
-import { useRitoReader, Reader } from '@rito/react';
+import { useRitoReader, Reader } from '@ritojs/react';
 ```
 
 Hooks:
@@ -41,7 +41,7 @@ Components:
 
 ```tsx
 import { useEffect, useRef } from 'react';
-import { Reader, useContainerSize, useRitoReader } from '@rito/react';
+import { Reader, useContainerSize, useRitoReader } from '@ritojs/react';
 
 export function App() {
   const [containerRef, containerSize] = useContainerSize();
@@ -108,11 +108,11 @@ The controller remains the source of truth.
 
 ## Guidance
 
-- Use `@rito/react` if you want fast app integration and React state bindings.
-- Use `@rito/kit` directly if you want non-React UI or a custom state layer.
-- Use only `@rito/core` if you only need rendering and core primitives.
+- Use `@ritojs/react` if you want fast app integration and React state bindings.
+- Use `@ritojs/kit` directly if you want non-React UI or a custom state layer.
+- Use only `@ritojs/core` if you only need rendering and core primitives.
 
 ## Related Docs
 
-- [Using `@rito/kit`](./kit.md)
+- [Using `@ritojs/kit`](./kit.md)
 - [Reader API](../api/reader.md)

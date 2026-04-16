@@ -1,5 +1,5 @@
-import type { Reader } from '@rito/core';
-import type { HitEntry, LinkRegion } from '@rito/core/advanced';
+import type { Reader } from '@ritojs/core';
+import type { HitEntry, LinkRegion } from '@ritojs/core/advanced';
 import { findAnnotationAtPos } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';

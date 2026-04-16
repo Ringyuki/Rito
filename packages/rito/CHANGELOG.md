@@ -1,4 +1,4 @@
-# @rito/core
+# @ritojs/core
 
 ## 0.6.0
 

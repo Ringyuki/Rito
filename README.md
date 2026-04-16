@@ -6,9 +6,9 @@ Rito is an EPUB-focused rendering engine. It parses EPUB archives, resolves a bo
 
 The repository also includes:
 
-- `@rito/core` — the core parser/layout/rendering package
-- `@rito/kit` — a framework-agnostic controller layer with transitions and overlays
-- `@rito/react` — React hooks and components on top of the core packages
+- `@ritojs/core` — the core parser/layout/rendering package
+- `@ritojs/kit` — a framework-agnostic controller layer with transitions and overlays
+- `@ritojs/react` — React hooks and components on top of the core packages
 
 > [!WARNING]
 > Rito is still under development! We do not recommend that you use it in production environments, but of course we always welcome your PR!
@@ -16,13 +16,13 @@ The repository also includes:
 ## Install
 
 ```bash
-pnpm add @rito/core
+pnpm add @ritojs/core
 ```
 
 ## Quick Start
 
 ```ts
-import { createReader } from '@rito/core';
+import { createReader } from '@ritojs/core';
 
 const response = await fetch('book.epub');
 const canvas = document.querySelector('canvas')!;
@@ -53,15 +53,15 @@ reader.dispose();
 - [Architecture](./docs/architecture.md)
 - [Release & Versioning](./docs/releasing.md)
 - [Release Runbook](./docs/release-runbook.md)
-- [Using `@rito/kit`](./docs/integrations/kit.md)
-- [Using `@rito/react`](./docs/integrations/react.md)
+- [Using `@ritojs/kit`](./docs/integrations/kit.md)
+- [Using `@ritojs/react`](./docs/integrations/react.md)
 
 ## Release Scope
 
 Rito is optimized for EPUB book layout, not browser-equivalent web layout.
 
 - EPUB-first rendering model
-- small, stable public API on the main `@rito/core` entry
+- small, stable public API on the main `@ritojs/core` entry
 - optional higher-level integration packages for controllers and React
 - deliberate CSS/layout subset focused on book pagination
 

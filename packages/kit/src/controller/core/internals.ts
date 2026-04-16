@@ -1,4 +1,4 @@
-import type { Reader } from '@rito/core';
+import type { Reader } from '@ritojs/core';
 import type { ControllerOptions } from '../types';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 

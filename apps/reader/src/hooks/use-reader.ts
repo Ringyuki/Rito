@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TocEntry } from '@rito/core';
-import type { ReaderControllerEvents } from '@rito/kit';
+import type { TocEntry } from '@ritojs/core';
+import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   useRitoReader,
   useSelection,
   useSearch,
   useAnnotations,
   useControllerEvent,
-} from '@rito/react';
-import { createLocalStoragePositionAdapter, createLocalStorageAnnotationAdapter } from '@rito/kit';
+} from '@ritojs/react';
+import {
+  createLocalStoragePositionAdapter,
+  createLocalStorageAnnotationAdapter,
+} from '@ritojs/kit';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const FONT_SCALE_STEP = 0.1;

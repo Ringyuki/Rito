@@ -1,22 +1,22 @@
-# @rito/react
+# @ritojs/react
 
-React hooks and components for `@rito/core` and `@rito/kit`.
+React hooks and components for `@ritojs/core` and `@ritojs/kit`.
 
-`@rito/react` provides the highest-level integration layer in the Rito stack:
+`@ritojs/react` provides the highest-level integration layer in the Rito stack:
 React hooks for reader lifecycle and state, plus a mount component for the
 controller-managed reading surface.
 
 ## Install
 
 ```bash
-pnpm add react react-dom @rito/core @rito/kit @rito/react
+pnpm add react react-dom @ritojs/core @ritojs/kit @ritojs/react
 ```
 
 ## Quick Start
 
 ```tsx
 import { useEffect, useRef } from 'react';
-import { Reader, useContainerSize, useRitoReader } from '@rito/react';
+import { Reader, useContainerSize, useRitoReader } from '@ritojs/react';
 
 export function App() {
   const [containerRef, containerSize] = useContainerSize();

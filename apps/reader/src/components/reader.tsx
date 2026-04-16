@@ -1,5 +1,5 @@
 import { Loader2 } from 'lucide-react';
-import { Reader as RitoReader } from '@rito/react';
+import { Reader as RitoReader } from '@ritojs/react';
 import { Placeholder } from '@/components/placeholder';
 import { FileActions } from '@/components/file-actions';
 import { AnnotationToolbar } from '@/components/annotation-toolbar';

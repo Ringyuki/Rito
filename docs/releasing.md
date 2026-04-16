@@ -6,13 +6,13 @@ This page describes how Rito should be versioned and published from this monorep
 
 Public packages:
 
-- `@rito/core`
-- `@rito/kit`
-- `@rito/react`
+- `@ritojs/core`
+- `@ritojs/kit`
+- `@ritojs/react`
 
 Non-published workspace packages:
 
-- `@rito/reader`
+- `@ritojs/reader`
 
 The repository root package is a private workspace shell. It is intentionally not
 a published npm package.
@@ -27,7 +27,7 @@ Rito uses pre-1.0 lockstep versioning:
 
 Implementation note:
 
-- the repo uses a linked Changesets group for `@rito/core`, `@rito/kit`, and `@rito/react`
+- the repo uses a linked Changesets group for `@ritojs/core`, `@ritojs/kit`, and `@ritojs/react`
 - each public release changeset should include all three public packages
 
 The `workspace:^` convention keeps local development pinned to the workspace and lets
@@ -43,7 +43,7 @@ Changesets is the source of truth for version bumps.
 Day-to-day flow:
 
 1. run `pnpm changeset`
-2. for public releases, select `@rito/core`, `@rito/kit`, and `@rito/react`
+2. for public releases, select `@ritojs/core`, `@ritojs/kit`, and `@ritojs/react`
 3. choose `patch` or `minor`
 4. write a short user-facing summary
 5. commit the generated `.changeset/*.md` file with the code change
@@ -94,4 +94,4 @@ Consumers should treat matching package versions as the supported combination.
 
 Example:
 
-- `@rito/core@0.6.0` + `@rito/kit@0.6.0` + `@rito/react@0.6.0` is a supported same-line combination
+- `@ritojs/core@0.6.0` + `@ritojs/kit@0.6.0` + `@ritojs/react@0.6.0` is a supported same-line combination

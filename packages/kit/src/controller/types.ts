@@ -1,19 +1,19 @@
-import type { FootnoteEntry, PackageMetadata, Page, Reader, Spread, TocEntry } from '@rito/core';
+import type { FootnoteEntry, PackageMetadata, Page, Reader, Spread, TocEntry } from '@ritojs/core';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
   RecordStorageAdapter,
   ResolvedAnnotation,
-} from '@rito/core/annotations';
-import type { ReadingPosition } from '@rito/core/position';
-import type { SearchResult } from '@rito/core/search';
-import type { TextRange } from '@rito/core/selection';
+} from '@ritojs/core/annotations';
+import type { ReadingPosition } from '@ritojs/core/position';
+import type { SearchResult } from '@ritojs/core/search';
+import type { TextRange } from '@ritojs/core/selection';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
 
-/** Defaults matching `@rito/core` ReaderOptions defaults. */
+/** Defaults matching `@ritojs/core` ReaderOptions defaults. */
 export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
 
 export interface ControllerOptions {

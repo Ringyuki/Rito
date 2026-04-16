@@ -1,22 +1,22 @@
-# @rito/kit
+# @ritojs/kit
 
-Framework-agnostic controller, overlays, and transitions for `@rito/core`.
+Framework-agnostic controller, overlays, and transitions for `@ritojs/core`.
 
-`@rito/kit` sits above the core `@rito/core` reader and provides app-facing orchestration:
+`@ritojs/kit` sits above the core `@ritojs/core` reader and provides app-facing orchestration:
 page transitions, overlay composition, interaction wiring, keyboard support, and
 storage adapters.
 
 ## Install
 
 ```bash
-pnpm add @rito/core @rito/kit
+pnpm add @ritojs/core @ritojs/kit
 ```
 
 ## Quick Start
 
 ```ts
-import { createReader } from '@rito/core';
-import { createController } from '@rito/kit';
+import { createReader } from '@ritojs/core';
+import { createController } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
 const canvas = document.createElement('canvas');
@@ -54,5 +54,5 @@ controller.goToSpread(0);
 
 ## Related Packages
 
-- [`@rito/core`](https://github.com/Ringyuki/Rito/tree/master/packages/rito) for the core parser/layout/render engine
-- [`@rito/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React integration
+- [`@ritojs/core`](https://github.com/Ringyuki/Rito/tree/master/packages/rito) for the core parser/layout/render engine
+- [`@ritojs/react`](https://github.com/Ringyuki/Rito/tree/master/packages/react) for React integration

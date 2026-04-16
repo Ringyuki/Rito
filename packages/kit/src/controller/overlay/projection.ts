@@ -2,11 +2,11 @@
  * Build overlay layers from engine state by projecting page-content
  * and spread-content rects into viewport-logical space via the mapper.
  */
-import type { Reader, Spread, Page } from '@rito/core';
-import { buildHitMap, getSelectionRects } from '@rito/core/advanced';
-import type { HitMap } from '@rito/core/advanced';
-import type { ResolvedAnnotation } from '@rito/core/annotations';
-import { resolveAnnotations } from '@rito/core/annotations';
+import type { Reader, Spread, Page } from '@ritojs/core';
+import { buildHitMap, getSelectionRects } from '@ritojs/core/advanced';
+import type { HitMap } from '@ritojs/core/advanced';
+import type { ResolvedAnnotation } from '@ritojs/core/annotations';
+import { resolveAnnotations } from '@ritojs/core/annotations';
 import type { Rect } from '../../painter/types';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';

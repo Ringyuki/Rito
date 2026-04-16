@@ -54,7 +54,7 @@ This keeps pagination and rendering decoupled and testable.
 
 ## Public API Strategy
 
-The main `@rito/core` entry is intentionally small:
+The main `@ritojs/core` entry is intentionally small:
 
 - `createReader()`
 - stable high-level primitives
@@ -62,8 +62,8 @@ The main `@rito/core` entry is intentionally small:
 
 Lower-level capabilities are exposed through:
 
-- `@rito/core/advanced`
-- focused subpaths like `@rito/core/selection`, `@rito/core/search`, and `@rito/core/annotations`
+- `@ritojs/core/advanced`
+- focused subpaths like `@ritojs/core/selection`, `@ritojs/core/search`, and `@ritojs/core/annotations`
 
 This keeps the main entry practical for app developers while still making expert tooling possible.
 
@@ -73,8 +73,8 @@ The core `Reader` is not a full reading app surface.
 
 That responsibility lives in higher layers:
 
-- `@rito/kit` adds transitions, overlays, controller events, and app-facing orchestration
-- `@rito/react` adds React lifecycle and state glue
+- `@ritojs/kit` adds transitions, overlays, controller events, and app-facing orchestration
+- `@ritojs/react` adds React lifecycle and state glue
 
 ## Testing Strategy
 

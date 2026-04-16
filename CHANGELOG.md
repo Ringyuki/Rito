@@ -11,7 +11,7 @@ docs, and low-risk additive work.
 ### Changed
 
 - slimmed the root README and moved detailed package/API guidance into `docs/`
-- added dedicated package READMEs for `rito`, `@rito/kit`, and `@rito/react`
+- added dedicated package READMEs for `@ritojs/core`, `@ritojs/kit`, and `@ritojs/react`
 - removed worker pagination support from the current public release plan
-- fixed `setTypography()` refresh propagation in `@rito/kit`
-- fixed stale async load races and SSR-safe render behavior in `@rito/react`
+- fixed `setTypography()` refresh propagation in `@ritojs/kit`
+- fixed stale async load races and SSR-safe render behavior in `@ritojs/react`

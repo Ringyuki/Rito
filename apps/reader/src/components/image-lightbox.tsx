@@ -1,6 +1,6 @@
 import { useCallback, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { ReaderControllerEvents } from '@rito/kit';
+import type { ReaderControllerEvents } from '@ritojs/kit';
 
 interface Props {
   image: ReaderControllerEvents['imageClick'] | null;

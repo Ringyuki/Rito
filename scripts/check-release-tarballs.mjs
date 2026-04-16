@@ -10,9 +10,9 @@ const packDir =
 const pnpmExecPath = process.env.npm_execpath;
 
 const publicPackages = [
-  { name: '@rito/core', dir: path.join(workspaceRoot, 'packages/rito') },
-  { name: '@rito/kit', dir: path.join(workspaceRoot, 'packages/kit') },
-  { name: '@rito/react', dir: path.join(workspaceRoot, 'packages/react') },
+  { name: '@ritojs/core', dir: path.join(workspaceRoot, 'packages/rito') },
+  { name: '@ritojs/kit', dir: path.join(workspaceRoot, 'packages/kit') },
+  { name: '@ritojs/react', dir: path.join(workspaceRoot, 'packages/react') },
 ];
 
 function run(command, args, cwd) {

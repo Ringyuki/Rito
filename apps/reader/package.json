@@ -1,5 +1,5 @@
 {
-  "name": "@rito/reader",
+  "name": "@ritojs/reader",
   "type": "module",
   "version": "0.0.0",
   "private": true,
@@ -12,8 +12,8 @@
   "dependencies": {
     "@fontsource-variable/geist": "^5.2.8",
     "@icons-pack/react-simple-icons": "^13.13.0",
-    "@rito/kit": "workspace:*",
-    "@rito/react": "workspace:*",
+    "@ritojs/kit": "workspace:*",
+    "@ritojs/react": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -23,7 +23,7 @@
     "radix-ui": "^1.4.3",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
-    "@rito/core": "workspace:*",
+    "@ritojs/core": "workspace:*",
     "shadcn": "^4.1.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.5.0",
