@@ -1,6 +1,7 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
+    "rootDir": "../..",
     "outDir": "dist",
     "jsx": "react-jsx",
     "noEmit": true,
@@ -8,6 +9,12 @@
     "declarationMap": false,
     "sourceMap": false,
     "paths": {
+      "@ritojs/core": ["../../packages/rito/src/index.ts"],
+      "@ritojs/core/*": ["../../packages/rito/src/*"],
+      "@ritojs/kit": ["../../packages/kit/src/index.ts"],
+      "@ritojs/kit/*": ["../../packages/kit/src/*"],
+      "@ritojs/react": ["../../packages/react/src/index.ts"],
+      "@ritojs/react/*": ["../../packages/react/src/*"],
       "@/*": ["./src/*"]
     }
   },
