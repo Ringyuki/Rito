@@ -1,2 +1,3 @@
+pnpm format
 npx lint-staged
 pnpm -r test

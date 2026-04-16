@@ -8,6 +8,7 @@
     "release:pack-check": "node ./scripts/check-release-tarballs.mjs",
     "version-packages": "changeset version",
     "release:publish": "pnpm publish -r",
+    "release:ci": "pnpm run check && pnpm release:pack-check && pnpm release:publish --tag next",
     "dev": "pnpm -r --parallel run dev",
     "dev:reader": "pnpm --filter @ritojs/reader dev",
     "dev:rito": "pnpm --filter ./packages/rito dev",
