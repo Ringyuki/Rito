@@ -46,7 +46,13 @@ export function buildLayoutActions(
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },
-    setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean {
+    setTypography(opts: {
+      fontSize?: number | null;
+      lineHeight?: number | null;
+      lineHeightForce?: boolean;
+      fontFamily?: string | null;
+      fontFamilyForce?: boolean;
+    }): boolean {
       const changed = internals.reader.setTypography(opts);
       if (!changed) return false;
       emitLayoutChange();

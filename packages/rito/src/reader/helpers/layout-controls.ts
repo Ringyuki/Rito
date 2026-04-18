@@ -62,6 +62,8 @@ function repaginate(
     state.fontSizeOverride,
     state.lineHeightOverride,
     state.fontFamilyOverride,
+    state.lineHeightForce,
+    state.fontFamilyForce,
   );
   state.spreadMode = spreadMode;
   if (layoutConfigEqual(state.config, newConfig)) return false;

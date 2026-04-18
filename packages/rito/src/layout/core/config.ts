@@ -31,8 +31,20 @@ export interface LayoutConfigInput {
   readonly rootFontSize?: number;
   /** Global line-height multiplier override. Overrides CSS on body. */
   readonly lineHeightOverride?: number;
+  /**
+   * When true (and `lineHeightOverride` is set), force the override on every element,
+   * bypassing element-level CSS rules like `p { line-height: 1.3em }`.
+   * When false (default), the override only cascades from body and may be shadowed
+   * by more specific selectors in the EPUB.
+   */
+  readonly lineHeightForce?: boolean;
   /** Global font-family override. Overrides CSS on body. */
   readonly fontFamilyOverride?: string;
+  /**
+   * When true (and `fontFamilyOverride` is set), force the override on every element,
+   * bypassing element-level CSS rules like `pre { font-family: monospace }`.
+   */
+  readonly fontFamilyForce?: boolean;
   /** Runtime pagination policy for widow/orphan control. */
   readonly paginationPolicy?: PaginationPolicy;
 }
@@ -85,9 +97,11 @@ export function createLayoutConfig(input: LayoutConfigInput): LayoutConfig {
     ...(input.lineHeightOverride !== undefined
       ? { lineHeightOverride: input.lineHeightOverride }
       : {}),
+    ...(input.lineHeightForce !== undefined ? { lineHeightForce: input.lineHeightForce } : {}),
     ...(input.fontFamilyOverride !== undefined
       ? { fontFamilyOverride: input.fontFamilyOverride }
       : {}),
+    ...(input.fontFamilyForce !== undefined ? { fontFamilyForce: input.fontFamilyForce } : {}),
     ...(input.paginationPolicy !== undefined ? { paginationPolicy: input.paginationPolicy } : {}),
   };
 }

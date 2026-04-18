@@ -122,7 +122,22 @@ export interface ReaderController {
   resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
-  setTypography(opts: { fontSize?: number; lineHeight?: number; fontFamily?: string }): boolean;
+  /**
+   * Update typography overrides. For each value field:
+   * `undefined` leaves it untouched, `null` clears the override (falls back to the
+   * book's natural value), an explicit value sets the override.
+   *
+   * Force flags (`lineHeightForce`, `fontFamilyForce`) gate the override's reach:
+   * `false` (coarse) lets element-level CSS like `p { line-height: 1.3em }` win;
+   * `true` (strong) rewrites the value on every element. `undefined` leaves it untouched.
+   */
+  setTypography(opts: {
+    fontSize?: number | null;
+    lineHeight?: number | null;
+    lineHeightForce?: boolean;
+    fontFamily?: string | null;
+    fontFamilyForce?: boolean;
+  }): boolean;
 
   /** Set render scale (e.g. for font zoom). Canvas display size = viewport × scale. */
   setRenderScale(scale: number): void;

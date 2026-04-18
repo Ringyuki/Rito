@@ -12,9 +12,11 @@ export interface ControllerActions {
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
   readonly setTypography: (opts: {
-    fontSize?: number;
-    lineHeight?: number;
-    fontFamily?: string;
+    fontSize?: number | null;
+    lineHeight?: number | null;
+    lineHeightForce?: boolean;
+    fontFamily?: string | null;
+    fontFamilyForce?: boolean;
   }) => boolean;
   readonly configureTransition: (opts: Partial<TransitionDriverOptions>) => void;
 }
@@ -36,8 +38,13 @@ export function useControllerActions(
       [],
     ),
     setTypography: useCallback(
-      (o: { fontSize?: number; lineHeight?: number; fontFamily?: string }) =>
-        ctrlRef.current?.setTypography(o) ?? false,
+      (o: {
+        fontSize?: number | null;
+        lineHeight?: number | null;
+        lineHeightForce?: boolean;
+        fontFamily?: string | null;
+        fontFamilyForce?: boolean;
+      }) => ctrlRef.current?.setTypography(o) ?? false,
       [],
     ),
     configureTransition: useCallback(

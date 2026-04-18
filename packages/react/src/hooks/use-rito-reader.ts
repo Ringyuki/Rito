@@ -37,9 +37,11 @@ export interface RitoReaderActions {
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
   readonly setTypography: (opts: {
-    fontSize?: number;
-    lineHeight?: number;
-    fontFamily?: string;
+    fontSize?: number | null;
+    lineHeight?: number | null;
+    lineHeightForce?: boolean;
+    fontFamily?: string | null;
+    fontFamilyForce?: boolean;
   }) => boolean;
   readonly configureTransition: (opts: Partial<TransitionDriverOptions>) => void;
 }

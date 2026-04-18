@@ -9,6 +9,8 @@ export function makeLayoutConfig(
   rootFontSize?: number,
   lineHeightOverride?: number,
   fontFamilyOverride?: string,
+  lineHeightForce?: boolean,
+  fontFamilyForce?: boolean,
 ): LayoutConfig {
   return createLayoutConfig({
     width: options.width,
@@ -18,7 +20,9 @@ export function makeLayoutConfig(
     spreadGap: options.spreadGap ?? 20,
     ...(rootFontSize !== undefined ? { rootFontSize } : {}),
     ...(lineHeightOverride !== undefined ? { lineHeightOverride } : {}),
+    ...(lineHeightForce !== undefined ? { lineHeightForce } : {}),
     ...(fontFamilyOverride !== undefined ? { fontFamilyOverride } : {}),
+    ...(fontFamilyForce !== undefined ? { fontFamilyForce } : {}),
     ...(options.paginationPolicy !== undefined
       ? { paginationPolicy: options.paginationPolicy }
       : {}),
@@ -48,7 +52,9 @@ export function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
     a.spreadGap === b.spreadGap &&
     a.rootFontSize === b.rootFontSize &&
     a.lineHeightOverride === b.lineHeightOverride &&
+    (a.lineHeightForce ?? false) === (b.lineHeightForce ?? false) &&
     a.fontFamilyOverride === b.fontFamilyOverride &&
+    (a.fontFamilyForce ?? false) === (b.fontFamilyForce ?? false) &&
     a.paginationPolicy?.enabled === b.paginationPolicy?.enabled &&
     a.paginationPolicy?.defaultOrphans === b.paginationPolicy?.defaultOrphans &&
     a.paginationPolicy?.defaultWidows === b.paginationPolicy?.defaultWidows

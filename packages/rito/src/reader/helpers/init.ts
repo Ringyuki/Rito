@@ -34,6 +34,8 @@ export async function initReaderState(
     spreadRenderedListeners: new Set(),
     fontSizeOverride: undefined,
     lineHeightOverride: undefined,
+    lineHeightForce: false,
     fontFamilyOverride: undefined,
+    fontFamilyForce: false,
   };
 }

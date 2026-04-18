@@ -138,19 +138,26 @@ export interface Reader {
   /**
    * Update typography settings. Triggers re-pagination.
    *
-   * For each property:
+   * For each value field (`fontSize`, `lineHeight`, `fontFamily`):
    * - `undefined` (or omitted) — no change
    * - `null` — clear the override, fall back to the book's natural value
    * - explicit value — set as override
    *
+   * For each force flag (`lineHeightForce`, `fontFamilyForce`):
+   * - `undefined` (or omitted) — no change
+   * - `false` — coarse mode: override only cascades from body; element-level CSS rules win
+   * - `true` — strong mode: override is forced on every element, bypassing element-level CSS
+   *
    * `fontSize` overrides rootFontSize (affects rem units and base size).
    * `lineHeight` overrides the body line-height multiplier (e.g. 1.5, 2.0).
-   * `fontFamily` overrides the body font-family (cascades to all elements unless CSS-overridden).
+   * `fontFamily` overrides the body font-family.
    */
   setTypography(opts: {
     fontSize?: number | null;
     lineHeight?: number | null;
+    lineHeightForce?: boolean;
     fontFamily?: string | null;
+    fontFamilyForce?: boolean;
   }): boolean;
 
   /** Subscribe to spread render events. Returns unsubscribe function. */
@@ -255,11 +262,15 @@ function buildReaderMethods(
     setTypography(opts: {
       fontSize?: number | null;
       lineHeight?: number | null;
+      lineHeightForce?: boolean;
       fontFamily?: string | null;
+      fontFamilyForce?: boolean;
     }): boolean {
       if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize ?? undefined;
       if (opts.lineHeight !== undefined) state.lineHeightOverride = opts.lineHeight ?? undefined;
+      if (opts.lineHeightForce !== undefined) state.lineHeightForce = opts.lineHeightForce;
       if (opts.fontFamily !== undefined) state.fontFamilyOverride = opts.fontFamily ?? undefined;
+      if (opts.fontFamilyForce !== undefined) state.fontFamilyForce = opts.fontFamilyForce;
       return layoutControls.updateLayout(
         state.config.viewportWidth,
         state.config.viewportHeight,

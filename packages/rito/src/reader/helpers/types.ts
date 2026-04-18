@@ -19,6 +19,10 @@ export interface ReaderState {
   fontSizeOverride: number | undefined;
   /** User line-height multiplier override. Cascades via body style. */
   lineHeightOverride: number | undefined;
+  /** When true (and lineHeightOverride is set), force on every element, bypassing element-level CSS. */
+  lineHeightForce: boolean;
   /** User font-family override. Cascades via body style. */
   fontFamilyOverride: string | undefined;
+  /** When true (and fontFamilyOverride is set), force on every element, bypassing element-level CSS. */
+  fontFamilyForce: boolean;
 }

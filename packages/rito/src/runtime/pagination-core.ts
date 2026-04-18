@@ -9,7 +9,7 @@ import type { DocumentNode } from '../parser/xhtml/types';
 import { matchesSelector } from '../style/cascade/selector-matcher';
 import { resolveStyles } from '../style/cascade/resolver';
 import { DEFAULT_STYLE } from '../style/core/defaults';
-import type { ComputedStyle, CssRule } from '../style/core/types';
+import type { ComputedStyle, CssRule, StyledNode } from '../style/core/types';
 import { parseCssDeclarations } from '../style/css/property-parser';
 import type { Viewport } from '../style/css/parse-utils';
 import { parseCssRules } from '../style/css/rule-parser';
@@ -22,7 +22,6 @@ export interface PreparedPaginationContext {
   readonly contentHeight: number;
   readonly layouter: ParagraphLayouter;
   readonly rules: readonly CssRule[];
-  readonly bodyStyle: ComputedStyle;
   readonly imageSizes: ImageSizeMap | undefined;
   /** Per-stylesheet rules for chapter-scoped filtering. Keys match stylesheet hrefs. */
   readonly rulesByStylesheet: ReadonlyMap<string, readonly CssRule[]>;
@@ -41,24 +40,13 @@ export function preparePaginationContext<T extends SizeLike>(
   images?: ReadonlyMap<string, T>,
   lineBreaking?: 'greedy' | 'optimal',
 ): PreparedPaginationContext {
-  const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
   const rules = buildRules(stylesheets);
-  let bodyStyle = computeBodyStyle(rules, viewport);
-
-  // Apply global typography overrides onto bodyStyle so they cascade via CSS inheritance
-  if (config.lineHeightOverride !== undefined) {
-    bodyStyle = { ...bodyStyle, lineHeight: config.lineHeightOverride };
-  }
-  if (config.fontFamilyOverride !== undefined) {
-    bodyStyle = { ...bodyStyle, fontFamily: config.fontFamilyOverride };
-  }
 
   return {
     contentWidth: config.pageWidth - config.marginLeft - config.marginRight,
     contentHeight: config.pageHeight - config.marginTop - config.marginBottom,
     layouter: createParagraphLayouter(measurer, lineBreaking),
     rules,
-    bodyStyle,
     imageSizes: images ? createImageSizeMap(images) : undefined,
     rulesByStylesheet: buildRulesPerStylesheet(stylesheets),
   };
@@ -82,10 +70,16 @@ export function paginateChapterNodes(
 
   const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
   const bodyStyle = computeBodyStyle(rules, viewport);
-  const chapterBodyStyle = bodyAttributes
+  const resolvedBodyStyle = bodyAttributes
     ? resolveBodyStyleWithAttrs(bodyStyle, rules, bodyAttributes, viewport)
     : bodyStyle;
-  const styled = resolveStyles(nodes, chapterBodyStyle, rules, viewport);
+  // Reader-wide typography overrides win over both stylesheet body rules and
+  // the chapter's <body> attributes; they cascade to descendants via inheritance.
+  const chapterBodyStyle = applyTypographyOverrides(resolvedBodyStyle, config);
+  const cascaded = resolveStyles(nodes, chapterBodyStyle, rules, viewport);
+  // Force pass: when force flags are set, rewrite typography on every node so
+  // element-level CSS (e.g. `p { line-height: 1.3em }`) cannot shadow the override.
+  const styled = forceTypographyOnTree(cascaded, config);
   const blocks = layoutBlocks(
     styled,
     context.contentWidth,
@@ -191,6 +185,51 @@ function resolveBodyStyleWithAttrs(
     style = { ...style, ...inline };
   }
   return style;
+}
+
+function forceTypographyOnTree(
+  nodes: readonly StyledNode[],
+  config: LayoutConfig,
+): readonly StyledNode[] {
+  const forceLh = config.lineHeightForce && config.lineHeightOverride !== undefined;
+  const forceFf = config.fontFamilyForce && config.fontFamilyOverride !== undefined;
+  if (!forceLh && !forceFf) return nodes;
+  const lh = forceLh ? config.lineHeightOverride : undefined;
+  const ff = forceFf ? config.fontFamilyOverride : undefined;
+  const visit = (node: StyledNode): StyledNode => {
+    let style = node.style;
+    if (lh !== undefined) {
+      style = { ...style, lineHeight: lh };
+      // Same reasoning as applyTypographyOverrides: clear lineHeightPx so the
+      // unitless multiplier wins (layout reads `lineHeightPx ?? fontSize * lineHeight`).
+      (style as unknown as Record<string, unknown>)['lineHeightPx'] = undefined;
+    }
+    if (ff !== undefined) {
+      style = { ...style, fontFamily: ff };
+    }
+    const children =
+      node.children.length === 0
+        ? node.children
+        : (node.children.map(visit) as readonly StyledNode[]);
+    return { ...node, style, children };
+  };
+  return nodes.map(visit);
+}
+
+function applyTypographyOverrides(style: ComputedStyle, config: LayoutConfig): ComputedStyle {
+  let result = style;
+  if (config.lineHeightOverride !== undefined) {
+    result = { ...result, lineHeight: config.lineHeightOverride };
+    // The override is a unitless multiplier, so it must shadow any absolute
+    // lineHeightPx the EPUB set (layout reads `lineHeightPx ?? fontSize * lineHeight`).
+    // Assign undefined (don't delete) so the key is present and overrides the
+    // parent value during cascade `{ ...parent, ...patch }` spreads.
+    (result as unknown as Record<string, unknown>)['lineHeightPx'] = undefined;
+  }
+  if (config.fontFamilyOverride !== undefined) {
+    result = { ...result, fontFamily: config.fontFamilyOverride };
+  }
+  return result;
 }
 
 function computeBodyStyle(rules: readonly CssRule[], viewport?: Viewport): ComputedStyle {

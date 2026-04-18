@@ -155,8 +155,18 @@ export interface LayoutConfig {
   readonly rootFontSize: number;
   /** Global line-height multiplier override. When set, overrides CSS line-height on body. */
   readonly lineHeightOverride?: number | undefined;
+  /**
+   * When true and `lineHeightOverride` is set, the override is forced onto every element,
+   * bypassing element-level CSS like `p { line-height: 1.3em }`.
+   */
+  readonly lineHeightForce?: boolean | undefined;
   /** Global font-family override. When set, overrides CSS font-family on body. */
   readonly fontFamilyOverride?: string | undefined;
+  /**
+   * When true and `fontFamilyOverride` is set, the override is forced onto every element,
+   * bypassing element-level CSS like `pre { font-family: monospace }`.
+   */
+  readonly fontFamilyForce?: boolean | undefined;
   /** Runtime pagination policy for widow/orphan control. */
   readonly paginationPolicy?: PaginationPolicy | undefined;
 }
