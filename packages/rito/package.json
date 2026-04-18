@@ -1,7 +1,7 @@
 {
   "name": "@ritojs/core",
   "type": "module",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Canvas-based EPUB rendering engine",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
