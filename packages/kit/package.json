@@ -1,7 +1,7 @@
 {
   "name": "@ritojs/kit",
   "type": "module",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Framework-agnostic controller, overlays, and transitions for @ritojs/core",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",

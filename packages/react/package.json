@@ -1,7 +1,7 @@
 {
   "name": "@ritojs/react",
   "type": "module",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "React hooks and components for @ritojs/core",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",

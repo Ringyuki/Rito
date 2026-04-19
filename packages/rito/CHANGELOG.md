@@ -1,5 +1,11 @@
 # @ritojs/core
 
+## 0.7.1
+
+### Patch Changes
+
+- f4b520d: Fix controller render-scale initialization to avoid canvas resize flicker when reloading a book.
+
 ## 0.7.0
 
 ### Minor Changes
