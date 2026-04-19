@@ -18,6 +18,8 @@ export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
 
 export interface ControllerOptions {
   readonly transition?: Partial<TransitionDriverOptions> | undefined;
+  /** Initial display scale applied before the first canvas mount/render. */
+  readonly renderScale?: number | undefined;
   /** Storage adapter for source-anchored annotation records. */
   readonly annotationStorage?: RecordStorageAdapter | undefined;
   readonly positionStorage?: PositionStorageAdapter | undefined;

@@ -28,7 +28,7 @@ export function App() {
   }, []);
 
   const handleRestoreDefaults = useCallback(() => {
-    reader.setFontScale(DEFAULT_SETTINGS.fontScale);
+    reader.setZoomScale(DEFAULT_SETTINGS.zoomScale);
     // useBookLineHeight resets slider + deactivates override + clears force in one call.
     reader.useBookLineHeight();
     reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
@@ -81,7 +81,7 @@ export function App() {
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         settings={{
-          fontScale: reader.fontScale,
+          zoomScale: reader.zoomScale,
           lineHeight: reader.lineHeight,
           lineHeightActive: reader.lineHeightActive,
           lineHeightForce: reader.lineHeightForce,
@@ -89,7 +89,7 @@ export function App() {
           spreadMode: reader.spreadMode,
           theme,
         }}
-        onFontScaleChange={reader.setFontScale}
+        onZoomScaleChange={reader.setZoomScale}
         onLineHeightChange={reader.setLineHeight}
         onLineHeightForceChange={reader.setLineHeightForce}
         onUseBookLineHeight={reader.useBookLineHeight}

@@ -103,7 +103,7 @@ function bootstrapRuntime(
   const internals: Internals = {
     reader,
     currentSpread: 0,
-    renderScale: 1,
+    renderScale: opts.renderScale ?? 1,
     options: opts,
     engines,
     coordState,

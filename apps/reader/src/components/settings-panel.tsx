@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils';
 import { FontFamilyCombobox } from '@/components/font-family-combobox';
 
 export interface ReaderSettings {
-  fontScale: number;
+  zoomScale: number;
   lineHeight: number;
   /** Whether the lineHeight slider value is applied at all. False = use book's own line-height. */
   lineHeightActive: boolean;
@@ -29,7 +29,7 @@ export interface ReaderSettings {
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
-  fontScale: 1.2,
+  zoomScale: 1.2,
   lineHeight: 1.2,
   lineHeightActive: false,
   lineHeightForce: false,
@@ -42,7 +42,7 @@ interface SettingsPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   settings: ReaderSettings;
-  onFontScaleChange: (value: number) => void;
+  onZoomScaleChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
   onLineHeightForceChange: (value: boolean) => void;
   onUseBookLineHeight: () => void;
@@ -56,7 +56,7 @@ export function SettingsPanel({
   open,
   onOpenChange,
   settings,
-  onFontScaleChange,
+  onZoomScaleChange,
   onLineHeightChange,
   onLineHeightForceChange,
   onUseBookLineHeight,
@@ -74,14 +74,14 @@ export function SettingsPanel({
         </SheetHeader>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto px-4 pb-6">
-          <Section label="Font Size" value={`${String(Math.round(settings.fontScale * 100))}%`}>
+          <Section label="Zoom" value={`${String(Math.round(settings.zoomScale * 100))}%`}>
             <Slider
               min={0.5}
               max={2.0}
               step={0.1}
-              value={[settings.fontScale]}
+              value={[settings.zoomScale]}
               onValueChange={([v]) => {
-                if (v !== undefined) onFontScaleChange(v);
+                if (v !== undefined) onZoomScaleChange(v);
               }}
             />
           </Section>

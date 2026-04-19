@@ -94,7 +94,7 @@ export function Reader({
         selection={reader.selection}
         annotations={reader.annotations}
         controller={reader.controller}
-        renderScale={reader.fontScale}
+        zoomScale={reader.zoomScale}
       />
 
       <AnnotationTooltip hover={reader.annotations.hover} />

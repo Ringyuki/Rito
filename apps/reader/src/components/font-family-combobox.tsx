@@ -257,7 +257,7 @@ function FontPreviewText({
     <div className={cn('flex flex-col', className)}>
       <span
         lang={preview.lang}
-        className="truncate text-[1.02rem] leading-tight"
+        className="truncate leading-tight"
         style={fontFamily !== null ? { fontFamily } : undefined}
       >
         {preview.primaryText}

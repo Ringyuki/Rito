@@ -15,9 +15,9 @@ import {
 import { DEFAULT_SETTINGS } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
-const FONT_SCALE_STEP = 0.1;
-const FONT_SCALE_MIN = 0.5;
-const FONT_SCALE_MAX = 2.0;
+const ZOOM_SCALE_STEP = 0.1;
+const ZOOM_SCALE_MIN = 0.5;
+const ZOOM_SCALE_MAX = 2.0;
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
@@ -35,14 +35,14 @@ export function useReader(
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
     DEFAULT_SETTINGS.spreadMode,
   );
-  const [fontScale, setFontScale] = useState(DEFAULT_SETTINGS.fontScale);
+  const [zoomScale, setZoomScale] = useState(DEFAULT_SETTINGS.zoomScale);
   const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
   const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
 
-  const vpWidth = containerWidth > 0 ? Math.round(containerWidth / fontScale) : 0;
-  const vpHeight = containerHeight > 0 ? Math.round(containerHeight / fontScale) : 0;
+  const vpWidth = containerWidth > 0 ? Math.round(containerWidth / zoomScale) : 0;
+  const vpHeight = containerHeight > 0 ? Math.round(containerHeight / zoomScale) : 0;
   const margin = containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
 
   const rito = useRitoReader({
@@ -55,6 +55,7 @@ export function useReader(
     },
     controller: {
       transition: { stiffness: 180, damping: 22 },
+      renderScale: zoomScale,
       positionStorage,
       annotationStorage,
       a11y: {
@@ -92,12 +93,13 @@ export function useReader(
 
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Resize + renderScale (only when values actually change, not on every render)
+  // Reader zoom shrinks the logical viewport while scaling the display surface
+  // back up, so pagination and on-screen size stay in sync.
   useEffect(() => {
     if (vpWidth === 0 || !rito.controller) return;
-    rito.setRenderScale(fontScale);
+    rito.setRenderScale(zoomScale);
     rito.resize(vpWidth, vpHeight, margin);
-  }, [vpWidth, vpHeight, fontScale, margin, rito.controller]);
+  }, [vpWidth, vpHeight, zoomScale, margin, rito.controller]);
 
   // Sync theme
   useEffect(() => {
@@ -161,16 +163,16 @@ export function useReader(
     [rito],
   );
 
-  const increaseFontSize = useCallback(() => {
-    setFontScale((s) => Math.min(s + FONT_SCALE_STEP, FONT_SCALE_MAX));
+  const increaseZoom = useCallback(() => {
+    setZoomScale((s) => Math.min(s + ZOOM_SCALE_STEP, ZOOM_SCALE_MAX));
   }, []);
 
-  const decreaseFontSize = useCallback(() => {
-    setFontScale((s) => Math.max(s - FONT_SCALE_STEP, FONT_SCALE_MIN));
+  const decreaseZoom = useCallback(() => {
+    setZoomScale((s) => Math.max(s - ZOOM_SCALE_STEP, ZOOM_SCALE_MIN));
   }, []);
 
-  const setFontScaleClamped = useCallback((v: number) => {
-    setFontScale(Math.max(FONT_SCALE_MIN, Math.min(v, FONT_SCALE_MAX)));
+  const setZoomScaleClamped = useCallback((v: number) => {
+    setZoomScale(Math.max(ZOOM_SCALE_MIN, Math.min(v, ZOOM_SCALE_MAX)));
   }, []);
 
   // Moving the slider activates the override (a no-op slider would be confusing).
@@ -217,7 +219,7 @@ export function useReader(
     search,
     annotations,
     spreadMode,
-    fontScale,
+    zoomScale,
     lineHeight,
     lineHeightActive,
     lineHeightForce,
@@ -229,9 +231,9 @@ export function useReader(
     navigateToTocEntry,
     toggleSpreadMode,
     setSpreadMode,
-    increaseFontSize,
-    decreaseFontSize,
-    setFontScale: setFontScaleClamped,
+    increaseZoom,
+    decreaseZoom,
+    setZoomScale: setZoomScaleClamped,
     setLineHeight,
     setLineHeightForce,
     useBookLineHeight,
