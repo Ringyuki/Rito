@@ -1,4 +1,4 @@
-import { RotateCcw } from 'lucide-react';
+import { Info, RotateCcw } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -10,14 +10,20 @@ import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-
-export type FontPreset = 'default' | 'serif' | 'sans' | 'mono';
+import { FontFamilyCombobox } from '@/components/font-family-combobox';
 
 export interface ReaderSettings {
   fontScale: number;
   lineHeight: number;
-  fontPreset: FontPreset;
+  /** Whether the lineHeight slider value is applied at all. False = use book's own line-height. */
+  lineHeightActive: boolean;
+  /** When true, the override is forced on every element (overrides element-level CSS). */
+  lineHeightForce: boolean;
+  /** CSS font-family value passed to setTypography. null = use book's own font. */
+  fontFamily: string | null;
   spreadMode: 'single' | 'double';
   theme: 'light' | 'dark';
 }
@@ -25,7 +31,9 @@ export interface ReaderSettings {
 export const DEFAULT_SETTINGS: ReaderSettings = {
   fontScale: 1.2,
   lineHeight: 1.2,
-  fontPreset: 'default',
+  lineHeightActive: false,
+  lineHeightForce: false,
+  fontFamily: null,
   spreadMode: 'double',
   theme: 'light',
 };
@@ -36,7 +44,9 @@ interface SettingsPanelProps {
   settings: ReaderSettings;
   onFontScaleChange: (value: number) => void;
   onLineHeightChange: (value: number) => void;
-  onFontPresetChange: (value: FontPreset) => void;
+  onLineHeightForceChange: (value: boolean) => void;
+  onUseBookLineHeight: () => void;
+  onFontFamilyChange: (value: string | null) => void;
   onSpreadModeChange: (value: 'single' | 'double') => void;
   onThemeChange: (value: 'light' | 'dark') => void;
   onRestoreDefaults: () => void;
@@ -48,7 +58,9 @@ export function SettingsPanel({
   settings,
   onFontScaleChange,
   onLineHeightChange,
-  onFontPresetChange,
+  onLineHeightForceChange,
+  onUseBookLineHeight,
+  onFontFamilyChange,
   onSpreadModeChange,
   onThemeChange,
   onRestoreDefaults,
@@ -74,7 +86,21 @@ export function SettingsPanel({
             />
           </Section>
 
-          <Section label="Line Height" value={settings.lineHeight.toFixed(2)}>
+          <Section
+            label="Line Height"
+            value={settings.lineHeight.toFixed(2)}
+            action={
+              <Button
+                variant="ghost"
+                size="xs"
+                onClick={onUseBookLineHeight}
+                disabled={!settings.lineHeightActive}
+                className="font-normal text-muted-foreground"
+              >
+                Book default
+              </Button>
+            }
+          >
             <Slider
               min={1.0}
               max={2.0}
@@ -83,20 +109,41 @@ export function SettingsPanel({
               onValueChange={([v]) => {
                 if (v !== undefined) onLineHeightChange(v);
               }}
+              className={cn(!settings.lineHeightActive && 'opacity-60')}
             />
+            <div className="flex items-center gap-2">
+              <Switch
+                id="line-height-force"
+                size="sm"
+                checked={settings.lineHeightActive && settings.lineHeightForce}
+                onCheckedChange={onLineHeightForceChange}
+              />
+              <Label
+                htmlFor="line-height-force"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                Apply to every element
+              </Label>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label="Why apply to every element"
+                  >
+                    <Info className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-[240px] text-xs">
+                  Some books set line-height on individual paragraphs. Without this, the slider only
+                  affects elements that don&apos;t style themselves.
+                </TooltipContent>
+              </Tooltip>
+            </div>
           </Section>
 
           <Section label="Font Family">
-            <SegmentedControl
-              value={settings.fontPreset}
-              onChange={onFontPresetChange}
-              options={[
-                { value: 'default', label: 'Default' },
-                { value: 'serif', label: 'Serif' },
-                { value: 'sans', label: 'Sans' },
-                { value: 'mono', label: 'Mono' },
-              ]}
-            />
+            <FontFamilyCombobox value={settings.fontFamily} onChange={onFontFamilyChange} />
           </Section>
 
           <Separator />
@@ -138,19 +185,24 @@ export function SettingsPanel({
 function Section({
   label,
   value,
+  action,
   children,
 }: {
   label: string;
   value?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
         <Label className="text-sm font-medium">{label}</Label>
-        {value !== undefined && (
-          <span className="text-xs text-muted-foreground tabular-nums">{value}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {action}
+          {value !== undefined && (
+            <span className="text-xs text-muted-foreground tabular-nums">{value}</span>
+          )}
+        </div>
       </div>
       {children}
     </div>

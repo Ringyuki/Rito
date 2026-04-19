@@ -29,8 +29,9 @@ export function App() {
 
   const handleRestoreDefaults = useCallback(() => {
     reader.setFontScale(DEFAULT_SETTINGS.fontScale);
-    reader.setLineHeight(DEFAULT_SETTINGS.lineHeight);
-    reader.setFontPreset(DEFAULT_SETTINGS.fontPreset);
+    // useBookLineHeight resets slider + deactivates override + clears force in one call.
+    reader.useBookLineHeight();
+    reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
     reader.setSpreadMode(DEFAULT_SETTINGS.spreadMode);
     setTheme(DEFAULT_SETTINGS.theme);
   }, [reader, setTheme]);
@@ -82,13 +83,17 @@ export function App() {
         settings={{
           fontScale: reader.fontScale,
           lineHeight: reader.lineHeight,
-          fontPreset: reader.fontPreset,
+          lineHeightActive: reader.lineHeightActive,
+          lineHeightForce: reader.lineHeightForce,
+          fontFamily: reader.fontFamily,
           spreadMode: reader.spreadMode,
           theme,
         }}
         onFontScaleChange={reader.setFontScale}
         onLineHeightChange={reader.setLineHeight}
-        onFontPresetChange={reader.setFontPreset}
+        onLineHeightForceChange={reader.setLineHeightForce}
+        onUseBookLineHeight={reader.useBookLineHeight}
+        onFontFamilyChange={reader.setFontFamily}
         onSpreadModeChange={reader.setSpreadMode}
         onThemeChange={setTheme}
         onRestoreDefaults={handleRestoreDefaults}

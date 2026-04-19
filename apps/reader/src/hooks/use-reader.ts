@@ -12,19 +12,12 @@ import {
   createLocalStoragePositionAdapter,
   createLocalStorageAnnotationAdapter,
 } from '@ritojs/kit';
+import { DEFAULT_SETTINGS } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const FONT_SCALE_STEP = 0.1;
 const FONT_SCALE_MIN = 0.5;
 const FONT_SCALE_MAX = 2.0;
-
-export type FontPreset = 'default' | 'serif' | 'sans' | 'mono';
-
-const FONT_STACKS: Record<Exclude<FontPreset, 'default'>, string> = {
-  serif: 'Georgia, "Times New Roman", serif',
-  sans: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
-  mono: 'ui-monospace, "SF Mono", Menlo, Consolas, monospace',
-};
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
@@ -39,10 +32,14 @@ export function useReader(
   containerWidth: number,
   containerHeight: number,
 ) {
-  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>('double');
-  const [fontScale, setFontScale] = useState(1.2);
-  const [lineHeight, setLineHeightState] = useState(1.5);
-  const [fontPreset, setFontPresetState] = useState<FontPreset>('default');
+  const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
+    DEFAULT_SETTINGS.spreadMode,
+  );
+  const [fontScale, setFontScale] = useState(DEFAULT_SETTINGS.fontScale);
+  const [lineHeight, setLineHeightState] = useState(DEFAULT_SETTINGS.lineHeight);
+  const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
+  const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
+  const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth / fontScale) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight / fontScale) : 0;
@@ -108,16 +105,17 @@ export function useReader(
     rito.setTheme(getThemeOptions(theme));
   }, [theme, rito.controller]);
 
-  // Sync typography (lineHeight + fontPreset) when they change after load.
+  // Sync typography when values change after load.
   // Skipped until the reader is loaded: setTypography is a no-op without a document.
+  // `null` clears the override so the book's natural value is restored.
   useEffect(() => {
     if (!rito.controller || !rito.isLoaded) return;
-    const fontFamily = fontPreset === 'default' ? undefined : FONT_STACKS[fontPreset];
     rito.setTypography({
-      lineHeight,
-      ...(fontFamily !== undefined ? { fontFamily } : {}),
+      lineHeight: lineHeightActive ? lineHeight : null,
+      lineHeightForce: lineHeightActive && lineHeightForce,
+      fontFamily,
     });
-  }, [lineHeight, fontPreset, rito.controller, rito.isLoaded]);
+  }, [lineHeight, lineHeightActive, lineHeightForce, fontFamily, rito.controller, rito.isLoaded]);
 
   // Restore position after load
   useEffect(() => {
@@ -175,12 +173,26 @@ export function useReader(
     setFontScale(Math.max(FONT_SCALE_MIN, Math.min(v, FONT_SCALE_MAX)));
   }, []);
 
+  // Moving the slider activates the override (a no-op slider would be confusing).
   const setLineHeight = useCallback((v: number) => {
     setLineHeightState(v);
+    setLineHeightActive(true);
   }, []);
 
-  const setFontPreset = useCallback((v: FontPreset) => {
-    setFontPresetState(v);
+  const setLineHeightForce = useCallback((v: boolean) => {
+    setLineHeightForceState(v);
+    setLineHeightActive(true);
+  }, []);
+
+  // Restore initial state: slider snaps back to default, override cleared, force off.
+  const useBookLineHeight = useCallback(() => {
+    setLineHeightState(DEFAULT_SETTINGS.lineHeight);
+    setLineHeightActive(false);
+    setLineHeightForceState(false);
+  }, []);
+
+  const setFontFamily = useCallback((v: string | null) => {
+    setFontFamilyState(v);
   }, []);
 
   const navigateToTocEntry = useCallback(
@@ -207,7 +219,9 @@ export function useReader(
     spreadMode,
     fontScale,
     lineHeight,
-    fontPreset,
+    lineHeightActive,
+    lineHeightForce,
+    fontFamily,
     bookTitle,
     activeChapterHref,
     loadFromArrayBuffer,
@@ -219,7 +233,9 @@ export function useReader(
     decreaseFontSize,
     setFontScale: setFontScaleClamped,
     setLineHeight,
-    setFontPreset,
+    setLineHeightForce,
+    useBookLineHeight,
+    setFontFamily,
     // Content interaction
     pendingLink,
     dismissLink: useCallback(() => {
