@@ -13,7 +13,6 @@ Rito is split into a small public core package plus optional integration layers:
 - [Limitations](./limitations.md) — deliberate non-goals and current gaps
 - [Architecture](./architecture.md) — parser/style/layout/render/runtime boundaries and package layering
 - [Release & Versioning](./releasing.md) — package publishing, changelog, and versioning policy
-- [Release Runbook](./release-runbook.md) — exact release steps and commands
 
 ## API
 

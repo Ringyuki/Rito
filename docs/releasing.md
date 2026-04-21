@@ -92,8 +92,6 @@ Use these rules while the project remains pre-1.0:
    - rewritten semver ranges in packed tarballs
 9. confirm npm auth and 2FA/token setup before publish
 
-For the exact command sequence, use the [Release Runbook](./release-runbook.md).
-
 ## Compatibility Rule
 
 Consumers should treat matching package versions as the supported combination.

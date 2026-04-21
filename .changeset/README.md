@@ -35,4 +35,4 @@ Guidance:
 - choose `minor` for breaking or migration-relevant changes while the project remains pre-1.0
 - keep internal public-package runtime dependencies on `workspace:^` in source manifests
 - rely on pnpm pack/publish to rewrite `workspace:` ranges to concrete semver ranges in published tarballs
-- use the release docs in `docs/releasing.md` and `docs/release-runbook.md` for the full workflow
+- use the release docs in `docs/releasing.md` for the full workflow

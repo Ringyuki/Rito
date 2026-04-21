@@ -52,7 +52,6 @@ reader.dispose();
 - [Limitations](./docs/limitations.md)
 - [Architecture](./docs/architecture.md)
 - [Release & Versioning](./docs/releasing.md)
-- [Release Runbook](./docs/release-runbook.md)
 - [Using `@ritojs/kit`](./docs/integrations/kit.md)
 - [Using `@ritojs/react`](./docs/integrations/react.md)
 
