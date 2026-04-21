@@ -1,5 +1,6 @@
 {
   "name": "Rito",
+  "private": true,
   "type": "module",
   "scripts": {
     "build": "pnpm -r run build",

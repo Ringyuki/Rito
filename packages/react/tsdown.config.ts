@@ -7,5 +7,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
-  external: ['@ritojs/core', '@ritojs/kit', 'react', 'react-dom', 'react/jsx-runtime'],
+  deps: {
+    neverBundle: ['@ritojs/core', '@ritojs/kit', 'react', 'react-dom', 'react/jsx-runtime'],
+  },
 });

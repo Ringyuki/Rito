@@ -7,5 +7,7 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
-  external: ['@ritojs/core'],
+  deps: {
+    neverBundle: ['@ritojs/core'],
+  },
 });
