@@ -19,6 +19,9 @@
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r run typecheck",
     "test": "pnpm -r run test",
+    "test:golden:books": "pnpm --filter @ritojs/core test:golden:books",
+    "test:golden:books:smoke": "pnpm --filter @ritojs/core test:golden:books:smoke",
+    "test:golden:books:update": "pnpm --filter @ritojs/core test:golden:books:update",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test && pnpm run build",
     "prepare": "husky"
   },

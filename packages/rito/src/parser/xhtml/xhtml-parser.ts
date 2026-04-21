@@ -10,6 +10,7 @@ import { NODE_TYPES } from './types';
 import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
 import { collapseWhitespace, isWhitespaceOnly } from './text-normalizer';
+import { normalizeXhtmlSource } from './xhtml-source-normalizer';
 
 /** Warnings collected during parsing for unsupported elements. */
 export interface ParseResult {
@@ -26,7 +27,7 @@ export interface ParseResult {
  * Returns the nodes from the <body> element, or all root-level nodes if no body is found.
  */
 export function parseXhtml(xhtml: string): ParseResult {
-  const doc = new DOMParser().parseFromString(xhtml, 'application/xhtml+xml');
+  const doc = new DOMParser().parseFromString(normalizeXhtmlSource(xhtml), 'application/xhtml+xml');
 
   const parserError = doc.querySelector('parsererror');
   if (parserError) {

@@ -71,6 +71,9 @@
     "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:golden:books": "RITO_BOOK_TESTS=1 vitest run tests/golden-books",
+    "test:golden:books:smoke": "RITO_BOOK_TESTS=1 vitest run tests/golden-books/golden-books.smoke.test.ts",
+    "test:golden:books:update": "RITO_BOOK_TESTS=1 RITO_UPDATE_GOLDEN=1 vitest run tests/golden-books/golden-books.layout.test.ts",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },

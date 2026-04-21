@@ -1,0 +1,62 @@
+[
+  {
+    "id": "book-01",
+    "path": "epubs/book-01.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-02",
+    "path": "epubs/book-02.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-03",
+    "path": "epubs/book-03.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-04",
+    "path": "epubs/book-04.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-05",
+    "path": "epubs/book-05.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-06",
+    "path": "epubs/book-06.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-07",
+    "path": "epubs/book-07.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-08",
+    "path": "epubs/book-08.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-09",
+    "path": "epubs/book-09.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  },
+  {
+    "id": "book-10",
+    "path": "epubs/book-10.epub",
+    "enabled": true,
+    "tiers": ["smoke", "golden"]
+  }
+]

@@ -45,6 +45,26 @@ describe('parseXhtml', () => {
     });
   });
 
+  describe('EPUB XHTML compatibility', () => {
+    it('accepts single quoted XML declaration attributes', () => {
+      const source = `<?xml version='1.0' encoding='utf-8'?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <body><p>Hello</p></body>
+</html>`;
+
+      const { nodes } = parseXhtml(source);
+
+      expect((nodes[0] as BlockNode).tag).toBe('p');
+    });
+
+    it('normalizes XHTML nbsp entities before XML parsing', () => {
+      const { nodes } = parseXhtml(xhtml('<p>Hello&nbsp;world</p>'));
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe('Hello world');
+    });
+  });
+
   describe('inline elements', () => {
     it('parses inline elements within a block', () => {
       const { nodes } = parseXhtml(xhtml('<p>Hello <em>world</em></p>'));
