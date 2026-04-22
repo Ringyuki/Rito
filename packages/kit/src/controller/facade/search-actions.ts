@@ -4,28 +4,15 @@ import {
   navigateToSearchIndex,
   type SearchNavDeps,
 } from '../engines/search-navigation';
-import type { Internals, Nav, RuntimeComponents, SearchActionsSlice } from './types';
+import type { Emitter, Internals, Nav, RuntimeComponents, SearchActionsSlice } from './types';
 
 export function buildSearchActions(
   internals: Internals,
+  emitter: Emitter,
   nav: Nav,
   runtime: RuntimeComponents,
 ): SearchActionsSlice {
-  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): void => {
-    internals.reader.renderSpreadTo(idx, ctx);
-  };
-
-  const searchNavDeps: SearchNavDeps = {
-    reader: internals.reader,
-    nav,
-    pool: runtime.pool,
-    frameDriver: runtime.frameDriver,
-    contentRenderer,
-    getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i) => {
-      internals.currentSpread = i;
-    },
-  };
+  const searchNavDeps = createSearchNavDeps(internals, emitter, nav, runtime);
 
   return {
     search(q: string): void {
@@ -52,6 +39,33 @@ export function buildSearchActions(
     },
     get searchActiveIndex() {
       return internals.engines.search.getActiveIndex();
+    },
+  };
+}
+
+function createSearchNavDeps(
+  internals: Internals,
+  emitter: Emitter,
+  nav: Nav,
+  runtime: RuntimeComponents,
+): SearchNavDeps {
+  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): void => {
+    internals.reader.renderSpreadTo(idx, ctx);
+  };
+
+  return {
+    reader: internals.reader,
+    nav,
+    pool: runtime.pool,
+    frameDriver: runtime.frameDriver,
+    contentRenderer,
+    getCurrentSpread: () => internals.currentSpread,
+    setCurrentSpread: (i) => {
+      internals.currentSpread = i;
+    },
+    emitSpreadChange: (i) => {
+      const spread = internals.reader.spreads[i];
+      if (spread) emitter.emit('spreadChange', { spreadIndex: i, spread });
     },
   };
 }

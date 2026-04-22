@@ -13,6 +13,7 @@ export interface SearchNavDeps {
   contentRenderer: ContentRenderer;
   getCurrentSpread: () => number;
   setCurrentSpread: (idx: number) => void;
+  emitSpreadChange: (idx: number) => void;
 }
 
 export function goToSearchResult(result: SearchResult, deps: SearchNavDeps): void {
@@ -30,6 +31,7 @@ export function goToSearchResult(result: SearchResult, deps: SearchNavDeps): voi
     deps.pool.jump(spreadIdx);
     deps.pool.ensureContent('curr', deps.contentRenderer);
     deps.setCurrentSpread(spreadIdx);
+    deps.emitSpreadChange(spreadIdx);
     deps.reader.notifyActiveSpread(spreadIdx);
     deps.frameDriver.scheduleComposite();
   }

@@ -38,7 +38,7 @@ export function buildController(
     ...buildReaderProxies(internals),
     ...nav,
     ...buildLayoutActions(internals, emitter, runtime),
-    ...buildSearchActions(internals, nav, runtime),
+    ...buildSearchActions(internals, emitter, nav, runtime),
     ...buildSelectionAccessors(internals),
     ...buildAnnotationActions(internals),
     ...buildPositionActions(internals),
