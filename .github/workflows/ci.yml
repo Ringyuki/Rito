@@ -21,7 +21,13 @@ jobs:
           cache: pnpm
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
-      - name: Run Full Checks
-        run: pnpm run check
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Run PR Test Pipeline
+        run: pnpm run test:ci
+      - name: Run Pixel Golden
+        run: pnpm run test:golden:pixel
+      - name: Run Reader E2E
+        run: pnpm run test:e2e
       - name: Verify Packed Tarballs
         run: pnpm release:pack-check

@@ -1,62 +1,72 @@
 [
   {
     "id": "book-01",
-    "path": "epubs/book-01.epub",
+    "path": "book-01.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 12
   },
   {
     "id": "book-02",
-    "path": "epubs/book-02.epub",
+    "path": "book-02.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 10
   },
   {
     "id": "book-03",
-    "path": "epubs/book-03.epub",
+    "path": "book-03.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 15
   },
   {
     "id": "book-04",
-    "path": "epubs/book-04.epub",
+    "path": "book-04.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 13
   },
   {
     "id": "book-05",
-    "path": "epubs/book-05.epub",
+    "path": "book-05.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 9
   },
   {
     "id": "book-06",
-    "path": "epubs/book-06.epub",
+    "path": "book-06.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 18
   },
   {
     "id": "book-07",
-    "path": "epubs/book-07.epub",
+    "path": "book-07.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 9
   },
   {
     "id": "book-08",
-    "path": "epubs/book-08.epub",
+    "path": "book-08.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 13
   },
   {
     "id": "book-09",
-    "path": "epubs/book-09.epub",
+    "path": "book-09.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 16
   },
   {
     "id": "book-10",
-    "path": "epubs/book-10.epub",
+    "path": "book-10.epub",
     "enabled": true,
-    "tiers": ["smoke", "golden"]
+    "tiers": ["smoke", "golden", "render"],
+    "pixelFrontmatterSpreadCount": 11
   }
 ]

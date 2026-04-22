@@ -79,7 +79,9 @@ export function ReaderContextMenu({
   return (
     <ContextMenu>
       <input ref={inputRef} type="file" accept=".epub" className="hidden" onChange={handleChange} />
-      <ContextMenuTrigger className="relative flex flex-1">{children}</ContextMenuTrigger>
+      <ContextMenuTrigger data-testid="reader-context-trigger" className="relative flex flex-1">
+        {children}
+      </ContextMenuTrigger>
       <ContextMenuContent className="w-48">
         {hasSelection && (
           <>

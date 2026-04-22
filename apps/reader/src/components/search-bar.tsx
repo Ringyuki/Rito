@@ -45,6 +45,7 @@ export function SearchBar({ search, open, onOpenChange }: SearchBarProps) {
     >
       <Command shouldFilter={false}>
         <CommandInput
+          data-testid="reader-search-input"
           placeholder="Search in book..."
           value={search.query}
           onValueChange={search.setQuery}
@@ -60,10 +61,22 @@ export function SearchBar({ search, open, onOpenChange }: SearchBarProps) {
                     <Badge variant="secondary" className="text-xs tabular-nums">
                       {search.activeIndex + 1}/{count}
                     </Badge>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={search.prev}>
+                    <Button
+                      data-testid="reader-search-prev-button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={search.prev}
+                    >
                       <ChevronUp className="h-3 w-3" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={search.next}>
+                    <Button
+                      data-testid="reader-search-next-button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={search.next}
+                    >
                       <ChevronDown className="h-3 w-3" />
                     </Button>
                   </div>
@@ -72,6 +85,7 @@ export function SearchBar({ search, open, onOpenChange }: SearchBarProps) {
             >
               {search.results.map((result, i) => (
                 <CommandItem
+                  data-testid="reader-search-result"
                   key={`${String(result.pageIndex)}-${String(i)}`}
                   value={`result-${String(i)}`}
                   onSelect={() => {

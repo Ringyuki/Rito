@@ -17,12 +17,13 @@ export interface BookFixture {
   readonly tiers: readonly BookTier[];
   readonly smokeMaxChapters?: number;
   readonly goldenMaxChapters?: number;
+  readonly pixelFrontmatterSpreadCount?: number;
   readonly expectedFailure?: BookExpectedFailure;
 }
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 export const BOOK_FIXTURE_ROOT = resolve(HELPER_DIR, '../../fixtures/books');
-export const BOOK_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/books');
+export const LAYOUT_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/layout');
 const MANIFEST_PATH = resolve(BOOK_FIXTURE_ROOT, 'manifest.json');
 
 export function readBookManifest(): readonly BookFixture[] {
@@ -47,6 +48,11 @@ function parseBookFixture(value: unknown, index: number): BookFixture {
   const tiers = readTiers(value, index);
   const smokeMaxChapters = readOptionalPositiveInteger(value, 'smokeMaxChapters', index);
   const goldenMaxChapters = readOptionalPositiveInteger(value, 'goldenMaxChapters', index);
+  const pixelFrontmatterSpreadCount = readOptionalPositiveInteger(
+    value,
+    'pixelFrontmatterSpreadCount',
+    index,
+  );
   const expectedFailure = readOptionalExpectedFailure(value, index);
   return {
     id,
@@ -55,6 +61,7 @@ function parseBookFixture(value: unknown, index: number): BookFixture {
     tiers,
     ...(smokeMaxChapters !== undefined ? { smokeMaxChapters } : {}),
     ...(goldenMaxChapters !== undefined ? { goldenMaxChapters } : {}),
+    ...(pixelFrontmatterSpreadCount !== undefined ? { pixelFrontmatterSpreadCount } : {}),
     ...(expectedFailure !== undefined ? { expectedFailure } : {}),
   };
 }

@@ -29,6 +29,7 @@ export function FileActions({
   return (
     <>
       <Button
+        data-testid="load-demo-button"
         variant={variant}
         size={size}
         className={className}
@@ -39,6 +40,7 @@ export function FileActions({
         {demoLabel}
       </Button>
       <Button
+        data-testid="open-file-button"
         variant={variant}
         size={size}
         className={className}

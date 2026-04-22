@@ -5,10 +5,10 @@ This directory contains the opt-in full-book regression tests. Normal
 
 ## Fixture Layout
 
-- Put EPUB files in `packages/rito/tests/fixtures/books/epubs/`.
+- Put EPUB files in `packages/rito/tests/fixtures/books/`.
 - Register every book in `packages/rito/tests/fixtures/books/manifest.json`.
 - Generated golden files live under
-  `packages/rito/tests/golden/books/<book-id>/<config-id>.json`.
+  `packages/rito/tests/golden/layout/<book-id>/<config-id>.json`.
 
 ## Manifest Tiers
 
@@ -16,6 +16,8 @@ This directory contains the opt-in full-book regression tests. Normal
   config. Use this for broad fixture coverage.
 - `golden`: paginates the complete book and compares structured layout
   summaries across all golden configs.
+- `render`: enables selected pages from the book for render command golden
+  snapshots in `tests/golden-render`.
 - `quarantine`: keeps known unsupported books in the suite with an expected
   failure stage and message. Move a book out of quarantine when the parser or
   layout layer supports it.

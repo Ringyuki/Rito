@@ -34,8 +34,17 @@ export const SMOKE_CONFIG: GoldenBookConfig = {
 
 export function getGoldenBookConfigs(): readonly GoldenBookConfig[] {
   const selected = parseSelectedConfigIds(process.env['RITO_GOLDEN_CONFIGS']);
-  if (selected.size === 0) return ALL_GOLDEN_CONFIGS;
-  return ALL_GOLDEN_CONFIGS.filter((config) => selected.has(config.id));
+  const configs = getAllGoldenBookConfigs();
+  if (selected.size === 0) return configs;
+  return configs.filter((config) => selected.has(config.id));
+}
+
+export function getAllGoldenBookConfigs(): readonly GoldenBookConfig[] {
+  return ALL_GOLDEN_CONFIGS;
+}
+
+export function getGoldenBookConfigById(id: string): GoldenBookConfig | undefined {
+  return ALL_GOLDEN_CONFIGS.find((config) => config.id === id);
 }
 
 function parseSelectedConfigIds(value: string | undefined): ReadonlySet<string> {

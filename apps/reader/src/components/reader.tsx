@@ -37,9 +37,28 @@ export function Reader({
   onFileLoad,
 }: ReaderProps) {
   return (
-    <main ref={containerRef} className="relative flex flex-1 bg-muted/30 select-none">
+    <main
+      ref={containerRef}
+      data-testid="reader-shell"
+      data-loaded={reader.isLoaded ? 'true' : 'false'}
+      data-loading={reader.isLoading ? 'true' : 'false'}
+      data-current-spread={reader.currentSpread}
+      data-total-spreads={reader.totalSpreads}
+      data-book-title={reader.bookTitle}
+      data-active-chapter-href={reader.activeChapterHref}
+      data-spread-mode={reader.spreadMode}
+      data-theme={theme}
+      data-search-query={reader.search.query}
+      data-search-results={reader.search.results.length}
+      data-search-active-index={reader.search.activeIndex}
+      data-search-active-page={reader.search.activeResult?.pageIndex ?? ''}
+      className="relative flex flex-1 bg-muted/30 select-none"
+    >
       {reader.isLoading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+        <div
+          data-testid="reader-loading"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 text-muted-foreground"
+        >
           <Loader2 className="h-8 w-8 animate-spin" />
           <p className="text-sm">Loading...</p>
         </div>
@@ -57,7 +76,10 @@ export function Reader({
       )}
 
       {!reader.isLoaded && !reader.isLoading && !reader.error && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-muted-foreground">
+        <div
+          data-testid="reader-empty"
+          className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 text-muted-foreground"
+        >
           <p className="text-lg font-medium">Open an EPUB to start reading</p>
           <div className="flex gap-3">
             <FileActions onLoadDemo={onLoadDemo} onFileLoad={onFileLoad} />
