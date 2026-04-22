@@ -4,6 +4,7 @@ const browserChannel = process.env['PLAYWRIGHT_BROWSER_CHANNEL'];
 
 export default defineConfig({
   testDir: './tests/golden-pixel',
+  outputDir: './test-results/playwright',
   timeout: 120_000,
   fullyParallel: false,
   workers: 1,

@@ -8,6 +8,7 @@ export const PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/pixels');
 
 export const SHOULD_RUN_PIXEL_GOLDEN = process.env['RITO_PIXEL_GOLDEN'] === '1';
 export const SHOULD_UPDATE_PIXEL_GOLDEN = process.env['RITO_UPDATE_GOLDEN'] === '1';
+export const SHOULD_REVIEW_PIXEL_GOLDEN = process.env['RITO_PIXEL_REVIEW'] === '1';
 
 export function pixelGoldenFilePath(testCase: PixelGoldenCase): string {
   return resolve(PIXEL_GOLDEN_ROOT, `${testCase.id}.png`);

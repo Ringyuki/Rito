@@ -175,6 +175,7 @@ Commands:
 
 ```bash
 pnpm test:golden:pixel
+pnpm test:golden:pixel:review
 pnpm test:golden:pixel:update
 ```
 
@@ -182,6 +183,7 @@ Useful filters:
 
 ```bash
 RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel
+RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:review
 RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update
 ```
 
@@ -233,6 +235,25 @@ Pixel failures write Playwright test artifacts:
 
 - `actual.png`
 - `diff.png`
+
+For human review, use:
+
+```bash
+pnpm test:golden:pixel:review
+```
+
+This runs the same browser rendering path and writes a static comparison report
+without updating baselines:
+
+```text
+packages/rito/test-results/pixel-review/index.html
+```
+
+Each case includes `expected.png`, `actual.png`, `diff.png`, `metadata.json`,
+and an expected/actual overlay slider in the HTML report. Use this when a
+structured or render-command golden changes but pixel output needs a manual
+visual check before deciding whether to update the affected non-pixel
+baselines.
 
 ## Reader E2E
 

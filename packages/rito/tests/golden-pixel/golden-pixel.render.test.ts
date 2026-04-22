@@ -6,10 +6,18 @@ import { comparePng } from './helpers/png-diff';
 import { getPixelGoldenCases, type PixelGoldenCase } from './helpers/pixel-cases';
 import {
   readPixelGoldenFile,
+  SHOULD_REVIEW_PIXEL_GOLDEN,
   SHOULD_RUN_PIXEL_GOLDEN,
   SHOULD_UPDATE_PIXEL_GOLDEN,
   writePixelGoldenFile,
 } from './helpers/pixel-golden-file';
+import {
+  pixelReviewCasePaths,
+  resetPixelReviewReport,
+  writePixelReviewCase,
+  writePixelReviewIndex,
+  type PixelReviewRecord,
+} from './helpers/pixel-review';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
 
 interface BrowserRenderApi {
@@ -26,15 +34,24 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('golden pixel render snapshots', () => {
   const cases = getPixelGoldenCases();
+  const reviewRecords: PixelReviewRecord[] = [];
   let server: PixelRenderServer | undefined;
 
   test.skip(!SHOULD_RUN_PIXEL_GOLDEN, 'Set RITO_PIXEL_GOLDEN=1 to run pixel goldens');
 
   test.beforeAll(async () => {
+    if (SHOULD_UPDATE_PIXEL_GOLDEN && SHOULD_REVIEW_PIXEL_GOLDEN) {
+      throw new Error('RITO_PIXEL_REVIEW=1 cannot be combined with RITO_UPDATE_GOLDEN=1');
+    }
+    if (SHOULD_REVIEW_PIXEL_GOLDEN) await resetPixelReviewReport();
     server = await startPixelRenderServer();
   });
 
   test.afterAll(async () => {
+    if (SHOULD_REVIEW_PIXEL_GOLDEN) {
+      const indexPath = await writePixelReviewIndex(reviewRecords);
+      console.log(`Pixel review report: ${indexPath}`);
+    }
     if (!server) return;
     await server.close();
   });
@@ -55,6 +72,11 @@ test.describe('golden pixel render snapshots', () => {
       }
 
       const expected = await readPixelGoldenFile(testCase);
+      if (SHOULD_REVIEW_PIXEL_GOLDEN) {
+        reviewRecords.push(await reviewPixelCase(testCase, expected, actual));
+        return;
+      }
+
       expect(
         expected,
         'Run pnpm test:golden:pixel:update to create/update this golden',
@@ -104,6 +126,29 @@ async function renderPixelCase(
     },
   );
   return Buffer.from(pngBase64, 'base64');
+}
+
+async function reviewPixelCase(
+  testCase: PixelGoldenCase,
+  expected: Buffer | undefined,
+  actual: Buffer,
+): Promise<PixelReviewRecord> {
+  if (!expected) return await writePixelReviewCase({ testCase, actual });
+
+  const paths = pixelReviewCasePaths(testCase);
+  try {
+    const diff = await comparePng(expected, actual, testCase, paths.diffPath, {
+      writeDiffWhenEqual: true,
+    });
+    return await writePixelReviewCase({ testCase, actual, expected, diff });
+  } catch (error) {
+    return await writePixelReviewCase({
+      testCase,
+      actual,
+      expected,
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 }
 
 async function waitForRenderApi(page: Page, diagnostics: readonly string[]): Promise<void> {

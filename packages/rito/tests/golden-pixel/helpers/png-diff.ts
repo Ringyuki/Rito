@@ -11,11 +11,16 @@ export interface PixelDiffResult {
   readonly diffRatio: number;
 }
 
+export interface PixelDiffOptions {
+  readonly writeDiffWhenEqual?: boolean;
+}
+
 export async function comparePng(
   expected: Buffer,
   actual: Buffer,
   testCase: PixelGoldenCase,
   diffPath: string,
+  options: PixelDiffOptions = {},
 ): Promise<PixelDiffResult> {
   const expectedPng = PNG.sync.read(expected);
   const actualPng = PNG.sync.read(actual);
@@ -31,7 +36,7 @@ export async function comparePng(
     { threshold: testCase.threshold },
   );
 
-  if (diffPixels > 0) {
+  if (diffPixels > 0 || options.writeDiffWhenEqual === true) {
     await mkdir(dirname(diffPath), { recursive: true });
     await writeFile(diffPath, PNG.sync.write(diff));
   }

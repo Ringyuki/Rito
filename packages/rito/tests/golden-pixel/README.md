@@ -18,12 +18,24 @@ compares the final Canvas PNG output with checked-in image goldens.
 ## Commands
 
 - `pnpm test:golden:pixel`: compare pixel goldens.
+- `pnpm test:golden:pixel:review`: render a human-reviewable comparison report without updating goldens.
 - `pnpm test:golden:pixel:update`: regenerate pixel goldens.
 
 Useful filters:
 
 - `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel`
+- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:review`
 - `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update`
+
+The review command writes a static report to:
+
+```text
+packages/rito/test-results/pixel-review/index.html
+```
+
+Each case directory contains `expected.png`, `actual.png`, `diff.png`, and
+`metadata.json`. The command uses the checked-in baselines only as inputs; it
+does not update or overwrite them.
 
 ## Browser Setup
 

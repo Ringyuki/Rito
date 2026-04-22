@@ -20,8 +20,17 @@ export async function startPixelRenderServer(): Promise<PixelRenderServer> {
     void handleRequest(request, response);
   });
 
-  await new Promise<void>((resolveServer) => {
-    server.listen(0, '127.0.0.1', resolveServer);
+  await new Promise<void>((resolveServer, rejectServer) => {
+    const handleError = (error: Error): void => {
+      server.off('listening', handleListening);
+      rejectServer(error);
+    };
+    const handleListening = (): void => {
+      server.off('error', handleError);
+      resolveServer();
+    };
+    server.once('error', handleError);
+    server.listen(0, '127.0.0.1', handleListening);
   });
 
   const address = server.address();
