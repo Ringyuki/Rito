@@ -2,7 +2,12 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readBookManifest } from '../golden-books/helpers/book-manifest';
-import { getAllPixelGoldenCases } from '../golden-pixel/helpers/pixel-cases';
+import {
+  getAllFullPixelGoldenRuns,
+  getAllPixelGoldenProfiles,
+  getAllPixelGoldenRuns,
+  getCommittedPixelGoldenProfiles,
+} from '../golden-pixel/helpers/pixel-cases';
 import { RENDER_GOLDEN_ROOT } from '../golden-render/helpers/render-golden-file';
 import type { RenderFeature } from '../golden-render/helpers/render-page-selection';
 
@@ -71,23 +76,24 @@ const REQUIRED_CANVAS_PROPERTIES = [
 ] as const;
 
 const REQUIRED_PIXEL_TAGS = [
+  'curated-sample',
   'frontmatter',
-  'cover',
+  'body',
   'pre-body',
-  'image',
-  'page-background',
-  'text',
-  'text-shadow',
-  'inline-background',
-  'high-dpi',
-  'ruby',
-  'block-background',
-  'block-transform',
-  'clip',
-  'inline-border',
-  'horizontal-rule',
+  'post-body',
+  'line-breaking',
+  'greedy',
+  'knuth-plass',
+  'single-page',
+  'double-page',
+  'default-layout',
   'narrow-layout',
+  'wide-layout',
+  'line-breaking-stress',
+  'high-dpi',
 ] as const;
+
+const REQUIRED_FULL_PIXEL_TAGS = ['full-book', 'double-page', 'high-dpi'] as const;
 
 describe('golden coverage', () => {
   it('keeps render command goldens covering required page features', () => {
@@ -113,23 +119,33 @@ describe('golden coverage', () => {
   });
 
   it('keeps pixel goldens covering final-output feature tags', () => {
-    const tags = new Set(getAllPixelGoldenCases().flatMap((testCase) => testCase.tags));
+    const tags = new Set(getAllPixelGoldenRuns().flatMap((run) => run.tags));
     expect([...tags].sort()).toEqual(expect.arrayContaining([...REQUIRED_PIXEL_TAGS].sort()));
   });
 
-  it('keeps pixel goldens covering frontmatter spreads for every render book', () => {
-    const expected = new Set(
-      readBookManifest()
-        .filter((book) => book.enabled && book.tiers.includes('render'))
-        .flatMap((book) => frontmatterKeys(book.id, requireFrontmatterSpreadCount(book))),
+  it('keeps committed pixel goldens covering every render book with committed profiles', () => {
+    const profiles = getCommittedPixelGoldenProfiles();
+    const expected = renderBookIds().flatMap((bookId) =>
+      profiles.map((profile) => pixelProfileKey(bookId, profile.id)),
     );
     const actual = new Set(
-      getAllPixelGoldenCases()
-        .filter((testCase) => testCase.tags.includes('frontmatter'))
-        .map((testCase) => pixelCaseKey(testCase.bookId, testCase.spreadIndex)),
+      getAllPixelGoldenRuns().map((run) => pixelProfileKey(run.bookId, run.profile.id)),
     );
 
-    expect(actual).toEqual(expected);
+    expect(actual).toEqual(new Set(expected));
+  });
+
+  it('keeps optional full pixel runs covering every render book with every profile', () => {
+    const profiles = getAllPixelGoldenProfiles();
+    const expected = renderBookIds().flatMap((bookId) =>
+      profiles.map((profile) => pixelProfileKey(bookId, profile.id)),
+    );
+    const fullRuns = getAllFullPixelGoldenRuns();
+    const actual = new Set(fullRuns.map((run) => pixelProfileKey(run.bookId, run.profile.id)));
+    const tags = new Set(fullRuns.flatMap((run) => run.tags));
+
+    expect(actual).toEqual(new Set(expected));
+    expect([...tags].sort()).toEqual(expect.arrayContaining([...REQUIRED_FULL_PIXEL_TAGS].sort()));
   });
 });
 
@@ -185,16 +201,12 @@ function collectJsonFiles(root: string): readonly string[] {
   });
 }
 
-function frontmatterKeys(bookId: string, count: number): readonly string[] {
-  return Array.from({ length: count }, (_, spreadIndex) => pixelCaseKey(bookId, spreadIndex));
+function renderBookIds(): readonly string[] {
+  return readBookManifest()
+    .filter((book) => book.enabled && book.tiers.includes('render'))
+    .map((book) => book.id);
 }
 
-function pixelCaseKey(bookId: string, spreadIndex: number): string {
-  return `${bookId}:${String(spreadIndex)}`;
-}
-
-function requireFrontmatterSpreadCount(book: ReturnType<typeof readBookManifest>[number]): number {
-  const count = book.pixelFrontmatterSpreadCount;
-  expect(count, `${book.id} must define pixelFrontmatterSpreadCount`).toBeDefined();
-  return count ?? 0;
+function pixelProfileKey(bookId: string, profileId: string): string {
+  return `${bookId}:${profileId}`;
 }

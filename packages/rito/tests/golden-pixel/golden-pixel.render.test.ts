@@ -1,27 +1,38 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { test, expect, type Page } from '@playwright/test';
 import { BOOK_FIXTURE_ROOT } from '../golden-books/helpers/book-manifest';
-import { comparePng } from './helpers/png-diff';
-import { getPixelGoldenCases, type PixelGoldenCase } from './helpers/pixel-cases';
+import { getPixelGoldenRuns, type PixelGoldenRun } from './helpers/pixel-cases';
 import {
-  readPixelGoldenFile,
   SHOULD_REVIEW_PIXEL_GOLDEN,
   SHOULD_RUN_PIXEL_GOLDEN,
   SHOULD_UPDATE_PIXEL_GOLDEN,
-  writePixelGoldenFile,
 } from './helpers/pixel-golden-file';
 import {
-  pixelReviewCasePaths,
   resetPixelReviewReport,
-  writePixelReviewCase,
   writePixelReviewIndex,
   type PixelReviewRecord,
 } from './helpers/pixel-review';
+import {
+  comparePixelRun,
+  reviewPixelRun,
+  updatePixelRunGoldens,
+  type PixelRunRenderResult,
+} from './helpers/pixel-run-assertions';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
 
 interface BrowserRenderApi {
-  renderRitoPixelCase(testCase: PixelGoldenCase, bookBase64: string): Promise<string>;
+  renderRitoPixelRun(testRun: PixelGoldenRun, bookBase64: string): Promise<BrowserPixelRunResult>;
+}
+
+interface BrowserPixelRunResult {
+  readonly totalSpreads: number;
+  readonly spreads: readonly BrowserPixelSpread[];
+}
+
+interface BrowserPixelSpread {
+  readonly spreadIndex: number;
+  readonly pngBase64: string;
 }
 
 interface BrowserRenderWindow extends Partial<BrowserRenderApi> {
@@ -29,11 +40,12 @@ interface BrowserRenderWindow extends Partial<BrowserRenderApi> {
 }
 
 const PAGE_READY_TIMEOUT_MS = 30_000;
+const PIXEL_TEST_MODE = SHOULD_REVIEW_PIXEL_GOLDEN ? 'serial' : 'parallel';
 
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: PIXEL_TEST_MODE });
 
 test.describe('golden pixel render snapshots', () => {
-  const cases = getPixelGoldenCases();
+  const runs = getPixelGoldenRuns();
   const reviewRecords: PixelReviewRecord[] = [];
   let server: PixelRenderServer | undefined;
 
@@ -56,54 +68,37 @@ test.describe('golden pixel render snapshots', () => {
     await server.close();
   });
 
-  test('has enabled pixel cases', () => {
-    expect(cases.length).toBeGreaterThan(0);
+  test('has enabled pixel runs', () => {
+    expect(runs.length).toBeGreaterThan(0);
   });
 
-  for (const { testCase, book } of cases) {
-    test(testCase.id, async ({ page }, testInfo) => {
+  for (const { run, book } of runs) {
+    test(run.id, async ({ page }, testInfo) => {
       if (!server) throw new Error('Pixel render server did not start');
       const bookBytes = await readFile(resolve(BOOK_FIXTURE_ROOT, book.path));
-      const actual = await renderPixelCase(page, server.origin, testCase, bookBytes);
+      const result = await renderPixelRun(page, server.origin, run, bookBytes);
 
       if (SHOULD_UPDATE_PIXEL_GOLDEN) {
-        await writePixelGoldenFile(testCase, actual);
+        await updatePixelRunGoldens(run, result);
         return;
       }
 
-      const expected = await readPixelGoldenFile(testCase);
       if (SHOULD_REVIEW_PIXEL_GOLDEN) {
-        reviewRecords.push(await reviewPixelCase(testCase, expected, actual));
+        reviewRecords.push(...(await reviewPixelRun(run, result)));
         return;
       }
 
-      expect(
-        expected,
-        'Run pnpm test:golden:pixel:update to create/update this golden',
-      ).toBeDefined();
-      if (!expected) return;
-
-      const actualPath = testInfo.outputPath(`${testCase.id}-actual.png`);
-      const diffPath = testInfo.outputPath(`${testCase.id}-diff.png`);
-      const result = await comparePng(expected, actual, testCase, diffPath);
-      if (result.diffRatio > testCase.maxDiffPixelRatio) {
-        await writeOutput(actualPath, actual);
-      }
-
-      expect(
-        result.diffRatio,
-        formatDiffMessage(testCase, result.diffPixels, result.diffRatio),
-      ).toBeLessThanOrEqual(testCase.maxDiffPixelRatio);
+      await comparePixelRun(run, result, testInfo);
     });
   }
 });
 
-async function renderPixelCase(
+async function renderPixelRun(
   page: Page,
   origin: string,
-  testCase: PixelGoldenCase,
+  testRun: PixelGoldenRun,
   bookBytes: Buffer,
-): Promise<Buffer> {
+): Promise<PixelRunRenderResult> {
   const diagnostics: string[] = [];
   page.on('console', (message) => {
     if (message.type() === 'error') diagnostics.push(`console error: ${message.text()}`);
@@ -115,49 +110,30 @@ async function renderPixelCase(
   await page.goto(`${origin}/render.html`);
   await waitForRenderApi(page, diagnostics);
 
-  const pngBase64 = await page.evaluate(
-    async ({ browserCase, bookBase64 }) => {
+  const result = await page.evaluate(
+    async ({ browserRun, bookBase64 }) => {
       const api = window as unknown as BrowserRenderApi;
-      return api.renderRitoPixelCase(browserCase, bookBase64);
+      return api.renderRitoPixelRun(browserRun, bookBase64);
     },
     {
-      browserCase: testCase,
+      browserRun: testRun,
       bookBase64: bookBytes.toString('base64'),
     },
   );
-  return Buffer.from(pngBase64, 'base64');
-}
-
-async function reviewPixelCase(
-  testCase: PixelGoldenCase,
-  expected: Buffer | undefined,
-  actual: Buffer,
-): Promise<PixelReviewRecord> {
-  if (!expected) return await writePixelReviewCase({ testCase, actual });
-
-  const paths = pixelReviewCasePaths(testCase);
-  try {
-    const diff = await comparePng(expected, actual, testCase, paths.diffPath, {
-      writeDiffWhenEqual: true,
-    });
-    return await writePixelReviewCase({ testCase, actual, expected, diff });
-  } catch (error) {
-    return await writePixelReviewCase({
-      testCase,
-      actual,
-      expected,
-      error: error instanceof Error ? error.message : String(error),
-    });
-  }
+  return {
+    totalSpreads: result.totalSpreads,
+    spreads: result.spreads.map((spread) => ({
+      spreadIndex: spread.spreadIndex,
+      png: Buffer.from(spread.pngBase64, 'base64'),
+    })),
+  };
 }
 
 async function waitForRenderApi(page: Page, diagnostics: readonly string[]): Promise<void> {
   await page.waitForFunction(
     () => {
       const api = window as unknown as BrowserRenderWindow;
-      return (
-        typeof api.renderRitoPixelCase === 'function' || api.renderRitoPixelReady !== 'loading'
-      );
+      return typeof api.renderRitoPixelRun === 'function' || api.renderRitoPixelReady !== 'loading';
     },
     undefined,
     { timeout: PAGE_READY_TIMEOUT_MS },
@@ -166,7 +142,7 @@ async function waitForRenderApi(page: Page, diagnostics: readonly string[]): Pro
   const readyState = await page.evaluate(() => {
     const api = window as unknown as BrowserRenderWindow;
     return {
-      hasApi: typeof api.renderRitoPixelCase === 'function',
+      hasApi: typeof api.renderRitoPixelRun === 'function',
       ready: api.renderRitoPixelReady,
     };
   });
@@ -177,19 +153,4 @@ async function waitForRenderApi(page: Page, diagnostics: readonly string[]): Pro
   throw new Error(
     `Rito pixel render page failed to load: ${readyState.ready ?? 'unknown'}${details}`,
   );
-}
-
-async function writeOutput(path: string, content: Buffer): Promise<void> {
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, content);
-}
-
-function formatDiffMessage(
-  testCase: PixelGoldenCase,
-  diffPixels: number,
-  diffRatio: number,
-): string {
-  return `${testCase.id} pixel diff ${String(diffPixels)} (${diffRatio.toFixed(6)}) exceeds ${String(
-    testCase.maxDiffPixelRatio,
-  )}`;
 }

@@ -13,8 +13,15 @@ import {
   renderGoldenFilePath,
   RENDER_GOLDEN_ROOT,
 } from '../golden-render/helpers/render-golden-file';
-import { getAllPixelGoldenCases } from '../golden-pixel/helpers/pixel-cases';
-import { pixelGoldenFilePath, PIXEL_GOLDEN_ROOT } from '../golden-pixel/helpers/pixel-golden-file';
+import {
+  getCommittedPixelRunCountPerBook,
+  getAllPixelGoldenProfiles,
+  getAllFullPixelGoldenRuns,
+  getAllPixelGoldenRuns,
+  getAllPixelLineBreaking,
+  type PixelGoldenRun,
+} from '../golden-pixel/helpers/pixel-cases';
+import { COMMITTED_PIXEL_GOLDEN_ROOT } from '../golden-pixel/helpers/pixel-golden-file';
 
 const GOLDEN_CONFIGS = getAllGoldenBookConfigs();
 const GOLDEN_ROOT = resolve(LAYOUT_GOLDEN_ROOT, '..');
@@ -64,14 +71,60 @@ describe('golden inventory', () => {
     expect(relativeFiles(RENDER_GOLDEN_ROOT)).toEqual(expected);
   });
 
-  it('has exactly one pixel golden per pixel case', () => {
-    const cases = getAllPixelGoldenCases();
+  it('defines committed pixel runs for every render fixture, profile, and line breaker', () => {
+    const runs = getAllPixelGoldenRuns();
     const renderBookIds = new Set(enabledTierBooks(books, 'render').map((book) => book.id));
-    const expected = cases.map((testCase) => relativePixelGoldenFile(testCase)).sort();
+    const expectedRunCount = renderBookIds.size * getCommittedPixelRunCountPerBook();
 
-    expect(uniqueValues(cases.map((testCase) => testCase.id))).toHaveLength(cases.length);
-    expect(cases.every((testCase) => renderBookIds.has(testCase.bookId))).toBe(true);
-    expect(relativeFiles(PIXEL_GOLDEN_ROOT)).toEqual(expected);
+    expect(uniqueValues(runs.map((run) => run.id))).toHaveLength(runs.length);
+    expect(runs).toHaveLength(expectedRunCount);
+    expect(runs.every((run) => renderBookIds.has(run.bookId))).toBe(true);
+  });
+
+  it('keeps full frontmatter coverage in every committed pixel run', () => {
+    const frontmatterCounts = new Map(
+      enabledTierBooks(books, 'render').map((book) => [book.id, book.pixelFrontmatterSpreadCount]),
+    );
+
+    for (const run of getAllPixelGoldenRuns()) {
+      expect(run.spreadSelection.mode, run.id).toBe('curated');
+      expect(run.spreadSelection.frontmatterSpreadCount, run.id).toBe(
+        frontmatterCounts.get(run.bookId),
+      );
+    }
+  });
+
+  it('defines optional full pixel runs for every render fixture, profile, and line breaker', () => {
+    const runs = getAllFullPixelGoldenRuns();
+    const renderBookIds = new Set(enabledTierBooks(books, 'render').map((book) => book.id));
+    const expectedRunCount =
+      renderBookIds.size * getAllPixelGoldenProfiles().length * getAllPixelLineBreaking().length;
+
+    expect(uniqueValues(runs.map((run) => run.id))).toHaveLength(runs.length);
+    expect(runs).toHaveLength(expectedRunCount);
+    expect(runs.every((run) => renderBookIds.has(run.bookId))).toBe(true);
+  });
+
+  it('keeps pixel goldens grouped by book directories', () => {
+    const entries = readdirSync(COMMITTED_PIXEL_GOLDEN_ROOT, { withFileTypes: true }).filter(
+      (entry) => !entry.name.startsWith('.'),
+    );
+    const renderBookIds = enabledTierBooks(books, 'render')
+      .map((book) => book.id)
+      .sort();
+
+    expect(entries.every((entry) => entry.isDirectory())).toBe(true);
+    expect(entries.map((entry) => entry.name).sort()).toEqual(renderBookIds);
+  });
+
+  it('has exactly one committed pixel summary per committed run', () => {
+    const runs = getAllPixelGoldenRuns();
+    const expected = runs.map(expectedPixelSummaryFile).sort();
+    const actual = relativeFiles(COMMITTED_PIXEL_GOLDEN_ROOT)
+      .filter((file) => file.endsWith('/summary.json'))
+      .sort();
+
+    expect(actual).toEqual(expected);
   });
 });
 
@@ -96,14 +149,14 @@ function expectedRenderGoldenFiles(books: readonly BookFixture[]): readonly stri
     .sort();
 }
 
+function expectedPixelSummaryFile(run: PixelGoldenRun): string {
+  return `${run.bookId}/${run.profile.id}/${run.lineBreaking}/summary.json`;
+}
+
 function relativeFiles(root: string): readonly string[] {
   return collectFiles(root)
     .map((file) => relativeFile(root, file))
     .sort();
-}
-
-function relativePixelGoldenFile(testCase: ReturnType<typeof getAllPixelGoldenCases>[number]) {
-  return relativeFile(PIXEL_GOLDEN_ROOT, pixelGoldenFilePath(testCase));
 }
 
 function collectFiles(root: string): readonly string[] {

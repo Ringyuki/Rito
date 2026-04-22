@@ -1,0 +1,14 @@
+{
+  "bookId": "book-10",
+  "profileId": "single-narrow",
+  "lineBreaking": "optimal",
+  "totalSpreads": 510,
+  "width": 360,
+  "height": 640,
+  "margin": 28,
+  "spread": "single",
+  "spreadGap": 0,
+  "devicePixelRatio": 1,
+  "threshold": 0.08,
+  "maxDiffPixelRatio": 0.015
+}

@@ -1,19 +1,21 @@
 # Golden Pixel Fixtures
 
 This directory contains the Playwright-based pixel regression tests. The suite
-renders selected real EPUB spreads through the public `createReader` API and
-compares the final Canvas PNG output with checked-in image goldens.
+renders curated real-book spreads through the public `createReader` API and
+compares the final Canvas PNG output with checked-in image goldens. A full-book
+matrix is still available as an opt-in external-baseline mode.
 
 ## Fixture Layout
 
-- Pixel cases live in `tests/golden-pixel/helpers/pixel-cases.ts`.
+- Pixel profiles live in `tests/golden-pixel/helpers/pixel-profile-config.ts`;
+  run selection lives in `pixel-cases.ts` and `pixel-spread-selection.ts`.
 - Books used by pixel cases must include the `render` tier in
   `tests/fixtures/books/manifest.json`.
-- Every render-tier book must declare `pixelFrontmatterSpreadCount` in
-  `tests/fixtures/books/manifest.json`. Those frontmatter spreads cover
-  representative covers, production notes, introductions, color pages, and
-  tables of contents before the first body spread.
-- Generated PNG goldens live under `tests/golden/pixels/`.
+- Generated PNG goldens live under
+  `tests/golden/pixels/{book}/{profile}/{lineBreaking}/`.
+- Each run directory contains `summary.json` plus selected `spread-0000.png`
+  files. The summary still records the full spread count so pagination changes
+  remain visible.
 
 ## Commands
 
@@ -23,9 +25,38 @@ compares the final Canvas PNG output with checked-in image goldens.
 
 Useful filters:
 
-- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel`
-- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:review`
-- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update`
+- `RITO_PIXEL_BOOKS=book-03 pnpm test:golden:pixel`
+- `RITO_PIXEL_PROFILES=single-narrow pnpm test:golden:pixel:review`
+- `RITO_PIXEL_LINE_BREAKING=optimal pnpm test:golden:pixel`
+- `RITO_PIXEL_SPREADS=0,1 pnpm test:golden:pixel:review`
+- `RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel`
+- `RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update`
+- `RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel`
+
+Compare and update mode use 2 workers by default. Increase
+`RITO_PIXEL_WORKERS` only when the machine has enough CPU, memory, and disk I/O
+for parallel full-book PNG rendering. Review mode is forced to 1 worker because
+it writes one combined HTML report.
+
+Default scope is `curated`: every render-tier book, both line breakers on the
+text-primary profiles, and focused supplemental profile coverage:
+
+- `single-default`: `greedy`, `optimal`.
+- `single-narrow`: `greedy`, `optimal`.
+- `single-wide`: `greedy`.
+- `single-default-dpr2`: `greedy`.
+- `double-default`: `greedy`.
+
+Every committed run includes all manifest-declared frontmatter spreads for its
+book, plus body/tail anchor spreads. The pre-body pages are intentionally not
+sampled down because they are the representative real-world cases for covers,
+production notes, introductions, color pages, and tables of contents.
+
+`RITO_PIXEL_SCOPE=full` switches to every profile and every spread. Its default
+baseline root is `packages/rito/test-results/pixel-full-baselines`, not the
+committed `tests/golden/pixels` tree, so full baselines do not inflate the git
+repository. Use `RITO_PIXEL_BASELINE_ROOT` to compare against a restored
+external baseline.
 
 The review command writes a static report to:
 
@@ -33,9 +64,10 @@ The review command writes a static report to:
 packages/rito/test-results/pixel-review/index.html
 ```
 
-Each case directory contains `expected.png`, `actual.png`, `diff.png`, and
-`metadata.json`. The command uses the checked-in baselines only as inputs; it
-does not update or overwrite them.
+Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
+`metadata.json`. The report can switch by book, profile, line-breaking mode,
+and spread. The command uses the checked-in baselines only as inputs; it does
+not update or overwrite them.
 
 ## Browser Setup
 

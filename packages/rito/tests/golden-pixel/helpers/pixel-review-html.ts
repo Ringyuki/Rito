@@ -1,26 +1,21 @@
 import { pixelReviewCss } from './pixel-review-assets';
 import { pixelReviewScript } from './pixel-review-script';
-import type { PixelReviewRecord, PixelReviewStatus } from './pixel-review';
-
-interface BookReviewGroup {
-  readonly bookId: string;
-  readonly records: readonly PixelReviewRecord[];
-  readonly problemCount: number;
-}
-
-const REVIEW_STATUS_ORDER: readonly PixelReviewStatus[] = [
-  'fail',
-  'error',
-  'missing',
-  'warn',
-  'pass',
-];
+import {
+  groupRecordsByBook,
+  initialSelectedGroup,
+  isProblemRecord,
+  summaryText,
+  type BookReviewGroup,
+  type RunReviewGroup,
+  type SelectedReviewGroup,
+} from './pixel-review-groups';
+import type { PixelReviewRecord } from './pixel-review';
 
 export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): string {
   const sorted = [...records].sort(compareReviewRecords);
   const groups = groupRecordsByBook(sorted);
   const problems = sorted.filter(isProblemRecord);
-  const selectedBookId = initialSelectedBookId(groups);
+  const selected = initialSelectedGroup(groups);
   const title = `Rito Pixel Review (${String(sorted.length)} cases)`;
   return `<!doctype html>
 <html lang="en">
@@ -43,12 +38,12 @@ export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): st
     <section class="nav-section">
       <h2>Books</h2>
       <div class="book-links">${groups
-        .map((group) => renderBookButton(group, selectedBookId))
+        .map((group) => renderBookButton(group, selected.bookId))
         .join('')}</div>
     </section>
   </nav>
   <main class="books">
-    ${groups.map((group) => renderBookGroup(group, selectedBookId)).join('\n')}
+    ${groups.map((group) => renderBookGroup(group, selected)).join('\n')}
   </main>
   <button class="top-button" type="button" data-scroll-top>Top</button>
   <script>${pixelReviewScript()}</script>
@@ -68,7 +63,7 @@ function renderProblemLink(record: PixelReviewRecord): string {
   return `<li>
   <a class="problem-link status-${record.status}" href="#${caseAnchor(
     record.id,
-  )}" data-book-target="${escapeHtml(record.bookId)}">
+  )}" data-book-target="${escapeHtml(record.bookId)}" data-run-target="${escapeHtml(record.runId)}">
     <span>${escapeHtml(record.status.toUpperCase())}</span>
     <strong>${escapeHtml(record.id)}</strong>
     <em>${escapeHtml(diffText(record))}</em>
@@ -88,8 +83,8 @@ function renderBookButton(group: BookReviewGroup, selectedBookId: string | undef
 </button>`;
 }
 
-function renderBookGroup(group: BookReviewGroup, selectedBookId: string | undefined): string {
-  const activeClass = group.bookId === selectedBookId ? ' is-active' : '';
+function renderBookGroup(group: BookReviewGroup, selected: SelectedReviewGroup): string {
+  const activeClass = group.bookId === selected.bookId ? ' is-active' : '';
   return `<section class="book-view${activeClass}" id="${bookAnchor(
     group.bookId,
   )}" data-book-panel="${escapeHtml(group.bookId)}">
@@ -97,9 +92,29 @@ function renderBookGroup(group: BookReviewGroup, selectedBookId: string | undefi
     <strong>${escapeHtml(group.bookId)}</strong>
     <span>${String(group.records.length)} cases / ${escapeHtml(summaryText(group.records))}</span>
   </header>
+  <div class="run-links">${group.runs.map((run) => renderRunButton(run, selected)).join('')}</div>
   <div class="book-cases">
-    ${group.records.map(renderReviewCard).join('\n')}
+    ${group.runs.map((run) => renderRunGroup(run, selected)).join('\n')}
   </div>
+</section>`;
+}
+
+function renderRunButton(run: RunReviewGroup, selected: SelectedReviewGroup): string {
+  const activeClass = run.runId === selected.runId ? ' is-active' : '';
+  const problemClass = run.problemCount > 0 ? 'run-link-problem' : 'run-link-pass';
+  return `<button class="run-link ${problemClass}${activeClass}" type="button" data-book-target="${escapeHtml(
+    run.records[0]?.bookId ?? '',
+  )}" data-run-target="${escapeHtml(run.runId)}">
+  <strong>${escapeHtml(run.profileId)}</strong>
+  <span>${escapeHtml(run.lineBreaking)}</span>
+  <em>${String(run.problemCount)} non-pass</em>
+</button>`;
+}
+
+function renderRunGroup(run: RunReviewGroup, selected: SelectedReviewGroup): string {
+  const activeClass = run.runId === selected.runId ? ' is-active' : '';
+  return `<section class="run-view${activeClass}" data-run-panel="${escapeHtml(run.runId)}">
+  ${run.records.map(renderReviewCard).join('\n')}
 </section>`;
 }
 
@@ -121,8 +136,14 @@ function renderReviewCard(record: PixelReviewRecord): string {
 }
 
 function renderImages(record: PixelReviewRecord): string {
-  if (!record.expectedPath || !record.diffPath) {
+  if (!record.expectedPath) {
     return `<section class="single-image">${imageHtml('Actual', record.actualPath)}</section>`;
+  }
+  if (!record.diffPath) {
+    return `<section class="image-grid">
+  ${imageHtml('Expected', record.expectedPath)}
+  ${imageHtml('Actual', record.actualPath)}
+</section>`;
   }
   return `<section class="image-grid">
   ${imageHtml('Expected', record.expectedPath)}
@@ -149,11 +170,13 @@ function imageHtml(label: string, path: string): string {
 function renderMetrics(record: PixelReviewRecord): string {
   return [
     metricHtml('Book', record.bookId),
-    metricHtml('Spread', String(record.spreadIndex)),
+    metricHtml('Profile', record.profileId),
+    metricHtml('Spread', `${String(record.spreadIndex)} / ${String(record.totalSpreads)}`),
     metricHtml(
       'Viewport',
       `${String(record.width)}x${String(record.height)} @${String(record.devicePixelRatio)}x`,
     ),
+    metricHtml('Spread mode', record.spread),
     metricHtml('Line breaking', record.lineBreaking),
     metricHtml('Diff', diffText(record)),
     metricHtml('Limit', ratioText(record.maxDiffPixelRatio)),
@@ -168,30 +191,10 @@ function renderTag(tag: string): string {
   return `<span>${escapeHtml(tag)}</span>`;
 }
 
-function groupRecordsByBook(records: readonly PixelReviewRecord[]): readonly BookReviewGroup[] {
-  const groups = new Map<string, PixelReviewRecord[]>();
-  for (const record of records) {
-    const group = groups.get(record.bookId) ?? [];
-    group.push(record);
-    groups.set(record.bookId, group);
-  }
-  return [...groups.entries()]
-    .map(([bookId, groupRecords]) => ({
-      bookId,
-      records: groupRecords,
-      problemCount: groupRecords.filter(isProblemRecord).length,
-    }))
-    .sort(compareBookGroups);
-}
-
-function initialSelectedBookId(groups: readonly BookReviewGroup[]): string | undefined {
-  return groups.find((group) => group.problemCount > 0)?.bookId ?? groups[0]?.bookId;
-}
-
 function caseSubtitle(record: PixelReviewRecord): string {
-  return `${record.bookId} spread ${String(record.spreadIndex)} / ${String(
-    record.width,
-  )}x${String(record.height)} margin ${String(record.margin)}`;
+  return `${record.bookId} / ${record.profileId} / ${record.lineBreaking} / spread ${String(
+    record.spreadIndex,
+  )}`;
 }
 
 function diffText(record: PixelReviewRecord): string {
@@ -203,24 +206,8 @@ function ratioText(value: number): string {
   return `${(value * 100).toFixed(3)}%`;
 }
 
-function summaryText(records: readonly PixelReviewRecord[]): string {
-  const counts = new Map<PixelReviewStatus, number>();
-  for (const record of records) counts.set(record.status, (counts.get(record.status) ?? 0) + 1);
-  return REVIEW_STATUS_ORDER.map((status) => `${status}: ${String(counts.get(status) ?? 0)}`).join(
-    ' / ',
-  );
-}
-
 function compareReviewRecords(left: PixelReviewRecord, right: PixelReviewRecord): number {
   return left.id.localeCompare(right.id);
-}
-
-function compareBookGroups(left: BookReviewGroup, right: BookReviewGroup): number {
-  return left.bookId.localeCompare(right.bookId);
-}
-
-function isProblemRecord(record: PixelReviewRecord): boolean {
-  return record.status !== 'pass';
 }
 
 function bookAnchor(bookId: string): string {

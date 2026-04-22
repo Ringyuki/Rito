@@ -147,35 +147,89 @@ function renderHtml(): string {
   import('/dist/index.mjs')
     .then(({ createReader }) => {
       window.renderRitoPixelReady = 'ready';
-      window.renderRitoPixelCase = async (testCase, bookBase64) => {
+      window.renderRitoPixelRun = async (testRun, bookBase64) => {
         const canvas = document.getElementById('canvas');
         const reader = await createReader(base64ToArrayBuffer(bookBase64), canvas, {
-          width: testCase.width,
-          height: testCase.height,
-          margin: testCase.margin,
-          spread: 'single',
-          lineBreaking: testCase.lineBreaking,
-          devicePixelRatio: testCase.devicePixelRatio,
+          width: testRun.profile.width,
+          height: testRun.profile.height,
+          margin: testRun.profile.margin,
+          spread: testRun.profile.spread,
+          spreadGap: testRun.profile.spreadGap,
+          lineBreaking: testRun.lineBreaking,
+          devicePixelRatio: testRun.profile.devicePixelRatio,
           backgroundColor: '#ffffff',
           logLevel: 'silent',
         });
 
-        if (testCase.spreadIndex >= reader.totalSpreads) {
-          const total = reader.totalSpreads;
+        const totalSpreads = reader.totalSpreads;
+        const spreadIndexes = spreadIndexesForRun(testRun, totalSpreads);
+        const invalidSpread = spreadIndexes.find((spreadIndex) => spreadIndex >= totalSpreads);
+        if (invalidSpread !== undefined) {
           reader.dispose();
-          throw new Error(\`Spread \${testCase.spreadIndex} is outside totalSpreads=\${total}\`);
+          throw new Error(
+            \`Spread \${invalidSpread} is outside totalSpreads=\${totalSpreads}\`,
+          );
         }
 
-        reader.renderSpread(testCase.spreadIndex);
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        const dataUrl = canvas.toDataURL('image/png');
+        const spreads = [];
+        for (const spreadIndex of spreadIndexes) {
+          reader.renderSpread(spreadIndex);
+          await new Promise((resolve) => requestAnimationFrame(resolve));
+          const dataUrl = canvas.toDataURL('image/png');
+          spreads.push({
+            spreadIndex,
+            pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),
+          });
+        }
         reader.dispose();
-        return dataUrl.slice(dataUrl.indexOf(',') + 1);
+        return { totalSpreads, spreads };
       };
     })
     .catch((error) => {
       console.error(error);
       window.renderRitoPixelReady = String(error && (error.stack || error.message || error));
     });
+
+  function spreadIndexesForRun(testRun, totalSpreads) {
+    const selection = testRun.spreadSelection || { mode: 'all' };
+    if (selection.mode === 'explicit') return selection.indexes || [];
+    if (selection.mode === 'curated') {
+      return curatedSpreadIndexes(selection.frontmatterSpreadCount || 0, totalSpreads);
+    }
+    if (selection.mode === 'key') {
+      return keySpreadIndexes(selection.frontmatterSpreadCount || 0, totalSpreads);
+    }
+    return Array.from({ length: totalSpreads }, (_, spreadIndex) => spreadIndex);
+  }
+
+  function curatedSpreadIndexes(frontmatterSpreadCount, totalSpreads) {
+    const frontmatter = Array.from(
+      { length: Math.min(frontmatterSpreadCount, totalSpreads) },
+      (_, spreadIndex) => spreadIndex,
+    );
+    const bodyStart = Math.min(frontmatterSpreadCount, totalSpreads - 1);
+    const bodyMiddle = Math.floor((bodyStart + totalSpreads - 1) / 2);
+    const tailStart = Math.max(bodyStart, totalSpreads - 2);
+    return uniqueValidSpreadIndexes(
+      [...frontmatter, bodyStart, bodyStart + 1, bodyMiddle, tailStart, totalSpreads - 1],
+      totalSpreads,
+    );
+  }
+
+  function uniqueValidSpreadIndexes(spreadIndexes, totalSpreads) {
+    return [...new Set(spreadIndexes)].filter(
+      (spreadIndex) => spreadIndex >= 0 && spreadIndex < totalSpreads,
+    );
+  }
+
+  function keySpreadIndexes(frontmatterSpreadCount, totalSpreads) {
+    const lastFrontmatter = Math.min(frontmatterSpreadCount - 1, totalSpreads - 1);
+    const bodyStart = Math.min(frontmatterSpreadCount, totalSpreads - 1);
+    const bodyMiddle = Math.floor((bodyStart + totalSpreads - 1) / 2);
+    return uniqueValidSpreadIndexes(
+      [0, 1, 2, lastFrontmatter, bodyStart, bodyMiddle, totalSpreads - 1],
+      totalSpreads,
+    );
+  }
 </script>`;
 }

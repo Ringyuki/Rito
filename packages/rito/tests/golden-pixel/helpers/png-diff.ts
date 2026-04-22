@@ -2,7 +2,11 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
-import type { PixelGoldenCase } from './pixel-cases';
+
+export interface PixelDiffCase {
+  readonly id: string;
+  readonly threshold: number;
+}
 
 export interface PixelDiffResult {
   readonly width: number;
@@ -18,7 +22,7 @@ export interface PixelDiffOptions {
 export async function comparePng(
   expected: Buffer,
   actual: Buffer,
-  testCase: PixelGoldenCase,
+  testCase: PixelDiffCase,
   diffPath: string,
   options: PixelDiffOptions = {},
 ): Promise<PixelDiffResult> {

@@ -1,14 +1,14 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { PixelGoldenCase } from './pixel-cases';
+import type { PixelGoldenSpreadCase } from './pixel-cases';
 import { renderPixelReviewHtml } from './pixel-review-html';
 import type { PixelDiffResult } from './png-diff';
 
 export type PixelReviewStatus = 'pass' | 'warn' | 'fail' | 'missing' | 'error';
 
 export interface PixelReviewCaseInput {
-  readonly testCase: PixelGoldenCase;
+  readonly testCase: PixelGoldenSpreadCase;
   readonly actual: Buffer;
   readonly expected?: Buffer;
   readonly diff?: PixelDiffResult;
@@ -25,12 +25,17 @@ export interface PixelReviewCasePaths {
 
 export interface PixelReviewRecord {
   readonly id: string;
+  readonly runId: string;
   readonly bookId: string;
+  readonly profileId: string;
   readonly spreadIndex: number;
+  readonly totalSpreads: number;
   readonly width: number;
   readonly height: number;
   readonly margin: number;
-  readonly lineBreaking: PixelGoldenCase['lineBreaking'];
+  readonly spread: PixelGoldenSpreadCase['spread'];
+  readonly spreadGap: number;
+  readonly lineBreaking: PixelGoldenSpreadCase['lineBreaking'];
   readonly devicePixelRatio: number;
   readonly threshold: number;
   readonly maxDiffPixelRatio: number;
@@ -55,8 +60,15 @@ export async function resetPixelReviewReport(): Promise<void> {
   await mkdir(resolve(PIXEL_REVIEW_ROOT, 'cases'), { recursive: true });
 }
 
-export function pixelReviewCasePaths(testCase: PixelGoldenCase): PixelReviewCasePaths {
-  const caseDir = resolve(PIXEL_REVIEW_ROOT, 'cases', testCase.id);
+export function pixelReviewCasePaths(testCase: PixelGoldenSpreadCase): PixelReviewCasePaths {
+  const caseDir = resolve(
+    PIXEL_REVIEW_ROOT,
+    'cases',
+    testCase.bookId,
+    testCase.profileId,
+    testCase.lineBreaking,
+    `spread-${String(testCase.spreadIndex).padStart(4, '0')}`,
+  );
   return {
     caseDir,
     expectedPath: resolve(caseDir, 'expected.png'),
@@ -94,11 +106,16 @@ function createReviewRecord(
   const status = reviewStatus(input);
   return {
     id: input.testCase.id,
+    runId: input.testCase.runId,
     bookId: input.testCase.bookId,
+    profileId: input.testCase.profileId,
     spreadIndex: input.testCase.spreadIndex,
+    totalSpreads: input.testCase.totalSpreads,
     width: input.testCase.width,
     height: input.testCase.height,
     margin: input.testCase.margin,
+    spread: input.testCase.spread,
+    spreadGap: input.testCase.spreadGap,
     lineBreaking: input.testCase.lineBreaking,
     devicePixelRatio: input.testCase.devicePixelRatio,
     threshold: input.testCase.threshold,
@@ -108,7 +125,7 @@ function createReviewRecord(
     generatedAt: new Date().toISOString(),
     actualPath: relativePath(paths.actualPath),
     ...(input.expected ? { expectedPath: relativePath(paths.expectedPath) } : {}),
-    ...(input.expected ? { diffPath: relativePath(paths.diffPath) } : {}),
+    ...(input.diff ? { diffPath: relativePath(paths.diffPath) } : {}),
     ...(input.diff
       ? {
           diffPixels: input.diff.diffPixels,

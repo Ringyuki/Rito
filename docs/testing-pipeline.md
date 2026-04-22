@@ -182,19 +182,53 @@ pnpm test:golden:pixel:update
 Useful filters:
 
 ```bash
-RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel
-RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:review
-RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update
+RITO_PIXEL_BOOKS=book-03 pnpm test:golden:pixel
+RITO_PIXEL_PROFILES=single-narrow pnpm test:golden:pixel:review
+RITO_PIXEL_LINE_BREAKING=optimal pnpm test:golden:pixel
+RITO_PIXEL_SPREADS=0,1 pnpm test:golden:pixel:review
+RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel
+RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update
+RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel
 ```
 
-The suite renders selected real-book spreads in Chromium through the public
-`createReader` API, reads the final canvas as PNG, and compares it with
-`pixelmatch`. The baseline set starts with each render-tier book's manifest
-declared frontmatter spread range because those pages were chosen as
-representative real-world samples: covers, production notes, introductions,
-color pages, and tables of contents before the first body spread. Additional
-targeted cases cover text shadow, inline background, inline border, ruby,
-horizontal rules, block transform, clipping, narrow layout, and DPR 2 output.
+The committed suite renders curated spreads of every render-tier book in
+Chromium through the public `createReader` API, reads the final canvas as PNG,
+and compares it with `pixelmatch`. Each render-tier book is covered by this
+matrix:
+
+- `single-default`: `greedy`, `optimal`.
+- `single-narrow`: `greedy`, `optimal`.
+- `single-wide`: `greedy`.
+- `single-default-dpr2`: `greedy`.
+- `double-default`: `greedy`.
+
+This keeps checked-in PNGs focused on covers, production notes, introductions,
+color pages, tables of contents, body text, post-body content, narrow
+line-breaking stress, wide layouts, DPR 2 rendering, and double-page spread
+composition. Each run stores a `summary.json`; changes to spread count,
+viewport, DPR, spread mode, or line-breaking mode are treated as golden
+regressions.
+
+Every committed run includes all manifest-declared frontmatter spreads for its
+book, plus body/tail anchor spreads. The pre-body pages are intentionally not
+sampled down because they are the representative real-world cases for covers,
+production notes, introductions, color pages, and tables of contents.
+
+Compare and update mode use 2 Playwright workers by default. Use
+`RITO_PIXEL_WORKERS` for larger local or CI machines. Review mode stays on one
+worker because the report writer aggregates a single HTML output.
+
+The exhaustive suite is opt-in:
+
+```bash
+RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update
+RITO_PIXEL_SCOPE=full pnpm test:golden:pixel
+```
+
+Full scope covers every profile and every spread. Its default baseline root is
+`packages/rito/test-results/pixel-full-baselines`, which is intentionally
+outside the committed golden tree. Set `RITO_PIXEL_BASELINE_ROOT` when comparing
+against a restored external baseline in release or nightly workflows.
 
 Pixel golden baselines are committed for Playwright's bundled Chromium on
 macOS, which matches the dedicated CI pixel job. Use the default browser when
@@ -213,22 +247,19 @@ PNG updates generated through a different channel:
 PLAYWRIGHT_BROWSER_CHANNEL=msedge pnpm test:golden:pixel
 ```
 
-The case shape:
+The baseline shape:
 
-```json
-{
-  "id": "book-10-frontmatter-05-narrow",
-  "bookId": "book-10",
-  "spreadIndex": 5,
-  "width": 360,
-  "height": 640,
-  "margin": 28,
-  "lineBreaking": "greedy",
-  "devicePixelRatio": 1,
-  "threshold": 0.08,
-  "maxDiffPixelRatio": 0.015,
-  "tags": ["inline-border", "narrow-layout"]
-}
+```text
+packages/rito/tests/golden/pixels/
+  book-01/
+    single-narrow/
+      greedy/
+        summary.json
+        spread-0000.png
+        spread-0001.png
+      optimal/
+        summary.json
+        spread-0000.png
 ```
 
 Pixel failures write Playwright test artifacts:
@@ -249,11 +280,12 @@ without updating baselines:
 packages/rito/test-results/pixel-review/index.html
 ```
 
-Each case includes `expected.png`, `actual.png`, `diff.png`, `metadata.json`,
+Each spread includes `expected.png`, `actual.png`, `diff.png`, `metadata.json`,
 and an expected/actual overlay slider in the HTML report. Use this when a
 structured or render-command golden changes but pixel output needs a manual
 visual check before deciding whether to update the affected non-pixel
-baselines.
+baselines. The report can jump directly to problem spreads and switch by book,
+profile, and line-breaking mode.
 
 ## Reader E2E
 

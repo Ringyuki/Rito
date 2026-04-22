@@ -1,35 +1,85 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { PixelGoldenCase } from './pixel-cases';
+import type { PixelGoldenRun, PixelGoldenSummary } from './pixel-cases';
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
-export const PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/pixels');
+export const COMMITTED_PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/pixels');
+const FULL_PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../../test-results/pixel-full-baselines');
+export const PIXEL_GOLDEN_ROOT = pixelGoldenRoot();
 
 export const SHOULD_RUN_PIXEL_GOLDEN = process.env['RITO_PIXEL_GOLDEN'] === '1';
 export const SHOULD_UPDATE_PIXEL_GOLDEN = process.env['RITO_UPDATE_GOLDEN'] === '1';
 export const SHOULD_REVIEW_PIXEL_GOLDEN = process.env['RITO_PIXEL_REVIEW'] === '1';
 
-export function pixelGoldenFilePath(testCase: PixelGoldenCase): string {
-  return resolve(PIXEL_GOLDEN_ROOT, `${testCase.id}.png`);
+export function pixelGoldenRunDir(run: PixelGoldenRun): string {
+  return resolve(PIXEL_GOLDEN_ROOT, run.bookId, run.profile.id, run.lineBreaking);
 }
 
-export async function readPixelGoldenFile(testCase: PixelGoldenCase): Promise<Buffer | undefined> {
+export function pixelGoldenSummaryFilePath(run: PixelGoldenRun): string {
+  return resolve(pixelGoldenRunDir(run), 'summary.json');
+}
+
+export function pixelGoldenSpreadFilePath(run: PixelGoldenRun, spreadIndex: number): string {
+  return resolve(pixelGoldenRunDir(run), `${spreadFileName(spreadIndex)}.png`);
+}
+
+export async function readPixelGoldenSummary(
+  run: PixelGoldenRun,
+): Promise<PixelGoldenSummary | undefined> {
+  const content = await readOptionalFile(pixelGoldenSummaryFilePath(run));
+  if (!content) return undefined;
+  return JSON.parse(content.toString('utf8')) as PixelGoldenSummary;
+}
+
+export async function writePixelGoldenSummary(
+  run: PixelGoldenRun,
+  summary: PixelGoldenSummary,
+): Promise<void> {
+  const path = pixelGoldenSummaryFilePath(run);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(summary, null, 2)}\n`);
+}
+
+export async function resetPixelGoldenRun(run: PixelGoldenRun): Promise<void> {
+  await rm(pixelGoldenRunDir(run), { recursive: true, force: true });
+}
+
+export async function readPixelGoldenSpread(
+  run: PixelGoldenRun,
+  spreadIndex: number,
+): Promise<Buffer | undefined> {
+  return readOptionalFile(pixelGoldenSpreadFilePath(run, spreadIndex));
+}
+
+export async function writePixelGoldenSpread(
+  run: PixelGoldenRun,
+  spreadIndex: number,
+  content: Buffer,
+): Promise<void> {
+  const path = pixelGoldenSpreadFilePath(run, spreadIndex);
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, content);
+}
+
+export function spreadFileName(spreadIndex: number): string {
+  return `spread-${String(spreadIndex).padStart(4, '0')}`;
+}
+
+function pixelGoldenRoot(): string {
+  const configured = process.env['RITO_PIXEL_BASELINE_ROOT'];
+  if (configured && configured.length > 0) return resolve(configured);
+  if (process.env['RITO_PIXEL_SCOPE'] === 'full') return FULL_PIXEL_GOLDEN_ROOT;
+  return COMMITTED_PIXEL_GOLDEN_ROOT;
+}
+
+async function readOptionalFile(path: string): Promise<Buffer | undefined> {
   try {
-    return await readFile(pixelGoldenFilePath(testCase));
+    return await readFile(path);
   } catch (error) {
     if (isNodeError(error) && error.code === 'ENOENT') return undefined;
     throw error;
   }
-}
-
-export async function writePixelGoldenFile(
-  testCase: PixelGoldenCase,
-  content: Buffer,
-): Promise<void> {
-  const path = pixelGoldenFilePath(testCase);
-  await mkdir(dirname(path), { recursive: true });
-  await writeFile(path, content);
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
