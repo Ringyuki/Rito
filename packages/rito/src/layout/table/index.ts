@@ -6,6 +6,23 @@ import { computeColumnWidths } from './column-widths';
 import { buildTableModel } from './model';
 import { layoutTableRow } from './row-layout';
 
+interface TableInsets {
+  readonly paddingTop: number;
+  readonly paddingRight: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly borderTop: number;
+  readonly borderRight: number;
+  readonly borderBottom: number;
+  readonly borderLeft: number;
+  readonly innerWidth: number;
+}
+
+interface TableRowsLayout {
+  readonly blocks: readonly LayoutBlock[];
+  readonly height: number;
+}
+
 export function layoutTable(
   node: StyledNode,
   contentWidth: number,
@@ -14,15 +31,51 @@ export function layoutTable(
   imageSizes?: ImageSizeMap,
 ): LayoutBlock {
   const model = buildTableModel(node);
-  if (!model) {
-    return {
-      type: 'layout-block',
-      bounds: { x: 0, y, width: contentWidth, height: 0 },
-      children: [],
-    };
-  }
+  if (!model) return buildEmptyTableBlock(contentWidth, y);
 
-  // Table padding and border insets — rows are laid out inside these
+  const insets = resolveTableInsets(node, contentWidth);
+
+  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
+  const colWidths = computeColumnWidths(
+    model.rows,
+    model.colCount,
+    insets.innerWidth > 0 ? insets.innerWidth : contentWidth,
+    layouter,
+    model.occupied,
+    hasExplicitWidth,
+  );
+
+  const rows = layoutRows(
+    model.rows,
+    model.colCount,
+    colWidths,
+    layouter,
+    model.occupied,
+    imageSizes,
+  );
+  const children = offsetRows(rows.blocks, insets);
+  const colTotal = colWidths.reduce((sum, w) => sum + w, 0);
+  const totalWidth =
+    colTotal + insets.paddingLeft + insets.paddingRight + insets.borderLeft + insets.borderRight;
+  const totalHeight =
+    rows.height + insets.paddingTop + insets.paddingBottom + insets.borderTop + insets.borderBottom;
+
+  return {
+    type: 'layout-block',
+    bounds: { x: 0, y, width: totalWidth, height: totalHeight },
+    children,
+  };
+}
+
+function buildEmptyTableBlock(contentWidth: number, y: number): LayoutBlock {
+  return {
+    type: 'layout-block',
+    bounds: { x: 0, y, width: contentWidth, height: 0 },
+    children: [],
+  };
+}
+
+function resolveTableInsets(node: StyledNode, contentWidth: number): TableInsets {
   const paddingTop = node.style.paddingTop;
   const paddingRight = node.style.paddingRight;
   const paddingBottom = node.style.paddingBottom;
@@ -31,54 +84,57 @@ export function layoutTable(
   const borderRight = node.style.borderRight.width;
   const borderBottom = node.style.borderBottom.width;
   const borderLeft = node.style.borderLeft.width;
-  const innerWidth = contentWidth - paddingLeft - paddingRight - borderLeft - borderRight;
+  return {
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    borderTop,
+    borderRight,
+    borderBottom,
+    borderLeft,
+    innerWidth: contentWidth - paddingLeft - paddingRight - borderLeft - borderRight,
+  };
+}
 
-  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
-  const colWidths = computeColumnWidths(
-    model.rows,
-    model.colCount,
-    innerWidth > 0 ? innerWidth : contentWidth,
-    layouter,
-    model.occupied,
-    hasExplicitWidth,
-  );
-
+function layoutRows(
+  rows: readonly StyledNode[],
+  colCount: number,
+  colWidths: readonly number[],
+  layouter: ParagraphLayouter,
+  occupied: readonly (readonly boolean[])[],
+  imageSizes: ImageSizeMap | undefined,
+): TableRowsLayout {
   const rowBlocks: LayoutBlock[] = [];
   let currentY = 0;
-  for (let rowIndex = 0; rowIndex < model.rows.length; rowIndex++) {
-    const row = model.rows[rowIndex];
+  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+    const row = rows[rowIndex];
     if (!row) continue;
 
     const { block, height } = layoutTableRow(
       row,
-      model.colCount,
+      colCount,
       colWidths,
       currentY,
       layouter,
-      model.occupied[rowIndex] ?? [],
+      occupied[rowIndex] ?? [],
       imageSizes,
     );
     rowBlocks.push(block);
     currentY += height;
   }
+  return { blocks: rowBlocks, height: currentY };
+}
 
-  // Offset rows by table border + padding so content sits inside the box
-  const dx = borderLeft + paddingLeft;
-  const dy = borderTop + paddingTop;
-  const children =
-    dx > 0 || dy > 0
-      ? rowBlocks.map((b) => ({
-          ...b,
-          bounds: { ...b.bounds, x: b.bounds.x + dx, y: b.bounds.y + dy },
-        }))
-      : rowBlocks;
-
-  const colTotal = colWidths.reduce((sum, w) => sum + w, 0);
-  const totalWidth = colTotal + paddingLeft + paddingRight + borderLeft + borderRight;
-  const totalHeight = currentY + paddingTop + paddingBottom + borderTop + borderBottom;
-  return {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: totalWidth, height: totalHeight },
-    children,
-  };
+function offsetRows(
+  rowBlocks: readonly LayoutBlock[],
+  insets: TableInsets,
+): readonly LayoutBlock[] {
+  const dx = insets.borderLeft + insets.paddingLeft;
+  const dy = insets.borderTop + insets.paddingTop;
+  if (dx <= 0 && dy <= 0) return rowBlocks;
+  return rowBlocks.map((block) => ({
+    ...block,
+    bounds: { ...block.bounds, x: block.bounds.x + dx, y: block.bounds.y + dy },
+  }));
 }

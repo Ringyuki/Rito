@@ -6175,8 +6175,8 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 266,
-            "hash": "cdcd096f5da70367",
+            "count": 276,
+            "hash": "e42491ad42f75e62",
             "methods": {
               "arcTo": 40,
               "beginPath": 11,
@@ -6187,13 +6187,13 @@
               "fillText": 25,
               "moveTo": 10,
               "rect": 1,
-              "restore": 3,
-              "save": 3,
+              "restore": 13,
+              "save": 13,
               "scale": 2,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 47,
+              "fillStyle": 37,
               "font": 25,
               "letterSpacing": 25,
               "textBaseline": 25,
@@ -6690,6 +6690,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#01AAEB"
@@ -6762,9 +6767,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -6802,6 +6807,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -6876,9 +6886,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -6916,6 +6926,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -6990,9 +7005,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7069,6 +7084,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -7141,9 +7161,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7220,6 +7240,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -7292,9 +7317,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7371,6 +7396,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -7443,9 +7473,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7522,6 +7552,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -7594,9 +7629,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7673,6 +7708,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000000"
@@ -7745,9 +7785,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7785,6 +7825,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -7859,9 +7904,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -7899,6 +7944,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -7973,9 +8023,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -8009,8 +8059,8 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 266,
-            "hash": "f20d08ac810c2f05",
+            "count": 276,
+            "hash": "2ef745439d54da7c",
             "methods": {
               "arcTo": 40,
               "beginPath": 11,
@@ -8021,13 +8071,13 @@
               "fillText": 25,
               "moveTo": 10,
               "rect": 1,
-              "restore": 3,
-              "save": 3,
+              "restore": 13,
+              "save": 13,
               "scale": 2,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 47,
+              "fillStyle": 37,
               "font": 25,
               "letterSpacing": 25,
               "textBaseline": 25,
@@ -8524,6 +8574,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#01AAEB"
@@ -8596,9 +8651,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -8636,6 +8691,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -8710,9 +8770,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -8750,6 +8810,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -8824,9 +8889,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -8903,6 +8968,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -8975,9 +9045,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9054,6 +9124,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -9126,9 +9201,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9205,6 +9280,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -9277,9 +9357,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9356,6 +9436,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#E4006F"
@@ -9428,9 +9513,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9507,6 +9592,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000000"
@@ -9579,9 +9669,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9619,6 +9709,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -9693,9 +9788,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [
@@ -9733,6 +9828,11 @@
                 "property": "letterSpacing",
                 "type": "set",
                 "value": ""
+              },
+              {
+                "args": [],
+                "method": "save",
+                "type": "call"
               },
               {
                 "property": "fillStyle",
@@ -9807,9 +9907,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [

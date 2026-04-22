@@ -1,4 +1,11 @@
-import { rubberBand } from './rubber-band';
+import {
+  goToTargetMode,
+  interruptMode,
+  releaseTrackingMode,
+  startTrackingMode,
+  updateTrackingMode,
+} from './transition-actions';
+import type { TransitionDriverState } from './transition-state';
 import {
   getSlotPositions,
   stepSettling,
@@ -72,210 +79,129 @@ export interface TransitionDriver {
   onSettled(cb: (event: SettledEvent) => void): () => void;
 }
 
-/** Sliding window for velocity estimation. Keeps N most recent (dx, timestamp) samples. */
-const VELOCITY_WINDOW_SIZE = 5;
-/** Time horizon (ms) for projecting current velocity into commit decision. */
-const PROJECTION_MS = 150;
-
-interface VelocitySample {
-  dx: number;
-  timestamp: number;
-}
-
-function estimateVelocity(samples: VelocitySample[]): number {
-  if (samples.length < 2) return 0;
-  const newest = samples[samples.length - 1];
-  const oldest = samples[0];
-  if (!newest || !oldest) return 0;
-  const dt = newest.timestamp - oldest.timestamp;
-  if (dt < 1) return 0;
-
-  // Time-weighted: give more weight to recent samples
-  let weightedVx = 0;
-  let totalWeight = 0;
-  for (let i = 1; i < samples.length; i++) {
-    const prev = samples[i - 1];
-    const curr = samples[i];
-    if (!prev || !curr) continue;
-    const segDt = Math.max(curr.timestamp - prev.timestamp, 1);
-    const segVx = (curr.dx - prev.dx) / segDt;
-    const weight = i; // Later samples get higher weight
-    weightedVx += segVx * weight;
-    totalWeight += weight;
-  }
-  return totalWeight > 0 ? weightedVx / totalWeight : 0;
-}
-
 export function createTransitionDriver(
   options?: Partial<TransitionDriverOptions>,
 ): TransitionDriver {
-  let opts: TransitionDriverOptions = { ...DEFAULT_TRANSITION_OPTIONS, ...options };
-  let mode: TransitionMode = { kind: 'idle' };
-  let W = 0;
-  const settledListeners = new Set<(event: SettledEvent) => void>();
-  let velocitySamples: VelocitySample[] = [];
+  const state: TransitionDriverState = {
+    opts: { ...DEFAULT_TRANSITION_OPTIONS, ...options },
+    mode: { kind: 'idle' },
+    viewportWidth: 0,
+    velocitySamples: [],
+    settledListeners: new Set<(event: SettledEvent) => void>(),
+  };
+  const driver = createDriverAccessors(state) as TransitionDriver;
+  Object.assign(
+    driver,
+    createTrackingActions(state),
+    createAnimationActions(state),
+    createConfigurationActions(state),
+  );
+  return driver;
+}
 
-  function emitSettled(event: SettledEvent): void {
-    for (const cb of settledListeners) cb(event);
-  }
-
-  const driver: TransitionDriver = {
+function createDriverAccessors(
+  state: TransitionDriverState,
+): Pick<TransitionDriver, 'mode' | 'isAnimating' | 'viewportWidth'> {
+  return {
     get mode() {
-      return mode;
+      return state.mode;
     },
     get isAnimating() {
-      return mode.kind !== 'idle';
+      return state.mode.kind !== 'idle';
     },
     get viewportWidth() {
-      return W;
+      return state.viewportWidth;
     },
     set viewportWidth(w: number) {
-      W = w;
-    },
-
-    startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
-      velocitySamples = [{ dx: 0, timestamp }];
-      mode = {
-        kind: 'tracking',
-        direction,
-        outgoingSpread,
-        incomingSpread,
-        dx: 0,
-        vx: 0,
-        lastSampleAt: timestamp,
-      };
-    },
-
-    updateTracking(rawDx, timestamp): void {
-      if (mode.kind !== 'tracking') return;
-
-      const dx = mode.incomingSpread === null ? rubberBand(rawDx, W, opts.elasticFactor) : rawDx;
-
-      velocitySamples.push({ dx, timestamp });
-      if (velocitySamples.length > VELOCITY_WINDOW_SIZE) {
-        velocitySamples.shift();
-      }
-      mode.vx = estimateVelocity(velocitySamples);
-      mode.dx = dx;
-      mode.lastSampleAt = timestamp;
-    },
-
-    releaseTracking(): 'commit' | 'cancel' {
-      if (mode.kind !== 'tracking') return 'cancel';
-
-      const { direction, outgoingSpread, incomingSpread, dx, vx } = mode;
-
-      // Boundary elastic — always cancel (spring back to 0)
-      if (incomingSpread === null) {
-        mode = { kind: 'boundary-elastic', slotSpread: outgoingSpread, dx, vx };
-        return 'cancel';
-      }
-
-      // Cancel if position OR velocity indicates the user is pulling back
-      const dxReversed =
-        (direction === 'forward' && dx > 0) || (direction === 'backward' && dx < 0);
-      const pullingBack =
-        (direction === 'forward' && vx > 0.05) || (direction === 'backward' && vx < -0.05);
-      if (dxReversed || pullingBack) {
-        mode = { kind: 'settling', direction, outgoingSpread, incomingSpread, target: 0, dx, vx };
-        return 'cancel';
-      }
-
-      // Commit decision: project current position + velocity forward in time.
-      const projected = Math.abs(dx + vx * PROJECTION_MS);
-      const committed = projected > opts.swipeThreshold || Math.abs(vx) > opts.velocityCommit;
-      const target = committed ? (direction === 'forward' ? -W : W) : 0;
-      mode = { kind: 'settling', direction, outgoingSpread, incomingSpread, target, dx, vx };
-      return committed ? 'commit' : 'cancel';
-    },
-
-    goToTarget(direction, outgoingSpread, incomingSpread, initialDx = 0): void {
-      const target = direction === 'forward' ? -W : W;
-      mode = {
-        kind: 'settling',
-        direction,
-        outgoingSpread,
-        incomingSpread,
-        target,
-        dx: initialDx,
-        vx: 0,
-      };
-    },
-
-    interrupt(timestamp): { dx: number; vx: number } | null {
-      if (mode.kind === 'settling') {
-        const { direction, outgoingSpread, incomingSpread, dx, vx } = mode;
-        mode = {
-          kind: 'tracking',
-          direction,
-          outgoingSpread,
-          incomingSpread,
-          dx,
-          vx,
-          lastSampleAt: timestamp,
-        };
-        return { dx, vx };
-      }
-      if (mode.kind === 'boundary-elastic') {
-        const { slotSpread, dx, vx } = mode;
-        mode = {
-          kind: 'tracking',
-          direction: 'forward',
-          outgoingSpread: slotSpread,
-          incomingSpread: null,
-          dx,
-          vx,
-          lastSampleAt: timestamp,
-        };
-        return { dx, vx };
-      }
-      return null;
-    },
-
-    step(dt): DrawInstruction {
-      switch (mode.kind) {
-        case 'idle':
-          return { kind: 'single', slot: 'curr' };
-
-        case 'tracking':
-          return { kind: 'turning', ...getSlotPositions(mode), dx: mode.dx };
-
-        case 'settling': {
-          const result = stepSettling(mode, opts, dt);
-          mode = result.nextMode;
-          if (result.settled) emitSettled(result.settled);
-          return result.instruction;
-        }
-
-        case 'boundary-elastic': {
-          const result = stepBoundaryElastic(mode, opts, dt);
-          mode = result.nextMode;
-          if (result.settled) emitSettled(result.settled);
-          return result.instruction;
-        }
-      }
-    },
-
-    forceSettle(): number {
-      const result = forceSettleMode(mode);
-      mode = { kind: 'idle' };
-      if (result.settled) emitSettled(result.settled);
-      return result.residualDx;
-    },
-
-    configure(update): void {
-      opts = { ...opts, ...update };
-    },
-
-    reset(): void {
-      mode = { kind: 'idle' };
-    },
-
-    onSettled(cb): () => void {
-      settledListeners.add(cb);
-      return () => settledListeners.delete(cb);
+      state.viewportWidth = w;
     },
   };
+}
 
-  return driver;
+function createTrackingActions(
+  state: TransitionDriverState,
+): Pick<
+  TransitionDriver,
+  'startTracking' | 'updateTracking' | 'releaseTracking' | 'goToTarget' | 'interrupt'
+> {
+  return {
+    startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
+      startTrackingMode(state, direction, outgoingSpread, incomingSpread, timestamp);
+    },
+    updateTracking(rawDx, timestamp): void {
+      updateTrackingMode(state, rawDx, timestamp);
+    },
+    releaseTracking(): 'commit' | 'cancel' {
+      return releaseTrackingMode(state);
+    },
+    goToTarget(direction, outgoingSpread, incomingSpread, initialDx = 0): void {
+      goToTargetMode(state, direction, outgoingSpread, incomingSpread, initialDx);
+    },
+    interrupt(timestamp): { dx: number; vx: number } | null {
+      return interruptMode(state, timestamp);
+    },
+  };
+}
+
+function createAnimationActions(
+  state: TransitionDriverState,
+): Pick<TransitionDriver, 'step' | 'forceSettle'> {
+  return {
+    step(dt): DrawInstruction {
+      return stepTransition(state, dt);
+    },
+    forceSettle(): number {
+      return forceSettle(state);
+    },
+  };
+}
+
+function createConfigurationActions(
+  state: TransitionDriverState,
+): Pick<TransitionDriver, 'configure' | 'reset' | 'onSettled'> {
+  return {
+    configure(update): void {
+      state.opts = { ...state.opts, ...update };
+    },
+    reset(): void {
+      state.mode = { kind: 'idle' };
+    },
+    onSettled(cb): () => void {
+      state.settledListeners.add(cb);
+      return () => state.settledListeners.delete(cb);
+    },
+  };
+}
+
+function stepTransition(state: TransitionDriverState, dt: number): DrawInstruction {
+  switch (state.mode.kind) {
+    case 'idle':
+      return { kind: 'single', slot: 'curr' };
+    case 'tracking':
+      return { kind: 'turning', ...getSlotPositions(state.mode), dx: state.mode.dx };
+    case 'settling':
+      return applyStepResult(state, stepSettling(state.mode, state.opts, dt));
+    case 'boundary-elastic':
+      return applyStepResult(state, stepBoundaryElastic(state.mode, state.opts, dt));
+  }
+}
+
+function applyStepResult(
+  state: TransitionDriverState,
+  result: ReturnType<typeof stepSettling> | ReturnType<typeof stepBoundaryElastic>,
+): DrawInstruction {
+  state.mode = result.nextMode;
+  if (result.settled) emitSettled(state, result.settled);
+  return result.instruction;
+}
+
+function forceSettle(state: TransitionDriverState): number {
+  const result = forceSettleMode(state.mode);
+  state.mode = { kind: 'idle' };
+  if (result.settled) emitSettled(state, result.settled);
+  return result.residualDx;
+}
+
+function emitSettled(state: TransitionDriverState, event: SettledEvent): void {
+  for (const cb of state.settledListeners) cb(event);
 }

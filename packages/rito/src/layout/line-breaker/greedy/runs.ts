@@ -10,6 +10,26 @@ import type { StyleRange } from './types';
 /** Object Replacement Character used as placeholder for inline atoms. */
 const ORC = '\uFFFC';
 
+interface ProcessRangeResult {
+  readonly run?: TextRun;
+  readonly nextPos: number;
+  readonly insetLeft: number;
+  readonly insetRight: number;
+}
+
+interface RangeEdges {
+  readonly isStart: boolean;
+  readonly isEnd: boolean;
+  readonly lineRangeEnd: number;
+}
+
+interface RangeSpacing {
+  readonly insetLeft: number;
+  readonly insetRight: number;
+  readonly marginLeft: number;
+  readonly marginRight: number;
+}
+
 export function buildStyledRuns(
   lineText: string,
   globalOffset: number,
@@ -66,7 +86,7 @@ function processRange(
   ranges: readonly StyleRange[],
   measurer: TextMeasurer,
   baseFontSize?: number,
-): { run?: TextRun; nextPos: number; insetLeft: number; insetRight: number } | undefined {
+): ProcessRangeResult | undefined {
   const range = findRange(ranges, globalPos);
   if (!range) return undefined;
 
@@ -74,41 +94,61 @@ function processRange(
   const runText = stripORC(lineText.slice(linePos, rangeEnd));
   if (runText.length === 0) return { nextPos: rangeEnd, insetLeft: 0, insetRight: 0 };
 
-  // Only mark fragment edges on the true first/last slice of the range.
-  // When a range wraps across lines, intermediate slices must not redraw
-  // left/right borders.
-  const isStart = range.borderStart === true && globalPos === range.start;
-  const isEnd = range.borderEnd === true && rangeEnd + globalOffset >= range.end;
-  const insetLeft = isStart ? range.style.borderLeft.width + range.style.paddingLeft : 0;
-  const insetRight = isEnd ? range.style.paddingRight + range.style.borderRight.width : 0;
-  // Inline margins create spacing outside the border/background
-  const marginLeft = globalPos === range.start ? (range.inlineMarginLeft ?? 0) : 0;
-  const marginRight = rangeEnd + globalOffset >= range.end ? (range.inlineMarginRight ?? 0) : 0;
-
+  const edges = getRangeEdges(range, globalPos, rangeEnd, globalOffset);
+  const spacing = getRangeSpacing(range, edges, globalPos);
   const sourceTextOffset = globalPos - range.start;
   const width = measurer.measureText(runText, measurePaintFromStyle(range.style)).width;
-  let run = buildTextRun(
-    runText,
-    x + marginLeft + insetLeft,
-    lineHeight,
-    width,
-    range.style,
-    isStart,
-    isEnd,
-    range.href,
-    range.sourceRef,
-    range.sourceText,
-    sourceTextOffset,
-    baseFontSize,
-    range.rubyAnnotation,
+  const run = withTrailingMargin(
+    buildTextRun(
+      runText,
+      x + spacing.marginLeft + spacing.insetLeft,
+      lineHeight,
+      width,
+      range.style,
+      edges.isStart,
+      edges.isEnd,
+      range.href,
+      range.sourceRef,
+      range.sourceText,
+      sourceTextOffset,
+      baseFontSize,
+      range.rubyAnnotation,
+    ),
+    spacing.marginRight,
   );
-  if (marginRight > 0) run = { ...run, inlineMarginRight: marginRight };
   return {
     run,
     nextPos: rangeEnd,
-    insetLeft: insetLeft + marginLeft,
-    insetRight: insetRight + marginRight,
+    insetLeft: spacing.insetLeft + spacing.marginLeft,
+    insetRight: spacing.insetRight + spacing.marginRight,
   };
+}
+
+function getRangeEdges(
+  range: StyleRange,
+  globalPos: number,
+  rangeEnd: number,
+  globalOffset: number,
+): RangeEdges {
+  const lineRangeEnd = rangeEnd + globalOffset;
+  return {
+    lineRangeEnd,
+    isStart: range.borderStart === true && globalPos === range.start,
+    isEnd: range.borderEnd === true && lineRangeEnd >= range.end,
+  };
+}
+
+function getRangeSpacing(range: StyleRange, edges: RangeEdges, globalPos: number): RangeSpacing {
+  return {
+    insetLeft: edges.isStart ? range.style.borderLeft.width + range.style.paddingLeft : 0,
+    insetRight: edges.isEnd ? range.style.paddingRight + range.style.borderRight.width : 0,
+    marginLeft: globalPos === range.start ? (range.inlineMarginLeft ?? 0) : 0,
+    marginRight: edges.lineRangeEnd >= range.end ? (range.inlineMarginRight ?? 0) : 0,
+  };
+}
+
+function withTrailingMargin(run: TextRun, marginRight: number): TextRun {
+  return marginRight > 0 ? { ...run, inlineMarginRight: marginRight } : run;
 }
 
 export function getRunsWidth(runs: readonly (TextRun | InlineAtom)[]): number {

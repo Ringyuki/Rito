@@ -28,6 +28,18 @@ import type { ControllerOptions, ReaderController, ReaderControllerEvents } from
 import type { OverlayLayer } from '../painter/types';
 import type { RuntimeComponents } from './facade/types';
 
+type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
+type Disposables = ReturnType<typeof createDisposableCollection>;
+type TransitionDriverInstance = ReturnType<typeof createTransitionDriver>;
+type PageBufferPoolInstance = ReturnType<typeof createPageBufferPool>;
+type FrameDriverInstance = ReturnType<typeof createFrameDriver>;
+type ContentRendererFn = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void;
+
+interface RuntimeFrameParts {
+  readonly contentRenderer: ContentRendererFn;
+  readonly frameDriver: FrameDriverInstance;
+}
+
 export type {
   ReaderController,
   ReaderControllerEvents,
@@ -36,14 +48,6 @@ export type {
   AddAnnotationInput,
 } from './types';
 
-/**
- * Enhance an existing Reader with interaction features:
- * transitions, overlays, selection, search, annotations, position tracking,
- * keyboard shortcuts, touch gestures, and optional accessibility mirror.
- *
- * The Reader must already be created via `createReader()` from `@ritojs/core`.
- * Call `mount(container)` to inject the display canvas into the DOM.
- */
 export function createController(
   reader: Reader,
   canvas: HTMLCanvasElement,
@@ -91,8 +95,8 @@ function bootstrapRuntime(
   reader: Reader,
   canvas: HTMLCanvasElement,
   opts: ControllerOptions,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  disposables: ReturnType<typeof createDisposableCollection>,
+  emitter: Emitter,
+  disposables: Disposables,
 ) {
   const surface = createDisplaySurface(canvas);
   const pool = createPageBufferPool();
@@ -109,12 +113,37 @@ function bootstrapRuntime(
     coordState,
   };
 
+  const { contentRenderer, frameDriver } = createRuntimeFrameParts(
+    reader,
+    internals,
+    surface,
+    pool,
+    td,
+  );
+  wireSettledEvents(internals, td, pool, emitter, frameDriver, reader, contentRenderer);
+  const runtime: RuntimeComponents = { td, frameDriver, pool, surface };
+  const nav = createRuntimeNavigation(internals, emitter, td, frameDriver, pool, contentRenderer);
+  wireRuntimeEvents(internals, emitter, frameDriver, canvas, nav, disposables);
+
+  return { internals, runtime, nav };
+}
+
+function createRuntimeFrameParts(
+  reader: Reader,
+  internals: Internals,
+  surface: ReturnType<typeof createDisplaySurface>,
+  pool: PageBufferPoolInstance,
+  td: TransitionDriverInstance,
+): RuntimeFrameParts {
   const contentRenderer = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D): void => {
     reader.renderSpreadTo(spreadIndex, ctx);
   };
-
-  const overlayProvider = buildOverlayProvider(internals, engines, reader, coordState);
-
+  const overlayProvider = buildOverlayProvider(
+    internals,
+    internals.engines,
+    reader,
+    internals.coordState,
+  );
   const frameDriver = createFrameDriver({
     surface,
     pool,
@@ -123,16 +152,22 @@ function bootstrapRuntime(
     overlayProvider,
     getBackingRatio: () => reader.dpr * internals.renderScale,
   });
+  return { contentRenderer, frameDriver };
+}
 
-  wireSettledEvents(internals, td, pool, emitter, frameDriver, reader, contentRenderer);
-
-  const runtime: RuntimeComponents = { td, frameDriver, pool, surface };
-
-  const nav = createNavigation({
+function createRuntimeNavigation(
+  internals: Internals,
+  emitter: Emitter,
+  td: TransitionDriverInstance,
+  frameDriver: FrameDriverInstance,
+  pool: PageBufferPoolInstance,
+  contentRenderer: ContentRendererFn,
+) {
+  return createNavigation({
     getReader: () => internals.reader,
     getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i) => {
-      internals.currentSpread = i;
+    setCurrentSpread: (index) => {
+      internals.currentSpread = index;
     },
     getRenderScale: () => internals.renderScale,
     emitter,
@@ -141,15 +176,21 @@ function bootstrapRuntime(
     pool,
     contentRenderer,
   });
+}
 
-  // Wire all event-based integrations
+function wireRuntimeEvents(
+  internals: Internals,
+  emitter: Emitter,
+  frameDriver: FrameDriverInstance,
+  canvas: HTMLCanvasElement,
+  nav: ReturnType<typeof createNavigation>,
+  disposables: Disposables,
+): void {
   const deps = buildWiringDeps(internals, emitter, frameDriver, canvas, nav);
   wireSpreadRendered(deps, disposables);
   wireEngineEvents(deps, disposables);
   wirePositionTracker(deps, disposables);
   wireDomHelpers(deps, disposables);
-
-  return { internals, runtime, nav };
 }
 
 function buildOverlayProvider(
@@ -183,22 +224,18 @@ function buildOverlayProvider(
 
 function wireSettledEvents(
   internals: Internals,
-  td: ReturnType<typeof createTransitionDriver>,
-  pool: ReturnType<typeof createPageBufferPool>,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
-  frameDriver: ReturnType<typeof createFrameDriver>,
+  td: TransitionDriverInstance,
+  pool: PageBufferPoolInstance,
+  emitter: Emitter,
+  frameDriver: FrameDriverInstance,
   reader: Reader,
-  contentRenderer: (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void,
+  contentRenderer: ContentRendererFn,
 ): void {
   td.onSettled((event) => {
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();
 
-      // Update currentSpread (idempotent for goToSpread, essential for gesture commits).
-      // Do NOT re-emit spreadChange — goToSpread already emitted it at navigation start.
-      // Do NOT call notifyActiveSpread — goToSpread already rebuilt coordinator state
-      // (hitMaps, mapper, annotations are keyed by spread/page index, unaffected by pool rotation).
       internals.currentSpread = event.targetSpread;
 
       scheduleIdlePrerender(
@@ -226,11 +263,11 @@ function wireSettledEvents(
 function wireIntegrations(
   internals: Internals,
   runtime: RuntimeComponents,
-  emitter: ReturnType<typeof createEmitter<ReaderControllerEvents>>,
+  emitter: Emitter,
   nav: ReturnType<typeof createNavigation>,
   reader: Reader,
   canvas: HTMLCanvasElement,
-  disposables: ReturnType<typeof createDisposableCollection>,
+  disposables: Disposables,
 ) {
   const mm = createInteractionModeManager(detectDefaultMode());
 

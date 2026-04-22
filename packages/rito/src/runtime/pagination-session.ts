@@ -21,6 +21,14 @@ import {
 } from './footnote-extractor';
 import { logXhtmlWarnings } from './xhtml-diagnostics';
 
+type BodyAttributes = { readonly class?: string; readonly style?: string };
+
+interface ChapterSources {
+  readonly nodesByIdref: ReadonlyMap<string, readonly DocumentNode[]>;
+  readonly bodyAttrsByIdref: ReadonlyMap<string, BodyAttributes>;
+  readonly stylesheetHrefsByIdref: ReadonlyMap<string, readonly string[]>;
+}
+
 /** Result of paginating a single chapter. */
 export interface ChapterPaginationResult {
   readonly pages: readonly Page[];
@@ -121,38 +129,49 @@ export class PaginationSession {
    * consistent results — all chapters are (re-)paginated from scratch.
    */
   paginateAll(): PaginationResult {
-    // Reset all state for a clean full-book pagination
+    this.resetPaginationState();
+    const spine = this.doc.packageDocument.spine;
+    const sources = this.collectChapterSources();
+    const { filteredChapters, footnotes } = extractAllFootnotes(sources.nodesByIdref, this.hrefMap);
+    for (const [key, entry] of footnotes) this.footnoteMap.set(key, entry);
+    this.paginateFilteredChapters(spine, filteredChapters, sources);
+
+    this.logger.info('Pagination complete: %d total pages', this.allPages.length);
+    return this.getResult();
+  }
+
+  private resetPaginationState(): void {
     this.spineIndex = 0;
     this.allPages.length = 0;
     this.chapterMap.clear();
     this.anchorMap.clear();
     this.chapterTextIndices.clear();
     this.footnoteMap.clear();
+  }
 
-    const spine = this.doc.packageDocument.spine;
-
-    // Read ALL chapters for full-book noteref scanning
-    const allNodesByIdref = new Map<string, readonly DocumentNode[]>();
-    const bodyAttrsByIdref = new Map<
-      string,
-      { readonly class?: string; readonly style?: string }
-    >();
+  private collectChapterSources(): ChapterSources {
+    const nodesByIdref = new Map<string, readonly DocumentNode[]>();
+    const bodyAttrsByIdref = new Map<string, BodyAttributes>();
     const stylesheetHrefsByIdref = new Map<string, readonly string[]>();
-    for (const item of spine) {
+
+    for (const item of this.doc.packageDocument.spine) {
       const xhtml = this.doc.readChapter(item.idref);
       if (!xhtml) continue;
       const { nodes, warnings, bodyAttributes, stylesheetHrefs } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, item.idref);
-      allNodesByIdref.set(item.idref, nodes);
+      nodesByIdref.set(item.idref, nodes);
       if (bodyAttributes) bodyAttrsByIdref.set(item.idref, bodyAttributes);
       if (stylesheetHrefs) stylesheetHrefsByIdref.set(item.idref, stylesheetHrefs);
     }
 
-    // Full-book footnote extraction (two-phase across ALL chapters)
-    const { filteredChapters, footnotes } = extractAllFootnotes(allNodesByIdref, this.hrefMap);
-    for (const [key, entry] of footnotes) this.footnoteMap.set(key, entry);
+    return { nodesByIdref, bodyAttrsByIdref, stylesheetHrefsByIdref };
+  }
 
-    // Paginate all chapters with footnotes removed
+  private paginateFilteredChapters(
+    spine: EpubDocument['packageDocument']['spine'],
+    filteredChapters: ReadonlyMap<string, readonly DocumentNode[]>,
+    sources: ChapterSources,
+  ): void {
     for (const item of spine) {
       this.spineIndex++;
       const nodes = filteredChapters.get(item.idref);
@@ -160,8 +179,8 @@ export class PaginationSession {
 
       this.chapterTextIndices.set(item.idref, buildChapterTextIndex(item.idref, nodes));
       const startPage = this.allPages.length;
-      const bodyAttributes = bodyAttrsByIdref.get(item.idref);
-      const chapterStylesheetHrefs = stylesheetHrefsByIdref.get(item.idref);
+      const bodyAttributes = sources.bodyAttrsByIdref.get(item.idref);
+      const chapterStylesheetHrefs = sources.stylesheetHrefsByIdref.get(item.idref);
       const chapter = paginateChapterNodes(
         nodes,
         this.config,
@@ -176,9 +195,6 @@ export class PaginationSession {
       mergeAnchorMap(this.anchorMap, chapter.anchorMap);
       this.chapterMap.set(item.idref, { startPage, endPage: this.allPages.length - 1 });
     }
-
-    this.logger.info('Pagination complete: %d total pages', this.allPages.length);
-    return this.getResult();
   }
 
   getCurrentPages(): readonly Page[] {

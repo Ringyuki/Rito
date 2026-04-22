@@ -86,38 +86,59 @@ function measureSliceRanged(
     const range = findRangeAt(ranges, pos);
     const rangeStyle = range?.style ?? fallbackStyle;
     const rangeEnd = range ? Math.min(range.end, end) : end;
+    const sliceEnd = findTextSliceEnd(pos, rangeEnd, atoms);
 
-    // Include inline border+padding+margin insets when the slice covers the range edges
-    if (range && pos === range.start) {
-      if (range.borderStart) width += rangeStyle.borderLeft.width + rangeStyle.paddingLeft;
-      if (range.inlineMarginLeft) width += range.inlineMarginLeft;
-    }
-
-    // Measure text up to the next atom or range boundary
-    let sliceEnd = rangeEnd;
-    for (let i = pos; i < rangeEnd; i++) {
-      if (atoms.has(i)) {
-        sliceEnd = i;
-        break;
-      }
-    }
-
-    if (sliceEnd > pos) {
-      width += measurer.measureText(
-        text.slice(pos, sliceEnd),
-        measurePaintFromStyle(rangeStyle),
-      ).width;
-    }
-
-    // Add right inset when we've reached the end of the range
-    if (range && sliceEnd >= range.end) {
-      if (range.borderEnd) width += rangeStyle.paddingRight + rangeStyle.borderRight.width;
-      if (range.inlineMarginRight) width += range.inlineMarginRight;
-    }
+    width += getRangeStartInset(range, rangeStyle, pos);
+    width += measureTextSlice(text, pos, sliceEnd, rangeStyle, measurer);
+    width += getRangeEndInset(range, rangeStyle, sliceEnd);
 
     pos = sliceEnd;
   }
 
+  return width;
+}
+
+function findTextSliceEnd(
+  pos: number,
+  rangeEnd: number,
+  atoms: ReadonlyMap<number, InlineAtomSegment>,
+): number {
+  for (let i = pos; i < rangeEnd; i++) {
+    if (atoms.has(i)) return i;
+  }
+  return rangeEnd;
+}
+
+function getRangeStartInset(
+  range: StyleRange | undefined,
+  style: ComputedStyle,
+  pos: number,
+): number {
+  if (!range || pos !== range.start) return 0;
+  let width = range.borderStart ? style.borderLeft.width + style.paddingLeft : 0;
+  if (range.inlineMarginLeft) width += range.inlineMarginLeft;
+  return width;
+}
+
+function measureTextSlice(
+  text: string,
+  start: number,
+  end: number,
+  style: ComputedStyle,
+  measurer: TextMeasurer,
+): number {
+  if (end <= start) return 0;
+  return measurer.measureText(text.slice(start, end), measurePaintFromStyle(style)).width;
+}
+
+function getRangeEndInset(
+  range: StyleRange | undefined,
+  style: ComputedStyle,
+  sliceEnd: number,
+): number {
+  if (!range || sliceEnd < range.end) return 0;
+  let width = range.borderEnd ? style.paddingRight + style.borderRight.width : 0;
+  if (range.inlineMarginRight) width += range.inlineMarginRight;
   return width;
 }
 

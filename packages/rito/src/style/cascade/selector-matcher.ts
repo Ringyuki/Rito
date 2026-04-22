@@ -109,22 +109,26 @@ function bracketAwareSplit(input: string): string[] {
     }
     // Outside brackets: split on combinators and whitespace
     if (ch === '>' || ch === '+') {
-      if (current.trim()) {
-        tokens.push(current.trim());
-        current = '';
-      }
+      current = pushSelectorToken(tokens, current);
       tokens.push(ch);
-    } else if (ch === ' ' || ch === '\t' || ch === '\n') {
-      if (current.trim()) {
-        tokens.push(current.trim());
-        current = '';
-      }
+    } else if (isSelectorWhitespace(ch)) {
+      current = pushSelectorToken(tokens, current);
     } else {
       current += ch;
     }
   }
-  if (current.trim()) tokens.push(current.trim());
+  pushSelectorToken(tokens, current);
   return tokens;
+}
+
+function pushSelectorToken(tokens: string[], current: string): string {
+  const token = current.trim();
+  if (token) tokens.push(token);
+  return '';
+}
+
+function isSelectorWhitespace(ch: string): boolean {
+  return ch === ' ' || ch === '\t' || ch === '\n';
 }
 
 const PSEUDO_CLASS_RE = /:(?:first-child|last-child)/g;

@@ -37,26 +37,47 @@ export function getChapterStartPages(chapterMap: ReadonlyMap<string, ChapterRang
   return starts;
 }
 
+const LAYOUT_CONFIG_FIELDS = [
+  'viewportWidth',
+  'viewportHeight',
+  'pageWidth',
+  'pageHeight',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+  'spreadMode',
+  'firstPageAlone',
+  'spreadGap',
+  'rootFontSize',
+  'lineHeightOverride',
+  'fontFamilyOverride',
+] as const satisfies readonly (keyof LayoutConfig)[];
+
 export function layoutConfigEqual(a: LayoutConfig, b: LayoutConfig): boolean {
   return (
-    a.viewportWidth === b.viewportWidth &&
-    a.viewportHeight === b.viewportHeight &&
-    a.pageWidth === b.pageWidth &&
-    a.pageHeight === b.pageHeight &&
-    a.marginTop === b.marginTop &&
-    a.marginRight === b.marginRight &&
-    a.marginBottom === b.marginBottom &&
-    a.marginLeft === b.marginLeft &&
-    a.spreadMode === b.spreadMode &&
-    a.firstPageAlone === b.firstPageAlone &&
-    a.spreadGap === b.spreadGap &&
-    a.rootFontSize === b.rootFontSize &&
-    a.lineHeightOverride === b.lineHeightOverride &&
-    (a.lineHeightForce ?? false) === (b.lineHeightForce ?? false) &&
-    a.fontFamilyOverride === b.fontFamilyOverride &&
-    (a.fontFamilyForce ?? false) === (b.fontFamilyForce ?? false) &&
-    a.paginationPolicy?.enabled === b.paginationPolicy?.enabled &&
-    a.paginationPolicy?.defaultOrphans === b.paginationPolicy?.defaultOrphans &&
-    a.paginationPolicy?.defaultWidows === b.paginationPolicy?.defaultWidows
+    layoutFieldsEqual(a, b) &&
+    flagEqual(a.lineHeightForce, b.lineHeightForce) &&
+    flagEqual(a.fontFamilyForce, b.fontFamilyForce) &&
+    paginationPolicyEqual(a.paginationPolicy, b.paginationPolicy)
+  );
+}
+
+function layoutFieldsEqual(a: LayoutConfig, b: LayoutConfig): boolean {
+  return LAYOUT_CONFIG_FIELDS.every((field) => a[field] === b[field]);
+}
+
+function flagEqual(a: boolean | undefined, b: boolean | undefined): boolean {
+  return (a ?? false) === (b ?? false);
+}
+
+function paginationPolicyEqual(
+  a: LayoutConfig['paginationPolicy'],
+  b: LayoutConfig['paginationPolicy'],
+): boolean {
+  return (
+    a?.enabled === b?.enabled &&
+    a?.defaultOrphans === b?.defaultOrphans &&
+    a?.defaultWidows === b?.defaultWidows
   );
 }

@@ -6,40 +6,15 @@ export function buildLayoutActions(
   emitter: Emitter,
   runtime: RuntimeComponents,
 ): LayoutActionsSlice {
-  const emitLayoutChange = (): void => {
-    const previousSpread = internals.currentSpread;
-    const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
-    internals.currentSpread = Math.min(internals.currentSpread, maxSpreadIndex);
-    syncCanvasSize(internals, runtime);
-    runtime.pool.invalidateAllContent();
-    runtime.pool.assignSlot('curr', internals.currentSpread);
-    runtime.td.reset();
-    runtime.frameDriver.scheduleComposite();
-    emitter.emit('layoutChange', {
-      spreads: internals.reader.spreads,
-      totalSpreads: internals.reader.totalSpreads,
-    });
-    if (internals.currentSpread !== previousSpread) {
-      const spread = internals.reader.spreads[internals.currentSpread];
-      if (spread) {
-        emitter.emit('spreadChange', {
-          spreadIndex: internals.currentSpread,
-          spread,
-        });
-      }
-    }
-    internals.reader.notifyActiveSpread(internals.currentSpread);
-  };
-
   return {
     resize(w: number, h: number, margin?: number): void {
       const changed = internals.reader.updateLayout(w, h, undefined, margin);
       if (!changed) return;
-      emitLayoutChange();
+      emitLayoutChange(internals, emitter, runtime);
     },
     setSpreadMode(mode: 'single' | 'double'): void {
       internals.reader.setSpreadMode(mode);
-      emitLayoutChange();
+      emitLayoutChange(internals, emitter, runtime);
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       internals.reader.setTheme(opts);
@@ -55,7 +30,7 @@ export function buildLayoutActions(
     }): boolean {
       const changed = internals.reader.setTypography(opts);
       if (!changed) return false;
-      emitLayoutChange();
+      emitLayoutChange(internals, emitter, runtime);
       return true;
     },
     setRenderScale(scale: number): void {
@@ -72,4 +47,35 @@ export function buildLayoutActions(
       return internals.renderScale;
     },
   };
+}
+
+function emitLayoutChange(
+  internals: Internals,
+  emitter: Emitter,
+  runtime: RuntimeComponents,
+): void {
+  const previousSpread = internals.currentSpread;
+  const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
+  internals.currentSpread = Math.min(internals.currentSpread, maxSpreadIndex);
+  syncCanvasSize(internals, runtime);
+  runtime.pool.invalidateAllContent();
+  runtime.pool.assignSlot('curr', internals.currentSpread);
+  runtime.td.reset();
+  runtime.frameDriver.scheduleComposite();
+  emitter.emit('layoutChange', {
+    spreads: internals.reader.spreads,
+    totalSpreads: internals.reader.totalSpreads,
+  });
+  emitSpreadChangeIfNeeded(internals, emitter, previousSpread);
+  internals.reader.notifyActiveSpread(internals.currentSpread);
+}
+
+function emitSpreadChangeIfNeeded(
+  internals: Internals,
+  emitter: Emitter,
+  previousSpread: number,
+): void {
+  if (internals.currentSpread === previousSpread) return;
+  const spread = internals.reader.spreads[internals.currentSpread];
+  if (spread) emitter.emit('spreadChange', { spreadIndex: internals.currentSpread, spread });
 }

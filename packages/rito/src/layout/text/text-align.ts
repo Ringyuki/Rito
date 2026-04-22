@@ -7,6 +7,13 @@ type Run = TextRun | InlineAtom;
 const RUBY_FONT_SCALE = 0.5;
 const RUBY_GAP = 1;
 
+interface RubyRunGroup {
+  readonly tag: string;
+  readonly start: TextRun;
+  readonly end: TextRun;
+  readonly nextIndex: number;
+}
+
 /**
  * Compute effective line metrics from the actual bounding box of all runs.
  * When baseline offsets push a run above y=0 (negative offset), the line box
@@ -108,62 +115,68 @@ function extractRubyAnnotations(
   let i = 0;
   while (i < runs.length) {
     const run = runs[i];
-    if (!run) {
-      i++;
-      continue;
-    }
-    const tag = run.type === 'text-run' ? readRubyTag(run) : undefined;
-    if (run.type !== 'text-run' || tag === undefined) {
-      out.push(run);
+    const group = run ? collectRubyGroup(runs, i, run) : undefined;
+    if (!group) {
+      if (run) out.push(run);
       i++;
       continue;
     }
 
-    // Gather contiguous text runs sharing the same tag.
-    const groupStart = run;
-    let groupEnd = run;
-    let j = i + 1;
-    while (j < runs.length) {
-      const next = runs[j];
-      if (!next || next.type !== 'text-run' || readRubyTag(next) !== tag) break;
-      groupEnd = next;
-      j++;
-    }
-
-    // Push the base runs as-is.
-    for (let k = i; k < j; k++) {
-      const r = runs[k];
-      if (r) out.push(r);
-    }
-
-    // Emit the annotation positioned above the group.
-    const rubyFontSize = groupStart.paint.font.sizePx * RUBY_FONT_SCALE;
-    const annotationY = lineY + groupStart.bounds.y - rubyFontSize - RUBY_GAP;
-    const groupLeft = groupStart.bounds.x;
-    const groupRight = groupEnd.bounds.x + groupEnd.bounds.width;
-    out.push({
-      type: 'ruby-annotation',
-      text: tag,
-      bounds: {
-        x: groupLeft,
-        y: annotationY,
-        width: groupRight - groupLeft,
-        height: rubyFontSize,
-      },
-      paint: {
-        color: groupStart.paint.color,
-        font: {
-          style: groupStart.paint.font.style,
-          weight: groupStart.paint.font.weight,
-          sizePx: rubyFontSize,
-          family: groupStart.paint.font.family,
-        },
-      },
-    });
-
-    i = j;
+    pushRubyBaseRuns(out, runs, i, group.nextIndex);
+    out.push(createRubyAnnotation(group, lineY));
+    i = group.nextIndex;
   }
   return out;
+}
+
+function collectRubyGroup(runs: readonly Run[], index: number, run: Run): RubyRunGroup | undefined {
+  const tag = run.type === 'text-run' ? readRubyTag(run) : undefined;
+  if (run.type !== 'text-run' || tag === undefined) return undefined;
+
+  let groupEnd = run;
+  let nextIndex = index + 1;
+  while (nextIndex < runs.length) {
+    const next = runs[nextIndex];
+    if (!next || next.type !== 'text-run' || readRubyTag(next) !== tag) break;
+    groupEnd = next;
+    nextIndex++;
+  }
+  return { tag, start: run, end: groupEnd, nextIndex };
+}
+
+function pushRubyBaseRuns(
+  out: (TextRun | InlineAtom | RubyAnnotation)[],
+  runs: readonly Run[],
+  start: number,
+  end: number,
+): void {
+  for (let index = start; index < end; index++) {
+    const run = runs[index];
+    if (run) out.push(run);
+  }
+}
+
+function createRubyAnnotation(group: RubyRunGroup, lineY: number): RubyAnnotation {
+  const rubyFontSize = group.start.paint.font.sizePx * RUBY_FONT_SCALE;
+  return {
+    type: 'ruby-annotation',
+    text: group.tag,
+    bounds: {
+      x: group.start.bounds.x,
+      y: lineY + group.start.bounds.y - rubyFontSize - RUBY_GAP,
+      width: group.end.bounds.x + group.end.bounds.width - group.start.bounds.x,
+      height: rubyFontSize,
+    },
+    paint: {
+      color: group.start.paint.color,
+      font: {
+        style: group.start.paint.font.style,
+        weight: group.start.paint.font.weight,
+        sizePx: rubyFontSize,
+        family: group.start.paint.font.family,
+      },
+    },
+  };
 }
 
 function justifyRuns(runs: Run[], lineWidth: number, maxWidth: number): Run[] {

@@ -1,16 +1,14 @@
 import type { DocumentNode, ElementAttributes } from '../../parser/xhtml/types';
 import { DEFAULT_STYLE, inheritableStyle } from '../core/defaults';
 import { getTagStyle } from '../core/tag-styles';
-import type { ComputedStyle, CssRule, Specificity, StyledNode } from '../core/types';
+import type { ComputedStyle, CssRule, StyledNode } from '../core/types';
 import { DISPLAY_VALUES } from '../core/types';
 import { fontShorthandFromStyle } from '../css/font-shorthand';
-import { parseCssDeclarations } from '../css/property-parser';
 import type { Viewport } from '../css/parse-utils';
 import { type RuleIndex, buildRuleIndex } from './rule-index';
 import type { SelectorTarget } from './selector-matcher';
-import { matchesSelector } from './selector-matcher';
 import { injectPseudoElements } from './pseudo-elements';
-import { calculateSpecificity, compareSpecificity } from './specificity';
+import { applyUnifiedRules } from './unified-rules';
 
 /**
  * Resolve styles for a document node tree.
@@ -270,95 +268,4 @@ function applyTagStyle(parentStyle: ComputedStyle, tag: string): ComputedStyle {
   const overrides = getTagStyle(tag);
   if (!overrides) return parentStyle;
   return { ...parentStyle, ...overrides };
-}
-
-interface MatchedRule {
-  readonly rawDeclarations: string;
-  readonly declarations: Partial<ComputedStyle>;
-  readonly specificity: Specificity;
-}
-
-/** Inline style specificity — higher than any selector. */
-const INLINE_SPECIFICITY: Specificity = [Infinity, 0, 0];
-
-/**
- * Unified cascade: stylesheet rules + inline style resolved together.
- *
- * CSS em values in `font-size` resolve against the **parent** font-size,
- * while em values in other properties resolve against the element's own
- * computed font-size. A two-pass approach handles this:
- *
- * - Pass 1: determine the final font-size from ALL sources (rules + inline)
- * - Pass 2: re-parse ALL declarations with that final font-size
- *
- * When rules and inline were processed separately, an inline `font-size`
- * could not retroactively fix em-dependent stylesheet properties
- * (e.g. `.lh { line-height: 1em }` resolved against the wrong font-size).
- */
-function applyUnifiedRules(
-  style: ComputedStyle,
-  target: SelectorTarget,
-  parentFontSize: number,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
-  inlineCss: string | undefined,
-  viewport?: Viewport,
-): ComputedStyle {
-  const candidates =
-    rules && rules.length > 0
-      ? index
-        ? index.getCandidates(target.tag, target.className, target.id)
-        : rules
-      : [];
-
-  const matches: MatchedRule[] = [];
-  for (const rule of candidates) {
-    if (matchesSelector(target, rule.selector, ancestors)) {
-      matches.push({
-        rawDeclarations: rule.rawDeclarations,
-        declarations: rule.declarations,
-        specificity: calculateSpecificity(rule.selector),
-      });
-    }
-  }
-
-  // Add inline style as the highest-priority entry
-  if (inlineCss) {
-    matches.push({
-      rawDeclarations: inlineCss,
-      declarations: parseCssDeclarations(inlineCss, parentFontSize, parentFontSize, viewport),
-      specificity: INLINE_SPECIFICITY,
-    });
-  }
-
-  if (matches.length === 0) return style;
-  matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
-
-  // Pass 1: resolve font-size from ALL sources against the parent fontSize.
-  let resolvedFontSize = style.fontSize;
-  for (const match of matches) {
-    const reparsed = parseCssDeclarations(
-      match.rawDeclarations,
-      parentFontSize,
-      parentFontSize,
-      viewport,
-    );
-    if (reparsed.fontSize !== undefined) {
-      resolvedFontSize = reparsed.fontSize;
-    }
-  }
-
-  // Pass 2: re-parse ALL declarations with the element's final font-size.
-  let result: ComputedStyle = { ...style, fontSize: resolvedFontSize };
-  for (const match of matches) {
-    const resolved = parseCssDeclarations(
-      match.rawDeclarations,
-      resolvedFontSize,
-      resolvedFontSize,
-      viewport,
-    );
-    result = { ...result, ...resolved, fontSize: resolvedFontSize };
-  }
-  return result;
 }

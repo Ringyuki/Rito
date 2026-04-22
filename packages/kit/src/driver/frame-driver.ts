@@ -31,60 +31,9 @@ export interface FrameDriver {
 }
 
 export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
-  const {
-    surface,
-    pool,
-    transitionDriver: td,
-    contentRenderer,
-    overlayProvider,
-    getBackingRatio,
-  } = deps;
-
   let rafId: number | null = null;
   let lastFrameTime = 0;
   let disposed = false;
-
-  function ensureSlotReady(position: SlotPosition): void {
-    pool.ensureContent(position, contentRenderer);
-    pool.ensureOverlay(position, overlayProvider, getBackingRatio());
-  }
-
-  function compositeFrame(instruction: DrawInstruction): void {
-    const W = surface.width;
-    const H = surface.height;
-    surface.clear();
-
-    if (instruction.kind === 'single') {
-      ensureSlotReady(instruction.slot);
-      const slot = pool[instruction.slot];
-      surface.ctx.drawImage(slot.content, 0, 0, W, H);
-      if (slot.overlay) surface.ctx.drawImage(slot.overlay, 0, 0, W, H);
-      return;
-    }
-
-    // Turning: draw outgoing + incoming at offset dx
-    const { outgoing, incoming, dx } = instruction;
-
-    ensureSlotReady(outgoing);
-    const outSlot = pool[outgoing];
-
-    // Scale dx from viewport-logical to backing-store pixels
-    const ratio = W / (td.viewportWidth || W);
-    const pxDx = Math.round(dx * ratio);
-
-    surface.ctx.drawImage(outSlot.content, pxDx, 0, W, H);
-    if (outSlot.overlay) surface.ctx.drawImage(outSlot.overlay, pxDx, 0, W, H);
-
-    if (incoming) {
-      ensureSlotReady(incoming);
-      const inSlot = pool[incoming];
-      // Use slot position to determine side: 'next' = right of outgoing, 'prev' = left.
-      // Do NOT use dx sign — dx can cross zero when user reverses a gesture.
-      const inX = pxDx + (incoming === 'next' ? W : -W);
-      surface.ctx.drawImage(inSlot.content, inX, 0, W, H);
-      if (inSlot.overlay) surface.ctx.drawImage(inSlot.overlay, inX, 0, W, H);
-    }
-  }
 
   function onFrame(now: number): void {
     rafId = null;
@@ -93,10 +42,10 @@ export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
     const dt = lastFrameTime > 0 ? Math.min(now - lastFrameTime, 32) : 16;
     lastFrameTime = now;
 
-    const instruction = td.step(dt);
-    compositeFrame(instruction);
+    const instruction = deps.transitionDriver.step(dt);
+    compositeFrame(deps, instruction);
 
-    if (td.isAnimating) {
+    if (deps.transitionDriver.isAnimating) {
       rafId = requestAnimationFrame(onFrame);
     } else {
       lastFrameTime = 0;
@@ -111,12 +60,12 @@ export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
     },
 
     markOverlayDirty(spreadIndex): void {
-      pool.invalidateOverlayForSpread(spreadIndex);
+      deps.pool.invalidateOverlayForSpread(spreadIndex);
       driver.scheduleComposite();
     },
 
     markAllOverlaysDirty(): void {
-      pool.invalidateAllOverlays();
+      deps.pool.invalidateAllOverlays();
       driver.scheduleComposite();
     },
 
@@ -130,4 +79,61 @@ export function createFrameDriver(deps: FrameDriverDeps): FrameDriver {
   };
 
   return driver;
+}
+
+function ensureSlotReady(deps: FrameDriverDeps, position: SlotPosition): void {
+  deps.pool.ensureContent(position, deps.contentRenderer);
+  deps.pool.ensureOverlay(position, deps.overlayProvider, deps.getBackingRatio());
+}
+
+function compositeFrame(deps: FrameDriverDeps, instruction: DrawInstruction): void {
+  const width = deps.surface.width;
+  const height = deps.surface.height;
+  deps.surface.clear();
+
+  if (instruction.kind === 'single') {
+    drawSingleFrame(deps, instruction.slot, width, height);
+    return;
+  }
+  drawTurningFrame(deps, instruction, width, height);
+}
+
+function drawSingleFrame(
+  deps: FrameDriverDeps,
+  slotPosition: SlotPosition,
+  width: number,
+  height: number,
+): void {
+  ensureSlotReady(deps, slotPosition);
+  const slot = deps.pool[slotPosition];
+  deps.surface.ctx.drawImage(slot.content, 0, 0, width, height);
+  if (slot.overlay) deps.surface.ctx.drawImage(slot.overlay, 0, 0, width, height);
+}
+
+function drawTurningFrame(
+  deps: FrameDriverDeps,
+  instruction: Extract<DrawInstruction, { kind: 'turning' }>,
+  width: number,
+  height: number,
+): void {
+  const { outgoing, incoming, dx } = instruction;
+  ensureSlotReady(deps, outgoing);
+  const pxDx = Math.round(dx * (width / (deps.transitionDriver.viewportWidth || width)));
+  drawSlotAt(deps, outgoing, pxDx, width, height);
+  if (!incoming) return;
+  const incomingX = pxDx + (incoming === 'next' ? width : -width);
+  ensureSlotReady(deps, incoming);
+  drawSlotAt(deps, incoming, incomingX, width, height);
+}
+
+function drawSlotAt(
+  deps: FrameDriverDeps,
+  slotPosition: SlotPosition,
+  x: number,
+  width: number,
+  height: number,
+): void {
+  const slot = deps.pool[slotPosition];
+  deps.surface.ctx.drawImage(slot.content, x, 0, width, height);
+  if (slot.overlay) deps.surface.ctx.drawImage(slot.overlay, x, 0, width, height);
 }

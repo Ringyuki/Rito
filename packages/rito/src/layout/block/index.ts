@@ -36,46 +36,51 @@ export function layoutNodesAt(
   };
 
   for (const node of nodes) {
-    // clearExpired is NOT called unconditionally: negative margin-top can pull
-    // a block back into an "expired" float's range, and range-checking in
-    // sumActiveWidths naturally handles this without removing entries.
-    //
-    // After CSS `clear`, however, floats below state.y are pruned so that
-    // later floats with negative margins don't collide with stale entries
-    // from a previous float group. Trade-off: a post-clear in-flow sibling
-    // pulled back by negative margin won't interact with the pruned floats.
-    // This matches browser behavior for typical EPUB float-group patterns.
-    if (node.style.clear !== 'none') {
-      const clearY = state.floats.getClearY(node.style.clear);
-      if (clearY > state.y) state.y = clearY;
-      state.floats.clearExpired(state.y);
-    }
-
-    if (node.type === 'text' && node.content === '\n') {
-      // Bare <br> between blocks: treat as a zero-margin anonymous block with one line of height.
-      // First settle the previous block's deferred bottom margin, then add the line gap.
-      collapseMargin(state, 0);
-      state.y += node.style.lineHeightPx ?? node.style.fontSize * node.style.lineHeight;
-      state.prevMarginBottom = 0;
-    } else if (node.type === 'image' && node.src) {
-      layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
-    } else if (node.type === 'block' && node.style.position === 'absolute') {
-      // Skip: absolute children are positioned by their containing block
-      // (layoutContainerBlock handles them when the parent is position:relative)
-      continue;
-    } else if (node.type === 'block') {
-      layoutBlockNode(
-        state,
-        node,
-        contentWidth,
-        contentHeight,
-        layouter,
-        layoutNodesAt,
-        imageSizes,
-        listCtx,
-      );
-    }
+    applyClearance(state, node);
+    layoutTopLevelNode(state, node, contentWidth, contentHeight, layouter, imageSizes, listCtx);
   }
 
   return state.blocks;
+}
+
+function applyClearance(state: LayoutState, node: StyledNode): void {
+  // clearExpired is intentionally scoped to explicit CSS clear. Negative
+  // margins can otherwise pull later blocks back into an active float range.
+  if (node.style.clear === 'none') return;
+  const clearY = state.floats.getClearY(node.style.clear);
+  if (clearY > state.y) state.y = clearY;
+  state.floats.clearExpired(state.y);
+}
+
+function layoutTopLevelNode(
+  state: LayoutState,
+  node: StyledNode,
+  contentWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+  imageSizes: ImageSizeMap | undefined,
+  listCtx: ListContext | undefined,
+): void {
+  if (node.type === 'text' && node.content === '\n') {
+    layoutBareLineBreak(state, node);
+  } else if (node.type === 'image' && node.src) {
+    layoutFloatableImage(state, node, contentWidth, contentHeight, imageSizes);
+  } else if (node.type === 'block' && node.style.position !== 'absolute') {
+    layoutBlockNode(
+      state,
+      node,
+      contentWidth,
+      contentHeight,
+      layouter,
+      layoutNodesAt,
+      imageSizes,
+      listCtx,
+    );
+  }
+}
+
+function layoutBareLineBreak(state: LayoutState, node: StyledNode): void {
+  collapseMargin(state, 0);
+  state.y += node.style.lineHeightPx ?? node.style.fontSize * node.style.lineHeight;
+  state.prevMarginBottom = 0;
 }

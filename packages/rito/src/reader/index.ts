@@ -2,20 +2,16 @@ import type { LayoutConfig, Page, PaginationPolicy, Spread } from '../layout/cor
 import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { PackageMetadata, TocEntry } from '../parser/epub/types';
-import { disposeAssets } from '../render/assets';
-import { getSpreadDimensions } from '../render/spread';
-import { buildHrefResolver } from '../utils/resolve-href';
 import type { FootnoteEntry } from '../runtime/footnote-extractor';
 import type { ChapterRange, EpubDocument } from '../runtime/types';
 // FootnoteEntry is a stable public type (text + html, no parser AST).
 import { loadEpub } from '../runtime/load-epub';
 import {
+  buildReaderMethods,
   createReaderLayoutControls,
   createReaderNavigation,
   defineReaderAccessors,
   initReaderState,
-  renderSpreadToCanvas,
-  renderSpreadToContext,
   type ReaderState,
 } from './helpers';
 import type { LogLevel } from '../utils/logger';
@@ -213,78 +209,4 @@ function buildReader(
     layoutControls,
     navigation,
   ) as Reader;
-}
-
-function buildReaderMethods(
-  state: ReaderState,
-  doc: EpubDocument,
-  canvas: HTMLCanvasElement | OffscreenCanvas,
-  ctx: CanvasRenderingContext2D,
-  layoutControls: ReturnType<typeof createReaderLayoutControls>,
-) {
-  return {
-    renderSpread: (index: number, scale = 1): void => {
-      renderSpreadToCanvas(state, canvas, ctx, index, scale);
-    },
-    renderSpreadTo: (
-      index: number,
-      targetCtx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
-    ): void => {
-      renderSpreadToContext(state, targetCtx, index);
-    },
-    notifyActiveSpread: (index: number): void => {
-      const spread = state.spreads[index];
-      if (!spread) return;
-      for (const cb of state.spreadRenderedListeners) cb(index, spread);
-    },
-    setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
-      if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
-      if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor;
-    },
-    getCanvasSize: (scale = 1) => {
-      const effectiveRatio = scale * state.dpr;
-      const dims = getSpreadDimensions(state.config, effectiveRatio);
-      return { width: dims.width / state.dpr, height: dims.height / state.dpr };
-    },
-    getLayoutGeometry: (): Readonly<LayoutConfig> => state.config,
-    getChapterTextIndices: () => state.resources.chapterTextIndices,
-    getFootnotes: () => state.resources.footnoteMap,
-    getImageBlobUrl: (() => {
-      const resolve = buildHrefResolver(doc.images);
-      return (src: string): string | undefined => {
-        const bytes = resolve(src);
-        if (!bytes) return undefined;
-        const blob = new Blob([bytes.buffer as ArrayBuffer]);
-        return URL.createObjectURL(blob);
-      };
-    })(),
-    measurer: state.assets.measurer as TextMeasurer,
-    setTypography(opts: {
-      fontSize?: number | null;
-      lineHeight?: number | null;
-      lineHeightForce?: boolean;
-      fontFamily?: string | null;
-      fontFamilyForce?: boolean;
-    }): boolean {
-      if (opts.fontSize !== undefined) state.fontSizeOverride = opts.fontSize ?? undefined;
-      if (opts.lineHeight !== undefined) state.lineHeightOverride = opts.lineHeight ?? undefined;
-      if (opts.lineHeightForce !== undefined) state.lineHeightForce = opts.lineHeightForce;
-      if (opts.fontFamily !== undefined) state.fontFamilyOverride = opts.fontFamily ?? undefined;
-      if (opts.fontFamilyForce !== undefined) state.fontFamilyForce = opts.fontFamilyForce;
-      return layoutControls.updateLayout(
-        state.config.viewportWidth,
-        state.config.viewportHeight,
-        state.spreadMode,
-      );
-    },
-    onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void {
-      state.spreadRenderedListeners.add(cb);
-      return () => state.spreadRenderedListeners.delete(cb);
-    },
-    dispose(): void {
-      state.spreadRenderedListeners.clear();
-      disposeAssets(state.assets);
-      doc.close();
-    },
-  };
 }

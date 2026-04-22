@@ -384,8 +384,8 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 530,
-            "hash": "696e265e41a9a452",
+            "count": 542,
+            "hash": "e701344fc7b80da5",
             "methods": {
               "beginPath": 46,
               "clip": 1,
@@ -395,15 +395,15 @@
               "lineTo": 45,
               "moveTo": 45,
               "rect": 1,
-              "restore": 16,
-              "save": 16,
+              "restore": 28,
+              "save": 28,
               "scale": 2,
               "setLineDash": 45,
               "stroke": 45,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 41,
+              "fillStyle": 29,
               "font": 15,
               "letterSpacing": 15,
               "lineCap": 45,
@@ -678,6 +678,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -693,9 +698,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -937,6 +942,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -952,9 +962,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1196,6 +1206,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1211,9 +1226,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1455,6 +1470,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1470,9 +1490,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1666,6 +1686,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1681,9 +1706,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1877,6 +1902,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1892,9 +1922,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2136,6 +2166,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2151,9 +2186,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2395,6 +2430,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2410,9 +2450,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2654,6 +2694,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2669,9 +2714,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2913,6 +2958,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2928,9 +2978,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3172,6 +3222,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3187,9 +3242,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3383,6 +3438,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3398,9 +3458,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3625,8 +3685,8 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 530,
-            "hash": "6c06c2238fb11aaf",
+            "count": 542,
+            "hash": "356c8d0843680d88",
             "methods": {
               "beginPath": 46,
               "clip": 1,
@@ -3636,15 +3696,15 @@
               "lineTo": 45,
               "moveTo": 45,
               "rect": 1,
-              "restore": 16,
-              "save": 16,
+              "restore": 28,
+              "save": 28,
               "scale": 2,
               "setLineDash": 45,
               "stroke": 45,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 41,
+              "fillStyle": 29,
               "font": 15,
               "letterSpacing": 15,
               "lineCap": 45,
@@ -3919,6 +3979,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3934,9 +3999,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4178,6 +4243,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4193,9 +4263,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4437,6 +4507,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4452,9 +4527,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4696,6 +4771,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4711,9 +4791,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4907,6 +4987,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4922,9 +5007,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5118,6 +5203,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5133,9 +5223,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5377,6 +5467,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5392,9 +5487,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5636,6 +5731,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5651,9 +5751,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5895,6 +5995,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5910,9 +6015,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -6154,6 +6259,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -6169,9 +6279,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -6413,6 +6523,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -6428,9 +6543,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -6624,6 +6739,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -6639,9 +6759,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],

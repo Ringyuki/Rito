@@ -384,8 +384,8 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 476,
-            "hash": "5e7f186b272d18d1",
+            "count": 486,
+            "hash": "920cdad3b63db2e3",
             "methods": {
               "beginPath": 42,
               "clip": 1,
@@ -395,15 +395,15 @@
               "lineTo": 41,
               "moveTo": 41,
               "rect": 1,
-              "restore": 14,
-              "save": 14,
+              "restore": 24,
+              "save": 24,
               "scale": 2,
               "setLineDash": 41,
               "stroke": 41,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 35,
+              "fillStyle": 25,
               "font": 13,
               "letterSpacing": 13,
               "lineCap": 41,
@@ -678,6 +678,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -693,9 +698,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -937,6 +942,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -952,9 +962,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1196,6 +1206,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1211,9 +1226,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1455,6 +1470,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1470,9 +1490,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1714,6 +1734,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1729,9 +1754,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -1973,6 +1998,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -1988,9 +2018,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2232,6 +2262,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2247,9 +2282,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2491,6 +2526,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2506,9 +2546,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -2750,6 +2790,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -2765,9 +2810,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3009,6 +3054,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3024,9 +3074,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3299,8 +3349,8 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 476,
-            "hash": "3fa6b13de77ae01e",
+            "count": 486,
+            "hash": "9f202cdc4bd52f78",
             "methods": {
               "beginPath": 42,
               "clip": 1,
@@ -3310,15 +3360,15 @@
               "lineTo": 41,
               "moveTo": 41,
               "rect": 1,
-              "restore": 14,
-              "save": 14,
+              "restore": 24,
+              "save": 24,
               "scale": 2,
               "setLineDash": 41,
               "stroke": 41,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 35,
+              "fillStyle": 25,
               "font": 13,
               "letterSpacing": 13,
               "lineCap": 41,
@@ -3593,6 +3643,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3608,9 +3663,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -3852,6 +3907,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -3867,9 +3927,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4111,6 +4171,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4126,9 +4191,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4370,6 +4435,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4385,9 +4455,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4629,6 +4699,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4644,9 +4719,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -4888,6 +4963,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -4903,9 +4983,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5147,6 +5227,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5162,9 +5247,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5406,6 +5491,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5421,9 +5511,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5665,6 +5755,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5680,9 +5775,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],
@@ -5924,6 +6019,11 @@
                 "value": ""
               },
               {
+                "args": [],
+                "method": "save",
+                "type": "call"
+              },
+              {
                 "property": "fillStyle",
                 "type": "set",
                 "value": "#000"
@@ -5939,9 +6039,9 @@
                 "type": "call"
               },
               {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
+                "args": [],
+                "method": "restore",
+                "type": "call"
               },
               {
                 "args": [],

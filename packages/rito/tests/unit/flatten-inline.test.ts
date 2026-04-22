@@ -4,7 +4,7 @@ import { flattenInlineContent, isInlineAtom } from '../../src/layout/text/styled
 import { resolveStyles } from '../../src/style/cascade/resolver';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { StyledNode } from '../../src/style/core/types';
-import type { DocumentNode } from '../../src/parser/xhtml/types';
+import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 
 function asText(seg: InlineSegment | undefined): StyledSegment | undefined {
@@ -16,8 +16,14 @@ function text(content: string): DocumentNode {
   return { type: NODE_TYPES.Text, content };
 }
 
-function inline(tag: string, children: DocumentNode[]): DocumentNode {
-  return { type: NODE_TYPES.Inline, tag, children };
+function inline(
+  tag: string,
+  children: DocumentNode[],
+  attributes?: ElementAttributes,
+): DocumentNode {
+  return attributes
+    ? { type: NODE_TYPES.Inline, tag, children, attributes }
+    : { type: NODE_TYPES.Inline, tag, children };
 }
 
 function block(tag: string, children: DocumentNode[]): DocumentNode {
@@ -108,6 +114,22 @@ describe('flattenInlineContent', () => {
     expect(segments[0]?.style.fontWeight).toBe(700);
     expect(segments[1]?.style.fontWeight).toBe(400);
     expect(segments[2]?.style.fontStyle).toBe('italic');
+  });
+
+  it('marks a single-fragment bordered inline as both start and end', () => {
+    const p = resolveBlock(
+      block('p', [
+        inline('span', [text('box')], {
+          style: 'border: 2px solid #00f; padding: 4px; margin-left: 6px; margin-right: 8px',
+        }),
+      ]),
+    );
+    const segment = asText(flattenInlineContent(p.children)[0]);
+
+    expect(segment?.borderStart).toBe(true);
+    expect(segment?.borderEnd).toBe(true);
+    expect(segment?.inlineMarginLeft).toBe(6);
+    expect(segment?.inlineMarginRight).toBe(8);
   });
 
   it('returns empty array for empty block', () => {

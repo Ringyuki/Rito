@@ -10,59 +10,78 @@ const FORCED_BREAK_PENALTY = -Infinity;
 
 export function buildKPItems(segments: readonly InlineSegment[], measurer: TextMeasurer): KPItem[] {
   const items: KPItem[] = [];
-
   for (const segment of segments) {
-    if (isInlineAtom(segment)) {
-      const dummySeg: StyledSegment = { text: '\uFFFC', style: segment.style };
-      items.push({
-        type: 'box',
-        width: segment.width,
-        text: '\uFFFC',
-        segment: dummySeg,
-        atom: segment,
-      });
-      continue;
-    }
-
-    const textSeg = segment;
-    const { text, style } = textSeg;
-    if (text.length === 0) continue;
-
-    // Add zero-width box for left border+padding inset so it counts toward line width
-    if (textSeg.borderStart) {
-      const inset = style.borderLeft.width + style.paddingLeft;
-      if (inset > 0) items.push(createBox(inset, '', textSeg));
-    }
-
-    const paint = measurePaintFromStyle(style);
-    const spaceWidth = measurer.measureText(' ', paint).width;
-    const stretchFactor = spaceWidth * 1.5;
-    const shrinkFactor = spaceWidth * 0.5;
-
-    for (const token of tokenize(text)) {
-      if (token === '\n') {
-        items.push(createGlue(0, 1e6, 0));
-        items.push(createPenalty(0, FORCED_BREAK_PENALTY, false));
-      } else if (token === ' ' || token === '\t') {
-        items.push(createGlue(spaceWidth, stretchFactor, shrinkFactor));
-      } else {
-        addWordItems(items, token, textSeg, measurer);
-      }
-    }
-
-    // Add zero-width box for right border+padding inset
-    if (textSeg.borderEnd) {
-      const inset = style.paddingRight + style.borderRight.width;
-      if (inset > 0) items.push(createBox(inset, '', textSeg));
-    }
+    addSegmentItems(items, segment, measurer);
   }
-
-  if (items.length > 0) {
-    items.push(createGlue(0, 1e6, 0));
-    items.push(createPenalty(0, FORCED_BREAK_PENALTY, false));
-  }
-
+  if (items.length > 0) addForcedBreak(items);
   return items;
+}
+
+function addSegmentItems(items: KPItem[], segment: InlineSegment, measurer: TextMeasurer): void {
+  if (isInlineAtom(segment)) {
+    addAtomItem(items, segment);
+    return;
+  }
+  if (segment.text.length > 0) addTextSegmentItems(items, segment, measurer);
+}
+
+function addAtomItem(items: KPItem[], segment: InlineSegment): void {
+  if (!isInlineAtom(segment)) return;
+  const dummySeg: StyledSegment = { text: '\uFFFC', style: segment.style };
+  items.push({
+    type: 'box',
+    width: segment.width,
+    text: '\uFFFC',
+    segment: dummySeg,
+    atom: segment,
+  });
+}
+
+function addTextSegmentItems(
+  items: KPItem[],
+  segment: StyledSegment,
+  measurer: TextMeasurer,
+): void {
+  addInlineStartInset(items, segment);
+  const paint = measurePaintFromStyle(segment.style);
+  const spaceWidth = measurer.measureText(' ', paint).width;
+  for (const token of tokenize(segment.text)) {
+    addTokenItems(items, token, segment, measurer, spaceWidth);
+  }
+  addInlineEndInset(items, segment);
+}
+
+function addTokenItems(
+  items: KPItem[],
+  token: string,
+  segment: StyledSegment,
+  measurer: TextMeasurer,
+  spaceWidth: number,
+): void {
+  if (token === '\n') {
+    addForcedBreak(items);
+  } else if (token === ' ' || token === '\t') {
+    items.push(createGlue(spaceWidth, spaceWidth * 1.5, spaceWidth * 0.5));
+  } else {
+    addWordItems(items, token, segment, measurer);
+  }
+}
+
+function addInlineStartInset(items: KPItem[], segment: StyledSegment): void {
+  if (!segment.borderStart) return;
+  const inset = segment.style.borderLeft.width + segment.style.paddingLeft;
+  if (inset > 0) items.push(createBox(inset, '', segment));
+}
+
+function addInlineEndInset(items: KPItem[], segment: StyledSegment): void {
+  if (!segment.borderEnd) return;
+  const inset = segment.style.paddingRight + segment.style.borderRight.width;
+  if (inset > 0) items.push(createBox(inset, '', segment));
+}
+
+function addForcedBreak(items: KPItem[]): void {
+  items.push(createGlue(0, 1e6, 0));
+  items.push(createPenalty(0, FORCED_BREAK_PENALTY, false));
 }
 
 function tokenize(text: string): string[] {

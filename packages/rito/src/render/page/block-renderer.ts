@@ -8,9 +8,20 @@ import type {
 import type { LengthPct, TransformFn } from '../../style/core/paint-types';
 import { buildHrefResolver } from '../../utils/resolve-href';
 import { drawRubyAnnotation, drawTextRun } from '../text/text-renderer';
-import { renderBlockBackground, resolveBlockRadius, traceRoundedRect } from './background-renderer';
+import {
+  renderBlockBackground,
+  resolveBlockRadius,
+  traceRoundedRect,
+  type ResolvedRadius,
+} from './background-renderer';
 import { renderImage } from './image-renderer';
 import type { ColorOverride } from './types';
+
+interface BlockEffects {
+  readonly visualOffset: boolean;
+  readonly transform: boolean;
+  readonly opacity: boolean;
+}
 
 export function renderBlock(
   ctx: CanvasRenderingContext2D,
@@ -20,20 +31,40 @@ export function renderBlock(
   images?: ReadonlyMap<string, ImageBitmap>,
   colorOverride?: ColorOverride,
 ): void {
-  const paint = block.paint;
-  const visualOffset = paint?.visualOffset;
-  if (visualOffset) {
-    ctx.save();
-    ctx.translate(visualOffset.dx, visualOffset.dy);
+  const effects = beginBlockEffects(ctx, block, offsetX, offsetY);
+  const blockX = offsetX + block.bounds.x;
+  const blockY = offsetY + block.bounds.y;
+  const radius = resolveBlockRadius(block);
+  renderBlockBackground(ctx, block, blockX, blockY, radius, images);
+
+  const clipping = beginBlockClip(ctx, block, blockX, blockY, radius);
+  for (const child of block.children) {
+    renderChild(ctx, child, blockX, blockY, images, colorOverride);
   }
 
-  const transforms = paint?.transform;
-  const hasTransform = transforms !== undefined && transforms.length > 0;
-  if (hasTransform) {
+  if (clipping) ctx.restore();
+  restoreBlockEffects(ctx, effects);
+}
+
+function beginBlockEffects(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  offsetX: number,
+  offsetY: number,
+): BlockEffects {
+  const paint = block.paint;
+  const hasVisualOffset = paint?.visualOffset !== undefined;
+  if (paint?.visualOffset) {
+    ctx.save();
+    ctx.translate(paint.visualOffset.dx, paint.visualOffset.dy);
+  }
+
+  const hasTransform = paint?.transform !== undefined && paint.transform.length > 0;
+  if (paint?.transform && paint.transform.length > 0) {
     ctx.save();
     const cx = offsetX + block.bounds.x + block.bounds.width / 2;
     const cy = offsetY + block.bounds.y + block.bounds.height / 2;
-    applyTransform(ctx, transforms, cx, cy, block.bounds.width, block.bounds.height);
+    applyTransform(ctx, paint.transform, cx, cy, block.bounds.width, block.bounds.height);
   }
 
   const hasOpacity = paint?.opacity !== undefined && paint.opacity < 1;
@@ -41,40 +72,40 @@ export function renderBlock(
     ctx.save();
     ctx.globalAlpha = paint.opacity ?? 1;
   }
+  return { visualOffset: hasVisualOffset, transform: hasTransform, opacity: hasOpacity };
+}
 
-  const blockX = offsetX + block.bounds.x;
-  const blockY = offsetY + block.bounds.y;
-  const radius = resolveBlockRadius(block);
-  renderBlockBackground(ctx, block, blockX, blockY, radius, images);
+function restoreBlockEffects(ctx: CanvasRenderingContext2D, effects: BlockEffects): void {
+  if (effects.opacity) ctx.restore();
+  if (effects.transform) ctx.restore();
+  if (effects.visualOffset) ctx.restore();
+}
 
-  const clipping = paint?.clipToBounds === true;
-  if (clipping) {
-    ctx.save();
-    if (radius.rx > 0 || radius.ry > 0) {
-      traceRoundedRect(
-        ctx,
-        blockX,
-        blockY,
-        block.bounds.width,
-        block.bounds.height,
-        radius.rx,
-        radius.ry,
-      );
-    } else {
-      ctx.beginPath();
-      ctx.rect(blockX, blockY, block.bounds.width, block.bounds.height);
-    }
-    ctx.clip();
+function beginBlockClip(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  blockX: number,
+  blockY: number,
+  radius: ResolvedRadius,
+): boolean {
+  if (block.paint?.clipToBounds !== true) return false;
+  ctx.save();
+  if (radius.rx > 0 || radius.ry > 0) {
+    traceRoundedRect(
+      ctx,
+      blockX,
+      blockY,
+      block.bounds.width,
+      block.bounds.height,
+      radius.rx,
+      radius.ry,
+    );
+  } else {
+    ctx.beginPath();
+    ctx.rect(blockX, blockY, block.bounds.width, block.bounds.height);
   }
-
-  for (const child of block.children) {
-    renderChild(ctx, child, blockX, blockY, images, colorOverride);
-  }
-
-  if (clipping) ctx.restore();
-  if (hasOpacity) ctx.restore();
-  if (hasTransform) ctx.restore();
-  if (visualOffset) ctx.restore();
+  ctx.clip();
+  return true;
 }
 
 function renderChild(

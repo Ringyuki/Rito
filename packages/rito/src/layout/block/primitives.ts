@@ -1,5 +1,5 @@
 import type { ComputedStyle, StyledNode } from '../../style/core/types';
-import type { HorizontalRule, LayoutBlock } from '../core/types';
+import type { HorizontalRule, LayoutBlock, LineBox } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { flattenInlineContent } from '../text/styled-segment';
 import { computeChildrenHeight } from './helpers';
@@ -14,6 +14,18 @@ import type { ImageSizeMap } from './types';
 
 const HR_THICKNESS = 1;
 
+interface TextBlockMetrics {
+  readonly paddingTop: number;
+  readonly paddingBottom: number;
+  readonly paddingRight: number;
+  readonly paddingLeft: number;
+  readonly borderTop: number;
+  readonly borderBottom: number;
+  readonly borderLeft: number;
+  readonly borderRight: number;
+  readonly innerWidth: number;
+}
+
 export function layoutTextBlock(
   node: StyledNode,
   contentWidth: number,
@@ -21,6 +33,25 @@ export function layoutTextBlock(
   layouter: ParagraphLayouter,
   imageSizes?: ImageSizeMap,
 ): LayoutBlock {
+  const metrics = resolveTextBlockMetrics(node, contentWidth);
+  const segments = flattenInlineContent(node.children, imageSizes, node.href);
+  const lineBoxes = layouter.layoutParagraph(
+    segments,
+    metrics.innerWidth > 0 ? metrics.innerWidth : contentWidth,
+    0,
+  );
+  const children = offsetTextChildren(lineBoxes, metrics);
+  const height = resolveTextBlockHeight(node.style, lineBoxes, metrics);
+
+  const block: LayoutBlock = {
+    type: 'layout-block',
+    bounds: { x: 0, y, width: contentWidth, height },
+    children,
+  };
+  return applyBlockDecorations(block, node);
+}
+
+function resolveTextBlockMetrics(node: StyledNode, contentWidth: number): TextBlockMetrics {
   const paddingTop = resolvePaddingTop(node.style, contentWidth);
   const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
   const paddingRight = resolvePaddingRight(node.style, contentWidth);
@@ -29,45 +60,55 @@ export function layoutTextBlock(
   const borderBottom = node.style.borderBottom.width;
   const borderLeft = node.style.borderLeft.width;
   const borderRight = node.style.borderRight.width;
-  const innerWidth = contentWidth - paddingRight - paddingLeft - borderLeft - borderRight;
-  const segments = flattenInlineContent(node.children, imageSizes, node.href);
-  const lineBoxes = layouter.layoutParagraph(
-    segments,
-    innerWidth > 0 ? innerWidth : contentWidth,
-    0,
-  );
-  // Shift line boxes by border + padding offsets so content sits inside the border edges
-  const dx = borderLeft + paddingLeft;
-  const dy = borderTop + paddingTop;
-  const children =
-    dy > 0 || dx > 0
-      ? lineBoxes.map((lineBox) => ({
-          ...lineBox,
-          bounds: {
-            ...lineBox.bounds,
-            x: lineBox.bounds.x + dx,
-            y: lineBox.bounds.y + dy,
-          },
-        }))
-      : lineBoxes;
-
-  let height =
-    borderTop + paddingTop + computeChildrenHeight(lineBoxes) + paddingBottom + borderBottom;
-  if (node.style.height > 0) {
-    const borderV = borderTop + borderBottom;
-    height =
-      node.style.boxSizing === 'border-box'
-        ? node.style.height
-        : node.style.height + paddingTop + paddingBottom + borderV;
-  }
-  height = applyHeightConstraints(height, node.style);
-
-  const block: LayoutBlock = {
-    type: 'layout-block',
-    bounds: { x: 0, y, width: contentWidth, height },
-    children,
+  return {
+    paddingTop,
+    paddingBottom,
+    paddingRight,
+    paddingLeft,
+    borderTop,
+    borderBottom,
+    borderLeft,
+    borderRight,
+    innerWidth: contentWidth - paddingRight - paddingLeft - borderLeft - borderRight,
   };
-  return applyBlockDecorations(block, node);
+}
+
+function offsetTextChildren(
+  lineBoxes: readonly LineBox[],
+  metrics: TextBlockMetrics,
+): readonly LineBox[] {
+  const dx = metrics.borderLeft + metrics.paddingLeft;
+  const dy = metrics.borderTop + metrics.paddingTop;
+  if (dy <= 0 && dx <= 0) return lineBoxes;
+  return lineBoxes.map((lineBox) => ({
+    ...lineBox,
+    bounds: {
+      ...lineBox.bounds,
+      x: lineBox.bounds.x + dx,
+      y: lineBox.bounds.y + dy,
+    },
+  }));
+}
+
+function resolveTextBlockHeight(
+  style: ComputedStyle,
+  lineBoxes: readonly LineBox[],
+  metrics: TextBlockMetrics,
+): number {
+  let height =
+    metrics.borderTop +
+    metrics.paddingTop +
+    computeChildrenHeight(lineBoxes) +
+    metrics.paddingBottom +
+    metrics.borderBottom;
+  if (style.height > 0) {
+    const borderV = metrics.borderTop + metrics.borderBottom;
+    height =
+      style.boxSizing === 'border-box'
+        ? style.height
+        : style.height + metrics.paddingTop + metrics.paddingBottom + borderV;
+  }
+  return applyHeightConstraints(height, style);
 }
 
 function applyBlockDecorations(block: LayoutBlock, node: StyledNode): LayoutBlock {
@@ -92,11 +133,6 @@ export function applyRelativeOffset(block: LayoutBlock, style: ComputedStyle): L
   };
 }
 
-/**
- * Apply CSS width/maxWidth constraints and return the total box width
- * (including padding). layoutTextBlock subtracts padding from this to
- * get the inner content width.
- */
 /**
  * Apply CSS width/maxWidth constraints and return the total box width.
  *

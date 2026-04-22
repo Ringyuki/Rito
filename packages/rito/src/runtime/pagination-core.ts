@@ -60,26 +60,13 @@ export function paginateChapterNodes(
   bodyAttributes?: { readonly class?: string; readonly style?: string },
   chapterStylesheetHrefs?: readonly string[],
 ): PaginatedChapterResult {
-  // When a chapter declares specific <link> stylesheets, scope rules to only
-  // those CSS files. This prevents unrelated stylesheets (intended for other
-  // chapters) from leaking conflicting rules (e.g. div { text-align: center }
-  // from a prose stylesheet overriding div { text-align: justify } in a title page).
-  const rules = chapterStylesheetHrefs
-    ? filterRulesByChapterHrefs(context, chapterStylesheetHrefs)
-    : context.rules;
-
-  const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
-  const bodyStyle = computeBodyStyle(rules, viewport);
-  const resolvedBodyStyle = bodyAttributes
-    ? resolveBodyStyleWithAttrs(bodyStyle, rules, bodyAttributes, viewport)
-    : bodyStyle;
-  // Reader-wide typography overrides win over both stylesheet body rules and
-  // the chapter's <body> attributes; they cascade to descendants via inheritance.
-  const chapterBodyStyle = applyTypographyOverrides(resolvedBodyStyle, config);
-  const cascaded = resolveStyles(nodes, chapterBodyStyle, rules, viewport);
-  // Force pass: when force flags are set, rewrite typography on every node so
-  // element-level CSS (e.g. `p { line-height: 1.3em }`) cannot shadow the override.
-  const styled = forceTypographyOnTree(cascaded, config);
+  const { chapterBodyStyle, styled } = buildChapterStyleTree(
+    nodes,
+    config,
+    context,
+    bodyAttributes,
+    chapterStylesheetHrefs,
+  );
   const blocks = layoutBlocks(
     styled,
     context.contentWidth,
@@ -104,6 +91,28 @@ export function paginateChapterNodes(
     anchorMap: collectAnchorsByPage(pages),
     blockCount: blocks.length,
   };
+}
+
+function buildChapterStyleTree(
+  nodes: readonly DocumentNode[],
+  config: LayoutConfig,
+  context: PreparedPaginationContext,
+  bodyAttributes: { readonly class?: string; readonly style?: string } | undefined,
+  chapterStylesheetHrefs: readonly string[] | undefined,
+): { readonly chapterBodyStyle: ComputedStyle; readonly styled: readonly StyledNode[] } {
+  // Chapter-linked stylesheets are scoped to avoid unrelated stylesheet leakage.
+  const rules = chapterStylesheetHrefs
+    ? filterRulesByChapterHrefs(context, chapterStylesheetHrefs)
+    : context.rules;
+
+  const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
+  const bodyStyle = computeBodyStyle(rules, viewport);
+  const resolvedBodyStyle = bodyAttributes
+    ? resolveBodyStyleWithAttrs(bodyStyle, rules, bodyAttributes, viewport)
+    : bodyStyle;
+  const chapterBodyStyle = applyTypographyOverrides(resolvedBodyStyle, config);
+  const cascaded = resolveStyles(nodes, chapterBodyStyle, rules, viewport);
+  return { chapterBodyStyle, styled: forceTypographyOnTree(cascaded, config) };
 }
 
 function createParagraphLayouter(

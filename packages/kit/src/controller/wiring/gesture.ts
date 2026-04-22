@@ -17,6 +17,15 @@ interface TouchState {
   wasAnimating: boolean;
 }
 
+interface TouchHandlerContext {
+  readonly state: TouchState;
+  readonly deps: GestureDeps;
+  readonly selection: SelectionEngine;
+  readonly modeManager: InteractionModeManager;
+  readonly toContent: (touch: Touch) => { x: number; y: number };
+  readonly onTap: (pos: { x: number; y: number }) => void;
+}
+
 export interface GestureDeps {
   readonly td: TransitionDriver;
   readonly frameDriver: FrameDriver;
@@ -48,112 +57,22 @@ export function wireUnifiedTouchHandler(
   onTap: (pos: { x: number; y: number }) => void,
   disposables: DisposableCollection,
 ): void {
-  const ts: TouchState = { phase: 'idle', timer: null, startTouch: null, wasAnimating: false };
-  const {
-    td,
-    frameDriver,
-    goToSpread,
-    getCurrentSpread,
-    getTotalSpreads,
-    commitPendingTransition,
-  } = gestureDeps;
-
-  const clearTimer = (): void => {
-    if (ts.timer !== null) {
-      clearTimeout(ts.timer);
-      ts.timer = null;
-    }
+  const context: TouchHandlerContext = {
+    state: { phase: 'idle', timer: null, startTouch: null, wasAnimating: false },
+    deps: gestureDeps,
+    selection,
+    modeManager,
+    toContent,
+    onTap,
   };
-
-  const onStart = (e: TouchEvent): void => {
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    ts.startTouch = { x: touch.clientX, y: touch.clientY };
-    ts.wasAnimating = td.isAnimating;
-    ts.phase = 'waiting';
-
-    // Only set long-press timer if no animation is in progress
-    if (!td.isAnimating) {
-      ts.timer = setTimeout(() => {
-        ts.timer = null;
-        if (ts.phase !== 'waiting') return;
-        ts.phase = 'long-press';
-        modeManager.setMode('selection');
-        selection.handlePointerDown(toContent(touch));
-      }, LONG_PRESS_MS);
-    }
+  const onStart = (event: TouchEvent): void => {
+    handleTouchStart(context, event);
   };
-
-  const onMove = (e: TouchEvent): void => {
-    const touch = e.touches[0];
-    if (!touch) return;
-
-    if (ts.phase === 'waiting' && ts.startTouch) {
-      const dx = touch.clientX - ts.startTouch.x;
-      const dy = touch.clientY - ts.startTouch.y;
-      if (Math.abs(dx) > MOVE_SLOP_PX || Math.abs(dy) > MOVE_SLOP_PX) {
-        clearTimer();
-        ts.phase = 'gesture';
-        modeManager.setMode('gesture');
-
-        if (td.isAnimating) {
-          // Commit any in-progress animation before starting a new gesture.
-          // Works for both same-direction (rapid flip) and opposite-direction (reversal).
-          commitPendingTransition();
-        }
-
-        // td is now idle — start fresh navigation
-        const direction = dx < 0 ? 'forward' : 'backward';
-        const curr = getCurrentSpread();
-        const targetIdx = direction === 'forward' ? curr + 1 : curr - 1;
-
-        if (targetIdx < 0 || targetIdx >= getTotalSpreads()) {
-          td.startTracking(direction, curr, null, e.timeStamp);
-        } else {
-          goToSpread(targetIdx);
-          td.interrupt(e.timeStamp);
-        }
-
-        td.updateTracking(dx, e.timeStamp);
-        frameDriver.scheduleComposite();
-      }
-      return;
-    }
-
-    if (ts.phase === 'gesture') {
-      if (e.cancelable) e.preventDefault();
-      const dx = touch.clientX - (ts.startTouch?.x ?? 0);
-      td.updateTracking(dx, e.timeStamp);
-      frameDriver.scheduleComposite();
-      return;
-    }
-
-    if (ts.phase === 'long-press') {
-      selection.handlePointerMove(toContent(touch));
-    }
+  const onMove = (event: TouchEvent): void => {
+    handleTouchMove(context, event);
   };
-
-  const onEnd = (e: TouchEvent): void => {
-    const currentPhase = ts.phase;
-    clearTimer();
-
-    if (currentPhase === 'gesture') {
-      td.releaseTracking();
-      frameDriver.scheduleComposite();
-    } else if (currentPhase === 'long-press') {
-      const touch = e.changedTouches[0];
-      if (touch) selection.handlePointerUp(toContent(touch));
-    } else if (currentPhase === 'waiting' && !ts.wasAnimating) {
-      // Quick tap — only fire if there was no animation at touchstart
-      selection.clear();
-      const touch = e.changedTouches[0];
-      if (touch) onTap(toContent(touch));
-    }
-
-    ts.phase = 'idle';
-    ts.startTouch = null;
-    ts.wasAnimating = false;
+  const onEnd = (event: TouchEvent): void => {
+    handleTouchEnd(context, event);
   };
 
   target.addEventListener('touchstart', onStart, { passive: false });
@@ -161,9 +80,115 @@ export function wireUnifiedTouchHandler(
   target.addEventListener('touchend', onEnd);
 
   disposables.add(() => {
-    clearTimer();
+    clearTimer(context.state);
     target.removeEventListener('touchstart', onStart);
     target.removeEventListener('touchmove', onMove);
     target.removeEventListener('touchend', onEnd);
   });
+}
+
+function handleTouchStart(context: TouchHandlerContext, event: TouchEvent): void {
+  const touch = event.touches[0];
+  if (!touch) return;
+  const { state, deps } = context;
+  state.startTouch = { x: touch.clientX, y: touch.clientY };
+  state.wasAnimating = deps.td.isAnimating;
+  state.phase = 'waiting';
+  if (!deps.td.isAnimating) scheduleLongPress(context, touch);
+}
+
+function scheduleLongPress(context: TouchHandlerContext, touch: Touch): void {
+  const { state, modeManager, selection, toContent } = context;
+  state.timer = setTimeout(() => {
+    state.timer = null;
+    if (state.phase !== 'waiting') return;
+    state.phase = 'long-press';
+    modeManager.setMode('selection');
+    selection.handlePointerDown(toContent(touch));
+  }, LONG_PRESS_MS);
+}
+
+function handleTouchMove(context: TouchHandlerContext, event: TouchEvent): void {
+  const touch = event.touches[0];
+  if (!touch) return;
+  if (context.state.phase === 'waiting' && context.state.startTouch) {
+    handleWaitingMove(context, event, touch);
+  } else if (context.state.phase === 'gesture') {
+    handleGestureMove(context, event, touch);
+  } else if (context.state.phase === 'long-press') {
+    context.selection.handlePointerMove(context.toContent(touch));
+  }
+}
+
+function handleWaitingMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {
+  const start = context.state.startTouch;
+  if (!start) return;
+  const dx = touch.clientX - start.x;
+  const dy = touch.clientY - start.y;
+  if (Math.abs(dx) <= MOVE_SLOP_PX && Math.abs(dy) <= MOVE_SLOP_PX) return;
+  beginGesture(context, dx, event.timeStamp);
+}
+
+function beginGesture(context: TouchHandlerContext, dx: number, timestamp: number): void {
+  const { state, deps, modeManager } = context;
+  clearTimer(state);
+  state.phase = 'gesture';
+  modeManager.setMode('gesture');
+  if (deps.td.isAnimating) deps.commitPendingTransition();
+
+  const direction = dx < 0 ? 'forward' : 'backward';
+  const current = deps.getCurrentSpread();
+  const target = direction === 'forward' ? current + 1 : current - 1;
+  if (target < 0 || target >= deps.getTotalSpreads()) {
+    deps.td.startTracking(direction, current, null, timestamp);
+  } else {
+    deps.goToSpread(target);
+    deps.td.interrupt(timestamp);
+  }
+  deps.td.updateTracking(dx, timestamp);
+  deps.frameDriver.scheduleComposite();
+}
+
+function handleGestureMove(context: TouchHandlerContext, event: TouchEvent, touch: Touch): void {
+  if (event.cancelable) event.preventDefault();
+  const dx = touch.clientX - (context.state.startTouch?.x ?? 0);
+  context.deps.td.updateTracking(dx, event.timeStamp);
+  context.deps.frameDriver.scheduleComposite();
+}
+
+function handleTouchEnd(context: TouchHandlerContext, event: TouchEvent): void {
+  const currentPhase = context.state.phase;
+  clearTimer(context.state);
+  if (currentPhase === 'gesture') {
+    context.deps.td.releaseTracking();
+    context.deps.frameDriver.scheduleComposite();
+  } else if (currentPhase === 'long-press') {
+    endLongPress(context, event);
+  } else if (currentPhase === 'waiting' && !context.state.wasAnimating) {
+    handleTapEnd(context, event);
+  }
+  resetTouchState(context.state);
+}
+
+function endLongPress(context: TouchHandlerContext, event: TouchEvent): void {
+  const touch = event.changedTouches[0];
+  if (touch) context.selection.handlePointerUp(context.toContent(touch));
+}
+
+function handleTapEnd(context: TouchHandlerContext, event: TouchEvent): void {
+  context.selection.clear();
+  const touch = event.changedTouches[0];
+  if (touch) context.onTap(context.toContent(touch));
+}
+
+function clearTimer(state: TouchState): void {
+  if (state.timer === null) return;
+  clearTimeout(state.timer);
+  state.timer = null;
+}
+
+function resetTouchState(state: TouchState): void {
+  state.phase = 'idle';
+  state.startTouch = null;
+  state.wasAnimating = false;
 }

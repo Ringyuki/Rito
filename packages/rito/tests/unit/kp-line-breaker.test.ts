@@ -299,6 +299,45 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph(segments, 200, 0);
       expect(lines).toHaveLength(1);
     });
+
+    it('keeps inter-segment spaces outside bordered inline boxes', () => {
+      const bordered: ComputedStyle = {
+        ...DEFAULT_STYLE,
+        paddingLeft: 4,
+        paddingRight: 4,
+        borderTop: { width: 2, color: '#00f', style: 'solid' },
+        borderRight: { width: 2, color: '#00f', style: 'solid' },
+        borderBottom: { width: 2, color: '#00f', style: 'solid' },
+        borderLeft: { width: 2, color: '#00f', style: 'solid' },
+      };
+      const plain: ComputedStyle = { ...DEFAULT_STYLE };
+      const segments: InlineSegment[] = [
+        { text: 'A', style: bordered, borderStart: true, borderEnd: true },
+        { text: ' ', style: plain },
+        { text: 'B', style: bordered, borderStart: true, borderEnd: true },
+      ];
+
+      const runs = layouter.layoutParagraph(segments, 500, 0)[0]?.runs ?? [];
+      const textRuns = runs.filter((run): run is TextRun => run.type === 'text-run');
+      const first = textRuns.find((run) => run.text === 'A');
+      const second = textRuns.find((run) => run.text === 'B');
+
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      if (!first || !second) return;
+
+      const firstBorderRight =
+        first.bounds.x +
+        first.bounds.width +
+        (first.paint.padding?.right ?? 0) +
+        (first.paint.border?.end?.widthPx ?? 0);
+      const secondBorderLeft =
+        second.bounds.x -
+        (second.paint.padding?.left ?? 0) -
+        (second.paint.border?.start?.widthPx ?? 0);
+
+      expect(secondBorderLeft - firstBorderRight).toBeGreaterThan(0);
+    });
   });
 
   describe('inline margin', () => {

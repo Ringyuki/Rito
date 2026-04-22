@@ -384,7 +384,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 407,
-            "hash": "0496dfa285365cb1",
+            "hash": "4f7ad115b3962b99",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -521,11 +521,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -581,6 +576,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {
@@ -2874,11 +2874,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -2954,6 +2949,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {
@@ -3282,7 +3282,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 407,
-            "hash": "c0e26af41fe73511",
+            "hash": "99d5492028df3abd",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -3419,11 +3419,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -3479,6 +3474,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {
@@ -5772,11 +5772,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -5852,6 +5847,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {
@@ -8823,7 +8823,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 468,
-            "hash": "cbe5e12cd0ef900e",
+            "hash": "0c9d4c804a2c65d0",
             "methods": {
               "arcTo": 8,
               "beginPath": 35,
@@ -9561,11 +9561,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -9621,6 +9616,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {
@@ -11725,7 +11725,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 468,
-            "hash": "bc1aefed3693bde3",
+            "hash": "505707a82fbd4d16",
             "methods": {
               "arcTo": 8,
               "beginPath": 35,
@@ -12463,11 +12463,6 @@
               },
               {
                 "args": [],
-                "method": "getTransform",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "beginPath",
                 "type": "call"
               },
@@ -12523,6 +12518,11 @@
                   "evenodd"
                 ],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "getTransform",
                 "type": "call"
               },
               {

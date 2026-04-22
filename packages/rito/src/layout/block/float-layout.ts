@@ -2,6 +2,7 @@ import type { StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
+import { normalizeChildPositions, shrinkToFitWidth } from './float-intrinsic';
 import { addListMarker, createListContext, type ListContext } from './list';
 import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import {
@@ -24,6 +25,27 @@ import {
 import type { LayoutState } from './state';
 import type { ImageSizeMap } from './types';
 
+interface FloatSizing {
+  readonly marginTop: number;
+  readonly marginLeft: number;
+  readonly marginRight: number;
+  readonly side: 'left' | 'right';
+  readonly layoutWidth: number;
+}
+
+interface FloatContainerInsets {
+  readonly paddingTop: number;
+  readonly paddingRight: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly borderTop: number;
+  readonly borderRight: number;
+  readonly borderBottom: number;
+  readonly borderLeft: number;
+  readonly childWidth: number;
+  readonly childStartY: number;
+}
+
 export function layoutFloatedBlock(
   state: LayoutState,
   node: StyledNode,
@@ -34,52 +56,64 @@ export function layoutFloatedBlock(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
-  // Floats are out of normal flow — don't modify state.y or consume prevMarginBottom.
-  // CSS §9.5.1 rule 5: a float's outer (margin-edge) top may not be above
-  // any earlier float's outer top. Since all floats share the same state.y
-  // (the current flow position), their margin-edge tops are all at state.y,
-  // so the constraint is naturally satisfied. Horizontal overlap is resolved
-  // by findFloatPlaceY() which pushes floats down when they don't fit.
-  const mt = resolveMarginTop(node.style, contentWidth);
-  const floatStartY = state.y + mt;
-  const ml = resolveMarginLeft(node.style, contentWidth);
-  const mr = resolveMarginRight(node.style, contentWidth);
-  const side = node.style.float as 'left' | 'right';
-  const availWidth = contentWidth - ml - mr;
-  const layoutWidth = applySizeConstraints(availWidth, node.style);
-
-  let block = hasBlockChildren(node)
+  const sizing = resolveFloatSizing(node, contentWidth);
+  const block = hasBlockChildren(node)
     ? layoutFloatedContainer(
         node,
-        layoutWidth,
+        sizing.layoutWidth,
         contentHeight,
         layouter,
         layoutNodesAt,
         imageSizes,
         listCtx,
       )
-    : layoutFloatedLeaf(node, layoutWidth, layouter, imageSizes, listCtx);
-  if (node.tag) block = { ...block, semanticTag: node.tag };
-  if (node.id) block = { ...block, anchorId: node.id };
+    : layoutFloatedLeaf(node, sizing.layoutWidth, layouter, imageSizes, listCtx);
 
-  const totalWidth = block.bounds.width + ml + mr;
+  placeFloatedBlock(state, decorateFloatBlock(block, node), sizing, contentWidth);
+}
+
+function resolveFloatSizing(node: StyledNode, contentWidth: number): FloatSizing {
+  const marginLeft = resolveMarginLeft(node.style, contentWidth);
+  const marginRight = resolveMarginRight(node.style, contentWidth);
+  const availableWidth = contentWidth - marginLeft - marginRight;
+  return {
+    marginTop: resolveMarginTop(node.style, contentWidth),
+    marginLeft,
+    marginRight,
+    side: node.style.float as 'left' | 'right',
+    layoutWidth: applySizeConstraints(availableWidth, node.style),
+  };
+}
+
+function decorateFloatBlock(block: LayoutBlock, node: StyledNode): LayoutBlock {
+  let result = block;
+  if (node.tag) result = { ...result, semanticTag: node.tag };
+  if (node.id) result = { ...result, anchorId: node.id };
+  return result;
+}
+
+function placeFloatedBlock(
+  state: LayoutState,
+  block: LayoutBlock,
+  sizing: FloatSizing,
+  contentWidth: number,
+): void {
+  const floatStartY = state.y + sizing.marginTop;
+  const totalWidth = block.bounds.width + sizing.marginLeft + sizing.marginRight;
   const floatHeight = block.bounds.height;
   const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth, floatHeight);
-
-  // Use the maximum existing float width across the full height range
-  // to prevent overlapping with floats that start partway down.
   const bottomY = placeY + floatHeight;
   const floatX =
-    side === 'right'
+    sizing.side === 'right'
       ? contentWidth -
         block.bounds.width -
-        mr -
+        sizing.marginRight -
         state.floats.getMaxRightWidthInRange(placeY, bottomY)
-      : ml + state.floats.getMaxLeftWidthInRange(placeY, bottomY);
+      : sizing.marginLeft + state.floats.getMaxLeftWidthInRange(placeY, bottomY);
 
-  block = { ...block, bounds: { ...block.bounds, x: floatX, y: placeY } };
-  state.blocks.push(block);
-  state.floats.addFloat(side, totalWidth, placeY, placeY + block.bounds.height);
+  const placed = { ...block, bounds: { ...block.bounds, x: floatX, y: placeY } };
+  state.blocks.push(placed);
+  state.floats.addFloat(sizing.side, totalWidth, placeY, placeY + placed.bounds.height);
 }
 
 function layoutFloatedContainer(
@@ -92,64 +126,83 @@ function layoutFloatedContainer(
   listCtx?: ListContext,
 ): LayoutBlock {
   const childListCtx = createListContext(node);
+  const insets = resolveFloatContainerInsets(node, layoutWidth);
+  const childBlocks = layoutNodesAt(
+    node.children,
+    insets.childWidth > 0 ? insets.childWidth : layoutWidth,
+    contentHeight,
+    layouter,
+    insets.childStartY,
+    imageSizes,
+    childListCtx ?? listCtx,
+  );
+  const childIndent = insets.borderLeft + insets.paddingLeft;
+  const indented = childIndent > 0 ? indentBlocks(childBlocks, childIndent) : childBlocks;
+  const height = resolveFloatedContainerHeight(node, indented, insets);
+  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
+  const actualWidth = hasExplicitWidth
+    ? layoutWidth
+    : shrinkToFitWidth(indented, insets.paddingRight, layoutWidth);
+  const finalChildren =
+    !hasExplicitWidth && actualWidth < layoutWidth ? normalizeChildPositions(indented) : indented;
+  return decorateFloatedContainer(node, {
+    type: 'layout-block',
+    bounds: { x: 0, y: 0, width: actualWidth, height },
+    children: finalChildren,
+  });
+}
+
+function resolveFloatContainerInsets(node: StyledNode, layoutWidth: number): FloatContainerInsets {
   const paddingTop = resolvePaddingTop(node.style, layoutWidth);
   const paddingRight = resolvePaddingRight(node.style, layoutWidth);
   const paddingBottom = resolvePaddingBottom(node.style, layoutWidth);
   const paddingLeft = resolvePaddingLeft(node.style, layoutWidth);
   const borderTop = node.style.borderTop.width;
-  const borderLeft = node.style.borderLeft.width;
   const borderRight = node.style.borderRight.width;
-  // Subtract both padding and border from the border-box layoutWidth
-  // to get the true content area width available for children.
-  const childWidth = layoutWidth - paddingLeft - paddingRight - borderLeft - borderRight;
-  const childStartY = borderTop + paddingTop;
-  const childBlocks = layoutNodesAt(
-    node.children,
-    childWidth > 0 ? childWidth : layoutWidth,
-    contentHeight,
-    layouter,
-    childStartY,
-    imageSizes,
-    childListCtx ?? listCtx,
-  );
-  const childIndent = borderLeft + paddingLeft;
-  const indented = childIndent > 0 ? indentBlocks(childBlocks, childIndent) : childBlocks;
-  const last = indented[indented.length - 1];
-  const borderBottom = node.style.borderBottom.width;
-  // Children start at borderTop + paddingTop, so their y-coordinates already
-  // include borderTop. Add paddingBottom + borderBottom for the full border-box.
-  let height = last ? last.bounds.y + last.bounds.height + paddingBottom + borderBottom : 0;
-  // Apply explicit CSS height — this IS the height, not a minimum.
-  // Content overflow is handled by the overflow property, not by growing the box.
+  const borderLeft = node.style.borderLeft.width;
+  return {
+    paddingTop,
+    paddingRight,
+    paddingBottom,
+    paddingLeft,
+    borderTop,
+    borderRight,
+    borderBottom: node.style.borderBottom.width,
+    borderLeft,
+    childWidth: layoutWidth - paddingLeft - paddingRight - borderLeft - borderRight,
+    childStartY: borderTop + paddingTop,
+  };
+}
+
+function resolveFloatedContainerHeight(
+  node: StyledNode,
+  children: readonly LayoutBlock[],
+  insets: FloatContainerInsets,
+): number {
+  const last = children[children.length - 1];
+  let height = last
+    ? last.bounds.y + last.bounds.height + insets.paddingBottom + insets.borderBottom
+    : 0;
   if (node.style.height > 0) {
-    const borderV = borderTop + borderBottom;
+    const borderV = insets.borderTop + insets.borderBottom;
     height =
       node.style.boxSizing === 'border-box'
         ? node.style.height
-        : node.style.height + paddingTop + paddingBottom + borderV;
+        : node.style.height + insets.paddingTop + insets.paddingBottom + borderV;
   }
-  // minHeight IS a floor — the box can grow beyond it.
   if (node.style.minHeight !== undefined && node.style.minHeight > 0) {
     height = Math.max(height, node.style.minHeight);
   }
-  const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
-  const actualWidth = hasExplicitWidth
-    ? layoutWidth
-    : shrinkToFitWidth(indented, paddingRight, layoutWidth);
-  // After shrink-to-fit, text-align offsets and image centering are based on the
-  // original (larger) layout width and would be stale. Normalize to left-align.
-  const finalChildren =
-    !hasExplicitWidth && actualWidth < layoutWidth ? normalizeChildPositions(indented) : indented;
-  let block: LayoutBlock = {
-    type: 'layout-block',
-    bounds: { x: 0, y: 0, width: actualWidth, height },
-    children: finalChildren,
-  };
+  return height;
+}
+
+function decorateFloatedContainer(node: StyledNode, block: LayoutBlock): LayoutBlock {
+  let result = block;
   const borderBox = borderBoxFromStyle(node.style);
-  if (borderBox) block = { ...block, borderBox };
+  if (borderBox) result = { ...result, borderBox };
   const paint = blockPaintFromStyle(node.style);
-  if (paint) block = { ...block, paint };
-  return block;
+  if (paint) result = { ...result, paint };
+  return result;
 }
 
 function layoutFloatedLeaf(
@@ -194,102 +247,6 @@ function findFloatPlaceY(
     placeY = nextY;
   }
   return placeY;
-}
-
-function shrinkToFitWidth(
-  children: readonly LayoutBlock['children'][number][],
-  paddingRight: number,
-  maxWidth: number,
-): number {
-  const maxRight = measureContentRight(children);
-  return Math.min(maxRight + paddingRight, maxWidth);
-}
-
-function measureContentRight(children: readonly LayoutBlock['children'][number][]): number {
-  let maxRight = 0;
-  for (const child of children) {
-    if (child.type === 'line-box') {
-      // Measure content span (maxRight – minLeft) to exclude text-align offsets.
-      // Text-align shifts all runs by the same offset; the span gives intrinsic width.
-      let minLeft = Infinity;
-      let lineMaxRight = 0;
-      for (const run of child.runs) {
-        if (run.bounds.x < minLeft) minLeft = run.bounds.x;
-        const right = run.bounds.x + run.bounds.width;
-        if (right > lineMaxRight) lineMaxRight = right;
-      }
-      if (minLeft !== Infinity) {
-        maxRight = Math.max(maxRight, lineMaxRight - minLeft);
-      }
-    } else if (child.type === 'layout-block') {
-      const nested = measureContentRight(child.children);
-      // Also account for first-line absolute right edge so that text-indent
-      // (which won't be normalized away) doesn't overflow the shrunken container.
-      const firstLineRight = measureFirstLineAbsRight(child.children);
-      maxRight = Math.max(maxRight, child.bounds.x + nested, child.bounds.x + firstLineRight);
-    } else if (child.type === 'image') {
-      maxRight = Math.max(maxRight, child.bounds.width);
-    } else if ('bounds' in child) {
-      maxRight = Math.max(maxRight, child.bounds.x + child.bounds.width);
-    }
-  }
-  return maxRight;
-}
-
-/** Absolute right edge of the first line-box (includes text-indent offset). */
-function measureFirstLineAbsRight(children: readonly LayoutBlock['children'][number][]): number {
-  for (const child of children) {
-    if (child.type === 'line-box') {
-      let right = 0;
-      for (const run of child.runs) {
-        right = Math.max(right, run.bounds.x + run.bounds.width);
-      }
-      return right;
-    }
-    if (child.type === 'layout-block') return measureFirstLineAbsRight(child.children);
-  }
-  return 0;
-}
-
-/**
- * After shrink-to-fit, text-align offsets in line runs and image centering
- * offsets are based on the original (larger) layout width. Strip them so
- * content starts from x=0 within the shrunken container.
- *
- * When recursing into layout-blocks, the first line-box is preserved to
- * avoid stripping CSS text-indent (which only affects the first line).
- */
-function normalizeChildPositions(
-  children: readonly LayoutBlock['children'][number][],
-  preserveFirstLine = false,
-): readonly LayoutBlock['children'][number][] {
-  return children.map((child, index) => {
-    if (child.type === 'line-box') {
-      // Preserve text-indent on the first line of each block.
-      if (preserveFirstLine && index === 0) return child;
-      let minX = Infinity;
-      for (const run of child.runs) {
-        if (run.bounds.x < minX) minX = run.bounds.x;
-      }
-      if (minX > 0 && minX !== Infinity) {
-        return {
-          ...child,
-          runs: child.runs.map((r) => ({
-            ...r,
-            bounds: { ...r.bounds, x: r.bounds.x - minX },
-          })),
-        };
-      }
-      return child;
-    }
-    if (child.type === 'layout-block') {
-      return { ...child, children: normalizeChildPositions(child.children, true) };
-    }
-    if (child.type === 'image' && child.bounds.x > 0) {
-      return { ...child, bounds: { ...child.bounds, x: 0 } };
-    }
-    return child;
-  });
 }
 
 function hasBlockChildren(node: StyledNode): boolean {

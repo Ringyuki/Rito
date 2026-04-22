@@ -57,6 +57,23 @@ interface InternalState {
   spreads: readonly Spread[];
 }
 
+interface LoadedReaderStack {
+  readonly reader: Reader;
+  readonly ctrl: ReaderController;
+}
+
+interface RefBox<T> {
+  current: T;
+}
+
+interface ReaderRefs {
+  readonly canvasRef: RefBox<HTMLCanvasElement | null>;
+  readonly readerRef: RefBox<Reader | null>;
+  readonly ctrlRef: RefBox<ReaderController | null>;
+  readonly detachEventsRef: RefBox<(() => void) | null>;
+  readonly loadRequestIdRef: RefBox<number>;
+}
+
 const INITIAL: InternalState = {
   isLoaded: false,
   isLoading: false,
@@ -73,90 +90,125 @@ const INITIAL: InternalState = {
  * Handles canvas creation, Reader + Controller instantiation, event sync, and cleanup.
  */
 export function useRitoReader(options: UseRitoReaderOptions): RitoReaderState & RitoReaderActions {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const readerRef = useRef<Reader | null>(null);
-  const ctrlRef = useRef<ReaderController | null>(null);
-  const detachEventsRef = useRef<(() => void) | null>(null);
-  const loadRequestIdRef = useRef(0);
+  const refs = useReaderRefs();
   const optionsRef = useRef(options);
   optionsRef.current = options;
   const [state, setState] = useState(INITIAL);
-
-  const detachEvents = useCallback((): void => {
-    detachEventsRef.current?.();
-    detachEventsRef.current = null;
-  }, []);
-
-  const disposeCurrent = useCallback((): void => {
-    detachEvents();
-    ctrlRef.current?.dispose();
-    readerRef.current?.dispose();
-    ctrlRef.current = null;
-    readerRef.current = null;
-  }, [detachEvents]);
-
-  useEffect(
-    () => () => {
-      loadRequestIdRef.current++;
-      disposeCurrent();
-    },
-    [disposeCurrent],
-  );
+  const disposeCurrent = useReaderLifecycle(refs);
 
   const load = useCallback(
     async (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => {
-      const requestId = ++loadRequestIdRef.current;
-      const opts = optionsRef.current;
+      const requestId = ++refs.loadRequestIdRef.current;
       setState((s) => ({ ...s, isLoading: true, error: null }));
       try {
-        const resolvedData = await data;
-        if (requestId !== loadRequestIdRef.current) return;
-
-        const canvas = getOrCreateCanvas(canvasRef);
-        if (!canvas) {
-          throw new Error('useRitoReader requires a browser document to create a canvas');
-        }
-
-        const reader = await createReader(resolvedData, canvas, opts.reader);
-        if (requestId !== loadRequestIdRef.current) {
-          reader.dispose();
-          return;
-        }
-
-        const ctrl = createController(reader, canvas, opts.controller);
-        if (requestId !== loadRequestIdRef.current) {
-          ctrl.dispose();
-          reader.dispose();
-          return;
-        }
-
+        const loaded = await loadReaderStack(
+          data,
+          requestId,
+          optionsRef.current,
+          refs.canvasRef,
+          refs.loadRequestIdRef,
+        );
+        if (!loaded) return;
         disposeCurrent();
-        readerRef.current = reader;
-        ctrlRef.current = ctrl;
-        detachEventsRef.current = subscribeEvents(ctrl, setState);
-        setState({
-          isLoaded: true,
-          isLoading: false,
-          error: null,
-          currentSpread: 0,
-          totalSpreads: reader.totalSpreads,
-          metadata: reader.metadata,
-          toc: reader.toc,
-          spreads: reader.spreads,
-        });
+        refs.readerRef.current = loaded.reader;
+        refs.ctrlRef.current = loaded.ctrl;
+        refs.detachEventsRef.current = subscribeEvents(loaded.ctrl, setState);
+        setState(createLoadedState(loaded.reader));
       } catch (err) {
-        if (requestId !== loadRequestIdRef.current) return;
-        setState((s) => ({
-          ...s,
-          isLoading: false,
-          error: err instanceof Error ? err.message : String(err),
-        }));
+        if (requestId !== refs.loadRequestIdRef.current) return;
+        setState((s) => ({ ...s, isLoading: false, error: getErrorMessage(err) }));
       }
     },
-    [disposeCurrent],
+    [
+      disposeCurrent,
+      refs.canvasRef,
+      refs.ctrlRef,
+      refs.detachEventsRef,
+      refs.loadRequestIdRef,
+      refs.readerRef,
+    ],
   );
-  const actions = useControllerActions(ctrlRef);
-  return { controller: ctrlRef.current, ...state, load, ...actions };
+  const actions = useControllerActions(refs.ctrlRef);
+  return { controller: refs.ctrlRef.current, ...state, load, ...actions };
+}
+
+function useReaderRefs(): ReaderRefs {
+  return {
+    canvasRef: useRef<HTMLCanvasElement | null>(null),
+    readerRef: useRef<Reader | null>(null),
+    ctrlRef: useRef<ReaderController | null>(null),
+    detachEventsRef: useRef<(() => void) | null>(null),
+    loadRequestIdRef: useRef(0),
+  };
+}
+
+function useReaderLifecycle(refs: ReaderRefs): () => void {
+  const detachEvents = useCallback((): void => {
+    refs.detachEventsRef.current?.();
+    refs.detachEventsRef.current = null;
+  }, [refs.detachEventsRef]);
+
+  const disposeCurrent = useCallback((): void => {
+    detachEvents();
+    refs.ctrlRef.current?.dispose();
+    refs.readerRef.current?.dispose();
+    refs.ctrlRef.current = null;
+    refs.readerRef.current = null;
+  }, [detachEvents, refs.ctrlRef, refs.readerRef]);
+
+  useEffect(
+    () => () => {
+      refs.loadRequestIdRef.current++;
+      disposeCurrent();
+    },
+    [disposeCurrent, refs.loadRequestIdRef],
+  );
+  return disposeCurrent;
+}
+
+async function loadReaderStack(
+  data: ArrayBuffer | PromiseLike<ArrayBuffer>,
+  requestId: number,
+  opts: UseRitoReaderOptions,
+  canvasRef: { current: HTMLCanvasElement | null },
+  loadRequestIdRef: { readonly current: number },
+): Promise<LoadedReaderStack | null> {
+  const resolvedData = await data;
+  if (requestId !== loadRequestIdRef.current) return null;
+
+  const canvas = getOrCreateCanvas(canvasRef);
+  if (!canvas) throw new Error('useRitoReader requires a browser document to create a canvas');
+
+  const reader = await createReader(resolvedData, canvas, opts.reader);
+  if (requestId !== loadRequestIdRef.current) {
+    reader.dispose();
+    return null;
+  }
+
+  const ctrl = createController(reader, canvas, opts.controller);
+  if (requestId !== loadRequestIdRef.current) {
+    ctrl.dispose();
+    reader.dispose();
+    return null;
+  }
+  return { reader, ctrl };
+}
+
+function createLoadedState(reader: Reader): InternalState {
+  return {
+    isLoaded: true,
+    isLoading: false,
+    error: null,
+    currentSpread: 0,
+    totalSpreads: reader.totalSpreads,
+    metadata: reader.metadata,
+    toc: reader.toc,
+    spreads: reader.spreads,
+  };
+}
+
+function getErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }
 
 function subscribeEvents(

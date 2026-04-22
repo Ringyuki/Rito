@@ -1,4 +1,4 @@
-import { DISPLAY_VALUES, type StyledNode } from '../../style/core/types';
+import type { StyledNode } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { layoutAbsoluteChildren } from './absolute-layout';
@@ -7,10 +7,11 @@ import {
   resolveHorizontalOffset,
   type HorizontalBoxMetrics,
 } from './box-metrics';
+import { buildContainerWrapper, hasVisualDecorations } from './container-wrapper';
 import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
-import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
+import { collapseContainerMarginTop } from './container-margin';
 import {
   resolveMarginBottom,
   resolveMarginTop,
@@ -43,18 +44,66 @@ export function layoutContainerBlock(
   imageSizes?: ImageSizeMap,
   listCtx?: ListContext,
 ): void {
+  const plan = buildContainerLayoutPlan(
+    state,
+    node,
+    contentWidth,
+    contentHeight,
+    layouter,
+    layoutNodesAt,
+    imageSizes,
+    listCtx,
+  );
+
+  if (hasVisualDecorations(node)) {
+    appendWrappedContainer(state, node, plan, contentWidth);
+  } else {
+    appendFlattenedContainer(state, node, plan, contentWidth);
+  }
+  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
+
+  placeAbsoluteChildren(
+    node,
+    state,
+    plan.collapsedStartY,
+    plan.paddingLeft + resolveContainerXOffset(contentWidth, plan.metrics, node),
+    plan.childWidth > 0 ? plan.childWidth : contentWidth,
+    contentHeight,
+    layouter,
+    layoutNodesAt,
+    imageSizes,
+  );
+}
+
+interface ContainerLayoutPlan {
+  readonly paddingTop: number;
+  readonly paddingBottom: number;
+  readonly paddingLeft: number;
+  readonly collapsedStartY: number;
+  readonly containerTop: number;
+  readonly metrics: HorizontalBoxMetrics;
+  readonly childWidth: number;
+  readonly childBlocks: readonly LayoutBlock[];
+}
+
+function buildContainerLayoutPlan(
+  state: LayoutState,
+  node: StyledNode,
+  contentWidth: number,
+  contentHeight: number,
+  layouter: ParagraphLayouter,
+  layoutNodesAt: LayoutNodesAtFn,
+  imageSizes: ImageSizeMap | undefined,
+  listCtx: ListContext | undefined,
+): ContainerLayoutPlan {
   const childListCtx = createListContext(node);
   const paddingTop = resolvePaddingTop(node.style, contentWidth);
   const paddingRight = resolvePaddingRight(node.style, contentWidth);
   const paddingBottom = resolvePaddingBottom(node.style, contentWidth);
   const paddingLeft = resolvePaddingLeft(node.style, contentWidth);
   const collapsed = collapseContainerMarginTop(node, state, paddingTop, contentWidth);
-  // Capture the container's top edge (after margin collapse, before padding)
   const containerTop = collapsed.startY - paddingTop;
 
-  // Apply the container's own width/maxWidth constraint before subtracting padding.
-  // metrics.targetWidth is the border-box width (via toTotalBox), so subtract
-  // both padding and border to get the true content area for children.
   const metrics = resolveHorizontalBoxMetrics(contentWidth, node.style);
   const borderH = node.style.borderLeft.width + node.style.borderRight.width;
   const childWidth = metrics.targetWidth - paddingLeft - paddingRight - borderH;
@@ -69,186 +118,66 @@ export function layoutContainerBlock(
     childListCtx ?? listCtx,
   );
 
-  if (hasVisualDecorations(node)) {
-    // Wrapper mode: children are laid out with absolute y coordinates starting at startY.
-    // Convert to wrapper-relative coordinates. Include border offsets so children
-    // are positioned inside the border edges (matching the horizontal toTotalBox model).
-    const borderTop = node.style.borderTop.width;
-    const borderLeft = node.style.borderLeft.width;
-    const localized = childBlocks.map((b) => ({
-      ...b,
-      bounds: {
-        ...b.bounds,
-        x: b.bounds.x + borderLeft + paddingLeft,
-        y: b.bounds.y - containerTop + borderTop,
-      },
-    }));
-    const wrapper = buildContainerWrapper(
-      node,
-      localized,
-      metrics,
-      contentWidth,
-      containerTop,
-      paddingTop,
-      paddingBottom,
-    );
-    state.blocks.push(withPageBreaks(wrapper, node.style));
-    state.y = wrapper.bounds.y + wrapper.bounds.height;
-  } else {
-    // Flatten mode: indent children by padding + margin offset
-    const xOffset = resolveHorizontalOffset(
-      contentWidth,
-      metrics.targetWidth,
-      node.style,
-      metrics.marginLeft,
-      metrics.marginRight,
-    );
-    const totalIndent = paddingLeft + xOffset;
-    const indented = totalIndent > 0 ? indentBlocks(childBlocks, totalIndent) : childBlocks;
-    applyPageBreakFlags(indented, node.style);
-    if (node.id && indented.length > 0) {
-      const first = indented[0];
-      if (first) Object.assign(first, { anchorId: node.id });
-    }
-    for (const child of indented) state.blocks.push(child);
-    if (indented.length > 0) {
-      const last = indented[indented.length - 1];
-      if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
-    }
-  }
-  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
-
-  const wrapperX = resolveHorizontalOffset(
-    contentWidth,
-    metrics.targetWidth,
-    node.style,
-    metrics.marginLeft,
-    metrics.marginRight,
-  );
-  const xIndent = paddingLeft + wrapperX;
-  placeAbsoluteChildren(
-    node,
-    state,
-    collapsed.startY,
-    xIndent,
-    childWidth > 0 ? childWidth : contentWidth,
-    contentHeight,
-    layouter,
-    layoutNodesAt,
-    imageSizes,
-  );
-}
-
-/** Check if a container node has visual decorations that need a wrapper block. */
-function hasVisualDecorations(node: StyledNode): boolean {
-  const s = node.style;
-  return !!(
-    s.backgroundColor ||
-    s.borderTop.width > 0 ||
-    s.borderRight.width > 0 ||
-    s.borderBottom.width > 0 ||
-    s.borderLeft.width > 0 ||
-    s.borderRadius > 0 ||
-    s.borderRadiusPct !== undefined ||
-    s.opacity < 1 ||
-    s.overflow === 'hidden' ||
-    s.boxShadow.length > 0 ||
-    s.transform.length > 0 ||
-    s.backgroundImage
-  );
-}
-
-/** Build a wrapper LayoutBlock for a container with visual decorations. */
-function buildContainerWrapper(
-  node: StyledNode,
-  children: readonly LayoutBlock[],
-  metrics: HorizontalBoxMetrics,
-  containerWidth: number,
-  startY: number,
-  paddingTop: number,
-  paddingBottom: number,
-): LayoutBlock {
-  // Children are already in wrapper-local coordinates with borderTop offset,
-  // so their y-coordinates include borderTop. Add paddingBottom + borderBottom
-  // for the full border-box height.
-  const lastChild = children[children.length - 1];
-  const borderTop = node.style.borderTop.width;
-  const borderBottom = node.style.borderBottom.width;
-  let height = lastChild
-    ? lastChild.bounds.y + lastChild.bounds.height + paddingBottom + borderBottom
-    : paddingBottom + borderTop + borderBottom;
-  // Apply explicit CSS height — this IS the height, not a minimum.
-  // Content overflow is handled by the overflow property, not by growing the box.
-  if (node.style.height > 0) {
-    const borderV = borderTop + borderBottom;
-    height =
-      node.style.boxSizing === 'border-box'
-        ? node.style.height
-        : node.style.height + paddingTop + paddingBottom + borderV;
-  }
-  if (node.style.minHeight !== undefined && node.style.minHeight > 0) {
-    height = Math.max(height, node.style.minHeight);
-  }
-
-  const x = resolveHorizontalOffset(
-    containerWidth,
-    metrics.targetWidth,
-    node.style,
-    metrics.marginLeft,
-    metrics.marginRight,
-  );
-  let wrapper: LayoutBlock = {
-    type: 'layout-block',
-    bounds: { x, y: startY, width: metrics.targetWidth, height },
-    children,
+  return {
+    paddingTop,
+    paddingBottom,
+    paddingLeft,
+    collapsedStartY: collapsed.startY,
+    containerTop,
+    metrics,
+    childWidth,
+    childBlocks,
   };
-
-  if (node.tag) wrapper = { ...wrapper, semanticTag: node.tag };
-  if (node.id) wrapper = { ...wrapper, anchorId: node.id };
-  const borderBox = borderBoxFromStyle(node.style);
-  if (borderBox) wrapper = { ...wrapper, borderBox };
-  const paint = blockPaintFromStyle(node.style);
-  if (paint) wrapper = { ...wrapper, paint };
-  return wrapper;
 }
 
-/**
- * Parent-child margin collapsing (CSS §8.3.1): when no top border or padding
- * separates a parent from its first in-flow block child, their top margins
- * collapse recursively through nested separator-free containers.
- *
- * Returns startY for children and an adjusted children array with absorbed
- * margins zeroed out, so that floats preceding the first in-flow child are
- * positioned correctly at state.y (after the collapsed margin).
- */
-function collapseContainerMarginTop(
-  node: StyledNode,
+function appendWrappedContainer(
   state: LayoutState,
-  paddingTop: number,
-  containerWidth: number,
-): { startY: number; children: readonly StyledNode[] } {
-  const hasTopSeparator = paddingTop > 0 || node.style.borderTop.width > 0;
-  if (hasTopSeparator) {
-    collapseMargin(state, resolveMarginTop(node.style, containerWidth));
-    return { startY: state.y + paddingTop, children: node.children };
-  }
-  const margins = [resolveMarginTop(node.style, containerWidth)];
-  const children = collectAndZeroMarginChain(node.children, margins, containerWidth);
-  collapseMargin(state, collapseMarginChain(margins));
-  return { startY: state.y, children };
-}
-
-function isFirstInFlow(c: StyledNode): boolean {
-  return (
-    c.type === 'block' &&
-    c.style.float === 'none' &&
-    c.style.position !== 'absolute' &&
-    c.style.display !== DISPLAY_VALUES.InlineBlock
+  node: StyledNode,
+  plan: ContainerLayoutPlan,
+  contentWidth: number,
+): void {
+  const localized = localizeWrapperChildren(node, plan);
+  const wrapper = buildContainerWrapper(
+    node,
+    localized,
+    plan.metrics,
+    contentWidth,
+    plan.containerTop,
+    plan.paddingTop,
+    plan.paddingBottom,
   );
+  state.blocks.push(withPageBreaks(wrapper, node.style));
+  state.y = wrapper.bounds.y + wrapper.bounds.height;
 }
 
-function isAbsolute(c: StyledNode): boolean {
-  return c.type === 'block' && c.style.position === 'absolute';
+function localizeWrapperChildren(
+  node: StyledNode,
+  plan: ContainerLayoutPlan,
+): readonly LayoutBlock[] {
+  const borderTop = node.style.borderTop.width;
+  const borderLeft = node.style.borderLeft.width;
+  return plan.childBlocks.map((block) => ({
+    ...block,
+    bounds: {
+      ...block.bounds,
+      x: block.bounds.x + borderLeft + plan.paddingLeft,
+      y: block.bounds.y - plan.containerTop + borderTop,
+    },
+  }));
+}
+
+function appendFlattenedContainer(
+  state: LayoutState,
+  node: StyledNode,
+  plan: ContainerLayoutPlan,
+  contentWidth: number,
+): void {
+  const totalIndent = plan.paddingLeft + resolveContainerXOffset(contentWidth, plan.metrics, node);
+  const indented = totalIndent > 0 ? indentBlocks(plan.childBlocks, totalIndent) : plan.childBlocks;
+  applyPageBreakFlags(indented, node.style);
+  attachContainerAnchor(node, indented);
+  for (const child of indented) state.blocks.push(child);
+  updateFlattenedStateY(state, indented, plan.paddingBottom);
 }
 
 /** Layout absolutely positioned children after in-flow layout is complete. */
@@ -282,43 +211,37 @@ function placeAbsoluteChildren(
   for (const ab of absBlocks) state.blocks.push(ab);
 }
 
-/**
- * Walk the first in-flow child chain, collecting each margin-top and zeroing
- * it out. Stops when a child has top border or padding (separator).
- */
-function collectAndZeroMarginChain(
-  children: readonly StyledNode[],
-  margins: number[],
-  containerWidth: number,
-): readonly StyledNode[] {
-  const idx = children.findIndex(isFirstInFlow);
-  if (idx < 0) return children;
-  const child = children[idx];
-  if (!child) return children;
-  margins.push(resolveMarginTop(child.style, containerWidth));
-  const { marginTopPct: _, ...styleWithoutPct } = child.style;
-  let modified: StyledNode = {
-    ...child,
-    style: { ...styleWithoutPct, marginTop: 0 },
-  };
-  if (child.style.paddingTop <= 0 && child.style.borderTop.width <= 0) {
-    const nested = collectAndZeroMarginChain(modified.children, margins, containerWidth);
-    if (nested !== modified.children) modified = { ...modified, children: nested };
-  }
-  const result = [...children];
-  result[idx] = modified;
-  return result;
+function isAbsolute(child: StyledNode): boolean {
+  return child.type === 'block' && child.style.position === 'absolute';
 }
 
-/** Collapse a chain of margins: max of positives + min of negatives. */
-function collapseMarginChain(margins: number[]): number {
-  let maxPos = 0;
-  let minNeg = 0;
-  for (const m of margins) {
-    if (m > maxPos) maxPos = m;
-    if (m < minNeg) minNeg = m;
-  }
-  return maxPos + minNeg;
+function resolveContainerXOffset(
+  contentWidth: number,
+  metrics: HorizontalBoxMetrics,
+  node: StyledNode,
+): number {
+  return resolveHorizontalOffset(
+    contentWidth,
+    metrics.targetWidth,
+    node.style,
+    metrics.marginLeft,
+    metrics.marginRight,
+  );
+}
+
+function attachContainerAnchor(node: StyledNode, blocks: readonly LayoutBlock[]): void {
+  if (!node.id || blocks.length === 0) return;
+  const first = blocks[0];
+  if (first) Object.assign(first, { anchorId: node.id });
+}
+
+function updateFlattenedStateY(
+  state: LayoutState,
+  blocks: readonly LayoutBlock[],
+  paddingBottom: number,
+): void {
+  const last = blocks[blocks.length - 1];
+  if (last) state.y = last.bounds.y + last.bounds.height + paddingBottom;
 }
 
 export function layoutLeafBlock(

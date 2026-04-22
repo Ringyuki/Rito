@@ -85,141 +85,176 @@ function clearSlot(slot: PageBufferSlot): void {
   }
 }
 
+interface PageBufferPoolState {
+  readonly slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot];
+  indices: [number, number, number];
+}
+
 export function createPageBufferPool(): PageBufferPool {
-  // Start with 1×1 — resize() must be called before use
-  const slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot] = [
-    createSlot(1, 1),
-    createSlot(1, 1),
-    createSlot(1, 1),
-  ];
+  const state = createPoolState();
+  const pool = createSlotAccessors(state) as PageBufferPool;
+  Object.assign(
+    pool,
+    createRenderMethods(state),
+    createRotationMethods(state),
+    createInvalidationMethods(state),
+  );
+  return pool;
+}
 
-  // Indices into the slots array: [prev, curr, next]
-  let indices: [number, number, number] = [0, 1, 2];
-
-  const getSlot = (pos: SlotPosition): PageBufferSlot => {
-    const idx = pos === 'prev' ? 0 : pos === 'curr' ? 1 : 2;
-    const slot = slots[indices[idx]];
-    if (!slot) throw new Error(`Invalid slot index for position ${pos}`);
-    return slot;
+function createPoolState(): PageBufferPoolState {
+  return {
+    slots: [createSlot(1, 1), createSlot(1, 1), createSlot(1, 1)],
+    indices: [0, 1, 2],
   };
+}
 
-  const pool: PageBufferPool = {
+function getSlot(state: PageBufferPoolState, pos: SlotPosition): PageBufferSlot {
+  const idx = pos === 'prev' ? 0 : pos === 'curr' ? 1 : 2;
+  const slot = state.slots[state.indices[idx]];
+  if (!slot) throw new Error(`Invalid slot index for position ${pos}`);
+  return slot;
+}
+
+function createSlotAccessors(
+  state: PageBufferPoolState,
+): Pick<PageBufferPool, 'prev' | 'curr' | 'next'> {
+  return {
     get prev() {
-      return getSlot('prev');
+      return getSlot(state, 'prev');
     },
     get curr() {
-      return getSlot('curr');
+      return getSlot(state, 'curr');
     },
     get next() {
-      return getSlot('next');
+      return getSlot(state, 'next');
     },
+  };
+}
 
+function createRenderMethods(
+  state: PageBufferPoolState,
+): Pick<PageBufferPool, 'resize' | 'assignSlot' | 'ensureContent' | 'ensureOverlay'> {
+  return {
     resize(cssWidth, cssHeight, dpr): void {
       const w = Math.round(cssWidth * dpr);
       const h = Math.round(cssHeight * dpr);
-      for (const slot of slots) {
-        resizeSlot(slot, w, h);
-      }
+      for (const slot of state.slots) resizeSlot(slot, w, h);
     },
-
     assignSlot(position, spreadIndex): void {
-      const slot = getSlot(position);
-      slot.spreadIndex = spreadIndex;
-      slot.contentDirty = true;
-      slot.overlayDirty = true;
-      // Clear old overlay pixels
-      if (slot.overlay) {
-        const ctx = slot.overlay.getContext('2d');
-        if (ctx) ctx.clearRect(0, 0, slot.overlay.width, slot.overlay.height);
-      }
+      assignSlot(state, position, spreadIndex);
     },
-
     ensureContent(position, renderer): void {
-      const slot = getSlot(position);
-      if (!slot.contentDirty || slot.spreadIndex === null) return;
-      const ctx = slot.content.getContext('2d');
-      if (!ctx) return;
-      renderer(slot.spreadIndex, ctx);
-      slot.contentDirty = false;
+      ensureContent(state, position, renderer);
     },
-
     ensureOverlay(position, provider, backingRatio): void {
-      const slot = getSlot(position);
-      if (!slot.overlayDirty || slot.spreadIndex === null) return;
-      const layers = provider(slot.spreadIndex);
-      if (layers.length === 0) {
-        // No layers — clear overlay if it exists, skip allocation
-        if (slot.overlay) {
-          const ctx = slot.overlay.getContext('2d');
-          if (ctx) ctx.clearRect(0, 0, slot.overlay.width, slot.overlay.height);
-        }
-        slot.overlayDirty = false;
-        return;
-      }
-      // Lazy allocate overlay buffer
-      if (!slot.overlay) {
-        slot.overlay = new OffscreenCanvas(slot.content.width, slot.content.height);
-      }
-      const ctx = slot.overlay.getContext('2d');
-      if (!ctx) return;
-      paintOverlayInto(ctx, layers, backingRatio);
-      slot.overlayDirty = false;
+      ensureOverlay(state, position, provider, backingRatio);
     },
+  };
+}
 
+function assignSlot(state: PageBufferPoolState, position: SlotPosition, spreadIndex: number): void {
+  const slot = getSlot(state, position);
+  slot.spreadIndex = spreadIndex;
+  slot.contentDirty = true;
+  slot.overlayDirty = true;
+  clearOverlay(slot);
+}
+
+function ensureContent(
+  state: PageBufferPoolState,
+  position: SlotPosition,
+  renderer: ContentRenderer,
+): void {
+  const slot = getSlot(state, position);
+  if (!slot.contentDirty || slot.spreadIndex === null) return;
+  const ctx = slot.content.getContext('2d');
+  if (!ctx) return;
+  renderer(slot.spreadIndex, ctx);
+  slot.contentDirty = false;
+}
+
+function ensureOverlay(
+  state: PageBufferPoolState,
+  position: SlotPosition,
+  provider: OverlayProvider,
+  backingRatio: number,
+): void {
+  const slot = getSlot(state, position);
+  if (!slot.overlayDirty || slot.spreadIndex === null) return;
+  const layers = provider(slot.spreadIndex);
+  if (layers.length === 0) {
+    clearOverlay(slot);
+    slot.overlayDirty = false;
+    return;
+  }
+  if (!slot.overlay) slot.overlay = new OffscreenCanvas(slot.content.width, slot.content.height);
+  const ctx = slot.overlay.getContext('2d');
+  if (!ctx) return;
+  paintOverlayInto(ctx, layers, backingRatio);
+  slot.overlayDirty = false;
+}
+
+function clearOverlay(slot: PageBufferSlot): void {
+  if (!slot.overlay) return;
+  const ctx = slot.overlay.getContext('2d');
+  if (ctx) ctx.clearRect(0, 0, slot.overlay.width, slot.overlay.height);
+}
+
+function createRotationMethods(
+  state: PageBufferPoolState,
+): Pick<PageBufferPool, 'rotateForward' | 'rotateBackward' | 'jump'> {
+  return {
     rotateForward(): void {
-      // prev ← curr, curr ← next, next ← old prev (cleared)
-      const oldPrev = indices[0];
-      indices = [indices[1], indices[2], oldPrev] as [number, number, number];
-      clearSlot(getSlot('next'));
+      const oldPrev = state.indices[0];
+      state.indices = [state.indices[1], state.indices[2], oldPrev] as [number, number, number];
+      clearSlot(getSlot(state, 'next'));
     },
-
     rotateBackward(): void {
-      // next ← curr, curr ← prev, prev ← old next (cleared)
-      const oldNext = indices[2];
-      indices = [oldNext, indices[0], indices[1]] as [number, number, number];
-      clearSlot(getSlot('prev'));
+      const oldNext = state.indices[2];
+      state.indices = [oldNext, state.indices[0], state.indices[1]] as [number, number, number];
+      clearSlot(getSlot(state, 'prev'));
     },
-
     jump(spreadIndex): void {
-      for (const slot of slots) {
-        clearSlot(slot);
-      }
-      indices = [0, 1, 2];
-      getSlot('curr').spreadIndex = spreadIndex;
-      getSlot('curr').contentDirty = true;
-      getSlot('curr').overlayDirty = true;
+      jumpToSpread(state, spreadIndex);
     },
+  };
+}
 
+function jumpToSpread(state: PageBufferPoolState, spreadIndex: number): void {
+  for (const slot of state.slots) clearSlot(slot);
+  state.indices = [0, 1, 2];
+  assignSlot(state, 'curr', spreadIndex);
+}
+
+function createInvalidationMethods(
+  state: PageBufferPoolState,
+): Pick<
+  PageBufferPool,
+  'invalidateAllContent' | 'invalidateOverlayForSpread' | 'invalidateAllOverlays' | 'getSlotFor'
+> {
+  return {
     invalidateAllContent(): void {
-      for (const slot of slots) {
+      for (const slot of state.slots) {
         slot.contentDirty = true;
         slot.overlayDirty = true;
       }
     },
-
     invalidateOverlayForSpread(spreadIndex): void {
-      for (const slot of slots) {
-        if (slot.spreadIndex === spreadIndex) {
-          slot.overlayDirty = true;
-        }
+      for (const slot of state.slots) {
+        if (slot.spreadIndex === spreadIndex) slot.overlayDirty = true;
       }
     },
-
     invalidateAllOverlays(): void {
-      for (const slot of slots) {
-        if (slot.spreadIndex !== null) {
-          slot.overlayDirty = true;
-        }
+      for (const slot of state.slots) {
+        if (slot.spreadIndex !== null) slot.overlayDirty = true;
       }
     },
-
     getSlotFor(spreadIndex): SlotPosition | null {
-      if (getSlot('curr').spreadIndex === spreadIndex) return 'curr';
-      if (getSlot('prev').spreadIndex === spreadIndex) return 'prev';
-      if (getSlot('next').spreadIndex === spreadIndex) return 'next';
+      if (getSlot(state, 'curr').spreadIndex === spreadIndex) return 'curr';
+      if (getSlot(state, 'prev').spreadIndex === spreadIndex) return 'prev';
+      if (getSlot(state, 'next').spreadIndex === spreadIndex) return 'next';
       return null;
     },
   };
-
-  return pool;
 }

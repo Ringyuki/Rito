@@ -25,63 +25,70 @@ export interface NavigationActions {
 }
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
-  const goTo = (index: number): void => {
-    const reader = deps.getReader();
-    if (!reader) return;
-    const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-    let prev = deps.getCurrentSpread();
-    if (clamped === prev) return;
-
-    // If a transition is in progress, force-complete it and compute a visual-continuity offset.
-    let continuityDx = 0;
-    if (deps.td.isAnimating) {
-      const residualDx = deps.td.forceSettle();
-      prev = deps.getCurrentSpread();
-      if (clamped === prev) return;
-      // The old incoming was at (residualDx ± W). After rotation it's now curr.
-      // Start the new animation from that visual position for smooth handoff.
-      const W = deps.td.viewportWidth;
-      continuityDx = residualDx > 0 ? residualDx - W : residualDx + W;
-    }
-
-    const dir = clamped > prev ? 'forward' : 'backward';
-
-    // Update currentSpread IMMEDIATELY so subsequent goTo calls use the new base
-    deps.setCurrentSpread(clamped);
-
-    // Ensure incoming slot has the target spread. Reuse if prerender already filled it.
-    const slotPos = dir === 'forward' ? 'next' : 'prev';
-    const existing = deps.pool.getSlotFor(clamped);
-    if (existing !== slotPos) {
-      deps.pool.assignSlot(slotPos, clamped);
-    }
-    deps.pool.ensureContent(slotPos, deps.contentRenderer);
-
-    // Emit spreadChange immediately so React state updates
-    const spread = reader.spreads[clamped];
-    if (spread) deps.emitter.emit('spreadChange', { spreadIndex: clamped, spread });
-
-    // Rebuild coordinator (hitMaps, mapper, annotations) for the target spread
-    reader.notifyActiveSpread(clamped);
-
-    deps.td.goToTarget(dir, prev, clamped, continuityDx);
-    deps.emitter.emit('transitionStart', { direction: dir });
-    deps.frameDriver.scheduleComposite();
-  };
-
   return {
-    goToSpread: goTo,
+    goToSpread: (index: number): void => {
+      goToSpread(deps, index);
+    },
     nextSpread(): void {
-      goTo(deps.getCurrentSpread() + 1);
+      goToSpread(deps, deps.getCurrentSpread() + 1);
     },
     prevSpread(): void {
-      goTo(deps.getCurrentSpread() - 1);
+      goToSpread(deps, deps.getCurrentSpread() - 1);
     },
     navigateToTocEntry(entry: TocEntry): void {
       const reader = deps.getReader();
       if (!reader) return;
       const resolved = reader.resolveTocEntry(entry);
-      if (resolved) goTo(resolved.spreadIndex);
+      if (resolved) goToSpread(deps, resolved.spreadIndex);
     },
   };
+}
+
+function goToSpread(deps: NavigationDeps, index: number): void {
+  const reader = deps.getReader();
+  if (!reader) return;
+  const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
+  let prev = deps.getCurrentSpread();
+  if (clamped === prev) return;
+
+  const continuityDx = deps.td.isAnimating ? settleForContinuity(deps) : 0;
+  prev = deps.getCurrentSpread();
+  if (clamped === prev) return;
+
+  const direction = clamped > prev ? 'forward' : 'backward';
+  deps.setCurrentSpread(clamped);
+  ensureIncomingSlot(deps, clamped, direction);
+  emitNavigationStart(deps, reader, clamped, direction, prev, continuityDx);
+}
+
+function settleForContinuity(deps: NavigationDeps): number {
+  const residualDx = deps.td.forceSettle();
+  const width = deps.td.viewportWidth;
+  return residualDx > 0 ? residualDx - width : residualDx + width;
+}
+
+function ensureIncomingSlot(
+  deps: NavigationDeps,
+  spreadIndex: number,
+  direction: 'forward' | 'backward',
+): void {
+  const slotPos = direction === 'forward' ? 'next' : 'prev';
+  if (deps.pool.getSlotFor(spreadIndex) !== slotPos) deps.pool.assignSlot(slotPos, spreadIndex);
+  deps.pool.ensureContent(slotPos, deps.contentRenderer);
+}
+
+function emitNavigationStart(
+  deps: NavigationDeps,
+  reader: Reader,
+  target: number,
+  direction: 'forward' | 'backward',
+  previous: number,
+  continuityDx: number,
+): void {
+  const spread = reader.spreads[target];
+  if (spread) deps.emitter.emit('spreadChange', { spreadIndex: target, spread });
+  reader.notifyActiveSpread(target);
+  deps.td.goToTarget(direction, previous, target, continuityDx);
+  deps.emitter.emit('transitionStart', { direction });
+  deps.frameDriver.scheduleComposite();
 }
