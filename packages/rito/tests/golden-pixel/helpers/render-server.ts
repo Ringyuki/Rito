@@ -181,8 +181,9 @@ function renderHtml(): string {
             pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),
           });
         }
+        const diagnostics = await collectRenderDiagnostics();
         reader.dispose();
-        return { totalSpreads, spreads };
+        return { totalSpreads, spreads, diagnostics };
       };
     })
     .catch((error) => {
@@ -230,6 +231,59 @@ function renderHtml(): string {
       [0, 1, 2, lastFrontmatter, bodyStart, bodyMiddle, totalSpreads - 1],
       totalSpreads,
     );
+  }
+
+  async function collectRenderDiagnostics() {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready.catch(() => undefined);
+    }
+    return {
+      userAgent: navigator.userAgent,
+      platform: navigator.platform,
+      language: navigator.language,
+      devicePixelRatio: window.devicePixelRatio,
+      fontStatus: document.fonts ? document.fonts.status : 'unsupported',
+      fonts: collectFontDiagnostics(),
+      textMetrics: collectTextMetricDiagnostics(),
+    };
+  }
+
+  function collectFontDiagnostics() {
+    if (!document.fonts || !document.fonts[Symbol.iterator]) return [];
+    return Array.from(document.fonts).map((face) => ({
+      family: face.family,
+      status: face.status,
+      weight: face.weight,
+      style: face.style,
+    }));
+  }
+
+  function collectTextMetricDiagnostics() {
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return [];
+    return [
+      measureDiagnosticText(context, '16px serif', '制作信息'),
+      measureDiagnosticText(context, '16px serif', 'www.tsdm.net'),
+      measureDiagnosticText(context, '16px sans-serif', '制作信息'),
+      measureDiagnosticText(context, '16px "Hiragino Sans"', '制作信息'),
+      measureDiagnosticText(context, '16px "Hiragino Mincho ProN"', '制作信息'),
+      measureDiagnosticText(context, '16px "Songti SC"', '制作信息'),
+    ];
+  }
+
+  function measureDiagnosticText(context, font, sample) {
+    context.font = font;
+    const metrics = context.measureText(sample);
+    return {
+      font,
+      sample,
+      width: metrics.width,
+      actualBoundingBoxAscent: metrics.actualBoundingBoxAscent,
+      actualBoundingBoxDescent: metrics.actualBoundingBoxDescent,
+      fontBoundingBoxAscent: metrics.fontBoundingBoxAscent,
+      fontBoundingBoxDescent: metrics.fontBoundingBoxDescent,
+    };
   }
 </script>`;
 }

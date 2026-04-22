@@ -12,21 +12,50 @@ import {
   readPixelGoldenSpread,
   readPixelGoldenSummary,
   resetPixelGoldenRun,
+  SHOULD_WRITE_PIXEL_DIAGNOSTICS,
   writePixelGoldenSpread,
   writePixelGoldenSummary,
 } from './pixel-golden-file';
 import { pixelReviewCasePaths, writePixelReviewCase, type PixelReviewRecord } from './pixel-review';
 import { pixelSpreadIndexesForSelection } from './pixel-spread-selection';
-import { comparePng } from './png-diff';
+import { comparePng, type PixelDiffResult } from './png-diff';
 
 export interface PixelRunRenderResult {
   readonly totalSpreads: number;
   readonly spreads: readonly PixelRenderedSpread[];
+  readonly diagnostics?: PixelRunDiagnostics;
 }
 
 interface PixelRenderedSpread {
   readonly spreadIndex: number;
   readonly png: Buffer;
+}
+
+export interface PixelRunDiagnostics {
+  readonly userAgent: string;
+  readonly platform: string;
+  readonly language: string;
+  readonly devicePixelRatio: number;
+  readonly fontStatus: string;
+  readonly fonts: readonly PixelFontDiagnostic[];
+  readonly textMetrics: readonly PixelTextMetricDiagnostic[];
+}
+
+export interface PixelFontDiagnostic {
+  readonly family: string;
+  readonly status: string;
+  readonly weight: string;
+  readonly style: string;
+}
+
+export interface PixelTextMetricDiagnostic {
+  readonly font: string;
+  readonly sample: string;
+  readonly width: number;
+  readonly actualBoundingBoxAscent?: number;
+  readonly actualBoundingBoxDescent?: number;
+  readonly fontBoundingBoxAscent?: number;
+  readonly fontBoundingBoxDescent?: number;
 }
 
 export async function updatePixelRunGoldens(
@@ -83,7 +112,15 @@ async function collectPixelRunFailures(
     }
     const testCase = createPixelSpreadCase(run, spreadIndex, result.totalSpreads);
     const expected = await readPixelGoldenSpread(run, spreadIndex);
-    failures.push(...(await comparePixelSpreadCase(testCase, expected, spread.png, testInfo)));
+    failures.push(
+      ...(await comparePixelSpreadCase(
+        testCase,
+        expected,
+        spread.png,
+        testInfo,
+        result.diagnostics,
+      )),
+    );
   }
 
   return failures;
@@ -103,24 +140,32 @@ async function comparePixelSpreadCase(
   expected: Buffer | undefined,
   actual: Buffer,
   testInfo: TestInfo,
+  diagnostics: PixelRunDiagnostics | undefined,
 ): Promise<readonly string[]> {
   if (!expected) {
-    await writeOutput(testInfo.outputPath(`${testCase.id}-actual.png`), actual);
-    return [`Missing pixel golden for ${testCase.id}. Run pnpm test:golden:pixel:update`];
+    const message = `Missing pixel golden for ${testCase.id}. Run pnpm test:golden:pixel:update`;
+    await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, {
+      error: message,
+    });
+    return [message];
   }
 
-  const actualPath = testInfo.outputPath(`${testCase.id}-actual.png`);
   const diffPath = testInfo.outputPath(`${testCase.id}-diff.png`);
   try {
     const result = await comparePng(expected, actual, testCase, diffPath);
+    if (shouldWriteComparisonArtifacts(testCase, result)) {
+      await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, { result });
+    }
     if (result.diffRatio > testCase.maxDiffPixelRatio) {
-      await writeOutput(actualPath, actual);
       return [formatDiffMessage(testCase, result.diffPixels, result.diffRatio)];
     }
     return [];
   } catch (error) {
-    await writeOutput(actualPath, actual);
-    return [`${testCase.id}: ${error instanceof Error ? error.message : String(error)}`];
+    const message = `${testCase.id}: ${error instanceof Error ? error.message : String(error)}`;
+    await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, {
+      error: message,
+    });
+    return [message];
   }
 }
 
@@ -179,4 +224,72 @@ function formatDiffMessage(
   return `${testCase.id} pixel diff ${String(diffPixels)} (${diffRatio.toFixed(6)}) exceeds ${String(
     testCase.maxDiffPixelRatio,
   )}`;
+}
+
+function shouldWriteComparisonArtifacts(
+  testCase: PixelGoldenSpreadCase,
+  result: PixelDiffResult,
+): boolean {
+  return (
+    result.diffRatio > testCase.maxDiffPixelRatio ||
+    (SHOULD_WRITE_PIXEL_DIAGNOSTICS && result.diffPixels > 0)
+  );
+}
+
+async function writeComparisonArtifacts(
+  testInfo: TestInfo,
+  testCase: PixelGoldenSpreadCase,
+  expected: Buffer | undefined,
+  actual: Buffer,
+  diagnostics: PixelRunDiagnostics | undefined,
+  detail: { readonly result?: PixelDiffResult; readonly error?: string },
+): Promise<void> {
+  if (expected) {
+    await writeOutput(testInfo.outputPath(`${testCase.id}-expected.png`), expected);
+  }
+  await writeOutput(testInfo.outputPath(`${testCase.id}-actual.png`), actual);
+  await writeOutput(
+    testInfo.outputPath(`${testCase.id}-metadata.json`),
+    Buffer.from(`${JSON.stringify(comparisonMetadata(testCase, diagnostics, detail), null, 2)}\n`),
+  );
+}
+
+function comparisonMetadata(
+  testCase: PixelGoldenSpreadCase,
+  diagnostics: PixelRunDiagnostics | undefined,
+  detail: { readonly result?: PixelDiffResult; readonly error?: string },
+): object {
+  return {
+    id: testCase.id,
+    runId: testCase.runId,
+    bookId: testCase.bookId,
+    profileId: testCase.profileId,
+    lineBreaking: testCase.lineBreaking,
+    spreadIndex: testCase.spreadIndex,
+    totalSpreads: testCase.totalSpreads,
+    viewport: {
+      width: testCase.width,
+      height: testCase.height,
+      margin: testCase.margin,
+      spread: testCase.spread,
+      spreadGap: testCase.spreadGap,
+      devicePixelRatio: testCase.devicePixelRatio,
+    },
+    thresholds: {
+      pixelmatch: testCase.threshold,
+      maxDiffPixelRatio: testCase.maxDiffPixelRatio,
+    },
+    ...(detail.result
+      ? {
+          diff: {
+            width: detail.result.width,
+            height: detail.result.height,
+            pixels: detail.result.diffPixels,
+            ratio: detail.result.diffRatio,
+          },
+        }
+      : {}),
+    ...(detail.error ? { error: detail.error } : {}),
+    ...(diagnostics ? { diagnostics } : {}),
+  };
 }

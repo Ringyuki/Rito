@@ -17,6 +17,7 @@ import {
   comparePixelRun,
   reviewPixelRun,
   updatePixelRunGoldens,
+  type PixelRunDiagnostics,
   type PixelRunRenderResult,
 } from './helpers/pixel-run-assertions';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
@@ -28,6 +29,7 @@ interface BrowserRenderApi {
 interface BrowserPixelRunResult {
   readonly totalSpreads: number;
   readonly spreads: readonly BrowserPixelSpread[];
+  readonly diagnostics: PixelRunDiagnostics;
 }
 
 interface BrowserPixelSpread {
@@ -126,6 +128,7 @@ async function renderPixelRun(
       spreadIndex: spread.spreadIndex,
       png: Buffer.from(spread.pngBase64, 'base64'),
     })),
+    diagnostics: result.diagnostics,
   };
 }
 

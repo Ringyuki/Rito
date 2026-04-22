@@ -11,6 +11,7 @@ export const PIXEL_GOLDEN_ROOT = pixelGoldenRoot();
 export const SHOULD_RUN_PIXEL_GOLDEN = process.env['RITO_PIXEL_GOLDEN'] === '1';
 export const SHOULD_UPDATE_PIXEL_GOLDEN = process.env['RITO_UPDATE_GOLDEN'] === '1';
 export const SHOULD_REVIEW_PIXEL_GOLDEN = process.env['RITO_PIXEL_REVIEW'] === '1';
+export const SHOULD_WRITE_PIXEL_DIAGNOSTICS = process.env['RITO_PIXEL_DIAGNOSTICS'] === '1';
 
 export function pixelGoldenRunDir(run: PixelGoldenRun): string {
   return resolve(PIXEL_GOLDEN_ROOT, run.bookId, run.profile.id, run.lineBreaking);

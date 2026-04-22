@@ -30,6 +30,7 @@ Useful filters:
 - `RITO_PIXEL_LINE_BREAKING=optimal pnpm test:golden:pixel`
 - `RITO_PIXEL_SPREADS=0,1 pnpm test:golden:pixel:review`
 - `RITO_PIXEL_WORKERS=4 pnpm test:golden:pixel`
+- `RITO_PIXEL_DIAGNOSTICS=1 pnpm test:golden:pixel`
 - `RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update`
 - `RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel`
 
@@ -68,6 +69,11 @@ Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
 `metadata.json`. The report can switch by book, profile, line-breaking mode,
 and spread. The command uses the checked-in baselines only as inputs; it does
 not update or overwrite them.
+
+`RITO_PIXEL_DIAGNOSTICS=1` makes compare mode write `expected.png`,
+`actual.png`, `diff.png`, and `metadata.json` for every spread with non-zero
+diff pixels. CI enables this flag for the dedicated pixel job and uploads
+`packages/rito/test-results/` when the job fails.
 
 ## Browser Setup
 

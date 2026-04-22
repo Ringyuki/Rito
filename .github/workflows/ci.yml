@@ -48,6 +48,8 @@ jobs:
         run: pnpm exec playwright install chromium
       - name: Run Pixel Golden
         run: pnpm run test:golden:pixel
+        env:
+          RITO_PIXEL_DIAGNOSTICS: 1
       - name: Upload Pixel Golden Artifacts
         if: failure()
         uses: actions/upload-artifact@v4
@@ -55,3 +57,4 @@ jobs:
           name: pixel-golden-results
           path: packages/rito/test-results/
           if-no-files-found: ignore
+          retention-days: 7
