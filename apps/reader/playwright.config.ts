@@ -34,7 +34,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'pnpm run build:e2e && pnpm exec vite preview --host 127.0.0.1 --port 4173',
+    command:
+      'RITO_READER_BASE=/ pnpm run build:e2e && RITO_READER_BASE=/ pnpm exec vite preview --host 127.0.0.1 --port 4173',
     cwd: READER_APP_DIR,
     url: BASE_URL,
     reuseExistingServer: !process.env['CI'],
