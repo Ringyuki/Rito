@@ -1,5 +1,13 @@
 # @ritojs/kit
 
+## 0.7.2
+
+### Patch Changes
+
+- 2796283: Fix search navigation state updates when jumping to a distant result. Far search jumps now emit spreadChange so reader state stays in sync after skipping animated navigation.
+- Updated dependencies [2796283]
+  - @ritojs/core@0.7.2
+
 ## 0.7.1
 
 ### Patch Changes
