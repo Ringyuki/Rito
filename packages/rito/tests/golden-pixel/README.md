@@ -22,8 +22,8 @@ compares the final Canvas PNG output with checked-in image goldens.
 
 Useful filters:
 
-- `RITO_PIXEL_CASES=book-03-ruby pnpm test:golden:pixel`
-- `RITO_PIXEL_CASES=book-03-ruby pnpm test:golden:pixel:update`
+- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel`
+- `RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update`
 
 ## Browser Setup
 
@@ -33,13 +33,13 @@ Install Playwright's Chromium before running the suite locally:
 pnpm exec playwright install chromium
 ```
 
-Pixel baselines are committed for Playwright's bundled Chromium. If the bundled
-browser is unavailable but a compatible local browser is installed, pass a
-channel for local diagnosis only:
+Pixel baselines are committed for Playwright's bundled Chromium on macOS, which
+matches the dedicated CI pixel job. If the bundled browser is unavailable but a
+compatible local browser is installed, pass a channel for local diagnosis only:
 
 ```bash
 PLAYWRIGHT_BROWSER_CHANNEL=msedge pnpm test:golden:pixel
 ```
 
-The CI workflow installs Chromium and runs this suite after the deterministic
-Vitest pipeline.
+The CI workflow runs this suite in a separate macOS job after installing
+Chromium.

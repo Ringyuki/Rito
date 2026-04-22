@@ -52,8 +52,13 @@ This includes:
 The GitHub CI workflow also installs Chromium and runs:
 
 ```bash
-pnpm test:golden:pixel
 pnpm test:e2e
+```
+
+Pixel goldens run in a separate macOS CI job:
+
+```bash
+pnpm test:golden:pixel
 ```
 
 The structured golden step is intentionally part of the PR gate. It covers
@@ -176,8 +181,8 @@ pnpm test:golden:pixel:update
 Useful filters:
 
 ```bash
-RITO_PIXEL_CASES=book-03-ruby pnpm test:golden:pixel
-RITO_PIXEL_CASES=book-03-ruby pnpm test:golden:pixel:update
+RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel
+RITO_PIXEL_CASES=book-03-body-ruby pnpm test:golden:pixel:update
 ```
 
 The suite renders selected real-book spreads in Chromium through the public
@@ -189,8 +194,9 @@ color pages, and tables of contents before the first body spread. Additional
 targeted cases cover text shadow, inline background, inline border, ruby,
 horizontal rules, block transform, clipping, narrow layout, and DPR 2 output.
 
-Pixel golden baselines are committed for Playwright's bundled Chromium, which
-is also what CI installs. Use the default browser when updating PNG baselines:
+Pixel golden baselines are committed for Playwright's bundled Chromium on
+macOS, which matches the dedicated CI pixel job. Use the default browser when
+updating PNG baselines:
 
 ```bash
 pnpm exec playwright install chromium
@@ -209,7 +215,7 @@ The case shape:
 
 ```json
 {
-  "id": "book-10-inline-border-narrow",
+  "id": "book-10-frontmatter-05-narrow",
   "bookId": "book-10",
   "spreadIndex": 5,
   "width": 360,

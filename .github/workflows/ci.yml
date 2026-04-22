@@ -25,9 +25,33 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Run PR Test Pipeline
         run: pnpm run test:ci
-      - name: Run Pixel Golden
-        run: pnpm run test:golden:pixel
       - name: Run Reader E2E
         run: pnpm run test:e2e
       - name: Verify Packed Tarballs
         run: pnpm release:pack-check
+
+  pixel-golden:
+    name: Pixel Golden
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Install Playwright Browser
+        run: pnpm exec playwright install chromium
+      - name: Run Pixel Golden
+        run: pnpm run test:golden:pixel
+      - name: Upload Pixel Golden Artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-golden-results
+          path: packages/rito/test-results/
+          if-no-files-found: ignore
