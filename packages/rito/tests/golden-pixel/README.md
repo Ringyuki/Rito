@@ -16,6 +16,9 @@ matrix is still available as an opt-in external-baseline mode.
 - Each run directory contains `summary.json` plus selected `spread-0000.png`
   files. The summary still records the full spread count so pagination changes
   remain visible.
+- Rare platform-specific fallback glyph differences can be represented by
+  `spread-0000.alt-{label}.png`; compare mode accepts the primary spread or any
+  alternate image within the same threshold.
 
 ## Commands
 

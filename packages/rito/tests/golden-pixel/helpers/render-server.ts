@@ -265,7 +265,9 @@ function renderHtml(): string {
     return [
       measureDiagnosticText(context, '16px serif', '制作信息'),
       measureDiagnosticText(context, '16px serif', 'www.tsdm.net'),
+      measureDiagnosticText(context, '16px serif', '────────────────────────'),
       measureDiagnosticText(context, '16px sans-serif', '制作信息'),
+      measureDiagnosticText(context, '16px sans-serif', '────────────────────────'),
       measureDiagnosticText(context, '16px "Hiragino Sans"', '制作信息'),
       measureDiagnosticText(context, '16px "Hiragino Mincho ProN"', '制作信息'),
       measureDiagnosticText(context, '16px "Songti SC"', '制作信息'),

@@ -1,7 +1,12 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { PixelGoldenRun, PixelGoldenSummary } from './pixel-cases';
+
+export interface PixelGoldenSpreadAlternative {
+  readonly label: string;
+  readonly png: Buffer;
+}
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 export const COMMITTED_PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/pixels');
@@ -23,6 +28,14 @@ export function pixelGoldenSummaryFilePath(run: PixelGoldenRun): string {
 
 export function pixelGoldenSpreadFilePath(run: PixelGoldenRun, spreadIndex: number): string {
   return resolve(pixelGoldenRunDir(run), `${spreadFileName(spreadIndex)}.png`);
+}
+
+export function pixelGoldenSpreadAlternativeFilePath(
+  run: PixelGoldenRun,
+  spreadIndex: number,
+  label: string,
+): string {
+  return resolve(pixelGoldenRunDir(run), `${spreadFileName(spreadIndex)}.alt-${label}.png`);
 }
 
 export async function readPixelGoldenSummary(
@@ -53,6 +66,25 @@ export async function readPixelGoldenSpread(
   return readOptionalFile(pixelGoldenSpreadFilePath(run, spreadIndex));
 }
 
+export async function readPixelGoldenSpreadAlternatives(
+  run: PixelGoldenRun,
+  spreadIndex: number,
+): Promise<readonly PixelGoldenSpreadAlternative[]> {
+  const dir = pixelGoldenRunDir(run);
+  const prefix = `${spreadFileName(spreadIndex)}.alt-`;
+  const suffix = '.png';
+  const files = await readOptionalDir(dir);
+  return Promise.all(
+    files
+      .filter((file) => file.startsWith(prefix) && file.endsWith(suffix))
+      .sort()
+      .map(async (file) => ({
+        label: file.slice(prefix.length, -suffix.length),
+        png: await readFile(resolve(dir, file)),
+      })),
+  );
+}
+
 export async function writePixelGoldenSpread(
   run: PixelGoldenRun,
   spreadIndex: number,
@@ -79,6 +111,15 @@ async function readOptionalFile(path: string): Promise<Buffer | undefined> {
     return await readFile(path);
   } catch (error) {
     if (isNodeError(error) && error.code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
+
+async function readOptionalDir(path: string): Promise<readonly string[]> {
+  try {
+    return await readdir(path);
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') return [];
     throw error;
   }
 }

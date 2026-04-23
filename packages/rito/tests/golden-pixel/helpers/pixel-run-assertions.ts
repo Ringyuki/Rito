@@ -10,9 +10,11 @@ import {
 } from './pixel-cases';
 import {
   readPixelGoldenSpread,
+  readPixelGoldenSpreadAlternatives,
   readPixelGoldenSummary,
   resetPixelGoldenRun,
   SHOULD_WRITE_PIXEL_DIAGNOSTICS,
+  type PixelGoldenSpreadAlternative,
   writePixelGoldenSpread,
   writePixelGoldenSummary,
 } from './pixel-golden-file';
@@ -112,10 +114,12 @@ async function collectPixelRunFailures(
     }
     const testCase = createPixelSpreadCase(run, spreadIndex, result.totalSpreads);
     const expected = await readPixelGoldenSpread(run, spreadIndex);
+    const alternatives = await readPixelGoldenSpreadAlternatives(run, spreadIndex);
     failures.push(
       ...(await comparePixelSpreadCase(
         testCase,
         expected,
+        alternatives,
         spread.png,
         testInfo,
         result.diagnostics,
@@ -138,6 +142,7 @@ async function comparePixelSummary(run: PixelGoldenRun, totalSpreads: number): P
 async function comparePixelSpreadCase(
   testCase: PixelGoldenSpreadCase,
   expected: Buffer | undefined,
+  alternatives: readonly PixelGoldenSpreadAlternative[],
   actual: Buffer,
   testInfo: TestInfo,
   diagnostics: PixelRunDiagnostics | undefined,
@@ -153,13 +158,31 @@ async function comparePixelSpreadCase(
   const diffPath = testInfo.outputPath(`${testCase.id}-diff.png`);
   try {
     const result = await comparePng(expected, actual, testCase, diffPath);
-    if (shouldWriteComparisonArtifacts(testCase, result)) {
-      await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, { result });
+    if (result.diffRatio <= testCase.maxDiffPixelRatio) {
+      if (shouldWriteComparisonArtifacts(testCase, result)) {
+        await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, {
+          result,
+        });
+      }
+      return [];
     }
-    if (result.diffRatio > testCase.maxDiffPixelRatio) {
+
+    const matchedAlternative = await findMatchingAlternative(
+      testInfo,
+      testCase,
+      alternatives,
+      actual,
+    );
+    if (matchedAlternative) return [];
+
+    if (shouldWriteComparisonArtifacts(testCase, result)) {
+      await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, {
+        result,
+        alternatives,
+      });
       return [formatDiffMessage(testCase, result.diffPixels, result.diffRatio)];
     }
-    return [];
+    return [formatDiffMessage(testCase, result.diffPixels, result.diffRatio)];
   } catch (error) {
     const message = `${testCase.id}: ${error instanceof Error ? error.message : String(error)}`;
     await writeComparisonArtifacts(testInfo, testCase, expected, actual, diagnostics, {
@@ -167,6 +190,22 @@ async function comparePixelSpreadCase(
     });
     return [message];
   }
+}
+
+async function findMatchingAlternative(
+  testInfo: TestInfo,
+  testCase: PixelGoldenSpreadCase,
+  alternatives: readonly PixelGoldenSpreadAlternative[],
+  actual: Buffer,
+): Promise<PixelGoldenSpreadAlternative | undefined> {
+  for (const alternative of alternatives) {
+    const diffPath = testInfo.outputPath(
+      `${testCase.id}-alt-${safeArtifactLabel(alternative.label)}-diff.png`,
+    );
+    const result = await comparePng(alternative.png, actual, testCase, diffPath);
+    if (result.diffRatio <= testCase.maxDiffPixelRatio) return alternative;
+  }
+  return undefined;
 }
 
 async function reviewPixelSpreadCase(
@@ -242,7 +281,11 @@ async function writeComparisonArtifacts(
   expected: Buffer | undefined,
   actual: Buffer,
   diagnostics: PixelRunDiagnostics | undefined,
-  detail: { readonly result?: PixelDiffResult; readonly error?: string },
+  detail: {
+    readonly result?: PixelDiffResult;
+    readonly alternatives?: readonly PixelGoldenSpreadAlternative[];
+    readonly error?: string;
+  },
 ): Promise<void> {
   if (expected) {
     await writeOutput(testInfo.outputPath(`${testCase.id}-expected.png`), expected);
@@ -257,7 +300,11 @@ async function writeComparisonArtifacts(
 function comparisonMetadata(
   testCase: PixelGoldenSpreadCase,
   diagnostics: PixelRunDiagnostics | undefined,
-  detail: { readonly result?: PixelDiffResult; readonly error?: string },
+  detail: {
+    readonly result?: PixelDiffResult;
+    readonly alternatives?: readonly PixelGoldenSpreadAlternative[];
+    readonly error?: string;
+  },
 ): object {
   return {
     id: testCase.id,
@@ -290,6 +337,13 @@ function comparisonMetadata(
         }
       : {}),
     ...(detail.error ? { error: detail.error } : {}),
+    ...(detail.alternatives && detail.alternatives.length > 0
+      ? { alternatives: detail.alternatives.map((alternative) => alternative.label) }
+      : {}),
     ...(diagnostics ? { diagnostics } : {}),
   };
+}
+
+function safeArtifactLabel(label: string): string {
+  return label.replaceAll(/[^a-zA-Z0-9_-]+/g, '-');
 }
