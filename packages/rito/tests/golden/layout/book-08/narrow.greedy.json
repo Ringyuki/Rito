@@ -454,7 +454,7 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "221cceae5c86d900",
+      "detailHash": "a203912385e2d8c8",
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 7,
       "lastText": "上凋零。"
@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "9a62353e2b6d944c",
+      "detailHash": "e9f184f69a4e9c94",
       "firstText": "[ 蕾娜 ]",
       "index": 9,
       "lastText": "双方始终不曾谋面，并肩作战到最后——"
@@ -514,7 +514,7 @@
         "ruby": 0,
         "textRuns": 36
       },
-      "detailHash": "77c551257e3c0371",
+      "detailHash": "478a92ecd6ad940e",
       "firstText": "S P E A R H E A D",
       "index": 11,
       "lastText": "的「代号者」所组成的精锐部队。"
@@ -529,7 +529,7 @@
         "ruby": 4,
         "textRuns": 22
       },
-      "detailHash": "38fd6e980298d728",
+      "detailHash": "8ed3f0c606ad34ab",
       "firstText": "C O N T E N T S",
       "index": 12,
       "lastText": "终章二 Reboot——启动"
@@ -5115,7 +5115,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "3c4ec1a083eb6312",
+    "fullDetailHash": "4ad5747a90be065b",
     "pageCount": 318,
     "totals": {
       "blocks": 3549,
@@ -8585,7 +8585,9 @@
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 7,
       "lastText": "上凋零。",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -9324,7 +9326,9 @@
       "firstText": "[ 蕾娜 ]",
       "index": 9,
       "lastText": "双方始终不曾谋面，并肩作战到最后——",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -10922,7 +10926,9 @@
       "firstText": "S P E A R H E A D",
       "index": 11,
       "lastText": "的「代号者」所组成的精锐部队。",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -12149,7 +12155,9 @@
       "firstText": "C O N T E N T S",
       "index": 12,
       "lastText": "终章二 Reboot——启动",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [

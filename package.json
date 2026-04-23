@@ -13,6 +13,7 @@
     "dev": "pnpm -r --parallel run dev",
     "dev:reader": "pnpm --filter @ritojs/reader dev",
     "dev:rito": "pnpm --filter ./packages/rito dev",
+    "diagnose:render": "pnpm --filter @ritojs/core build && node packages/rito/scripts/render-diagnostic-case.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",

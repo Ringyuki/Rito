@@ -333,4 +333,8 @@ updating goldens, identify which layer changed:
 - pagination policy
 - render paint behavior
 
-Only update goldens after confirming the new output is intentional.
+Only update goldens after confirming the new output is intentional. When the
+failure is a mismatch between Rito and a browser-rendered XHTML reference, follow
+the [Rendering Diagnostics](./rendering-diagnostics.md) workflow before deciding
+whether to fix code, document an unsupported feature, add an alternate baseline,
+or update goldens.

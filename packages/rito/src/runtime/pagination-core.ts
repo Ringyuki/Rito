@@ -5,7 +5,7 @@ import { paginateBlocks } from '../layout/pagination';
 import type { LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
 import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
 import type { TextMeasurer } from '../layout/text/text-measurer';
-import type { DocumentNode } from '../parser/xhtml/types';
+import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import { matchesSelector } from '../style/cascade/selector-matcher';
 import { resolveStyles } from '../style/cascade/resolver';
 import { DEFAULT_STYLE } from '../style/core/defaults';
@@ -14,6 +14,7 @@ import { parseCssDeclarations } from '../style/css/property-parser';
 import type { Viewport } from '../style/css/parse-utils';
 import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
+import { applyBodyPresentationalAttrs } from './body-presentational-attrs';
 
 type SizeLike = { readonly width: number; readonly height: number };
 
@@ -57,7 +58,7 @@ export function paginateChapterNodes(
   config: LayoutConfig,
   context: PreparedPaginationContext,
   pageIndexOffset: number,
-  bodyAttributes?: { readonly class?: string; readonly style?: string },
+  bodyAttributes?: ElementAttributes,
   chapterStylesheetHrefs?: readonly string[],
 ): PaginatedChapterResult {
   const { chapterBodyStyle, styled } = buildChapterStyleTree(
@@ -97,7 +98,7 @@ function buildChapterStyleTree(
   nodes: readonly DocumentNode[],
   config: LayoutConfig,
   context: PreparedPaginationContext,
-  bodyAttributes: { readonly class?: string; readonly style?: string } | undefined,
+  bodyAttributes: ElementAttributes | undefined,
   chapterStylesheetHrefs: readonly string[] | undefined,
 ): { readonly chapterBodyStyle: ComputedStyle; readonly styled: readonly StyledNode[] } {
   // Chapter-linked stylesheets are scoped to avoid unrelated stylesheet leakage.
@@ -173,10 +174,10 @@ function stripRelativePrefix(href: string): string {
 function resolveBodyStyleWithAttrs(
   baseBodyStyle: ComputedStyle,
   rules: readonly CssRule[],
-  attrs: { readonly class?: string; readonly style?: string },
+  attrs: ElementAttributes,
   viewport?: Viewport,
 ): ComputedStyle {
-  let style = baseBodyStyle;
+  let style = applyBodyPresentationalAttrs(baseBodyStyle, attrs);
   const target = attrs.class ? { tag: 'body', className: attrs.class } : { tag: 'body' };
   for (const rule of rules) {
     if (matchesSelector(target, rule.selector)) {

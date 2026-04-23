@@ -13,6 +13,7 @@ Rito is split into a small public core package plus optional integration layers:
 - [Limitations](./limitations.md) — deliberate non-goals and current gaps
 - [Architecture](./architecture.md) — parser/style/layout/render/runtime boundaries and package layering
 - [Testing Pipeline](./testing-pipeline.md) — unit, integration, structured golden, render golden, and e2e strategy
+- [Rendering Diagnostics](./rendering-diagnostics.md) — standard workflow for Rito vs browser XHTML mismatches
 - [Release & Versioning](./releasing.md) — package publishing, changelog, and versioning policy
 
 ## API

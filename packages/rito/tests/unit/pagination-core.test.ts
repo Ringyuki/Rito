@@ -113,4 +113,40 @@ describe('pagination-core', () => {
       Array.from(sizeResult.anchorMap.entries()),
     );
   });
+
+  it('uses body bgcolor as the page background before stylesheet overrides', () => {
+    const parsed = parseXhtml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><title>Test</title></head>
+  <body bgcolor="#ED7A81"><p>Hello</p></body>
+</html>`,
+    );
+    const measurer = createMockTextMeasurer(0.6);
+    const context = preparePaginationContext(config, measurer, new Map<string, string>());
+
+    const result = paginateChapterNodes(parsed.nodes, config, context, 0, parsed.bodyAttributes);
+
+    expect(result.pages[0]?.paint?.backgroundColor).toBe('#ED7A81');
+  });
+
+  it('lets stylesheet body background override body bgcolor', () => {
+    const parsed = parseXhtml(
+      `<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><title>Test</title></head>
+  <body bgcolor="#ED7A81"><p>Hello</p></body>
+</html>`,
+    );
+    const measurer = createMockTextMeasurer(0.6);
+    const context = preparePaginationContext(
+      config,
+      measurer,
+      new Map([['style.css', 'body { background-color: #ffffff; }']]),
+    );
+
+    const result = paginateChapterNodes(parsed.nodes, config, context, 0, parsed.bodyAttributes);
+
+    expect(result.pages[0]?.paint?.backgroundColor).toBe('#ffffff');
+  });
 });

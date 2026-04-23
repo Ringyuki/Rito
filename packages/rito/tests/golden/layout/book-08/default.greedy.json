@@ -439,7 +439,7 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "c3001a3f8dcfd5f8",
+      "detailHash": "bafcc73348e71604",
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 6,
       "lastText": "上凋零。"
@@ -469,7 +469,7 @@
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "7ce7edac10efc336",
+      "detailHash": "b860fceb4e526c97",
       "firstText": "[ 蕾娜 ]",
       "index": 8,
       "lastText": "双方始终不曾谋面，并肩作战到最后——"
@@ -499,7 +499,7 @@
         "ruby": 0,
         "textRuns": 36
       },
-      "detailHash": "2c3ad075841fc21c",
+      "detailHash": "161b9191edf58395",
       "firstText": "S P E A R H E A D",
       "index": 10,
       "lastText": "组成的精锐部队。"
@@ -514,7 +514,7 @@
         "ruby": 4,
         "textRuns": 22
       },
-      "detailHash": "4e3f42a66802ea55",
+      "detailHash": "b012cd8ec986dc10",
       "firstText": "C O N T E N T S",
       "index": 11,
       "lastText": "终章二 Reboot——启动"
@@ -3450,7 +3450,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "685d50985d5035a9",
+    "fullDetailHash": "8fb2d2fefba4ec30",
     "pageCount": 207,
     "totals": {
       "blocks": 3466,
@@ -6732,7 +6732,9 @@
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 6,
       "lastText": "上凋零。",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -7471,7 +7473,9 @@
       "firstText": "[ 蕾娜 ]",
       "index": 8,
       "lastText": "双方始终不曾谋面，并肩作战到最后——",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -9069,7 +9073,9 @@
       "firstText": "S P E A R H E A D",
       "index": 10,
       "lastText": "组成的精锐部队。",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -10296,7 +10302,9 @@
       "firstText": "C O N T E N T S",
       "index": 11,
       "lastText": "终章二 Reboot——启动",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [

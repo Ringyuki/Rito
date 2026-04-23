@@ -68,6 +68,7 @@
   ],
   "scripts": {
     "build": "tsdown",
+    "diagnose:render": "pnpm run build && node scripts/render-diagnostic-case.mjs",
     "dev": "tsdown --watch",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

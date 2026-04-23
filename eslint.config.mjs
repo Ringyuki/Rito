@@ -8,7 +8,13 @@ const tsconfigRootDir = import.meta.dirname;
 
 export default defineConfig([
   {
-    ignores: ['**/dist/', '**/node_modules/', '**/coverage/', 'apps/reader/src/components/ui/'],
+    ignores: [
+      '**/dist/',
+      '**/node_modules/',
+      '**/coverage/',
+      '**/test-results/',
+      'apps/reader/src/components/ui/',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
@@ -22,14 +28,14 @@ export default defineConfig([
     languageOptions: {
       parserOptions: {
         projectService: {
-          allowDefaultProject: ['eslint.config.mjs', 'scripts/*.mjs'],
+          allowDefaultProject: ['eslint.config.mjs', 'scripts/*.mjs', 'packages/*/scripts/*.mjs'],
         },
         tsconfigRootDir,
       },
     },
   },
   {
-    files: ['scripts/**/*.mjs'],
+    files: ['scripts/**/*.mjs', 'packages/*/scripts/**/*.mjs'],
     languageOptions: {
       globals: {
         console: 'readonly',
@@ -43,6 +49,11 @@ export default defineConfig([
       '@typescript-eslint/no-unsafe-call': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
       '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      '@typescript-eslint/no-unnecessary-condition': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/prefer-promise-reject-errors': 'off',
+      '@typescript-eslint/no-confusing-void-expression': 'off',
       '@typescript-eslint/restrict-template-expressions': 'off',
     },
   },

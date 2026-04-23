@@ -16,9 +16,9 @@ export interface CachedTextMeasurer extends TextMeasurer {
 /**
  * Text measurer backed by CanvasRenderingContext2D with a measurement cache.
  *
- * Uses the ink bounding box (actualBoundingBoxLeft + actualBoundingBoxRight)
- * rather than advance width alone, to prevent last-character clipping when
- * the rendered glyph extends beyond the advance width.
+ * Uses Canvas' advance width (`TextMetrics.width`), matching browser inline
+ * layout. Glyph ink may overhang that advance box; it must not shift centered
+ * or right-aligned text.
  *
  * Results are cached by font string + text + wordSpacing to avoid redundant
  * canvas measurements. Call {@link CachedTextMeasurer.clearCache} to reset.
@@ -36,8 +36,7 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
       if (width === undefined) {
         ctx.font = font;
         const metrics = ctx.measureText(text);
-        const inkWidth = metrics.actualBoundingBoxLeft + metrics.actualBoundingBoxRight;
-        width = Math.max(metrics.width, inkWidth);
+        width = metrics.width;
         if (ws !== 0) {
           // Canvas doesn't honour `wordSpacing` consistently across browsers,
           // so we add it manually per ASCII space in the measured substring.

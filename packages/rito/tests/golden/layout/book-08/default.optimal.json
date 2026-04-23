@@ -439,7 +439,7 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "ecea605ddd3e5995",
+      "detailHash": "6219ecfb3bc0dd45",
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 6,
       "lastText": "在本作中登场的「M1A4破坏神」，是共和国所拥有的自律式无人战斗机械。然而……这只是官方对外的说法。由于开发中的战斗用AI始终无法达到实战水准，眼见「军团」兵临"
@@ -469,7 +469,7 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "9ea6285c1b68806d",
+      "detailHash": "3347a7d958869c1e",
       "firstText": "[ 蕾娜 ]",
       "index": 8,
       "lastText": "双方始终不曾谋面，并肩作战到最后——"
@@ -499,7 +499,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "086b7ca27fea7ec5",
+      "detailHash": "5971af5b2db32356",
       "firstText": "S P E A R H E A D",
       "index": 10,
       "lastText": "泛指生活于共和国全八十五区外，表面上并不存在的「化外之地」当中的人们。这些被送往强制收容设施的人，只要健康无虞就必须服兵役，被迫投身于与敌方无人机「军团」的战斗"
@@ -514,7 +514,7 @@
         "ruby": 4,
         "textRuns": 22
       },
-      "detailHash": "4e3f42a66802ea55",
+      "detailHash": "b012cd8ec986dc10",
       "firstText": "C O N T E N T S",
       "index": 11,
       "lastText": "终章二 Reboot——启动"
@@ -3000,7 +3000,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "9df0401a22a66824",
+    "fullDetailHash": "b19d0b79287be18a",
     "pageCount": 177,
     "totals": {
       "blocks": 3436,
@@ -5787,7 +5787,9 @@
       "firstText": "圣马格诺利亚共和国制「无人机」",
       "index": 6,
       "lastText": "在本作中登场的「M1A4破坏神」，是共和国所拥有的自律式无人战斗机械。然而……这只是官方对外的说法。由于开发中的战斗用AI始终无法达到实战水准，眼见「军团」兵临",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -6262,7 +6264,9 @@
       "firstText": "[ 蕾娜 ]",
       "index": 8,
       "lastText": "双方始终不曾谋面，并肩作战到最后——",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -7398,7 +7402,9 @@
       "firstText": "S P E A R H E A D",
       "index": 10,
       "lastText": "泛指生活于共和国全八十五区外，表面上并不存在的「化外之地」当中的人们。这些被送往强制收容设施的人，只要健康无虞就必须服兵役，被迫投身于与敌方无人机「军团」的战斗",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
@@ -8625,7 +8631,9 @@
       "firstText": "C O N T E N T S",
       "index": 11,
       "lastText": "终章二 Reboot——启动",
-      "paint": null
+      "paint": {
+        "backgroundColor": "#fff"
+      }
     },
     {
       "blocks": [
