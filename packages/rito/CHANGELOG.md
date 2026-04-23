@@ -1,5 +1,11 @@
 # @ritojs/core
 
+## 0.7.3
+
+### Patch Changes
+
+- e37770a: Refactor layout, render, and reader internals to reduce lint complexity while preserving rendering output.
+
 ## 0.7.2
 
 ### Patch Changes
