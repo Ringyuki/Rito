@@ -1,5 +1,14 @@
 # @ritojs/react
 
+## 0.7.3
+
+### Patch Changes
+
+- e37770a: Refactor layout, render, and reader internals to reduce lint complexity while preserving rendering output.
+- Updated dependencies [e37770a]
+  - @ritojs/core@0.7.3
+  - @ritojs/kit@0.7.3
+
 ## 0.7.2
 
 ### Patch Changes
