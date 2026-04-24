@@ -1,5 +1,15 @@
 # @ritojs/core
 
+## 0.8.0
+
+### Minor Changes
+
+- 424acd3: Add Unicode-aware CJK and mixed-script line breaking with CSS line-break, word-break, text-justify, and inherited language support.
+
+### Patch Changes
+
+- 7e6844d: Fix custom-font title centering and honor body bgcolor page backgrounds during pagination.
+
 ## 0.7.3
 
 ### Patch Changes
