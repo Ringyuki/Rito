@@ -221,31 +221,33 @@ function extractAttributes(el: Element): ElementAttributes | undefined {
   const style = el.getAttribute('style') ?? undefined;
   const id = el.getAttribute('id') ?? undefined;
   const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
+  const language = extractLanguage(el);
   const { colspan, rowspan } = extractTableCellSpans(el);
 
   // Collect all attributes for CSS attribute selector matching
   const allAttributes = collectAllAttributes(el);
 
-  if (
-    cls === undefined &&
-    style === undefined &&
-    id === undefined &&
-    href === undefined &&
-    colspan === undefined &&
-    rowspan === undefined &&
-    allAttributes === undefined
-  ) {
-    return undefined;
-  }
-  return {
+  const attributes = {
     ...(cls !== undefined ? { class: cls } : {}),
     ...(style !== undefined ? { style } : {}),
     ...(id !== undefined ? { id } : {}),
     ...(href !== undefined ? { href } : {}),
+    ...(language !== undefined ? { language } : {}),
     ...(colspan !== undefined ? { colspan } : {}),
     ...(rowspan !== undefined ? { rowspan } : {}),
     ...(allAttributes !== undefined ? { allAttributes } : {}),
   } satisfies ElementAttributes;
+
+  return Object.keys(attributes).length > 0 ? attributes : undefined;
+}
+
+function extractLanguage(el: Element): string | undefined {
+  return (
+    el.getAttribute('lang') ??
+    el.getAttribute('xml:lang') ??
+    el.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'lang') ??
+    undefined
+  );
 }
 
 /** Extract `<link rel="stylesheet">` hrefs from the document's `<head>`. */

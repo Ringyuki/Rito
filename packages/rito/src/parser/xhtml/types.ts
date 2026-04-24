@@ -27,6 +27,7 @@ export interface ElementAttributes {
   readonly style?: string;
   readonly id?: string;
   readonly href?: string;
+  readonly language?: string;
   readonly colspan?: number;
   readonly rowspan?: number;
   /** All raw attributes for CSS attribute selector matching. */

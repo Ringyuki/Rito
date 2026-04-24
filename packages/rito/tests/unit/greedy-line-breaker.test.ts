@@ -19,6 +19,12 @@ function seg(text: string, style?: Partial<ComputedStyle>): InlineSegment {
 }
 
 describe('GreedyParagraphLayouter', () => {
+  function lineTexts(text: string, width: number): string[] {
+    return layouter
+      .layoutParagraph([seg(text)], width, 0)
+      .map((line) => line.runs.map((run) => textOf(run) ?? '').join(''));
+  }
+
   describe('basic line breaking', () => {
     it('fits a short text on one line', () => {
       const lines = layouter.layoutParagraph([seg('hello')], 200, 0);
@@ -179,6 +185,14 @@ describe('GreedyParagraphLayouter', () => {
       const lines = layouter.layoutParagraph(segments, 200, 0);
       expect(lines).toHaveLength(1);
       expect(textOf(lines[0]?.runs[0])).toContain('a');
+    });
+
+    it('avoids starting a line with closing punctuation', () => {
+      expect(lineTexts('甲乙丙。丁戊', 28.8)).toEqual(['甲乙', '丙。丁', '戊']);
+    });
+
+    it('avoids ending a line with opening punctuation', () => {
+      expect(lineTexts('甲乙「丙丁戊', 28.8)).toEqual(['甲乙', '「丙丁', '戊']);
     });
   });
 

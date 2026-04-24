@@ -107,6 +107,7 @@ function appendRunsAsLine(
       effectiveLH,
       options.maxWidth,
       options.baseStyle.textAlign,
+      options.baseStyle.textJustify,
       isLastLine,
     ),
   );

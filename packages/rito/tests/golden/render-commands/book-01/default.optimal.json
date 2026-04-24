@@ -320,9 +320,9 @@
           "hrs": 0,
           "images": 5,
           "inlineAtoms": 0,
-          "lines": 29,
+          "lines": 27,
           "ruby": 0,
-          "textRuns": 34
+          "textRuns": 31
         },
         "index": 10,
         "selectedFeatureCounts": {
@@ -337,7 +337,7 @@
           "inlineBackground": 7,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 34,
+          "text": 31,
           "textDecoration": 0,
           "textShadow": 1
         },
@@ -356,14 +356,14 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 311,
-            "hash": "d617c54cdba47c88",
+            "count": 293,
+            "hash": "be636530eb32ff43",
             "methods": {
               "beginPath": 1,
               "clip": 1,
               "drawImage": 5,
               "fillRect": 16,
-              "fillText": 34,
+              "fillText": 31,
               "getTransform": 1,
               "rect": 1,
               "restore": 19,
@@ -373,11 +373,11 @@
               "translate": 17
             },
             "properties": {
-              "fillStyle": 50,
-              "font": 34,
-              "letterSpacing": 34,
-              "textBaseline": 34,
-              "wordSpacing": 34
+              "fillStyle": 47,
+              "font": 31,
+              "letterSpacing": 31,
+              "textBaseline": 31,
+              "wordSpacing": 31
             },
             "sequence": [
               {
@@ -500,7 +500,7 @@
               {
                 "args": [
                   162.4,
-                  49.6
+                  97.6
                 ],
                 "method": "translate",
                 "type": "call"
@@ -515,7 +515,7 @@
               {
                 "args": [
                   -162.4,
-                  -49.6
+                  -97.6
                 ],
                 "method": "translate",
                 "type": "call"
@@ -557,7 +557,7 @@
                     "length": 8
                   },
                   124,
-                  40
+                  88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -575,7 +575,7 @@
               {
                 "args": [
                   300,
-                  86.4
+                  134.4
                 ],
                 "method": "translate",
                 "type": "call"
@@ -590,7 +590,7 @@
               {
                 "args": [
                   -300,
-                  -86.4
+                  -134.4
                 ],
                 "method": "translate",
                 "type": "call"
@@ -603,7 +603,7 @@
               {
                 "args": [
                   236,
-                  40,
+                  88,
                   128,
                   92.8
                 ],
@@ -648,7 +648,7 @@
               {
                 "args": [
                   276,
-                  48,
+                  96,
                   48,
                   16
                 ],
@@ -667,7 +667,7 @@
                     "length": 5
                   },
                   276,
-                  48
+                  96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -704,7 +704,7 @@
                     "length": 6
                   },
                   271.2,
-                  67.2
+                  115.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -741,7 +741,7 @@
                     "length": 5
                   },
                   271.2,
-                  86.4
+                  134.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -778,7 +778,7 @@
                     "length": 1
                   },
                   319.2,
-                  86.4
+                  134.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -815,7 +815,7 @@
                     "length": 3
                   },
                   285.6,
-                  105.6
+                  153.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -831,7 +831,7 @@
                     "imageHref": "Images/icon01.png"
                   },
                   372,
-                  36.8,
+                  84.8,
                   72,
                   120
                 ],
@@ -846,7 +846,7 @@
               {
                 "args": [
                   404,
-                  212.8
+                  260.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -861,7 +861,7 @@
               {
                 "args": [
                   -404,
-                  -212.8
+                  -260.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -874,7 +874,7 @@
               {
                 "args": [
                   332,
-                  156.8,
+                  204.8,
                   144,
                   112
                 ],
@@ -919,7 +919,7 @@
               {
                 "args": [
                   346.4,
-                  164.8,
+                  212.8,
                   115.2,
                   16
                 ],
@@ -938,7 +938,7 @@
                     "length": 12
                   },
                   346.4,
-                  164.8
+                  212.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -975,7 +975,7 @@
                     "length": 4
                   },
                   384.8,
-                  184
+                  232
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1012,7 +1012,7 @@
                     "length": 3
                   },
                   389.6,
-                  203.2
+                  251.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1049,7 +1049,7 @@
                     "length": 5
                   },
                   380,
-                  222.4
+                  270.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1086,7 +1086,7 @@
                     "length": 6
                   },
                   375.2,
-                  241.6
+                  289.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1104,7 +1104,7 @@
               {
                 "args": [
                   180,
-                  235.2
+                  283.2
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1119,7 +1119,7 @@
               {
                 "args": [
                   -180,
-                  -235.2
+                  -283.2
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1132,7 +1132,7 @@
               {
                 "args": [
                   124,
-                  188.8,
+                  236.8,
                   112,
                   92.8
                 ],
@@ -1177,7 +1177,7 @@
               {
                 "args": [
                   156,
-                  196.8,
+                  244.8,
                   48,
                   16
                 ],
@@ -1196,7 +1196,7 @@
                     "length": 5
                   },
                   156,
-                  196.8
+                  244.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1233,7 +1233,7 @@
                     "length": 2
                   },
                   170.4,
-                  216
+                  264
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1270,7 +1270,7 @@
                     "length": 4
                   },
                   160.8,
-                  235.2
+                  283.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1307,7 +1307,7 @@
                     "length": 4
                   },
                   160.8,
-                  254.4
+                  302.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1323,7 +1323,7 @@
                     "imageHref": "Images/icon02.png"
                   },
                   252,
-                  156.8,
+                  204.8,
                   72,
                   120
                 ],
@@ -1338,7 +1338,7 @@
               {
                 "args": [
                   196,
-                  360
+                  408
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1353,7 +1353,7 @@
               {
                 "args": [
                   -196,
-                  -360
+                  -408
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1366,7 +1366,7 @@
               {
                 "args": [
                   124,
-                  313.6,
+                  361.6,
                   144,
                   92.8
                 ],
@@ -1411,7 +1411,7 @@
               {
                 "args": [
                   138.4,
-                  321.6,
+                  369.6,
                   115.2,
                   16
                 ],
@@ -1430,7 +1430,7 @@
                     "length": 12
                   },
                   138.4,
-                  321.6
+                  369.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1467,7 +1467,7 @@
                     "length": 7
                   },
                   162.4,
-                  340.8
+                  388.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1504,7 +1504,7 @@
                     "length": 4
                   },
                   176.8,
-                  360
+                  408
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1541,7 +1541,7 @@
                     "length": 5
                   },
                   172,
-                  379.2
+                  427.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1557,7 +1557,7 @@
                     "imageHref": "Images/icon03.png"
                   },
                   268,
-                  281.6,
+                  329.6,
                   72,
                   120
                 ],
@@ -1572,7 +1572,7 @@
               {
                 "args": [
                   388,
-                  468.8
+                  516.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1587,7 +1587,7 @@
               {
                 "args": [
                   -388,
-                  -468.8
+                  -516.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1600,7 +1600,7 @@
               {
                 "args": [
                   300,
-                  422.4,
+                  470.4,
                   176,
                   92.8
                 ],
@@ -1645,7 +1645,7 @@
               {
                 "args": [
                   364,
-                  430.4,
+                  478.4,
                   48,
                   16
                 ],
@@ -1664,7 +1664,7 @@
                     "length": 5
                   },
                   364,
-                  430.4
+                  478.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1701,7 +1701,7 @@
                     "length": 4
                   },
                   368.8,
-                  449.6
+                  497.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1738,7 +1738,7 @@
                     "length": 6
                   },
                   359.2,
-                  468.8
+                  516.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1775,7 +1775,7 @@
                     "length": 4
                   },
                   349.6,
-                  488
+                  536
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1812,7 +1812,7 @@
                     "length": 4
                   },
                   388,
-                  488
+                  536
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1828,7 +1828,7 @@
                     "imageHref": "Images/icon05.png"
                   },
                   404,
-                  531.2,
+                  579.2,
                   72,
                   120
                 ],
@@ -1843,7 +1843,7 @@
               {
                 "args": [
                   332,
-                  584
+                  632
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1858,7 +1858,7 @@
               {
                 "args": [
                   -332,
-                  -584
+                  -632
                 ],
                 "method": "translate",
                 "type": "call"
@@ -1871,7 +1871,7 @@
               {
                 "args": [
                   260,
-                  547.2,
+                  595.2,
                   144,
                   73.6
                 ],
@@ -1916,7 +1916,7 @@
               {
                 "args": [
                   274.4,
-                  555.2,
+                  603.2,
                   115.2,
                   16
                 ],
@@ -1935,7 +1935,7 @@
                     "length": 12
                   },
                   274.4,
-                  555.2
+                  603.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1972,7 +1972,7 @@
                     "length": 5
                   },
                   308,
-                  574.4
+                  622.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2009,7 +2009,7 @@
                     "length": 7
                   },
                   298.4,
-                  593.6
+                  641.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2025,7 +2025,7 @@
                     "imageHref": "Images/icon04.png"
                   },
                   124,
-                  539.2,
+                  587.2,
                   72,
                   120
                 ],
@@ -2040,7 +2040,7 @@
               {
                 "args": [
                   282.4,
-                  702.08
+                  726.88
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2055,7 +2055,7 @@
               {
                 "args": [
                   -282.4,
-                  -702.08
+                  -726.88
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2068,9 +2068,9 @@
               {
                 "args": [
                   194.4,
-                  655.68,
+                  703.68,
                   176,
-                  92.8
+                  46.4
                 ],
                 "method": "fillRect",
                 "type": "call"
@@ -2113,7 +2113,7 @@
               {
                 "args": [
                   258.4,
-                  663.68,
+                  711.68,
                   48,
                   16
                 ],
@@ -2132,7 +2132,7 @@
                     "length": 5
                   },
                   258.4,
-                  663.68
+                  711.68
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2169,7 +2169,7 @@
                     "length": 4
                   },
                   239.2,
-                  682.88
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2206,7 +2206,7 @@
                     "length": 4
                   },
                   277.6,
-                  682.88
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2243,118 +2243,7 @@
                     "length": 1
                   },
                   316,
-                  682.88
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#5AA0E1"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6f38189532716176",
-                    "length": 4
-                  },
-                  253.6,
-                  702.08
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "dbbaacc3753ab8c0",
-                    "length": 2
-                  },
-                  292,
-                  702.08
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "5dd2c93e87c4b09a",
-                    "length": 4
-                  },
-                  263.2,
-                  721.28
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2384,14 +2273,14 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 311,
-            "hash": "c6bc2e559c24e146",
+            "count": 293,
+            "hash": "68ab0b23198ad340",
             "methods": {
               "beginPath": 1,
               "clip": 1,
               "drawImage": 5,
               "fillRect": 16,
-              "fillText": 34,
+              "fillText": 31,
               "getTransform": 1,
               "rect": 1,
               "restore": 19,
@@ -2401,11 +2290,11 @@
               "translate": 17
             },
             "properties": {
-              "fillStyle": 50,
-              "font": 34,
-              "letterSpacing": 34,
-              "textBaseline": 34,
-              "wordSpacing": 34
+              "fillStyle": 47,
+              "font": 31,
+              "letterSpacing": 31,
+              "textBaseline": 31,
+              "wordSpacing": 31
             },
             "sequence": [
               {
@@ -2528,7 +2417,7 @@
               {
                 "args": [
                   162.4,
-                  49.6
+                  97.6
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2543,7 +2432,7 @@
               {
                 "args": [
                   -162.4,
-                  -49.6
+                  -97.6
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2585,7 +2474,7 @@
                     "length": 8
                   },
                   124,
-                  40
+                  88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2603,7 +2492,7 @@
               {
                 "args": [
                   300,
-                  86.4
+                  134.4
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2618,7 +2507,7 @@
               {
                 "args": [
                   -300,
-                  -86.4
+                  -134.4
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2631,7 +2520,7 @@
               {
                 "args": [
                   236,
-                  40,
+                  88,
                   128,
                   92.8
                 ],
@@ -2676,7 +2565,7 @@
               {
                 "args": [
                   276,
-                  48,
+                  96,
                   48,
                   16
                 ],
@@ -2695,7 +2584,7 @@
                     "length": 5
                   },
                   276,
-                  48
+                  96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2732,7 +2621,7 @@
                     "length": 6
                   },
                   271.2,
-                  67.2
+                  115.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2769,7 +2658,7 @@
                     "length": 5
                   },
                   271.2,
-                  86.4
+                  134.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2806,7 +2695,7 @@
                     "length": 1
                   },
                   319.2,
-                  86.4
+                  134.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2843,7 +2732,7 @@
                     "length": 3
                   },
                   285.6,
-                  105.6
+                  153.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2859,7 +2748,7 @@
                     "imageHref": "Images/icon01.png"
                   },
                   372,
-                  36.8,
+                  84.8,
                   72,
                   120
                 ],
@@ -2874,7 +2763,7 @@
               {
                 "args": [
                   404,
-                  212.8
+                  260.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2889,7 +2778,7 @@
               {
                 "args": [
                   -404,
-                  -212.8
+                  -260.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2902,7 +2791,7 @@
               {
                 "args": [
                   332,
-                  156.8,
+                  204.8,
                   144,
                   112
                 ],
@@ -2947,7 +2836,7 @@
               {
                 "args": [
                   346.4,
-                  164.8,
+                  212.8,
                   115.2,
                   16
                 ],
@@ -2966,7 +2855,7 @@
                     "length": 12
                   },
                   346.4,
-                  164.8
+                  212.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3003,7 +2892,7 @@
                     "length": 4
                   },
                   384.8,
-                  184
+                  232
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3040,7 +2929,7 @@
                     "length": 3
                   },
                   389.6,
-                  203.2
+                  251.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3077,7 +2966,7 @@
                     "length": 5
                   },
                   380,
-                  222.4
+                  270.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3114,7 +3003,7 @@
                     "length": 6
                   },
                   375.2,
-                  241.6
+                  289.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3132,7 +3021,7 @@
               {
                 "args": [
                   180,
-                  235.2
+                  283.2
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3147,7 +3036,7 @@
               {
                 "args": [
                   -180,
-                  -235.2
+                  -283.2
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3160,7 +3049,7 @@
               {
                 "args": [
                   124,
-                  188.8,
+                  236.8,
                   112,
                   92.8
                 ],
@@ -3205,7 +3094,7 @@
               {
                 "args": [
                   156,
-                  196.8,
+                  244.8,
                   48,
                   16
                 ],
@@ -3224,7 +3113,7 @@
                     "length": 5
                   },
                   156,
-                  196.8
+                  244.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3261,7 +3150,7 @@
                     "length": 2
                   },
                   170.4,
-                  216
+                  264
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3298,7 +3187,7 @@
                     "length": 4
                   },
                   160.8,
-                  235.2
+                  283.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3335,7 +3224,7 @@
                     "length": 4
                   },
                   160.8,
-                  254.4
+                  302.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3351,7 +3240,7 @@
                     "imageHref": "Images/icon02.png"
                   },
                   252,
-                  156.8,
+                  204.8,
                   72,
                   120
                 ],
@@ -3366,7 +3255,7 @@
               {
                 "args": [
                   196,
-                  360
+                  408
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3381,7 +3270,7 @@
               {
                 "args": [
                   -196,
-                  -360
+                  -408
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3394,7 +3283,7 @@
               {
                 "args": [
                   124,
-                  313.6,
+                  361.6,
                   144,
                   92.8
                 ],
@@ -3439,7 +3328,7 @@
               {
                 "args": [
                   138.4,
-                  321.6,
+                  369.6,
                   115.2,
                   16
                 ],
@@ -3458,7 +3347,7 @@
                     "length": 12
                   },
                   138.4,
-                  321.6
+                  369.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3495,7 +3384,7 @@
                     "length": 7
                   },
                   162.4,
-                  340.8
+                  388.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3532,7 +3421,7 @@
                     "length": 4
                   },
                   176.8,
-                  360
+                  408
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3569,7 +3458,7 @@
                     "length": 5
                   },
                   172,
-                  379.2
+                  427.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3585,7 +3474,7 @@
                     "imageHref": "Images/icon03.png"
                   },
                   268,
-                  281.6,
+                  329.6,
                   72,
                   120
                 ],
@@ -3600,7 +3489,7 @@
               {
                 "args": [
                   388,
-                  468.8
+                  516.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3615,7 +3504,7 @@
               {
                 "args": [
                   -388,
-                  -468.8
+                  -516.8
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3628,7 +3517,7 @@
               {
                 "args": [
                   300,
-                  422.4,
+                  470.4,
                   176,
                   92.8
                 ],
@@ -3673,7 +3562,7 @@
               {
                 "args": [
                   364,
-                  430.4,
+                  478.4,
                   48,
                   16
                 ],
@@ -3692,7 +3581,7 @@
                     "length": 5
                   },
                   364,
-                  430.4
+                  478.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3729,7 +3618,7 @@
                     "length": 4
                   },
                   368.8,
-                  449.6
+                  497.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3766,7 +3655,7 @@
                     "length": 6
                   },
                   359.2,
-                  468.8
+                  516.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3803,7 +3692,7 @@
                     "length": 4
                   },
                   349.6,
-                  488
+                  536
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3840,7 +3729,7 @@
                     "length": 4
                   },
                   388,
-                  488
+                  536
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3856,7 +3745,7 @@
                     "imageHref": "Images/icon05.png"
                   },
                   404,
-                  531.2,
+                  579.2,
                   72,
                   120
                 ],
@@ -3871,7 +3760,7 @@
               {
                 "args": [
                   332,
-                  584
+                  632
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3886,7 +3775,7 @@
               {
                 "args": [
                   -332,
-                  -584
+                  -632
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3899,7 +3788,7 @@
               {
                 "args": [
                   260,
-                  547.2,
+                  595.2,
                   144,
                   73.6
                 ],
@@ -3944,7 +3833,7 @@
               {
                 "args": [
                   274.4,
-                  555.2,
+                  603.2,
                   115.2,
                   16
                 ],
@@ -3963,7 +3852,7 @@
                     "length": 12
                   },
                   274.4,
-                  555.2
+                  603.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4000,7 +3889,7 @@
                     "length": 5
                   },
                   308,
-                  574.4
+                  622.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4037,7 +3926,7 @@
                     "length": 7
                   },
                   298.4,
-                  593.6
+                  641.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4053,7 +3942,7 @@
                     "imageHref": "Images/icon04.png"
                   },
                   124,
-                  539.2,
+                  587.2,
                   72,
                   120
                 ],
@@ -4068,7 +3957,7 @@
               {
                 "args": [
                   282.4,
-                  702.08
+                  726.88
                 ],
                 "method": "translate",
                 "type": "call"
@@ -4083,7 +3972,7 @@
               {
                 "args": [
                   -282.4,
-                  -702.08
+                  -726.88
                 ],
                 "method": "translate",
                 "type": "call"
@@ -4096,9 +3985,9 @@
               {
                 "args": [
                   194.4,
-                  655.68,
+                  703.68,
                   176,
-                  92.8
+                  46.4
                 ],
                 "method": "fillRect",
                 "type": "call"
@@ -4141,7 +4030,7 @@
               {
                 "args": [
                   258.4,
-                  663.68,
+                  711.68,
                   48,
                   16
                 ],
@@ -4160,7 +4049,7 @@
                     "length": 5
                   },
                   258.4,
-                  663.68
+                  711.68
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4197,7 +4086,7 @@
                     "length": 4
                   },
                   239.2,
-                  682.88
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4234,7 +4123,7 @@
                     "length": 4
                   },
                   277.6,
-                  682.88
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4271,118 +4160,7 @@
                     "length": 1
                   },
                   316,
-                  682.88
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#5AA0E1"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6f38189532716176",
-                    "length": 4
-                  },
-                  253.6,
-                  702.08
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "dbbaacc3753ab8c0",
-                    "length": 2
-                  },
-                  292,
-                  702.08
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "5dd2c93e87c4b09a",
-                    "length": 4
-                  },
-                  263.2,
-                  721.28
+                  730.88
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4408,7 +4186,7 @@
       ]
     },
     {
-      "id": "book-01-default.optimal-page-0205",
+      "id": "book-01-default.optimal-page-0202",
       "page": {
         "bounds": {
           "height": 800,
@@ -4423,9 +4201,9 @@
           "inlineAtoms": 9,
           "lines": 9,
           "ruby": 0,
-          "textRuns": 13
+          "textRuns": 9
         },
-        "index": 205,
+        "index": 202,
         "selectedFeatureCounts": {
           "blockBackground": 9,
           "blockBorder": 0,
@@ -4438,7 +4216,7 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 13,
+          "text": 9,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -4456,8 +4234,8 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 149,
-            "hash": "17bab99da3af4571",
+            "count": 125,
+            "hash": "31b70944f911d968",
             "methods": {
               "arcTo": 16,
               "beginPath": 5,
@@ -4466,7 +4244,7 @@
               "drawImage": 9,
               "fill": 4,
               "fillRect": 7,
-              "fillText": 13,
+              "fillText": 9,
               "moveTo": 4,
               "rect": 1,
               "restore": 3,
@@ -4475,11 +4253,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 24,
-              "font": 13,
-              "letterSpacing": 13,
-              "textBaseline": 13,
-              "wordSpacing": 13
+              "fillStyle": 20,
+              "font": 9,
+              "letterSpacing": 9,
+              "textBaseline": 9,
+              "wordSpacing": 9
             },
             "sequence": [
               {
@@ -4584,7 +4362,7 @@
               {
                 "args": [
                   40,
-                  40,
+                  72,
                   481,
                   48
                 ],
@@ -4597,7 +4375,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  40,
+                  72,
                   48,
                   48
                 ],
@@ -4636,7 +4414,7 @@
                     "length": 9
                   },
                   93,
-                  40
+                  72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4654,7 +4432,7 @@
               {
                 "args": [
                   99,
-                  88
+                  120
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -4662,9 +4440,9 @@
               {
                 "args": [
                   560,
-                  88,
+                  120,
                   560,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -4673,9 +4451,9 @@
               {
                 "args": [
                   560,
-                  136,
+                  168,
                   79,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -4684,9 +4462,9 @@
               {
                 "args": [
                   79,
-                  136,
+                  168,
                   79,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -4695,9 +4473,9 @@
               {
                 "args": [
                   79,
-                  88,
+                  120,
                   560,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -4745,7 +4523,7 @@
                     "length": 20
                   },
                   312,
-                  88
+                  120
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4756,48 +4534,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  88,
+                  120,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  88
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -4808,7 +4549,7 @@
               {
                 "args": [
                   40,
-                  136,
+                  168,
                   481,
                   48
                 ],
@@ -4821,7 +4562,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  136,
+                  168,
                   48,
                   48
                 ],
@@ -4860,7 +4601,7 @@
                     "length": 5
                   },
                   93,
-                  136
+                  168
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4878,7 +4619,7 @@
               {
                 "args": [
                   99,
-                  184
+                  216
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -4886,9 +4627,9 @@
               {
                 "args": [
                   560,
-                  184,
+                  216,
                   560,
-                  232,
+                  264,
                   20
                 ],
                 "method": "arcTo",
@@ -4897,9 +4638,9 @@
               {
                 "args": [
                   560,
-                  232,
+                  264,
                   79,
-                  232,
+                  264,
                   20
                 ],
                 "method": "arcTo",
@@ -4908,9 +4649,9 @@
               {
                 "args": [
                   79,
-                  232,
+                  264,
                   79,
-                  184,
+                  216,
                   20
                 ],
                 "method": "arcTo",
@@ -4919,9 +4660,9 @@
               {
                 "args": [
                   79,
-                  184,
+                  216,
                   560,
-                  184,
+                  216,
                   20
                 ],
                 "method": "arcTo",
@@ -4969,7 +4710,7 @@
                     "length": 8
                   },
                   427.2,
-                  184
+                  216
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4980,48 +4721,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  184,
+                  216,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  184
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -5032,7 +4736,7 @@
               {
                 "args": [
                   40,
-                  232,
+                  264,
                   481,
                   48
                 ],
@@ -5045,7 +4749,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  232,
+                  264,
                   48,
                   48
                 ],
@@ -5084,7 +4788,7 @@
                     "length": 30
                   },
                   93,
-                  232
+                  264
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5102,7 +4806,7 @@
               {
                 "args": [
                   99,
-                  280
+                  312
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -5110,9 +4814,9 @@
               {
                 "args": [
                   560,
-                  280,
+                  312,
                   560,
-                  328,
+                  360,
                   20
                 ],
                 "method": "arcTo",
@@ -5121,9 +4825,9 @@
               {
                 "args": [
                   560,
-                  328,
+                  360,
                   79,
-                  328,
+                  360,
                   20
                 ],
                 "method": "arcTo",
@@ -5132,9 +4836,9 @@
               {
                 "args": [
                   79,
-                  328,
+                  360,
                   79,
-                  280,
+                  312,
                   20
                 ],
                 "method": "arcTo",
@@ -5143,9 +4847,9 @@
               {
                 "args": [
                   79,
-                  280,
+                  312,
                   560,
-                  280,
+                  312,
                   20
                 ],
                 "method": "arcTo",
@@ -5193,7 +4897,7 @@
                     "length": 6
                   },
                   446.4,
-                  280
+                  312
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5204,48 +4908,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  280,
+                  312,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  280
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -5256,7 +4923,7 @@
               {
                 "args": [
                   40,
-                  328,
+                  360,
                   481,
                   48
                 ],
@@ -5269,7 +4936,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  328,
+                  360,
                   48,
                   48
                 ],
@@ -5308,7 +4975,7 @@
                     "length": 10
                   },
                   93,
-                  328
+                  360
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5326,7 +4993,7 @@
               {
                 "args": [
                   99,
-                  376
+                  408
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -5334,9 +5001,9 @@
               {
                 "args": [
                   560,
-                  376,
+                  408,
                   560,
-                  424,
+                  456,
                   20
                 ],
                 "method": "arcTo",
@@ -5345,9 +5012,9 @@
               {
                 "args": [
                   560,
-                  424,
+                  456,
                   79,
-                  424,
+                  456,
                   20
                 ],
                 "method": "arcTo",
@@ -5356,9 +5023,9 @@
               {
                 "args": [
                   79,
-                  424,
+                  456,
                   79,
-                  376,
+                  408,
                   20
                 ],
                 "method": "arcTo",
@@ -5367,9 +5034,9 @@
               {
                 "args": [
                   79,
-                  376,
+                  408,
                   560,
-                  376,
+                  408,
                   20
                 ],
                 "method": "arcTo",
@@ -5417,7 +5084,7 @@
                     "length": 4
                   },
                   465.6,
-                  376
+                  408
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5428,48 +5095,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  376,
+                  408,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  376
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -5480,7 +5110,7 @@
               {
                 "args": [
                   40,
-                  424,
+                  456,
                   481,
                   48
                 ],
@@ -5493,7 +5123,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  424,
+                  456,
                   48,
                   48
                 ],
@@ -5532,7 +5162,7 @@
                     "length": 14
                   },
                   93,
-                  424
+                  456
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5557,8 +5187,8 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 149,
-            "hash": "50ccb3a7e063b9c5",
+            "count": 125,
+            "hash": "4855177044ecf577",
             "methods": {
               "arcTo": 16,
               "beginPath": 5,
@@ -5567,7 +5197,7 @@
               "drawImage": 9,
               "fill": 4,
               "fillRect": 7,
-              "fillText": 13,
+              "fillText": 9,
               "moveTo": 4,
               "rect": 1,
               "restore": 3,
@@ -5576,11 +5206,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 24,
-              "font": 13,
-              "letterSpacing": 13,
-              "textBaseline": 13,
-              "wordSpacing": 13
+              "fillStyle": 20,
+              "font": 9,
+              "letterSpacing": 9,
+              "textBaseline": 9,
+              "wordSpacing": 9
             },
             "sequence": [
               {
@@ -5685,7 +5315,7 @@
               {
                 "args": [
                   40,
-                  40,
+                  72,
                   481,
                   48
                 ],
@@ -5698,7 +5328,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  40,
+                  72,
                   48,
                   48
                 ],
@@ -5737,7 +5367,7 @@
                     "length": 9
                   },
                   93,
-                  40
+                  72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5755,7 +5385,7 @@
               {
                 "args": [
                   99,
-                  88
+                  120
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -5763,9 +5393,9 @@
               {
                 "args": [
                   560,
-                  88,
+                  120,
                   560,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -5774,9 +5404,9 @@
               {
                 "args": [
                   560,
-                  136,
+                  168,
                   79,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -5785,9 +5415,9 @@
               {
                 "args": [
                   79,
-                  136,
+                  168,
                   79,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -5796,9 +5426,9 @@
               {
                 "args": [
                   79,
-                  88,
+                  120,
                   560,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -5846,7 +5476,7 @@
                     "length": 20
                   },
                   312,
-                  88
+                  120
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5857,48 +5487,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  88,
+                  120,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  88
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -5909,7 +5502,7 @@
               {
                 "args": [
                   40,
-                  136,
+                  168,
                   481,
                   48
                 ],
@@ -5922,7 +5515,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  136,
+                  168,
                   48,
                   48
                 ],
@@ -5961,7 +5554,7 @@
                     "length": 5
                   },
                   93,
-                  136
+                  168
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5979,7 +5572,7 @@
               {
                 "args": [
                   99,
-                  184
+                  216
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -5987,9 +5580,9 @@
               {
                 "args": [
                   560,
-                  184,
+                  216,
                   560,
-                  232,
+                  264,
                   20
                 ],
                 "method": "arcTo",
@@ -5998,9 +5591,9 @@
               {
                 "args": [
                   560,
-                  232,
+                  264,
                   79,
-                  232,
+                  264,
                   20
                 ],
                 "method": "arcTo",
@@ -6009,9 +5602,9 @@
               {
                 "args": [
                   79,
-                  232,
+                  264,
                   79,
-                  184,
+                  216,
                   20
                 ],
                 "method": "arcTo",
@@ -6020,9 +5613,9 @@
               {
                 "args": [
                   79,
-                  184,
+                  216,
                   560,
-                  184,
+                  216,
                   20
                 ],
                 "method": "arcTo",
@@ -6070,7 +5663,7 @@
                     "length": 8
                   },
                   427.2,
-                  184
+                  216
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6081,48 +5674,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  184,
+                  216,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  184
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -6133,7 +5689,7 @@
               {
                 "args": [
                   40,
-                  232,
+                  264,
                   481,
                   48
                 ],
@@ -6146,7 +5702,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  232,
+                  264,
                   48,
                   48
                 ],
@@ -6185,7 +5741,7 @@
                     "length": 30
                   },
                   93,
-                  232
+                  264
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6203,7 +5759,7 @@
               {
                 "args": [
                   99,
-                  280
+                  312
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -6211,9 +5767,9 @@
               {
                 "args": [
                   560,
-                  280,
+                  312,
                   560,
-                  328,
+                  360,
                   20
                 ],
                 "method": "arcTo",
@@ -6222,9 +5778,9 @@
               {
                 "args": [
                   560,
-                  328,
+                  360,
                   79,
-                  328,
+                  360,
                   20
                 ],
                 "method": "arcTo",
@@ -6233,9 +5789,9 @@
               {
                 "args": [
                   79,
-                  328,
+                  360,
                   79,
-                  280,
+                  312,
                   20
                 ],
                 "method": "arcTo",
@@ -6244,9 +5800,9 @@
               {
                 "args": [
                   79,
-                  280,
+                  312,
                   560,
-                  280,
+                  312,
                   20
                 ],
                 "method": "arcTo",
@@ -6294,7 +5850,7 @@
                     "length": 6
                   },
                   446.4,
-                  280
+                  312
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6305,48 +5861,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  280,
+                  312,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  280
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -6357,7 +5876,7 @@
               {
                 "args": [
                   40,
-                  328,
+                  360,
                   481,
                   48
                 ],
@@ -6370,7 +5889,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  328,
+                  360,
                   48,
                   48
                 ],
@@ -6409,7 +5928,7 @@
                     "length": 10
                   },
                   93,
-                  328
+                  360
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6427,7 +5946,7 @@
               {
                 "args": [
                   99,
-                  376
+                  408
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -6435,9 +5954,9 @@
               {
                 "args": [
                   560,
-                  376,
+                  408,
                   560,
-                  424,
+                  456,
                   20
                 ],
                 "method": "arcTo",
@@ -6446,9 +5965,9 @@
               {
                 "args": [
                   560,
-                  424,
+                  456,
                   79,
-                  424,
+                  456,
                   20
                 ],
                 "method": "arcTo",
@@ -6457,9 +5976,9 @@
               {
                 "args": [
                   79,
-                  424,
+                  456,
                   79,
-                  376,
+                  408,
                   20
                 ],
                 "method": "arcTo",
@@ -6468,9 +5987,9 @@
               {
                 "args": [
                   79,
-                  376,
+                  408,
                   560,
-                  376,
+                  408,
                   20
                 ],
                 "method": "arcTo",
@@ -6518,7 +6037,7 @@
                     "length": 4
                   },
                   465.6,
-                  376
+                  408
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6529,48 +6048,11 @@
                     "imageHref": "Images/wen04.png"
                   },
                   504,
-                  376,
+                  408,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  376
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -6581,7 +6063,7 @@
               {
                 "args": [
                   40,
-                  424,
+                  456,
                   481,
                   48
                 ],
@@ -6594,7 +6076,7 @@
                     "imageHref": "Images/ha04.png"
                   },
                   45,
-                  424,
+                  456,
                   48,
                   48
                 ],
@@ -6633,7 +6115,7 @@
                     "length": 14
                   },
                   93,
-                  424
+                  456
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6654,7 +6136,7 @@
       ]
     },
     {
-      "id": "book-01-default.optimal-page-0207",
+      "id": "book-01-default.optimal-page-0204",
       "page": {
         "bounds": {
           "height": 800,
@@ -6665,13 +6147,13 @@
         "counts": {
           "blocks": 6,
           "hrs": 0,
-          "images": 5,
-          "inlineAtoms": 5,
-          "lines": 6,
+          "images": 6,
+          "inlineAtoms": 6,
+          "lines": 7,
           "ruby": 0,
-          "textRuns": 9
+          "textRuns": 7
         },
-        "index": 207,
+        "index": 204,
         "selectedFeatureCounts": {
           "blockBackground": 6,
           "blockBorder": 0,
@@ -6679,12 +6161,12 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 5,
-          "inlineAtom": 5,
+          "image": 6,
+          "inlineAtom": 6,
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 9,
+          "text": 7,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -6700,17 +6182,17 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 108,
-            "hash": "977e210eadb30992",
+            "count": 97,
+            "hash": "1f3ba8c8b62d28a4",
             "methods": {
               "arcTo": 12,
               "beginPath": 4,
               "clip": 1,
               "closePath": 3,
-              "drawImage": 5,
+              "drawImage": 6,
               "fill": 3,
               "fillRect": 5,
-              "fillText": 9,
+              "fillText": 7,
               "moveTo": 3,
               "rect": 1,
               "restore": 3,
@@ -6719,11 +6201,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 17,
-              "font": 9,
-              "letterSpacing": 9,
-              "textBaseline": 9,
-              "wordSpacing": 9
+              "fillStyle": 15,
+              "font": 7,
+              "letterSpacing": 7,
+              "textBaseline": 7,
+              "wordSpacing": 7
             },
             "sequence": [
               {
@@ -6828,7 +6310,7 @@
               {
                 "args": [
                   40,
-                  40,
+                  72,
                   481,
                   48
                 ],
@@ -6841,7 +6323,7 @@
                     "imageHref": "Images/jia02.png"
                   },
                   45,
-                  40,
+                  72,
                   48,
                   48
                 ],
@@ -6880,7 +6362,7 @@
                     "length": 18
                   },
                   93,
-                  40
+                  72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6898,7 +6380,7 @@
               {
                 "args": [
                   99,
-                  88
+                  120
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -6906,9 +6388,9 @@
               {
                 "args": [
                   560,
-                  88,
+                  120,
                   560,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -6917,9 +6399,9 @@
               {
                 "args": [
                   560,
-                  136,
+                  168,
                   79,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -6928,9 +6410,9 @@
               {
                 "args": [
                   79,
-                  136,
+                  168,
                   79,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -6939,9 +6421,9 @@
               {
                 "args": [
                   79,
-                  88,
+                  120,
                   560,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -6989,7 +6471,7 @@
                     "length": 5
                   },
                   456,
-                  88
+                  120
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7000,7 +6482,35 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  88,
+                  120,
+                  48,
+                  48
+                ],
+                "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#E682D2"
+              },
+              {
+                "args": [
+                  40,
+                  168,
+                  481,
+                  67.2
+                ],
+                "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [
+                  {
+                    "imageHref": "Images/jia02.png"
+                  },
+                  45,
+                  168,
                   48,
                   48
                 ],
@@ -7035,28 +6545,13 @@
               {
                 "args": [
                   {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
+                    "hash": "95dfbf014d03f14e",
+                    "length": 43
                   },
-                  552,
-                  88
+                  93,
+                  168
                 ],
                 "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#E682D2"
-              },
-              {
-                "args": [
-                  40,
-                  136,
-                  481,
-                  19.2
-                ],
-                "method": "fillRect",
                 "type": "call"
               },
               {
@@ -7087,11 +6582,11 @@
               {
                 "args": [
                   {
-                    "hash": "b7983764e803f970",
-                    "length": 46
+                    "hash": "f5ef5716d48825a7",
+                    "length": 3
                   },
                   45,
-                  136
+                  216
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7109,7 +6604,7 @@
               {
                 "args": [
                   99,
-                  155.2
+                  235.2
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7117,9 +6612,9 @@
               {
                 "args": [
                   560,
-                  155.2,
+                  235.2,
                   560,
-                  203.2,
+                  283.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7128,9 +6623,9 @@
               {
                 "args": [
                   560,
-                  203.2,
+                  283.2,
                   79,
-                  203.2,
+                  283.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7139,9 +6634,9 @@
               {
                 "args": [
                   79,
-                  203.2,
+                  283.2,
                   79,
-                  155.2,
+                  235.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7150,9 +6645,9 @@
               {
                 "args": [
                   79,
-                  155.2,
+                  235.2,
                   560,
-                  155.2,
+                  235.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7200,7 +6695,7 @@
                     "length": 14
                   },
                   369.6,
-                  155.2
+                  235.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7211,48 +6706,11 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  155.2,
+                  235.2,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  155.2
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -7263,7 +6721,7 @@
               {
                 "args": [
                   40,
-                  203.2,
+                  283.2,
                   481,
                   48
                 ],
@@ -7276,7 +6734,7 @@
                     "imageHref": "Images/jia02.png"
                   },
                   45,
-                  203.2,
+                  283.2,
                   48,
                   48
                 ],
@@ -7315,7 +6773,7 @@
                     "length": 4
                   },
                   93,
-                  203.2
+                  283.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7333,7 +6791,7 @@
               {
                 "args": [
                   99,
-                  251.2
+                  331.2
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7341,9 +6799,9 @@
               {
                 "args": [
                   560,
-                  251.2,
+                  331.2,
                   560,
-                  299.2,
+                  379.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7352,9 +6810,9 @@
               {
                 "args": [
                   560,
-                  299.2,
+                  379.2,
                   79,
-                  299.2,
+                  379.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7363,9 +6821,9 @@
               {
                 "args": [
                   79,
-                  299.2,
+                  379.2,
                   79,
-                  251.2,
+                  331.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7374,9 +6832,9 @@
               {
                 "args": [
                   79,
-                  251.2,
+                  331.2,
                   560,
-                  251.2,
+                  331.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7424,7 +6882,7 @@
                     "length": 13
                   },
                   379.2,
-                  251.2
+                  331.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7435,48 +6893,11 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  251.2,
+                  331.2,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  251.2
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -7499,17 +6920,17 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 108,
-            "hash": "39866540a795c457",
+            "count": 97,
+            "hash": "a5c89db102650d3b",
             "methods": {
               "arcTo": 12,
               "beginPath": 4,
               "clip": 1,
               "closePath": 3,
-              "drawImage": 5,
+              "drawImage": 6,
               "fill": 3,
               "fillRect": 5,
-              "fillText": 9,
+              "fillText": 7,
               "moveTo": 3,
               "rect": 1,
               "restore": 3,
@@ -7518,11 +6939,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 17,
-              "font": 9,
-              "letterSpacing": 9,
-              "textBaseline": 9,
-              "wordSpacing": 9
+              "fillStyle": 15,
+              "font": 7,
+              "letterSpacing": 7,
+              "textBaseline": 7,
+              "wordSpacing": 7
             },
             "sequence": [
               {
@@ -7627,7 +7048,7 @@
               {
                 "args": [
                   40,
-                  40,
+                  72,
                   481,
                   48
                 ],
@@ -7640,7 +7061,7 @@
                     "imageHref": "Images/jia02.png"
                   },
                   45,
-                  40,
+                  72,
                   48,
                   48
                 ],
@@ -7679,7 +7100,7 @@
                     "length": 18
                   },
                   93,
-                  40
+                  72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7697,7 +7118,7 @@
               {
                 "args": [
                   99,
-                  88
+                  120
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7705,9 +7126,9 @@
               {
                 "args": [
                   560,
-                  88,
+                  120,
                   560,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -7716,9 +7137,9 @@
               {
                 "args": [
                   560,
-                  136,
+                  168,
                   79,
-                  136,
+                  168,
                   20
                 ],
                 "method": "arcTo",
@@ -7727,9 +7148,9 @@
               {
                 "args": [
                   79,
-                  136,
+                  168,
                   79,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -7738,9 +7159,9 @@
               {
                 "args": [
                   79,
-                  88,
+                  120,
                   560,
-                  88,
+                  120,
                   20
                 ],
                 "method": "arcTo",
@@ -7788,7 +7209,7 @@
                     "length": 5
                   },
                   456,
-                  88
+                  120
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7799,7 +7220,35 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  88,
+                  120,
+                  48,
+                  48
+                ],
+                "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#E682D2"
+              },
+              {
+                "args": [
+                  40,
+                  168,
+                  481,
+                  67.2
+                ],
+                "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [
+                  {
+                    "imageHref": "Images/jia02.png"
+                  },
+                  45,
+                  168,
                   48,
                   48
                 ],
@@ -7834,28 +7283,13 @@
               {
                 "args": [
                   {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
+                    "hash": "95dfbf014d03f14e",
+                    "length": 43
                   },
-                  552,
-                  88
+                  93,
+                  168
                 ],
                 "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#E682D2"
-              },
-              {
-                "args": [
-                  40,
-                  136,
-                  481,
-                  19.2
-                ],
-                "method": "fillRect",
                 "type": "call"
               },
               {
@@ -7886,11 +7320,11 @@
               {
                 "args": [
                   {
-                    "hash": "b7983764e803f970",
-                    "length": 46
+                    "hash": "f5ef5716d48825a7",
+                    "length": 3
                   },
                   45,
-                  136
+                  216
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7908,7 +7342,7 @@
               {
                 "args": [
                   99,
-                  155.2
+                  235.2
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7916,9 +7350,9 @@
               {
                 "args": [
                   560,
-                  155.2,
+                  235.2,
                   560,
-                  203.2,
+                  283.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7927,9 +7361,9 @@
               {
                 "args": [
                   560,
-                  203.2,
+                  283.2,
                   79,
-                  203.2,
+                  283.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7938,9 +7372,9 @@
               {
                 "args": [
                   79,
-                  203.2,
+                  283.2,
                   79,
-                  155.2,
+                  235.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7949,9 +7383,9 @@
               {
                 "args": [
                   79,
-                  155.2,
+                  235.2,
                   560,
-                  155.2,
+                  235.2,
                   20
                 ],
                 "method": "arcTo",
@@ -7999,7 +7433,7 @@
                     "length": 14
                   },
                   369.6,
-                  155.2
+                  235.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8010,48 +7444,11 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  155.2,
+                  235.2,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  155.2
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -8062,7 +7459,7 @@
               {
                 "args": [
                   40,
-                  203.2,
+                  283.2,
                   481,
                   48
                 ],
@@ -8075,7 +7472,7 @@
                     "imageHref": "Images/jia02.png"
                   },
                   45,
-                  203.2,
+                  283.2,
                   48,
                   48
                 ],
@@ -8114,7 +7511,7 @@
                     "length": 4
                   },
                   93,
-                  203.2
+                  283.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8132,7 +7529,7 @@
               {
                 "args": [
                   99,
-                  251.2
+                  331.2
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -8140,9 +7537,9 @@
               {
                 "args": [
                   560,
-                  251.2,
+                  331.2,
                   560,
-                  299.2,
+                  379.2,
                   20
                 ],
                 "method": "arcTo",
@@ -8151,9 +7548,9 @@
               {
                 "args": [
                   560,
-                  299.2,
+                  379.2,
                   79,
-                  299.2,
+                  379.2,
                   20
                 ],
                 "method": "arcTo",
@@ -8162,9 +7559,9 @@
               {
                 "args": [
                   79,
-                  299.2,
+                  379.2,
                   79,
-                  251.2,
+                  331.2,
                   20
                 ],
                 "method": "arcTo",
@@ -8173,9 +7570,9 @@
               {
                 "args": [
                   79,
-                  251.2,
+                  331.2,
                   560,
-                  251.2,
+                  331.2,
                   20
                 ],
                 "method": "arcTo",
@@ -8223,7 +7620,7 @@
                     "length": 13
                   },
                   379.2,
-                  251.2
+                  331.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8234,48 +7631,11 @@
                     "imageHref": "Images/wen02.png"
                   },
                   504,
-                  251.2,
+                  331.2,
                   48,
                   48
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px illus5"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  552,
-                  251.2
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -8314,7 +7674,7 @@
   },
   "schemaVersion": 1,
   "selection": {
-    "pageCount": 208,
+    "pageCount": 205,
     "pixelRatios": [
       1,
       2
@@ -8357,7 +7717,7 @@
           "inlineBackground": 7,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 34,
+          "text": 31,
           "textDecoration": 0,
           "textShadow": 1
         },
@@ -8383,7 +7743,7 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 13,
+          "text": 9,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -8392,8 +7752,8 @@
           "inlineAtom",
           "blockBackground"
         ],
-        "id": "book-01-default.optimal-page-0205",
-        "pageIndex": 205
+        "id": "book-01-default.optimal-page-0202",
+        "pageIndex": 202
       },
       {
         "counts": {
@@ -8403,20 +7763,20 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 5,
-          "inlineAtom": 5,
+          "image": 6,
+          "inlineAtom": 6,
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 9,
+          "text": 7,
           "textDecoration": 0,
           "textShadow": 0
         },
         "features": [
           "last"
         ],
-        "id": "book-01-default.optimal-page-0207",
-        "pageIndex": 207
+        "id": "book-01-default.optimal-page-0204",
+        "pageIndex": 204
       }
     ]
   }

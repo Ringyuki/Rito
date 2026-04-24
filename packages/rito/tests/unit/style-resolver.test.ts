@@ -1,19 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { resolveStyles } from '../../src/style/cascade/resolver';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { BlockNode, DocumentNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
+import type {
+  BlockNode,
+  DocumentNode,
+  ElementAttributes,
+  InlineNode,
+  TextNode,
+} from '../../src/parser/xhtml/types';
 import { NODE_TYPES } from '../../src/parser/xhtml/types';
 
 function text(content: string): TextNode {
   return { type: NODE_TYPES.Text, content };
 }
 
-function inline(tag: string, children: DocumentNode[]): InlineNode {
-  return { type: NODE_TYPES.Inline, tag, children };
+function inline(tag: string, children: DocumentNode[], attributes?: ElementAttributes): InlineNode {
+  return { type: NODE_TYPES.Inline, tag, children, ...(attributes ? { attributes } : {}) };
 }
 
-function block(tag: string, children: DocumentNode[]): BlockNode {
-  return { type: NODE_TYPES.Block, tag, children };
+function block(tag: string, children: DocumentNode[], attributes?: ElementAttributes): BlockNode {
+  return { type: NODE_TYPES.Block, tag, children, ...(attributes ? { attributes } : {}) };
 }
 
 function image(src = 'cover.jpg', alt = ''): DocumentNode {
@@ -140,6 +146,22 @@ describe('resolveStyles', () => {
     const p = result[0];
     expect(p?.children[0]?.content).toBe('hello');
     expect(p?.children[1]?.children[0]?.content).toBe('world');
+  });
+
+  it('inherits language attributes into descendant computed styles', () => {
+    const result = resolveStyles([
+      block('section', [block('p', [inline('span', [text('本文')])])], { language: 'JA' }),
+    ]);
+
+    const section = result[0];
+    const paragraph = section?.children[0];
+    const span = paragraph?.children[0];
+    const textNode = span?.children[0];
+
+    expect(section?.style.language).toBe('ja');
+    expect(paragraph?.style.language).toBe('ja');
+    expect(span?.style.language).toBe('ja');
+    expect(textNode?.style.language).toBe('ja');
   });
 
   describe('inline style resolution', () => {

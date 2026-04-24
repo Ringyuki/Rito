@@ -3,25 +3,31 @@ import type {
   Display,
   FontStyle,
   FontWeight,
+  LineBreak,
   ListStyleType,
   PageBreak,
   TextAlignment,
   TextDecoration,
+  TextJustify,
   TextTransform,
   VerticalAlign,
   WhiteSpace,
+  WordBreak,
 } from '../core/types';
 import {
   DISPLAY_VALUES,
   FONT_STYLES,
   FONT_WEIGHTS,
+  LINE_BREAK_VALUES,
   LIST_STYLE_TYPES,
   PAGE_BREAKS,
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
+  TEXT_JUSTIFY_VALUES,
   TEXT_TRANSFORMS,
   VERTICAL_ALIGNS,
   WHITE_SPACES,
+  WORD_BREAK_VALUES,
 } from '../core/types';
 import { parseLength } from './parse-utils';
 
@@ -109,6 +115,15 @@ export function parseTextAlign(value: string): TextAlignment | undefined {
   return undefined;
 }
 
+export function parseTextJustify(value: string): TextJustify | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'auto') return TEXT_JUSTIFY_VALUES.Auto;
+  if (v === 'none') return TEXT_JUSTIFY_VALUES.None;
+  if (v === 'inter-word') return TEXT_JUSTIFY_VALUES.InterWord;
+  if (v === 'inter-character' || v === 'distribute') return TEXT_JUSTIFY_VALUES.InterCharacter;
+  return undefined;
+}
+
 export function parseTextDecoration(value: string): TextDecoration | undefined {
   const v = value.trim().toLowerCase();
   if (v === 'none') return TEXT_DECORATIONS.None;
@@ -132,6 +147,23 @@ export function parseWhiteSpace(value: string): WhiteSpace | undefined {
   if (v === 'pre') return WHITE_SPACES.Pre;
   if (v === 'pre-wrap') return WHITE_SPACES.PreWrap;
   if (v === 'nowrap') return WHITE_SPACES.Nowrap;
+  return undefined;
+}
+
+export function parseLineBreak(value: string): LineBreak | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'auto') return LINE_BREAK_VALUES.Auto;
+  if (v === 'normal') return LINE_BREAK_VALUES.Normal;
+  if (v === 'strict') return LINE_BREAK_VALUES.Strict;
+  return undefined;
+}
+
+export function parseWordBreak(value: string): WordBreak | undefined {
+  const v = value.trim().toLowerCase();
+  if (v === 'normal') return WORD_BREAK_VALUES.Normal;
+  if (v === 'break-all') return WORD_BREAK_VALUES.BreakAll;
+  if (v === 'break-word') return WORD_BREAK_VALUES.BreakWord;
+  if (v === 'keep-all') return WORD_BREAK_VALUES.KeepAll;
   return undefined;
 }
 

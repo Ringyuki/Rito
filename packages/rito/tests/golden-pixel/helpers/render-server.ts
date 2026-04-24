@@ -13,7 +13,10 @@ const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 const DIST_ROOT = resolve(HELPER_DIR, '../../../dist');
 const require = createRequire(import.meta.url);
 const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
-const VENDOR_MODULES = new Map([['fflate/browser.js', resolve(FFLATE_ROOT, 'esm/browser.js')]]);
+const VENDOR_MODULES = new Map([
+  ['css-line-break.js', require.resolve('css-line-break/dist/css-line-break.es5.js')],
+  ['fflate/browser.js', resolve(FFLATE_ROOT, 'esm/browser.js')],
+]);
 
 export async function startPixelRenderServer(): Promise<PixelRenderServer> {
   const server = createServer((request, response) => {
@@ -130,6 +133,7 @@ function renderHtml(): string {
 <script type="importmap">
   {
     "imports": {
+      "css-line-break": "/vendor/css-line-break.js",
       "fflate": "/vendor/fflate/browser.js"
     }
   }

@@ -89,6 +89,7 @@
     "access": "public"
   },
   "dependencies": {
+    "css-line-break": "^2.1.0",
     "fflate": "^0.8.2"
   },
   "devDependencies": {

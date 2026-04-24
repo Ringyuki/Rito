@@ -51,6 +51,7 @@ export function useReader(
       height: vpHeight,
       margin,
       spread: spreadMode,
+      lineBreaking: 'optimal',
       ...getThemeOptions(theme),
     },
     controller: {

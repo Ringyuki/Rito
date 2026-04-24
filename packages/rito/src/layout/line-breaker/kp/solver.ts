@@ -1,3 +1,10 @@
+import {
+  createCandidateState,
+  fitnessClassForRatio,
+  fitnessDistance,
+  FITNESS_DEMERITS,
+  type CandidateState,
+} from './fitness';
 import type { KPBreakpoint, KPItem } from './types';
 
 const TOLERANCE = 10;
@@ -14,7 +21,14 @@ export function solveKP(items: readonly KPItem[], lineWidth: number): number[] |
   if (items.length === 0) return undefined;
 
   const sums = buildSums(items);
-  const initial: KPBreakpoint = { position: -1, demerits: 0, ratio: 0, line: 0, prev: undefined };
+  const initial: KPBreakpoint = {
+    position: -1,
+    demerits: 0,
+    ratio: 0,
+    fitness: 'tight',
+    line: 0,
+    prev: undefined,
+  };
   let active: KPBreakpoint[] = [initial];
   let best: KPBreakpoint | undefined;
 
@@ -94,7 +108,7 @@ function stepBreak(
   forced: boolean,
   finishing: boolean,
 ): { active: KPBreakpoint[]; finished: KPBreakpoint | undefined } {
-  const candidates: KPBreakpoint[] = [];
+  const candidates = createCandidateState();
   const survivors: KPBreakpoint[] = [];
   let finished: KPBreakpoint | undefined;
 
@@ -122,14 +136,14 @@ function stepBreak(
     if (finishing) {
       recordFinished(breakpoint);
     } else if (forced) {
-      candidates.push(breakpoint);
+      candidates.add(breakpoint);
     } else {
-      candidates.push(breakpoint);
+      candidates.add(breakpoint);
       survivors.push(node);
     }
   }
 
-  return { active: [...survivors, ...candidates], finished };
+  return { active: [...survivors, ...candidates.values()], finished };
 }
 
 function pushBreakpoint(
@@ -138,14 +152,14 @@ function pushBreakpoint(
   ratio: number,
   items: readonly KPItem[],
   finishing: boolean,
-  candidates: KPBreakpoint[],
+  candidates: CandidateState,
   recordFinished: (breakpoint: KPBreakpoint) => void,
 ): void {
   const breakpoint = makeBreakpoint(node, position, ratio, items);
   if (finishing) {
     recordFinished(breakpoint);
   } else {
-    candidates.push(breakpoint);
+    candidates.add(breakpoint);
   }
 }
 
@@ -171,10 +185,16 @@ function makeBreakpoint(
     }
   }
 
+  const fitness = fitnessClassForRatio(ratio);
+  if (node.position >= 0 && fitnessDistance(node.fitness, fitness) > 1) {
+    demerits += FITNESS_DEMERITS;
+  }
+
   return {
     position,
     demerits: demerits + node.demerits,
     ratio,
+    fitness,
     line: node.line + 1,
     prev: node,
   };

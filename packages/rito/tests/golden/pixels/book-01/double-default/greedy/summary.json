@@ -2,7 +2,7 @@
   "bookId": "book-01",
   "profileId": "double-default",
   "lineBreaking": "greedy",
-  "totalSpreads": 141,
+  "totalSpreads": 135,
   "width": 1200,
   "height": 800,
   "margin": 40,

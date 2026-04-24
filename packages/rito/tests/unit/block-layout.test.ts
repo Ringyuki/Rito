@@ -558,6 +558,40 @@ describe('layoutBlocks', () => {
       }
     });
 
+    it('adds the previous in-flow block margin-bottom before placing a float', () => {
+      const styled = resolveStyles([
+        block('p', [text('Above')], { style: 'margin: 0 0 10px 0' }),
+        block('div', [block('p', [text('Inside float')], { style: 'margin: 0' })], {
+          style: 'float: left; width: 100px; margin: 20px 0 0 0',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      const first = blocks[0];
+      const floatBlock = blocks[1];
+      expect(first).toBeDefined();
+      expect(floatBlock).toBeDefined();
+      expect(floatBlock?.bounds.y).toBeCloseTo((first?.bounds.height ?? 0) + 30);
+    });
+
+    it('preserves trailing margin-bottom from a flattened container before a following float', () => {
+      const styled = resolveStyles([
+        block('div', [block('p', [text('Above')], { style: 'margin: 0 0 10px 0' })], {
+          style: 'margin: 0',
+        }),
+        block('div', [block('p', [text('Inside float')], { style: 'margin: 0' })], {
+          style: 'float: left; width: 100px; margin: 20px 0 0 0',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      const first = blocks[0];
+      const floatBlock = blocks[1];
+      expect(first).toBeDefined();
+      expect(floatBlock).toBeDefined();
+      expect(floatBlock?.bounds.y).toBeCloseTo((first?.bounds.height ?? 0) + 30);
+    });
+
     it('left float with margins reserves space including margins', () => {
       const styled = resolveStyles([
         block('div', [text('Float')], {
@@ -600,6 +634,18 @@ describe('layoutBlocks', () => {
 
       expect(blocks).toHaveLength(1);
       expect(blocks[0]?.bounds.height).toBeGreaterThan(0);
+    });
+
+    it('floated container height includes the trailing child margin-bottom', () => {
+      const styled = resolveStyles([
+        block('div', [block('p', [text('Inside float')], { style: 'margin: 10px 0 20px 0' })], {
+          style:
+            'float: right; width: 120px; margin: 0; border-left: 1px solid #000; border-right: 1px solid #000; padding: 0 8px',
+        }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      expect(blocks[0]?.bounds.height).toBeCloseTo(49.2);
     });
 
     it('width:auto leaf float shrinks to fit content', () => {

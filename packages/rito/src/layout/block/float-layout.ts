@@ -3,6 +3,7 @@ import { DISPLAY_VALUES } from '../../style/core/types';
 import type { LayoutBlock } from '../core/types';
 import type { ParagraphLayouter } from '../text/paragraph-layouter';
 import { normalizeChildPositions, shrinkToFitWidth } from './float-intrinsic';
+import { resolveTrailingFloatMarginBottom } from './float-margin';
 import { addListMarker, createListContext, type ListContext } from './list';
 import { blockPaintFromStyle, borderBoxFromStyle } from './paint-from-style';
 import {
@@ -98,7 +99,7 @@ function placeFloatedBlock(
   sizing: FloatSizing,
   contentWidth: number,
 ): void {
-  const floatStartY = state.y + sizing.marginTop;
+  const floatStartY = state.y + state.prevMarginBottom + sizing.marginTop;
   const totalWidth = block.bounds.width + sizing.marginLeft + sizing.marginRight;
   const floatHeight = block.bounds.height;
   const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth, floatHeight);
@@ -138,7 +139,7 @@ function layoutFloatedContainer(
   );
   const childIndent = insets.borderLeft + insets.paddingLeft;
   const indented = childIndent > 0 ? indentBlocks(childBlocks, childIndent) : childBlocks;
-  const height = resolveFloatedContainerHeight(node, indented, insets);
+  const height = resolveFloatedContainerHeight(node, indented, insets, layoutWidth);
   const hasExplicitWidth = node.style.width > 0 || node.style.widthPct !== undefined;
   const actualWidth = hasExplicitWidth
     ? layoutWidth
@@ -178,10 +179,19 @@ function resolveFloatedContainerHeight(
   node: StyledNode,
   children: readonly LayoutBlock[],
   insets: FloatContainerInsets,
+  layoutWidth: number,
 ): number {
   const last = children[children.length - 1];
+  const trailingMarginBottom =
+    insets.paddingBottom > 0 || insets.borderBottom > 0
+      ? 0
+      : resolveTrailingFloatMarginBottom(node.children, layoutWidth);
   let height = last
-    ? last.bounds.y + last.bounds.height + insets.paddingBottom + insets.borderBottom
+    ? last.bounds.y +
+      last.bounds.height +
+      trailingMarginBottom +
+      insets.paddingBottom +
+      insets.borderBottom
     : 0;
   if (node.style.height > 0) {
     const borderV = insets.borderTop + insets.borderBottom;

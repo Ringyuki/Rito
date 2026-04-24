@@ -29,6 +29,25 @@ function xhtml(body: string): string {
 }
 
 describe('pagination preserves block margins', () => {
+  it('preserves leading spacing for the first block on the first page', () => {
+    const css = 'div { margin-top: 0.8em; } p { margin: 0; }';
+    const rules = parseCssRules(css, DEFAULT_STYLE.fontSize);
+    const bodyStyle = { ...DEFAULT_STYLE };
+    for (const r of rules) {
+      if (r.selector === 'body') Object.assign(bodyStyle, r.declarations);
+    }
+
+    const { nodes } = parseXhtml(xhtml('<div><p>Lead block</p></div><p>Tail block</p>'));
+    const styled = resolveStyles(nodes, bodyStyle, rules);
+    const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+    expect(blocks[0]?.bounds.y).toBeCloseTo(12.8);
+
+    const pages = paginateBlocks(blocks, config);
+    const firstPageFirstBlock = pages[0]?.content[0];
+    expect(firstPageFirstBlock?.bounds.y).toBeCloseTo(blocks[0]?.bounds.y ?? 0);
+  });
+
   it('blocks on a page have spacing between them', () => {
     // CSS: p has margin-top/bottom = 0.4em = 6.4px
     const css = 'p { margin-top: 0.4em; margin-bottom: 0.4em; }';

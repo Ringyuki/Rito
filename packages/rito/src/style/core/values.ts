@@ -24,6 +24,16 @@ export const TEXT_ALIGNMENTS = {
 
 export type TextAlignment = (typeof TEXT_ALIGNMENTS)[keyof typeof TEXT_ALIGNMENTS];
 
+/** Supported text-justify values. */
+export const TEXT_JUSTIFY_VALUES = {
+  Auto: 'auto',
+  None: 'none',
+  InterWord: 'inter-word',
+  InterCharacter: 'inter-character',
+} as const;
+
+export type TextJustify = (typeof TEXT_JUSTIFY_VALUES)[keyof typeof TEXT_JUSTIFY_VALUES];
+
 /** Supported text decoration values. */
 export const TEXT_DECORATIONS = {
   None: 'none',
@@ -91,6 +101,25 @@ export const WHITE_SPACES = {
 } as const;
 
 export type WhiteSpace = (typeof WHITE_SPACES)[keyof typeof WHITE_SPACES];
+
+/** Supported CSS line-break values. */
+export const LINE_BREAK_VALUES = {
+  Auto: 'auto',
+  Normal: 'normal',
+  Strict: 'strict',
+} as const;
+
+export type LineBreak = (typeof LINE_BREAK_VALUES)[keyof typeof LINE_BREAK_VALUES];
+
+/** Supported CSS word-break values. */
+export const WORD_BREAK_VALUES = {
+  Normal: 'normal',
+  BreakAll: 'break-all',
+  BreakWord: 'break-word',
+  KeepAll: 'keep-all',
+} as const;
+
+export type WordBreak = (typeof WORD_BREAK_VALUES)[keyof typeof WORD_BREAK_VALUES];
 
 /** Supported overflow values. */
 export const OVERFLOW_VALUES = {

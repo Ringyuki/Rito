@@ -59,6 +59,48 @@ describe('KP Item Building', () => {
     expect(flaggedPenalties.length).toBeGreaterThan(0);
   });
 
+  it('adds zero-width inter-character glue for CJK text', () => {
+    const items = buildKPItems([seg('甲乙丙。丁戊')], measurer);
+    const textGlues = items.filter(
+      (item) => item.type === 'glue' && item.width === 0 && item.text === '',
+    );
+    expect(textGlues.length).toBeGreaterThan(1);
+  });
+
+  it('keeps CJK optimization glue stretchable when final text justification is inter-word', () => {
+    const items = buildKPItems([seg('甲乙丙丁戊', { textJustify: 'inter-word' })], measurer);
+    const textGlues = items.filter(
+      (item) => item.type === 'glue' && item.width === 0 && item.text === '',
+    );
+    expect(textGlues.some((item) => item.type === 'glue' && item.stretch > 0)).toBe(true);
+    expect(solveKP(items, 28.8)).toBeDefined();
+  });
+
+  it('keeps Latin runs grouped inside mixed CJK tokens', () => {
+    const items = buildKPItems([seg('ABC甲DEF')], measurer);
+    const boxTexts = items.flatMap((item) => (item.type === 'box' ? [item.text] : []));
+    expect(boxTexts).toEqual(['ABC', '甲', 'DEF']);
+  });
+
+  it('keeps grapheme clusters grouped inside mixed CJK tokens', () => {
+    const glyph = '辻\u{E0100}';
+    const items = buildKPItems([seg(`${glyph}ABC甲`)], measurer);
+    const boxTexts = items.flatMap((item) => (item.type === 'box' ? [item.text] : []));
+    expect(boxTexts).toEqual([glyph, 'ABC', '甲']);
+  });
+
+  it('groups closing punctuation with the preceding CJK unit', () => {
+    const items = buildKPItems([seg('甲乙丙。丁')], measurer);
+    const boxTexts = items.flatMap((item) => (item.type === 'box' ? [item.text] : []));
+    expect(boxTexts).toEqual(['甲', '乙', '丙。', '丁']);
+  });
+
+  it('keeps Latin hyphenation points inside mixed CJK tokens', () => {
+    const items = buildKPItems([seg('information甲')], measurer);
+    const flaggedPenalties = items.filter((item) => item.type === 'penalty' && item.flagged);
+    expect(flaggedPenalties.length).toBeGreaterThan(0);
+  });
+
   it('returns empty array for empty segments', () => {
     const items = buildKPItems([], measurer);
     expect(items).toHaveLength(0);
@@ -111,6 +153,13 @@ describe('KP Solver', () => {
     expect(breaks).toBeDefined();
     // Should break at newline + final
     expect((breaks ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('finds breakpoints for CJK text without falling back to emergency breaks', () => {
+    const items = buildKPItems([seg('甲乙丙。丁戊')], measurer);
+    const breaks = solveKP(items, 28.8);
+    expect(breaks).toBeDefined();
+    expect((breaks ?? []).length).toBeGreaterThan(1);
   });
 
   it('returns undefined for empty items', () => {
@@ -223,6 +272,34 @@ describe('KnuthPlassLayouter', () => {
       expect(lines).toHaveLength(2);
       expect(textOf(lines[0]?.runs[0])).toBe('line1');
       expect(textOf(lines[1]?.runs[0])).toBe('line2');
+    });
+  });
+
+  describe('CJK text', () => {
+    function lineTexts(text: string, width: number): string[] {
+      return layouter
+        .layoutParagraph([seg(text)], width, 0)
+        .map((line) => line.runs.map((run) => textOf(run) ?? '').join(''));
+    }
+
+    it('avoids starting a line with closing punctuation', () => {
+      expect(lineTexts('甲乙丙。丁戊', 28.8)).toEqual(['甲乙', '丙。丁', '戊']);
+    });
+
+    it('avoids ending a line with opening punctuation', () => {
+      expect(lineTexts('甲乙「丙丁戊', 28.8)).toEqual(['甲乙', '「丙丁', '戊']);
+    });
+
+    it('handles long CJK paragraphs without solver blow-up', () => {
+      const text = '甲乙丙。丁戊己庚辛壬癸'.repeat(80);
+      const lines = layouter.layoutParagraph([seg(text)], 180, 0);
+      const allText = lines.flatMap((line) => line.runs.map((run) => textOf(run) ?? '')).join('');
+      expect(lines.length).toBeGreaterThan(20);
+      expect(allText).toBe(text);
+    });
+
+    it('does not break Latin runs into individual letters in mixed CJK text', () => {
+      expect(lineTexts('ABC甲乙DEF', 38.4)).toEqual(['ABC甲', '乙DEF']);
     });
   });
 

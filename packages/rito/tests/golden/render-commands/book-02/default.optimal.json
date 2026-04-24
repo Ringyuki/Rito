@@ -40,7 +40,8 @@
           "textShadow": 0
         },
         "selectedFeatures": [
-          "first"
+          "first",
+          "image"
         ]
       },
       "renders": [
@@ -382,7 +383,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 112,
-            "hash": "eb0026de609791d2",
+            "hash": "0f270c7fe167e226",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -534,7 +535,7 @@
                     "length": 1
                   },
                   242.4,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -576,7 +577,7 @@
                     "length": 1
                   },
                   271.2,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -618,7 +619,7 @@
                     "length": 1
                   },
                   300,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -660,7 +661,7 @@
                     "length": 1
                   },
                   328.8,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -702,7 +703,7 @@
                     "length": 3
                   },
                   238.656,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -744,7 +745,7 @@
                     "length": 3
                   },
                   264.576,
-                  89.44
+                  153.44
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -786,7 +787,7 @@
                     "length": 3
                   },
                   295.68,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -828,7 +829,7 @@
                     "length": 3
                   },
                   321.6,
-                  89.44
+                  153.44
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -870,7 +871,7 @@
                     "length": 1
                   },
                   352.704,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -912,7 +913,7 @@
                     "length": 1
                   },
                   290.88,
-                  121.344
+                  185.344
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -954,7 +955,7 @@
                     "length": 3
                   },
                   257.76,
-                  175.104
+                  239.104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -991,7 +992,7 @@
                     "length": 7
                   },
                   275.04,
-                  169.984
+                  233.984
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1033,7 +1034,7 @@
                     "length": 3
                   },
                   272.16,
-                  201.024
+                  261.824
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1070,7 +1071,7 @@
                     "length": 4
                   },
                   289.44,
-                  195.904
+                  256.704
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1096,7 +1097,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 112,
-            "hash": "f75b2fc2f840eb4f",
+            "hash": "7ff3d39e613bb162",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1248,7 +1249,7 @@
                     "length": 1
                   },
                   242.4,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1290,7 +1291,7 @@
                     "length": 1
                   },
                   271.2,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1332,7 +1333,7 @@
                     "length": 1
                   },
                   300,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1374,7 +1375,7 @@
                     "length": 1
                   },
                   328.8,
-                  40
+                  104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1416,7 +1417,7 @@
                     "length": 3
                   },
                   238.656,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1458,7 +1459,7 @@
                     "length": 3
                   },
                   264.576,
-                  89.44
+                  153.44
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1500,7 +1501,7 @@
                     "length": 3
                   },
                   295.68,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1542,7 +1543,7 @@
                     "length": 3
                   },
                   321.6,
-                  89.44
+                  153.44
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1584,7 +1585,7 @@
                     "length": 1
                   },
                   352.704,
-                  91.744
+                  155.744
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1626,7 +1627,7 @@
                     "length": 1
                   },
                   290.88,
-                  121.344
+                  185.344
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1668,7 +1669,7 @@
                     "length": 3
                   },
                   257.76,
-                  175.104
+                  239.104
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1705,7 +1706,7 @@
                     "length": 7
                   },
                   275.04,
-                  169.984
+                  233.984
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1747,7 +1748,7 @@
                     "length": 3
                   },
                   272.16,
-                  201.024
+                  261.824
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1784,7 +1785,7 @@
                     "length": 4
                   },
                   289.44,
-                  195.904
+                  256.704
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1852,7 +1853,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 32,
-            "hash": "c763ce036ff24ccd",
+            "hash": "81624f1469c2c596",
             "methods": {
               "beginPath": 2,
               "clip": 1,
@@ -2008,7 +2009,7 @@
               {
                 "args": [
                   40,
-                  60
+                  156
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -2016,7 +2017,7 @@
               {
                 "args": [
                   222,
-                  60
+                  156
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -2059,11 +2060,11 @@
               {
                 "args": [
                   {
-                    "hash": "52fd510e40c10e4d",
+                    "hash": "0a5bfcab3cf6e8ff",
                     "length": 7
                   },
                   78.4,
-                  40
+                  136
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2089,7 +2090,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 32,
-            "hash": "100e97bd7e3bbbab",
+            "hash": "ceb109a5114f7d47",
             "methods": {
               "beginPath": 2,
               "clip": 1,
@@ -2245,7 +2246,7 @@
               {
                 "args": [
                   40,
-                  60
+                  156
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -2253,7 +2254,7 @@
               {
                 "args": [
                   222,
-                  60
+                  156
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -2296,11 +2297,11 @@
               {
                 "args": [
                   {
-                    "hash": "52fd510e40c10e4d",
+                    "hash": "0a5bfcab3cf6e8ff",
                     "length": 7
                   },
                   78.4,
-                  40
+                  136
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2321,7 +2322,7 @@
       ]
     },
     {
-      "id": "book-02-default.optimal-page-0037",
+      "id": "book-02-default.optimal-page-0036",
       "page": {
         "bounds": {
           "height": 800,
@@ -2330,15 +2331,15 @@
           "y": 0
         },
         "counts": {
-          "blocks": 12,
+          "blocks": 26,
           "hrs": 0,
-          "images": 2,
+          "images": 1,
           "inlineAtoms": 1,
-          "lines": 10,
+          "lines": 24,
           "ruby": 0,
-          "textRuns": 11
+          "textRuns": 24
         },
-        "index": 37,
+        "index": 36,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -2346,17 +2347,16 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 2,
+          "image": 1,
           "inlineAtom": 1,
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 11,
+          "text": 24,
           "textDecoration": 0,
           "textShadow": 0
         },
         "selectedFeatures": [
-          "image",
           "inlineAtom"
         ]
       },
@@ -2368,14 +2368,14 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 84,
-            "hash": "142b95bd96c7b696",
+            "count": 161,
+            "hash": "7001e16813b68d10",
             "methods": {
               "beginPath": 1,
               "clip": 1,
-              "drawImage": 2,
+              "drawImage": 1,
               "fillRect": 2,
-              "fillText": 11,
+              "fillText": 24,
               "rect": 1,
               "restore": 3,
               "save": 3,
@@ -2383,11 +2383,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 13,
-              "font": 11,
-              "letterSpacing": 11,
-              "textBaseline": 11,
-              "wordSpacing": 11
+              "fillStyle": 26,
+              "font": 24,
+              "letterSpacing": 24,
+              "textBaseline": 24,
+              "wordSpacing": 24
             },
             "sequence": [
               {
@@ -2512,11 +2512,788 @@
               {
                 "args": [
                   {
+                    "hash": "04b15dc336649a62",
+                    "length": 5
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "f823feed9f9cc22f",
+                    "length": 27
+                  },
+                  72,
+                  69.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "3f11b78590761bb3",
+                    "length": 40
+                  },
+                  72,
+                  96.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "e27f56ae64c94336",
+                    "length": 18
+                  },
+                  72,
+                  124
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "56e06a104e77a4f4",
+                    "length": 12
+                  },
+                  72,
+                  157.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "66977d50c1fc54fa",
+                    "length": 25
+                  },
+                  72,
+                  184.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "617e3f09c54059ed",
+                    "length": 25
+                  },
+                  72,
+                  218.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b804725c61ae9e6f",
+                    "length": 31
+                  },
+                  72,
+                  245.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "0670fe18b0db220b",
+                    "length": 27
+                  },
+                  72,
+                  272.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "43ab92d6deeff131",
+                    "length": 25
+                  },
+                  72,
+                  300
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "c11e1986c942f5f7",
+                    "length": 27
+                  },
+                  72,
+                  327.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "7a906e96f3ba747c",
+                    "length": 21
+                  },
+                  72,
+                  354.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "3b440302e7f338d0",
+                    "length": 28
+                  },
+                  72,
+                  381.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "7356553b19a13f9a",
+                    "length": 19
+                  },
+                  72,
+                  408.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "62ccde151373e35d",
+                    "length": 8
+                  },
+                  72,
+                  436
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "276e23db56783cec",
+                    "length": 8
+                  },
+                  72,
+                  463.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a3afae1549830e17",
+                    "length": 25
+                  },
+                  72,
+                  490.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "4aceb881e8e243b2",
+                    "length": 22
+                  },
+                  72,
+                  517.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "d915de5637961b39",
+                    "length": 22
+                  },
+                  72,
+                  544.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "36cf84c3e5e4a899",
+                    "length": 47
+                  },
+                  72,
+                  572
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b72c5b164529c8d2",
+                    "length": 11
+                  },
+                  72,
+                  599.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
                     "hash": "db5238f8e4fa3a0d",
                     "length": 19
                   },
                   72,
-                  42.4
+                  626.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2553,7 +3330,7 @@
                     "length": 4
                   },
                   72,
-                  72
+                  653.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2590,7 +3367,7 @@
                     "length": 30
                   },
                   72,
-                  104
+                  683.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2601,320 +3378,11 @@
                     "imageHref": "Images/note.png"
                   },
                   360,
-                  99.2,
+                  678.4,
                   12,
                   14.4
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  372,
-                  104
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "Images/002.jpg"
-                  },
-                  40,
-                  131.2,
-                  520,
-                  390
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "578444a551ddad60",
-                    "length": 9
-                  },
-                  72,
-                  536.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "74c5515ba306d671",
-                    "length": 3
-                  },
-                  72,
-                  566
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6fa434d2f74bc9f8",
-                    "length": 21
-                  },
-                  72,
-                  595.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "77d9cd6642f9bd05",
-                    "length": 7
-                  },
-                  72,
-                  625.2
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "eccb3abb022bacad",
-                    "length": 12
-                  },
-                  72,
-                  654.8
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "e6f0c07abe7b0753",
-                    "length": 6
-                  },
-                  72,
-                  684.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "48f02e24711f3f01",
-                    "length": 32
-                  },
-                  72,
-                  714
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -2937,14 +3405,14 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 84,
-            "hash": "df25686cf66d7d5f",
+            "count": 161,
+            "hash": "d7fc7f6cd24497ef",
             "methods": {
               "beginPath": 1,
               "clip": 1,
-              "drawImage": 2,
+              "drawImage": 1,
               "fillRect": 2,
-              "fillText": 11,
+              "fillText": 24,
               "rect": 1,
               "restore": 3,
               "save": 3,
@@ -2952,11 +3420,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 13,
-              "font": 11,
-              "letterSpacing": 11,
-              "textBaseline": 11,
-              "wordSpacing": 11
+              "fillStyle": 26,
+              "font": 24,
+              "letterSpacing": 24,
+              "textBaseline": 24,
+              "wordSpacing": 24
             },
             "sequence": [
               {
@@ -3081,11 +3549,788 @@
               {
                 "args": [
                   {
+                    "hash": "04b15dc336649a62",
+                    "length": 5
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "f823feed9f9cc22f",
+                    "length": 27
+                  },
+                  72,
+                  69.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "3f11b78590761bb3",
+                    "length": 40
+                  },
+                  72,
+                  96.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "e27f56ae64c94336",
+                    "length": 18
+                  },
+                  72,
+                  124
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "56e06a104e77a4f4",
+                    "length": 12
+                  },
+                  72,
+                  157.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "66977d50c1fc54fa",
+                    "length": 25
+                  },
+                  72,
+                  184.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "617e3f09c54059ed",
+                    "length": 25
+                  },
+                  72,
+                  218.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b804725c61ae9e6f",
+                    "length": 31
+                  },
+                  72,
+                  245.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "0670fe18b0db220b",
+                    "length": 27
+                  },
+                  72,
+                  272.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "43ab92d6deeff131",
+                    "length": 25
+                  },
+                  72,
+                  300
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "c11e1986c942f5f7",
+                    "length": 27
+                  },
+                  72,
+                  327.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "7a906e96f3ba747c",
+                    "length": 21
+                  },
+                  72,
+                  354.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "3b440302e7f338d0",
+                    "length": 28
+                  },
+                  72,
+                  381.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "7356553b19a13f9a",
+                    "length": 19
+                  },
+                  72,
+                  408.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "62ccde151373e35d",
+                    "length": 8
+                  },
+                  72,
+                  436
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "276e23db56783cec",
+                    "length": 8
+                  },
+                  72,
+                  463.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a3afae1549830e17",
+                    "length": 25
+                  },
+                  72,
+                  490.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "4aceb881e8e243b2",
+                    "length": 22
+                  },
+                  72,
+                  517.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "d915de5637961b39",
+                    "length": 22
+                  },
+                  72,
+                  544.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "36cf84c3e5e4a899",
+                    "length": 47
+                  },
+                  72,
+                  572
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b72c5b164529c8d2",
+                    "length": 11
+                  },
+                  72,
+                  599.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
                     "hash": "db5238f8e4fa3a0d",
                     "length": 19
                   },
                   72,
-                  42.4
+                  626.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3122,7 +4367,7 @@
                     "length": 4
                   },
                   72,
-                  72
+                  653.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3159,7 +4404,7 @@
                     "length": 30
                   },
                   72,
-                  104
+                  683.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3170,320 +4415,11 @@
                     "imageHref": "Images/note.png"
                   },
                   360,
-                  99.2,
+                  678.4,
                   12,
                   14.4
                 ],
                 "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "bd85bcdb8d4e613a",
-                    "length": 0
-                  },
-                  372,
-                  104
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "Images/002.jpg"
-                  },
-                  40,
-                  131.2,
-                  520,
-                  390
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "578444a551ddad60",
-                    "length": 9
-                  },
-                  72,
-                  536.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "74c5515ba306d671",
-                    "length": 3
-                  },
-                  72,
-                  566
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6fa434d2f74bc9f8",
-                    "length": 21
-                  },
-                  72,
-                  595.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "77d9cd6642f9bd05",
-                    "length": 7
-                  },
-                  72,
-                  625.2
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "eccb3abb022bacad",
-                    "length": 12
-                  },
-                  72,
-                  654.8
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "e6f0c07abe7b0753",
-                    "length": 6
-                  },
-                  72,
-                  684.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "48f02e24711f3f01",
-                    "length": 32
-                  },
-                  72,
-                  714
-                ],
-                "method": "fillText",
                 "type": "call"
               },
               {
@@ -3502,7 +4438,7 @@
       ]
     },
     {
-      "id": "book-02-default.optimal-page-0081",
+      "id": "book-02-default.optimal-page-0078",
       "page": {
         "bounds": {
           "height": 800,
@@ -3511,15 +4447,15 @@
           "y": 0
         },
         "counts": {
-          "blocks": 25,
+          "blocks": 26,
           "hrs": 0,
           "images": 0,
           "inlineAtoms": 0,
-          "lines": 23,
+          "lines": 26,
           "ruby": 3,
-          "textRuns": 29
+          "textRuns": 32
         },
-        "index": 81,
+        "index": 78,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -3532,7 +4468,7 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 3,
-          "text": 29,
+          "text": 32,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -3549,13 +4485,13 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 211,
-            "hash": "be515afe30c5077e",
+            "count": 229,
+            "hash": "6389ca60d32e64ad",
             "methods": {
               "beginPath": 1,
               "clip": 1,
               "fillRect": 2,
-              "fillText": 32,
+              "fillText": 35,
               "measureText": 3,
               "rect": 1,
               "restore": 6,
@@ -3564,11 +4500,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 34,
-              "font": 32,
-              "letterSpacing": 29,
-              "textBaseline": 32,
-              "wordSpacing": 29
+              "fillStyle": 37,
+              "font": 35,
+              "letterSpacing": 32,
+              "textBaseline": 35,
+              "wordSpacing": 32
             },
             "sequence": [
               {
@@ -3693,122 +4629,11 @@
               {
                 "args": [
                   {
-                    "hash": "2e5c243eb5b9e658",
-                    "length": 13
-                  },
-                  72,
-                  42.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "17.6px jp"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "86d68a641e600f96",
-                    "length": 5
-                  },
-                  128,
-                  79.28
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "f35e688fc0711b3c",
-                    "length": 43
-                  },
-                  72,
-                  118
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
                     "hash": "f13d9d1b22e2b10b",
                     "length": 6
                   },
                   72,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3845,7 +4670,7 @@
                     "length": 2
                   },
                   129.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3887,7 +4712,7 @@
                     "length": 10
                   },
                   115.2,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3929,7 +4754,7 @@
                     "length": 1
                   },
                   148.8,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3966,7 +4791,7 @@
                     "length": 2
                   },
                   158.4,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4008,7 +4833,7 @@
                     "length": 11
                   },
                   141.6,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4050,7 +4875,7 @@
                     "length": 1
                   },
                   177.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4087,7 +4912,7 @@
                     "length": 4
                   },
                   187.2,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4129,7 +4954,7 @@
                     "length": 12
                   },
                   177.6,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4171,7 +4996,7 @@
                     "length": 10
                   },
                   225.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4208,7 +5033,7 @@
                     "length": 7
                   },
                   72,
-                  186.2
+                  78.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4245,7 +5070,7 @@
                     "length": 21
                   },
                   72,
-                  215.8
+                  105.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4282,7 +5107,7 @@
                     "length": 19
                   },
                   72,
-                  245.4
+                  133
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4319,7 +5144,7 @@
                     "length": 14
                   },
                   72,
-                  275
+                  160.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4356,7 +5181,7 @@
                     "length": 18
                   },
                   72,
-                  304.6
+                  187.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4393,7 +5218,7 @@
                     "length": 11
                   },
                   72,
-                  334.2
+                  214.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4430,7 +5255,7 @@
                     "length": 35
                   },
                   72,
-                  363.8
+                  241.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4467,7 +5292,7 @@
                     "length": 34
                   },
                   72,
-                  393.4
+                  269
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4504,7 +5329,7 @@
                     "length": 10
                   },
                   72,
-                  423
+                  296.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4541,7 +5366,7 @@
                     "length": 15
                   },
                   72,
-                  452.6
+                  323.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4578,7 +5403,7 @@
                     "length": 19
                   },
                   72,
-                  482.2
+                  350.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4615,7 +5440,7 @@
                     "length": 17
                   },
                   72,
-                  511.8
+                  377.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4652,7 +5477,7 @@
                     "length": 29
                   },
                   72,
-                  541.4
+                  405
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4689,7 +5514,7 @@
                     "length": 23
                   },
                   72,
-                  571
+                  432.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4726,7 +5551,7 @@
                     "length": 17
                   },
                   72,
-                  600.6
+                  459.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4763,7 +5588,7 @@
                     "length": 15
                   },
                   72,
-                  630.2
+                  486.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4800,7 +5625,7 @@
                     "length": 11
                   },
                   72,
-                  659.8
+                  513.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4837,7 +5662,7 @@
                     "length": 42
                   },
                   72,
-                  689.4
+                  541
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4874,7 +5699,229 @@
                     "length": 34
                   },
                   72,
-                  719
+                  568.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "05562b530f62457e",
+                    "length": 33
+                  },
+                  72,
+                  595.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "ee15be7596bdd8c1",
+                    "length": 12
+                  },
+                  72,
+                  622.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b4d56ddb7b881d2c",
+                    "length": 5
+                  },
+                  72,
+                  649.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "9600c06603829272",
+                    "length": 13
+                  },
+                  72,
+                  677
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "720ee9432f2b550c",
+                    "length": 9
+                  },
+                  72,
+                  704.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "10bc322ee3b44a70",
+                    "length": 22
+                  },
+                  72,
+                  731.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4899,13 +5946,13 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 211,
-            "hash": "693cb1cf6d8a2a8b",
+            "count": 229,
+            "hash": "dea5c39c4c1b55a4",
             "methods": {
               "beginPath": 1,
               "clip": 1,
               "fillRect": 2,
-              "fillText": 32,
+              "fillText": 35,
               "measureText": 3,
               "rect": 1,
               "restore": 6,
@@ -4914,11 +5961,11 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 34,
-              "font": 32,
-              "letterSpacing": 29,
-              "textBaseline": 32,
-              "wordSpacing": 29
+              "fillStyle": 37,
+              "font": 35,
+              "letterSpacing": 32,
+              "textBaseline": 35,
+              "wordSpacing": 32
             },
             "sequence": [
               {
@@ -5043,122 +6090,11 @@
               {
                 "args": [
                   {
-                    "hash": "2e5c243eb5b9e658",
-                    "length": 13
-                  },
-                  72,
-                  42.4
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "17.6px jp"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "86d68a641e600f96",
-                    "length": 5
-                  },
-                  128,
-                  79.28
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "f35e688fc0711b3c",
-                    "length": 43
-                  },
-                  72,
-                  118
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
                     "hash": "f13d9d1b22e2b10b",
                     "length": 6
                   },
                   72,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5195,7 +6131,7 @@
                     "length": 2
                   },
                   129.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5237,7 +6173,7 @@
                     "length": 10
                   },
                   115.2,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5279,7 +6215,7 @@
                     "length": 1
                   },
                   148.8,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5316,7 +6252,7 @@
                     "length": 2
                   },
                   158.4,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5358,7 +6294,7 @@
                     "length": 11
                   },
                   141.6,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5400,7 +6336,7 @@
                     "length": 1
                   },
                   177.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5437,7 +6373,7 @@
                     "length": 4
                   },
                   187.2,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5479,7 +6415,7 @@
                     "length": 12
                   },
                   177.6,
-                  147.6
+                  42.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5521,7 +6457,7 @@
                     "length": 10
                   },
                   225.6,
-                  156.6
+                  51.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5558,7 +6494,7 @@
                     "length": 7
                   },
                   72,
-                  186.2
+                  78.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5595,7 +6531,7 @@
                     "length": 21
                   },
                   72,
-                  215.8
+                  105.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5632,7 +6568,7 @@
                     "length": 19
                   },
                   72,
-                  245.4
+                  133
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5669,7 +6605,7 @@
                     "length": 14
                   },
                   72,
-                  275
+                  160.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5706,7 +6642,7 @@
                     "length": 18
                   },
                   72,
-                  304.6
+                  187.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5743,7 +6679,7 @@
                     "length": 11
                   },
                   72,
-                  334.2
+                  214.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5780,7 +6716,7 @@
                     "length": 35
                   },
                   72,
-                  363.8
+                  241.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5817,7 +6753,7 @@
                     "length": 34
                   },
                   72,
-                  393.4
+                  269
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5854,7 +6790,7 @@
                     "length": 10
                   },
                   72,
-                  423
+                  296.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5891,7 +6827,7 @@
                     "length": 15
                   },
                   72,
-                  452.6
+                  323.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5928,7 +6864,7 @@
                     "length": 19
                   },
                   72,
-                  482.2
+                  350.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5965,7 +6901,7 @@
                     "length": 17
                   },
                   72,
-                  511.8
+                  377.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6002,7 +6938,7 @@
                     "length": 29
                   },
                   72,
-                  541.4
+                  405
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6039,7 +6975,7 @@
                     "length": 23
                   },
                   72,
-                  571
+                  432.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6076,7 +7012,7 @@
                     "length": 17
                   },
                   72,
-                  600.6
+                  459.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6113,7 +7049,7 @@
                     "length": 15
                   },
                   72,
-                  630.2
+                  486.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6150,7 +7086,7 @@
                     "length": 11
                   },
                   72,
-                  659.8
+                  513.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6187,7 +7123,7 @@
                     "length": 42
                   },
                   72,
-                  689.4
+                  541
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6224,7 +7160,229 @@
                     "length": 34
                   },
                   72,
-                  719
+                  568.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "05562b530f62457e",
+                    "length": 33
+                  },
+                  72,
+                  595.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "ee15be7596bdd8c1",
+                    "length": 12
+                  },
+                  72,
+                  622.6
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "b4d56ddb7b881d2c",
+                    "length": 5
+                  },
+                  72,
+                  649.8
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "9600c06603829272",
+                    "length": 13
+                  },
+                  72,
+                  677
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "720ee9432f2b550c",
+                    "length": 9
+                  },
+                  72,
+                  704.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "10bc322ee3b44a70",
+                    "length": 22
+                  },
+                  72,
+                  731.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6245,7 +7403,7 @@
       ]
     },
     {
-      "id": "book-02-default.optimal-page-0138",
+      "id": "book-02-default.optimal-page-0132",
       "page": {
         "bounds": {
           "height": 800,
@@ -6258,11 +7416,11 @@
           "hrs": 2,
           "images": 0,
           "inlineAtoms": 0,
-          "lines": 22,
+          "lines": 25,
           "ruby": 0,
-          "textRuns": 22
+          "textRuns": 25
         },
-        "index": 138,
+        "index": 132,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -6275,7 +7433,7 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 22,
+          "text": 25,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -6291,13 +7449,13 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 164,
-            "hash": "f22517ae8c1a7199",
+            "count": 182,
+            "hash": "1edd58ef5e517e9f",
             "methods": {
               "beginPath": 3,
               "clip": 1,
               "fillRect": 2,
-              "fillText": 22,
+              "fillText": 25,
               "lineTo": 2,
               "moveTo": 2,
               "rect": 1,
@@ -6308,13 +7466,13 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 24,
-              "font": 22,
-              "letterSpacing": 22,
+              "fillStyle": 27,
+              "font": 25,
+              "letterSpacing": 25,
               "lineWidth": 2,
               "strokeStyle": 2,
-              "textBaseline": 22,
-              "wordSpacing": 22
+              "textBaseline": 25,
+              "wordSpacing": 25
             },
             "sequence": [
               {
@@ -6434,6 +7592,117 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "11598c77c3131831",
+                    "length": 50
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a175732f0678c58d",
+                    "length": 13
+                  },
+                  40,
+                  63.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "32232284ff252902",
+                    "length": 6
+                  },
+                  72,
+                  90.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
                 "value": ""
               },
               {
@@ -6443,7 +7712,7 @@
                     "length": 20
                   },
                   72,
-                  42.4
+                  117.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6480,7 +7749,7 @@
                     "length": 17
                   },
                   72,
-                  72
+                  144.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6517,7 +7786,7 @@
                     "length": 30
                   },
                   72,
-                  101.6
+                  172
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6554,7 +7823,7 @@
                     "length": 27
                   },
                   72,
-                  131.2
+                  199.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6591,7 +7860,44 @@
                     "length": 4
                   },
                   72,
-                  160.8
+                  226.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "bcc6c5e2aa3abdfe",
+                    "length": 50
+                  },
+                  72,
+                  253.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6624,11 +7930,11 @@
               {
                 "args": [
                   {
-                    "hash": "f5c76d8ae053ba5e",
-                    "length": 65
+                    "hash": "8155a06290c7e4ea",
+                    "length": 15
                   },
-                  72,
-                  190.4
+                  40,
+                  274.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6665,7 +7971,7 @@
                     "length": 15
                   },
                   72,
-                  226.4
+                  308
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6698,11 +8004,11 @@
               {
                 "args": [
                   {
-                    "hash": "86d68a641e600f96",
+                    "hash": "5b63062216e4b8b2",
                     "length": 5
                   },
                   128,
-                  263.28
+                  342.48
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6739,7 +8045,7 @@
                     "length": 20
                   },
                   72,
-                  302
+                  378.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6767,7 +8073,7 @@
               {
                 "args": [
                   40,
-                  338.5
+                  412.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -6775,7 +8081,7 @@
               {
                 "args": [
                   560,
-                  338.5
+                  412.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -6822,7 +8128,7 @@
                     "length": 4
                   },
                   72,
-                  348.6
+                  422.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6855,11 +8161,11 @@
               {
                 "args": [
                   {
-                    "hash": "b02f477ced34fd3e",
+                    "hash": "b2af6f30b888eb9d",
                     "length": 13
                   },
                   72,
-                  378.2
+                  449.96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6896,7 +8202,7 @@
                     "length": 6
                   },
                   72,
-                  407.8
+                  477.16
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6929,11 +8235,11 @@
               {
                 "args": [
                   {
-                    "hash": "2b1a9795d0c132cd",
+                    "hash": "21b5059b3aad51c8",
                     "length": 23
                   },
                   72,
-                  437.4
+                  504.36
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6970,7 +8276,7 @@
                     "length": 6
                   },
                   72,
-                  467
+                  531.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7003,11 +8309,11 @@
               {
                 "args": [
                   {
-                    "hash": "cd68fb2c2d0fce7b",
+                    "hash": "e02446ce1be140af",
                     "length": 13
                   },
                   72,
-                  496.6
+                  558.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7035,7 +8341,7 @@
               {
                 "args": [
                   40,
-                  526.5
+                  586.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7043,7 +8349,7 @@
               {
                 "args": [
                   560,
-                  526.5
+                  586.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -7090,7 +8396,7 @@
                     "length": 34
                   },
                   72,
-                  543.2
+                  602.96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7127,7 +8433,7 @@
                     "length": 34
                   },
                   72,
-                  572.8
+                  630.16
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7164,7 +8470,44 @@
                     "length": 23
                   },
                   72,
-                  602.4
+                  657.36
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a31b5cb40ea07d2b",
+                    "length": 50
+                  },
+                  72,
+                  684.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7197,11 +8540,11 @@
               {
                 "args": [
                   {
-                    "hash": "9d5a9dc41c184aad",
-                    "length": 75
+                    "hash": "5365f0fdad9a0e85",
+                    "length": 25
                   },
-                  72,
-                  632
+                  40,
+                  705.36
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7229,90 +8572,16 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0.16326530612244897px"
               },
               {
                 "args": [
                   {
-                    "hash": "1e7fd13e9be5165f",
-                    "length": 66
+                    "hash": "0f2af541a5260e72",
+                    "length": 50
                   },
                   72,
-                  661.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "31a336305659c344",
-                    "length": 87
-                  },
-                  72,
-                  691.2
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "89d7a2ab97ae9204",
-                    "length": 71
-                  },
-                  72,
-                  720.8
+                  732.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7337,13 +8606,13 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 164,
-            "hash": "14d1fe2e1475313d",
+            "count": 182,
+            "hash": "70779975b3952a6f",
             "methods": {
               "beginPath": 3,
               "clip": 1,
               "fillRect": 2,
-              "fillText": 22,
+              "fillText": 25,
               "lineTo": 2,
               "moveTo": 2,
               "rect": 1,
@@ -7354,13 +8623,13 @@
               "translate": 1
             },
             "properties": {
-              "fillStyle": 24,
-              "font": 22,
-              "letterSpacing": 22,
+              "fillStyle": 27,
+              "font": 25,
+              "letterSpacing": 25,
               "lineWidth": 2,
               "strokeStyle": 2,
-              "textBaseline": 22,
-              "wordSpacing": 22
+              "textBaseline": 25,
+              "wordSpacing": 25
             },
             "sequence": [
               {
@@ -7480,6 +8749,117 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "11598c77c3131831",
+                    "length": 50
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a175732f0678c58d",
+                    "length": 13
+                  },
+                  40,
+                  63.2
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "args": [
+                  {
+                    "hash": "32232284ff252902",
+                    "length": 6
+                  },
+                  72,
+                  90.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
                 "value": ""
               },
               {
@@ -7489,7 +8869,7 @@
                     "length": 20
                   },
                   72,
-                  42.4
+                  117.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7526,7 +8906,7 @@
                     "length": 17
                   },
                   72,
-                  72
+                  144.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7563,7 +8943,7 @@
                     "length": 30
                   },
                   72,
-                  101.6
+                  172
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7600,7 +8980,7 @@
                     "length": 27
                   },
                   72,
-                  131.2
+                  199.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7637,7 +9017,44 @@
                     "length": 4
                   },
                   72,
-                  160.8
+                  226.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "bcc6c5e2aa3abdfe",
+                    "length": 50
+                  },
+                  72,
+                  253.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7670,11 +9087,11 @@
               {
                 "args": [
                   {
-                    "hash": "f5c76d8ae053ba5e",
-                    "length": 65
+                    "hash": "8155a06290c7e4ea",
+                    "length": 15
                   },
-                  72,
-                  190.4
+                  40,
+                  274.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7711,7 +9128,7 @@
                     "length": 15
                   },
                   72,
-                  226.4
+                  308
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7744,11 +9161,11 @@
               {
                 "args": [
                   {
-                    "hash": "86d68a641e600f96",
+                    "hash": "5b63062216e4b8b2",
                     "length": 5
                   },
                   128,
-                  263.28
+                  342.48
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7785,7 +9202,7 @@
                     "length": 20
                   },
                   72,
-                  302
+                  378.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7813,7 +9230,7 @@
               {
                 "args": [
                   40,
-                  338.5
+                  412.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -7821,7 +9238,7 @@
               {
                 "args": [
                   560,
-                  338.5
+                  412.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -7868,7 +9285,7 @@
                     "length": 4
                   },
                   72,
-                  348.6
+                  422.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7901,11 +9318,11 @@
               {
                 "args": [
                   {
-                    "hash": "b02f477ced34fd3e",
+                    "hash": "b2af6f30b888eb9d",
                     "length": 13
                   },
                   72,
-                  378.2
+                  449.96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7942,7 +9359,7 @@
                     "length": 6
                   },
                   72,
-                  407.8
+                  477.16
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7975,11 +9392,11 @@
               {
                 "args": [
                   {
-                    "hash": "2b1a9795d0c132cd",
+                    "hash": "21b5059b3aad51c8",
                     "length": 23
                   },
                   72,
-                  437.4
+                  504.36
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8016,7 +9433,7 @@
                     "length": 6
                   },
                   72,
-                  467
+                  531.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8049,11 +9466,11 @@
               {
                 "args": [
                   {
-                    "hash": "cd68fb2c2d0fce7b",
+                    "hash": "e02446ce1be140af",
                     "length": 13
                   },
                   72,
-                  496.6
+                  558.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8081,7 +9498,7 @@
               {
                 "args": [
                   40,
-                  526.5
+                  586.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -8089,7 +9506,7 @@
               {
                 "args": [
                   560,
-                  526.5
+                  586.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -8136,7 +9553,7 @@
                     "length": 34
                   },
                   72,
-                  543.2
+                  602.96
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8173,7 +9590,7 @@
                     "length": 34
                   },
                   72,
-                  572.8
+                  630.16
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8210,7 +9627,44 @@
                     "length": 23
                   },
                   72,
-                  602.4
+                  657.36
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": ""
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0.16326530612244897px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "a31b5cb40ea07d2b",
+                    "length": 50
+                  },
+                  72,
+                  684.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8243,11 +9697,11 @@
               {
                 "args": [
                   {
-                    "hash": "9d5a9dc41c184aad",
-                    "length": 75
+                    "hash": "5365f0fdad9a0e85",
+                    "length": 25
                   },
-                  72,
-                  632
+                  40,
+                  705.36
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8275,90 +9729,16 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0.16326530612244897px"
               },
               {
                 "args": [
                   {
-                    "hash": "1e7fd13e9be5165f",
-                    "length": 66
+                    "hash": "0f2af541a5260e72",
+                    "length": 50
                   },
                   72,
-                  661.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "31a336305659c344",
-                    "length": 87
-                  },
-                  72,
-                  691.2
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": ""
-              },
-              {
-                "args": [
-                  {
-                    "hash": "89d7a2ab97ae9204",
-                    "length": 71
-                  },
-                  72,
-                  720.8
+                  732.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8379,7 +9759,7 @@
       ]
     },
     {
-      "id": "book-02-default.optimal-page-0221",
+      "id": "book-02-default.optimal-page-0212",
       "page": {
         "bounds": {
           "height": 800,
@@ -8396,7 +9776,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 221,
+        "index": 212,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -8729,7 +10109,7 @@
   },
   "schemaVersion": 1,
   "selection": {
-    "pageCount": 222,
+    "pageCount": 213,
     "pixelRatios": [
       1,
       2
@@ -8754,7 +10134,8 @@
           "textShadow": 0
         },
         "features": [
-          "first"
+          "first",
+          "image"
         ],
         "id": "book-02-default.optimal-page-0000",
         "pageIndex": 0
@@ -8813,21 +10194,20 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 2,
+          "image": 1,
           "inlineAtom": 1,
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 11,
+          "text": 24,
           "textDecoration": 0,
           "textShadow": 0
         },
         "features": [
-          "image",
           "inlineAtom"
         ],
-        "id": "book-02-default.optimal-page-0037",
-        "pageIndex": 37
+        "id": "book-02-default.optimal-page-0036",
+        "pageIndex": 36
       },
       {
         "counts": {
@@ -8842,7 +10222,7 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 3,
-          "text": 29,
+          "text": 32,
           "textDecoration": 0,
           "textShadow": 0
         },
@@ -8850,8 +10230,8 @@
           "text",
           "ruby"
         ],
-        "id": "book-02-default.optimal-page-0081",
-        "pageIndex": 81
+        "id": "book-02-default.optimal-page-0078",
+        "pageIndex": 78
       },
       {
         "counts": {
@@ -8866,15 +10246,15 @@
           "inlineBackground": 0,
           "inlineBorder": 0,
           "ruby": 0,
-          "text": 22,
+          "text": 25,
           "textDecoration": 0,
           "textShadow": 0
         },
         "features": [
           "horizontalRule"
         ],
-        "id": "book-02-default.optimal-page-0138",
-        "pageIndex": 138
+        "id": "book-02-default.optimal-page-0132",
+        "pageIndex": 132
       },
       {
         "counts": {
@@ -8896,8 +10276,8 @@
         "features": [
           "last"
         ],
-        "id": "book-02-default.optimal-page-0221",
-        "pageIndex": 221
+        "id": "book-02-default.optimal-page-0212",
+        "pageIndex": 212
       }
     ]
   }

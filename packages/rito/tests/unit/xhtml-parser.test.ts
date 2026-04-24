@@ -61,7 +61,7 @@ describe('parseXhtml', () => {
       const { nodes } = parseXhtml(xhtml('<p>Hello&nbsp;world</p>'));
 
       const p = nodes[0] as BlockNode;
-      expect((p.children[0] as TextNode).content).toBe('Hello world');
+      expect((p.children[0] as TextNode).content).toBe('Hello\u00A0world');
     });
   });
 
@@ -128,6 +128,13 @@ describe('parseXhtml', () => {
       const textNodes = p.children.filter((c): c is TextNode => c.type === 'text');
       expect(textNodes.some((t) => t.content === ' ')).toBe(true);
     });
+
+    it('preserves Unicode spaces while collapsing ASCII HTML whitespace', () => {
+      const { nodes } = parseXhtml(xhtml('<p> [ S  P E C ]</p>'));
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe(' [ S P E C ]');
+    });
   });
 
   describe('br handling', () => {
@@ -180,6 +187,18 @@ describe('parseXhtml', () => {
       const { nodes } = parseXhtml(xhtml('<div id="chapter1"><p>Text</p></div>'));
       const div = nodes[0] as BlockNode;
       expect(div.attributes?.id).toBe('chapter1');
+    });
+
+    it('extracts language attributes', () => {
+      const { nodes } = parseXhtml(xhtml('<p lang="ja">本文</p>'));
+      const p = nodes[0] as BlockNode;
+      expect(p.attributes?.language).toBe('ja');
+    });
+
+    it('extracts xml:lang attributes', () => {
+      const { nodes } = parseXhtml(xhtml('<p xml:lang="zh-Hant">正文</p>'));
+      const p = nodes[0] as BlockNode;
+      expect(p.attributes?.language).toBe('zh-Hant');
     });
 
     it('extracts multiple attributes simultaneously', () => {

@@ -13,6 +13,7 @@ export interface KPGlue {
   readonly width: number;
   readonly stretch: number;
   readonly shrink: number;
+  readonly text: string;
 }
 
 export interface KPPenalty {
@@ -23,11 +24,13 @@ export interface KPPenalty {
 }
 
 export type KPItem = KPBox | KPGlue | KPPenalty;
+export type KPFitnessClass = 'very-tight' | 'tight' | 'loose' | 'very-loose';
 
 export interface KPBreakpoint {
   readonly position: number;
   readonly demerits: number;
   readonly ratio: number;
+  readonly fitness: KPFitnessClass;
   readonly line: number;
   readonly prev: KPBreakpoint | undefined;
 }

@@ -1,8 +1,14 @@
 import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
+import type { MeasurePaint } from '../../../style/core/paint-types';
+import type { ComputedStyle } from '../../../style/core/types';
 import { findHyphenationPoints } from '../../text/hyphenation';
 import type { InlineSegment, StyledSegment } from '../../text/styled-segment';
 import { isInlineAtom } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
+import { containsEastAsianBreakChar } from '../break-classifier';
+import type { LineBreakOptions } from '../break-classifier';
+import { firstTextUnit, lastTextUnit, splitMixedTextParts } from './mixed-script';
+import type { MixedTextPart } from './mixed-script';
 import type { KPBox, KPGlue, KPItem, KPPenalty } from './types';
 
 const HYPHEN_PENALTY = 50;
@@ -61,7 +67,7 @@ function addTokenItems(
   if (token === '\n') {
     addForcedBreak(items);
   } else if (token === ' ' || token === '\t') {
-    items.push(createGlue(spaceWidth, spaceWidth * 1.5, spaceWidth * 0.5));
+    items.push(createGlue(spaceWidth, spaceWidth * 1.5, spaceWidth * 0.5, ' '));
   } else {
     addWordItems(items, token, segment, measurer);
   }
@@ -80,7 +86,7 @@ function addInlineEndInset(items: KPItem[], segment: StyledSegment): void {
 }
 
 function addForcedBreak(items: KPItem[]): void {
-  items.push(createGlue(0, 1e6, 0));
+  items.push(createGlue(0, 1e6, 0, ''));
   items.push(createPenalty(0, FORCED_BREAK_PENALTY, false));
 }
 
@@ -122,6 +128,92 @@ function addWordItems(
   segment: StyledSegment,
   measurer: TextMeasurer,
 ): void {
+  const parts = splitMixedTextParts(word, lineBreakOptionsFromStyle(segment.style));
+  if (parts.length > 1) {
+    addSegmentedWordItems(items, parts, segment, measurer);
+    return;
+  }
+  addHyphenatedWordItems(items, word, segment, measurer);
+}
+
+function addSegmentedWordItems(
+  items: KPItem[],
+  parts: readonly MixedTextPart[],
+  segment: StyledSegment,
+  measurer: TextMeasurer,
+): void {
+  const paint = measurePaintFromStyle(segment.style);
+  const widthByUnit = new Map<string, number>();
+
+  for (let index = 0; index < parts.length; index++) {
+    const part = parts[index];
+    if (!part) continue;
+
+    addMixedTextPartItems(items, part, segment, measurer);
+
+    const next = parts[index + 1];
+    if (next && shouldInsertInterCharacterGlue(part, next)) {
+      const stretch = interCharacterStretch(part, next, widthByUnit, measurer, paint);
+      items.push(createGlue(0, stretch, 0, ''));
+    }
+  }
+}
+
+function lineBreakOptionsFromStyle(style: ComputedStyle): LineBreakOptions {
+  return {
+    lineBreak: style.lineBreak,
+    wordBreak: style.wordBreak,
+    language: style.language,
+  };
+}
+
+function addMixedTextPartItems(
+  items: KPItem[],
+  part: MixedTextPart,
+  segment: StyledSegment,
+  measurer: TextMeasurer,
+): void {
+  addHyphenatedWordItems(items, part.text, segment, measurer);
+}
+
+function measureUnitWidth(
+  unit: string,
+  widthByUnit: Map<string, number>,
+  measurer: TextMeasurer,
+  paint: MeasurePaint,
+): number {
+  const cached = widthByUnit.get(unit);
+  if (cached !== undefined) return cached;
+  const width = measurer.measureText(unit, paint).width;
+  widthByUnit.set(unit, width);
+  return width;
+}
+
+function shouldInsertInterCharacterGlue(before: MixedTextPart, after: MixedTextPart): boolean {
+  const beforeEdge = lastTextUnit(before.text);
+  const afterEdge = firstTextUnit(after.text);
+  return beforeEdge.length > 0 && afterEdge.length > 0;
+}
+
+function interCharacterStretch(
+  before: MixedTextPart,
+  after: MixedTextPart,
+  widthByUnit: Map<string, number>,
+  measurer: TextMeasurer,
+  paint: MeasurePaint,
+): number {
+  const reference = containsEastAsianBreakChar(before.text)
+    ? lastTextUnit(before.text)
+    : firstTextUnit(after.text);
+  return measureUnitWidth(reference, widthByUnit, measurer, paint);
+}
+
+function addHyphenatedWordItems(
+  items: KPItem[],
+  word: string,
+  segment: StyledSegment,
+  measurer: TextMeasurer,
+): void {
   const { style } = segment;
   const paint = measurePaintFromStyle(style);
   const hyphenPoints = findHyphenationPoints(word);
@@ -153,8 +245,8 @@ function createBox(width: number, text: string, segment: StyledSegment): KPBox {
   return { type: 'box', width, text, segment };
 }
 
-function createGlue(width: number, stretch: number, shrink: number): KPGlue {
-  return { type: 'glue', width, stretch, shrink };
+function createGlue(width: number, stretch: number, shrink: number, text: string): KPGlue {
+  return { type: 'glue', width, stretch, shrink, text };
 }
 
 function createPenalty(width: number, penalty: number, flagged: boolean): KPPenalty {

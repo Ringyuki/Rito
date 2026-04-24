@@ -1,6 +1,6 @@
 import type { StyledNode } from '../../style/core/types';
 import { isFirstInFlow } from './container-wrapper';
-import { resolveMarginTop } from './resolve-pct';
+import { resolveMarginBottom, resolveMarginTop } from './resolve-pct';
 import { collapseMargin, type LayoutState } from './state';
 
 /**
@@ -23,6 +23,19 @@ export function collapseContainerMarginTop(
   const children = collectAndZeroMarginChain(node.children, margins, containerWidth);
   collapseMargin(state, collapseMarginChain(margins));
   return { startY: state.y, children };
+}
+
+export function resolveCollapsedContainerMarginBottom(
+  node: StyledNode,
+  containerWidth: number,
+): number {
+  if (node.style.paddingBottom > 0 || node.style.borderBottom.width > 0) {
+    return resolveMarginBottom(node.style, containerWidth);
+  }
+
+  const margins = [resolveMarginBottom(node.style, containerWidth)];
+  collectTrailingMarginChain(node.children, margins, containerWidth);
+  return collapseMarginChain(margins);
 }
 
 function collectAndZeroMarginChain(
@@ -58,4 +71,26 @@ function collapseMarginChain(margins: readonly number[]): number {
     if (margin < minNeg) minNeg = margin;
   }
   return maxPos + minNeg;
+}
+
+function collectTrailingMarginChain(
+  children: readonly StyledNode[],
+  margins: number[],
+  containerWidth: number,
+): void {
+  const child = findLastInFlow(children);
+  if (!child) return;
+
+  margins.push(resolveMarginBottom(child.style, containerWidth));
+  if (child.style.paddingBottom <= 0 && child.style.borderBottom.width <= 0) {
+    collectTrailingMarginChain(child.children, margins, containerWidth);
+  }
+}
+
+function findLastInFlow(children: readonly StyledNode[]): StyledNode | undefined {
+  for (let index = children.length - 1; index >= 0; index--) {
+    const child = children[index];
+    if (child && isFirstInFlow(child)) return child;
+  }
+  return undefined;
 }

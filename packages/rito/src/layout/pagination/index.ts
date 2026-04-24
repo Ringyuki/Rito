@@ -49,7 +49,7 @@ function placeBlock(
     emitPage(state);
   }
 
-  const effectiveSpacing = state.pageBlocks.length > 0 ? spacing : 0;
+  const effectiveSpacing = state.pageBlocks.length > 0 || state.pages.length === 0 ? spacing : 0;
   const totalNeeded = state.usedHeight + effectiveSpacing + block.bounds.height;
   if (totalNeeded <= contentHeight) {
     state.usedHeight += effectiveSpacing;

@@ -54,12 +54,18 @@ export {
   type FontStyle,
   FONT_WEIGHTS,
   type FontWeight,
+  LINE_BREAK_VALUES,
+  type LineBreak,
   type Specificity,
   type StyledNode,
   TEXT_ALIGNMENTS,
   type TextAlignment,
   TEXT_DECORATIONS,
   type TextDecoration,
+  TEXT_JUSTIFY_VALUES,
+  type TextJustify,
+  WORD_BREAK_VALUES,
+  type WordBreak,
 } from './style/index';
 
 // ── Layout (primitives) ────────────────────────────────────────────

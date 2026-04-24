@@ -11,7 +11,10 @@ import { buildContainerWrapper, hasVisualDecorations } from './container-wrapper
 import { applyPageBreakFlags, withPageBreaks } from './helpers';
 import { addListMarker, createListContext, type ListContext } from './list';
 import { applyRelativeOffset, indentBlocks, layoutTextBlock } from './primitives';
-import { collapseContainerMarginTop } from './container-margin';
+import {
+  collapseContainerMarginTop,
+  resolveCollapsedContainerMarginBottom,
+} from './container-margin';
 import {
   resolveMarginBottom,
   resolveMarginTop,
@@ -60,7 +63,7 @@ export function layoutContainerBlock(
   } else {
     appendFlattenedContainer(state, node, plan, contentWidth);
   }
-  state.prevMarginBottom = resolveMarginBottom(node.style, contentWidth);
+  state.prevMarginBottom = resolveCollapsedContainerMarginBottom(node, contentWidth);
 
   placeAbsoluteChildren(
     node,

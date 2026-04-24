@@ -7,6 +7,7 @@ import type {
   Display,
   FontStyle,
   FontWeight,
+  LineBreak,
   ListStyleType,
   ObjectFit,
   Overflow,
@@ -14,9 +15,11 @@ import type {
   Position,
   TextAlignment,
   TextDecoration,
+  TextJustify,
   TextTransform,
   VerticalAlign,
   WhiteSpace,
+  WordBreak,
 } from './values';
 
 export {
@@ -24,6 +27,7 @@ export {
   DISPLAY_VALUES,
   FONT_STYLES,
   FONT_WEIGHTS,
+  LINE_BREAK_VALUES,
   LIST_STYLE_TYPES,
   OBJECT_FIT_VALUES,
   OVERFLOW_VALUES,
@@ -31,9 +35,11 @@ export {
   POSITIONS,
   TEXT_ALIGNMENTS,
   TEXT_DECORATIONS,
+  TEXT_JUSTIFY_VALUES,
   TEXT_TRANSFORMS,
   VERTICAL_ALIGNS,
   WHITE_SPACES,
+  WORD_BREAK_VALUES,
 } from './values';
 
 export type {
@@ -41,6 +47,7 @@ export type {
   Display,
   FontStyle,
   FontWeight,
+  LineBreak,
   ListStyleType,
   ObjectFit,
   Overflow,
@@ -48,9 +55,11 @@ export type {
   Position,
   TextAlignment,
   TextDecoration,
+  TextJustify,
   TextTransform,
   VerticalAlign,
   WhiteSpace,
+  WordBreak,
 } from './values';
 
 /** Computed style for a layout element. */
@@ -75,6 +84,7 @@ export interface ComputedStyle {
    */
   readonly lineHeightPx?: number;
   readonly textAlign: TextAlignment;
+  readonly textJustify: TextJustify;
   readonly textDecoration: TextDecoration;
   readonly textIndent: number;
   readonly color: string;
@@ -102,6 +112,10 @@ export interface ComputedStyle {
   readonly wordSpacing: number;
   readonly textTransform: TextTransform;
   readonly whiteSpace: WhiteSpace;
+  readonly lineBreak: LineBreak;
+  readonly wordBreak: WordBreak;
+  /** Inherited BCP-47 language tag from HTML `lang` / `xml:lang`; `und` means unspecified. */
+  readonly language: string;
   readonly borderTop: BorderSide;
   readonly borderRight: BorderSide;
   readonly borderBottom: BorderSide;

@@ -1,6 +1,7 @@
-import type { TextAlignment } from '../../style/core/types';
+import type { TextAlignment, TextJustify } from '../../style/core/types';
 import type { InlineAtom, LineBox, RubyAnnotation, TextRun } from '../core/types';
 import { readRubyTag } from '../line-breaker/greedy/runs';
+import { justifyRuns } from './text-justify';
 
 type Run = TextRun | InlineAtom;
 
@@ -31,7 +32,7 @@ export function computeEffectiveLineMetrics(
   baseLineHeight: number,
 ): { height: number; yShift: number } {
   let minTop = 0;
-  let maxBottom = baseLineHeight;
+  let maxBottom = 0;
   let rubyOverhang = 0;
   for (const run of runs) {
     let top: number;
@@ -81,6 +82,7 @@ export function applyAlign(
   lineHeight: number,
   maxWidth: number,
   textAlign: TextAlignment,
+  textJustify: TextJustify,
   isLastLine: boolean,
 ): LineBox {
   if (textAlign === 'center' && runs.length > 0) {
@@ -90,7 +92,7 @@ export function applyAlign(
     const offset = maxWidth - lineWidth;
     runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
   } else if (textAlign === 'justify' && !isLastLine && runs.length > 0) {
-    runs = justifyRuns(runs, lineWidth, maxWidth);
+    runs = justifyRuns(runs, lineWidth, maxWidth, textJustify);
   }
 
   // Emit standalone RubyAnnotation children for any runs carrying a ruby tag.
@@ -177,57 +179,4 @@ function createRubyAnnotation(group: RubyRunGroup, lineY: number): RubyAnnotatio
       },
     },
   };
-}
-
-function justifyRuns(runs: Run[], lineWidth: number, maxWidth: number): Run[] {
-  const gaps = collectGaps(runs);
-  if (gaps.length === 0) return runs;
-  return distributeGaps(runs, gaps, (maxWidth - lineWidth) / gaps.length);
-}
-
-function collectGaps(runs: readonly Run[]): number[] {
-  const gaps: number[] = [];
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i];
-    if (!run || run.type !== 'text-run') continue;
-    for (let j = 0; j < run.text.length; j++) {
-      if (run.text[j] === ' ') gaps.push(i);
-    }
-  }
-  return gaps;
-}
-
-function distributeGaps(runs: readonly Run[], gaps: readonly number[], gapSize: number): Run[] {
-  const result: Run[] = [];
-  let xOffset = 0;
-  let gapIdx = 0;
-
-  for (let i = 0; i < runs.length; i++) {
-    const run = runs[i];
-    if (!run) continue;
-
-    while (gapIdx < gaps.length && (gaps[gapIdx] ?? Infinity) < i) {
-      xOffset += gapSize;
-      gapIdx++;
-    }
-
-    let intraGaps = 0;
-    if (run.type === 'text-run') {
-      for (let j = 0; j < run.text.length; j++) {
-        if (run.text[j] === ' ') intraGaps++;
-      }
-    }
-
-    result.push({
-      ...run,
-      bounds: {
-        ...run.bounds,
-        x: run.bounds.x + xOffset,
-        width: run.bounds.width + intraGaps * gapSize,
-      },
-    });
-    xOffset += intraGaps * gapSize;
-    gapIdx += intraGaps;
-  }
-  return result;
 }

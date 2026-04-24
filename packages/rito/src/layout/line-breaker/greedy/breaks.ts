@@ -3,10 +3,8 @@ import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import { findHyphenationPoints } from '../../text/hyphenation';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
+import { adjustBreakPosition, getLineBreakOffsets } from '../break-classifier';
 import type { StyleRange } from './types';
-
-const CJK_RE =
-  /[\u2E80-\u9FFF\uF900-\uFAFF\uFE30-\uFE4F\u{20000}-\u{2FA1F}\u3000-\u303F\uFF00-\uFFEF]/u;
 
 export function findBreakPosition(
   text: string,
@@ -33,13 +31,22 @@ export function findBreakPosition(
     }
   }
 
-  const wordBreak = findWordBreak(text, start, lo);
+  const options = {
+    lineBreak: style.lineBreak,
+    wordBreak: style.wordBreak,
+    language: style.language,
+  };
+  const measureWidth = (sliceEnd: number): number =>
+    measureSlice(text, start, sliceEnd, style, measurer, atoms, ranges);
+  const wordBreak = findWordBreak(text, start, lo, options);
   if (wordBreak === lo) {
     const hyphenBreak = tryHyphenation(text, start, lo, maxWidth, style, measurer);
-    if (hyphenBreak > start) return hyphenBreak;
+    if (hyphenBreak > start) {
+      return adjustBreakPosition(text, start, end, hyphenBreak, maxWidth, measureWidth, options);
+    }
   }
 
-  return wordBreak;
+  return adjustBreakPosition(text, start, end, wordBreak, maxWidth, measureWidth, options);
 }
 
 /**
@@ -176,14 +183,15 @@ function measureSliceSimple(
   return width;
 }
 
-function findWordBreak(text: string, start: number, fitPos: number): number {
+function findWordBreak(
+  text: string,
+  start: number,
+  fitPos: number,
+  options: Parameters<typeof getLineBreakOffsets>[1],
+): number {
+  const offsets = getLineBreakOffsets(text, options);
   for (let index = fitPos; index > start; index--) {
-    const char = text[index];
-    if (char === ' ') return index;
-    if (char && CJK_RE.test(char)) return index;
-
-    const prev = text[index - 1];
-    if (prev && CJK_RE.test(prev)) return index;
+    if (offsets.has(index)) return index;
   }
 
   return fitPos;

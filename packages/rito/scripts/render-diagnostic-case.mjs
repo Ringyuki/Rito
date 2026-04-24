@@ -2,7 +2,7 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { dirname, extname, resolve, sep } from 'node:path';
+import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { unzipSync } from 'fflate';
@@ -69,6 +69,7 @@ async function run() {
   await mkdir(ritoDir, { recursive: true });
   await mkdir(browserDir, { recursive: true });
   await extractEpub(bookBytes, extractedDir);
+  const referenceContext = await resolveReferenceContext(extractedDir);
 
   const server = await startDiagnosticServer(extractedDir);
   const browser = await chromium.launch({
@@ -91,6 +92,7 @@ async function run() {
     });
     await writeFile(resolve(ritoDir, 'actual.png'), ritoResult.png);
     await writeJson(resolve(ritoDir, 'diagnostics.json'), ritoResult.diagnostics);
+    await writeJson(resolve(ritoDir, 'page-detail.json'), ritoResult.page);
     await writeJson(resolve(ritoDir, 'summary.json'), {
       caseId,
       bookPath,
@@ -109,6 +111,7 @@ async function run() {
       caseConfig,
       browserDir,
       profile,
+      referenceContext,
     );
     await writeJson(resolve(artifactsDir, 'report.json'), {
       caseId,
@@ -156,6 +159,7 @@ async function renderRitoSpread(page, origin, input) {
   return {
     totalSpreads: result.totalSpreads,
     spread: result.spread,
+    page: result.page,
     chapterMap: result.chapterMap,
     manifestHrefMap: result.manifestHrefMap,
     png: Buffer.from(result.pngBase64, 'base64'),
@@ -163,7 +167,14 @@ async function renderRitoSpread(page, origin, input) {
   };
 }
 
-async function captureBrowserReference(page, origin, caseConfig, browserDir, profile) {
+async function captureBrowserReference(
+  page,
+  origin,
+  caseConfig,
+  browserDir,
+  profile,
+  referenceContext,
+) {
   const location = readRecord(caseConfig.location);
   const chapterHref = readOptionalString(location?.chapterHref);
   if (!chapterHref) return { skipped: 'case.json location.chapterHref is not set' };
@@ -175,10 +186,13 @@ async function captureBrowserReference(page, origin, caseConfig, browserDir, pro
   }
 
   await page.setViewportSize(browserReferenceViewport(profile));
-  await page.goto(`${origin}/reference/${chapterHref}`);
+  await page.goto(
+    `${origin}/reference/${resolveReferenceDocumentHref(referenceContext, chapterHref)}`,
+  );
   await page.evaluate(async () => {
     if (document.fonts?.ready) await document.fonts.ready.catch(() => undefined);
   });
+  await applyBrowserReferencePageFrame(page, profile);
 
   const selector = readOptionalString(location?.selector);
   if (selector) {
@@ -330,6 +344,35 @@ function browserReferenceViewport(profile) {
   return { width: profile.width, height: profile.height };
 }
 
+async function applyBrowserReferencePageFrame(page, profile) {
+  if (profile.margin <= 0) return;
+  await page.evaluate(
+    ({ margin, width, height }) => {
+      const existing = document.getElementById('__rito_diag_page__');
+      if (existing) return;
+
+      const wrapper = document.createElement('div');
+      wrapper.id = '__rito_diag_page__';
+      wrapper.style.width = `${String(width - margin * 2)}px`;
+      wrapper.style.minHeight = `${String(height - margin * 2)}px`;
+      wrapper.style.margin = '0 auto';
+      wrapper.style.paddingTop = `${String(margin)}px`;
+      wrapper.style.paddingBottom = `${String(margin)}px`;
+      wrapper.style.boxSizing = 'border-box';
+
+      while (document.body.firstChild) {
+        wrapper.appendChild(document.body.firstChild);
+      }
+      document.body.appendChild(wrapper);
+    },
+    {
+      margin: profile.margin,
+      width: profile.width,
+      height: profile.height,
+    },
+  );
+}
+
 async function waitForRenderApi(page, diagnostics) {
   await page.waitForFunction(
     () =>
@@ -464,6 +507,43 @@ async function extractEpub(bookBytes, extractedDir) {
       await writeFile(filePath, bytes);
     }),
   );
+}
+
+async function resolveReferenceContext(extractedDir) {
+  const fallbackOpfPath = resolve(extractedDir, 'content.opf');
+  const containerPath = resolve(extractedDir, 'META-INF/container.xml');
+  let opfPath = fallbackOpfPath;
+
+  try {
+    const containerXml = await readFile(containerPath, 'utf8');
+    const rootfilePath = parseRootfilePath(containerXml);
+    if (rootfilePath) opfPath = resolve(extractedDir, rootfilePath);
+  } catch {
+    // Ignore missing container metadata; fall back to extracted root.
+  }
+
+  assertInside(extractedDir, opfPath);
+  return {
+    opfDirRelative: toPosixRelative(extractedDir, dirname(opfPath)),
+  };
+}
+
+function parseRootfilePath(containerXml) {
+  const match = containerXml.match(/<rootfile\b[^>]*\bfull-path=(["'])([^"']+)\1/i);
+  return match?.[2];
+}
+
+function resolveReferenceDocumentHref(referenceContext, chapterHref) {
+  const normalized = chapterHref.replaceAll('\\', '/');
+  const opfDirRelative = referenceContext.opfDirRelative;
+  if (!opfDirRelative || normalized.startsWith(`${opfDirRelative}/`)) return normalized;
+  return `${opfDirRelative}/${normalized}`;
+}
+
+function toPosixRelative(root, path) {
+  const pathRelative = relative(root, path);
+  if (!pathRelative) return '';
+  return pathRelative.split(sep).join('/');
 }
 
 function normalizedZipBytes(bookBytes) {
@@ -610,6 +690,7 @@ function renderHtml() {
         const diagnostics = await collectRenderDiagnostics();
         const totalSpreads = reader.totalSpreads;
         const spread = spreadFacts(reader.spreads[spreadIndex]);
+        const page = spreadPage(reader.spreads[spreadIndex], profile.spread);
         const chapterMap = Array.from(reader.chapterMap, ([idref, range]) => ({
           idref,
           startPage: range.startPage,
@@ -623,6 +704,7 @@ function renderHtml() {
         return {
           totalSpreads,
           spread,
+          page,
           chapterMap,
           manifestHrefMap,
           pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),
@@ -666,6 +748,12 @@ function renderHtml() {
       left: pageFacts(spread.left),
       right: pageFacts(spread.right),
     };
+  }
+
+  function spreadPage(spread, spreadMode) {
+    if (!spread) return undefined;
+    if (spreadMode === 'double') return spread.left;
+    return spread.left || spread.right;
   }
 
   function pageFacts(page) {

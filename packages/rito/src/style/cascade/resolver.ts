@@ -108,11 +108,12 @@ function resolveNode(
         ancestors,
         viewport,
       );
+      const style = applyLanguage(imgStyle, node.attributes);
       return {
         type: 'image',
         src: node.src,
         alt: node.alt,
-        style: imgStyle,
+        style,
         children: [],
         ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
       };
@@ -131,7 +132,10 @@ function resolveBlockNode(
 ): StyledNode {
   const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
   const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport);
+  const style = applyLanguage(
+    applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport),
+    node.attributes,
+  );
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
   }
@@ -164,7 +168,10 @@ function resolveInlineNode(
 ): StyledNode {
   const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
   const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport);
+  const style = applyLanguage(
+    applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport),
+    node.attributes,
+  );
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
@@ -256,6 +263,13 @@ function applyCascade(
     viewport,
   );
   return finalizeStyle(style);
+}
+
+function applyLanguage(
+  style: ComputedStyle,
+  attributes: ElementAttributes | undefined,
+): ComputedStyle {
+  return attributes?.language ? { ...style, language: attributes.language.toLowerCase() } : style;
 }
 
 /** Assemble pre-computed paint-ready fields (font shorthand, ...) once all

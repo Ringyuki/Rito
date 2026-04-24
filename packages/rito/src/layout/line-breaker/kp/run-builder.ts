@@ -91,7 +91,7 @@ function appendItem(
   } else if (item.type === 'box') {
     appendBox(ctx, item.text, item.segment, lineHeight, measurer);
   } else if (item.type === 'glue' && ctx.currentSegment) {
-    ctx.currentText += ' ';
+    ctx.currentText += item.text;
   }
 }
 

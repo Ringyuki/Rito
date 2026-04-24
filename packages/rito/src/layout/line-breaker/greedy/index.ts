@@ -64,6 +64,7 @@ function layoutText(
         effectiveLH,
         maxWidth,
         baseStyle.textAlign,
+        baseStyle.textJustify,
         isLastLine,
       ),
     );

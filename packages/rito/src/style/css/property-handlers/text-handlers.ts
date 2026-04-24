@@ -5,9 +5,12 @@ import {
   parseListStyleType,
   parseTextAlign,
   parseTextDecoration,
+  parseTextJustify,
   parseTextTransform,
   parseVerticalAlign,
   parseWhiteSpace,
+  parseLineBreak,
+  parseWordBreak,
 } from '../value-parsers';
 import { assignLength } from './helpers';
 import type { PropertyHandlers } from './types';
@@ -86,6 +89,10 @@ export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
     const textAlign = parseTextAlign(value);
     if (textAlign !== undefined) result.textAlign = textAlign;
   },
+  'text-justify': (result, value) => {
+    const textJustify = parseTextJustify(value);
+    if (textJustify !== undefined) result.textJustify = textJustify;
+  },
   'text-decoration': (result, value) => {
     const textDecoration = parseTextDecoration(value);
     if (textDecoration !== undefined) result.textDecoration = textDecoration;
@@ -100,6 +107,14 @@ export const TEXT_PROPERTY_HANDLERS: PropertyHandlers = {
   'white-space': (result, value) => {
     const whiteSpace = parseWhiteSpace(value);
     if (whiteSpace !== undefined) result.whiteSpace = whiteSpace;
+  },
+  'line-break': (result, value) => {
+    const lineBreak = parseLineBreak(value);
+    if (lineBreak !== undefined) result.lineBreak = lineBreak;
+  },
+  'word-break': (result, value) => {
+    const wordBreak = parseWordBreak(value);
+    if (wordBreak !== undefined) result.wordBreak = wordBreak;
   },
   'vertical-align': (result, value) => {
     const verticalAlign = parseVerticalAlign(value);

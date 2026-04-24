@@ -151,6 +151,42 @@ describe('parseCssDeclarations', () => {
     });
   });
 
+  describe('text-justify', () => {
+    it('parses inter-character', () => {
+      expect(parseCssDeclarations('text-justify: inter-character', BASE_FONT_SIZE)).toEqual({
+        textJustify: 'inter-character',
+      });
+    });
+
+    it('maps distribute to inter-character for EPUB compatibility', () => {
+      expect(parseCssDeclarations('text-justify: distribute', BASE_FONT_SIZE)).toEqual({
+        textJustify: 'inter-character',
+      });
+    });
+
+    it('parses inter-word', () => {
+      expect(parseCssDeclarations('text-justify: inter-word', BASE_FONT_SIZE)).toEqual({
+        textJustify: 'inter-word',
+      });
+    });
+  });
+
+  describe('line-break', () => {
+    it('parses strict line breaking', () => {
+      expect(parseCssDeclarations('line-break: strict', BASE_FONT_SIZE)).toEqual({
+        lineBreak: 'strict',
+      });
+    });
+  });
+
+  describe('word-break', () => {
+    it('parses keep-all', () => {
+      expect(parseCssDeclarations('word-break: keep-all', BASE_FONT_SIZE)).toEqual({
+        wordBreak: 'keep-all',
+      });
+    });
+  });
+
   describe('text-decoration', () => {
     it('parses underline', () => {
       expect(parseCssDeclarations('text-decoration: underline', BASE_FONT_SIZE)).toEqual({
