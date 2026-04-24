@@ -106,9 +106,13 @@ function collectLineBox(
 }
 
 function measurePaintFromRun(run: TextRun): MeasurePaint {
-  return run.paint.wordSpacingPx !== undefined
-    ? { font: run.paint.font, wordSpacingPx: run.paint.wordSpacingPx }
-    : { font: run.paint.font };
+  return {
+    font: run.paint.font,
+    ...(run.paint.wordSpacingPx !== undefined ? { wordSpacingPx: run.paint.wordSpacingPx } : {}),
+    ...(run.paint.letterSpacingPx !== undefined
+      ? { letterSpacingPx: run.paint.letterSpacingPx }
+      : {}),
+  };
 }
 
 function textRunEntry(

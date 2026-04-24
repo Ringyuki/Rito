@@ -384,7 +384,7 @@
         "ruby": 0,
         "textRuns": 41
       },
-      "detailHash": "3df8d120bd7518c4",
+      "detailHash": "9cd64a4f5bd56e7d",
       "firstText": "暁",
       "index": 1,
       "lastText": "!"
@@ -4055,7 +4055,7 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 0,
-    "fullDetailHash": "8eeeede7ab9e1735",
+    "fullDetailHash": "af1f17df6ff6da1f",
     "pageCount": 246,
     "totals": {
       "blocks": 3174,
@@ -5458,7 +5458,7 @@
                     {
                       "bounds": {
                         "height": 52,
-                        "width": 62.4,
+                        "width": 58.4,
                         "x": 26,
                         "y": 13
                       },
@@ -5482,7 +5482,7 @@
                       "bounds": {
                         "height": 52,
                         "width": 15.6,
-                        "x": 88.4,
+                        "x": 84.4,
                         "y": 13
                       },
                       "href": null,
@@ -5505,7 +5505,7 @@
                       "bounds": {
                         "height": 52,
                         "width": 15.6,
-                        "x": 104,
+                        "x": 100,
                         "y": 13
                       },
                       "href": null,

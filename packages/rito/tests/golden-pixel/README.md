@@ -69,9 +69,11 @@ packages/rito/test-results/pixel-review/index.html
 ```
 
 Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
-`metadata.json`. The report can switch by book, profile, line-breaking mode,
-and spread. The command uses the checked-in baselines only as inputs; it does
-not update or overwrite them.
+`metadata.json`. Review mode may also add `reference.png` for single-page DPR 1
+runs; this is a browser-rendered XHTML reference for human judgement only and
+is not used by compare or update mode. The report can switch by book, profile,
+line-breaking mode, and spread. The command uses the checked-in baselines only
+as inputs; it does not update or overwrite them.
 
 `RITO_PIXEL_DIAGNOSTICS=1` makes compare mode write `expected.png`,
 `actual.png`, `diff.png`, and `metadata.json` for every spread with non-zero

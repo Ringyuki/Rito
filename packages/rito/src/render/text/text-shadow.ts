@@ -1,5 +1,6 @@
 import type { TextShadow } from '../../style/core/types';
 import type { TextRun } from '../../layout/core/types';
+import { canvasSpacingValue } from './spacing';
 
 /**
  * Render text-shadow layers onto the main canvas using a scratch canvas.
@@ -117,8 +118,6 @@ function syncTextState(
   dst.font = src.font;
   dst.textBaseline = 'top';
   dst.fillStyle = color;
-  dst.wordSpacing =
-    run.paint.wordSpacingPx !== undefined ? `${String(run.paint.wordSpacingPx)}px` : '';
-  dst.letterSpacing =
-    run.paint.letterSpacingPx !== undefined ? `${String(run.paint.letterSpacingPx)}px` : '';
+  dst.wordSpacing = canvasSpacingValue(run.paint.wordSpacingPx);
+  dst.letterSpacing = canvasSpacingValue(run.paint.letterSpacingPx);
 }

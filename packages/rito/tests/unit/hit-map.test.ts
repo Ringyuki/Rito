@@ -49,6 +49,25 @@ describe('buildHitMap', () => {
     expect(hitMap.entries[0]?.href).toBe('https://example.com');
   });
 
+  it('preserves text spacing paint for selection measurement', () => {
+    const spacedRun: TextRun = {
+      ...makeRun('[　安琪　]', 0, 80),
+      paint: {
+        ...DEFAULT_RUN_PAINT,
+        wordSpacingPx: 3,
+        letterSpacingPx: 2,
+      },
+    };
+    const page = makePage([makeBlock([makeLine([spacedRun], 0)])]);
+    const hitMap = buildHitMap(page);
+
+    expect(hitMap.entries[0]?.measure).toEqual({
+      font: DEFAULT_RUN_PAINT.font,
+      wordSpacingPx: 3,
+      letterSpacingPx: 2,
+    });
+  });
+
   it('returns empty entries for page with no text', () => {
     const page = makePage([]);
     const hitMap = buildHitMap(page);

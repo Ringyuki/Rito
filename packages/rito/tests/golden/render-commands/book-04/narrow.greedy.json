@@ -382,7 +382,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 407,
-            "hash": "0b9c0141ebbcda48",
+            "hash": "6c3e89e6229a606a",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -1971,12 +1971,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2008,12 +2008,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2045,12 +2045,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2082,12 +2082,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2119,12 +2119,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2156,12 +2156,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2193,12 +2193,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2230,12 +2230,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2267,12 +2267,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2304,12 +2304,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2341,12 +2341,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2378,12 +2378,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2415,12 +2415,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2452,12 +2452,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2489,12 +2489,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2526,12 +2526,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2563,12 +2563,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2600,12 +2600,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2698,12 +2698,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2735,12 +2735,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2772,12 +2772,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2809,12 +2809,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -2846,12 +2846,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -3240,12 +3240,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -3280,7 +3280,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 407,
-            "hash": "699fed4adec0c92d",
+            "hash": "c735a5092dc25c04",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -4869,12 +4869,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -4906,12 +4906,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -4943,12 +4943,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -4980,12 +4980,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5017,12 +5017,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5054,12 +5054,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5091,12 +5091,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5128,12 +5128,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5165,12 +5165,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5202,12 +5202,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5239,12 +5239,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5276,12 +5276,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5313,12 +5313,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5350,12 +5350,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5387,12 +5387,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5424,12 +5424,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5461,12 +5461,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5498,12 +5498,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5596,12 +5596,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5633,12 +5633,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5670,12 +5670,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5707,12 +5707,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -5744,12 +5744,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -6138,12 +6138,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -6221,7 +6221,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 206,
-            "hash": "0a29b485f23a8c60",
+            "hash": "f18e73675bb3b991",
             "methods": {
               "beginPath": 5,
               "clip": 1,
@@ -6361,7 +6361,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6403,7 +6403,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6445,7 +6445,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6487,12 +6487,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6529,12 +6529,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6677,7 +6677,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6719,7 +6719,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6761,7 +6761,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6803,7 +6803,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -6845,12 +6845,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6887,12 +6887,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6929,12 +6929,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6971,12 +6971,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7013,12 +7013,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7055,12 +7055,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7097,12 +7097,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7139,12 +7139,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7181,12 +7181,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7329,7 +7329,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7371,7 +7371,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7413,7 +7413,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7455,12 +7455,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7500,7 +7500,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 206,
-            "hash": "15f25472e3ac75de",
+            "hash": "c5bdb427a0c9949b",
             "methods": {
               "beginPath": 5,
               "clip": 1,
@@ -7640,7 +7640,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7682,7 +7682,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7724,7 +7724,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7766,12 +7766,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7808,12 +7808,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7956,7 +7956,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -7998,7 +7998,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8040,7 +8040,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8082,7 +8082,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8124,12 +8124,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8166,12 +8166,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8208,12 +8208,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8250,12 +8250,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8292,12 +8292,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8334,12 +8334,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8376,12 +8376,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8418,12 +8418,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8460,12 +8460,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8608,7 +8608,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8650,7 +8650,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8692,7 +8692,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -8734,12 +8734,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8821,7 +8821,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 468,
-            "hash": "f88e12451ca76e8a",
+            "hash": "5d6fd6a20391c557",
             "methods": {
               "arcTo": 8,
               "beginPath": 35,
@@ -9029,12 +9029,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9066,12 +9066,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9103,12 +9103,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9140,12 +9140,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9177,12 +9177,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9214,12 +9214,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9251,12 +9251,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9288,12 +9288,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9325,12 +9325,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9533,12 +9533,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -9967,12 +9967,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10110,12 +10110,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10253,12 +10253,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10396,12 +10396,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10539,12 +10539,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10682,12 +10682,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10825,12 +10825,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -10968,12 +10968,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11111,12 +11111,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11254,12 +11254,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11397,12 +11397,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11540,12 +11540,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11683,12 +11683,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11723,7 +11723,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 468,
-            "hash": "e08f8b208d147a08",
+            "hash": "2e3eca7bb6922825",
             "methods": {
               "arcTo": 8,
               "beginPath": 35,
@@ -11931,12 +11931,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -11968,12 +11968,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12005,12 +12005,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12042,12 +12042,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12079,12 +12079,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12116,12 +12116,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12153,12 +12153,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12190,12 +12190,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12227,12 +12227,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12435,12 +12435,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -12869,12 +12869,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13012,12 +13012,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13155,12 +13155,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13298,12 +13298,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13441,12 +13441,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13584,12 +13584,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13727,12 +13727,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -13870,12 +13870,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14013,12 +14013,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14156,12 +14156,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14299,12 +14299,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14442,12 +14442,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14585,12 +14585,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14667,7 +14667,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 166,
-            "hash": "fe4d9f40dbe0a203",
+            "hash": "cf7067413a95198b",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -14799,12 +14799,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14836,12 +14836,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14873,7 +14873,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -14910,7 +14910,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -14947,12 +14947,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -14984,7 +14984,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15021,7 +15021,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15058,7 +15058,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15095,7 +15095,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15132,12 +15132,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15169,12 +15169,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15206,7 +15206,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15243,7 +15243,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15280,12 +15280,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15317,12 +15317,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15354,12 +15354,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15391,7 +15391,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15428,7 +15428,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15465,7 +15465,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15502,12 +15502,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15539,12 +15539,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15576,7 +15576,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15613,7 +15613,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15650,7 +15650,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15687,12 +15687,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15727,7 +15727,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 166,
-            "hash": "883ee27b2c65f5eb",
+            "hash": "7669ad7722bb2fc2",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -15859,12 +15859,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15896,12 +15896,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -15933,7 +15933,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -15970,7 +15970,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16007,12 +16007,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16044,7 +16044,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16081,7 +16081,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16118,7 +16118,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16155,7 +16155,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16192,12 +16192,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16229,12 +16229,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16266,7 +16266,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16303,7 +16303,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16340,12 +16340,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16377,12 +16377,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16414,12 +16414,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16451,7 +16451,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16488,7 +16488,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16525,7 +16525,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16562,12 +16562,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16599,12 +16599,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16636,7 +16636,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16673,7 +16673,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16710,7 +16710,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -16747,12 +16747,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16829,7 +16829,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 155,
-            "hash": "81c18f9c13dcab5b",
+            "hash": "6a5712263fa12264",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -16962,12 +16962,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -16999,7 +16999,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -17036,12 +17036,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17073,12 +17073,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17110,12 +17110,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17147,12 +17147,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17184,7 +17184,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -17221,12 +17221,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17258,12 +17258,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17295,12 +17295,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17332,12 +17332,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17387,7 +17387,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17419,12 +17419,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17456,7 +17456,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -17493,12 +17493,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17530,12 +17530,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17567,12 +17567,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17604,12 +17604,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17641,7 +17641,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -17678,12 +17678,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17715,12 +17715,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17752,7 +17752,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -17789,12 +17789,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17829,7 +17829,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 155,
-            "hash": "0a2fb416c44cb5da",
+            "hash": "f715652609a3ca77",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -17962,12 +17962,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -17999,7 +17999,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -18036,12 +18036,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18073,12 +18073,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18110,12 +18110,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18147,12 +18147,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18184,7 +18184,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -18221,12 +18221,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18258,12 +18258,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18295,12 +18295,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18332,12 +18332,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18387,7 +18387,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18419,12 +18419,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18456,7 +18456,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -18493,12 +18493,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18530,12 +18530,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18567,12 +18567,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18604,12 +18604,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18641,7 +18641,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -18678,12 +18678,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18715,12 +18715,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18752,7 +18752,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -18789,12 +18789,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -18871,7 +18871,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 173,
-            "hash": "89d0946f8746cc6e",
+            "hash": "115d68bf3f762310",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -19004,7 +19004,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19041,12 +19041,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19078,7 +19078,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19115,12 +19115,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19152,12 +19152,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19189,12 +19189,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19226,7 +19226,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19263,7 +19263,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19347,7 +19347,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19384,12 +19384,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19421,12 +19421,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19458,7 +19458,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19495,12 +19495,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19532,7 +19532,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19569,7 +19569,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19606,12 +19606,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19643,12 +19643,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19680,7 +19680,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19717,12 +19717,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19754,12 +19754,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19791,7 +19791,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19828,12 +19828,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19865,12 +19865,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19902,12 +19902,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -19939,7 +19939,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -19979,7 +19979,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 173,
-            "hash": "d5471249f4963c02",
+            "hash": "ea22f32a61b3777e",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -20112,7 +20112,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20149,12 +20149,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20186,7 +20186,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20223,12 +20223,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20260,12 +20260,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20297,12 +20297,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20334,7 +20334,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20371,7 +20371,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20455,7 +20455,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20492,12 +20492,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20529,12 +20529,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20566,7 +20566,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20603,12 +20603,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20640,7 +20640,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20677,7 +20677,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20714,12 +20714,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20751,12 +20751,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20788,7 +20788,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20825,12 +20825,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20862,12 +20862,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20899,7 +20899,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -20936,12 +20936,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -20973,12 +20973,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21010,12 +21010,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21047,7 +21047,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -21129,7 +21129,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 102,
-            "hash": "9b592636b0770f08",
+            "hash": "1fd58ad0f51164e9",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -21262,12 +21262,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21299,7 +21299,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -21336,12 +21336,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21373,12 +21373,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21410,12 +21410,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21447,12 +21447,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21484,12 +21484,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21521,12 +21521,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21558,12 +21558,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21595,7 +21595,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -21632,12 +21632,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21682,12 +21682,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21719,7 +21719,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -21756,12 +21756,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21809,7 +21809,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 102,
-            "hash": "9d3607b6f5a15b26",
+            "hash": "3d3c96317cafe432",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -21942,12 +21942,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -21979,7 +21979,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -22016,12 +22016,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22053,12 +22053,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22090,12 +22090,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22127,12 +22127,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22164,12 +22164,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22201,12 +22201,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22238,12 +22238,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22275,7 +22275,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -22312,12 +22312,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22362,12 +22362,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [
@@ -22399,7 +22399,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -22436,12 +22436,12 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": ""
+                "value": "0px"
               },
               {
                 "args": [

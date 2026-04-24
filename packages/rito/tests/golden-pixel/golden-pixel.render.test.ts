@@ -18,8 +18,10 @@ import {
   reviewPixelRun,
   updatePixelRunGoldens,
   type PixelRunDiagnostics,
+  type PixelReferenceHint,
   type PixelRunRenderResult,
 } from './helpers/pixel-run-assertions';
+import { createPixelReviewReferenceProvider } from './helpers/pixel-reference-capture';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
 
 interface BrowserRenderApi {
@@ -35,6 +37,7 @@ interface BrowserPixelRunResult {
 interface BrowserPixelSpread {
   readonly spreadIndex: number;
   readonly pngBase64: string;
+  readonly reference?: PixelReferenceHint;
 }
 
 interface BrowserRenderWindow extends Partial<BrowserRenderApi> {
@@ -86,7 +89,8 @@ test.describe('golden pixel render snapshots', () => {
       }
 
       if (SHOULD_REVIEW_PIXEL_GOLDEN) {
-        reviewRecords.push(...(await reviewPixelRun(run, result)));
+        const referenceProvider = createPixelReviewReferenceProvider(page, server, run, bookBytes);
+        reviewRecords.push(...(await reviewPixelRun(run, result, referenceProvider)));
         return;
       }
 
@@ -127,6 +131,7 @@ async function renderPixelRun(
     spreads: result.spreads.map((spread) => ({
       spreadIndex: spread.spreadIndex,
       png: Buffer.from(spread.pngBase64, 'base64'),
+      ...(spread.reference ? { reference: spread.reference } : {}),
     })),
     diagnostics: result.diagnostics,
   };

@@ -246,11 +246,11 @@ describe('Phase 0 — word/letter spacing property assignment', () => {
     expect(sets.at(-1)?.value).toBe('4px');
   });
 
-  it('zero wordSpacing is set to empty string', () => {
+  it('zero wordSpacing is reset to 0px', () => {
     const mock = createMockCanvasContext();
     drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, wordSpacing: 0 }), 0, 0);
     const sets = mock.getPropertySets('wordSpacing');
-    expect(sets.at(-1)?.value).toBe('');
+    expect(sets.at(-1)?.value).toBe('0px');
   });
 
   it('non-zero letterSpacing is stringified as "${n}px"', () => {
@@ -258,5 +258,12 @@ describe('Phase 0 — word/letter spacing property assignment', () => {
     drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 2 }), 0, 0);
     const sets = mock.getPropertySets('letterSpacing');
     expect(sets.at(-1)?.value).toBe('2px');
+  });
+
+  it('zero letterSpacing is reset to 0px', () => {
+    const mock = createMockCanvasContext();
+    drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 0 }), 0, 0);
+    const sets = mock.getPropertySets('letterSpacing');
+    expect(sets.at(-1)?.value).toBe('0px');
   });
 });

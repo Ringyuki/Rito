@@ -21,10 +21,14 @@ export function fontShorthandFromStyle(style: ComputedStyle): FontShorthand {
  * Assemble the minimal paint subset a {@link TextMeasurer} requires.
  *
  * Wraps {@link fontShorthandFromStyle} and forwards word-spacing. Returns an
- * object without the `wordSpacingPx` key when the spacing is zero, so the
- * measurer's cache key stays stable across runs with the same font.
+ * object without spacing keys when spacing is zero, so the measurer's cache
+ * key stays stable across runs with the same font.
  */
 export function measurePaintFromStyle(style: ComputedStyle): MeasurePaint {
   const font = fontShorthandFromStyle(style);
-  return style.wordSpacing === 0 ? { font } : { font, wordSpacingPx: style.wordSpacing };
+  return {
+    font,
+    ...(style.wordSpacing !== 0 ? { wordSpacingPx: style.wordSpacing } : {}),
+    ...(style.letterSpacing !== 0 ? { letterSpacingPx: style.letterSpacing } : {}),
+  };
 }

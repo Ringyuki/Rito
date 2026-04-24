@@ -12,6 +12,18 @@ export interface PixelReviewCaseInput {
   readonly actual: Buffer;
   readonly expected?: Buffer;
   readonly diff?: PixelDiffResult;
+  readonly reference?: PixelReviewReferenceInput;
+  readonly error?: string;
+}
+
+export interface PixelReviewReferenceInput {
+  readonly png?: Buffer;
+  readonly width?: number;
+  readonly height?: number;
+  readonly label?: string;
+  readonly sourceHref?: string;
+  readonly targetFound?: boolean;
+  readonly skipped?: string;
   readonly error?: string;
 }
 
@@ -20,6 +32,7 @@ export interface PixelReviewCasePaths {
   readonly expectedPath: string;
   readonly actualPath: string;
   readonly diffPath: string;
+  readonly referencePath: string;
   readonly metadataPath: string;
 }
 
@@ -49,6 +62,14 @@ export interface PixelReviewRecord {
   readonly diffRatio?: number;
   readonly imageWidth?: number;
   readonly imageHeight?: number;
+  readonly referencePath?: string;
+  readonly referenceImageWidth?: number;
+  readonly referenceImageHeight?: number;
+  readonly referenceLabel?: string;
+  readonly referenceSourceHref?: string;
+  readonly referenceTargetFound?: boolean;
+  readonly referenceSkipped?: string;
+  readonly referenceError?: string;
   readonly error?: string;
 }
 
@@ -74,6 +95,7 @@ export function pixelReviewCasePaths(testCase: PixelGoldenSpreadCase): PixelRevi
     expectedPath: resolve(caseDir, 'expected.png'),
     actualPath: resolve(caseDir, 'actual.png'),
     diffPath: resolve(caseDir, 'diff.png'),
+    referencePath: resolve(caseDir, 'reference.png'),
     metadataPath: resolve(caseDir, 'metadata.json'),
   };
 }
@@ -86,6 +108,7 @@ export async function writePixelReviewCase(
   await mkdir(paths.caseDir, { recursive: true });
   await writeFile(paths.actualPath, input.actual);
   if (input.expected) await writeFile(paths.expectedPath, input.expected);
+  if (input.reference?.png) await writeFile(paths.referencePath, input.reference.png);
   await writeFile(paths.metadataPath, `${JSON.stringify(record, null, 2)}\n`);
   return record;
 }
@@ -134,7 +157,25 @@ function createReviewRecord(
           imageHeight: input.diff.height,
         }
       : {}),
+    ...referenceRecord(input.reference, paths),
     ...(input.error ? { error: input.error } : {}),
+  };
+}
+
+function referenceRecord(
+  reference: PixelReviewReferenceInput | undefined,
+  paths: PixelReviewCasePaths,
+): Partial<PixelReviewRecord> {
+  if (!reference) return {};
+  return {
+    ...(reference.png ? { referencePath: relativePath(paths.referencePath) } : {}),
+    ...(reference.width ? { referenceImageWidth: reference.width } : {}),
+    ...(reference.height ? { referenceImageHeight: reference.height } : {}),
+    ...(reference.label ? { referenceLabel: reference.label } : {}),
+    ...(reference.sourceHref ? { referenceSourceHref: reference.sourceHref } : {}),
+    ...(reference.targetFound !== undefined ? { referenceTargetFound: reference.targetFound } : {}),
+    ...(reference.skipped ? { referenceSkipped: reference.skipped } : {}),
+    ...(reference.error ? { referenceError: reference.error } : {}),
   };
 }
 

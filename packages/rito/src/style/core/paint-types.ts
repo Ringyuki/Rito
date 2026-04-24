@@ -44,6 +44,7 @@ export interface FontShorthand {
 export interface MeasurePaint {
   readonly font: FontShorthand;
   readonly wordSpacingPx?: number;
+  readonly letterSpacingPx?: number;
 }
 
 /** Border paint side: colour and style only. Width is geometry (BorderBox)

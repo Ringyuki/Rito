@@ -1,6 +1,7 @@
 import type { MeasurePaint } from '../../style/core/paint-types';
 import type { TextMeasurer, TextMetrics } from '../../layout/text/text-measurer';
 import { buildFontString } from './font-string';
+import { textSpacingAdvance } from './spacing';
 
 /**
  * A {@link TextMeasurer} with an internal measurement cache that can be cleared.
@@ -20,7 +21,7 @@ export interface CachedTextMeasurer extends TextMeasurer {
  * layout. Glyph ink may overhang that advance box; it must not shift centered
  * or right-aligned text.
  *
- * Results are cached by font string + text + wordSpacing to avoid redundant
+ * Results are cached by font string + text spacing + text to avoid redundant
  * canvas measurements. Call {@link CachedTextMeasurer.clearCache} to reset.
  */
 export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedTextMeasurer {
@@ -30,20 +31,16 @@ export function createCanvasTextMeasurer(ctx: CanvasRenderingContext2D): CachedT
     measureText(text: string, paint: MeasurePaint): TextMetrics {
       const font = buildFontString(paint.font);
       const ws = paint.wordSpacingPx ?? 0;
-      const cacheKey = font + '\0' + String(ws) + '\0' + text;
+      const ls = paint.letterSpacingPx ?? 0;
+      const cacheKey = font + '\0' + String(ws) + '\0' + String(ls) + '\0' + text;
       let width = cache.get(cacheKey);
 
       if (width === undefined) {
         ctx.font = font;
+        ctx.wordSpacing = '0px';
+        ctx.letterSpacing = '0px';
         const metrics = ctx.measureText(text);
-        width = metrics.width;
-        if (ws !== 0) {
-          // Canvas doesn't honour `wordSpacing` consistently across browsers,
-          // so we add it manually per ASCII space in the measured substring.
-          // ARCH-ALLOW: runtime text space count, not CSS value parsing.
-          const spaces = text.split(' ').length - 1;
-          width += spaces * ws;
-        }
+        width = metrics.width + textSpacingAdvance(text, ws, ls);
         cache.set(cacheKey, width);
       }
 

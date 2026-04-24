@@ -4,6 +4,7 @@ import { resolveTextColor } from '../../utils/color';
 import { drawInlineBackground } from './inline-background-renderer';
 import { drawInlineBorders } from './inline-border-renderer';
 import { drawTextShadows } from './text-shadow';
+import { canvasSpacingValue } from './spacing';
 
 /**
  * Draw a single text run onto a canvas context.
@@ -28,9 +29,8 @@ export function drawTextRun(
 
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
-  ctx.wordSpacing = paint.wordSpacingPx !== undefined ? `${String(paint.wordSpacingPx)}px` : '';
-  ctx.letterSpacing =
-    paint.letterSpacingPx !== undefined ? `${String(paint.letterSpacingPx)}px` : '';
+  ctx.wordSpacing = canvasSpacingValue(paint.wordSpacingPx);
+  ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
   const x = offsetX + run.bounds.x;
   const y = offsetY + run.bounds.y;

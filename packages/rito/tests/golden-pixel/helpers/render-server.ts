@@ -1,16 +1,27 @@
-import { readFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { dirname, extname, resolve, sep } from 'node:path';
+import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
+import { unzipSync } from 'fflate';
 
 export interface PixelRenderServer {
   readonly origin: string;
+  registerReferenceBook(bookId: string, bookBytes: Buffer): Promise<PixelReferenceBook>;
   close(): Promise<void>;
+}
+
+export interface PixelReferenceBook {
+  readonly bookId: string;
+  referenceUrl(chapterHref: string): string;
 }
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 const DIST_ROOT = resolve(HELPER_DIR, '../../../dist');
+const PIXEL_REVIEW_REFERENCE_ROOT = resolve(
+  HELPER_DIR,
+  '../../../test-results/pixel-review/reference-books',
+);
 const require = createRequire(import.meta.url);
 const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
 const VENDOR_MODULES = new Map([
@@ -19,8 +30,9 @@ const VENDOR_MODULES = new Map([
 ]);
 
 export async function startPixelRenderServer(): Promise<PixelRenderServer> {
+  const referenceRoots = new Map<string, string>();
   const server = createServer((request, response) => {
-    void handleRequest(request, response);
+    void handleRequest(request, response, referenceRoots);
   });
 
   await new Promise<void>((resolveServer, rejectServer) => {
@@ -43,6 +55,8 @@ export async function startPixelRenderServer(): Promise<PixelRenderServer> {
 
   return {
     origin: `http://127.0.0.1:${String(address.port)}`,
+    registerReferenceBook: async (bookId, bookBytes) =>
+      await registerReferenceBook(bookId, bookBytes, referenceRoots, address.port),
     close: () =>
       new Promise<void>((resolveClose, rejectClose) => {
         server.close((error) => {
@@ -53,7 +67,11 @@ export async function startPixelRenderServer(): Promise<PixelRenderServer> {
   };
 }
 
-async function handleRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
+async function handleRequest(
+  request: IncomingMessage,
+  response: ServerResponse,
+  referenceRoots: ReadonlyMap<string, string>,
+): Promise<void> {
   const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
   if (pathname === '/render.html') {
     sendHtml(response, renderHtml());
@@ -67,7 +85,32 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     await sendVendorFile(response, pathname.slice('/vendor/'.length));
     return;
   }
+  if (pathname.startsWith('/reference/')) {
+    await sendReferenceFile(response, referenceRoots, pathname.slice('/reference/'.length));
+    return;
+  }
   response.writeHead(404).end('Not found');
+}
+
+async function registerReferenceBook(
+  bookId: string,
+  bookBytes: Buffer,
+  referenceRoots: Map<string, string>,
+  port: number,
+): Promise<PixelReferenceBook> {
+  const root = resolve(PIXEL_REVIEW_REFERENCE_ROOT, safePathPart(bookId));
+  if (!referenceRoots.has(bookId)) {
+    await extractEpub(bookBytes, root);
+    referenceRoots.set(bookId, root);
+  }
+  const referenceContext = await resolveReferenceContext(root);
+  return {
+    bookId,
+    referenceUrl: (chapterHref) =>
+      `http://127.0.0.1:${String(port)}/reference/${encodeURIComponent(bookId)}/${encodePath(
+        resolveReferenceDocumentHref(referenceContext, chapterHref),
+      )}`,
+  };
 }
 
 async function sendDistFile(response: ServerResponse, relativePath: string): Promise<void> {
@@ -100,20 +143,148 @@ async function sendVendorFile(response: ServerResponse, relativePath: string): P
   }
 }
 
+async function sendReferenceFile(
+  response: ServerResponse,
+  referenceRoots: ReadonlyMap<string, string>,
+  relativePath: string,
+): Promise<void> {
+  const slashIndex = relativePath.indexOf('/');
+  if (slashIndex <= 0) {
+    response.writeHead(404).end('Not found');
+    return;
+  }
+  const bookId = decodeURIComponent(relativePath.slice(0, slashIndex));
+  const root = referenceRoots.get(bookId);
+  if (!root) {
+    response.writeHead(404).end('Not found');
+    return;
+  }
+  const pathPart = decodeURIComponent(relativePath.slice(slashIndex + 1));
+  const path = resolve(root, pathPart);
+  if (!isInside(root, path)) {
+    response.writeHead(403).end('Forbidden');
+    return;
+  }
+
+  try {
+    const body = await readFile(path);
+    response.writeHead(200, { 'content-type': contentType(path) }).end(body);
+  } catch {
+    response.writeHead(404).end('Not found');
+  }
+}
+
 function sendHtml(response: ServerResponse, html: string): void {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }).end(html);
 }
 
 function contentType(path: string): string {
-  switch (extname(path)) {
+  switch (extname(path).toLowerCase()) {
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.html':
+    case '.htm':
+    case '.xhtml':
+      return 'text/html; charset=utf-8';
     case '.js':
     case '.mjs':
       return 'text/javascript; charset=utf-8';
     case '.map':
       return 'application/json; charset=utf-8';
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.gif':
+      return 'image/gif';
+    case '.svg':
+      return 'image/svg+xml';
+    case '.otf':
+      return 'font/otf';
+    case '.ttf':
+      return 'font/ttf';
+    case '.woff':
+      return 'font/woff';
+    case '.woff2':
+      return 'font/woff2';
     default:
       return 'application/octet-stream';
   }
+}
+
+async function extractEpub(bookBytes: Buffer, extractedDir: string): Promise<void> {
+  await rm(extractedDir, { recursive: true, force: true });
+  await mkdir(extractedDir, { recursive: true });
+  const files = unzipSync(normalizedZipBytes(bookBytes));
+  await Promise.all(
+    Object.entries(files).map(async ([name, bytes]) => {
+      if (name.endsWith('/')) return;
+      const path = resolve(extractedDir, name);
+      if (!isInside(extractedDir, path)) throw new Error(`Path escapes EPUB root: ${name}`);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, bytes);
+    }),
+  );
+}
+
+async function resolveReferenceContext(
+  extractedDir: string,
+): Promise<{ readonly opfDirRelative: string }> {
+  const fallbackOpfPath = resolve(extractedDir, 'content.opf');
+  const containerPath = resolve(extractedDir, 'META-INF/container.xml');
+  let opfPath = fallbackOpfPath;
+
+  try {
+    const containerXml = await readFile(containerPath, 'utf8');
+    const rootfilePath = parseRootfilePath(containerXml);
+    if (rootfilePath) opfPath = resolve(extractedDir, rootfilePath);
+  } catch {
+    // Fall back to the package root for simple fixtures without a container file.
+  }
+
+  if (!isInside(extractedDir, opfPath)) throw new Error(`Path escapes EPUB root: ${opfPath}`);
+  return { opfDirRelative: toPosixRelative(extractedDir, dirname(opfPath)) };
+}
+
+function parseRootfilePath(containerXml: string): string | undefined {
+  const match = containerXml.match(/<rootfile\b[^>]*\bfull-path=(["'])([^"']+)\1/i);
+  return match?.[2];
+}
+
+function resolveReferenceDocumentHref(
+  referenceContext: { readonly opfDirRelative: string },
+  chapterHref: string,
+): string {
+  const normalized = chapterHref.replaceAll('\\', '/');
+  const opfDirRelative = referenceContext.opfDirRelative;
+  if (!opfDirRelative || normalized.startsWith(`${opfDirRelative}/`)) return normalized;
+  return `${opfDirRelative}/${normalized}`;
+}
+
+function normalizedZipBytes(bookBytes: Buffer): Uint8Array {
+  const localFileHeader = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+  const start = bookBytes.indexOf(localFileHeader);
+  if (start < 0) throw new Error('No ZIP local file header found in EPUB input');
+  return new Uint8Array(bookBytes.subarray(start));
+}
+
+function encodePath(path: string): string {
+  return path.split('/').map(encodeURIComponent).join('/');
+}
+
+function safePathPart(value: string): string {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, '-');
+}
+
+function toPosixRelative(root: string, path: string): string {
+  const pathRelative = relative(root, path);
+  if (!pathRelative) return '';
+  return pathRelative.split(sep).join('/');
+}
+
+function isInside(root: string, path: string): boolean {
+  return path === root || path.startsWith(`${root}${sep}`);
 }
 
 function renderHtml(): string {
@@ -183,6 +354,7 @@ function renderHtml(): string {
           spreads.push({
             spreadIndex,
             pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),
+            reference: referenceHint(reader, testRun.profile.spread, reader.spreads[spreadIndex]),
           });
         }
         const diagnostics = await collectRenderDiagnostics();
@@ -235,6 +407,49 @@ function renderHtml(): string {
       [0, 1, 2, lastFrontmatter, bodyStart, bodyMiddle, totalSpreads - 1],
       totalSpreads,
     );
+  }
+
+  function referenceHint(reader, spreadMode, spread) {
+    const page = spreadPage(spread, spreadMode);
+    if (!page) return undefined;
+    return {
+      pageIndex: page.index,
+      chapterHref: chapterHrefForPage(reader, page.index),
+      textPreview: pageTextPreview(page),
+    };
+  }
+
+  function spreadPage(spread, spreadMode) {
+    if (!spread) return undefined;
+    if (spreadMode === 'double') return spread.left;
+    return spread.left || spread.right;
+  }
+
+  function chapterHrefForPage(reader, pageIndex) {
+    for (const [idref, range] of reader.chapterMap || []) {
+      if (pageIndex >= range.startPage && pageIndex <= range.endPage) {
+        return reader.manifestHrefMap?.get(idref);
+      }
+    }
+    return undefined;
+  }
+
+  function pageTextPreview(page) {
+    const parts = [];
+    for (const block of page.content || []) collectBlockText(block, parts);
+    return parts.join('').replace(/\\s+/g, ' ').trim().slice(0, 240);
+  }
+
+  function collectBlockText(block, parts) {
+    for (const child of block.children || []) {
+      if (child.type === 'line-box') {
+        for (const run of child.runs || []) {
+          if (run.type === 'text-run') parts.push(run.text);
+        }
+      } else if (child.type === 'layout-block') {
+        collectBlockText(child, parts);
+      }
+    }
   }
 
   async function collectRenderDiagnostics() {

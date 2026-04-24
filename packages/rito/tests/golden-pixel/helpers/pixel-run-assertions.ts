@@ -18,7 +18,12 @@ import {
   writePixelGoldenSpread,
   writePixelGoldenSummary,
 } from './pixel-golden-file';
-import { pixelReviewCasePaths, writePixelReviewCase, type PixelReviewRecord } from './pixel-review';
+import {
+  pixelReviewCasePaths,
+  writePixelReviewCase,
+  type PixelReviewRecord,
+  type PixelReviewReferenceInput,
+} from './pixel-review';
 import { pixelSpreadIndexesForSelection } from './pixel-spread-selection';
 import { comparePng, type PixelDiffResult } from './png-diff';
 
@@ -28,10 +33,22 @@ export interface PixelRunRenderResult {
   readonly diagnostics?: PixelRunDiagnostics;
 }
 
-interface PixelRenderedSpread {
+export interface PixelRenderedSpread {
   readonly spreadIndex: number;
   readonly png: Buffer;
+  readonly reference?: PixelReferenceHint;
 }
+
+export interface PixelReferenceHint {
+  readonly pageIndex?: number;
+  readonly chapterHref?: string;
+  readonly textPreview?: string;
+}
+
+export type PixelReviewReferenceProvider = (
+  spread: PixelRenderedSpread,
+  testCase: PixelGoldenSpreadCase,
+) => Promise<PixelReviewReferenceInput | undefined>;
 
 export interface PixelRunDiagnostics {
   readonly userAgent: string;
@@ -76,12 +93,13 @@ export async function updatePixelRunGoldens(
 export async function reviewPixelRun(
   run: PixelGoldenRun,
   result: PixelRunRenderResult,
+  referenceProvider?: PixelReviewReferenceProvider,
 ): Promise<readonly PixelReviewRecord[]> {
   const records: PixelReviewRecord[] = [];
   for (const spread of result.spreads) {
     const testCase = createPixelSpreadCase(run, spread.spreadIndex, result.totalSpreads);
     const expected = await readPixelGoldenSpread(run, spread.spreadIndex);
-    records.push(await reviewPixelSpreadCase(testCase, expected, spread.png));
+    records.push(await reviewPixelSpreadCase(testCase, expected, spread, referenceProvider));
   }
   return records;
 }
@@ -211,24 +229,42 @@ async function findMatchingAlternative(
 async function reviewPixelSpreadCase(
   testCase: PixelGoldenSpreadCase,
   expected: Buffer | undefined,
-  actual: Buffer,
+  spread: PixelRenderedSpread,
+  referenceProvider: PixelReviewReferenceProvider | undefined,
 ): Promise<PixelReviewRecord> {
-  if (!expected) return await writePixelReviewCase({ testCase, actual });
+  const actual = spread.png;
+  if (!expected) {
+    const referenceInput = await referenceInputForSpread(spread, testCase, referenceProvider);
+    return await writePixelReviewCase({ testCase, actual, ...referenceInput });
+  }
 
   const paths = pixelReviewCasePaths(testCase);
   try {
     const diff = await comparePng(expected, actual, testCase, paths.diffPath, {
       writeDiffWhenEqual: true,
     });
-    return await writePixelReviewCase({ testCase, actual, expected, diff });
+    const referenceInput =
+      diff.diffPixels > 0 ? await referenceInputForSpread(spread, testCase, referenceProvider) : {};
+    return await writePixelReviewCase({ testCase, actual, expected, diff, ...referenceInput });
   } catch (error) {
+    const referenceInput = await referenceInputForSpread(spread, testCase, referenceProvider);
     return await writePixelReviewCase({
       testCase,
       actual,
       expected,
+      ...referenceInput,
       error: error instanceof Error ? error.message : String(error),
     });
   }
+}
+
+async function referenceInputForSpread(
+  spread: PixelRenderedSpread,
+  testCase: PixelGoldenSpreadCase,
+  referenceProvider: PixelReviewReferenceProvider | undefined,
+): Promise<{ readonly reference?: PixelReviewReferenceInput }> {
+  const reference = await referenceProvider?.(spread, testCase);
+  return reference ? { reference } : {};
 }
 
 async function writeOutput(path: string, content: Buffer): Promise<void> {

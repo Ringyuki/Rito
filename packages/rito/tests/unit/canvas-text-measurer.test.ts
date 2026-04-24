@@ -41,10 +41,32 @@ describe('createCanvasTextMeasurer', () => {
   it('adds manual word spacing to the advance width', () => {
     const ctx = {
       font: '',
+      wordSpacing: '12px',
+      letterSpacing: '12px',
       measureText: vi.fn(() => makeMetrics({ width: 30 })),
-    } satisfies Pick<CanvasRenderingContext2D, 'font' | 'measureText'>;
+    } satisfies Pick<
+      CanvasRenderingContext2D,
+      'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
+    >;
     const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
 
     expect(measurer.measureText('a b c', { ...PAINT, wordSpacingPx: 2 }).width).toBe(34);
+    expect(ctx.wordSpacing).toBe('0px');
+    expect(ctx.letterSpacing).toBe('0px');
+  });
+
+  it('adds manual letter spacing to the advance width', () => {
+    const ctx = {
+      font: '',
+      wordSpacing: '0px',
+      letterSpacing: '0px',
+      measureText: vi.fn(() => makeMetrics({ width: 30 })),
+    } satisfies Pick<
+      CanvasRenderingContext2D,
+      'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
+    >;
+    const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
+
+    expect(measurer.measureText('abc', { ...PAINT, letterSpacingPx: 2 }).width).toBe(34);
   });
 });

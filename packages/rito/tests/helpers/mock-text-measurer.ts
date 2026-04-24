@@ -12,7 +12,10 @@ export function createMockTextMeasurer(charWidthFactor = 0.6): CachedTextMeasure
     measureText(text: string, paint: MeasurePaint): TextMetrics {
       const sizePx = paint.font.sizePx;
       return {
-        width: text.length * sizePx * charWidthFactor,
+        width:
+          text.length * sizePx * charWidthFactor +
+          countAsciiSpaces(text) * (paint.wordSpacingPx ?? 0) +
+          countLetterSpacingGaps(text) * (paint.letterSpacingPx ?? 0),
         height: sizePx,
       };
     },
@@ -20,4 +23,17 @@ export function createMockTextMeasurer(charWidthFactor = 0.6): CachedTextMeasure
       // No-op for mock measurer.
     },
   };
+}
+
+function countAsciiSpaces(text: string): number {
+  let count = 0;
+  for (let index = 0; index < text.length; index++) {
+    if (text[index] === ' ') count++;
+  }
+  return count;
+}
+
+function countLetterSpacingGaps(text: string): number {
+  const units = Array.from(text).length;
+  return units > 1 ? units - 1 : 0;
 }

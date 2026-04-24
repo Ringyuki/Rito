@@ -42,7 +42,7 @@ describe('fontShorthandFromStyle', () => {
 });
 
 describe('measurePaintFromStyle', () => {
-  it('omits wordSpacingPx when wordSpacing is 0', () => {
+  it('omits spacing keys when spacing is 0', () => {
     const paint = measurePaintFromStyle(DEFAULT_STYLE);
     expect(paint).toEqual({
       font: {
@@ -53,6 +53,7 @@ describe('measurePaintFromStyle', () => {
       },
     });
     expect('wordSpacingPx' in paint).toBe(false);
+    expect('letterSpacingPx' in paint).toBe(false);
   });
 
   it('includes wordSpacingPx when wordSpacing is non-zero', () => {
@@ -63,5 +64,10 @@ describe('measurePaintFromStyle', () => {
   it('negative wordSpacing is forwarded verbatim', () => {
     const paint = measurePaintFromStyle({ ...DEFAULT_STYLE, wordSpacing: -2 });
     expect(paint.wordSpacingPx).toBe(-2);
+  });
+
+  it('includes letterSpacingPx when letterSpacing is non-zero', () => {
+    const paint = measurePaintFromStyle({ ...DEFAULT_STYLE, letterSpacing: 1.5 });
+    expect(paint.letterSpacingPx).toBe(1.5);
   });
 });

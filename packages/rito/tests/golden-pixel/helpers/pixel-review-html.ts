@@ -2,21 +2,28 @@ import { pixelReviewCss } from './pixel-review-assets';
 import { pixelReviewScript } from './pixel-review-script';
 import {
   groupRecordsByBook,
-  initialSelectedGroup,
   isProblemRecord,
   summaryText,
   type BookReviewGroup,
-  type RunReviewGroup,
-  type SelectedReviewGroup,
 } from './pixel-review-groups';
-import type { PixelReviewRecord } from './pixel-review';
+import type { PixelReviewRecord, PixelReviewStatus } from './pixel-review';
+
+const REVIEW_STATUSES: readonly PixelReviewStatus[] = ['fail', 'error', 'missing', 'warn', 'pass'];
 
 export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): string {
   const sorted = [...records].sort(compareReviewRecords);
   const groups = groupRecordsByBook(sorted);
   const problems = sorted.filter(isProblemRecord);
-  const selected = initialSelectedGroup(groups);
+  const selectedCase = problems[0] ?? sorted[0];
   const title = `Rito Pixel Review (${String(sorted.length)} cases)`;
+  const reviewData = {
+    records: sorted,
+    selected: {
+      activeId: selectedCase?.id ?? '',
+    },
+    defaultProblemsOnly: problems.length > 0,
+  };
+
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -26,200 +33,118 @@ export function renderPixelReviewHtml(records: readonly PixelReviewRecord[]): st
   <style>${pixelReviewCss()}</style>
 </head>
 <body>
-  <header class="top" id="top">
-    <h1>Rito Pixel Review</h1>
-    <p>${escapeHtml(summaryText(sorted))}</p>
-  </header>
-  <nav class="nav-panel" aria-label="Pixel review navigation">
-    <section class="nav-section">
-      <h2>Problem Cases</h2>
-      ${renderProblemList(problems)}
-    </section>
-    <section class="nav-section">
-      <h2>Books</h2>
-      <div class="book-links">${groups
-        .map((group) => renderBookButton(group, selected.bookId))
-        .join('')}</div>
-    </section>
-  </nav>
-  <main class="books">
-    ${groups.map((group) => renderBookGroup(group, selected)).join('\n')}
-  </main>
-  <button class="top-button" type="button" data-scroll-top>Top</button>
+  <div class="review-app" data-review-app>
+    <aside class="review-sidebar" aria-label="Pixel review case navigation">
+      <header class="review-title">
+        <h1>Rito Pixel Review</h1>
+        <p>${escapeHtml(summaryText(sorted))}</p>
+      </header>
+
+      <section class="review-controls" aria-label="Filters">
+        <label class="search-box">
+          <span>Search</span>
+          <input data-search type="search" placeholder="book, profile, spread, status" />
+        </label>
+        <div class="status-filters" aria-label="Status filters">
+          ${REVIEW_STATUSES.map((status) => renderStatusButton(status, sorted)).join('')}
+        </div>
+        <label class="problem-toggle">
+          <input data-problems-only type="checkbox" ${problems.length > 0 ? 'checked' : ''} />
+          <span>Non-pass only</span>
+        </label>
+      </section>
+
+      <section class="book-filter" aria-label="Books">
+        <button class="book-chip is-active" type="button" data-book-filter="">All books</button>
+        ${groups.map((group) => renderBookChip(group)).join('')}
+      </section>
+
+      <section class="run-filter" aria-label="Runs">
+        <div class="section-label">Runs</div>
+        <div class="run-filter-list" data-run-filter-list></div>
+      </section>
+
+      <section class="queue-panel" aria-label="Cases">
+        <header class="queue-header">
+          <strong data-queue-count>0 cases</strong>
+          <span data-current-position></span>
+        </header>
+        <ol class="case-queue" data-case-list></ol>
+      </section>
+    </aside>
+
+    <main class="review-stage">
+      <header class="stage-toolbar">
+        <div class="case-heading">
+          <span class="case-status" data-case-status>Ready</span>
+          <div>
+            <h2 data-case-title>No case selected</h2>
+            <p data-case-subtitle></p>
+          </div>
+        </div>
+        <div class="stage-actions">
+          <button type="button" data-prev-case>Prev</button>
+          <button type="button" data-next-case>Next</button>
+          <div class="mode-tabs" aria-label="Image mode">
+            <button type="button" data-view-mode="overlay">Overlay</button>
+            <button type="button" data-view-mode="compare">Compare</button>
+            <button type="button" data-view-mode="reference">Reference</button>
+            <button type="button" data-view-mode="diff">Diff</button>
+            <button type="button" data-view-mode="actual">Actual</button>
+            <button type="button" data-view-mode="expected">Expected</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="stage-body">
+        <section class="viewer-panel" data-viewer aria-label="Image review area"></section>
+        <aside class="inspector" aria-label="Case details">
+          <dl data-metrics></dl>
+          <div class="tag-list" data-tags></div>
+          <p class="case-error" data-error hidden></p>
+        </aside>
+      </section>
+    </main>
+  </div>
+  <script id="review-data" type="application/json">${escapeScriptJson(
+    JSON.stringify(reviewData),
+  )}</script>
   <script>${pixelReviewScript()}</script>
 </body>
 </html>
 `;
 }
 
-function renderProblemList(records: readonly PixelReviewRecord[]): string {
-  if (records.length === 0) {
-    return '<p class="empty">No non-pass cases.</p>';
-  }
-  return `<ol class="problem-list">${records.map(renderProblemLink).join('')}</ol>`;
+function renderStatusButton(
+  status: PixelReviewStatus,
+  records: readonly PixelReviewRecord[],
+): string {
+  const count = records.filter((record) => record.status === status).length;
+  return `<button class="status-filter status-${status} is-active" type="button" data-status-filter="${status}">
+  <span>${escapeHtml(status)}</span>
+  <strong>${String(count)}</strong>
+</button>`;
 }
 
-function renderProblemLink(record: PixelReviewRecord): string {
-  return `<li>
-  <a class="problem-link status-${record.status}" href="#${caseAnchor(
-    record.id,
-  )}" data-book-target="${escapeHtml(record.bookId)}" data-run-target="${escapeHtml(record.runId)}">
-    <span>${escapeHtml(record.status.toUpperCase())}</span>
-    <strong>${escapeHtml(record.id)}</strong>
-    <em>${escapeHtml(diffText(record))}</em>
-  </a>
-</li>`;
-}
-
-function renderBookButton(group: BookReviewGroup, selectedBookId: string | undefined): string {
-  const problemClass = group.problemCount > 0 ? 'book-link-problem' : 'book-link-pass';
-  const activeClass = group.bookId === selectedBookId ? ' is-active' : '';
-  return `<button class="book-link ${problemClass}${activeClass}" type="button" data-book-target="${escapeHtml(
+function renderBookChip(group: BookReviewGroup): string {
+  const problemClass = group.problemCount > 0 ? 'has-problems' : 'is-clean';
+  return `<button class="book-chip ${problemClass}" type="button" data-book-filter="${escapeHtml(
     group.bookId,
   )}">
   <strong>${escapeHtml(group.bookId)}</strong>
-  <span>${String(group.records.length)} cases</span>
-  <em>${String(group.problemCount)} non-pass</em>
+  <span>${String(group.problemCount)} / ${String(group.records.length)}</span>
 </button>`;
-}
-
-function renderBookGroup(group: BookReviewGroup, selected: SelectedReviewGroup): string {
-  const activeClass = group.bookId === selected.bookId ? ' is-active' : '';
-  return `<section class="book-view${activeClass}" id="${bookAnchor(
-    group.bookId,
-  )}" data-book-panel="${escapeHtml(group.bookId)}">
-  <header class="book-header">
-    <strong>${escapeHtml(group.bookId)}</strong>
-    <span>${String(group.records.length)} cases / ${escapeHtml(summaryText(group.records))}</span>
-  </header>
-  <div class="run-links">${group.runs.map((run) => renderRunButton(run, selected)).join('')}</div>
-  <div class="book-cases">
-    ${group.runs.map((run) => renderRunGroup(run, selected)).join('\n')}
-  </div>
-</section>`;
-}
-
-function renderRunButton(run: RunReviewGroup, selected: SelectedReviewGroup): string {
-  const activeClass = run.runId === selected.runId ? ' is-active' : '';
-  const problemClass = run.problemCount > 0 ? 'run-link-problem' : 'run-link-pass';
-  return `<button class="run-link ${problemClass}${activeClass}" type="button" data-book-target="${escapeHtml(
-    run.records[0]?.bookId ?? '',
-  )}" data-run-target="${escapeHtml(run.runId)}">
-  <strong>${escapeHtml(run.profileId)}</strong>
-  <span>${escapeHtml(run.lineBreaking)}</span>
-  <em>${String(run.problemCount)} non-pass</em>
-</button>`;
-}
-
-function renderRunGroup(run: RunReviewGroup, selected: SelectedReviewGroup): string {
-  const activeClass = run.runId === selected.runId ? ' is-active' : '';
-  return `<section class="run-view${activeClass}" data-run-panel="${escapeHtml(run.runId)}">
-  ${run.records.map(renderReviewCard).join('\n')}
-</section>`;
-}
-
-function renderReviewCard(record: PixelReviewRecord): string {
-  const images = renderImages(record);
-  return `<article id="${caseAnchor(record.id)}" class="case case-${record.status}">
-  <header class="case-header">
-    <div>
-      <h2>${escapeHtml(record.id)}</h2>
-      <p>${escapeHtml(caseSubtitle(record))}</p>
-    </div>
-    <span class="status">${escapeHtml(record.status.toUpperCase())}</span>
-  </header>
-  <dl class="metrics">${renderMetrics(record)}</dl>
-  <div class="tags">${record.tags.map(renderTag).join('')}</div>
-  ${record.error ? `<p class="error">${escapeHtml(record.error)}</p>` : ''}
-  ${images}
-</article>`;
-}
-
-function renderImages(record: PixelReviewRecord): string {
-  if (!record.expectedPath) {
-    return `<section class="single-image">${imageHtml('Actual', record.actualPath)}</section>`;
-  }
-  if (!record.diffPath) {
-    return `<section class="image-grid">
-  ${imageHtml('Expected', record.expectedPath)}
-  ${imageHtml('Actual', record.actualPath)}
-</section>`;
-  }
-  return `<section class="image-grid">
-  ${imageHtml('Expected', record.expectedPath)}
-  ${imageHtml('Actual', record.actualPath)}
-  ${imageHtml('Diff', record.diffPath)}
-</section>
-<section class="overlay" data-overlay>
-  <img class="overlay-base" src="${escapeHtml(record.expectedPath)}" alt="Expected ${escapeHtml(
-    record.id,
-  )}" />
-  <div class="overlay-actual" data-overlay-actual>
-    <img src="${escapeHtml(record.actualPath)}" alt="Actual ${escapeHtml(record.id)}" />
-  </div>
-  <input data-overlay-slider type="range" min="0" max="100" value="50" />
-</section>`;
-}
-
-function imageHtml(label: string, path: string): string {
-  return `<figure><figcaption>${escapeHtml(label)}</figcaption><img src="${escapeHtml(
-    path,
-  )}" alt="${escapeHtml(label)}" loading="lazy" /></figure>`;
-}
-
-function renderMetrics(record: PixelReviewRecord): string {
-  return [
-    metricHtml('Book', record.bookId),
-    metricHtml('Profile', record.profileId),
-    metricHtml('Spread', `${String(record.spreadIndex)} / ${String(record.totalSpreads)}`),
-    metricHtml(
-      'Viewport',
-      `${String(record.width)}x${String(record.height)} @${String(record.devicePixelRatio)}x`,
-    ),
-    metricHtml('Spread mode', record.spread),
-    metricHtml('Line breaking', record.lineBreaking),
-    metricHtml('Diff', diffText(record)),
-    metricHtml('Limit', ratioText(record.maxDiffPixelRatio)),
-  ].join('');
-}
-
-function metricHtml(label: string, value: string): string {
-  return `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(value)}</dd></div>`;
-}
-
-function renderTag(tag: string): string {
-  return `<span>${escapeHtml(tag)}</span>`;
-}
-
-function caseSubtitle(record: PixelReviewRecord): string {
-  return `${record.bookId} / ${record.profileId} / ${record.lineBreaking} / spread ${String(
-    record.spreadIndex,
-  )}`;
-}
-
-function diffText(record: PixelReviewRecord): string {
-  if (record.diffPixels === undefined || record.diffRatio === undefined) return 'n/a';
-  return `${String(record.diffPixels)} px (${ratioText(record.diffRatio)})`;
-}
-
-function ratioText(value: number): string {
-  return `${(value * 100).toFixed(3)}%`;
 }
 
 function compareReviewRecords(left: PixelReviewRecord, right: PixelReviewRecord): number {
+  const severity = statusSeverity(left.status) - statusSeverity(right.status);
+  if (severity !== 0) return severity;
   return left.id.localeCompare(right.id);
 }
 
-function bookAnchor(bookId: string): string {
-  return `book-${safeAnchorPart(bookId)}`;
-}
-
-function caseAnchor(caseId: string): string {
-  return `case-${safeAnchorPart(caseId)}`;
-}
-
-function safeAnchorPart(value: string): string {
-  return value.replace(/[^a-zA-Z0-9_-]+/g, '-');
+function statusSeverity(status: PixelReviewStatus): number {
+  const index = REVIEW_STATUSES.indexOf(status);
+  return index === -1 ? REVIEW_STATUSES.length : index;
 }
 
 function escapeHtml(value: string): string {
@@ -229,4 +154,8 @@ function escapeHtml(value: string): string {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function escapeScriptJson(value: string): string {
+  return value.replaceAll('<', '\\u003c');
 }
