@@ -14,6 +14,7 @@ const CASE_ROOT = resolve(PACKAGE_ROOT, 'test-results/render-diagnostics/cases')
 const require = createRequire(import.meta.url);
 const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
 const FFLATE_BROWSER_PATH = resolve(FFLATE_ROOT, 'esm/browser.js');
+const CSS_LINE_BREAK_PATH = require.resolve('css-line-break/dist/css-line-break.es5.js');
 
 const PROFILES = new Map([
   [
@@ -195,13 +196,33 @@ async function captureBrowserReference(
   await applyBrowserReferencePageFrame(page, profile);
 
   const selector = readOptionalString(location?.selector);
-  if (selector) {
-    await page
-      .locator(selector)
-      .first()
-      .scrollIntoViewIfNeeded()
-      .catch(() => undefined);
-  }
+  const text = readOptionalString(location?.text);
+  await page.evaluate(
+    ({ selector, text, margin }) => {
+      const target = findReferenceTarget(selector, text);
+      if (!target) return;
+      const targetTop = Number(target.getBoundingClientRect().top) + window.scrollY;
+      const marginPx = Number(margin);
+      window.scrollTo({ left: 0, top: Math.max(0, targetTop - marginPx) });
+
+      function findReferenceTarget(selector, text) {
+        if (selector) return document.querySelector(selector);
+        if (!text) return document.body;
+        const candidates = Array.from(document.body.querySelectorAll('*')).filter(
+          (element) => element.id !== '__rito_diag_page__' && element.textContent?.includes(text),
+        );
+        return (
+          candidates.find(
+            (element) =>
+              !Array.from(element.children).some((child) => child.textContent?.includes(text)),
+          ) ||
+          candidates.at(-1) ||
+          document.body
+        );
+      }
+    },
+    { selector, text, margin: profile.margin },
+  );
 
   await page.screenshot({ path: resolve(browserDir, 'reference.png') });
 
@@ -227,10 +248,16 @@ async function captureBrowserReference(
       function findReferenceTarget(selector, text) {
         if (selector) return document.querySelector(selector);
         if (!text) return document.body;
+        const candidates = Array.from(document.body.querySelectorAll('*')).filter(
+          (element) => element.id !== '__rito_diag_page__' && element.textContent?.includes(text),
+        );
         return (
-          Array.from(document.body.querySelectorAll('*')).find((element) =>
-            element.textContent?.includes(text),
-          ) || document.body
+          candidates.find(
+            (element) =>
+              !Array.from(element.children).some((child) => child.textContent?.includes(text)),
+          ) ||
+          candidates.at(-1) ||
+          document.body
         );
       }
 
@@ -308,7 +335,7 @@ async function captureBrowserReference(
     },
     {
       selector,
-      text: readOptionalString(location?.text),
+      text,
     },
   );
 
@@ -427,6 +454,10 @@ async function handleDiagnosticRequest(referenceRoot, requestUrl, response) {
   }
   if (pathname === '/vendor/fflate/browser.js') {
     await sendAbsoluteFile(response, FFLATE_BROWSER_PATH);
+    return;
+  }
+  if (pathname === '/vendor/css-line-break.js') {
+    await sendAbsoluteFile(response, CSS_LINE_BREAK_PATH);
     return;
   }
   if (pathname.startsWith('/reference/')) {
@@ -648,6 +679,7 @@ function renderHtml() {
 <script type="importmap">
   {
     "imports": {
+      "css-line-break": "/vendor/css-line-break.js",
       "fflate": "/vendor/fflate/browser.js"
     }
   }

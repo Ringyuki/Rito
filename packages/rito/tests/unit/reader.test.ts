@@ -77,6 +77,7 @@ describe('createReader', () => {
       expect(typeof reader.renderSpread).toBe('function');
       expect(typeof reader.resize).toBe('function');
       expect(typeof reader.setSpreadMode).toBe('function');
+      expect(typeof reader.setLineBreaking).toBe('function');
       expect(typeof reader.updateLayout).toBe('function');
       expect(typeof reader.setTheme).toBe('function');
       expect(typeof reader.findPage).toBe('function');
@@ -335,6 +336,34 @@ describe('createReader', () => {
       expect(reader.totalSpreads).toBe(reader.pages.length);
       expect(reader.updateLayout(800, 600)).toBe(true);
       expect(reader.totalSpreads).toBeLessThanOrEqual(reader.pages.length);
+    });
+  });
+
+  describe('setLineBreaking', () => {
+    it('re-paginates when the line-breaking algorithm changes', async () => {
+      const reader = await buildReader({
+        epubOptions: {
+          chapters: [
+            {
+              id: 'ch1',
+              href: 'ch1.xhtml',
+              content: xhtml('<p>Short words and longer phrases exercise line breaking.</p>'),
+            },
+          ],
+        },
+        readerOptions: { lineBreaking: 'greedy' },
+      });
+
+      expect(reader.setLineBreaking('optimal')).toBe(true);
+      expect(reader.spreads.length).toBe(reader.totalSpreads);
+    });
+
+    it('does not re-paginate when the requested line-breaking algorithm is already active', async () => {
+      const reader = await buildReader({
+        readerOptions: { lineBreaking: 'optimal' },
+      });
+
+      expect(reader.setLineBreaking('optimal')).toBe(false);
     });
   });
 

@@ -9,12 +9,15 @@ export function buildLayoutActions(
   return {
     resize(w: number, h: number, margin?: number): void {
       const changed = internals.reader.updateLayout(w, h, undefined, margin);
-      if (!changed) return;
-      emitLayoutChange(internals, emitter, runtime);
+      refreshLayoutWhenChanged(changed, internals, emitter, runtime);
     },
     setSpreadMode(mode: 'single' | 'double'): void {
       internals.reader.setSpreadMode(mode);
       emitLayoutChange(internals, emitter, runtime);
+    },
+    setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean {
+      const changed = internals.reader.setLineBreaking(lineBreaking);
+      return refreshLayoutWhenChanged(changed, internals, emitter, runtime);
     },
     setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
       internals.reader.setTheme(opts);
@@ -29,9 +32,7 @@ export function buildLayoutActions(
       fontFamilyForce?: boolean;
     }): boolean {
       const changed = internals.reader.setTypography(opts);
-      if (!changed) return false;
-      emitLayoutChange(internals, emitter, runtime);
-      return true;
+      return refreshLayoutWhenChanged(changed, internals, emitter, runtime);
     },
     setRenderScale(scale: number): void {
       if (scale === internals.renderScale) return;
@@ -47,6 +48,17 @@ export function buildLayoutActions(
       return internals.renderScale;
     },
   };
+}
+
+function refreshLayoutWhenChanged(
+  changed: boolean,
+  internals: Internals,
+  emitter: Emitter,
+  runtime: RuntimeComponents,
+): boolean {
+  if (!changed) return false;
+  emitLayoutChange(internals, emitter, runtime);
+  return true;
 }
 
 function emitLayoutChange(

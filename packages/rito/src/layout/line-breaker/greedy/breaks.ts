@@ -205,14 +205,10 @@ function tryHyphenation(
   style: ComputedStyle,
   measurer: TextMeasurer,
 ): number {
-  let wordStart = fitPos;
-  while (wordStart > start && text[wordStart - 1] !== ' ') wordStart--;
+  const word = findHyphenationWord(text, start, fitPos);
+  if (!word) return 0;
 
-  let wordEnd = fitPos;
-  while (wordEnd < text.length && text[wordEnd] !== ' ') wordEnd++;
-
-  const word = text.slice(wordStart, wordEnd);
-  const points = findHyphenationPoints(word);
+  const points = findHyphenationPoints(word.text);
   if (points.length === 0) return 0;
 
   const paint = measurePaintFromStyle(style);
@@ -220,7 +216,7 @@ function tryHyphenation(
     const point = points[index];
     if (point === undefined) continue;
 
-    const breakAt = wordStart + point;
+    const breakAt = word.start + point;
     if (breakAt <= start || breakAt >= fitPos + 2) continue;
 
     const candidate = text.slice(start, breakAt) + '-';
@@ -230,4 +226,26 @@ function tryHyphenation(
   }
 
   return 0;
+}
+
+function findHyphenationWord(
+  text: string,
+  lineStart: number,
+  fitPos: number,
+): { readonly start: number; readonly text: string } | undefined {
+  if (fitPos <= lineStart || !isAsciiLetter(text.charCodeAt(fitPos - 1))) return undefined;
+
+  let wordStart = fitPos;
+  while (wordStart > lineStart && isAsciiLetter(text.charCodeAt(wordStart - 1))) wordStart--;
+
+  let wordEnd = fitPos;
+  while (wordEnd < text.length && isAsciiLetter(text.charCodeAt(wordEnd))) wordEnd++;
+
+  return wordEnd > wordStart
+    ? { start: wordStart, text: text.slice(wordStart, wordEnd) }
+    : undefined;
+}
+
+function isAsciiLetter(code: number): boolean {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
 }

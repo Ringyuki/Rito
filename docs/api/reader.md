@@ -44,6 +44,7 @@ Use this when you want the normal app-facing API instead of assembling the pipel
 | `renderSpreadTo(index, ctx)`                        | Render to any 2D context                         |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
+| `setLineBreaking(lineBreaking)`                     | Re-paginate with a new line-breaking strategy    |
 | `updateLayout(width, height, spreadMode?, margin?)` | Update viewport and spread settings in one pass  |
 | `getCanvasSize(scale?)`                             | Return CSS canvas size for the current layout    |
 | `getLayoutGeometry()`                               | Return the active `LayoutConfig`                 |

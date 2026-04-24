@@ -3074,7 +3074,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 166,
-            "hash": "2e4ce19218f6cecd",
+            "hash": "31de6fea2408f6f7",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -3290,8 +3290,8 @@
               {
                 "args": [
                   {
-                    "hash": "0e40d6758f63f0b7",
-                    "length": 18
+                    "hash": "26c816a93929622d",
+                    "length": 28
                   },
                   60,
                   84
@@ -3327,8 +3327,8 @@
               {
                 "args": [
                   {
-                    "hash": "346d4bd0bd02f6cb",
-                    "length": 29
+                    "hash": "e695a7b2c2014aa2",
+                    "length": 19
                   },
                   28,
                   103.2
@@ -4134,7 +4134,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 166,
-            "hash": "a1c2546dc8f13f4d",
+            "hash": "98c2468b142f3be8",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -4350,8 +4350,8 @@
               {
                 "args": [
                   {
-                    "hash": "0e40d6758f63f0b7",
-                    "length": 18
+                    "hash": "26c816a93929622d",
+                    "length": 28
                   },
                   60,
                   84
@@ -4387,8 +4387,8 @@
               {
                 "args": [
                   {
-                    "hash": "346d4bd0bd02f6cb",
-                    "length": 29
+                    "hash": "e695a7b2c2014aa2",
+                    "length": 19
                   },
                   28,
                   103.2

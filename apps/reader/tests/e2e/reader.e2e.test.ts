@@ -81,6 +81,10 @@ test.describe('reader app', () => {
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-spread-mode', 'single');
     await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(5);
 
+    await page.getByRole('button', { name: 'Greedy' }).click();
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-line-breaking', 'greedy');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(5);
+
     await page.getByRole('button', { name: 'Dark' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-theme', 'dark');
   });

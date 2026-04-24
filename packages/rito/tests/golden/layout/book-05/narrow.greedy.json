@@ -1878,7 +1878,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "504b84a7673daa71",
+      "detailHash": "ebb4f24423557e49",
       "firstText": "我刚以问句回应那个令人一头雾水的单字，随后的一瞬间──",
       "index": 106,
       "lastText": "不起来我就要生气了。」"
@@ -2223,7 +2223,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bb24eb01fe21ea9f",
+      "detailHash": "7229c7be9fae2495",
       "firstText": "传来的对话声是属于男性的。",
       "index": 129,
       "lastText": "亲。」"
@@ -2703,7 +2703,7 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "7988c68a380e1de2",
+      "detailHash": "744a74edbd8b0776",
       "firstText": "第十二话 危险×课程",
       "index": 161,
       "lastText": "哈哈哈，这家伙。"
@@ -3419,11 +3419,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 15,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 15
       },
-      "detailHash": "b3d4338fa2c68939",
+      "detailHash": "f611b918ded25c41",
       "firstText": "条世界线的博道就已经沦陷了（笑）。而第二集将会进一步描写两人无",
       "index": 209,
       "lastText": "在第二集的后记相见。海空りく在此感谢大家。"
@@ -3434,16 +3434,16 @@
     "chapterCount": 24,
     "chapterTextIndexCount": 24,
     "footnoteCount": 1,
-    "fullDetailHash": "6aa1d6b97d6b4a63",
+    "fullDetailHash": "9246e1d7beca41c7",
     "pageCount": 210,
     "totals": {
       "blocks": 3280,
       "hrs": 0,
       "images": 15,
       "inlineAtoms": 0,
-      "lines": 4202,
+      "lines": 4201,
       "ruby": 0,
-      "textRuns": 4208
+      "textRuns": 4207
     }
   },
   "samples": [
@@ -23818,9 +23818,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 1.809
+                    "letterSpacingPx": 0.119
                   },
-                  "text": "「哥哥你今天为什么比平常肉麻1.5倍？那High",
+                  "text": "「哥哥你今天为什么比平常肉麻1.5倍？那High翻的情绪",
                   "type": "text-run"
                 }
               ],
@@ -23837,7 +23837,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 86.4,
+                    "width": 48,
                     "x": 0,
                     "y": 2.4
                   },
@@ -23853,7 +23853,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "翻的情绪是怎样？」",
+                  "text": "是怎样？」",
                   "type": "text-run"
                 }
               ],
@@ -28218,7 +28218,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 62.4,
+            "height": 41.6,
             "width": 304,
             "x": 0,
             "y": 267.2
@@ -28250,9 +28250,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 19.556
+                    "letterSpacingPx": 0.119
                   },
-                  "text": "同样感谢核准本企划的",
+                  "text": "同样感谢核准本企划的GA编辑部与责任编辑。虽然对于纯爱的",
                   "type": "text-run"
                 }
               ],
@@ -28269,41 +28269,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 304,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.213
-                  },
-                  "text": "GA编辑部与责任编辑。虽然对于纯爱的定义我们分道扬镳了！但接下",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 41.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 96,
+                    "width": 220.8,
                     "x": 0,
                     "y": 2.4
                   },
@@ -28319,7 +28285,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "来也请各位多多照顾。",
+                  "text": "定义我们分道扬镳了！但接下来也请各位多多照顾。",
                   "type": "text-run"
                 }
               ],
@@ -28339,7 +28305,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 336
+            "y": 315.2
           },
           "children": [
             {
@@ -28428,9 +28394,9 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 15,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 15
       },
       "firstText": "条世界线的博道就已经沦陷了（笑）。而第二集将会进一步描写两人无",
       "index": 209,

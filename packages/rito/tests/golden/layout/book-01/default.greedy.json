@@ -1591,18 +1591,18 @@
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 22,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
-        "lines": 26,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 23
       },
-      "detailHash": "140aabdf5dcf347f",
+      "detailHash": "601704f4124dc88f",
       "firstText": "我们高中一个年级有六个班级，每个班级38个人……所以一个年级就有228人。",
       "index": 82,
-      "lastText": "「果然要写的话还是这个啊」"
+      "lastText": "「温水，碍、碍事」"
     },
     {
       "counts": {
@@ -1614,10 +1614,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "2604bf60df0035af",
-      "firstText": "「温水，碍、碍事」",
+      "detailHash": "345f3c00a3207415",
+      "firstText": "一个娇小的少女突然推开了我。",
       "index": 83,
-      "lastText": "「欸？」"
+      "lastText": "啊，还真是。而且都出到第五卷了。"
     },
     {
       "counts": {
@@ -1629,23 +1629,23 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c4d5bfb2aa653d31",
-      "firstText": "啊，还真是。而且都出到第五卷了。",
+      "detailHash": "999c380be3bd17a5",
+      "firstText": "啊，都已经有了啊。我所想的新刊，明明主人公都已经娶了第六个老婆了。",
       "index": 84,
-      "lastText": "「我又、又不是温水那样撞车」"
+      "lastText": "「小鞠你跟我不是差不多吗」"
     },
     {
       "counts": {
-        "blocks": 26,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "711bb52bb290560d",
-      "firstText": "「小鞠你跟我不是差不多吗」",
+      "detailHash": "84182ee67fee0bcb",
+      "firstText": "「直、直接、叫我的名字！？」",
       "index": 85,
       "lastText": "小鞠啪地扔下包瞬间远离了我。她满脸通红小声地挤出了一句话。"
     },
@@ -3275,11 +3275,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 23
       },
-      "detailHash": "1a83f473685fd4f0",
+      "detailHash": "90f526b3b2d83192",
       "firstText": "后记",
       "index": 194,
       "lastText": "最后。将这本书献给我在以前以轻小说作家为目标而没工作的时候，什么也没说就将我留在家里的在天国的父亲。"
@@ -3530,16 +3530,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 26,
-    "fullDetailHash": "5aff92064da11206",
+    "fullDetailHash": "f6e7e5afeea46c4a",
     "pageCount": 211,
     "totals": {
       "blocks": 4552,
       "hrs": 0,
       "images": 110,
       "inlineAtoms": 87,
-      "lines": 4753,
+      "lines": 4749,
       "ruby": 0,
-      "textRuns": 4616
+      "textRuns": 4612
     }
   },
   "samples": [
@@ -19017,7 +19017,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 76.8,
+            "height": 38.4,
             "width": 520,
             "x": 0,
             "y": 493.4
@@ -19034,7 +19034,7 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 9.6,
+                    "width": 480,
                     "x": 32,
                     "y": 1.6
                   },
@@ -19050,7 +19050,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "在",
+                  "text": "在web上发表作品时期的读者们。从你们那里获得的感想以及评价锻炼了我作为一名写手的基础。从今往后也请",
                   "type": "text-run"
                 }
               ],
@@ -19067,7 +19067,7 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 28.8,
+                    "width": 144,
                     "x": 0,
                     "y": 1.6
                   },
@@ -19083,73 +19083,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "web",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 19.2,
-                "width": 520,
-                "x": 0,
-                "y": 38.4
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 19.2,
-                    "width": 518.4,
-                    "x": 0,
-                    "y": 1.6
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 19.2,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "上发表作品时期的读者们。从你们那里获得的感想以及评价锻炼了我作为一名写手的基础。从今往后也请作为读者以及写手",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 19.2,
-                "width": 520,
-                "x": 0,
-                "y": 57.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 19.2,
-                    "width": 67.2,
-                    "x": 0,
-                    "y": 1.6
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 19.2,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "一起携手共进。",
+                  "text": "作为读者以及写手一起携手共进。",
                   "type": "text-run"
                 }
               ],
@@ -19169,7 +19103,7 @@
             "height": 38.4,
             "width": 520,
             "x": 0,
-            "y": 578.2
+            "y": 539.8
           },
           "children": [
             {
@@ -19252,7 +19186,7 @@
             "height": 19.2,
             "width": 520,
             "x": 0,
-            "y": 624.6
+            "y": 586.2
           },
           "children": [
             {
@@ -19302,7 +19236,7 @@
             "height": 19.2,
             "width": 520,
             "x": 0,
-            "y": 651.8
+            "y": 613.4
           },
           "children": [
             {
@@ -19357,9 +19291,9 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 23
       },
       "firstText": "后记",
       "index": 194,

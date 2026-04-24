@@ -47,6 +47,7 @@ export function Reader({
       data-book-title={reader.bookTitle}
       data-active-chapter-href={reader.activeChapterHref}
       data-spread-mode={reader.spreadMode}
+      data-line-breaking={reader.lineBreaking}
       data-theme={theme}
       data-search-query={reader.search.query}
       data-search-results={reader.search.results.length}

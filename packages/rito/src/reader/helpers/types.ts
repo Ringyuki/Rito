@@ -7,6 +7,7 @@ export type SpreadRenderedCallback = (spreadIndex: number, spread: Spread) => vo
 export interface ReaderState {
   readonly logger: Logger;
   spreadMode: 'single' | 'double';
+  lineBreaking: 'greedy' | 'optimal';
   bgColor: string;
   fgColor: string | undefined;
   dpr: number;

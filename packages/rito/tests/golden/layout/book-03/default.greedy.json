@@ -811,7 +811,7 @@
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -819,23 +819,23 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "9172de712180ba6d",
+      "detailHash": "fa14845fbce41563",
       "firstText": "「等等、这、这是怎样！」",
       "index": 30,
-      "lastText": "我眼前这个负责穷乡僻壤的女神大人，表情变得超僵硬的好吗。"
+      "lastText": "「呃，是一位叫做艾莉丝的女神大人……」"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 18
       },
-      "detailHash": "0b3ee16684322179",
-      "firstText": "「呃，是一位叫做艾莉丝的女神大人……」",
+      "detailHash": "5f49417174865d52",
+      "firstText": "我诚惶诚恐地对阿库娅这么说。",
       "index": 31,
       "lastText": "「这件事要保密喔。」"
     },
@@ -1569,10 +1569,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "7256e0f3d085cf79",
+      "detailHash": "e775b06808831496",
       "firstText": "「碰到水就会爆炸。」",
       "index": 80,
-      "lastText": "「『身为女神』……？请问，之前之所以能够以『Turn"
+      "lastText": "「『身为女神』……？请问，之前之所以能够以『Turn Undead』就那么轻而易举地差点消除掉我……"
     },
     {
       "counts": {
@@ -1584,8 +1584,8 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "436bd25713d7f5cd",
-      "firstText": "Undead』就那么轻而易举地差点消除掉我……难不成，是因为她真的是女神吗？」",
+      "detailHash": "c20b116b1e7da9fe",
+      "firstText": "难不成，是因为她真的是女神吗？」",
       "index": 81,
       "lastText": "「你说『那位』贝尔迪亚先生，听起来好像你认识贝尔迪亚似地。啊，是不是同为不死者，所以会互通有无之"
     },
@@ -2911,30 +2911,30 @@
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 21
       },
-      "detailHash": "4b711efc4971714a",
+      "detailHash": "272c7c820327f753",
       "firstText": "住在这边算了。",
       "index": 170,
       "lastText": "虽然作者为人很随便，但关于作品内容可是不会说谎的……喔……？"
     },
     {
       "counts": {
-        "blocks": 5,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 4,
         "ruby": 0,
         "textRuns": 3
       },
-      "detailHash": "d56534eda2941a49",
+      "detailHash": "3e1bab6145698d3b",
       "firstText": "那么，对于参与本书制作的各位；以及更重要的，拿起本书阅读的各位读者。",
       "index": 171,
       "lastText": "暁 なつめ"
@@ -2979,7 +2979,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "03fbfa190cfceb7b",
+      "detailHash": "18cf232671b0d246",
       "firstText": "电子版原创短篇 红魔族的智力很高",
       "index": 174,
       "lastText": "「那么……我、我走这步……」"
@@ -3020,16 +3020,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 0,
-    "fullDetailHash": "6a9e3b0ad75b80eb",
+    "fullDetailHash": "3defe763fb8f94cc",
     "pageCount": 177,
     "totals": {
       "blocks": 3134,
       "hrs": 0,
       "images": 30,
       "inlineAtoms": 1,
-      "lines": 3505,
+      "lines": 3503,
       "ruby": 2,
-      "textRuns": 3325
+      "textRuns": 3323
     }
   },
   "samples": [
@@ -20546,33 +20546,6 @@
                 "x": 0,
                 "y": 0
               },
-              "runs": [],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
               "runs": [
                 {
                   "bounds": {
@@ -20613,7 +20586,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 60.8
+            "y": 30.4
           },
           "children": [
             {
@@ -20663,7 +20636,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 91.2
+            "y": 60.8
           },
           "children": [
             {
@@ -20690,7 +20663,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 121.6
+            "y": 91.2
           },
           "children": [
             {
@@ -20741,11 +20714,11 @@
         "y": 0
       },
       "counts": {
-        "blocks": 5,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 4,
         "ruby": 0,
         "textRuns": 3
       },
@@ -21376,9 +21349,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 15.579
+                    "letterSpacingPx": 0.163
                   },
-                  "text": "「呜呜……无法使用『Teleport』和",
+                  "text": "「呜呜……无法使用『Teleport』和『Explosion』的话，就不能使用太过躁进的战术了……到",
                   "type": "text-run"
                 }
               ],
@@ -21395,7 +21368,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 393.6,
+                    "width": 105.6,
                     "x": 0,
                     "y": 0
                   },
@@ -21411,7 +21384,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "『Explosion』的话，就不能使用太过躁进的战术了……到底该怎么办才好呢……」",
+                  "text": "底该怎么办才好呢……」",
                   "type": "text-run"
                 }
               ],

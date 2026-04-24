@@ -924,7 +924,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "5976d459419d20d2",
+      "detailHash": "85534cd04f2c7177",
       "firstText": "第二章",
       "index": 43,
       "lastText": "「……没有做啦。」"
@@ -1239,7 +1239,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4604d7dfa693aa2c",
+      "detailHash": "152484a5ab3fd7aa",
       "firstText": "☆LUNA☆",
       "index": 64,
       "lastText": "白河同学这么说着，顺手将手机壳推给我。"
@@ -2394,7 +2394,7 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "45179308b3ecd2ab",
+      "detailHash": "7f40f2c80672095f",
       "firstText": "「噫……！」",
       "index": 141,
       "lastText": "果不其然，白河同学很快就恢复原来的样子了。"
@@ -2469,7 +2469,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "36ac6352b84dda83",
+      "detailHash": "3c74c58143edcf28",
       "firstText": "熟的香水味，营造出一种难以言喻的女性芬芳。",
       "index": 146,
       "lastText": "◇"
@@ -2694,10 +2694,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "4810d0771e2cd8c2",
+      "detailHash": "29f0e7da0b309b81",
       "firstText": "后记",
       "index": 161,
-      "lastText": "负责绘制插画的"
+      "lastText": "负责绘制插画的magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太"
     },
     {
       "counts": {
@@ -2709,8 +2709,8 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "dba63204ba6f8b90",
-      "firstText": "magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太漂亮而独自欢呼起来。",
+      "detailHash": "4968282dcee26b8b",
+      "firstText": "漂亮而独自欢呼起来。",
       "index": 162,
       "lastText": "长冈マキ子"
     },
@@ -2735,7 +2735,7 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 4,
-    "fullDetailHash": "396c3588a1e65386",
+    "fullDetailHash": "3ae934fd9bb0f384",
     "pageCount": 164,
     "totals": {
       "blocks": 3491,
@@ -9552,9 +9552,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 11.2
+                    "letterSpacingPx": 0.163
                   },
-                  "text": "「那是怎么回事！在那之后到底发生了什么事！就算发",
+                  "text": "「那是怎么回事！在那之后到底发生了什么事！就算发LINE给你，你也只是回『发生了很多事』，我可是在意",
                   "type": "text-run"
                 }
               ],
@@ -9571,7 +9571,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 326.4,
+                    "width": 76.8,
                     "x": 0,
                     "y": 2.4
                   },
@@ -9587,7 +9587,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "LINE给你，你也只是回『发生了很多事』，我可是在意得睡不着觉啊！」",
+                  "text": "得睡不着觉啊！」",
                   "type": "text-run"
                 }
               ],
@@ -26132,9 +26132,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 70.133
+                    "letterSpacingPx": 0.163
                   },
-                  "text": "负责绘制插画的",
+                  "text": "负责绘制插画的magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太",
                   "type": "text-run"
                 }
               ],
@@ -26165,7 +26165,7 @@
       },
       "firstText": "后记",
       "index": 161,
-      "lastText": "负责绘制插画的",
+      "lastText": "负责绘制插画的magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太",
       "paint": null
     },
     {
@@ -26191,7 +26191,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 508.8,
+                    "width": 96,
                     "x": 0,
                     "y": 2.4
                   },
@@ -26207,7 +26207,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太漂亮而独自欢呼起来。",
+                  "text": "漂亮而独自欢呼起来。",
                   "type": "text-run"
                 }
               ],
@@ -26580,7 +26580,7 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "firstText": "magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太漂亮而独自欢呼起来。",
+      "firstText": "漂亮而独自欢呼起来。",
       "index": 162,
       "lastText": "长冈マキ子",
       "paint": null

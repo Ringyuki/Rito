@@ -196,72 +196,72 @@
       "textLength": 29250
     },
     {
-      "endPage": 471,
+      "endPage": 470,
       "href": "OEBPS/Text/Section032.xhtml",
       "idref": "Section032.xhtml",
       "linear": true,
-      "pageCount": 65,
+      "pageCount": 64,
       "startPage": 407,
       "textHash": "6209483b1528ab55",
       "textLength": 43199
     },
     {
-      "endPage": 531,
+      "endPage": 530,
       "href": "OEBPS/Text/Section033.xhtml",
       "idref": "Section033.xhtml",
       "linear": true,
       "pageCount": 60,
-      "startPage": 472,
+      "startPage": 471,
       "textHash": "fecc4968a49f6fec",
       "textLength": 40267
     },
     {
-      "endPage": 564,
+      "endPage": 563,
       "href": "OEBPS/Text/Section034.xhtml",
       "idref": "Section034.xhtml",
       "linear": true,
       "pageCount": 33,
-      "startPage": 532,
+      "startPage": 531,
       "textHash": "add23595912e72a0",
       "textLength": 22702
     },
     {
-      "endPage": 620,
+      "endPage": 619,
       "href": "OEBPS/Text/Section035.xhtml",
       "idref": "Section035.xhtml",
       "linear": true,
       "pageCount": 56,
-      "startPage": 565,
+      "startPage": 564,
       "textHash": "75999fa5043fd5f9",
       "textLength": 37865
     },
     {
-      "endPage": 622,
+      "endPage": 621,
       "href": "OEBPS/Text/Section040.xhtml",
       "idref": "Section040.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 621,
+      "startPage": 620,
       "textHash": "26164b8ef5b3ddf8",
       "textLength": 1689
     },
     {
-      "endPage": 623,
+      "endPage": 622,
       "href": "OEBPS/Text/Section050.xhtml",
       "idref": "Section050.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 623,
+      "startPage": 622,
       "textHash": "09a34b5862431c0f",
       "textLength": 940
     },
     {
-      "endPage": 624,
+      "endPage": 623,
       "href": "OEBPS/Text/backcover.xhtml",
       "idref": "backcover.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 624,
+      "startPage": 623,
       "textHash": "9d652f6dd0ceb515",
       "textLength": 533
     }
@@ -369,7 +369,7 @@
         "ruby": 0,
         "textRuns": 6
       },
-      "detailHash": "6b604e5103ae74c0",
+      "detailHash": "fde87812124eb055",
       "firstText": "僅供試看學習交流，禁作商业用途，下载后请在24小时内删除",
       "index": 4,
       "lastText": "轻之国度ePub制作组（IceKIno）制作"
@@ -946,156 +946,6 @@
     },
     {
       "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "02b3c5a6f10423fb",
-      "firstText": "光的秘密，要完全守住不露馅，在现实当中是不可能的吧……",
-      "index": 43,
-      "lastText": "量角器、胶水、各种雕刻刀、画具、文镇、墨汁。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 16,
-        "ruby": 0,
-        "textRuns": 16
-      },
-      "detailHash": "1c7d444ae4eb7c69",
-      "firstText": "…………。",
-      "index": 44,
-      "lastText": "打从心底轻视我一般，她一阵讪笑。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "992bbdd41f849d22",
-      "firstText": "不，也许她已经生气了",
-      "index": 45,
-      "lastText": "凶器，也啪啦啪啦地，一一掉落在地。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 16,
-        "ruby": 0,
-        "textRuns": 14
-      },
-      "detailHash": "80ec4286f33e960e",
-      "firstText": "「你……那是怎么回事——」",
-      "index": 46,
-      "lastText": "非常——美丽的鬼。"
-    },
-    {
-      "counts": {
-        "blocks": 9,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "ff0fbd984803dd9d",
-      "firstText": "我现在虽然用制服衣领遮住，但我的脖颈上，到现在还残留着被她",
-      "index": 47,
-      "lastText": "「这点皮毛，算普通常识吧。」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "cc740762a03e7d2b",
-      "firstText": "战场原表情淡然地说。",
-      "index": 48,
-      "lastText": "他未经同意擅自入居。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "31e037d15910c239",
-      "firstText": "从春假开始算起，他已经足足住了一个月。",
-      "index": 49,
-      "lastText": "都比你还要谦"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "aeaf6eb25a689b06",
-      "firstText": "虚有礼吧。」",
-      "index": 50,
-      "lastText": "这才想到，印象中我从来也没见过战场原手上拿过东西。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "8ad8662796c698a6",
-      "firstText": "「教科书我已经全部记在脑袋里了，所以都放在学校的置物柜里。",
-      "index": 51,
-      "lastText": "忌。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "5cdd6abf1066e477",
-      "firstText": "「啊，对了。」",
-      "index": 52,
-      "lastText": "战场原瞪着我。"
-    },
-    {
-      "counts": {
         "blocks": 12,
         "hrs": 0,
         "images": 0,
@@ -1104,10 +954,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "26c3ceff7de118ee",
-      "firstText": "「你根本是在算计我嘛。」",
-      "index": 53,
-      "lastText": "「假如你存心欺骗我，企图把我带进这栋渺无人烟的废墟里面，报"
+      "detailHash": "de76af6c6e5ccd53",
+      "firstText": "光的秘密，要完全守住不露馅，在现实当中是不可能的吧……",
+      "index": 43,
+      "lastText": "…………。"
     },
     {
       "counts": {
@@ -1119,89 +969,59 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "83daf894722811d2",
-      "firstText": "复刚才被钉书针刺伤的事情，那就太不合理了。」",
-      "index": 54,
-      "lastText": "她虽然在说谎，但似乎不是在开玩笑。"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "aab6b9728c5230dd",
-      "firstText": "我稍微露了一手不死之身，但她似乎没有完全信赖我。忍野说过，",
-      "index": 55,
-      "lastText": "强度也只有原本的十分之一。"
+      "detailHash": "0d33b5a44c184bd7",
+      "firstText": "我有一种预感，光是跟这家伙同伴这件事实，将来就会让我在社会",
+      "index": 44,
+      "lastText": "不，也许她已经生气了"
     },
     {
       "counts": {
         "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "125b7be6fa64389e",
-      "firstText": "这样来想，我似乎能够明白她不肯轻易交出文具的理由了。",
-      "index": 56,
-      "lastText": "对加害者有利吧。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "2ef7d0bc6ac5c4fb",
-      "firstText": "「追根究底来说，要是贯穿过去的话，你从里面还是外面都是一样",
-      "index": 57,
-      "lastText": "假如是在春假期间，听到这种话——光因为这句话，就可能会对我"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "1c4b2b481184568c",
-      "firstText": "造成致命伤，让我伤重而死也说不定。",
-      "index": 58,
-      "lastText": "「〇〇里面是放什么东西！」"
-    },
-    {
-      "counts": {
-        "blocks": 13,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "119a292a8e033cbc",
+      "firstText": "「别开玩笑了，我应该说过我不要廉价的同情。你又能够做什么",
+      "index": 45,
+      "lastText": "「你……那是怎么回事——」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 15
+      },
+      "detailHash": "095200dc094383f7",
+      "firstText": "根本无须多问。",
+      "index": 46,
+      "lastText": "深深咬过的痕迹。我希望头发能在天气变热前（换季）留长以遮住咬"
+    },
+    {
+      "counts": {
+        "blocks": 10,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b0dee950126e3f66",
-      "firstText": "「我原本还想试一下",
-      "index": 59,
-      "lastText": "她的羞耻心和谦虚度近乎零。"
+      "detailHash": "ab56719b1182d378",
+      "firstText": "痕，但这部分暂且不谈——一般而言，普通人假如遭到吸血鬼袭击的",
+      "index": 47,
+      "lastText": "战场原表情淡然地说。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1209,10 +1029,55 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "25a6b866a8fffd91",
-      "firstText": "而且她这番话真的很恐怖。",
-      "index": 60,
-      "lastText": "「嗯——」"
+      "detailHash": "3e79c462ee59c57b",
+      "firstText": "「像我这种角色，应该是所谓的傲娇对吧？」",
+      "index": 48,
+      "lastText": "从春假开始算起，他已经足足住了一个月。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "1365c4d74c33f998",
+      "firstText": "「话说回来我屁股好痛。整个都麻了。而且裙子都皱掉了。」",
+      "index": 49,
+      "lastText": "虚有礼吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "a8b930bfe45c3660",
+      "firstText": "①",
+      "index": 50,
+      "lastText": "「教科书我已经全部记在脑袋里了，所以都放在学校的置物柜里。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "a72e19fa0ed671f7",
+      "firstText": "我只要把文具放在身上，就不需要书包咯。而且我也没有换体育服的需",
+      "index": 51,
+      "lastText": "「啊，对了。」"
     },
     {
       "counts": {
@@ -1224,10 +1089,40 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "79bc56ac4e034534",
-      "firstText": "这完全称不上是说明，尽管如此，战场原却并没有继续追究。她也",
-      "index": 61,
-      "lastText": "作成简易型的睡床（其实连床都称不上），盘腿坐在上头，正面向这"
+      "detailHash": "d855978dc8803657",
+      "firstText": "我沿着路走，找到一个比较大的入口后，转头对战场原说。我个人",
+      "index": 52,
+      "lastText": "「你根本是在算计我嘛。」"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "1d8bf5339b77f91e",
+      "firstText": "「…………」",
+      "index": 53,
+      "lastText": "复刚才被钉书针刺伤的事情，那就太不合理了。」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "b5dfe9c416a117ee",
+      "firstText": "「…………」",
+      "index": 54,
+      "lastText": "这种时候彼此的信赖是相当重要的，就这点来看，眼前的状况大概很难"
     },
     {
       "counts": {
@@ -1239,10 +1134,115 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "97d4dcab75a65865",
-      "firstText": "边。",
+      "detailHash": "0763bf37f15f2250",
+      "firstText": "称得上好。",
+      "index": 55,
+      "lastText": "这样来想，我似乎能够明白她不肯轻易交出文具的理由了。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "cb7eae5ea3578362",
+      "firstText": "而且——她没有带书包。",
+      "index": 56,
+      "lastText": "的吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "3efba7095682e0af",
+      "firstText": "「因为阿良良木的脸皮看起来很厚，所以我凭直觉判断应该没问",
+      "index": 57,
+      "lastText": "「要说方便的确是方便；要说不便也算是不便。可以这么说吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "9aebe4bbbfbc5a1c",
+      "firstText": "「真是模棱两可耶，听不太懂。」",
+      "index": 58,
+      "lastText": "「回答我画线部分的含意！」"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "d5549886f7c612e6",
+      "firstText": "忍野大多在四楼。",
+      "index": 59,
+      "lastText": "「战场原，不光是这些话，你的行动整体看起来，好像有点自我意"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "96a12c4180a7f00b",
+      "firstText": "识过盛，或者应该说，你的被害妄想症是不是严重了点？」",
+      "index": 60,
+      "lastText": "者都是正解。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "62fe3457e736616d",
+      "firstText": "「唉呀，阿良良木，你把表戴在右手呢。」",
+      "index": 61,
+      "lastText": "他仍旧是个——宛如能洞悉一切的男人。"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "e0a49465a0f0bc25",
+      "firstText": "相对地，战场原则是——明显地，退缩了。",
       "index": 62,
-      "lastText": "彷佛正端详着，她背后的某样东西。"
+      "lastText": "战场原姑且算是有礼貌地打了声招呼。"
     },
     {
       "counts": {
@@ -1254,10 +1254,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "e6c09138b678ebf1",
-      "firstText": "「……小姐，你好，敝姓忍野。」",
+      "detailHash": "1ed99e16568a4f4b",
+      "firstText": "看样子她不是那种会随便毒舌的人。至少对年长的人她还懂得基本",
       "index": 63,
-      "lastText": "House，在1987～1995年播出的美国影集。"
+      "lastText": "听见他的笑声，战场原蹙起眉头。"
     },
     {
       "counts": {
@@ -1265,44 +1265,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 17
       },
-      "detailHash": "549906018c2c4d6a",
-      "firstText": "「是吗。」",
+      "detailHash": "b17f4d6dd995ac9c",
+      "firstText": "也许是萝莉控这个字眼让她感到不舒服。",
       "index": 64,
-      "lastText": "「会失明耶！」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "efbc23c06d635aed",
-      "firstText": "「谁叫你先失一言。」",
-      "index": 65,
-      "lastText": "使在补习班这种场所也显得格格不入，她一头金发，头戴防风眼镜帽，"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "6c7ff867241009ec",
-      "firstText": "皮肤白皙，正抱膝坐在地上。",
-      "index": 66,
-      "lastText": "「忍——嗯。」"
+      "lastText": "十七公斤的恶意，我的谩骂就是这样提炼出来的。」"
     },
     {
       "counts": {
@@ -1314,14 +1284,44 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "21371f4a811dc9c7",
-      "firstText": "充满日本风味的名字。",
+      "detailHash": "b8b5bf077852238a",
+      "firstText": "「几乎全部都是恶意嘛！」",
+      "index": 65,
+      "lastText": "某种存在了吧。更何况，女孩始终以一种连战场原都瞠乎其后的锐利眼"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "c7f0acd8ad8d2b05",
+      "firstText": "神，集中视线死瞪着忍野，这点稍微有感觉的人，应该都能感觉到有些",
+      "index": 66,
+      "lastText": "「心字头上一把刀，很适合她的好名字对吧？姓氏就直接用我的，"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "3f05cf59e6176773",
+      "firstText": "正好当中也有个忍字，双重的忍字带有三重的意义。以我来说，这名字",
       "index": 67,
-      "lastText": "美丽吸血鬼的空壳。"
+      "lastText": "「什么也不是吗，那就算了。」"
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1329,25 +1329,10 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "0bdc31cad545cb81",
-      "firstText": "跟她说这些也没用吧？反正这跟战场原无关，是我个人的问题。是",
-      "index": 68,
-      "lastText": "「是你自己救自己的，小姐。」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "409b85dd8b1447a9",
+      "detailHash": "328258a51449746a",
       "firstText": "「…………」",
-      "index": 69,
-      "lastText": "刚才这个人，非常若无其事地说要杀死我。"
+      "index": 68,
+      "lastText": "战场原眼睛瞇成一半了。"
     },
     {
       "counts": {
@@ -1355,12 +1340,27 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 17
       },
-      "detailHash": "beb03e440d95e0fa",
-      "firstText": "为何怒火会波及到我身上来啊。",
+      "detailHash": "8ff3505009b66062",
+      "firstText": "露骨地在表示怀疑。",
+      "index": 69,
+      "lastText": "可以用来形容她的方式，真是多得不胜枚举。"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 13,
+        "ruby": 0,
+        "textRuns": 13
+      },
+      "detailHash": "d8be3ccb32153c0b",
+      "firstText": "「算了，不管怎样——」",
       "index": 70,
       "lastText": "她如此说道。"
     },
@@ -2769,7 +2769,7 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "b0364fa420d487a4",
+      "detailHash": "0d68c2405dd62e9b",
       "firstText": "①",
       "index": 164,
       "lastText": "但我就算说了也没用……"
@@ -3151,51 +3151,6 @@
     },
     {
       "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "4f9eb7a19c4f0e1a",
-      "firstText": "这家伙到底在说什么。",
-      "index": 190,
-      "lastText": "「照你的说法，那我肯定杀了自己的发妻吧！」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "8ea4e451fcfa8887",
-      "firstText": "我在战场原说完话之前，就不慎做出了反应。以负责吐槽的角色来",
-      "index": 191,
-      "lastText": "啰？」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "7016767e574e235e",
-      "firstText": "「我要是认真的话，可是会变身的。」",
-      "index": 192,
-      "lastText": "「其他也没什么特别的烦恼……」"
-    },
-    {
-      "counts": {
         "blocks": 13,
         "hrs": 0,
         "images": 0,
@@ -3204,25 +3159,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "1ad7d1474dac08ca",
-      "firstText": "「你没有想要什么东西，也没有烦恼吗？嗯……」",
-      "index": 193,
-      "lastText": "就活不下去的角色啊。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "c023c481f9c081ff",
-      "firstText": "好危险啊……",
-      "index": 194,
-      "lastText": "战场原有如在盘算适当的时机般，看准机会说："
+      "detailHash": "36a5b1de8d030743",
+      "firstText": "这家伙到底在说什么。",
+      "index": 190,
+      "lastText": "我在战场原说完话之前，就不慎做出了反应。以负责吐槽的角色来"
     },
     {
       "counts": {
@@ -3234,10 +3174,25 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "c1c5c6c73046b68e",
-      "firstText": "「比方说你想要女朋友之类的。」",
-      "index": 195,
-      "lastText": "只是你自己救了自己而已……是吗？"
+      "detailHash": "460c8d2f9c71ef45",
+      "firstText": "说，抢拍原本是不被允许的。",
+      "index": 191,
+      "lastText": "「我要是认真的话，可是会变身的。」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "9c60c8bc86f3955c",
+      "firstText": "「变身？哇，真酷，我好想看一下！」",
+      "index": 192,
+      "lastText": "「你没有想要什么东西，也没有烦恼吗？嗯……」"
     },
     {
       "counts": {
@@ -3249,10 +3204,55 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "0e177f1200a050fa",
-      "firstText": "以忍野来看，我所做的一切——不论是对战场原还是对班长，还是",
+      "detailHash": "406bd8c266bb199a",
+      "firstText": "「你这次又想怎么臭骂我？」",
+      "index": 193,
+      "lastText": "好危险啊……"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "87352a21790d1447",
+      "firstText": "「真没办法……话说回来，没想到我一禁止色情方面的愿望你就一",
+      "index": 194,
+      "lastText": "「比方说你想要女朋友之类的。」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "98f23b62cdb8bca5",
+      "firstText": "「………………」",
+      "index": 195,
+      "lastText": "以忍野来看，我所做的一切——不论是对战场原还是对班长，还是"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "1b3f5ab88e5dfbd2",
+      "firstText": "对春假那位女性……那个吸血鬼来说，虽然很高尚但却不是正确的吧。",
       "index": 196,
-      "lastText": "方。而在那里——"
+      "lastText": "站着一个女孩。"
     },
     {
       "counts": {
@@ -3260,14 +3260,44 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "48f7cd8f7f9460e9",
+      "firstText": "一个身后背着大背包的女孩。",
+      "index": 197,
+      "lastText": "「YAKUDERA」……吗？"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 18,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 18
       },
-      "detailHash": "2a60e102908d9675",
-      "firstText": "站着一个女孩。",
-      "index": 197,
-      "lastText": "真宵……是念作「MAYOI」吧。"
+      "detailHash": "2cc323fc407b34b1",
+      "firstText": "国文不是我擅长的科目。",
+      "index": 198,
+      "lastText": "「就是那个……汉字的十之八九的『八九』加上『寺』，排列起来"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "af89c42db7857d0f",
+      "firstText": "是『八九寺』……」",
+      "index": 199,
+      "lastText": "「如果你以为有自觉比没自觉好的话，那你就大错特错了。」"
     },
     {
       "counts": {
@@ -3279,40 +3309,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "075be8ec64de2b3a",
-      "firstText": "可是「八九寺」……这姓该怎么念呢，是",
-      "index": 198,
-      "lastText": "因为和周围格格不入。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "fa3516ec9ac05017",
-      "firstText": "这点过去也是战场原的烦恼。",
-      "index": 199,
-      "lastText": "「啊——好啦好啦。反正我就是没学问。」"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "77752c16d9f15ac5",
-      "firstText": "「如果你以为有自觉比没自觉好的话，那你就大错特错了。」",
+      "detailHash": "b832b53865603b41",
+      "firstText": "「…………」",
       "index": 200,
-      "lastText": "为了解除小孩警戒心，通常有女性同行会比较好（假如我身旁不是"
+      "lastText": "战场原而是别人的话）。"
     },
     {
       "counts": {
@@ -3324,10 +3324,10 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "2d0e01e2b868ab25",
-      "firstText": "战场原而是别人的话）。",
+      "detailHash": "523d280efe367c72",
+      "firstText": "没办法。",
       "index": 201,
-      "lastText": "「呦！你怎么啦，是不是迷路了？」"
+      "lastText": "女孩转过头来。"
     },
     {
       "counts": {
@@ -3339,10 +3339,10 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "edb61a3b58a3322b",
-      "firstText": "女孩转过头来。",
+      "detailHash": "c7048374655e0a39",
+      "firstText": "她绑着双马尾，短短的浏海露出了眉毛。",
       "index": 202,
-      "lastText": "「你看就知道了吧。」"
+      "lastText": "说完，我再次挑战。"
     },
     {
       "counts": {
@@ -3354,10 +3354,10 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "e8565ee0af1b23ed",
-      "firstText": "说完，我再次挑战。",
+      "detailHash": "7f64739ffa383501",
+      "firstText": "少女八九寺，仿佛刚才没遇到找一样，视线又回到广告牌上。依旧",
       "index": 203,
-      "lastText": "「我被无视了……被小学女生当成空气……」"
+      "lastText": "我受到的打击意外地大。"
     },
     {
       "counts": {
@@ -3369,10 +3369,10 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "413c12ae7e46d93d",
-      "firstText": "我受到的打击意外地大。",
+      "detailHash": "fe65570c11e38ccc",
+      "firstText": "花了十几秒才回复过来。",
       "index": 204,
-      "lastText": "「不过你知道吗？命这个字下面有一个叩喔。」"
+      "lastText": "「你这话莫名其妙。」"
     },
     {
       "counts": {
@@ -3384,10 +3384,10 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "b1e9002e717ebf2c",
-      "firstText": "「你这话莫名其妙。」",
+      "detailHash": "8ed9bbd012761390",
+      "firstText": "「这就是生命正因为叩打才会闪耀。」",
       "index": 205,
-      "lastText": "真敢说。"
+      "lastText": "很少有人初次见面就对我说这种话。"
     },
     {
       "counts": {
@@ -3399,10 +3399,10 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "244ae91d2dc2de6d",
-      "firstText": "很少有人初次见面就对我说这种话。",
+      "detailHash": "efa46f3eb15ae52e",
+      "firstText": "「娘娘腔！请你不要靠近我。」",
       "index": 206,
-      "lastText": "「在被我打之前，你就已经说自己讨厌我了吧。」"
+      "lastText": "「既然这样，就是因为前世的关系！」"
     },
     {
       "counts": {
@@ -3414,10 +3414,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "dd67541fb710c7e9",
-      "firstText": "「既然这样，就是因为前世的关系！」",
+      "detailHash": "289ff7703bc746fb",
+      "firstText": "「我从来没彼人这样讨厌过。」",
       "index": 207,
-      "lastText": "「那真是太好了。」"
+      "lastText": "「那么，人畜哥哥。」"
     },
     {
       "counts": {
@@ -3425,14 +3425,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 20
       },
-      "detailHash": "9250b7252ac5f0c8",
-      "firstText": "「那么，人畜哥哥。」",
+      "detailHash": "ec57aaa8c3a5ece7",
+      "firstText": "「人畜哥哥！你在叫谁啊！」",
       "index": 208,
-      "lastText": "的角色，这道理和人畜一样吧。」"
+      "lastText": "『疯疯癫癫！』的角色……」"
     },
     {
       "counts": {
@@ -3440,14 +3440,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "e804ad603e550811",
-      "firstText": "「怎么说呢……我好像也没办法接受一兴奋起来就会发出怪声喊：",
+      "detailHash": "bec0dcf42477309c",
+      "firstText": "「那我该怎么称呼你呢？」",
       "index": 209,
-      "lastText": "「前后的意思支离破碎了！」"
+      "lastText": "「那不是重点！请你马上离开到别的地方去！」"
     },
     {
       "counts": {
@@ -3455,119 +3455,29 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "4fb7913bfa8c3429",
-      "firstText": "「那不是重点！请你马上离开到别的地方去！」",
+      "detailHash": "4563a6ba6563ae18",
+      "firstText": "「不是……所以说你迷路了吧？」",
       "index": 210,
-      "lastText": "「蛋完了！」"
+      "lastText": "正确，这点待会再去问战场原，总之我毫不留情地把金鸡独立、重心不"
     },
     {
       "counts": {
-        "blocks": 6,
+        "blocks": 7,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 23
       },
-      "detailHash": "113fb8bf865c6c37",
-      "firstText": "八九寺大叫，但为时已晚……究竟「蛋完了」这句话在文法上是否",
+      "detailHash": "b5f754911e09d181",
+      "firstText": "稳的八九寺，宛如像在田里拔萝卜般猛力向上一拉，动作就像柔道中的",
       "index": 211,
-      "lastText": "这次，分出胜负了。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "8ba3f7c4a3f53899",
-      "firstText": "八九寺背部着地，被我使劲摔在地上。",
-      "index": 212,
-      "lastText": "系，这和你已经无可救药了之类的完全不一样，这点你千万别误会"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "7ffdd90c5ef224d3",
-      "firstText": "了。」",
-      "index": 213,
-      "lastText": "说。我只能说，这是战士和战士之间灵魂的共鸣。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "82976c360bf22fdd",
-      "firstText": "「是吗。」",
-      "index": 214,
-      "lastText": "少女翻白眼，真的会叫人退避三舍……"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "a624ff93537b266d",
-      "firstText": "「你怎么了……？阿良良木。」",
-      "index": 215,
-      "lastText": "我感觉内疚感快撕裂我的胸膛。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 17
-      },
-      "detailHash": "431ae6cdaef4bb06",
-      "firstText": "我从八九寺那边拿到便条纸，直接把它拿给战场原。然而，战场原",
-      "index": 216,
-      "lastText": "「嗯。」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "55ff5f9ac8043093",
-      "firstText": "沉吟了一声，接着说：",
-      "index": 217,
-      "lastText": "带路。真是太好了呢。」"
+      "lastText": "八九寺背部着地，被我使劲摔在地上。"
     },
     {
       "counts": {
@@ -3575,27 +3485,117 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "0df3e215a58d7eeb",
+      "firstText": "我为了防范她的反击，拉出距离。可是——",
+      "index": 212,
+      "lastText": "了。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "951b447ae38e4b1f",
+      "firstText": "「……请让我解释。」",
+      "index": 213,
+      "lastText": "「是吗。」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 17,
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "26307d09ad44e264",
-      "firstText": "「……喔。帮我带路吗。」",
-      "index": 218,
-      "lastText": "她……应该说感觉比较像是拖着她，追上战场原的背影。「啊、啊呜！"
+      "detailHash": "578e86e0b1a1b3b8",
+      "firstText": "「嗯？」",
+      "index": 214,
+      "lastText": "「你怎么了……？阿良良木。」"
     },
     {
       "counts": {
-        "blocks": 4,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 20
       },
-      "detailHash": "6b72fba409d9686e",
-      "firstText": "啊呜！喔呜！喔呜！」八九寺发出像海狗或海驴一样的古怪叫声，过程",
+      "detailHash": "0e220b5539d7cb90",
+      "firstText": "「没事……」",
+      "index": 215,
+      "lastText": "我从八九寺那边拿到便条纸，直接把它拿给战场原。然而，战场原"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "de18cbd720817920",
+      "firstText": "却不打算伸手接下那张纸。她用比冰点还要更冷冽的眼神，凝视着我伸",
+      "index": 216,
+      "lastText": "沉吟了一声，接着说："
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "2fbdfd3f42e767a4",
+      "firstText": "「那个地址我知道在哪。」",
+      "index": 217,
+      "lastText": "「……喔。帮我带路吗。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "2ac22e621255c664",
+      "firstText": "「嗯嗯？你没有迷路了吗？」",
+      "index": 218,
+      "lastText": "中虽然险些跌倒，但最后还是站稳了身体，跟上了我。"
+    },
+    {
+      "counts": {
+        "blocks": 3,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 3,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "46e0bb59041c1258",
+      "firstText": "我决定先把越野脚踏车放在公园，等会再来拿。",
       "index": 219,
       "lastText": "到头来，我还是不知道名称的正确念法。"
     },
@@ -3714,8 +3714,8 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "88decbfced15fd07",
-      "firstText": "「PTA",
+      "detailHash": "080dd837ded44b16",
+      "firstText": "「PTA可是很厉害的组织喔！像阿良良木哥哥这种未成年、既没",
       "index": 227,
       "lastText": "「才疏这说法听起来很顺也就算了，可是学浅在这边是不是有点多"
     },
@@ -4936,7 +4936,7 @@
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 13,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -4944,10 +4944,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "aeb60373c5b5a5f5",
+      "detailHash": "67d5a1dcb5a19346",
       "firstText": "「要是迷恋上我的话，可是会烫伤的。」",
       "index": 309,
-      "lastText": "「而且那也和COOL这个字扯不上关系吧。」"
+      "lastText": "低温烫伤给人的感觉，就像热水袋一样温暖。"
     },
     {
       "counts": {
@@ -4959,190 +4959,55 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "f36f6b709026411a",
-      "firstText": "低温烫伤给人的感觉，就像热水袋一样温暖。",
+      "detailHash": "a4736fae7248cbf3",
+      "firstText": "听起来好像脾气很温厚的样子。",
       "index": 310,
-      "lastText": "「我们刚才是说你一直盯着我看的事情。怎么了，你该不会爱上我"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "378ea8267200bf31",
-      "firstText": "了吧。」",
-      "index": 311,
-      "lastText": "「这个字眼是多么污辱人啊……如此过分的字眼，就算将来被禁用"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "1763b83d20781997",
-      "firstText": "也不奇怪……」",
-      "index": 312,
-      "lastText": "「太糟糕了！这两个词好样会创造一个新的时代！」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "065fabed34cccbd2",
-      "firstText": "「对啊！真的让我眼睛的鳞片被剥下来了",
-      "index": 313,
-      "lastText": "Slider（滑球）。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "48c4d7e842a78be2",
-      "firstText": "「……那么，为什么阿良良木哥哥要用那么热情的眼神凝视着我",
-      "index": 314,
-      "lastText": "根本没必要参考战场原的例子——"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "d452c446e5ca3bc1",
-      "firstText": "「……有其它女性的味道。」",
-      "index": 315,
-      "lastText": "PLAY，是那种藉由羞耻女性让自己兴奋的人啊。不过，我原谅你。"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "b8a3f599391cfb62",
-      "firstText": "只要是健康的男生，会这样也是很正常的事情。」",
-      "index": 316,
-      "lastText": "吃了。」"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "0df74206746e54c9",
-      "firstText": "「你果然自己去吃了……你果然不会辜负我的期待。不过没关系，",
-      "index": 317,
-      "lastText": "行为。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "44e55b1c38f75dc1",
-      "firstText": "「我说的是洗发精的味道。在班上用这个牌子的人，应该只有羽川",
-      "index": 318,
-      "lastText": "让我想要拔腿逃离这里。"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "9deb7d2cac8d4233",
-      "firstText": "「她是有来过。不过已经走了。」",
-      "index": 319,
-      "lastText": "「啊？你是指喜欢小孩的意思吗？她跟你不一样。」"
-    },
-    {
-      "counts": {
-        "blocks": 10,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "35149145ca006ea2",
-      "firstText": "「羽川同学确实跟我不一样吧。对，不一样。我们不一样。那么，",
-      "index": 320,
-      "lastText": "么办才能带这家伙到目的地？」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 19,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "20571481c1864b88",
-      "firstText": "老实说，忍野刚才那句「希望傲娇妹，也就是战场原会老实地告诉",
-      "index": 321,
       "lastText": "「…………」"
     },
     {
       "counts": {
-        "blocks": 9,
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "5de09730f48dd983",
+      "firstText": "她完全没发现我在想什么。",
+      "index": 311,
+      "lastText": "「听你这么一说，的确是如此。」"
+    },
+    {
+      "counts": {
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 20,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 23
       },
-      "detailHash": "211a165084448a7c",
-      "firstText": "「不过他还说，即使如此也不能断定自己是错的。他说的话……真",
-      "index": 322,
-      "lastText": "作祟。单纯只是他自己要跟着蜗牛。单纯只是因为自己希望，而追着蜗"
+      "detailHash": "d710e9488fcd9765",
+      "firstText": "「我，我好受伤。我的发育已经算很好了，我是说真的！真是的，",
+      "index": 312,
+      "lastText": "注：日文谚语，原文直译应为鳞片从眼睛里掉下来，意指"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "5e2bc3d4c516fbee",
+      "firstText": "恍然大悟的意思。",
+      "index": 313,
+      "lastText": "「也没什么，那个……诶？热情？」"
     },
     {
       "counts": {
@@ -5154,10 +5019,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "0b18a9a5f51e4bd4",
-      "firstText": "牛跑。所以才会迷路。因此，只要阿良良木离开蜗牛身边……一切的问",
-      "index": 323,
-      "lastText": "来访和抵达？"
+      "detailHash": "575ae88d6613e310",
+      "firstText": "「你用那种眼神看我，我的横膈膜会一阵抽动。」",
+      "index": 314,
+      "lastText": "她骑着越野脚踏车进到了公图内。"
     },
     {
       "counts": {
@@ -5169,10 +5034,100 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "e0b93e97074c3b1f",
-      "firstText": "「诶，但是……那又代表什么？你说的意思我懂，可、可是，八九",
-      "index": 324,
-      "lastText": "战场原伸手指向八九寺。"
+      "detailHash": "9ae06990f112fb96",
+      "firstText": "她已经把脚踏车驾驭自如……真是个灵巧的家伙。",
+      "index": 315,
+      "lastText": "这么说来，忍野那家伙好像把那间补习班的所在地，称作结界之类"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "134c0e6bb44d4878",
+      "firstText": "的。仔细想想或许刚才我应该亲自去找他才对。",
+      "index": 316,
+      "lastText": "「我连阿良良木的份也吃了喔。」"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "a3e7c6ac3fcb4e7f",
+      "firstText": "「是喔……辛苦你了。」",
+      "index": 317,
+      "lastText": "「咦，真的假的……？女生都知道这种东西吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "3646b764eea64906",
+      "firstText": "「某种程度上啦。」",
+      "index": 318,
+      "lastText": "嘛。让她来帮你带路可靠多了。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "2637fbdda96fcdf8",
+      "firstText": "「不是我叫她过来的。她只是刚好经过这里而已。就跟你一样",
+      "index": 319,
+      "lastText": "楚她想做什么，看来她是在闻我的味道。不，不是我的，八成是……"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "297a5ae7c4c4e5ca",
+      "firstText": "「嗯——」",
+      "index": 320,
+      "lastText": "所以，很自然我问话的语气，听起来像是在催促战场原。八九寺也"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "8d95fda437a74874",
+      "firstText": "一脸担心地抬头仰望她。",
+      "index": 321,
+      "lastText": "这样真讨厌。"
     },
     {
       "counts": {
@@ -5180,12 +5135,57 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 8
+        "textRuns": 21
       },
-      "detailHash": "3cc51ffe658db3a6",
-      "firstText": "应该说，她原本打算指向八九寺。",
+      "detailHash": "5682e085f3633965",
+      "firstText": "战场原说。",
+      "index": 322,
+      "lastText": "奇怪吗？八九寺不是自己眼着蜗牛，而且她也不希望这样吧？」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "c0767cce5a607212",
+      "firstText": "「所以啊，才说是……正好相反。」",
+      "index": 323,
+      "lastText": "并没有恶意……而且，也不是故意的。我原本以为，错在于我。」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
+        "ruby": 0,
+        "textRuns": 17
+      },
+      "detailHash": "e2d8f151e4582b7e",
+      "firstText": "「………」",
+      "index": 324,
+      "lastText": "「我根本看不到她。」"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 5,
+        "ruby": 0,
+        "textRuns": 5
+      },
+      "detailHash": "a05575786a6adc04",
+      "firstText": "我心中大惊，下意识看向八九寺。",
       "index": 325,
       "lastText": "宛如一只蜗牛。"
     },
@@ -5285,12 +5285,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "96ee5daa4d7c26c4",
-      "firstText": "MAYOI",
+      "detailHash": "400b932e718e4efa",
+      "firstText": "MAYOI这个音，原本是布料的经纬线脱散之意，故可以用丝部",
       "index": 332,
       "lastText": "战场原一开始就说过。"
     },
@@ -6114,7 +6114,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f67674d4d2eac202",
+      "detailHash": "1f43152b611fed86",
       "firstText": "「喔喔！阿良良木学长还真是敏锐啊。绝对不会看漏细微的疑点，",
       "index": 387,
       "lastText": "比那个班长还要麻烦。"
@@ -7025,14 +7025,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 24
       },
-      "detailHash": "7715bc55082da4fb",
+      "detailHash": "fc13e0c6f297661e",
       "firstText": "道说出了什么不得不变更的问题吗？那样的话，我们必须尽早处理才",
       "index": 448,
-      "lastText": "Alligator"
+      "lastText": "重要。"
     },
     {
       "counts": {
@@ -7040,44 +7040,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "f0abea6060b2f650",
-      "firstText": "是短吻鳄。这么说的目的是为了让句子有押韵音，单字本身的意思",
+      "detailHash": "07693e989e4e7f0d",
+      "firstText": "她真的是难易度很高的女主角。",
       "index": 449,
-      "lastText": "轻松念书？到底是哪一种念书啊……？"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "0a29054771bd2512",
-      "firstText": "「好，那我尽量长话短说……羽川你和战场原是同一所国中吧？那",
-      "index": 450,
-      "lastText": "她不会相信吧。"
-    },
-    {
-      "counts": {
-        "blocks": 10,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "966090953be70247",
-      "firstText": "偏偏那个明星，好死不死地找上了，对我做了只能用「跟踪」两字",
-      "index": 451,
-      "lastText": "（Walhalla）』"
+      "lastText": "「好，那我尽量长话短说……羽川你和战场原是同一所国中吧？那"
     },
     {
       "counts": {
@@ -7089,10 +7059,40 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "a86cf3b2d7c55cda",
-      "firstText": "了。而瓦哈拉在北欧神话中式主神奥丁居住的天上宫殿，是战场上壮烈",
+      "detailHash": "0dc54cfc8d255fd8",
+      "firstText": "所国中好像叫……对了，是公立清风国中吧？」",
+      "index": 450,
+      "lastText": "偏偏那个明星，好死不死地找上了，对我做了只能用「跟踪」两字"
+    },
+    {
+      "counts": {
+        "blocks": 10,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "ee1bccf2e00d27e0",
+      "firstText": "来比喻的行为。",
+      "index": 451,
+      "lastText": "是战神的圣地。所以——」"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "700b6b9eb4e26e2b",
+      "firstText": "「……啊，是神原的『神』和战场原的『战场』吗？」",
       "index": 452,
-      "lastText": "表面上该做些什么？"
+      "lastText": "和现在完全不一样对吧？」"
     },
     {
       "counts": {
@@ -7104,44 +7104,44 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "b052a3ffe50cacce",
-      "firstText": "「我以前好像也问过你同样的问题，战场原在国中的时候……感觉",
+      "detailHash": "bee4fda25b3df7fb",
+      "firstText": "「嗯，没错。最近战场原同学似乎变得有点不一样，可是还是和以",
       "index": 453,
-      "lastText": "「不过，以前的她怎么样都没关系，阿良良木喜欢的是现在的战场"
+      "lastText": "「………………」"
     },
     {
       "counts": {
-        "blocks": 9,
+        "blocks": 8,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 22
       },
-      "detailHash": "7fc452248ed569b2",
-      "firstText": "原同学对吧？」",
+      "detailHash": "27a8d53d5bd0ff40",
+      "firstText": "你的反应和小学五年级生一样喔。",
       "index": 454,
-      "lastText": "们交往前，就预料到我们会交往的厉害人物啊。这是不是代表战场原只"
+      "lastText": "羹汤了，更别提我们会有不纯的关系。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "73c4fefe9f58ae2c",
-      "firstText": "让我看到她不为人知的一面呢……这点我还真是高兴不起来。因为这不",
+      "detailHash": "1ea4bf8be5bc784b",
+      "firstText": "啊啊！不管她们国中时代的关系如何，神原曾经被战场原拒绝过，",
       "index": 455,
-      "lastText": "「你们两个都是。」"
+      "lastText": "但就算如此。"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -7149,25 +7149,25 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "01ff7f1d4e78ba25",
-      "firstText": "「算有吧。」",
+      "detailHash": "9b2ac4c0a57caf73",
+      "firstText": "「可是呢，阿良良木。讨厌和人交际，并不等于讨厌人吧？」",
       "index": 456,
-      "lastText": "「这一点都不奇怪啊。想了解自己最重要的女朋友，是很普通的事"
+      "lastText": "她毫不介意就说出那种会让人害羞的话。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 20
       },
-      "detailHash": "e1e9074dbb952a82",
-      "firstText": "情吧。」",
+      "detailHash": "d45343e6b2aea3c7",
+      "firstText": "真不愧是班长中的班长。",
       "index": 457,
-      "lastText": "我想，如果可以的话。"
+      "lastText": "在要做的不能说是一种温柔吧。"
     },
     {
       "counts": {
@@ -7179,44 +7179,44 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "d06fdb24bd344e12",
-      "firstText": "而且可能的话。",
+      "detailHash": "1f1418c1e8aa2044",
+      "firstText": "因为这只是一种权宜上的考虑。这种自以为是的想法，别说化为言",
       "index": 458,
-      "lastText": "那个装有忍野工作报酬的信封。"
+      "lastText": "可是会不会我放在衣服的口袋里，然后刚才边走边和羽川讲电话时不小"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "0e45dc3d9a5bba49",
-      "firstText": "「我放在坐垫旁边忘了拿吗……啊——该怎么办。」",
+      "detailHash": "bccafa66c501b7a1",
+      "firstText": "心弄丢了呢。这的确不无可能，为了安全起见，还是打通电话和战场原",
       "index": 459,
-      "lastText": "的穿著，让我有下雨的联想。"
+      "lastText": "雨帽深戴盖住头。"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 18,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 18
+        "textRuns": 19
       },
-      "detailHash": "12fd2de3a8043f74",
-      "firstText": "「人物」。",
+      "detailHash": "bd7645426be74831",
+      "firstText": "脚上穿着黑色长靴，左右手戴着橡胶手套。",
       "index": 460,
-      "lastText": "要说有什么问题的话……这个嘛，大概是我现在和春假时不一样，"
+      "lastText": "习惯，有一些经验了——"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -7224,10 +7224,10 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "eac45309bd33e342",
-      "firstText": "既非不死之身，更不是吸血鬼。",
+      "detailHash": "9857fe2e63383c55",
+      "firstText": "对「怪异」。",
       "index": 461,
-      "lastText": "波士顿的背带也同样被割断，咚隆一声从我的肩上掉落到脚边。"
+      "lastText": "说中的吸血鬼，却能让我联想到她……这怪异伴随着实际的恐怖。"
     },
     {
       "counts": {
@@ -7239,25 +7239,25 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "bfa8a6376c97b498",
-      "firstText": "「……差、差太多了。」",
+      "detailHash": "168c32ca91f9d73f",
+      "firstText": "这和母亲节的情况截然不同。",
       "index": 462,
-      "lastText": "情并非重点，他帽内的部分有如一个深不见底的窟窿。一片漆黑，完全"
+      "lastText": "接着，雨衣怪朝我攻了过来。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 20
       },
-      "detailHash": "31865918f5300ad8",
-      "firstText": "看不见任何东西。",
+      "detailHash": "b9afd602d1aa4dad",
+      "firstText": "左拳。",
       "index": 463,
-      "lastText": "弹射器。"
+      "lastText": "后我的身体朝下，狠摔在柏油路上。"
     },
     {
       "counts": {
@@ -7269,29 +7269,29 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "10428e7a50b5c524",
-      "firstText": "别说是闪躲，我连防御都来不及。",
+      "detailHash": "aafa8ec7825b005b",
+      "firstText": "我体验到全身和柏油路摩擦的滋味。",
       "index": 464,
-      "lastText": "大概有几处的内脏破裂了。"
+      "lastText": "受到这种冲击，我一时之间根本动弹不得。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 18
       },
-      "detailHash": "1c589f4b3199fe90",
-      "firstText": "我虽然受了内伤，但经我确认之后，四肢的形状可说是完好无缺。",
+      "detailHash": "5ce23471de4cdf2b",
+      "firstText": "而雨衣怪则步步向我靠近。这次我看得很清楚，他的身姿悠然，不",
       "index": 465,
-      "lastText": "原因何在。"
+      "lastText": "战场原黑仪。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -7299,14 +7299,14 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "7afa8e0049abfaea",
-      "firstText": "我回想今天经历过的事物。",
+      "detailHash": "1c1d8a9836bcc42f",
+      "firstText": "羽川翼。",
       "index": 466,
-      "lastText": "为何这么突然……？"
+      "lastText": "我的口中也有浓厚的血味。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -7314,10 +7314,40 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "a2525c5f9ff4caff",
-      "firstText": "在支配全身的疼痛，从钝痛逐渐转为锐痛之间，我仰望夜空。天空",
+      "detailHash": "27bf6aa7bccf88a1",
+      "firstText": "内脏果然受伤了……内脏适当地纠结在一起。但这种程度还死不",
       "index": 467,
-      "lastText": "俯视我。是战场原黑仪。"
+      "lastText": "「我把你忘记的东西送过来了。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "fed302514fe73b3f",
+      "firstText": "战场原说完，把右手上的信封拿到我的眼前。不用拿这么近我也知",
+      "index": 468,
+      "lastText": "被车队撞到，应该不会变成那样吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "e55df88ddd06efd6",
+      "firstText": "「这个嘛……」",
+      "index": 469,
+      "lastText": "我的呢？她原本是打算坐公交车送到我家去的吗？真是这样的话，虽然"
     },
     {
       "counts": {
@@ -7325,58 +7355,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 18,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 18
+        "textRuns": 16
       },
-      "detailHash": "848e6da740620800",
-      "firstText": "「……哟！好久不见。」",
-      "index": 468,
-      "lastText": "战场原法院还真是戒律严苛。"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "d6b1e4eead9fa8a5",
-      "firstText": "「先不开玩笑了。」",
-      "index": 469,
-      "lastText": "「那样会给附近的居民添麻烦，所以算了吧——」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "1475e5de9d2ced16",
-      "firstText": "「是吗……不过你连那么坚固的水泥墙都撞坏了，居然只受到这点",
+      "detailHash": "508d3ecb7e449331",
+      "firstText": "光是这样的举动还称不上是傲娇，但我还是觉得高兴……",
       "index": 470,
-      "lastText": "「…………」"
-    },
-    {
-      "counts": {
-        "blocks": 3,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 4,
-        "ruby": 0,
-        "textRuns": 4
-      },
-      "detailHash": "be320813d6ef871c",
-      "firstText": "老实说，我已经可以起身了——不过我决定继续躺着，思考一些东",
-      "index": 471,
       "lastText": "以及明天该做的事。"
     },
     {
@@ -7389,9 +7374,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "1d5c19a371b9db1e",
+      "detailHash": "4e1ed5c0459027a5",
       "firstText": "００５",
-      "index": 472,
+      "index": 471,
       "lastText": "着难以言语的心情登门打扰，在神原的带领下走过面向庭院——当中可"
     },
     {
@@ -7404,9 +7389,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "bc248f7566973674",
+      "detailHash": "1d75729f96211f42",
       "firstText": "见竹筒敲石的造景——的走廊，拉开眼前的拉门，来到她的房间。",
-      "index": 473,
+      "index": 472,
       "lastText": "地上竟然还有生理用品……"
     },
     {
@@ -7419,9 +7404,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "85b5f45754ec8893",
+      "detailHash": "fb0e6417445f8a35",
       "firstText": "我下意识压低视线。",
-      "index": 474,
+      "index": 473,
       "lastText": "我没有洁癖，而且我自己的房间也没多干净，可是眼前这幅景象实"
     },
     {
@@ -7434,9 +7419,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "6e656b53fc07fde5",
+      "detailHash": "7f8643b0a823a9e1",
       "firstText": "在太超过……甚至可以说凄惨。神原愣了一下，似乎完全搞不清楚我的",
-      "index": 475,
+      "index": 474,
       "lastText": "理善后之类的东西，我最不擅长了。」"
     },
     {
@@ -7449,9 +7434,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f211f98581d5323b",
+      "detailHash": "d489adf6ba7c0478",
       "firstText": "「…………」",
-      "index": 476,
+      "index": 475,
       "lastText": "动（升上三年级后的现在，这感觉让我既怀念又有新鲜感），但对方不"
     },
     {
@@ -7464,9 +7449,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "9ac94af88b3752f3",
+      "detailHash": "53f5018a3ad7bce8",
       "firstText": "愧是神原。神原骏河毫不避讳，朝着在走廊上等待的我，大步地走了过",
-      "index": 477,
+      "index": 476,
       "lastText": "神原突然端正坐姿，朝我低下头。"
     },
     {
@@ -7479,9 +7464,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "e38479a728939066",
+      "detailHash": "5e9efb546a051142",
       "firstText": "「我想先为昨天的事情向你道歉。」",
-      "index": 478,
+      "index": 477,
       "lastText": "「大错特错！」"
     },
     {
@@ -7494,9 +7479,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "29a3d645641026c3",
+      "detailHash": "9d62f8cea05241d3",
       "firstText": "穿着雨衣哪看得出腰形啊！",
-      "index": 479,
+      "index": 478,
       "lastText": "把脚踏车像纸屑一样打烂。"
     },
     {
@@ -7509,9 +7494,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "019b825e40b20b66",
+      "detailHash": "598dbb27715b8395",
       "firstText": "一拳打坏水泥墙。",
-      "index": 480,
+      "index": 479,
       "lastText": "神原听到我的话后并不惊慌，也没有半点愧疚。"
     },
     {
@@ -7524,9 +7509,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "f9b82d2ab927ea3e",
+      "detailHash": "6c4f4fe653e864ae",
       "firstText": "「可是，」她接着说。「学长请不要误会。我最近会跟踪学长，不",
-      "index": 481,
+      "index": 480,
       "lastText": "种意思上算是一种艺术品吧。"
     },
     {
@@ -7539,9 +7524,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "f74d371ca8a8b966",
+      "detailHash": "f1e53beeb8e9c879",
       "firstText": "「由来我也听说了。这个通称还真贴切啊。」",
-      "index": 482,
+      "index": 481,
       "lastText": "看来国中时代的神原，身边似乎有一群很好的伙伴。"
     },
     {
@@ -7554,9 +7539,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "9faaaea9c668c23b",
+      "detailHash": "89e3cc28a8b7e152",
       "firstText": "包含当时的战场原在内……",
-      "index": 483,
+      "index": 482,
       "lastText": "的黑毛，有如野兽之物。"
     },
     {
@@ -7569,9 +7554,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "7edf177298e7394e",
+      "detailHash": "873582ea9d9b5628",
       "firstText": "那是我从手套的破洞中，所看到的东西。",
-      "index": 484,
+      "index": 483,
       "lastText": "猿猴。"
     },
     {
@@ -7584,9 +7569,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "a9f044506892d1bb",
+      "detailHash": "5d3ecc7e709a1345",
       "firstText": "哺乳纲灵长目中，除了人类以外的动物总称。",
-      "index": 485,
+      "index": 484,
       "lastText": "我老实说。"
     },
     {
@@ -7599,9 +7584,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "2282beb4d150a178",
+      "detailHash": "1f77fbc018d8562d",
       "firstText": "这样啊，神原说。",
-      "index": 486,
+      "index": 485,
       "lastText": "是活着的。"
     },
     {
@@ -7614,9 +7599,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "aed114b737e49d6b",
+      "detailHash": "8139005e64b2eddf",
       "firstText": "这怪异——果然是活物型的怪异。",
-      "index": 487,
+      "index": 486,
       "lastText": "说到这里我才想到，这种事情战场原那家伙也做过好几次。当然神"
     },
     {
@@ -7629,9 +7614,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "814e5451ed05d6b5",
+      "detailHash": "92efdaea12bc2123",
       "firstText": "原的用法和战场原有天壤之别，但从她已经学会这招来看，那就表一不",
-      "index": 488,
+      "index": 487,
       "lastText": "「该说是意识还是想法呢——不对。这样说很难懂。我现在说明的"
     },
     {
@@ -7644,9 +7629,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "c2ca994cbc13220f",
+      "detailHash": "db2b57a64ed112c2",
       "firstText": "东西，连我自己都不太明白，所以这样很正常吧……简单来说，阿良良",
-      "index": 489,
+      "index": 488,
       "lastText": "忍野的势力范围。"
     },
     {
@@ -7659,9 +7644,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "4908e7b3ab59748f",
+      "detailHash": "8ba6ff5f7add7835",
       "firstText": "「比我还清楚这类的事情。」",
-      "index": 490,
+      "index": 489,
       "lastText": "就像藤子不二雄老师的漫画一样，滑了一下。"
     },
     {
@@ -7674,9 +7659,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "3fa07c96561171b2",
+      "detailHash": "4d718fa8455dd485",
       "firstText": "「嗯，喔、喔。」",
-      "index": 491,
+      "index": 490,
       "lastText": "对，我要冷静，我不能劈头就否定一切。对了……现在时下的女生，搞"
     },
     {
@@ -7689,9 +7674,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "caa2138f56009b55",
+      "detailHash": "9258497bf30c2525",
       "firstText": "不好都是这样啊。可能只是我的感受性太古板了。或许我应该用更明",
-      "index": 492,
+      "index": 491,
       "lastText": "「…………」"
     },
     {
@@ -7704,9 +7689,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "470f704b29b4a85a",
+      "detailHash": "e3444f4648feed5a",
       "firstText": "咦……那个？",
-      "index": 493,
+      "index": 492,
       "lastText": "因为一心一意的爱恋？"
     },
     {
@@ -7719,9 +7704,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "f07b0a30b4d24a79",
+      "detailHash": "a3a0ab7ee5aef819",
       "firstText": "这也太过直接了。",
-      "index": 494,
+      "index": 493,
       "lastText": "「然后……那灰暗的百合生活怎么了？」"
     },
     {
@@ -7734,9 +7719,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "056a5b0b9b870a84",
+      "detailHash": "919440af29e5ff1c",
       "firstText": "「嗯。在那一年间，我才后知后觉，知道了战场原学姐对我而言，",
-      "index": 495,
+      "index": 494,
       "lastText": "「变得和以前，完全不一样。」"
     },
     {
@@ -7749,9 +7734,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "2325939b6d9458fd",
+      "detailHash": "4f47f6a51920edb3",
       "firstText": "螃蟹。",
-      "index": 496,
+      "index": 495,
       "lastText": "「所以我才想要帮助学姐……我想要帮她。可是，却被学姐冷淡地"
     },
     {
@@ -7764,9 +7749,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "3645ff5d0736aa18",
+      "detailHash": "05e05a1616cdf0b7",
       "firstText": "拒绝了。」",
-      "index": 497,
+      "index": 496,
       "lastText": "比。」"
     },
     {
@@ -7779,9 +7764,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "76e477c3b23b4b6c",
+      "detailHash": "9b8cab2d23de1b6d",
       "firstText": "因为战场原学姐从来没有要求过——",
-      "index": 498,
+      "index": 497,
       "lastText": "正合我意，可是……即使如此。"
     },
     {
@@ -7794,9 +7779,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "063dbaba2662e978",
+      "detailHash": "0b37cc36d847bece",
       "firstText": "「她说我是优秀的学妹，让我很高兴啦。」",
-      "index": 499,
+      "index": 498,
       "lastText": "而是佩服她不把这选择当作无可奈何或迫不得已，反而还很乐意去做。"
     },
     {
@@ -7809,9 +7794,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "3c31437613fb29a6",
+      "detailHash": "1fe93fb72d176c99",
       "firstText": "战场原说已经回不到过去，但其实不是如此，是神原凭借自己的意志而",
-      "index": 500,
+      "index": 499,
       "lastText": "情。」"
     },
     {
@@ -7824,9 +7809,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "ab9177892cf74bfb",
+      "detailHash": "98479b6b04e762cd",
       "firstText": "我还在想她既然这么在意战场原，怎么会这么晚才知道我们交往的",
-      "index": 501,
+      "index": 500,
       "lastText": "神原一字一句，断句分明地说。"
     },
     {
@@ -7839,9 +7824,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "22004eef90f479a2",
+      "detailHash": "56209cd49a81d26d",
       "firstText": "「我在途中，虽然想改变自己的想法。」",
-      "index": 502,
+      "index": 501,
       "lastText": "神原用自己的右手，触碰自己的左手。"
     },
     {
@@ -7854,9 +7839,9 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "ae2a50c6e0430f64",
+      "detailHash": "61875ac24bf53826",
       "firstText": "触碰那野兽的左手。",
-      "index": 503,
+      "index": 502,
       "lastText": "就是以上两点。"
     },
     {
@@ -7869,9 +7854,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b91a1b3cc94fac10",
+      "detailHash": "e29f7c989b168e38",
       "firstText": "猴掌就是这种有问题的道具。",
-      "index": 504,
+      "index": 503,
       "lastText": "家取绰号吧。」"
     },
     {
@@ -7884,9 +7869,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "7eabb4d1cda8849e",
+      "detailHash": "499eba6c2a3a07f5",
       "firstText": "「你这么说也是……那家伙小时候，别人是怎么叫他的呢。虽然我",
-      "index": 505,
+      "index": 504,
       "lastText": "我们抬头仰望补习班旧址。"
     },
     {
@@ -7899,9 +7884,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "f534c8dd460585de",
+      "detailHash": "f2bb21de0f58f4c9",
       "firstText": "「话说回来，阿良良木学长。学长曾经被吸血鬼袭击过，那是学长",
-      "index": 506,
+      "index": 505,
       "lastText": "成下，我不由得看向神原左手上重新缠的洁白绷带。现在虽看不到绷带"
     },
     {
@@ -7914,9 +7899,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "5d6eba132fdc969e",
+      "detailHash": "bf896163960993c4",
       "firstText": "底下的东西，但只要见过那只手的庐山真面目，就算从外观也能看出神",
-      "index": 507,
+      "index": 506,
       "lastText": "就算是运气，说到底也不过是普通的偶然。"
     },
     {
@@ -7929,9 +7914,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "24c4e95ab4b3953a",
+      "detailHash": "70dea8d98af36edc",
       "firstText": "「我很高兴学长顾虑到我，不过我希望学长别说那种话。战场原学",
-      "index": 508,
+      "index": 507,
       "lastText": "就是这样。"
     },
     {
@@ -7944,9 +7929,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "94460324d04c57c5",
+      "detailHash": "7b84637b30ab40c7",
       "firstText": "我和忍野做的事情有限。",
-      "index": 509,
+      "index": 508,
       "lastText": "以代替学姐。」"
     },
     {
@@ -7959,9 +7944,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "49fef6887d2b7004",
+      "detailHash": "11495584b9a13181",
       "firstText": "一个相当要不得的声明。",
-      "index": 510,
+      "index": 509,
       "lastText": "的『攻』。」"
     },
     {
@@ -7974,9 +7959,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "46f59dedd8adab66",
+      "detailHash": "7953fc0bdec6bfdf",
       "firstText": "「『攻』？『受』？为啥我必须去追求那种东西！」",
-      "index": 511,
+      "index": 510,
       "lastText": "，所以我当不了攻。」"
     },
     {
@@ -7989,9 +7974,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "c296a837f240f924",
+      "detailHash": "8113c6343887c889",
       "firstText": "①",
-      "index": 512,
+      "index": 511,
       "lastText": "啊啊……真是够了，什么目的是身体，什么弹性柔软讨男性喜欢的"
     },
     {
@@ -8004,9 +7989,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "241bf526ea61158b",
+      "detailHash": "981339975da557fd",
       "firstText": "惹火身材，我们怎么一直在聊这种会磨耗精神、近乎下流对话啊……我",
-      "index": 513,
+      "index": 512,
       "lastText": "吗？」"
     },
     {
@@ -8019,9 +8004,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "7faeb237e113ff0b",
+      "detailHash": "d775120aef552114",
       "firstText": "「你没穿吗？神原同学！」",
-      "index": 514,
+      "index": 513,
       "lastText": "「兹事体大，这是我的学妹是运动少女还是暴露狂的分水岭！」"
     },
     {
@@ -8034,9 +8019,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "15a0ff607be5c826",
+      "detailHash": "bd7e7dc34eaf8217",
       "firstText": "先不管这话题有无颜色。",
-      "index": 515,
+      "index": 514,
       "lastText": "神原沉默后，点头说。"
     },
     {
@@ -8049,9 +8034,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "efc3c4549003807b",
+      "detailHash": "457889d67b9db169",
       "firstText": "「阿良良木学长你说得对。」",
-      "index": 516,
+      "index": 515,
       "lastText": "萍水相逢，自是什么来着。"
     },
     {
@@ -8064,9 +8049,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "89e4567831ad83d8",
+      "detailHash": "d36b851723f52762",
       "firstText": "「注意你的脚边。」",
-      "index": 517,
+      "index": 516,
       "lastText": "叫人意外的一面。"
     },
     {
@@ -8079,9 +8064,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "29c7406cde83a7fc",
+      "detailHash": "7d5ec6c1a054489b",
       "firstText": "这是她和战场原不同的地方。",
-      "index": 518,
+      "index": 517,
       "lastText": "第一次和战场原牵手，就是在那时候。"
     },
     {
@@ -8094,9 +8079,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "196367fc21c70f2e",
+      "detailHash": "051e745d06a8e406",
       "firstText": "嗯——可是现在呢。今天神原会谢绝脚踏车双载，就表示她有顾虑",
-      "index": 519,
+      "index": 518,
       "lastText": "「大家常常说你是个温柔的好人吧？」"
     },
     {
@@ -8109,9 +8094,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "3b7321b9831278fa",
+      "detailHash": "551e3c275f05830d",
       "firstText": "「那种话好像是在替自己的没个性打圆场一样，我才不希望常听到",
-      "index": 520,
+      "index": 519,
       "lastText": "「真这样我哪受得了！有问题就快问吧！」"
     },
     {
@@ -8124,9 +8109,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "9238cedc0794ebb7",
+      "detailHash": "bfe0a6514883384d",
       "firstText": "「从至今的对话来看……学长好像没有对战场原学姐说我的事",
-      "index": 521,
+      "index": 520,
       "lastText": "权宜上的考虑。"
     },
     {
@@ -8139,9 +8124,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "fcbf6b85388caca1",
+      "detailHash": "833b3838b9d3e5da",
       "firstText": "坏心的留恋。",
-      "index": 522,
+      "index": 521,
       "lastText": "没告诉她，突然看见一个女生双手抱脚坐在废墟里头，要她不在意才难"
     },
     {
@@ -8154,9 +8139,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "ea4eaf466293dbfb",
+      "detailHash": "1a648bca6f68c5fd",
       "firstText": "吧……不过，神原现在身体的一部分也化成了怪异，该不会她在忍身上",
-      "index": 523,
+      "index": 522,
       "lastText": "对她说："
     },
     {
@@ -8169,9 +8154,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "a2364695d40ff7d3",
+      "detailHash": "15477004852ea232",
       "firstText": "「……她喔，那个……你不要管比较好。」",
-      "index": 524,
+      "index": 523,
       "lastText": "「啊？颜色？你要给我什么？颜色嘛，我是没特别喜欢的啦，勉强"
     },
     {
@@ -8184,9 +8169,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "6dc20b5103aa13e8",
+      "detailHash": "7276b3a541822d7a",
       "firstText": "要说的话大概是水蓝色吧。」",
-      "index": 525,
+      "index": 524,
       "lastText": "起来就很肮脏。这个男人和整洁与清爽等词汇完全没有缘分。他的造型"
     },
     {
@@ -8199,9 +8184,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "2594cc5fe82ce8f0",
+      "detailHash": "4b306ec5e8c228d0",
       "firstText": "正好和这栋废墟相符，不过他在此生活之前，外表看起来究竟是怎样",
-      "index": 526,
+      "index": 525,
       "lastText": "我的希望，虽然这可能只是在浪费我的口舌。」"
     },
     {
@@ -8214,9 +8199,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "f5abe57ac7ede354",
+      "detailHash": "7c8a89fd56f45718",
       "firstText": "「……忍的话，我在楼梯那边有看到她。她干嘛坐在那里啊？」",
-      "index": 527,
+      "index": 526,
       "lastText": "神原替我解了围。"
     },
     {
@@ -8229,9 +8214,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "1e07904087b842d5",
+      "detailHash": "260fd407fb92d42e",
       "firstText": "太好了……不过骏河问是什么东西？",
-      "index": 528,
+      "index": 527,
       "lastText": "「总之我叫神原骏河。」"
     },
     {
@@ -8244,9 +8229,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "53b6f728d5cf4c57",
+      "detailHash": "8844687f01325dd3",
       "firstText": "这对话似乎消除了神原的紧张感，她的手终于离开我的皮带，躲在",
-      "index": 529,
+      "index": 528,
       "lastText": "差不多手头也有点紧了。靠这些就可以撑到梅雨季节了。只要下雨的"
     },
     {
@@ -8259,9 +8244,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "60d90829dfaa4a0a",
+      "detailHash": "1168f9d8889c82cd",
       "firstText": "话，就能够靠雨水解渴，我以为要撑到那时候呢。」",
-      "index": 530,
+      "index": 529,
       "lastText": "「忍野先生。我——」"
     },
     {
@@ -8274,9 +8259,9 @@
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "4668e3bb14ec3cde",
+      "detailHash": "7a744ca3fa3716f3",
       "firstText": "当神原话说到一半时，",
-      "index": 531,
+      "index": 530,
       "lastText": "每次都是这样，对我来说啦。何况还是左手，那就更不用说了。」"
     },
     {
@@ -8289,9 +8274,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "098844ce0ce70d3f",
+      "detailHash": "26ed4cdd302fe3c0",
       "firstText": "００７",
-      "index": 532,
+      "index": 531,
       "lastText": "「木乃伊。」"
     },
     {
@@ -8304,9 +8289,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "bf710e04e613f9a1",
+      "detailHash": "9507470359b8b0da",
       "firstText": "神原不假思索地回答说。",
-      "index": 533,
+      "index": 532,
       "lastText": "最后徒劳无功。他们几乎已经和爷爷奶奶断绝关系了。我是在爸妈葬礼"
     },
     {
@@ -8319,9 +8304,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "182f607567aeb525",
+      "detailHash": "c15291272dbbf5db",
       "firstText": "上才第一次见到爷爷奶奶，也不知道他们的名字。对方也一样不知道我",
-      "index": 534,
+      "index": 533,
       "lastText": "从两人住的地方看起来，我想也是吧。"
     },
     {
@@ -8334,9 +8319,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "977e6c2c63d2de8a",
+      "detailHash": "5d3770f70a992e48",
       "firstText": "她和羽川大概也不同小学。",
-      "index": 535,
+      "index": 534,
       "lastText": "木乃伊的左手。"
     },
     {
@@ -8349,9 +8334,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "57923825db06e22a",
+      "detailHash": "445907b3173cee6a",
       "firstText": "只不过，打开当时……那只木乃伊的左手，长度只有到手腕而已。",
-      "index": 536,
+      "index": 535,
       "lastText": "她只是想尝试看看。"
     },
     {
@@ -8364,9 +8349,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "cda786a7e8b56593",
+      "detailHash": "555e9c2aaee2108e",
       "firstText": "「要是第一个愿望顺利实现的话，我已经想好第二个愿望要许什么",
-      "index": 537,
+      "index": 536,
       "lastText": "「……难道说，那个愿望让你……」"
     },
     {
@@ -8379,9 +8364,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "c8d1eb83e8a36a01",
+      "detailHash": "fa782cec50c284f3",
       "firstText": "「如果是就好了。」",
-      "index": 538,
+      "index": 537,
       "lastText": "的事情。"
     },
     {
@@ -8394,9 +8379,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "2c2ea1e7e603bac7",
+      "detailHash": "0a95ad2ab9c3a0e9",
       "firstText": "但是，",
-      "index": 539,
+      "index": 538,
       "lastText": "所以她努力要让自己跑快一点。"
     },
     {
@@ -8409,9 +8394,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "68378ef106ac1570",
+      "detailHash": "2cb57ac016991dc8",
       "firstText": "「我只能靠自己实现愿望。这样一来，木乃伊就没有理由攻击我的",
-      "index": 540,
+      "index": 539,
       "lastText": "「或许也有不参加社团、不运动的选择，不过我伯会有万一所以不"
     },
     {
@@ -8424,9 +8409,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "7ec38208a7e56f67",
+      "detailHash": "1f85002c741c7175",
       "firstText": "能让身体钝掉，当然不光是这样，因为运动几乎已经强制性地变成了我",
-      "index": 541,
+      "index": 540,
       "lastText": "就算不是现在，而是国中的战场原，这举动还是叫我很意外。"
     },
     {
@@ -8439,9 +8424,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "494911677ea9b2b8",
+      "detailHash": "442e102076bce46e",
       "firstText": "「学姐来找我，说她想私下和我来一场百米赛跑。可是，我不得不",
-      "index": 542,
+      "index": 541,
       "lastText": "那时的神原，终于理解到母亲将桐木盒子交给她的原因。母亲肯定"
     },
     {
@@ -8454,9 +8439,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "f26cc488816c20c5",
+      "detailHash": "385639cdf8bcbd41",
       "firstText": "是自己成为能够靠自身力量，去克服困难的人。《猴掌》一书告诉我们",
-      "index": 543,
+      "index": 542,
       "lastText": "说明白一点，神原骏河她——"
     },
     {
@@ -8469,9 +8454,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "bba76eceb0d15f24",
+      "detailHash": "a1063bb6fd6a1a9e",
       "firstText": "为了战场原而扼杀了自己。",
-      "index": 544,
+      "index": 543,
       "lastText": "你每次来找我，都会问我今天有没有什么奇怪的事情对吧。」"
     },
     {
@@ -8484,9 +8469,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "a86cfa3d7c6ca1f8",
+      "detailHash": "57fc781a1687c277",
       "firstText": "那个问题，原来是有含意的。",
-      "index": 545,
+      "index": 544,
       "lastText": "猴掌能够实现持有者的梦想。"
     },
     {
@@ -8499,9 +8484,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "113a18dc7c94c9ca",
+      "detailHash": "91a5af709ef24110",
       "firstText": "但是，实现的方式会违背持有者的本意——",
-      "index": 546,
+      "index": 545,
       "lastText": "日落西山，夜幕低垂，雨衣怪就会不停来袭击我。神原也会梦见我被雨"
     },
     {
@@ -8514,9 +8499,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "0e999a30c39c51c2",
+      "detailHash": "8b85609c5b9566a3",
       "firstText": "衣怪袭击吧。",
-      "index": 547,
+      "index": 546,
       "lastText": "然后——终于到了现在这一刻。"
     },
     {
@@ -8529,9 +8514,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "9029a82c06cc33d0",
+      "detailHash": "9f2a5197a2cd261f",
       "firstText": "现在。",
-      "index": 548,
+      "index": 547,
       "lastText": "兽腕和人腕的衔接处，接着踏出一步对忍野说："
     },
     {
@@ -8544,9 +8529,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "c60ff6b091ea03d1",
+      "detailHash": "0e83c4007d52210e",
       "firstText": "「这样可以吗？」",
-      "index": 549,
+      "index": 548,
       "lastText": "浅，知识不足了。」"
     },
     {
@@ -8559,9 +8544,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "fe1bce38e9c5b5f2",
+      "detailHash": "17fdd09b0bc488fb",
       "firstText": "「……我虽然调查过，不过那是小学时候的事情。」",
-      "index": 550,
+      "index": 549,
       "lastText": "「啥？」"
     },
     {
@@ -8574,9 +8559,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "f0b1a232913e2301",
+      "detailHash": "cf96087976a12289",
       "firstText": "看你的反应就知道没有。应该说你根本不知道有那本书的存在吧。",
-      "index": 551,
+      "index": 550,
       "lastText": "「神原……这种独特的反应仅限这一次吧。这反应有趣是很有趣"
     },
     {
@@ -8589,9 +8574,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "064f4baabb23433e",
+      "detailHash": "ed4a36b65e9f0859",
       "firstText": "啦，不过要是忍野调侃我一次你就来一次的话，谈话就进行不下去",
-      "index": 552,
+      "index": 551,
       "lastText": "她的视线奇妙，看似有些不好意思。"
     },
     {
@@ -8604,9 +8589,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "2038eaafbe6b1932",
+      "detailHash": "b40dbde76adcdbb5",
       "firstText": "她在向我说明杰考布斯的《猴掌》概要时也一样，神原骏河在个性",
-      "index": 553,
+      "index": 552,
       "lastText": "以滔滔不绝、口才流利地解释这么多，小姐你还真厉害啊。如果说有什"
     },
     {
@@ -8619,9 +8604,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e6d7278ab6c144f4",
+      "detailHash": "f0c66a801f989d84",
       "firstText": "么需要补充的地方呢，对了，有一件事可能不多人知道，其实介绍歌德",
-      "index": 554,
+      "index": 553,
       "lastText": "已经是惯例了。从神原的感觉来看，她该不会等一下要把忍野夸上天去"
     },
     {
@@ -8634,9 +8619,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "9075e7ff8086e290",
+      "detailHash": "9b462634b3f45b4e",
       "firstText": "吧。老实说，我搞不太清楚神原夸奖人的基准。看来，她不是对谁都可",
-      "index": 555,
+      "index": 554,
       "lastText": "啦，不过我搞不懂这些和现在神原的状况有什么关系。我们现在是不是"
     },
     {
@@ -8649,9 +8634,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "def4cd07e5962213",
+      "detailHash": "ff303e556d314041",
       "firstText": "偏离主题，搞错焦点了？恶魔以灵魂为报酬实现你的愿望这点，或许和",
-      "index": 556,
+      "index": 555,
       "lastText": "「灵魂——」"
     },
     {
@@ -8664,9 +8649,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "9693506e991aee5e",
+      "detailHash": "cfd8cebb44eabd74",
       "firstText": "「以灵魂作交换，他们就会实现人类的愿望。这很理所当然，如果",
-      "index": 557,
+      "index": 556,
       "lastText": "「……喔？啊，原来如此。『远江』是遥远的『远』和长江的"
     },
     {
@@ -8679,9 +8664,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "2353dc86ca37d41a",
+      "detailHash": "1256668bc3156f83",
       "firstText": "『江』吧。远江吗。小姐的骏河这个名字，原来是这样来的啊",
-      "index": 558,
+      "index": 557,
       "lastText": "会。不过呢，这种情况呢……阿良良木老弟，我该怎么做呢？」"
     },
     {
@@ -8694,9 +8679,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "e8d9edccf05ab7df",
+      "detailHash": "b0b608148aa81954",
       "firstText": "忍野用坏心的口吻说。但他不是在寻求既定的答案，似乎真的在等",
-      "index": 559,
+      "index": 558,
       "lastText": "会长出——」"
     },
     {
@@ -8709,9 +8694,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "0a344b47d7c310b6",
+      "detailHash": "45bfc80c1226327e",
       "firstText": "「又不是蜥蜴的尾巴，哪可能有这么好康的事情。只牺牲一只手臂",
-      "index": 560,
+      "index": 559,
       "lastText": "忍野维持严厉口吻对我说。"
     },
     {
@@ -8724,9 +8709,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "5cfd42e44d0eaaba",
+      "detailHash": "f30df86ea4554125",
       "firstText": "「阿良良木老弟，你真的很温柔耶。温柔的好人……你真是一个温",
-      "index": 561,
+      "index": 560,
       "lastText": "理不是很显而易见的吗？」"
     },
     {
@@ -8739,9 +8724,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "0b642a5d57e30a98",
+      "detailHash": "2451bfce1e1c1f37",
       "firstText": "「…………」",
-      "index": 562,
+      "index": 561,
       "lastText": "现的方式会违背自己的本意——这句话才是重点吧？这可以用来解释："
     },
     {
@@ -8754,9 +8739,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "f0fe5ccd409e753e",
+      "detailHash": "42d48fe9bef69fc5",
       "firstText": "攻击同学完全不是出自于自己的本意，可以当作精神上的借口。这才是",
-      "index": 563,
+      "index": 562,
       "lastText": "候，愿望就已经实现了。怪异在一个晚上，在不知不觉间和小姐的左手"
     },
     {
@@ -8769,9 +8754,9 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "fa5234f488ff65aa",
+      "detailHash": "6d067543febad8a9",
       "firstText": "同化，然后又在不知不觉间离开她的左手。离开后，左手因为实现了小",
-      "index": 564,
+      "index": 563,
       "lastText": "忍野说。"
     },
     {
@@ -8784,9 +8769,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "3af82b70c7f36766",
+      "detailHash": "f9850e31577ec537",
       "firstText": "００８",
-      "index": 565,
+      "index": 564,
       "lastText": "恶魔全部看透了。"
     },
     {
@@ -8799,9 +8784,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "f77c674bf21fbd58",
+      "detailHash": "b1ba96c11ce2d817",
       "firstText": "神原虽然不后悔离开战场原身旁，但她却不允许有人占走那个位",
-      "index": 566,
+      "index": 565,
       "lastText": "知道那只暴力的左手打算排除阿良良木历。但是，站在神原的立场来"
     },
     {
@@ -8814,9 +8799,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "81934749aa03f398",
+      "detailHash": "c6d0ed4c15468efc",
       "firstText": "看，为何她知道这状况确实会发生呢？左手会如何实现愿望，会如何违",
-      "index": 567,
+      "index": 566,
       "lastText": "她的内心被恶魔趁隙而入。"
     },
     {
@@ -8829,9 +8814,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "5df0703bf448d5da",
+      "detailHash": "1d2a4f896ed67c0d",
       "firstText": "这句话，忍野绝不会说出口。",
-      "index": 568,
+      "index": 567,
       "lastText": "不过老实说，我的感觉和体感和平常没什么差别……因为现在我全"
     },
     {
@@ -8844,9 +8829,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bf765ca311d023b2",
+      "detailHash": "a982b5a5115ef09b",
       "firstText": "身的能力都获得提升，所以我不太清楚和普通状态有什么差别。",
-      "index": 569,
+      "index": 568,
       "lastText": "注：六小福是mister donut的一种六入盒装"
     },
     {
@@ -8859,9 +8844,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6ceefcf6bf6983bf",
+      "detailHash": "237d8626370e3d88",
       "firstText": "甜甜圈。",
-      "index": 570,
+      "index": 569,
       "lastText": "道。"
     },
     {
@@ -8874,9 +8859,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1199083d5446df9d",
+      "detailHash": "4a9ce8ce1c7c1f34",
       "firstText": "「神」原遇上恶魔吗？",
-      "index": 571,
+      "index": 570,
       "lastText": "「当然，就算现在的阿良良木老弟喂血给现在的小忍，你的能力还"
     },
     {
@@ -8889,9 +8874,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "5793904866d45d4a",
+      "detailHash": "1aa95969642bd80a",
       "firstText": "是有限吧……我想大概只能发挥春假——你真正是吸血鬼时的十分之",
-      "index": 572,
+      "index": 571,
       "lastText": "神原骏河的母亲和父亲一样，在私奔时已经和家族断绝关系，因此"
     },
     {
@@ -8904,9 +8889,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "a9d9bb1b5757d947",
+      "detailHash": "6605829b9370f3d9",
       "firstText": "神原骏河本人和母亲的老家完全没有交集，所以那边的状况现时点无法",
-      "index": 573,
+      "index": 572,
       "lastText": "股份有限公司来说，那就跟获得全部股份的三〇％一样。」"
     },
     {
@@ -8919,9 +8904,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "9f4c99effcfdac2e",
+      "detailHash": "e533f7a67d3832ad",
       "firstText": "「……我想也是。」",
-      "index": 574,
+      "index": 573,
       "lastText": "如果这是一切的原因，是出自于神原对战场原的憧憬——」"
     },
     {
@@ -8934,9 +8919,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "205992a17dbbec14",
+      "detailHash": "95e8e6024ed38733",
       "firstText": "每个怪异都会有一个相符的理由。",
-      "index": 575,
+      "index": 574,
       "lastText": "有多可怕呢，你仔细想想春假的事情，没做好觉悟可不能进去喔……当"
     },
     {
@@ -8949,9 +8934,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "0abb90cbd20b5e7b",
+      "detailHash": "f278e629b0f5b0b9",
       "firstText": "然，不管发生什么事情，我和小忍都不会进去帮你。你可别忘了，我可",
-      "index": 576,
+      "index": 575,
       "lastText": "现在的我刚喂完血给忍，就算在漆黑当中，一样能够看穿黑暗。没"
     },
     {
@@ -8964,9 +8949,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "5b11ea5f5dead804",
+      "detailHash": "a0e45b32d0d3c420",
       "firstText": "错，在这个状态下的我，在暗处反而看得更清楚。我缓缓移动视线。",
-      "index": 577,
+      "index": 576,
       "lastText": "雨帽内侧就和昨晚一样，像一个深不见底的窟窿，别说是表情，就"
     },
     {
@@ -8979,9 +8964,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6b5e453fa5c3eae5",
+      "detailHash": "64326ef29c5ed66f",
       "firstText": "连帽内是何物也无法一窥究竟。",
-      "index": 578,
+      "index": 577,
       "lastText": "因为神原已经这么想了，所以没办法去政变。"
     },
     {
@@ -8994,9 +8979,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "10fb70e0c0f658a6",
+      "detailHash": "489d7c5e96f34cd4",
       "firstText": "既然这样，就将这个道理反转过来看。",
-      "index": 579,
+      "index": 578,
       "lastText": "「…………呜！」"
     },
     {
@@ -9009,9 +8994,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "8a53449172782fbf",
+      "detailHash": "561ad227e0871945",
       "firstText": "他已经追上来了。",
-      "index": 580,
+      "index": 579,
       "lastText": "在我一头雾水的这段期间，雨衣怪站了起来。"
     },
     {
@@ -9024,9 +9009,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "74887827ae30899d",
+      "detailHash": "794b25c2f8dbdd6f",
       "firstText": "嗯——就算不去管他的身体是神原的，我还是没办法追击倒在地上",
-      "index": 581,
+      "index": 580,
       "lastText": "的十分之一，可见我在春假的那段经历有多么的地狱啊。"
     },
     {
@@ -9039,9 +9024,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "de355b1cd7884e94",
+      "detailHash": "3ba4dd09d9a7a84a",
       "firstText": "接下来的一拳我躲开了。",
-      "index": 582,
+      "index": 581,
       "lastText": "接着我注意到了。"
     },
     {
@@ -9054,9 +9039,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "2e3445eeb828a5af",
+      "detailHash": "b10e08bfeb88c4e9",
       "firstText": "注意到自己的失误。",
-      "index": 583,
+      "index": 582,
       "lastText": "呜呜……"
     },
     {
@@ -9069,9 +9054,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9357f767fe90ae82",
+      "detailHash": "01843a7e2e303e83",
       "firstText": "我真是思虑不周……",
-      "index": 584,
+      "index": 583,
       "lastText": "必须充分活用这个差异和优势。"
     },
     {
@@ -9084,9 +9069,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1385cde4c18c0df1",
+      "detailHash": "4a3870eb5004be0e",
       "firstText": "雨衣怪的左手有如发狂般，激烈乱动。",
-      "index": 585,
+      "index": 584,
       "lastText": "我用十字防御挡住的踢击，虽然不如左手的弹射拳那般强劲，但这"
     },
     {
@@ -9099,9 +9084,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "ea9fd2d1ae28149a",
+      "detailHash": "eb71a208f783febf",
       "firstText": "冲击反而让我无法解释现在的状况，思考陷入了混乱。",
-      "index": 586,
+      "index": 585,
       "lastText": "神原在潜意识中，拒绝了一些事物。"
     },
     {
@@ -9114,9 +9099,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "8a6de20984f20e43",
+      "detailHash": "45bb952c3e0b2d9c",
       "firstText": "拒绝失去雨魔的左手。",
-      "index": 587,
+      "index": 586,
       "lastText": "雨衣怪至今毫无迷惘的动作……停了下来。"
     },
     {
@@ -9129,9 +9114,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "8af05e651f836923",
+      "detailHash": "01f6511abfa01c99",
       "firstText": "……神原骏河。",
-      "index": 588,
+      "index": 587,
       "lastText": "寒毛直竖。"
     },
     {
@@ -9144,9 +9129,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "6bba36355834a443",
+      "detailHash": "5c8e0f1ce4a33eea",
       "firstText": "「你在说什么傻话，我哪能砍掉你的手啊。这样的话你以后要怎么",
-      "index": 589,
+      "index": 588,
       "lastText": "「这样啊。也对，砍掉自己的手这种事情，不应该拜托别人。就算"
     },
     {
@@ -9159,9 +9144,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "1324adad0cf4ab79",
+      "detailHash": "8fcb4775891bcce0",
       "firstText": "拜托别人，对方也无法轻易帮你。我知道了，我自己想办法吧。只要利",
-      "index": 590,
+      "index": 589,
       "lastText": "完全不同。阿良良木老弟，因为你没对怪异许下任何愿望。」"
     },
     {
@@ -9174,9 +9159,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "456070eb5b0f1916",
+      "detailHash": "91d39ab1b27d9bfa",
       "firstText": "「…………」",
-      "index": 591,
+      "index": 590,
       "lastText": "或许这只是我自以为是的傲慢。"
     },
     {
@@ -9189,9 +9174,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "4f9fde51a1056355",
+      "detailHash": "255bb5d7559d1241",
       "firstText": "但是——",
-      "index": 592,
+      "index": 591,
       "lastText": "吧。令堂托付给你，绝对不是叫你放弃自己的愿望。"
     },
     {
@@ -9204,9 +9189,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "6ffba91f6d468731",
+      "detailHash": "b62298dbdfb29666",
       "firstText": "所以不要露出那种表情。",
-      "index": 593,
+      "index": 592,
       "lastText": "雨衣怪跳了起来。"
     },
     {
@@ -9219,9 +9204,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "17a0cf99f0a56a16",
+      "detailHash": "08f7fc69b12b39a4",
       "firstText": "他一跳，双脚贴着教室天花板，开始在上头奔跑。「哒、哒、哒、",
-      "index": 594,
+      "index": 593,
       "lastText": "他利用重力加速度，加速再加速，每经一个跳跃，就慢慢且大胆地"
     },
     {
@@ -9234,9 +9219,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "08d088d24b962dba",
+      "detailHash": "b8265f4190766bfd",
       "firstText": "提升速度。长靴和帆布鞋的差异，利用小巧可爱的动作，慢慢且大胆地",
-      "index": 595,
+      "index": 594,
       "lastText": "他从我的脚边，一口气跳到我的身后。"
     },
     {
@@ -9249,9 +9234,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "4abdea0ce071a4c0",
+      "detailHash": "13366b84027bcd63",
       "firstText": "雨衣怪终于从天花板上，朝我跳了过来。",
-      "index": 596,
+      "index": 595,
       "lastText": "因此对他左手的动作特别敏感。然而刚才的攻击，他的左手没有被封住"
     },
     {
@@ -9264,9 +9249,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "955fb63ee214f9fb",
+      "detailHash": "6a3f5f1fd7d4d134",
       "firstText": "却积极地使用二连踢来攻击我。还有雨衣怪突然运用可怕的步伐，使出",
-      "index": 597,
+      "index": 596,
       "lastText": "就像弹射器一样。"
     },
     {
@@ -9279,9 +9264,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "6c03548b1179e815",
+      "detailHash": "d51c4b13f6efa7f5",
       "firstText": "我耐不住这一击向后倾倒，但我马上利用倒立后翻的要领，用手掌",
-      "index": 598,
+      "index": 597,
       "lastText": "是战场原黑仪。"
     },
     {
@@ -9294,9 +9279,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "e2cd56e9ed16e0c2",
+      "detailHash": "346f452dda0afa9c",
       "firstText": "就像阿良良木历是阿良良木历一样。",
-      "index": 599,
+      "index": 598,
       "lastText": "我从绝对安全的高度，在从容不迫的立场下，想要撮合神原和战场"
     },
     {
@@ -9309,9 +9294,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "e252e4a6ca490864",
+      "detailHash": "8aa511ca6d9133f4",
       "firstText": "原，想要让她们重修旧好，这是多么卑鄙的行为啊。我是多么温柔的好",
-      "index": 600,
+      "index": 599,
       "lastText": "单纯是一种压力。"
     },
     {
@@ -9324,9 +9309,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "a76136eae9a258d8",
+      "detailHash": "57b0cb5ba9341695",
       "firstText": "被打中的地方不仅骨折，还会皮开肉绽，皮肤和肌肉爆裂。我稳住",
-      "index": 601,
+      "index": 600,
       "lastText": "怪的攻击，只要我身体的恢复力能够跟上，他的攻击根本不足为惧。"
     },
     {
@@ -9339,9 +9324,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "0ece67c40d8564fc",
+      "detailHash": "888ea4aba4a75eef",
       "firstText": "只是肉体会疼痛。",
-      "index": 602,
+      "index": 601,
       "lastText": "「你居然你居然你居然你居然你居然你居然你居然！」"
     },
     {
@@ -9354,9 +9339,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "357c686fdc4f7b94",
+      "detailHash": "f89e9618c75e8970",
       "firstText": "声音伴随着打击，接着说。",
-      "index": 603,
+      "index": 602,
       "lastText": "远远超过了我的恢复能力。"
     },
     {
@@ -9369,9 +9354,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "87cd96cfeacd1d6a",
+      "detailHash": "656acdc421748ae9",
       "firstText": "他缓缓地拔出脚来。",
-      "index": 604,
+      "index": 603,
       "lastText": "我没打算把自己的位置让给她。"
     },
     {
@@ -9384,9 +9369,9 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "2b2fb4470f8c4fb2",
+      "detailHash": "372d3e981ff9c89e",
       "firstText": "没打算让她代替我。",
-      "index": 605,
+      "index": 604,
       "lastText": "这是我望穿秋水的破绽。"
     },
     {
@@ -9399,9 +9384,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "91128c201ee5cc17",
+      "detailHash": "df6855b8cc3def67",
       "firstText": "然而，我没有按照原定计划，把雨衣怪压倒在地。我肚子开了一个",
-      "index": 606,
+      "index": 605,
       "lastText": "「战、战场原……」"
     },
     {
@@ -9414,9 +9399,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "2e5d723dbbe1e6da",
+      "detailHash": "0f5705e59bc5c865",
       "firstText": "我肚子开了一个大洞，无法好好说话。不成声的声音，就连要开口",
-      "index": 607,
+      "index": 606,
       "lastText": "雨衣怪往后一跳，踩过天花板和墙壁各三次，从这个角落移动到另"
     },
     {
@@ -9429,9 +9414,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "37ec737f4cc8d49c",
+      "detailHash": "dd9ab088bb8fe8a8",
       "firstText": "一头的角落——离我最远的对角线位置上。",
-      "index": 608,
+      "index": 607,
       "lastText": "这一点……的确没错。"
     },
     {
@@ -9444,9 +9429,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "71d382746d51a507",
+      "detailHash": "f3598be83a649224",
       "firstText": "我也没忘记。",
-      "index": 609,
+      "index": 608,
       "lastText": "恶魔。率先跑到动弹不得的我面前的，当然是神原。"
     },
     {
@@ -9459,9 +9444,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "17517bf5f5414007",
+      "detailHash": "2d3defedcfd1664c",
       "firstText": "雨衣怪一到定位，立刻朝我挥下左拳，打出最后一击。就在此时，",
-      "index": 610,
+      "index": 609,
       "lastText": "这种蠢事吧？」"
     },
     {
@@ -9474,9 +9459,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "5e35ca4acdb8df8e",
+      "detailHash": "7ca2a903002f1c92",
       "firstText": "战场原依旧不理会雨衣怪，没回头看我一眼，背对着我说。她不是",
-      "index": 611,
+      "index": 610,
       "lastText": "彷佛在畏惧一样……为什么？"
     },
     {
@@ -9489,9 +9474,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "4f138a10d9b500d5",
+      "detailHash": "19308f93b80f003b",
       "firstText": "这么说来，昨晚也是这样。雨衣怪将我打飞之后，冷不防就消失无",
-      "index": 612,
+      "index": 611,
       "lastText": "忍野还说过，她的想法绝对没有错。"
     },
     {
@@ -9504,9 +9489,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "4b49664f9a890407",
+      "detailHash": "cf8ad8057f3cd4a6",
       "firstText": "雨魔会看穿人类的黑暗情感，读出和观看人类的内心。恶魔是看愿",
-      "index": 613,
+      "index": 612,
       "lastText": "以灵魂做交换。"
     },
     {
@@ -9519,9 +9504,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "99a55442c9c38951",
+      "detailHash": "a20ff043c4ae6eb5",
       "firstText": "鉴赏期。",
-      "index": 614,
+      "index": 613,
       "lastText": "战场原说。"
     },
     {
@@ -9534,9 +9519,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "f5617e9591619d8b",
+      "detailHash": "8ee1f0cd418bea0d",
       "firstText": "接着，战场原慢慢抱住仰倒在地、不停向后退缩的雨衣怪——不，",
-      "index": 615,
+      "index": 614,
       "lastText": "「我喜欢战场原学姐。」"
     },
     {
@@ -9549,9 +9534,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "2e97b1dc7d6ffba8",
+      "detailHash": "44b04c3d0b9c5c07",
       "firstText": "她终于把自己的愿望说了出口。",
-      "index": 616,
+      "index": 615,
       "lastText": "战场原是不可能放弃的。"
     },
     {
@@ -9564,9 +9549,9 @@
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "a3673d7be3fcdad9",
+      "detailHash": "496b80b287be445d",
       "firstText": "多管闲事、鸡婆。",
-      "index": 617,
+      "index": 616,
       "lastText": "睡意朦胧的眼皮，照约定出门往战场原的家出发。这一整天都要在她家"
     },
     {
@@ -9579,9 +9564,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "f5731dc3bc60aa4a",
+      "detailHash": "c70eba0b1c85bc93",
       "firstText": "开读书会，或许可以吃到她亲手做的料理。我抱着微薄的期望，跨上我",
-      "index": 618,
+      "index": 617,
       "lastText": "「嗯，今天早上战场原学姐打电话给我，要我来接学长过去。啊！"
     },
     {
@@ -9594,9 +9579,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "04ffb0adf45a7738",
+      "detailHash": "c912b28a4675b187",
       "firstText": "请让我帮学长拿书包。」",
-      "index": 619,
+      "index": 618,
       "lastText": "微有些不自然。"
     },
     {
@@ -9609,9 +9594,9 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "76076ac2535ee7e9",
+      "detailHash": "a97ee93899c49357",
       "firstText": "「因为所有事情都实现一半的关系。恶魔虽然离开了，可是我的手",
-      "index": 620,
+      "index": 619,
       "lastText": "这点程度的代价，是理所当然的吧。"
     },
     {
@@ -9624,9 +9609,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "bfb4023a8de64785",
+      "detailHash": "105ce466cf0ed598",
       "firstText": "后记",
-      "index": 621,
+      "index": 620,
       "lastText": "不如预期。这是读者的误解，更精辟来说这是印象概念的效果，"
     },
     {
@@ -9635,13 +9620,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 18
       },
-      "detailHash": "da5f1fc34f204383",
+      "detailHash": "e0fd83bb8f475fe4",
       "firstText": "你不用感到失望，反而应该觉得过去那本书让你做了一场好梦，",
-      "index": 622,
+      "index": 621,
       "lastText": "西尾維新"
     },
     {
@@ -9654,9 +9639,9 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "47502d50660a6938",
+      "detailHash": "5db77883b41c50ae",
       "firstText": "作者介绍",
-      "index": 623,
+      "index": 622,
       "lastText": "COLORFUL DREAMS3》。"
     },
     {
@@ -9669,9 +9654,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "70c1a5e7fbfa6f1c",
+      "detailHash": "271fe259046724a0",
       "firstText": "",
-      "index": 624,
+      "index": 623,
       "lastText": ""
     }
   ],
@@ -9680,16 +9665,16 @@
     "chapterCount": 26,
     "chapterTextIndexCount": 26,
     "footnoteCount": 0,
-    "fullDetailHash": "32fe19eb905eb5f2",
-    "pageCount": 625,
+    "fullDetailHash": "bd54541d8cee64da",
+    "pageCount": 624,
     "totals": {
-      "blocks": 7446,
+      "blocks": 7445,
       "hrs": 1,
       "images": 11,
       "inlineAtoms": 0,
-      "lines": 11296,
+      "lines": 11285,
       "ruby": 0,
-      "textRuns": 11434
+      "textRuns": 11423
     }
   },
   "samples": [
@@ -11072,7 +11057,7 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 38.4,
+                    "width": 280,
                     "x": 24,
                     "y": 1.6
                   },
@@ -11086,9 +11071,10 @@
                       "sizePx": 16,
                       "style": "normal",
                       "weight": 400
-                    }
+                    },
+                    "letterSpacingPx": 0.057
                   },
-                  "text": "SOSG",
+                  "text": "SOSG對使用本站小说文本进行违法活动的后果不负任何法律责",
                   "type": "text-run"
                 }
               ],
@@ -11105,7 +11091,7 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 249.6,
+                    "width": 9.6,
                     "x": 0,
                     "y": 1.6
                   },
@@ -11121,7 +11107,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "對使用本站小说文本进行违法活动的后果不负任何法律责任",
+                  "text": "任",
                   "type": "text-run"
                 }
               ],
@@ -13401,156 +13387,6 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 134.4,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "为何怒火会波及到我身上来啊。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 36.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 124.8,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "这女人简直就像一颗烧夷弹。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 73.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "可以用来形容她的方式，真是多得不胜枚举。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 110.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
                     "width": 105.6,
                     "x": 24,
                     "y": 2.4
@@ -13587,7 +13423,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 147.2
+            "y": 36.8
           },
           "children": [
             {
@@ -13637,7 +13473,7 @@
             "height": 62.4,
             "width": 304,
             "x": 0,
-            "y": 184
+            "y": 73.6
           },
           "children": [
             {
@@ -13755,7 +13591,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 262.4
+            "y": 152
           },
           "children": [
             {
@@ -13805,7 +13641,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 299.2
+            "y": 188.8
           },
           "children": [
             {
@@ -13855,7 +13691,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 336
+            "y": 225.6
           },
           "children": [
             {
@@ -13905,7 +13741,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 372.8
+            "y": 262.4
           },
           "children": [
             {
@@ -13955,7 +13791,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 409.6
+            "y": 299.2
           },
           "children": [
             {
@@ -14005,7 +13841,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 446.4
+            "y": 336
           },
           "children": [
             {
@@ -14055,7 +13891,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 483.2
+            "y": 372.8
           },
           "children": [
             {
@@ -14105,7 +13941,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 520
+            "y": 409.6
           },
           "children": [
             {
@@ -14156,15 +13992,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 14,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 13
       },
-      "firstText": "为何怒火会波及到我身上来啊。",
+      "firstText": "「算了，不管怎样——」",
       "index": 70,
       "lastText": "她如此说道。",
       "paint": null
@@ -17780,94 +17616,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
-            "width": 304,
-            "x": 0,
-            "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 304,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.213
-                  },
-                  "text": "啊呜！喔呜！喔呜！」八九寺发出像海狗或海驴一样的古怪叫声，过程",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 230.4,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "中虽然险些跌倒，但最后还是站稳了身体，跟上了我。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 57.6
+            "y": 0
           },
           "children": [
             {
@@ -17917,7 +17669,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 94.4
+            "y": 36.8
           },
           "children": [
             {
@@ -17967,7 +17719,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 131.2
+            "y": 73.6
           },
           "children": [
             {
@@ -18018,15 +17770,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 4,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 3
       },
-      "firstText": "啊呜！喔呜！喔呜！」八九寺发出像海狗或海驴一样的古怪叫声，过程",
+      "firstText": "我决定先把越野脚踏车放在公园，等会再来拿。",
       "index": 219,
       "lastText": "到头来，我还是不知道名称的正确念法。",
       "paint": null
@@ -20038,156 +19790,6 @@
                       "weight": 400
                     }
                   },
-                  "text": "应该说，她原本打算指向八九寺。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 36.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 211.2,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "但是，她指的方向完全不对，根本是错误的方向。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 73.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 96,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「我根本看不到她。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 110.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 144,
-                    "x": 24,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
                   "text": "我心中大惊，下意识看向八九寺。",
                   "type": "text-run"
                 }
@@ -20208,7 +19810,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 147.2
+            "y": 36.8
           },
           "children": [
             {
@@ -20258,7 +19860,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 184
+            "y": 73.6
           },
           "children": [
             {
@@ -20308,7 +19910,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 220.8
+            "y": 110.4
           },
           "children": [
             {
@@ -20358,7 +19960,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 257.6
+            "y": 147.2
           },
           "children": [
             {
@@ -20409,15 +20011,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 8,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 5,
         "ruby": 0,
-        "textRuns": 8
+        "textRuns": 5
       },
-      "firstText": "应该说，她原本打算指向八九寺。",
+      "firstText": "我心中大惊，下意识看向八九寺。",
       "index": 325,
       "lastText": "宛如一只蜗牛。",
       "paint": null
@@ -24206,10 +23808,578 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 240,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "光是这样的举动还称不上是傲娇，但我还是觉得高兴……",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 36.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 144,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "而且，多亏她的出现，我得救了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 73.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 67.2,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不用想也知道。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 110.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 192,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "因为雨衣怪看到战场原出现，就消失不见了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 147.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 163.2,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「我休息一下就好，很快就能动了。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 184
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 240,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「是吗，那我就给躺在地上的阿良良木一个大优惠吧。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 220.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 38.4,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "突然——",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 62.4,
+            "width": 304,
+            "x": 0,
+            "y": 257.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 280,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.057
+                  },
+                  "text": "战场原跨站在我的头上。附带一提，刚才也说过战场原今天的穿着",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "是一件长裙。修长的美腿没有穿裤袜。而现在这个情况，从我的角度来",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 124.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "看，裙子的长度根本不重要。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 336
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 240,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「你就沉浸在这幸福的气氛当中，直到你能动为止吧。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 372.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 57.6,
+                    "x": 24,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「…………」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 304,
+            "x": 0,
+            "y": 409.6
           },
           "children": [
             {
@@ -24293,7 +24463,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 57.6
+            "y": 467.2
           },
           "children": [
             {
@@ -24343,7 +24513,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 94.4
+            "y": 504
           },
           "children": [
             {
@@ -24394,16 +24564,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 13,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 4,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 4
+        "textRuns": 16
       },
-      "firstText": "老实说，我已经可以起身了——不过我决定继续躺着，思考一些东",
-      "index": 471,
+      "firstText": "光是这样的举动还称不上是傲娇，但我还是觉得高兴……",
+      "index": 470,
       "lastText": "以及明天该做的事。",
       "paint": null
     },
@@ -25246,7 +25416,7 @@
         "textRuns": 20
       },
       "firstText": "００５",
-      "index": 472,
+      "index": 471,
       "lastText": "着难以言语的心情登门打扰，在神原的带领下走过面向庭院——当中可",
       "paint": null
     },
@@ -25453,7 +25623,7 @@
         "textRuns": 4
       },
       "firstText": "当神原话说到一半时，",
-      "index": 531,
+      "index": 530,
       "lastText": "每次都是这样，对我来说啦。何况还是左手，那就更不用说了。」",
       "paint": null
     },
@@ -26243,7 +26413,7 @@
         "textRuns": 18
       },
       "firstText": "００７",
-      "index": 532,
+      "index": 531,
       "lastText": "「木乃伊。」",
       "paint": null
     },
@@ -26804,7 +26974,7 @@
         "textRuns": 13
       },
       "firstText": "同化，然后又在不知不觉间离开她的左手。离开后，左手因为实现了小",
-      "index": 564,
+      "index": 563,
       "lastText": "忍野说。",
       "paint": null
     },
@@ -27592,7 +27762,7 @@
         "textRuns": 17
       },
       "firstText": "００８",
-      "index": 565,
+      "index": 564,
       "lastText": "恶魔全部看透了。",
       "paint": null
     },
@@ -27933,7 +28103,7 @@
         "textRuns": 7
       },
       "firstText": "「因为所有事情都实现一半的关系。恶魔虽然离开了，可是我的手",
-      "index": 620,
+      "index": 619,
       "lastText": "这点程度的代价，是理所当然的吧。",
       "paint": null
     },
@@ -28838,7 +29008,7 @@
         "textRuns": 25
       },
       "firstText": "后记",
-      "index": 621,
+      "index": 620,
       "lastText": "不如预期。这是读者的误解，更精辟来说这是印象概念的效果，",
       "paint": null
     },
@@ -29000,7 +29170,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 312,
+            "height": 228.8,
             "width": 273.6,
             "x": 15.2,
             "y": 99.2
@@ -29099,9 +29269,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 14.4
+                    "letterSpacingPx": 0.178
                   },
-                  "text": "将文章集结成册时，我请了",
+                  "text": "将文章集结成册时，我请了VOFAN老师绘制本书的插图。在",
                   "type": "text-run"
                 }
               ],
@@ -29118,7 +29288,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 48,
+                    "width": 273.6,
                     "x": 0,
                     "y": 2.4
                   },
@@ -29132,9 +29302,10 @@
                       "sizePx": 16,
                       "style": "normal",
                       "weight": 400
-                    }
+                    },
+                    "letterSpacingPx": 0.178
                   },
-                  "text": "VOFAN",
+                  "text": "这边我可以解说一件事情，本故事是经由三段论证法所得到的东",
                   "type": "text-run"
                 }
               ],
@@ -29168,7 +29339,7 @@
                     },
                     "letterSpacingPx": 0.178
                   },
-                  "text": "老师绘制本书的插图。在这边我可以解说一件事情，本故事是经",
+                  "text": "西：「傲娇（TUNDERE）和Gelnde（德文，滑雪场",
                   "type": "text-run"
                 }
               ],
@@ -29200,9 +29371,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.96
+                    "letterSpacingPx": 0.178
                   },
-                  "text": "由三段论证法所得到的东西：「傲娇（TUNDERE）和",
+                  "text": "之意）两个字听起来感觉很像。」→「说到Gelnde就想到",
                   "type": "text-run"
                 }
               ],
@@ -29214,107 +29385,6 @@
                 "width": 273.6,
                 "x": 0,
                 "y": 124.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "Gelnde",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 145.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.96
-                  },
-                  "text": "（德文，滑雪场之意）两个字听起来感觉很像。」→「说到",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 166.4
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 23.4
-                  },
-                  "text": "Gelnde就想到",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 187.2
               },
               "runs": [
                 {
@@ -29348,149 +29418,115 @@
                 "height": 20.8,
                 "width": 273.6,
                 "x": 0,
+                "y": 145.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 273.6,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.178
+                  },
+                  "text": "→「Bogen用汉字来写，就是暴言（日文，漫骂之意）」化",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 273.6,
+                "x": 0,
+                "y": 166.4
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 273.6,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.178
+                  },
+                  "text": "物语上集的三篇故事：「黑仪·重蟹」、「真宵·蜗牛」、「骏",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 273.6,
+                "x": 0,
+                "y": 187.2
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 273.6,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.178
+                  },
+                  "text": "河·猴掌」就是靠这种感觉写出来的。下集的故事中会有更多脑",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 273.6,
+                "x": 0,
                 "y": 208
               },
               "runs": [
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 34.4
-                  },
-                  "text": "→「Bogen",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 228.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.178
-                  },
-                  "text": "用汉字来写，就是暴言（日文，漫骂之意）」化物语上集的三篇",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 249.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.178
-                  },
-                  "text": "故事：「黑仪·重蟹」、「真宵·蜗牛」、「骏河·猴掌」就是",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 270.4
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 273.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.178
-                  },
-                  "text": "靠这种感觉写出来的。下集的故事中会有更多脑残的斗嘴，敬请",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 273.6,
-                "x": 0,
-                "y": 291.2
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 28.8,
+                    "width": 96,
                     "x": 0,
                     "y": 2.4
                   },
@@ -29506,7 +29542,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "期待。",
+                  "text": "残的斗嘴，敬请期待。",
                   "type": "text-run"
                 }
               ],
@@ -29526,7 +29562,7 @@
             "height": 41.6,
             "width": 273.6,
             "x": 15.2,
-            "y": 427.2
+            "y": 344
           },
           "children": [
             {
@@ -29610,7 +29646,7 @@
             "height": 21.6,
             "width": 273.6,
             "x": 15.2,
-            "y": 486.8
+            "y": 403.6
           },
           "children": [
             {
@@ -29665,12 +29701,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 18
       },
       "firstText": "你不用感到失望，反而应该觉得过去那本书让你做了一场好梦，",
-      "index": 622,
+      "index": 621,
       "lastText": "西尾維新",
       "paint": null
     },
@@ -30242,7 +30278,7 @@
         "textRuns": 13
       },
       "firstText": "作者介绍",
-      "index": 623,
+      "index": 622,
       "lastText": "COLORFUL DREAMS3》。",
       "paint": null
     },
@@ -30294,7 +30330,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 624,
+      "index": 623,
       "lastText": "",
       "paint": null
     }

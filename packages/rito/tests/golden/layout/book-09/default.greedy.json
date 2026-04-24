@@ -2506,7 +2506,7 @@
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2514,23 +2514,23 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "0639419d8ea11945",
+      "detailHash": "6469d75ac2015cf2",
       "firstText": "后记",
       "index": 149,
-      "lastText": "接着感谢负责本书插画的メ鲭コハタ兄。每次拜见メ鲭コハタ兄的全新插画，总是令人深陷兴奋与喜悦的漩涡之"
+      "lastText": "感谢自从出道以来不吝给予支援的海冬兄。电子信件的往返是支持我继续创作的最大动力，同时我也是『机巧少"
     },
     {
       "counts": {
-        "blocks": 8,
+        "blocks": 7,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 8
+        "textRuns": 6
       },
-      "detailHash": "1244c4618eda8ba8",
-      "firstText": "中 。无论是人物设定、龙族以及服装的造型都超乎作者本人我的想像，趁着修稿的机会，也针对内文做出修正。",
+      "detailHash": "03ca71793ff967dc",
+      "firstText": "女』系列最忠实的粉丝。",
       "index": 150,
       "lastText": "瑞智士记"
     },
@@ -2555,16 +2555,16 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 0,
-    "fullDetailHash": "57b0981d2fc8f547",
+    "fullDetailHash": "de9b896d65da0dad",
     "pageCount": 152,
     "totals": {
       "blocks": 3116,
       "hrs": 2,
       "images": 21,
       "inlineAtoms": 0,
-      "lines": 3323,
+      "lines": 3321,
       "ruby": 0,
-      "textRuns": 3510
+      "textRuns": 3508
     }
   },
   "samples": [
@@ -18074,7 +18074,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 83.2,
+            "height": 41.6,
             "width": 520,
             "x": 0,
             "y": 592.8
@@ -18106,9 +18106,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 149.867
+                    "letterSpacingPx": 0.163
                   },
-                  "text": "首先感谢",
+                  "text": "首先感谢「MF文库J工牌编辑」庄司兄。面对一个稍有不慎就会立刻暴走的作者确实不是易事，不过庄司兄还是",
                   "type": "text-run"
                 }
               ],
@@ -18125,75 +18125,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 245.6
-                  },
-                  "text": "「MF",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 41.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.03
-                  },
-                  "text": "文库J工牌编辑」庄司兄。面对一个稍有不慎就会立刻暴走的作者确实不是易事，不过庄司兄还是耐着性子按部就班地引导",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 62.4
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 316.8,
+                    "width": 422.4,
                     "x": 0,
                     "y": 2.4
                   },
@@ -18209,7 +18141,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "我走上正确的方向。往后还有许多必须麻烦庄司兄的地方，还请多多指教。",
+                  "text": "耐着性子按部就班地引导我走上正确的方向。往后还有许多必须麻烦庄司兄的地方，还请多多指教。",
                   "type": "text-run"
                 }
               ],
@@ -18226,10 +18158,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 682.4
+            "y": 640.8
           },
           "children": [
             {
@@ -18265,53 +18197,13 @@
                 }
               ],
               "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 800,
-        "width": 600,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "firstText": "后记",
-      "index": 149,
-      "lastText": "接着感谢负责本书插画的メ鲭コハタ兄。每次拜见メ鲭コハタ兄的全新插画，总是令人深陷兴奋与喜悦的漩涡之",
-      "paint": null
-    },
-    {
-      "blocks": [
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 0
-          },
-          "children": [
+            },
             {
               "bounds": {
                 "height": 20.8,
                 "width": 520,
                 "x": 0,
-                "y": 0
+                "y": 20.8
               },
               "runs": [
                 {
@@ -18350,10 +18242,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 27.2
+            "y": 688.8
           },
           "children": [
             {
@@ -18389,13 +18281,53 @@
                 }
               ],
               "type": "line-box"
-            },
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        }
+      ],
+      "bounds": {
+        "height": 800,
+        "width": 600,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "firstText": "后记",
+      "index": 149,
+      "lastText": "感谢自从出道以来不吝给予支援的海冬兄。电子信件的往返是支持我继续创作的最大动力，同时我也是『机巧少",
+      "paint": null
+    },
+    {
+      "blocks": [
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 0
+          },
+          "children": [
             {
               "bounds": {
                 "height": 20.8,
                 "width": 520,
                 "x": 0,
-                "y": 20.8
+                "y": 0
               },
               "runs": [
                 {
@@ -18437,7 +18369,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 75.2
+            "y": 27.2
           },
           "children": [
             {
@@ -18487,7 +18419,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 102.4
+            "y": 54.4
           },
           "children": [
             {
@@ -18537,7 +18469,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 129.6
+            "y": 81.6
           },
           "children": [
             {
@@ -18587,7 +18519,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 156.8
+            "y": 108.8
           },
           "children": [
             {
@@ -18637,7 +18569,7 @@
             "height": 24.96,
             "width": 500.8,
             "x": 0,
-            "y": 185.28
+            "y": 137.28
           },
           "children": [
             {
@@ -18687,7 +18619,7 @@
             "height": 390,
             "width": 520,
             "x": 0,
-            "y": 217.92
+            "y": 169.92
           },
           "children": [
             {
@@ -18717,15 +18649,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 8,
+        "blocks": 7,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 8
+        "textRuns": 6
       },
-      "firstText": "中 。无论是人物设定、龙族以及服装的造型都超乎作者本人我的想像，趁着修稿的机会，也针对内文做出修正。",
+      "firstText": "女』系列最忠实的粉丝。",
       "index": 150,
       "lastText": "瑞智士记",
       "paint": null

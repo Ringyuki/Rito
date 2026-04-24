@@ -324,10 +324,10 @@
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "acecc580b5782502",
+      "detailHash": "878895c40aa25b01",
       "firstText": "制作者",
       "index": 3,
-      "lastText": "工作组提供模板与技术支援"
+      "lastText": "援"
     },
     {
       "counts": {
@@ -3294,7 +3294,7 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "847bdb0d4311194b",
+      "detailHash": "ff4ab95674745ba4",
       "firstText": "后记",
       "index": 201,
       "lastText": "——驾驭者与被驾驭的对象。"
@@ -3305,11 +3305,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
-      "detailHash": "3ec1d72127a50e2e",
+      "detailHash": "a80cc55df40afb23",
       "firstText": "当两者的波长互相结合的时候，往往能缔造出爆炸性的成果。",
       "index": 202,
       "lastText": "瑞智士记"
@@ -3350,16 +3350,16 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 0,
-    "fullDetailHash": "c7a6cb262d628d3c",
+    "fullDetailHash": "7d004088cc9f55b3",
     "pageCount": 205,
     "totals": {
       "blocks": 3146,
       "hrs": 2,
       "images": 21,
       "inlineAtoms": 0,
-      "lines": 4041,
+      "lines": 4040,
       "ruby": 0,
-      "textRuns": 4228
+      "textRuns": 4227
     }
   },
   "samples": [
@@ -4965,8 +4965,8 @@
                 {
                   "bounds": {
                     "height": 18.72,
-                    "width": 86.4,
-                    "x": 102.202,
+                    "width": 181.44,
+                    "x": 7.162,
                     "y": 2.16
                   },
                   "href": null,
@@ -4981,7 +4981,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "感谢轻之国度epub",
+                  "text": "感谢轻之国度epub工作组提供模板与技术支",
                   "type": "text-run"
                 }
               ],
@@ -4998,8 +4998,8 @@
                 {
                   "bounds": {
                     "height": 18.72,
-                    "width": 103.68,
-                    "x": 84.922,
+                    "width": 8.64,
+                    "x": 179.962,
                     "y": 2.16
                   },
                   "href": null,
@@ -5014,7 +5014,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "工作组提供模板与技术支援",
+                  "text": "援",
                   "type": "text-run"
                 }
               ],
@@ -5045,7 +5045,7 @@
       },
       "firstText": "制作者",
       "index": 3,
-      "lastText": "工作组提供模板与技术支援",
+      "lastText": "援",
       "paint": null
     },
     {
@@ -17001,9 +17001,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 19.556
+                    "letterSpacingPx": 0.119
                   },
-                  "text": "大概是去年底的时候，",
+                  "text": "大概是去年底的时候，MF编辑部的庄司兄提供了一个点子，问",
                   "type": "text-run"
                 }
               ],
@@ -17020,7 +17020,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 240,
+                    "width": 67.2,
                     "x": 0,
                     "y": 2.4
                   },
@@ -17036,7 +17036,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "MF编辑部的庄司兄提供了一个点子，问我有没有兴趣。",
+                  "text": "我有没有兴趣。",
                   "type": "text-run"
                 }
               ],
@@ -17896,7 +17896,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 104,
+            "height": 83.2,
             "width": 304,
             "x": 0,
             "y": 102.4
@@ -17928,9 +17928,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 77.867
+                    "letterSpacingPx": 0.119
                   },
-                  "text": "首先感谢",
+                  "text": "首先感谢「MF文库J工牌编辑」庄司兄。面对一个稍有不慎就",
                   "type": "text-run"
                 }
               ],
@@ -17962,9 +17962,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 137.6
+                    "letterSpacingPx": 0.213
                   },
-                  "text": "「MF",
+                  "text": "会立刻暴走的作者确实不是易事，不过庄司兄还是耐着性子按部就班地",
                   "type": "text-run"
                 }
               ],
@@ -17998,7 +17998,7 @@
                     },
                     "letterSpacingPx": 0.213
                   },
-                  "text": "文库J工牌编辑」庄司兄。面对一个稍有不慎就会立刻暴走的作者确实",
+                  "text": "引导我走上正确的方向。往后还有许多必须麻烦庄司兄的地方，还请多",
                   "type": "text-run"
                 }
               ],
@@ -18015,41 +18015,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 304,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.552
-                  },
-                  "text": "不是易事，不过庄司兄还是耐着性子按部就班地引导我走上正确的方",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 83.2
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 249.6,
+                    "width": 38.4,
                     "x": 0,
                     "y": 2.4
                   },
@@ -18065,7 +18031,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "向。往后还有许多必须麻烦庄司兄的地方，还请多多指教。",
+                  "text": "多指教。",
                   "type": "text-run"
                 }
               ],
@@ -18085,7 +18051,7 @@
             "height": 83.2,
             "width": 304,
             "x": 0,
-            "y": 212.8
+            "y": 192
           },
           "children": [
             {
@@ -18237,7 +18203,7 @@
             "height": 62.4,
             "width": 304,
             "x": 0,
-            "y": 302.4
+            "y": 281.6
           },
           "children": [
             {
@@ -18355,7 +18321,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 371.2
+            "y": 350.4
           },
           "children": [
             {
@@ -18405,7 +18371,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 398.4
+            "y": 377.6
           },
           "children": [
             {
@@ -18455,7 +18421,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 425.6
+            "y": 404.8
           },
           "children": [
             {
@@ -18505,7 +18471,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 452.8
+            "y": 432
           },
           "children": [
             {
@@ -18555,7 +18521,7 @@
             "height": 24.96,
             "width": 284.8,
             "x": 0,
-            "y": 481.28
+            "y": 460.48
           },
           "children": [
             {
@@ -18610,9 +18576,9 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
       "firstText": "当两者的波长互相结合的时候，往往能缔造出爆炸性的成果。",
       "index": 202,

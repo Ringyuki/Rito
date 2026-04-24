@@ -10,6 +10,7 @@ export interface ControllerActions {
   readonly resize: (width: number, height: number) => void;
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
+  readonly setLineBreaking: (lineBreaking: 'greedy' | 'optimal') => boolean;
   readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;
@@ -33,6 +34,11 @@ export function useControllerActions(
     resize: useCallback((w: number, h: number, m?: number) => ctrlRef.current?.resize(w, h, m), []),
     setRenderScale: useCallback((s: number) => ctrlRef.current?.setRenderScale(s), []),
     setSpreadMode: useCallback((m: 'single' | 'double') => ctrlRef.current?.setSpreadMode(m), []),
+    setLineBreaking: useCallback(
+      (lineBreaking: 'greedy' | 'optimal') =>
+        ctrlRef.current?.setLineBreaking(lineBreaking) ?? false,
+      [],
+    ),
     setTheme: useCallback(
       (o: { backgroundColor?: string; foregroundColor?: string }) => ctrlRef.current?.setTheme(o),
       [],

@@ -905,11 +905,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "498ffcd5bae67ceb",
+      "detailHash": "3e46d38c7330685b",
       "firstText": "然后，她以右手对准了我……",
       "index": 36,
       "lastText": "得到！"
@@ -1985,11 +1985,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "148b1b366b48c954",
+      "detailHash": "8f3b71c2209a5cd9",
       "firstText": "「呀啊啊啊啊！」",
       "index": 108,
       "lastText": "到了巫妖这种程度，果然还是看得出阿库娅是真正的女神是吧。"
@@ -2754,7 +2754,7 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "7cf22f1c406c2a08",
+      "detailHash": "63599565f3b06ec1",
       "firstText": "「喔喔，那还真厉害……咦？你刚才最后说了什么？」",
       "index": 159,
       "lastText": "然后，她直接将那瓶像是日本酒一样透明的高级酒，倒进了蟹壳"
@@ -2836,7 +2836,7 @@
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2844,10 +2844,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "57a335bb4aef1327",
+      "detailHash": "d6ea9fb6e7683e11",
       "firstText": "这里原本是贵族的别墅，因此浴室配备了特殊的魔道具。",
       "index": 165,
-      "lastText": "我用魔力在浴缸里放了热水，整个人把肩头以下都泡了进去。"
+      "lastText": "在脱衣处的油灯散发出来的昏暗灯光照耀下，我在热水里伸直了"
     },
     {
       "counts": {
@@ -2859,10 +2859,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "b0dc01c47e5207c3",
-      "firstText": "在脱衣处的油灯散发出来的昏暗灯光照耀下，我在热水里伸直了",
+      "detailHash": "beb655887c4f897e",
+      "firstText": "手脚，好好放松自己。",
       "index": 166,
-      "lastText": "我感觉到有人存在的气息，就像前几天，幽灵出现在豪宅之中的"
+      "lastText": "时候一样……"
     },
     {
       "counts": {
@@ -2874,14 +2874,14 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "1c4a0e5cc2338c07",
-      "firstText": "时候一样……",
+      "detailHash": "a442096aff916295",
+      "firstText": "但是，感应敌人技能却没有反应。",
       "index": 167,
-      "lastText": "隔着玻璃传进来的，是达克妮丝困惑的声音。"
+      "lastText": "「……没办法。所幸今晚有月亮，就这样吧……」"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2889,10 +2889,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "b50ad5c642bf1a52",
-      "firstText": "「……没办法。所幸今晚有月亮，就这样吧……」",
+      "detailHash": "9e1bd16dcde8908b",
+      "firstText": "说着，达克妮丝在玻璃后面开始脱起衣服……喂喂喂！",
       "index": 168,
-      "lastText": "该怎么说呢，我原本就觉得她的身体很诱人，不过这样一看，身"
+      "lastText": "材更是超乎想象啊。"
     },
     {
       "counts": {
@@ -2904,10 +2904,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "3c44f83d99ab1a67",
-      "firstText": "材更是超乎想象啊。",
+      "detailHash": "7cdca4d153e4c417",
+      "firstText": "因为她有在锻炼身体，我原本还以为会更粗壮一点，但是该凸的",
       "index": 169,
-      "lastText": "了，有点超出我的脑袋的负荷……！」"
+      "lastText": "好厉害，怎么会这么逼真！"
     },
     {
       "counts": {
@@ -2915,14 +2915,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 22
       },
-      "detailHash": "9793d429d07a8ad8",
-      "firstText": "好厉害，怎么会这么逼真！",
+      "detailHash": "85325fa73b58c137",
+      "firstText": "梦魔好强！超强！",
       "index": 170,
-      "lastText": "「你怎么了！今天的你究竟是怎么了！」"
+      "lastText": "有没有想过会吵到邻居啊？没常识也要有个限度喔。」"
     },
     {
       "counts": {
@@ -2930,12 +2930,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 21
       },
-      "detailHash": "d11259d48ce2db49",
-      "firstText": "「喂，你从刚才开始就一直很大声耶，现在几点了你知道吗？你",
+      "detailHash": "2d067a374d64afd2",
+      "firstText": "「在这种状况下突然说这种一般常识是怎样！是、是我有问题",
       "index": 171,
       "lastText": "——就在达克妮丝泪眼汪汪地红着脸抗拒我的时候。"
     },
@@ -2947,12 +2947,12 @@
         "inlineAtoms": 0,
         "lines": 22,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 21
       },
-      "detailHash": "752a5a2913ee5868",
+      "detailHash": "ad920632b8a82762",
       "firstText": "「大胆鼠辈——！来人啊来人啊！各位，有鼠辈闯进豪宅里来了",
       "index": 172,
-      "lastText": "应该说，冒出梦魔来也太奇怪了。"
+      "lastText": "「其实我在这间豪宅张设了强大的结界。因为结界有了反应我就"
     },
     {
       "counts": {
@@ -2964,14 +2964,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "46387f03320d8f71",
-      "firstText": "「其实我在这间豪宅张设了强大的结界。因为结界有了反应我就",
+      "detailHash": "91298587f98192ce",
+      "firstText": "跑过来看，结果发现这只梦魔似乎试图闯进豪宅里来，就被结界拦了下",
       "index": 173,
-      "lastText": "这里有结界是在我的预料之外，但偷偷站到客人的枕边，应该是我们最"
+      "lastText": "擅长的一件事才对。状况之所以会变成这样，完全是因为无法成功入侵"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2979,10 +2979,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0efc43bc83c4ed85",
-      "firstText": "擅长的一件事才对。状况之所以会变成这样，完全是因为无法成功入侵",
+      "detailHash": "e07d85cc8573a189",
+      "firstText": "的我太不成熟了。我不能让客人丢脸，就让她把我当成闯进镇上的流浪",
       "index": 174,
-      "lastText": "说。"
+      "lastText": "她的视线让我有点心痛，但我不能就此让步。"
     },
     {
       "counts": {
@@ -2994,10 +2994,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "a2284c3bd518a43c",
-      "firstText": "她的视线让我有点心痛，但我不能就此让步。",
+      "detailHash": "759ceccccb7c53a2",
+      "firstText": "我把手伸到背后，对着梦魔挥了挥，示意要她赶快离开。",
       "index": 175,
-      "lastText": "「……………………」"
+      "lastText": "感受着背后那个不发一语的视线，我蹲在庭院的角落，默默埋头"
     },
     {
       "counts": {
@@ -3005,12 +3005,12 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 11
       },
-      "detailHash": "3dfc56573be8a4cd",
-      "firstText": "感受着背后那个不发一语的视线，我蹲在庭院的角落，默默埋头",
+      "detailHash": "5927f68098632800",
+      "firstText": "工作着。",
       "index": 176,
       "lastText": "梦魔女孩逃走了。"
     },
@@ -3901,7 +3901,7 @@
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3909,10 +3909,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "11778cda6b3cddd8",
+      "detailHash": "6238e2161d772a8e",
       "firstText": "感激不尽感激不尽……！",
       "index": 236,
-      "lastText": "多多支持。"
+      "lastText": "由于故事是发生在一年前，惠惠还没遇见和真他们的时候，所以"
     },
     {
       "counts": {
@@ -3924,23 +3924,23 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "d4ae7ed5a5bb021a",
-      "firstText": "由于故事是发生在一年前，惠惠还没遇见和真他们的时候，所以",
+      "detailHash": "1b0a0419eac5c2a0",
+      "firstText": "她的头发会比现在短一点，也还没戴上眼罩。",
       "index": 237,
-      "lastText": "虽然作者为人很随便，但关于作品内容可是不会说谎的……"
+      "lastText": "喔……？"
     },
     {
       "counts": {
-        "blocks": 6,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 7,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 4
       },
-      "detailHash": "87d337a31c0e53cc",
-      "firstText": "喔……？",
+      "detailHash": "48355c753a742351",
+      "firstText": "那么，对于参与本书制作的各位；以及更重要的，拿起本书阅读",
       "index": 238,
       "lastText": "暁 なつめ"
     },
@@ -3984,14 +3984,14 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "bf43a24b12450fdc",
+      "detailHash": "436be43fa7a12295",
       "firstText": "电子版原创短篇 红魔族的智力很高",
       "index": 241,
-      "lastText": "吐嘈点的规则，像是能够在棋盘上自由移动的"
+      "lastText": "吐嘈点的规则，像是能够在棋盘上自由移动的「Teleport」，"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3999,10 +3999,10 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "b098d93b5837d542",
-      "firstText": "「Teleport」，还有打翻整个棋盘的",
+      "detailHash": "6431e898778bb2a8",
+      "firstText": "还有打翻整个棋盘的「Explosion」等等。",
       "index": 242,
-      "lastText": "我输的话，就冒雨陪惠惠去爆裂散步。这就是我们的赌注。"
+      "lastText": "收拾好自制的将棋盘之后，我拿出亲手做的扑克牌开始洗牌。"
     },
     {
       "counts": {
@@ -4014,10 +4014,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "49fe67ed6795557c",
-      "firstText": "收拾好自制的将棋盘之后，我拿出亲手做的扑克牌开始洗牌。",
+      "detailHash": "580e0fade8450a71",
+      "firstText": "「接下来玩扑克牌吧。你的头脑那么好，应该已经记住规则了",
       "index": 243,
-      "lastText": "「赢了——！」"
+      "lastText": "「为什么是克莉丝啊！我还以为这个时间肯定是邮差耶！」"
     },
     {
       "counts": {
@@ -4029,23 +4029,23 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "b56c938566acd75a",
-      "firstText": "「为什么是克莉丝啊！我还以为这个时间肯定是邮差耶！」",
+      "detailHash": "cb4c8f0e2667ec13",
+      "firstText": "对我们的反应感到不解的克莉丝，歪着头走进豪宅里来。",
       "index": 244,
-      "lastText": "「不，等等，这种时候应该猜拳决定……」"
+      "lastText": "这时，达克妮丝对激烈争执的我们说了。"
     },
     {
       "counts": {
-        "blocks": 3,
+        "blocks": 2,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 3,
+        "lines": 2,
         "ruby": 0,
-        "textRuns": 2
+        "textRuns": 1
       },
-      "detailHash": "4d0ac180e06da13d",
-      "firstText": "这时，达克妮丝对激烈争执的我们说了。",
+      "detailHash": "890b63e5dab47b2a",
+      "firstText": "「你们够了喔，快点帮客人开门。」",
       "index": 245,
       "lastText": "「你们够了喔，快点帮客人开门。」"
     }
@@ -4055,16 +4055,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 0,
-    "fullDetailHash": "142d3748f509cff5",
+    "fullDetailHash": "8eeeede7ab9e1735",
     "pageCount": 246,
     "totals": {
-      "blocks": 3173,
+      "blocks": 3174,
       "hrs": 0,
       "images": 30,
       "inlineAtoms": 1,
-      "lines": 4592,
+      "lines": 4587,
       "ruby": 2,
-      "textRuns": 4412
+      "textRuns": 4407
     }
   },
   "samples": [
@@ -19265,56 +19265,6 @@
                 "x": 0,
                 "y": 0
               },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 38.4,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "喔……？",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
               "runs": [],
               "type": "line-box"
             }
@@ -19332,7 +19282,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 60.8
+            "y": 30.4
           },
           "children": [
             {
@@ -19416,7 +19366,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 112
+            "y": 81.6
           },
           "children": [
             {
@@ -19466,7 +19416,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 142.4
+            "y": 112
           },
           "children": [
             {
@@ -19493,7 +19443,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 172.8
+            "y": 142.4
           },
           "children": [
             {
@@ -19544,15 +19494,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 6,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 7,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 4
       },
-      "firstText": "喔……？",
+      "firstText": "那么，对于参与本书制作的各位；以及更重要的，拿起本书阅读",
       "index": 238,
       "lastText": "暁 なつめ",
       "paint": null
@@ -19563,60 +19513,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 259.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "收拾好自制的将棋盘之后，我拿出亲手做的扑克牌开始洗牌。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 30.4
+            "y": 0
           },
           "children": [
             {
@@ -19700,7 +19600,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 51.2
           },
           "children": [
             {
@@ -19784,7 +19684,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 132.8
+            "y": 102.4
           },
           "children": [
             {
@@ -19834,7 +19734,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 163.2
+            "y": 132.8
           },
           "children": [
             {
@@ -19884,7 +19784,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 193.6
+            "y": 163.2
           },
           "children": [
             {
@@ -19934,7 +19834,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 224
+            "y": 193.6
           },
           "children": [
             {
@@ -19984,7 +19884,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 254.4
+            "y": 224
           },
           "children": [
             {
@@ -20034,7 +19934,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 284.8
+            "y": 254.4
           },
           "children": [
             {
@@ -20084,7 +19984,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 315.2
+            "y": 284.8
           },
           "children": [
             {
@@ -20134,7 +20034,7 @@
             "height": 83.2,
             "width": 304,
             "x": 0,
-            "y": 345.6
+            "y": 315.2
           },
           "children": [
             {
@@ -20286,7 +20186,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 438.4
+            "y": 408
           },
           "children": [
             {
@@ -20336,7 +20236,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 468.8
+            "y": 438.4
           },
           "children": [
             {
@@ -20420,7 +20320,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 520
+            "y": 489.6
           },
           "children": [
             {
@@ -20470,7 +20370,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 550.4
+            "y": 520
           },
           "children": [
             {
@@ -20512,30 +20412,7 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 640,
-        "width": 360,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "firstText": "收拾好自制的将棋盘之后，我拿出亲手做的扑克牌开始洗牌。",
-      "index": 243,
-      "lastText": "「赢了——！」",
-      "paint": null
-    },
-    {
-      "blocks": [
+        },
         {
           "anchorId": null,
           "borderBox": null,
@@ -20543,7 +20420,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 0
+            "y": 550.4
           },
           "children": [
             {
@@ -20585,7 +20462,30 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        },
+        }
+      ],
+      "bounds": {
+        "height": 640,
+        "width": 360,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "firstText": "「接下来玩扑克牌吧。你的头脑那么好，应该已经记住规则了",
+      "index": 243,
+      "lastText": "「为什么是克莉丝啊！我还以为这个时间肯定是邮差耶！」",
+      "paint": null
+    },
+    {
+      "blocks": [
         {
           "anchorId": null,
           "borderBox": null,
@@ -20593,7 +20493,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 30.4
+            "y": 0
           },
           "children": [
             {
@@ -20643,7 +20543,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 60.8
+            "y": 30.4
           },
           "children": [
             {
@@ -20693,7 +20593,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 91.2
+            "y": 60.8
           },
           "children": [
             {
@@ -20743,7 +20643,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 121.6
+            "y": 91.2
           },
           "children": [
             {
@@ -20793,7 +20693,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 152
+            "y": 121.6
           },
           "children": [
             {
@@ -20877,7 +20777,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 203.2
+            "y": 172.8
           },
           "children": [
             {
@@ -20927,7 +20827,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 233.6
+            "y": 203.2
           },
           "children": [
             {
@@ -20977,7 +20877,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 264
+            "y": 233.6
           },
           "children": [
             {
@@ -21027,7 +20927,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 294.4
+            "y": 264
           },
           "children": [
             {
@@ -21077,7 +20977,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 324.8
+            "y": 294.4
           },
           "children": [
             {
@@ -21127,7 +21027,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 355.2
+            "y": 324.8
           },
           "children": [
             {
@@ -21177,7 +21077,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 385.6
+            "y": 355.2
           },
           "children": [
             {
@@ -21227,7 +21127,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 416
+            "y": 385.6
           },
           "children": [
             {
@@ -21311,7 +21211,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 467.2
+            "y": 436.8
           },
           "children": [
             {
@@ -21395,7 +21295,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 518.4
+            "y": 488
           },
           "children": [
             {
@@ -21445,7 +21345,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 548.8
+            "y": 518.4
           },
           "children": [
             {
@@ -21487,30 +21387,7 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 640,
-        "width": 360,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "firstText": "「为什么是克莉丝啊！我还以为这个时间肯定是邮差耶！」",
-      "index": 244,
-      "lastText": "「不，等等，这种时候应该猜拳决定……」",
-      "paint": null
-    },
-    {
-      "blocks": [
+        },
         {
           "anchorId": null,
           "borderBox": null,
@@ -21518,7 +21395,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 0
+            "y": 548.8
           },
           "children": [
             {
@@ -21560,7 +21437,30 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        },
+        }
+      ],
+      "bounds": {
+        "height": 640,
+        "width": 360,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "firstText": "对我们的反应感到不解的克莉丝，歪着头走进豪宅里来。",
+      "index": 244,
+      "lastText": "这时，达克妮丝对激烈争执的我们说了。",
+      "paint": null
+    },
+    {
+      "blocks": [
         {
           "anchorId": null,
           "borderBox": null,
@@ -21568,7 +21468,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 30.4
+            "y": 0
           },
           "children": [
             {
@@ -21595,7 +21495,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 60.8
+            "y": 30.4
           },
           "children": [
             {
@@ -21646,15 +21546,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 2,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 3,
+        "lines": 2,
         "ruby": 0,
-        "textRuns": 2
+        "textRuns": 1
       },
-      "firstText": "这时，达克妮丝对激烈争执的我们说了。",
+      "firstText": "「你们够了喔，快点帮客人开门。」",
       "index": 245,
       "lastText": "「你们够了喔，快点帮客人开门。」",
       "paint": null

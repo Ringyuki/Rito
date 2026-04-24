@@ -87,6 +87,9 @@ export interface Reader {
   /** Change spread mode. Re-paginates the document synchronously. */
   setSpreadMode(mode: 'single' | 'double'): void;
 
+  /** Change line-breaking algorithm. Re-paginates the document synchronously when the algorithm changes. */
+  setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
+
   /** Update viewport size, spread mode, and/or margin in a single re-pagination pass. Returns `true` when layout changed. */
   updateLayout(
     width: number,

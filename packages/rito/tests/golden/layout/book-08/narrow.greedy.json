@@ -585,11 +585,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 18
       },
-      "detailHash": "ec61a1f8a7650471",
+      "detailHash": "68c0ee71891be07f",
       "firstText": "『B18』『B19』『B20』『B21』『B22』『B23』",
       "index": 16,
       "lastText": "「……嗯。」"
@@ -1459,7 +1459,7 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "b8a6c6b8f3cba717",
+      "detailHash": "5cfbdff7f5913def",
       "firstText": "单换算了，但对辛他们来说这种情况只是家常便饭——这种以寡击众的",
       "index": 74,
       "lastText": "「内容是在说什么？」"
@@ -5115,16 +5115,16 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "f0f30eaad3f37386",
+    "fullDetailHash": "581cff42f01fd3a6",
     "pageCount": 318,
     "totals": {
       "blocks": 3546,
       "hrs": 2,
       "images": 15,
       "inlineAtoms": 0,
-      "lines": 6401,
+      "lines": 6400,
       "ruby": 70,
-      "textRuns": 6525
+      "textRuns": 6524
     }
   },
   "samples": [

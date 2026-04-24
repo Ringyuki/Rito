@@ -12,7 +12,7 @@ import {
   createLocalStoragePositionAdapter,
   createLocalStorageAnnotationAdapter,
 } from '@ritojs/kit';
-import { DEFAULT_SETTINGS } from '@/components/settings-panel';
+import { DEFAULT_SETTINGS, type ReaderLineBreaking } from '@/components/settings-panel';
 import demoEpubUrl from '@/assets/demo.epub?url';
 
 const ZOOM_SCALE_STEP = 0.1;
@@ -40,6 +40,7 @@ export function useReader(
   const [lineHeightActive, setLineHeightActive] = useState(DEFAULT_SETTINGS.lineHeightActive);
   const [lineHeightForce, setLineHeightForceState] = useState(DEFAULT_SETTINGS.lineHeightForce);
   const [fontFamily, setFontFamilyState] = useState(DEFAULT_SETTINGS.fontFamily);
+  const [lineBreaking, setLineBreakingState] = useState(DEFAULT_SETTINGS.lineBreaking);
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth / zoomScale) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight / zoomScale) : 0;
@@ -51,7 +52,7 @@ export function useReader(
       height: vpHeight,
       margin,
       spread: spreadMode,
-      lineBreaking: 'optimal',
+      lineBreaking,
       ...getThemeOptions(theme),
     },
     controller: {
@@ -164,6 +165,17 @@ export function useReader(
     [rito],
   );
 
+  const setLineBreaking = useCallback(
+    (mode: ReaderLineBreaking) => {
+      setLineBreakingState((prev) => {
+        if (prev === mode) return prev;
+        rito.setLineBreaking(mode);
+        return mode;
+      });
+    },
+    [rito],
+  );
+
   const increaseZoom = useCallback(() => {
     setZoomScale((s) => Math.min(s + ZOOM_SCALE_STEP, ZOOM_SCALE_MAX));
   }, []);
@@ -225,6 +237,7 @@ export function useReader(
     lineHeightActive,
     lineHeightForce,
     fontFamily,
+    lineBreaking,
     bookTitle,
     activeChapterHref,
     loadFromArrayBuffer,
@@ -232,6 +245,7 @@ export function useReader(
     navigateToTocEntry,
     toggleSpreadMode,
     setSpreadMode,
+    setLineBreaking,
     increaseZoom,
     decreaseZoom,
     setZoomScale: setZoomScaleClamped,

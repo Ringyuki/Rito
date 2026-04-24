@@ -1819,14 +1819,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "8f372b0ab1deddd6",
+      "detailHash": "330eaf254686c61d",
       "firstText": "「古同圆寺你说什么！反正你也是不及格组吧！」",
       "index": 98,
-      "lastText": "「这只是校方无法测量出我的"
+      "lastText": "「这只是校方无法测量出我的Potential罢了。我比任何人都还要认可、尊敬、敬重自己，并自诩是个伟"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1834,10 +1834,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "e5e8bb1c0abbd2f3",
-      "firstText": "Potential",
+      "detailHash": "bbc4772af2e97a29",
+      "firstText": "大的人。即使校方擅自做出D的评价，对我来说也不具任何意义。假如要我退学，那就随便他们。因为事后会哭着来找我",
       "index": 99,
-      "lastText": "对教室险恶的气氛感到危机的平田，为了稳定周遭情绪而站了起来。"
+      "lastText": "「什么冷静啊，被说是吊车尾，你难道不会不甘心吗！」"
     },
     {
       "counts": {
@@ -1849,14 +1849,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "ec4c420e903b5ab1",
-      "firstText": "「什么冷静啊，被说是吊车尾，你难道不会不甘心吗！」",
+      "detailHash": "91d9ec0fb58e1623",
+      "firstText": "「就算现在被这么说，不过只要同心协力把这口气争回来不就好了吗？」",
       "index": 100,
-      "lastText": "「没什么，因为妳听见A和D的差异时似乎很震惊。」"
+      "lastText": "「这种事情，在这个班上不管是谁或多或少都会吧？在入学前就说明的话那还另当别论。到这个阶段才告知可是让"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1864,14 +1864,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "669c5557b4153bce",
-      "firstText": "「这种事情，在这个班上不管是谁或多或少都会吧？在入学前就说明的话那还另当别论。到这个阶段才告知可是让",
+      "detailHash": "c06894f8eafcd158",
+      "firstText": "人无法接受。」",
       "index": 101,
-      "lastText": "「啥？为什么我们就得被你命令做这种事情啊？点数会增加的话就算了，如果不会改变也没意义吧？」"
+      "lastText": "「可是，只要继续迟到或者私下交谈，我们的点数就不会增加。那只是不会从零再降下去，但毫无疑问是扣分项目"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1879,10 +1879,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "948c51fd244fb5bb",
-      "firstText": "「可是，只要继续迟到或者私下交谈，我们的点数就不会增加。那只是不会从零再降下去，但毫无疑问是扣分项目",
+      "detailHash": "a28d176061018a0b",
+      "firstText": "吧。」",
       "index": 102,
-      "lastText": "「不好意思，但我不打算陪着你们做没意义的事情。」"
+      "lastText": "「我想这对我们D班来说是第一个试炼。所以——」"
     },
     {
       "counts": {
@@ -1894,10 +1894,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "c27ba0fd8c9bc956",
-      "firstText": "「我想这对我们D班来说是第一个试炼。所以——」",
+      "detailHash": "111cc1ea95b8c2bc",
+      "firstText": "「我应该已经拒绝了。我不会参加。」",
       "index": 103,
-      "lastText": "「唔喔！做、做什么啊。怎么了？」"
+      "lastText": "「用两万点买下这个啦～我没点数什么也买不了～」"
     },
     {
       "counts": {
@@ -1909,10 +1909,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "32749838e49d4e8c",
-      "firstText": "「用两万点买下这个啦～我没点数什么也买不了～」",
+      "detailHash": "d107a73e639d9089",
+      "firstText": "放在桌上的是山内才刚买的游戏机。坦白说我完全不想要。",
       "index": 104,
-      "lastText": "「嗯，可以啊。」"
+      "lastText": "居然答应了！虽然我在心里吐嘈，不过朋友之间的问题，也得由当事人来做决定。"
     },
     {
       "counts": {
@@ -1920,89 +1920,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 28
       },
-      "detailHash": "31aeaf3f0fe2536d",
-      "firstText": "居然答应了！虽然我在心里吐嘈，不过朋友之间的问题，也得由当事人来做决定。",
+      "detailHash": "fe3117792e6d3f0c",
+      "firstText": "栉田看来完全没有不情愿，就决定要帮助轻井泽了。",
       "index": 105,
-      "lastText": "「不用，我在走廊等。」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "454c694a0be62d4b",
-      "firstText": "我总觉得不是很喜欢教师办公室。由于不想到受瞩目，于是我决定在走廊等待。而年轻老师不知是想到什么，便忽",
-      "index": 106,
-      "lastText": "「因为他说要来见小佐枝，我只是在妳还没回来的时候陪他而已嘛。」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "727e4ac1e1bcb54b",
-      "firstText": "「不要理他不就好了。绫小路，让你久等了。这里也不太方便，跟我到辅导室吧。」",
-      "index": 107,
-      "lastText": "她这么说完，就轻快地往回走，并和那名叫一之濑的美女一起前往教师办公室。"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "f09f04047908a9c4",
-      "firstText": "茶柱老师目送星之宫老师。她搔了搔头，就朝着辅导室的方向迈出步伐。过了不久，我们就进去了在教师办公室附",
-      "index": 108,
-      "lastText": "「我好歹也是老师。我自认对学生的个性有一定程度的了解。堀北铃音，妳的入学考试结果，就跟妳自己的判断相"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "f1e63a6ff3ed0944",
-      "firstText": "同。妳在今年的一年级之中，获得了并列第三名的成绩。分数也和第一、第二名相差无几。考得非常好呢。就连在面试中，",
-      "index": 109,
-      "lastText": "「虽然很遗憾，但是妳分到D班这件事并不是我们的失误。妳就只是这种程度的学生，因此必然会被分到D班。」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "de19897ec9e2ea1c",
-      "firstText": "「……这样啊。我会重新询问校方。」",
-      "index": 110,
-      "lastText": "「因为我判断这件事情是必要的。那么，绫小路，我就开始说明找你到辅导室的理由吧。」"
+      "lastText": "然走来走廊。"
     },
     {
       "counts": {
@@ -2014,10 +1939,85 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "6e408de2cbfb1c9a",
-      "firstText": "茶柱老师将堀北的疑问随便带过，就把话题切到我身上。",
+      "detailHash": "0581ebeb3ad72da1",
+      "firstText": "「我是B班班导，叫做星之宫知惠。我和佐枝是高中以来的挚友，而且还是称呼彼此为『小佐枝』、『小知惠』的",
+      "index": 106,
+      "lastText": "「不，我觉得在这里也没关系。比起这个，您说辅导室……我做了什么吗？就算我这个样子，我认为自己在校园生"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "4844c1c42197a386",
+      "firstText": "活里，大致上有小心别太引人注目。」",
+      "index": 107,
+      "lastText": "近的辅导室。"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "783841d32cf101b6",
+      "firstText": "「所以……把我叫出来的理由是什么呢？」",
+      "index": 108,
+      "lastText": "也确实没发现特别需要关切的问题。还不如说是评价非常好。」"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "7e07b95e27c0f526",
+      "firstText": "「谢谢您。那么——为什么？」",
+      "index": 109,
+      "lastText": "看来她并不是放弃，而是判断了跟班导谈也没用。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "18bdb77a38448c53",
+      "firstText": "「妳就算去跟上面的人谈，结果也一样。况且妳也不必悲观。早上我也说过班级会根据表现而上下浮动。毕业以前",
+      "index": 110,
+      "lastText": "「那我就先告辞了……」"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "3603345549ebc41f",
+      "firstText": "「堀北，等等。把话听到最后也对妳比较好。这说不定会是晋升到A班的提示喔。」",
       "index": 111,
-      "lastText": "怎么样？——茶柱老师如此诉说般地看向了堀北。"
+      "lastText": "「不，我就说是偶然了。隐藏的天才什么的，我可没有这种设定喔。」"
     },
     {
       "counts": {
@@ -2029,10 +2029,10 @@
         "ruby": 1,
         "textRuns": 29
       },
-      "detailHash": "df2f0fc0fbb6d99a",
-      "firstText": "「你……为什么要做这种莫名其妙的事？」",
+      "detailHash": "3b2a2d757c27d4a8",
+      "firstText": "「是这样吗？堀北，搞不好他还比妳聪明喔。」",
       "index": 112,
-      "lastText": "「虽然没有证据……不过，你有某些地方我搞不太懂。你说自己是避事主义，对A班似乎也不感兴趣。」"
+      "lastText": "「……难道我不能努力让升学或就业获得优势吗？」"
     },
     {
       "counts": {
@@ -2044,14 +2044,14 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "92df833116992658",
-      "firstText": "「倒是妳对A班好像有非比寻常的情感呢。」",
+      "detailHash": "b85d51f47180261d",
+      "firstText": "「没什么不行，这是很自然的事。」",
       "index": 113,
-      "lastText": "连起跑线也无法站上了。」"
+      "lastText": "「不得不立刻改善的事情，主要有三项。迟到、私下交谈，以及期中考全班都不能不及格。」"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2059,23 +2059,23 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "75b99b1ed53700e6",
-      "firstText": "「我只知道，不管答案是什么好像都非常麻烦。」",
+      "detailHash": "cc74cede52a99caf",
+      "firstText": "「前两项在某种程度上应该有些办法吧。可是，期中考就……」",
       "index": 114,
-      "lastText": "「我是不知道妳有什么策略，可是妳还是学着去依赖除了我以外的人吧。若是要让妳交到朋友的话，我是会帮忙"
+      "lastText": "「虽然很遗憾，但是我想不出D班里有哪个比你还更好使唤的人才。」"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 13
       },
-      "detailHash": "1a1eb7f636f42e51",
-      "firstText": "啦。」",
+      "detailHash": "0c71456bdec432e7",
+      "firstText": "「不不不，这简直堆积如山的多。妳看，例如说平田之类的。那家伙的话，在班上吃得很开，头脑也很好，实在很",
       "index": 115,
       "lastText": "我的想法一点也没传达给堀北。"
     },
@@ -3390,16 +3390,16 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "5ffa8be911fc5a16",
+    "fullDetailHash": "4c82ed85595d3627",
     "pageCount": 203,
     "totals": {
-      "blocks": 4150,
+      "blocks": 4151,
       "hrs": 0,
       "images": 24,
       "inlineAtoms": 3,
-      "lines": 4864,
+      "lines": 4863,
       "ruby": 1,
-      "textRuns": 4829
+      "textRuns": 4828
     }
   },
   "samples": [
@@ -24129,110 +24129,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 28.8,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "啦。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 297.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「虽然很遗憾，但是我想不出D班里有哪个比你还更好使唤的人才。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 54.4
+            "y": 0
           },
           "children": [
             {
@@ -24316,7 +24216,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 102.4
+            "y": 48
           },
           "children": [
             {
@@ -24366,7 +24266,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 129.6
+            "y": 75.2
           },
           "children": [
             {
@@ -24450,7 +24350,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 177.6
+            "y": 123.2
           },
           "children": [
             {
@@ -24500,7 +24400,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 204.8
+            "y": 150.4
           },
           "children": [
             {
@@ -24550,7 +24450,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 232
+            "y": 177.6
           },
           "children": [
             {
@@ -24634,7 +24534,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 280
+            "y": 225.6
           },
           "children": [
             {
@@ -24684,7 +24584,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 307.2
+            "y": 252.8
           },
           "children": [
             {
@@ -24734,7 +24634,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 334.4
+            "y": 280
           },
           "children": [
             {
@@ -24784,7 +24684,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 361.6
+            "y": 307.2
           },
           "children": [
             {
@@ -24835,15 +24735,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 12,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 13
       },
-      "firstText": "啦。」",
+      "firstText": "「不不不，这简直堆积如山的多。妳看，例如说平田之类的。那家伙的话，在班上吃得很开，头脑也很好，实在很",
       "index": 115,
       "lastText": "我的想法一点也没传达给堀北。",
       "paint": null

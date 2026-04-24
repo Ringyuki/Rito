@@ -33,6 +33,7 @@ export function App() {
     reader.useBookLineHeight();
     reader.setFontFamily(DEFAULT_SETTINGS.fontFamily);
     reader.setSpreadMode(DEFAULT_SETTINGS.spreadMode);
+    reader.setLineBreaking(DEFAULT_SETTINGS.lineBreaking);
     setTheme(DEFAULT_SETTINGS.theme);
   }, [reader, setTheme]);
 
@@ -87,6 +88,7 @@ export function App() {
           lineHeightForce: reader.lineHeightForce,
           fontFamily: reader.fontFamily,
           spreadMode: reader.spreadMode,
+          lineBreaking: reader.lineBreaking,
           theme,
         }}
         onZoomScaleChange={reader.setZoomScale}
@@ -95,6 +97,7 @@ export function App() {
         onUseBookLineHeight={reader.useBookLineHeight}
         onFontFamilyChange={reader.setFontFamily}
         onSpreadModeChange={reader.setSpreadMode}
+        onLineBreakingChange={reader.setLineBreaking}
         onThemeChange={setTheme}
         onRestoreDefaults={handleRestoreDefaults}
       />

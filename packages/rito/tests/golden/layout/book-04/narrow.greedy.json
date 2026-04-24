@@ -1204,8 +1204,8 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "a02e53830afb91db",
-      "firstText": "我是自由的。自由。用英语说的话是",
+      "detailHash": "b527f4cb528b47a6",
+      "firstText": "我是自由的。自由。用英语说的话是freedom，法语的话",
       "index": 57,
       "lastText": "了。"
     },
@@ -2104,7 +2104,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "fada97b8c55a87e5",
+      "detailHash": "8ef200168126ca84",
       "firstText": "经睡在我的身边了！」",
       "index": 117,
       "lastText": "山内在走廊卧躺，将本能完全倾吐出来。"
@@ -2119,7 +2119,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "2a2b339a1b71c05e",
+      "detailHash": "261b58c20aacba2a",
       "firstText": "「去问平田就可以了吧。」",
       "index": 118,
       "lastText": "和他说过话，但有印象他总是在跟别人谈论着游戏或动画的话题。"
@@ -2449,14 +2449,14 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "24181de7a331cc32",
+      "detailHash": "0c2484d7430f4ca3",
       "firstText": "「怎、怎么会……我没听说过这种事！这没道理啊！」",
       "index": 140,
-      "lastText": "了了。如果从智力或体能的高低来考虑，也很难想像A班全体学生都凌"
+      "lastText": "吧。"
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2464,10 +2464,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "0144e72abd849ddb",
-      "firstText": "驾高圆寺之上。他恐怕是由于除此之外的奇怪性格，才会被分发到D班",
+      "detailHash": "432cdc10217fc663",
+      "firstText": "「况且我一点也没想过要学校替我辅导升学、就业呢。我将来要",
       "index": 141,
-      "lastText": "啊……！」"
+      "lastText": "「话说，原来我们没办法进到喜欢的学校吗？那我又是为了什么"
     },
     {
       "counts": {
@@ -2479,10 +2479,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6f974a39dd1a6e7f",
-      "firstText": "幸村愤怒地发出粗暴的声音，额头上也略微冒出汗水。",
+      "detailHash": "6c0949e1a317c111",
+      "firstText": "才进这间学校？小佐枝老师是不是讨厌我们……？」",
       "index": 142,
-      "lastText": "幸村将近一半的怒火已烟消云散。栉田的双眼认真诉说着——只"
+      "lastText": "「是、是啊。不用这么着急对不对？而幸村和平田也没有必要吵"
     },
     {
       "counts": {
@@ -2494,40 +2494,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "3329d9d5dcf2c0cb",
-      "firstText": "要D班的大家团结一致，总会有办法。",
+      "detailHash": "86a0947fb4a52fe2",
+      "firstText": "架。」",
       "index": 143,
-      "lastText": "不满。以学校看来，A以外的班级都被视为放牛班。虽然如此，唯一的"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "03581e4df6c07ae5",
-      "firstText": "好处或许就是只要努力，前段班似乎也伸手可及。",
-      "index": 144,
-      "lastText": "「啧，干嘛啦。」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "5af3886e3b6a27a8",
-      "firstText": "「我们这个月没有获得点数，这是今后的校园生活里非常棘手的",
-      "index": 145,
-      "lastText": "就无法获得点数。」"
+      "lastText": "「对我来说，在讲A或D之前，我更想先确保点数。」"
     },
     {
       "counts": {
@@ -2539,10 +2509,40 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "3a212724f14ea37a",
-      "firstText": "「……你们想做什么都随便，但别把我卷进去，知道了吗？」",
+      "detailHash": "a3599a942afb22ff",
+      "firstText": "「点数只不过是副产物，就算没有也不会妨碍生活。实际上，学",
+      "index": 144,
+      "lastText": "问题。我们不可能到毕业为止都以零点来过生活吧？」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "4635017a62ed9804",
+      "firstText": "「我绝对不要那样！」",
+      "index": 145,
+      "lastText": "「……你们想做什么都随便，但别把我卷进去，知道了吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "109c276839608ed8",
+      "firstText": "须藤似乎觉得在这个地方待不下去，说完这些话就出了教室。",
       "index": 146,
-      "lastText": "「我应该已经拒绝了。我不会参加。」"
+      "lastText": "这是极为冷静的一句话。堀北尽管有考量到平田的立场，但还是"
     },
     {
       "counts": {
@@ -2550,12 +2550,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 21
       },
-      "detailHash": "e44e6e357943e1bd",
-      "firstText": "这是极为冷静的一句话。堀北尽管有考量到平田的立场，但还是",
+      "detailHash": "ea994f1d3bc04492",
+      "firstText": "再度表示了拒绝。",
       "index": 147,
       "lastText": "2"
     },
@@ -4815,16 +4815,16 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "767263e3b4572278",
+    "fullDetailHash": "701ca2c0ba3b561e",
     "pageCount": 298,
     "totals": {
       "blocks": 4207,
       "hrs": 0,
       "images": 24,
       "inlineAtoms": 3,
-      "lines": 6345,
+      "lines": 6343,
       "ruby": 1,
-      "textRuns": 6310
+      "textRuns": 6308
     }
   },
   "samples": [
@@ -15548,9 +15548,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 7.893
+                    "letterSpacingPx": 0.119
                   },
-                  "text": "我是自由的。自由。用英语说的话是",
+                  "text": "我是自由的。自由。用英语说的话是freedom，法语的话",
                   "type": "text-run"
                 }
               ],
@@ -15567,7 +15567,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 201.6,
+                    "width": 86.4,
                     "x": 0,
                     "y": 2.4
                   },
@@ -15583,7 +15583,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "freedom，法语的话是Liberte。",
+                  "text": "是Liberte。",
                   "type": "text-run"
                 }
               ],
@@ -16216,7 +16216,7 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "firstText": "我是自由的。自由。用英语说的话是",
+      "firstText": "我是自由的。自由。用英语说的话是freedom，法语的话",
       "index": 57,
       "lastText": "了。",
       "paint": null

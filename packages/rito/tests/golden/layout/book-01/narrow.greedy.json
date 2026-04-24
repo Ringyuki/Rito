@@ -399,7 +399,7 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "5b939a3a09a2fe5d",
+      "detailHash": "f318eb41108bcb6a",
       "firstText": "制作信息",
       "index": 2,
       "lastText": "』请将字号缩小以保证排版效果。"
@@ -1306,18 +1306,18 @@
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 2,
         "inlineAtoms": 2,
         "lines": 22,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "e160c11f6f649180",
+      "detailHash": "082fa8217172920e",
       "firstText": "「那、那个、部长、前、前阵子借给我的书、超有趣的！」",
       "index": 63,
-      "lastText": "「被摸头、并不、讨厌……」"
+      "lastText": "一脸通红地嘟囔着。"
     },
     {
       "counts": {
@@ -1329,10 +1329,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3c64598ec48e1e4b",
-      "firstText": "一脸通红地嘟囔着。",
+      "detailHash": "e4a0a8d1cb31ee54",
+      "firstText": "「小鞠酱果然好可爱啊！古都好好跟人家学学」",
       "index": 64,
-      "lastText": "「……青梅竹马？」"
+      "lastText": "『对！只是青梅竹马！』"
     },
     {
       "counts": {
@@ -1344,14 +1344,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "822b15b6a4940dda",
-      "firstText": "『对！只是青梅竹马！』",
+      "detailHash": "78ffe5f35caba2ba",
+      "firstText": "小鞠气愤地撂下这句话离开——倒也没有这样，她尽兴地说完后",
       "index": 65,
-      "lastText": "「但是，她戴着耳机听音乐也听不到我们的对话吧」"
+      "lastText": "不知道是不是感觉到了我们的视线，小鞠害怕地蜷缩着。唔，这"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1359,14 +1359,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0ccdde9c3a6534de",
-      "firstText": "不知道是不是感觉到了我们的视线，小鞠害怕地蜷缩着。唔，这",
+      "detailHash": "9632e23d78dbcc2b",
+      "firstText": "股违和感是什么呢。",
       "index": 66,
-      "lastText": "个孩子就是小鞠同学吧」"
+      "lastText": "不知道是不是很快就闲得无聊了，八奈见开始看向了书架那边。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1374,10 +1374,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "dfc732b178eb41b1",
-      "firstText": "不知道是不是很快就闲得无聊了，八奈见开始看向了书架那边。",
+      "detailHash": "226da7ebaa2af683",
+      "firstText": "会惹出很多麻烦所以千万别向太宰和三岛出手喔。",
       "index": 67,
-      "lastText": "总感觉有点明白那些大叔边敲键盘边把话说出口的行为了。"
+      "lastText": "因被全部人屏蔽了该怎么办噢。"
     },
     {
       "counts": {
@@ -1385,14 +1385,14 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
-      "detailHash": "75fd7b4f73677a2b",
-      "firstText": "这样真的会有回复吗。我有听说过已读不回的，或者不知何种原",
+      "detailHash": "02edffa29b9d8499",
+      "firstText": "就在我七上八下的时候月之木学姐发来了回复。啊啊，太好了。",
       "index": 68,
-      "lastText": "然后说出了让人无力吐槽的话。"
+      "lastText": "「那个。这是什么情况，说明白点」"
     },
     {
       "counts": {
@@ -1404,10 +1404,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f1501ed5e85ac24c",
-      "firstText": "「那个。这是什么情况，说明白点」",
+      "detailHash": "a9b1d4457d2f9060",
+      "firstText": "「佳树十分担心一边看着手机里推的角色一边傻笑的哥哥大人」",
       "index": 69,
-      "lastText": "已经做好了啊。佳树不知道从哪里拿出了便当盒。"
+      "lastText": "「第一次做兼具自我介绍的意图，果然得用哥哥大人的头像」"
     },
     {
       "counts": {
@@ -1419,14 +1419,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "98d7e9f23c8cebdb",
-      "firstText": "「第一次做兼具自我介绍的意图，果然得用哥哥大人的头像」",
+      "detailHash": "c9614a185acd6a95",
+      "firstText": "额，等等等等。快住手好恐怖。",
       "index": 70,
-      "lastText": "当里没有卡路里，还是得好好吃饭才行」"
+      "lastText": "「你把我想成什么人了。我吃的是真正的食物所以不用担心」"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1434,10 +1434,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "dab1355f4389277d",
-      "firstText": "「你把我想成什么人了。我吃的是真正的食物所以不用担心」",
+      "detailHash": "064846dc8419e177",
+      "firstText": "毕竟里面可是便利店卖的东西。",
       "index": 71,
-      "lastText": "「今天我也被那两个人邀请了。问我放学后要不要一起去华恋酱"
+      "lastText": "家里学习」"
     },
     {
       "counts": {
@@ -1449,10 +1449,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "716d84b151ee2f96",
-      "firstText": "家里学习」",
+      "detailHash": "3d87be4311aeac61",
+      "firstText": "「拒绝不就好了」",
       "index": 72,
-      "lastText": "「哈啊」"
+      "lastText": "我说你这个能不能别把我也掺和进去。"
     },
     {
       "counts": {
@@ -1464,40 +1464,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6fbdf0bf1e4c4515",
-      "firstText": "我说你这个能不能别把我也掺和进去。",
+      "detailHash": "749f3823b6662381",
+      "firstText": "「再从头来一次噢。今天杏菜酱突然来不了了。轮到温水君了。",
       "index": 73,
-      "lastText": "「帮我拿下盒盖」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a8966a72c650c662",
-      "firstText": "八奈见让我拿着盒盖，自己则用筷子戳进饭里。",
-      "index": 74,
-      "lastText": "「太好了，这标价还不错」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "f64b0102e53fced1",
-      "firstText": "八奈见心情很好地嚼着米团。我先声明这个价格的评判标准是相",
-      "index": 75,
-      "lastText": "关于公告事项的信息读取就交给我吧。"
+      "lastText": "八奈见让我拿着盒盖，自己则用筷子戳进饭里。"
     },
     {
       "counts": {
@@ -1509,23 +1479,53 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "37873125bbf3400d",
-      "firstText": "「真厉害啊—，柠檬酱」",
-      "index": 76,
-      "lastText": "「温水君也被狠狠地甩一回的话可能就懂了吧」"
+      "detailHash": "97e679c27c178e78",
+      "firstText": "「你在干嘛呢？」",
+      "index": 74,
+      "lastText": "当低的了。还有这个便当分量很大啊……"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 24
       },
-      "detailHash": "1f7185cbcf93f293",
-      "firstText": "「也许吧」",
+      "detailHash": "3bc3762d41d81a39",
+      "firstText": "「照这个趋势的话暑假前就能还完吧」",
+      "index": 75,
+      "lastText": "不经意的一句话。所以我也把自己无意中想要说出口的很普通的"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "72423a229b7e8690",
+      "firstText": "话语都咽了回去。",
+      "index": 76,
+      "lastText": "「也许吧」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 16,
+        "ruby": 0,
+        "textRuns": 15
+      },
+      "detailHash": "6b070daf057368ff",
+      "firstText": "「自己被甩了也没有什么改变，也不会感到很痛快噢」",
       "index": 77,
       "lastText": "《今天的欠款余额：2867日元》"
     },
@@ -2015,11 +2015,11 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
-        "lines": 22,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 19
       },
-      "detailHash": "604d22193a0228a1",
+      "detailHash": "78ef7604a065511b",
       "firstText": "月之木学姐微笑着。",
       "index": 110,
       "lastText": "「视、视察。因为不是很、很懂轻小说。我来、学习一下」"
@@ -2034,7 +2034,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "d1a67ca546ba82ad",
+      "detailHash": "8d405851d28ea9c3",
       "firstText": "小鞠饶有兴致地看着各种各样的封面。",
       "index": 111,
       "lastText": "脑中已经回答了十几次了。"
@@ -2296,7 +2296,7 @@
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2304,10 +2304,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "38058af5e882c083",
+      "detailHash": "3ea50f2fe2246509",
       "firstText": "「我姑且问一下学姐吧。毕竟八奈见同学还不是部员」",
       "index": 129,
-      "lastText": "给月之木学姐弄了。之后我也在网上查了一下怎么加。"
+      "lastText": "「那是啥玩意？没有这种功能吧」"
     },
     {
       "counts": {
@@ -2319,10 +2319,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "2e6a7411a7407ff7",
-      "firstText": "「那是啥玩意？没有这种功能吧」",
+      "detailHash": "319fdea06dca715a",
+      "firstText": "「欸？」",
       "index": 130,
-      "lastText": "「那我也叫你温温如何？」"
+      "lastText": "欸，怎么这么突然。"
     },
     {
       "counts": {
@@ -2334,10 +2334,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "067301ed95803e8c",
-      "firstText": "欸，怎么这么突然。",
+      "detailHash": "874bbf0c173aa529",
+      "firstText": "「一天50日元」",
       "index": 131,
-      "lastText": "到麻烦的表情。"
+      "lastText": "「有点渴了所以来喝水的」"
     },
     {
       "counts": {
@@ -2349,10 +2349,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e9dd3a191f01a915",
-      "firstText": "「有点渴了所以来喝水的」",
+      "detailHash": "5efb8d7fb378c0a7",
+      "firstText": "「特、特地、跑到这来？」",
       "index": 132,
-      "lastText": "我。"
+      "lastText": "「呵、呵呵。肤、肤浅」"
     },
     {
       "counts": {
@@ -2364,10 +2364,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1e4c3f064115f8af",
-      "firstText": "「呵、呵呵。肤、肤浅」",
+      "detailHash": "ceb8acae8d549aec",
+      "firstText": "「什么？你什么意思？」",
       "index": 133,
-      "lastText": "你这什么反应。还是一如既往地不礼貌呢。"
+      "lastText": "「不是说一起吃。而是旧校舍那边的逃生楼梯没人在所以很舒"
     },
     {
       "counts": {
@@ -2379,10 +2379,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "13e504078e91e028",
-      "firstText": "「不是说一起吃。而是旧校舍那边的逃生楼梯没人在所以很舒",
+      "detailHash": "33c36ca62da11c46",
+      "firstText": "服。你别和我在一个楼梯上吃就行了」",
       "index": 134,
-      "lastText": "「安部公房的话我只读过砂丘之女和箱男。壁那本读了开头的卡"
+      "lastText": "尔玛氏就没再看了」"
     },
     {
       "counts": {
@@ -2394,14 +2394,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "35168b08ab10a923",
-      "firstText": "尔玛氏就没再看了」",
+      "detailHash": "387539bf61a891e9",
+      "firstText": "「那难道不是所有的开头吗」",
       "index": 135,
-      "lastText": "月之木学姐的眼镜闪动着怪异的光。"
+      "lastText": "「我们这每一届都会有一个图书委员。所以图书馆新书到货的时"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2409,23 +2409,23 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4ac809fbba09a945",
-      "firstText": "「我们这每一届都会有一个图书委员。所以图书馆新书到货的时",
+      "detailHash": "225356e09e28a608",
+      "firstText": "候可以走后门哦」",
       "index": 136,
-      "lastText": "烧盐眼睛放光探出身子。不是我说，你倒是否定一下女朋友啊。"
+      "lastText": "「哈哈，这说法对柠檬不太好吧。我们可没有在交往」"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 18,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 17
+        "textRuns": 16
       },
-      "detailHash": "345a3cbb4be12f4e",
-      "firstText": "「哈哈，这说法对柠檬不太好吧。我们可没有在交往」",
+      "detailHash": "8fb7ba3d94e6eb1f",
+      "firstText": "绫野把借来的书小心翼翼地放进书包。",
       "index": 137,
       "lastText": "听完绫野淡然说出的话后，烧盐那害羞的笑容瞬间凝固了。"
     },
@@ -3369,7 +3369,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "264679b8b187704b",
+      "detailHash": "b44277be97840e9a",
       "firstText": "话？」",
       "index": 200,
       "lastText": "难道部长说的告白就是这个吗。比我想像的还要离谱。"
@@ -4149,7 +4149,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "03d87917a2acb8e6",
+      "detailHash": "a4eed779520d33c1",
       "firstText": "「有些人会说，老师的暑假这么久真好啊—」",
       "index": 252,
       "lastText": "们，暑假开始！」"
@@ -4355,11 +4355,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 14
+        "textRuns": 13
       },
-      "detailHash": "b33b2f8c74b989ac",
+      "detailHash": "9706f4d77ba1f57c",
       "firstText": "W先生。没有你们三位的意见，这部作品或许就会以另外一种样貌跟大",
       "index": 266,
       "lastText": "候，什么也没说就将我留在家里的在天国的父亲。"
@@ -4655,16 +4655,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 26,
-    "fullDetailHash": "628ee12e6667d6e3",
+    "fullDetailHash": "56a6f5710b3183fe",
     "pageCount": 286,
     "totals": {
-      "blocks": 4585,
+      "blocks": 4588,
       "hrs": 0,
       "images": 110,
       "inlineAtoms": 87,
-      "lines": 5789,
+      "lines": 5784,
       "ruby": 0,
-      "textRuns": 5651
+      "textRuns": 5647
     }
   },
   "samples": [
@@ -5411,7 +5411,7 @@
                 {
                   "bounds": {
                     "height": 15.36,
-                    "width": 7.68,
+                    "width": 30.72,
                     "x": 184.32,
                     "y": 1.28
                   },
@@ -5427,47 +5427,14 @@
                       "weight": 400
                     }
                   },
-                  "text": "』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 15.36,
-                "width": 304,
-                "x": 0,
-                "y": 15.36
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 15.36,
-                    "width": 23.04,
-                    "x": 0,
-                    "y": 1.28
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 15.36,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "illus5",
-                      "sizePx": 12.8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "or『",
+                  "text": "』or『",
                   "type": "text-run"
                 },
                 {
                   "bounds": {
                     "height": 15.36,
                     "width": 53.76,
-                    "x": 23.04,
+                    "x": 215.04,
                     "y": 1.28
                   },
                   "href": null,
@@ -5488,8 +5455,8 @@
                 {
                   "bounds": {
                     "height": 15.36,
-                    "width": 76.8,
-                    "x": 76.8,
+                    "width": 30.72,
+                    "x": 268.8,
                     "y": 1.28
                   },
                   "href": null,
@@ -5504,7 +5471,40 @@
                       "weight": 400
                     }
                   },
-                  "text": "』获得最佳阅读体验。",
+                  "text": "』获得最",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 15.36,
+                "width": 304,
+                "x": 0,
+                "y": 15.36
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 15.36,
+                    "width": 46.08,
+                    "x": 0,
+                    "y": 1.28
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 15.36,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "illus5",
+                      "sizePx": 12.8,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "佳阅读体验。",
                   "type": "text-run"
                 }
               ],
@@ -10112,56 +10112,6 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 48,
-                    "x": 32,
-                    "y": 1.6
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 19.2,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「也许吧」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 19.2,
-            "width": 304,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 19.2,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 19.2,
                     "width": 230.4,
                     "x": 32,
                     "y": 1.6
@@ -10198,7 +10148,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 27.2
           },
           "children": [
             {
@@ -10248,7 +10198,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 54.4
           },
           "children": [
             {
@@ -10331,7 +10281,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 128
+            "y": 100.8
           },
           "children": [
             {
@@ -10381,7 +10331,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 155.2
+            "y": 128
           },
           "children": [
             {
@@ -10431,7 +10381,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 182.4
+            "y": 155.2
           },
           "children": [
             {
@@ -10481,7 +10431,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 209.6
+            "y": 182.4
           },
           "children": [
             {
@@ -10531,7 +10481,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 236.8
+            "y": 209.6
           },
           "children": [
             {
@@ -10614,7 +10564,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 283.2
+            "y": 256
           },
           "children": [
             {
@@ -10697,7 +10647,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 329.6
+            "y": 302.4
           },
           "children": [
             {
@@ -10780,7 +10730,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 376
+            "y": 348.8
           },
           "children": [
             {
@@ -10807,7 +10757,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 403.2
+            "y": 376
           },
           "children": [
             {
@@ -10858,15 +10808,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 13,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 15
       },
-      "firstText": "「也许吧」",
+      "firstText": "「自己被甩了也没有什么改变，也不会感到很痛快噢」",
       "index": 77,
       "lastText": "《今天的欠款余额：2867日元》",
       "paint": null
@@ -19813,7 +19763,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 76.8,
+            "height": 57.6,
             "width": 304,
             "x": 0,
             "y": 46.4
@@ -19830,7 +19780,7 @@
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 9.6,
+                    "width": 268.8,
                     "x": 32,
                     "y": 1.6
                   },
@@ -19846,7 +19796,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "在",
+                  "text": "在web上发表作品时期的读者们。从你们那里获得的感想以及",
                   "type": "text-run"
                 }
               ],
@@ -19858,39 +19808,6 @@
                 "width": 304,
                 "x": 0,
                 "y": 19.2
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 19.2,
-                    "width": 28.8,
-                    "x": 0,
-                    "y": 1.6
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 19.2,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "web",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 19.2,
-                "width": 304,
-                "x": 0,
-                "y": 38.4
               },
               "runs": [
                 {
@@ -19912,7 +19829,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "上发表作品时期的读者们。从你们那里获得的感想以及评价锻炼了我作",
+                  "text": "评价锻炼了我作为一名写手的基础。从今往后也请作为读者以及写手一",
                   "type": "text-run"
                 }
               ],
@@ -19923,13 +19840,13 @@
                 "height": 19.2,
                 "width": 304,
                 "x": 0,
-                "y": 57.6
+                "y": 38.4
               },
               "runs": [
                 {
                   "bounds": {
                     "height": 19.2,
-                    "width": 288,
+                    "width": 57.6,
                     "x": 0,
                     "y": 1.6
                   },
@@ -19945,7 +19862,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "为一名写手的基础。从今往后也请作为读者以及写手一起携手共进。",
+                  "text": "起携手共进。",
                   "type": "text-run"
                 }
               ],
@@ -19965,7 +19882,7 @@
             "height": 76.8,
             "width": 304,
             "x": 0,
-            "y": 131.2
+            "y": 112
           },
           "children": [
             {
@@ -20114,7 +20031,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 216
+            "y": 196.8
           },
           "children": [
             {
@@ -20197,7 +20114,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 262.4
+            "y": 243.2
           },
           "children": [
             {
@@ -20285,9 +20202,9 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 14
+        "textRuns": 13
       },
       "firstText": "W先生。没有你们三位的意见，这部作品或许就会以另外一种样貌跟大",
       "index": 266,

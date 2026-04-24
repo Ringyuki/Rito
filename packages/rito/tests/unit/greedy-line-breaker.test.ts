@@ -171,6 +171,20 @@ describe('GreedyParagraphLayouter', () => {
       const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
       expect(allText).toBe(text);
     });
+
+    it('does not hyphenate across Latin and CJK runs', () => {
+      const cjkMeasurer = createMockTextMeasurer(1);
+      const cjkLayouter = createGreedyLayouter(cjkMeasurer);
+      const text =
+        '『Alpha leader收到。这次还是老样子啊，「死神」。那位没卵蛋的饲主大人最后说了啥？』';
+      const lines = cjkLayouter.layoutParagraph(
+        [seg(text, { textAlign: 'justify', textIndent: 32 })],
+        520,
+        0,
+      );
+
+      expect(textOf(lines[0]?.runs[0])).toBe('『Alpha leader收到。这次还是老样子啊，「死神」。');
+    });
   });
 
   describe('edge cases', () => {

@@ -8,6 +8,7 @@ import type { ReaderState } from './types';
 interface ReaderLayoutControls {
   resize(width: number, height: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
+  setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
   updateLayout(width: number, height: number, mode?: 'single' | 'double', margin?: number): boolean;
 }
 
@@ -36,6 +37,17 @@ export function createReaderLayoutControls(
         mode,
       );
     },
+    setLineBreaking: (lineBreaking: 'greedy' | 'optimal'): boolean => {
+      return repaginate(
+        state,
+        doc,
+        getOptions(),
+        state.config.viewportWidth,
+        state.config.viewportHeight,
+        state.spreadMode,
+        lineBreaking,
+      );
+    },
     updateLayout: (
       width: number,
       height: number,
@@ -55,6 +67,7 @@ function repaginate(
   width: number,
   height: number,
   spreadMode = state.spreadMode,
+  lineBreaking = state.lineBreaking,
 ): boolean {
   const newConfig = makeLayoutConfig(
     { ...options, width, height },
@@ -65,18 +78,26 @@ function repaginate(
     state.lineHeightForce,
     state.fontFamilyForce,
   );
+  const lineBreakingChanged = state.lineBreaking !== lineBreaking;
   state.spreadMode = spreadMode;
-  if (layoutConfigEqual(state.config, newConfig)) return false;
+  state.lineBreaking = lineBreaking;
+  if (!lineBreakingChanged && layoutConfigEqual(state.config, newConfig)) return false;
 
   state.config = newConfig;
   state.assets.measurer.clearCache();
-  state.logger.info('Repagination triggered: %dx%d, spread=%s', width, height, spreadMode);
+  state.logger.info(
+    'Repagination triggered: %dx%d, spread=%s, lineBreaking=%s',
+    width,
+    height,
+    spreadMode,
+    lineBreaking,
+  );
 
   const paginationResult = paginateWithAssets(
     doc,
     state.config,
     state.assets,
-    options.lineBreaking,
+    lineBreaking,
     state.logger,
   );
   state.resources = toResources(state, paginationResult);
