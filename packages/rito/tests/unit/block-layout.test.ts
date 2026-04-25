@@ -648,6 +648,24 @@ describe('layoutBlocks', () => {
       expect(blocks[0]?.bounds.height).toBeCloseTo(49.2);
     });
 
+    it('clear moves past the floated margin box bottom', () => {
+      const styled = resolveStyles([
+        block('div', [text('Float')], {
+          style: 'float: left; width: 100px; margin: 10px 0 40px 0',
+        }),
+        block('div', [], { style: 'clear: both; margin: 0' }),
+        block('p', [text('After')], { style: 'margin: 0' }),
+      ]);
+      const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
+
+      const floatBlock = blocks[0];
+      const clearBlock = blocks[1];
+      const afterBlock = blocks[2];
+      const floatBorderBottom = (floatBlock?.bounds.y ?? 0) + (floatBlock?.bounds.height ?? 0);
+      expect(clearBlock?.bounds.y).toBeCloseTo(floatBorderBottom + 40);
+      expect(afterBlock?.bounds.y).toBeCloseTo(floatBorderBottom + 40);
+    });
+
     it('width:auto leaf float shrinks to fit content', () => {
       // "Hi" = 2 chars × 0.6 × 16 = 19.2px — much less than 300
       const styled = resolveStyles([

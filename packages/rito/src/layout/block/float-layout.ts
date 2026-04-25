@@ -15,6 +15,7 @@ import {
 import type { FloatContext } from './float-context';
 import type { LayoutNodesAtFn } from './flow-layout';
 import {
+  resolveMarginBottom,
   resolveMarginLeft,
   resolveMarginRight,
   resolveMarginTop,
@@ -30,6 +31,7 @@ interface FloatSizing {
   readonly marginTop: number;
   readonly marginLeft: number;
   readonly marginRight: number;
+  readonly marginBottom: number;
   readonly side: 'left' | 'right';
   readonly layoutWidth: number;
 }
@@ -81,6 +83,7 @@ function resolveFloatSizing(node: StyledNode, contentWidth: number): FloatSizing
     marginTop: resolveMarginTop(node.style, contentWidth),
     marginLeft,
     marginRight,
+    marginBottom: resolveMarginBottom(node.style, contentWidth),
     side: node.style.float as 'left' | 'right',
     layoutWidth: applySizeConstraints(availableWidth, node.style),
   };
@@ -99,22 +102,29 @@ function placeFloatedBlock(
   sizing: FloatSizing,
   contentWidth: number,
 ): void {
-  const floatStartY = state.y + state.prevMarginBottom + sizing.marginTop;
-  const totalWidth = block.bounds.width + sizing.marginLeft + sizing.marginRight;
-  const floatHeight = block.bounds.height;
-  const placeY = findFloatPlaceY(floatStartY, state.floats, totalWidth, contentWidth, floatHeight);
-  const bottomY = placeY + floatHeight;
+  const marginBoxStartY = state.y + state.prevMarginBottom;
+  const marginBoxWidth = block.bounds.width + sizing.marginLeft + sizing.marginRight;
+  const marginBoxHeight = Math.max(0, sizing.marginTop + block.bounds.height + sizing.marginBottom);
+  const placeMarginBoxY = findFloatPlaceY(
+    marginBoxStartY,
+    state.floats,
+    marginBoxWidth,
+    contentWidth,
+    marginBoxHeight,
+  );
+  const placeY = placeMarginBoxY + sizing.marginTop;
+  const marginBoxBottomY = placeMarginBoxY + marginBoxHeight;
   const floatX =
     sizing.side === 'right'
       ? contentWidth -
         block.bounds.width -
         sizing.marginRight -
-        state.floats.getMaxRightWidthInRange(placeY, bottomY)
-      : sizing.marginLeft + state.floats.getMaxLeftWidthInRange(placeY, bottomY);
+        state.floats.getMaxRightWidthInRange(placeMarginBoxY, marginBoxBottomY)
+      : sizing.marginLeft + state.floats.getMaxLeftWidthInRange(placeMarginBoxY, marginBoxBottomY);
 
   const placed = { ...block, bounds: { ...block.bounds, x: floatX, y: placeY } };
   state.blocks.push(placed);
-  state.floats.addFloat(sizing.side, totalWidth, placeY, placeY + placed.bounds.height);
+  state.floats.addFloat(sizing.side, marginBoxWidth, placeMarginBoxY, marginBoxBottomY);
 }
 
 function layoutFloatedContainer(
@@ -235,8 +245,8 @@ function layoutFloatedLeaf(
 }
 
 /**
- * Search downward from startY for a Y where the float fits alongside active floats
- * across its entire height range [placeY, placeY + height).
+ * Search downward from startY for a Y where the float margin box fits alongside
+ * active float margin boxes across its entire range [placeY, placeY + height).
  * Read-only queries only — does not mutate FloatContext.
  */
 function findFloatPlaceY(

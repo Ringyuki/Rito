@@ -364,7 +364,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "b32b18ba2ebc2b0b",
+      "detailHash": "e11663158970d577",
       "firstText": "Youkoso",
       "index": 1,
       "lastText": "１"
@@ -3375,7 +3375,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "35fada46bd3662d6",
+    "fullDetailHash": "118742c1345124cc",
     "pageCount": 202,
     "totals": {
       "blocks": 4152,
@@ -3754,7 +3754,7 @@
                   "borderBox": null,
                   "bounds": {
                     "height": 19.2,
-                    "width": 79.12,
+                    "width": 139.32,
                     "x": 13.96,
                     "y": 2.88
                   },
@@ -3762,7 +3762,7 @@
                     {
                       "bounds": {
                         "height": 19.2,
-                        "width": 79.12,
+                        "width": 139.32,
                         "x": 0,
                         "y": 0
                       },

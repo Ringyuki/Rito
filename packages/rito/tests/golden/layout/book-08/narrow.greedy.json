@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "6b20b646024b26b3",
+      "detailHash": "e44ebf195c5b6bc6",
       "firstText": "[ 蕾娜 ]",
       "index": 9,
       "lastText": "双方始终不曾谋面，并肩作战到最后——"
@@ -5115,7 +5115,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "581cff42f01fd3a6",
+    "fullDetailHash": "5c07fae0962f2c7b",
     "pageCount": 318,
     "totals": {
       "blocks": 3546,
@@ -9174,7 +9174,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 167.68
+            "y": 218.88
           },
           "children": [],
           "pageBreakAfter": false,
@@ -9190,7 +9190,7 @@
             "height": 15.36,
             "width": 304,
             "x": 0,
-            "y": 170.88
+            "y": 222.08
           },
           "children": [
             {
@@ -9240,7 +9240,7 @@
             "height": 15.36,
             "width": 304,
             "x": 0,
-            "y": 188.8
+            "y": 240
           },
           "children": [
             {
@@ -9290,7 +9290,7 @@
             "height": 15.36,
             "width": 304,
             "x": 0,
-            "y": 206.72
+            "y": 257.92
           },
           "children": [
             {
