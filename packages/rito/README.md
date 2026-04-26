@@ -1,9 +1,10 @@
 # @ritojs/core
 
-TypeScript-first Canvas-based EPUB rendering engine.
+TypeScript-first EPUB rendering engine with a platform-neutral core and a Web Canvas preset.
 
 `@ritojs/core` is the core package in the Rito monorepo. It parses EPUB archives, resolves a
-book-oriented CSS subset, paginates chapters, and renders pages or spreads into Canvas.
+book-oriented CSS subset, paginates chapters, and builds paint-ready display lists. Browser Canvas
+helpers live under the `@ritojs/core/web` subpath.
 
 ## Install
 
@@ -14,7 +15,7 @@ pnpm add @ritojs/core
 ## Quick Start
 
 ```ts
-import { createReader } from '@ritojs/core';
+import { createReader } from '@ritojs/core/web';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -35,8 +36,10 @@ reader.renderSpread(0);
 
 ## Package Scope
 
-- `createReader()` for the standard browser-side flow
-- stable primitives such as `loadEpub`, `prepare`, `paginate`, `buildSpreads`, and `render`
+- platform-neutral primitives such as `loadEpub`, `paginate`, `buildSpreads`, and display-list builders
+- `@ritojs/core/web` for the standard browser-side flow: `createReader()`, `prepare()`, and Canvas rendering
+- platform contracts for text measurement, image resolution, and display-list backends
+- no Web-only helpers on the main `@ritojs/core` entry
 - expert entry points such as `@ritojs/core/advanced`
 - focused subpaths such as `@ritojs/core/selection`, `@ritojs/core/search`, `@ritojs/core/annotations`, `@ritojs/core/position`, `@ritojs/core/a11y`, and `@ritojs/core/dom`
 

@@ -4,11 +4,12 @@
 
 Rito is an EPUB-focused rendering engine, not a general-purpose browser engine.
 It parses EPUB content, resolves a book-oriented CSS subset, paginates chapters,
-and renders pages or spreads into Canvas.
+and builds paint-ready display lists. The Web preset renders those pages or spreads into Canvas.
 
 If you want a ready-to-use rendering surface with transitions and overlays, use:
 
-- `@ritojs/core` for core rendering
+- `@ritojs/core` for platform-neutral EPUB parsing, pagination, and display-list construction
+- `@ritojs/core/web` for the default browser Canvas preset
 - `@ritojs/kit` for a controller layer
 - `@ritojs/react` for React apps
 
@@ -31,10 +32,10 @@ pnpm install
 pnpm run build
 ```
 
-## Smallest Core Example
+## Smallest Web Canvas Example
 
 ```ts
-import { createReader } from '@ritojs/core';
+import { createReader } from '@ritojs/core/web';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -87,11 +88,17 @@ reader.dispose();
 
 ## When To Use Which Entry
 
-- Use `createReader()` if you want the standard browser-side flow.
-- Use the stable primitives if you want your own load/paginate/render pipeline.
+- Use `createReader()` from `@ritojs/core/web` if you want the standard browser-side flow.
+- Use the stable primitives from `@ritojs/core` if you want your own load/paginate/display-list pipeline.
+- Use `@ritojs/core/web` primitives if you want the default Web Canvas preparation and rendering helpers.
 - Use `@ritojs/core/advanced` only when you need lower-level parser, style, layout, or render internals.
 - Use `@ritojs/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
 - Use `@ritojs/react` when you want React hooks and a mount component.
+
+For Flutter, Skia, native, server-side, or other non-Web runtimes, start from
+`@ritojs/core` and inject platform adapters for text measurement, resource
+loading, and display-list execution. Do not import `@ritojs/core/web` unless
+the runtime provides the browser APIs used by the Web Canvas preset.
 
 ## Next Steps
 

@@ -1,4 +1,4 @@
-import type { RenderOptions } from '../../render/core/types';
+import type { RenderOptions } from '../../render';
 import { getSpreadDimensions, render } from '../../render/spread';
 import type { ReaderState } from './types';
 
@@ -34,6 +34,7 @@ export function renderSpreadToContext(
   const options: RenderOptions = {
     backgroundColor: state.bgColor,
     pixelRatio,
+    imageResolver: state.assets.imageResolver,
     images: state.resources.images,
     ...(state.fgColor ? { foregroundColor: state.fgColor } : {}),
   };

@@ -10,28 +10,32 @@
  *   - rubyY = offsetY + ruby.bounds.y
  *   - ctx.font is derived from ruby.paint.font (e.g. sizePx=10 for a 20px base)
  *   - base text fillText still runs for each adjacent TextRun
- *   - drawRubyAnnotation is wrapped in save/restore
+ *   - drawRubyFragment is wrapped in save/restore
  *
  * Contiguous-group formation is a LAYOUT responsibility (see text-align tests);
  * here we only verify that a single RubyAnnotation spanning a group is
  * rendered exactly once.
  */
 import { describe, expect, it } from 'vitest';
-import { renderBlock } from '../../src/render/page/block-renderer';
+import { renderPage } from '../../src/render/page';
 import type {
   LayoutBlock,
   LineBox,
+  Page,
   Rect,
   RubyAnnotation,
   RunPaint,
   TextRun,
 } from '../../src/layout/core/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
 import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
 import type { CanvasCall, CanvasPropertySet, CanvasRecord } from '../helpers/mock-canvas-context';
 import { isCall } from '../helpers/mock-canvas-context';
 
+const CONFIG = createLayoutConfig({ width: 500, height: 300, margin: 0 });
+
 /**
- * Variant mock that also stubs ctx.measureText so drawRubyAnnotation's
+ * Variant mock that also stubs ctx.measureText so drawRubyFragment's
  * horizontal-centering calculation doesn't blow up on `undefined.width`.
  */
 function createRubyMockContext(): {
@@ -139,6 +143,29 @@ function wrapBlock(children: LineBox[]): LayoutBlock {
     bounds: { x: 0, y: 0, width: 400, height: 100 },
     children,
   };
+}
+
+function renderBlock(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  offsetX = 0,
+  offsetY = 0,
+): void {
+  const page: Page = {
+    index: 0,
+    bounds: { x: 0, y: 0, width: CONFIG.pageWidth, height: CONFIG.pageHeight },
+    content: [
+      {
+        ...block,
+        bounds: {
+          ...block.bounds,
+          x: block.bounds.x + offsetX,
+          y: block.bounds.y + offsetY,
+        },
+      },
+    ],
+  };
+  renderPage(page, ctx, CONFIG);
 }
 
 describe('Phase 2 — ruby annotation render', () => {
@@ -275,5 +302,28 @@ describe('Phase 2 — ruby annotation render', () => {
     const restores = calls(records).filter((c) => c.method === 'restore');
     // Must be balanced
     expect(saves.length).toBe(restores.length);
+  });
+
+  it('ruby resets text spacing so base run spacing does not leak', () => {
+    const { ctx, records } = createRubyMockContext();
+    const basePaint: RunPaint = {
+      ...DEFAULT_RUN_PAINT,
+      wordSpacingPx: 4,
+      letterSpacingPx: 2,
+    };
+    const base = makeRun('漢', 0, 16, basePaint);
+    const ruby = makeRuby('か', 0, 0, 16, 16);
+    const block = wrapBlock([makeLine([base, ruby], 0)]);
+
+    renderBlock(ctx, block, 0, 0);
+
+    const wordSpacing = records
+      .filter((r): r is CanvasPropertySet => !isCall(r) && r.property === 'wordSpacing')
+      .map((r) => r.value);
+    const letterSpacing = records
+      .filter((r): r is CanvasPropertySet => !isCall(r) && r.property === 'letterSpacing')
+      .map((r) => r.value);
+    expect(wordSpacing).toEqual(['4px', '0px']);
+    expect(letterSpacing).toEqual(['2px', '0px']);
   });
 });

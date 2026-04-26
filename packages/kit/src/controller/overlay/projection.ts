@@ -2,7 +2,8 @@
  * Build overlay layers from engine state by projecting page-content
  * and spread-content rects into viewport-logical space via the mapper.
  */
-import type { Reader, Spread, Page } from '@ritojs/core';
+import type { Page, Spread } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import { buildHitMap, getSelectionRects } from '@ritojs/core/advanced';
 import type { HitMap } from '@ritojs/core/advanced';
 import type { ResolvedAnnotation } from '@ritojs/core/annotations';

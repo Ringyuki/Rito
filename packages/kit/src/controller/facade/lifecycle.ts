@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import { wireA11y } from '../wiring/a11y';
 import type { ControllerOptions } from '../types';
 import type { CoordinatorState } from '../core/coordinator-state';

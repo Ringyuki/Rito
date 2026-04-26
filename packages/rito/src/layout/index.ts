@@ -6,6 +6,7 @@ export {
   type BorderBox,
   type HorizontalRule,
   type HrPaint,
+  type ImageDimensions,
   type ImageElement,
   type LayoutBlock,
   type LayoutConfig,
@@ -26,7 +27,12 @@ export {
   type LayoutConfigInput,
 } from './core';
 export { buildSpreads } from './spread';
-export { type TextMeasurer, type TextMetrics } from './text';
+export {
+  type FontMetrics,
+  type FontMetricsProvider,
+  type TextMeasurer,
+  type TextMetrics,
+} from './text';
 export { type StyledSegment, flattenInlineContent } from './text';
 export { type ParagraphLayouter } from './text';
 export { createGreedyLayouter, createKnuthPlassLayouter } from './line-breaker';

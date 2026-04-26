@@ -6,6 +6,7 @@ export {
   type BorderBox,
   type HorizontalRule,
   type HrPaint,
+  type ImageDimensions,
   type ImageElement,
   type InlineAtom,
   type LayoutBlock,

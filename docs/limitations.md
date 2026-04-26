@@ -28,14 +28,14 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 ## Loading Model
 
 - ZIP inflation is eager
-- `createReader()` and `prepare()` paginate the full spine up front
-- browser-side resource preparation is eager for fonts/images used by the current pipeline
+- `createReader()` and `prepare()` from `@ritojs/core/web` paginate the full spine up front
+- Web resource preparation is eager for fonts/images used by the current pipeline
 
 ## Platform Assumptions
 
-- browser-oriented rendering pipeline
-- core rendering depends on browser APIs such as `FontFace` and `createImageBitmap`
-- `OffscreenCanvas` is supported by the core but not required for the basic `Reader` path
+- the main `@ritojs/core` entry is platform-neutral at the render/backend boundary
+- `@ritojs/core/web` depends on browser APIs such as `FontFace`, `createImageBitmap`, Canvas, and optional `OffscreenCanvas`
+- `OffscreenCanvas` is supported by the Web preset but not required for the basic `Reader` path
 - `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing architecture
 
 ## Format Scope
@@ -47,4 +47,5 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 
 These limitations are deliberate boundary choices for this project.
 If you need broad browser CSS compatibility, Rito is the wrong abstraction.
-If you need controllable EPUB pagination and Canvas rendering, these tradeoffs are intentional.
+If you need controllable EPUB pagination with a Web Canvas preset or a custom display-list backend,
+these tradeoffs are intentional.

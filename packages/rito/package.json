@@ -2,7 +2,7 @@
   "name": "@ritojs/core",
   "type": "module",
   "version": "0.9.0",
-  "description": "Canvas-based EPUB rendering engine",
+  "description": "EPUB rendering engine with a Web Canvas backend",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -35,6 +35,10 @@
     "./advanced": {
       "import": "./dist/advanced.mjs",
       "types": "./dist/advanced.d.mts"
+    },
+    "./web": {
+      "import": "./dist/web.mjs",
+      "types": "./dist/web.d.mts"
     },
     "./selection": {
       "import": "./dist/selection.mjs",

@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { HitEntry, LinkRegion } from '@ritojs/core/advanced';
 import { findAnnotationAtPos } from './annotation';
 import { findLinkAtPos } from './link';

@@ -1,4 +1,5 @@
 import type { Spread } from '../../../src/layout/core';
+import { buildSpreadDisplayList, type DisplayList, type DrawCommand } from '../../../src/render';
 import { render } from '../../../src/render/spread';
 import type { EpubDocument, PaginationResult } from '../../../src/runtime/types';
 import { createMockCanvasContext } from '../../helpers/mock-canvas-context';
@@ -30,7 +31,7 @@ export function summarizeRenderCommandSuite(
 ): JsonValue {
   const images = createMockImageMap(document);
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     book: {
       id: book.id,
       path: book.path,
@@ -107,6 +108,11 @@ function renderCaseVariant(
       width: Math.round(config.layout.viewportWidth * pixelRatio),
       height: Math.round(config.layout.viewportHeight * pixelRatio),
     },
+    displayList: summarizeDisplayList(
+      buildSpreadDisplayList({ index: page.index, left: page }, config.layout, {
+        backgroundColor: '#ffffff',
+      }),
+    ),
     records: summarizeRecords(recorder.records),
   };
 }
@@ -129,6 +135,29 @@ function summarizeRecords(records: readonly CanvasRecord[]): JsonValue {
     properties: countProperties(records),
     sequence: normalized,
   };
+}
+
+function summarizeDisplayList(displayList: DisplayList): JsonValue {
+  const normalized = displayList.commands.map((command) => normalizeDrawCommand(command));
+  return {
+    width: roundNumber(displayList.width),
+    height: roundNumber(displayList.height),
+    commandCount: displayList.commands.length,
+    hash: hashJson(normalized),
+    commands: countCommands(displayList.commands),
+  };
+}
+
+function normalizeDrawCommand(command: DrawCommand): JsonValue {
+  if (command.kind === 'paintText' || command.kind === 'paintRuby') {
+    const normalized = toJsonValue(command);
+    if (isJsonObject(normalized)) return { ...normalized, text: summarizeText(command.text) };
+  }
+  return toJsonValue(command);
+}
+
+function isJsonObject(value: JsonValue): value is Readonly<Record<string, JsonValue>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function normalizeRecord(record: CanvasRecord): JsonValue {
@@ -199,6 +228,14 @@ function countProperties(records: readonly CanvasRecord[]): JsonValue {
   const counts = new Map<string, number>();
   for (const record of records) {
     if (isPropertySet(record)) counts.set(record.property, (counts.get(record.property) ?? 0) + 1);
+  }
+  return toSortedJsonObject(counts);
+}
+
+function countCommands(commands: readonly DrawCommand[]): JsonValue {
+  const counts = new Map<string, number>();
+  for (const command of commands) {
+    counts.set(command.kind, (counts.get(command.kind) ?? 0) + 1);
   }
   return toSortedJsonObject(counts);
 }

@@ -2,7 +2,7 @@ import type { ImageSizeMap } from '../layout/block';
 import { layoutBlocks } from '../layout/block';
 import { createGreedyLayouter, createKnuthPlassLayouter } from '../layout/line-breaker';
 import { paginateBlocks } from '../layout/pagination';
-import type { LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
+import type { ImageDimensions, LayoutBlock, LayoutConfig, Page } from '../layout/core/types';
 import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
@@ -15,8 +15,6 @@ import type { Viewport } from '../style/css/parse-utils';
 import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
 import { applyBodyPresentationalAttrs } from './body-presentational-attrs';
-
-type SizeLike = { readonly width: number; readonly height: number };
 
 export interface PreparedPaginationContext {
   readonly contentWidth: number;
@@ -34,7 +32,7 @@ export interface PaginatedChapterResult {
   readonly blockCount: number;
 }
 
-export function preparePaginationContext<T extends SizeLike>(
+export function preparePaginationContext<T extends ImageDimensions>(
   config: LayoutConfig,
   measurer: TextMeasurer,
   stylesheets: ReadonlyMap<string, string>,
@@ -258,7 +256,9 @@ function computeBodyStyle(rules: readonly CssRule[], viewport?: Viewport): Compu
   return style;
 }
 
-function createImageSizeMap<T extends SizeLike>(images: ReadonlyMap<string, T>): ImageSizeMap {
+function createImageSizeMap<T extends ImageDimensions>(
+  images: ReadonlyMap<string, T>,
+): ImageSizeMap {
   const resolve = buildHrefResolver(images);
   return {
     getSize(src: string) {

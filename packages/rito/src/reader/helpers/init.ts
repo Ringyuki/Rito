@@ -1,5 +1,5 @@
 import { buildSpreads } from '../../layout/spread';
-import { loadAssets, paginateWithAssets, type Resources } from '../../render/assets';
+import { loadAssets, paginateWithAssets, type Resources } from '../../render/web';
 import type { ReaderOptions } from '../../reader';
 import type { EpubDocument } from '../../runtime/types';
 import { createLogger } from '../../utils/logger';

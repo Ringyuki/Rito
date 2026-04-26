@@ -173,7 +173,7 @@ export interface Reader {
  *
  * @example
  * ```ts
- * import { createReader } from '@ritojs/core';
+ * import { createReader } from '@ritojs/core/web';
  *
  * const reader = await createReader(epubData, canvas, {
  *   width: 800, height: 600, margin: 40, spread: 'double',

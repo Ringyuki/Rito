@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import { createSelectionEngine } from '@ritojs/core/selection';
 import { createSearchEngine } from '@ritojs/core/search';
 import { createAnnotationStore } from '@ritojs/core/annotations';

@@ -54,7 +54,9 @@ This page describes what Rito is designed to support today.
 
 ## Rendering
 
-- page and spread rendering to Canvas
+- platform-neutral page and spread display-list construction
+- default Web Canvas backend for page and spread rendering
+- injectable display-list backend contracts for custom runtimes
 - theme-aware background and foreground overrides
 - WCAG-aware foreground replacement in dark mode scenarios
 - paint-ready layout/render boundary

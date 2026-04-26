@@ -6,6 +6,8 @@ import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from '@playwright/test';
 import { unzipSync } from 'fflate';
+import pixelmatch from 'pixelmatch';
+import { PNG } from 'pngjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = resolve(SCRIPT_DIR, '..');
@@ -15,6 +17,7 @@ const require = createRequire(import.meta.url);
 const FFLATE_ROOT = dirname(dirname(require.resolve('fflate/browser')));
 const FFLATE_BROWSER_PATH = resolve(FFLATE_ROOT, 'esm/browser.js');
 const CSS_LINE_BREAK_PATH = require.resolve('css-line-break/dist/css-line-break.es5.js');
+const COMPARISON_THRESHOLD = 0.1;
 
 const PROFILES = new Map([
   [
@@ -57,6 +60,7 @@ async function run() {
   const artifactsDir = resolve(caseDir, 'artifacts');
   const ritoDir = resolve(artifactsDir, 'rito');
   const browserDir = resolve(artifactsDir, 'browser');
+  const comparisonDir = resolve(artifactsDir, 'comparison');
   const extractedDir = resolve(browserDir, 'extracted');
   const caseConfig = await readCaseConfig(resolve(caseDir, 'case.json'));
   const bookPath = process.env.RITO_DIAG_EPUB
@@ -114,14 +118,24 @@ async function run() {
       profile,
       referenceContext,
     );
+    const comparison = await writeComparisonArtifacts(comparisonDir, artifactsDir, {
+      caseId,
+      profile,
+      lineBreaking,
+      spreadIndex,
+      actualPng: ritoResult.png,
+      reference,
+    });
     await writeJson(resolve(artifactsDir, 'report.json'), {
       caseId,
       rito: {
         actual: 'rito/actual.png',
         diagnostics: 'rito/diagnostics.json',
+        pageDetail: 'rito/page-detail.json',
         summary: 'rito/summary.json',
       },
       browser: reference,
+      comparison,
     });
     console.log(`Rendering diagnostic artifacts: ${artifactsDir}`);
   } finally {
@@ -369,6 +383,120 @@ async function captureBrowserReference(
 
 function browserReferenceViewport(profile) {
   return { width: profile.width, height: profile.height };
+}
+
+async function writeComparisonArtifacts(comparisonDir, artifactsDir, input) {
+  await mkdir(comparisonDir, { recursive: true });
+
+  const referencePath = readOptionalString(input.reference.reference);
+  if (!referencePath) {
+    const skipped =
+      readOptionalString(input.reference.skipped) || 'browser reference is unavailable';
+    await writeComparisonReport(comparisonDir, input, { skipped });
+    return {
+      report: 'comparison/report.md',
+      skipped,
+    };
+  }
+
+  const referencePng = await readFile(resolve(artifactsDir, referencePath));
+  const result = createPngDiff(referencePng, input.actualPng);
+  if ('dimensionMismatch' in result) {
+    await writeComparisonReport(comparisonDir, input, result);
+    return {
+      report: 'comparison/report.md',
+      dimensionMismatch: result.dimensionMismatch,
+    };
+  }
+
+  await writeFile(resolve(comparisonDir, 'diff.png'), result.diffPng);
+  await writeComparisonReport(comparisonDir, input, result);
+  return {
+    report: 'comparison/report.md',
+    diff: 'comparison/diff.png',
+    width: result.width,
+    height: result.height,
+    diffPixels: result.diffPixels,
+    diffRatio: result.diffRatio,
+    threshold: COMPARISON_THRESHOLD,
+  };
+}
+
+function createPngDiff(referencePngBytes, actualPngBytes) {
+  const reference = PNG.sync.read(referencePngBytes);
+  const actual = PNG.sync.read(actualPngBytes);
+  if (reference.width !== actual.width || reference.height !== actual.height) {
+    return {
+      dimensionMismatch: {
+        reference: `${String(reference.width)}x${String(reference.height)}`,
+        actual: `${String(actual.width)}x${String(actual.height)}`,
+      },
+    };
+  }
+
+  const diff = new PNG({ width: reference.width, height: reference.height });
+  const diffPixels = pixelmatch(
+    reference.data,
+    actual.data,
+    diff.data,
+    reference.width,
+    reference.height,
+    { threshold: COMPARISON_THRESHOLD },
+  );
+  const totalPixels = reference.width * reference.height;
+  return {
+    width: reference.width,
+    height: reference.height,
+    diffPixels,
+    diffRatio: diffPixels / totalPixels,
+    diffPng: PNG.sync.write(diff),
+  };
+}
+
+async function writeComparisonReport(comparisonDir, input, result) {
+  const lines = [
+    '# Rendering Diagnostic Comparison',
+    '',
+    `- Case: \`${input.caseId}\``,
+    `- Profile: \`${input.profile.id}\``,
+    `- Line breaking: \`${input.lineBreaking}\``,
+    `- Spread index: \`${String(input.spreadIndex)}\``,
+    '',
+    '## Artifacts',
+    '',
+    '- Rito actual: `../rito/actual.png`',
+    '- Rito summary: `../rito/summary.json`',
+    '- Rito page detail: `../rito/page-detail.json`',
+  ];
+
+  if ('skipped' in result) {
+    lines.push('', '## Browser Reference', '', `Skipped: ${result.skipped}`);
+  } else if ('dimensionMismatch' in result) {
+    lines.push(
+      '- Browser reference: `../browser/reference.png`',
+      '',
+      '## Pixel Diff',
+      '',
+      'Diff image was not generated because screenshot dimensions differ.',
+      '',
+      `- Reference: \`${result.dimensionMismatch.reference}\``,
+      `- Rito actual: \`${result.dimensionMismatch.actual}\``,
+    );
+  } else {
+    lines.push(
+      '- Browser reference: `../browser/reference.png`',
+      '- Diff: `diff.png`',
+      '',
+      '## Pixel Diff',
+      '',
+      `- Size: \`${String(result.width)}x${String(result.height)}\``,
+      `- Threshold: \`${String(COMPARISON_THRESHOLD)}\``,
+      `- Diff pixels: \`${String(result.diffPixels)}\``,
+      `- Diff ratio: \`${result.diffRatio.toFixed(6)}\``,
+    );
+  }
+
+  await writeFile(resolve(comparisonDir, 'report.md'), `${lines.join('\n')}\n`, 'utf8');
 }
 
 async function applyBrowserReferencePageFrame(page, profile) {
@@ -694,7 +822,7 @@ function renderHtml() {
 
   window.renderRitoDiagnosticReady = 'loading';
 
-  import('/dist/index.mjs')
+  import('/dist/web.mjs')
     .then(({ createReader }) => {
       window.renderRitoDiagnosticReady = 'ready';
       window.renderRitoDiagnostic = async ({ bookBase64, profile, lineBreaking, spreadIndex }) => {

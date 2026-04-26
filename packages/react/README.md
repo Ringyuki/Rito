@@ -1,6 +1,6 @@
 # @ritojs/react
 
-React hooks and components for `@ritojs/core` and `@ritojs/kit`.
+React hooks and components for the `@ritojs/core/web` reader and `@ritojs/kit`.
 
 `@ritojs/react` provides the highest-level integration layer in the Rito stack:
 React hooks for reader lifecycle and state, plus a mount component for the

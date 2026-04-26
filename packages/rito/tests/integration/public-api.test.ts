@@ -5,17 +5,35 @@ import { describe, expect, it } from 'vitest';
  * Validates that the public API surface exports the expected symbols.
  */
 describe('public API surface', () => {
-  it('exports essential functions', async () => {
+  it('exports platform-neutral functions from the main entry', async () => {
     const api = await import('../../src/index');
     expect(api.loadEpub).toBeDefined();
-    expect(api.prepare).toBeDefined();
-    expect(api.disposeResources).toBeDefined();
-    expect(api.render).toBeDefined();
     expect(api.paginate).toBeDefined();
     expect(api.buildSpreads).toBeDefined();
     expect(api.createLayoutConfig).toBeDefined();
-    expect(api.createTextMeasurer).toBeDefined();
-    expect(api.getSpreadDimensions).toBeDefined();
+    expect(api.buildPageDisplayList).toBeDefined();
+    expect(api.buildSpreadDisplayList).toBeDefined();
+    expect(api.createImageAssetResolver).toBeDefined();
+    expect(api.loadFontsWithRegistry).toBeDefined();
+    expect(api.loadImagesWithDecoder).toBeDefined();
+    expect(api.createLazyImageLoaderWithDecoder).toBeDefined();
+  });
+
+  it('exports Web Canvas preset APIs from the web entry', async () => {
+    const web = await import('../../src/web');
+    expect(web.createReader).toBeDefined();
+    expect(web.prepare).toBeDefined();
+    expect(web.disposeResources).toBeDefined();
+    expect(web.render).toBeDefined();
+    expect(web.renderPage).toBeDefined();
+    expect(web.createTextMeasurer).toBeDefined();
+    expect(web.getSpreadDimensions).toBeDefined();
+    expect(web.loadFonts).toBeDefined();
+    expect(web.loadImages).toBeDefined();
+    expect(web.loadAssets).toBeDefined();
+    expect(web.paginateWithAssets).toBeDefined();
+    expect(web.canvasDisplayListRenderer).toBeDefined();
+    expect(web.canvasTextMeasurementBackend).toBeDefined();
   });
 
   it('does not export internal APIs from main entry', async () => {
@@ -37,9 +55,18 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['loadFonts']).toBeUndefined();
     expect((api as Record<string, unknown>)['loadImages']).toBeUndefined();
     expect((api as Record<string, unknown>)['loadAssets']).toBeUndefined();
+    expect((api as Record<string, unknown>)['prepare']).toBeUndefined();
+    expect((api as Record<string, unknown>)['disposeResources']).toBeUndefined();
+    expect((api as Record<string, unknown>)['render']).toBeUndefined();
+    expect((api as Record<string, unknown>)['renderPage']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createReader']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createTextMeasurer']).toBeUndefined();
+    expect((api as Record<string, unknown>)['getSpreadDimensions']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateWithAssets']).toBeUndefined();
     expect((api as Record<string, unknown>)['disposeAssets']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLazyImageLoader']).toBeUndefined();
+    expect((api as Record<string, unknown>)['canvasDisplayListRenderer']).toBeUndefined();
+    expect((api as Record<string, unknown>)['canvasTextMeasurementBackend']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateInWorker']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLogger']).toBeUndefined();
   });
@@ -60,10 +87,25 @@ describe('public API surface', () => {
     expect(adv.findPageForTocEntry).toBeDefined();
     expect(adv.loadFonts).toBeDefined();
     expect(adv.loadImages).toBeDefined();
+    expect(adv.loadFontsWithRegistry).toBeDefined();
+    expect(adv.loadImagesWithDecoder).toBeDefined();
     expect(adv.loadAssets).toBeDefined();
     expect(adv.paginateWithAssets).toBeDefined();
     expect(adv.disposeAssets).toBeDefined();
     expect(adv.createLazyImageLoader).toBeDefined();
+    expect(adv.createLazyImageLoaderWithDecoder).toBeDefined();
+    expect(adv.createImageAssetResolver).toBeDefined();
+    expect(adv.createWebFontRegistry).toBeDefined();
+    expect(adv.createWebImageAssetResolver).toBeDefined();
+    expect(adv.createWebImageDecoder).toBeDefined();
+    expect(adv.collectPageImageSources).toBeDefined();
+    expect(adv.collectSpreadImageSources).toBeDefined();
+    expect(adv.buildPageDisplayList).toBeDefined();
+    expect(adv.buildSpreadDisplayList).toBeDefined();
+    expect(adv.canvasDisplayListRenderer).toBeDefined();
+    expect((adv as Record<string, unknown>)['renderDisplayListToCanvas']).toBeUndefined();
+    expect(adv.canvasTextMeasurementBackend).toBeDefined();
+    expect((adv as Record<string, unknown>)['createCanvasTextMeasurer']).toBeUndefined();
     expect(adv.createLogger).toBeDefined();
   });
 });

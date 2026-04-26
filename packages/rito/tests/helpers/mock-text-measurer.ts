@@ -1,13 +1,22 @@
 import type { MeasurePaint } from '../../src/style/core/paint-types';
-import type { TextMetrics } from '../../src/layout/text/text-measurer';
-import type { CachedTextMeasurer } from '../../src/render/text/canvas-text-measurer';
+import type {
+  FontMetrics,
+  FontMetricsProvider,
+  TextMeasurer,
+  TextMetrics,
+} from '../../src/layout/text/text-measurer';
+
+type MockTextMeasurer = TextMeasurer &
+  FontMetricsProvider & {
+    clearCache(): void;
+  };
 
 /**
  * Deterministic text measurer for tests.
  * Width = text.length * fontSize * charWidthFactor.
  * Height = fontSize (content-box only; lineHeight is out of measurer scope).
  */
-export function createMockTextMeasurer(charWidthFactor = 0.6): CachedTextMeasurer {
+export function createMockTextMeasurer(charWidthFactor = 0.6): MockTextMeasurer {
   return {
     measureText(text: string, paint: MeasurePaint): TextMetrics {
       const sizePx = paint.font.sizePx;
@@ -17,6 +26,15 @@ export function createMockTextMeasurer(charWidthFactor = 0.6): CachedTextMeasure
           countAsciiSpaces(text) * (paint.wordSpacingPx ?? 0) +
           countLetterSpacingGaps(text) * (paint.letterSpacingPx ?? 0),
         height: sizePx,
+      };
+    },
+    resolveFontMetrics(paint: MeasurePaint): FontMetrics {
+      const sizePx = paint.font.sizePx;
+      return {
+        ascentPx: sizePx,
+        descentPx: 0,
+        lineGapPx: 0,
+        contentHeightPx: sizePx,
       };
     },
     clearCache(): void {

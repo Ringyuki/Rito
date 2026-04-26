@@ -50,10 +50,24 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 9,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "19ffbb76ee4e8201",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 17,
-            "hash": "baaf38b2fad51bff",
+            "count": 16,
+            "hash": "1d012d6669b6af9a",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -62,7 +76,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -99,11 +113,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -113,19 +122,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -141,6 +137,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -174,6 +175,11 @@
                   390
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -194,10 +200,24 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 9,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "19ffbb76ee4e8201",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 17,
-            "hash": "f6e1f2dbb77ad4bb",
+            "count": 16,
+            "hash": "f69e7ddb85291e7a",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -206,7 +226,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -243,11 +263,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -257,19 +272,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -285,6 +287,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -318,6 +325,11 @@
                   390
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -380,10 +392,24 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 22,
+            "commands": {
+              "clipRect": 1,
+              "paintPage": 2,
+              "paintText": 14,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "ecc13f88475b8fbf",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 112,
-            "hash": "8f06879eb31198d5",
+            "count": 111,
+            "hash": "7edb1f19c61f2137",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -393,7 +419,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -434,11 +460,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -448,19 +469,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -476,6 +484,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -1074,6 +1087,11 @@
                   256.704
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -1094,10 +1112,24 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 22,
+            "commands": {
+              "clipRect": 1,
+              "paintPage": 2,
+              "paintText": 14,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "ecc13f88475b8fbf",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 112,
-            "hash": "517c0de3ab2f9c93",
+            "count": 111,
+            "hash": "183a46ac41faed0b",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1107,7 +1139,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -1148,11 +1180,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -1162,19 +1189,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -1190,6 +1204,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -1788,6 +1807,11 @@
                   256.704
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -1850,10 +1874,25 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 10,
+            "commands": {
+              "clipRect": 1,
+              "paintBlock": 1,
+              "paintPage": 2,
+              "paintText": 1,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "5cf1295d4cf026b9",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 32,
-            "hash": "eaaa205fba33a3e6",
+            "count": 31,
+            "hash": "f8713a7590e8daad",
             "methods": {
               "beginPath": 2,
               "clip": 1,
@@ -1864,7 +1903,7 @@
               "rect": 1,
               "restore": 4,
               "save": 4,
-              "scale": 2,
+              "scale": 1,
               "setLineDash": 1,
               "stroke": 1,
               "translate": 1
@@ -1910,11 +1949,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -1924,19 +1958,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -1952,6 +1973,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -2067,6 +2093,11 @@
                   136
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -2087,10 +2118,25 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 10,
+            "commands": {
+              "clipRect": 1,
+              "paintBlock": 1,
+              "paintPage": 2,
+              "paintText": 1,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "5cf1295d4cf026b9",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 32,
-            "hash": "6d22d91467373ecf",
+            "count": 31,
+            "hash": "3e58c3d7cd8903a4",
             "methods": {
               "beginPath": 2,
               "clip": 1,
@@ -2101,7 +2147,7 @@
               "rect": 1,
               "restore": 4,
               "save": 4,
-              "scale": 2,
+              "scale": 1,
               "setLineDash": 1,
               "stroke": 1,
               "translate": 1
@@ -2147,11 +2193,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -2161,19 +2202,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -2189,6 +2217,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -2304,6 +2337,11 @@
                   136
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -2366,10 +2404,25 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 26,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "paintText": 17,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "2b8c0055e89f4dc0",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 119,
-            "hash": "9a02a0c652b2564f",
+            "count": 118,
+            "hash": "7b56a35c653a3f65",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -2379,7 +2432,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -2420,11 +2473,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -2434,19 +2482,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -2462,6 +2497,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -3124,6 +3164,11 @@
                   14.4
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -3144,10 +3189,25 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 26,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "paintText": 17,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "2b8c0055e89f4dc0",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 119,
-            "hash": "976c656822c52b7d",
+            "count": 118,
+            "hash": "dbb95594d2be5937",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -3157,7 +3217,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -3198,11 +3258,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -3212,19 +3267,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -3240,6 +3282,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -3902,6 +3949,11 @@
                   14.4
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -3965,10 +4017,25 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 41,
+            "commands": {
+              "clipRect": 1,
+              "paintPage": 2,
+              "paintRuby": 3,
+              "paintText": 30,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "9714720ce49c02a8",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 217,
-            "hash": "fd4f293d872874c3",
+            "count": 222,
+            "hash": "8df514af4273d2db",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -3978,15 +4045,15 @@
               "rect": 1,
               "restore": 6,
               "save": 6,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
               "fillStyle": 35,
               "font": 33,
-              "letterSpacing": 30,
+              "letterSpacing": 33,
               "textBaseline": 33,
-              "wordSpacing": 30
+              "wordSpacing": 33
             },
             "sequence": [
               {
@@ -4019,11 +4086,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -4033,19 +4095,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -4061,6 +4110,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -4622,6 +4676,16 @@
                 "value": "top"
               },
               {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
                 "args": [
                   {
                     "hash": "100b769dab43020c",
@@ -4743,6 +4807,16 @@
                 "value": "top"
               },
               {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
                 "args": [
                   {
                     "hash": "d1ffcb638c935f67",
@@ -4862,6 +4936,16 @@
                 "property": "textBaseline",
                 "type": "set",
                 "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
               },
               {
                 "args": [
@@ -5332,6 +5416,11 @@
                   734.76
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -5352,10 +5441,25 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 41,
+            "commands": {
+              "clipRect": 1,
+              "paintPage": 2,
+              "paintRuby": 3,
+              "paintText": 30,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "9714720ce49c02a8",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 217,
-            "hash": "64275f7503153bf2",
+            "count": 222,
+            "hash": "555659a39c693e99",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -5365,15 +5469,15 @@
               "rect": 1,
               "restore": 6,
               "save": 6,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
               "fillStyle": 35,
               "font": 33,
-              "letterSpacing": 30,
+              "letterSpacing": 33,
               "textBaseline": 33,
-              "wordSpacing": 30
+              "wordSpacing": 33
             },
             "sequence": [
               {
@@ -5406,11 +5510,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -5420,19 +5519,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -5448,6 +5534,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -6009,6 +6100,16 @@
                 "value": "top"
               },
               {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
                 "args": [
                   {
                     "hash": "100b769dab43020c",
@@ -6130,6 +6231,16 @@
                 "value": "top"
               },
               {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
                 "args": [
                   {
                     "hash": "d1ffcb638c935f67",
@@ -6249,6 +6360,16 @@
                 "property": "textBaseline",
                 "type": "set",
                 "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
+                "value": "0px"
               },
               {
                 "args": [
@@ -6719,6 +6840,11 @@
                   734.76
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -6781,10 +6907,25 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 31,
+            "commands": {
+              "clipRect": 1,
+              "paintHorizontalRule": 2,
+              "paintPage": 2,
+              "paintText": 21,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "d5a1c7b0996a8e54",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 158,
-            "hash": "faa21b9424022736",
+            "count": 157,
+            "hash": "0e0347a40898b5db",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -6795,7 +6936,7 @@
               "rect": 1,
               "restore": 5,
               "save": 5,
-              "scale": 2,
+              "scale": 1,
               "stroke": 2,
               "translate": 1
             },
@@ -6839,11 +6980,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -6853,19 +6989,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -6881,6 +7004,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -7770,6 +7898,11 @@
                   734.16
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -7790,10 +7923,25 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 31,
+            "commands": {
+              "clipRect": 1,
+              "paintHorizontalRule": 2,
+              "paintPage": 2,
+              "paintText": 21,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "d5a1c7b0996a8e54",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 158,
-            "hash": "369d93c1cab94297",
+            "count": 157,
+            "hash": "95956539c22fdd65",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -7804,7 +7952,7 @@
               "rect": 1,
               "restore": 5,
               "save": 5,
-              "scale": 2,
+              "scale": 1,
               "stroke": 2,
               "translate": 1
             },
@@ -7848,11 +7996,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -7862,19 +8005,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -7890,6 +8020,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -8779,6 +8914,11 @@
                   734.16
                 ],
                 "method": "fillText",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -8841,10 +8981,24 @@
             "height": 800,
             "width": 600
           },
+          "displayList": {
+            "commandCount": 9,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "f55e20e44d564573",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 1,
           "records": {
-            "count": 17,
-            "hash": "cec7b981fb1ccf9e",
+            "count": 16,
+            "hash": "1415497e31399391",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -8853,7 +9007,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -8890,11 +9044,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -8904,19 +9053,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -8932,6 +9068,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -8965,6 +9106,11 @@
                   390
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -8985,10 +9131,24 @@
             "height": 1600,
             "width": 1200
           },
+          "displayList": {
+            "commandCount": 9,
+            "commands": {
+              "clipRect": 1,
+              "paintImage": 1,
+              "paintPage": 2,
+              "popState": 2,
+              "pushState": 2,
+              "translate": 1
+            },
+            "hash": "f55e20e44d564573",
+            "height": 800,
+            "width": 600
+          },
           "pixelRatio": 2,
           "records": {
-            "count": 17,
-            "hash": "1e5f5141eda15899",
+            "count": 16,
+            "hash": "4b33d70cad9806e4",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -8997,7 +9157,7 @@
               "rect": 1,
               "restore": 3,
               "save": 3,
-              "scale": 2,
+              "scale": 1,
               "translate": 1
             },
             "properties": {
@@ -9034,11 +9194,6 @@
               },
               {
                 "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
                 "method": "save",
                 "type": "call"
               },
@@ -9048,19 +9203,6 @@
                   0
                 ],
                 "method": "translate",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
                 "type": "call"
               },
               {
@@ -9076,6 +9218,11 @@
                   800
                 ],
                 "method": "fillRect",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "save",
                 "type": "call"
               },
               {
@@ -9109,6 +9256,11 @@
                   390
                 ],
                 "method": "drawImage",
+                "type": "call"
+              },
+              {
+                "args": [],
+                "method": "restore",
                 "type": "call"
               },
               {
@@ -9145,7 +9297,7 @@
     },
     "lineBreaking": "greedy"
   },
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "selection": {
     "pageCount": 227,
     "pixelRatios": [

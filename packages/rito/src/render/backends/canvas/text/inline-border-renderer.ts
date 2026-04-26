@@ -1,26 +1,26 @@
-import type { TextRun } from '../../layout/core/types';
-import { computeInlineBoxRect, type InlineBoxRect, traceInlineRoundedRect } from './inline-box';
+import type { RunPaint } from '../../../../layout/core/types';
+import {
+  computeInlineBoxRect,
+  type InlineBoxInput,
+  type InlineBoxRect,
+  traceInlineRoundedRect,
+} from './inline-box';
 
-type InlineBorderEdge = NonNullable<NonNullable<TextRun['paint']['border']>['top']>;
+type InlineBorderEdge = NonNullable<NonNullable<RunPaint['border']>['top']>;
 type InlineBorderSide = readonly [InlineBorderEdge, number, number, number, number];
 
 /**
  * Draw borders for inline elements. Layout decides which start/end fragments
  * are visible; render only consumes the paint-ready edges.
  */
-export function drawInlineBorders(
-  ctx: CanvasRenderingContext2D,
-  run: TextRun,
-  x: number,
-  y: number,
-): void {
-  const border = run.paint.border;
+export function drawInlineBorders(ctx: CanvasRenderingContext2D, fragment: InlineBoxInput): void {
+  const border = fragment.paint.border;
   if (!border) return;
   const { top, bottom, start, end } = border;
   if (!top && !bottom && !start && !end) return;
 
-  const rect = computeInlineBoxRect(run, x, y);
-  const radius = run.paint.backgroundRadius ?? 0;
+  const rect = computeInlineBoxRect(fragment);
+  const radius = fragment.paint.backgroundRadius ?? 0;
   ctx.save();
   if (top && bottom && start && end && radius > 0) {
     drawRoundedInlineBorders(ctx, rect, radius, getRoundedSides(rect, top, end, bottom, start));

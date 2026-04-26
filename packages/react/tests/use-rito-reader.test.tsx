@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { ReaderController } from '@ritojs/kit';
 import { useRitoReader, type UseRitoReaderOptions } from '../src/hooks';
 
@@ -13,7 +13,7 @@ const { createReaderMock, createControllerMock } = vi.hoisted(() => ({
   createControllerMock: vi.fn(),
 }));
 
-vi.mock('@ritojs/core', () => ({
+vi.mock('@ritojs/core/web', () => ({
   createReader: createReaderMock,
 }));
 

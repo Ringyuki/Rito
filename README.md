@@ -1,12 +1,13 @@
 # Rito
 
-A TypeScript-first Canvas-based EPUB rendering library.
+A TypeScript-first EPUB rendering library with a platform-neutral core and a Web Canvas preset.
 
-Rito is an EPUB-focused rendering engine. It parses EPUB archives, resolves a book-oriented CSS subset, paginates chapters, and renders pages or spreads into Canvas.
+Rito is an EPUB-focused rendering engine. It parses EPUB archives, resolves a book-oriented CSS subset, paginates chapters, builds display lists, and renders pages or spreads into Canvas through the Web preset.
 
 The repository also includes:
 
-- `@ritojs/core` — the core parser/layout/rendering package
+- `@ritojs/core` — platform-neutral parser/layout/pagination/display-list primitives
+- `@ritojs/core/web` — the default browser Canvas preset within the core package
 - `@ritojs/kit` — a framework-agnostic controller layer with transitions and overlays
 - `@ritojs/react` — React hooks and components on top of the core packages
 
@@ -22,7 +23,7 @@ pnpm add @ritojs/core
 ## Quick Start
 
 ```ts
-import { createReader } from '@ritojs/core';
+import { createReader } from '@ritojs/core/web';
 
 const response = await fetch('book.epub');
 const canvas = document.querySelector('canvas')!;
@@ -61,6 +62,7 @@ Rito is optimized for EPUB book layout, not browser-equivalent web layout.
 
 - EPUB-first rendering model
 - small, stable public API on the main `@ritojs/core` entry
+- Web-only reader helpers isolated under `@ritojs/core/web`
 - optional higher-level integration packages for controllers and React
 - deliberate CSS/layout subset focused on book pagination
 

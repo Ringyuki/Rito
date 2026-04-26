@@ -15,11 +15,29 @@
  * See AGENTS.md "Layout / Render boundary" for the same rules in prose.
  */
 import { describe, expect, it } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const SRC = join(import.meta.dirname, '../../src');
+const MAIN_ENTRY = join(SRC, 'index.ts');
+const WEB_ENTRY = join(SRC, 'web.ts');
+const LAYOUT = join(SRC, 'layout');
 const RENDER = join(SRC, 'render');
+const RUNTIME = join(SRC, 'runtime');
+const RENDER_BACKENDS = join(RENDER, 'backends');
+const DISPLAY_LIST = join(RENDER, 'display-list');
+const RENDER_PAGE = join(RENDER, 'page');
+const RENDER_SPREAD = join(RENDER, 'spread');
+const RENDER_TEXT = join(RENDER, 'text');
+const ASSET_CONTRACT_FILES = ['types.ts', 'image-asset-resolver.ts', 'image-sources.ts', 'bytes.ts']
+  .map((file) => join(RENDER, 'assets', file))
+  .filter((file) => existsSync(file));
+const RENDER_ASSETS = join(RENDER, 'assets');
+const RENDER_ASSET_ROOT_FILES = existsSync(RENDER_ASSETS)
+  ? readdirSync(RENDER_ASSETS)
+      .filter((entry) => entry.endsWith('.ts') && entry !== 'index.ts')
+      .map((entry) => join(RENDER_ASSETS, entry))
+  : [];
 const LAYOUT_TYPES = join(SRC, 'layout/core/types.ts');
 
 function walkTs(root: string): string[] {
@@ -60,11 +78,157 @@ function scan(
 }
 
 const RENDER_FILES = walkTs(RENDER);
+const RUNTIME_FILES = walkTs(RUNTIME);
+const LAYOUT_FILES = walkTs(LAYOUT);
+const RENDER_BACKEND_FILES = existsSync(RENDER_BACKENDS) ? walkTs(RENDER_BACKENDS) : [];
+const DISPLAY_LIST_FILES = existsSync(DISPLAY_LIST) ? walkTs(DISPLAY_LIST) : [];
+const RENDER_PAGE_FILES = existsSync(RENDER_PAGE) ? walkTs(RENDER_PAGE) : [];
+const RENDER_SPREAD_FILES = existsSync(RENDER_SPREAD) ? walkTs(RENDER_SPREAD) : [];
+const PLATFORM_RUNTIME_RE =
+  /\b(CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D|HTMLCanvasElement|OffscreenCanvas|ImageBitmap|ImageData|FontFace|FontFaceSet|HTMLElement|Document|Window|Blob|createImageBitmap)\b/g;
 
 describe('Architecture invariant: render/ does not import ComputedStyle', () => {
   it('no file in render/ imports the ComputedStyle type', () => {
     const hits = scan(RENDER_FILES, /import[^;]*\bComputedStyle\b[^;]*;/g);
     expect(hits, `ComputedStyle import found in:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: public entries are split by platform', () => {
+  it('main entry does not export Web Canvas preset modules', () => {
+    const hits = scan(
+      [MAIN_ENTRY],
+      /from\s+['"]\.\/(?:reader|render\/(?:index|web|page|spread|backends\/canvas|assets\/web)[^'"]*)['"]/g,
+    );
+    expect(
+      hits,
+      `Web/Canvas module leaked through main entry:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('web entry owns Web Canvas preset exports', () => {
+    expect(read(WEB_ENTRY)).toContain("from './reader'");
+    expect(read(WEB_ENTRY)).toContain("from './render/spread'");
+    expect(read(WEB_ENTRY)).toContain("from './render/web'");
+    expect(read(WEB_ENTRY)).toContain("from './render/backends/canvas'");
+  });
+});
+
+describe('Architecture invariant: display-list is platform-neutral', () => {
+  it('does not reference browser or canvas runtime types', () => {
+    const hits = scan(DISPLAY_LIST_FILES, PLATFORM_RUNTIME_RE);
+    expect(hits, `Platform type found in display-list:\n${JSON.stringify(hits, null, 2)}`).toEqual(
+      [],
+    );
+  });
+
+  it('does not import ComputedStyle', () => {
+    const hits = scan(DISPLAY_LIST_FILES, /import[^;]*\bComputedStyle\b[^;]*;/g);
+    expect(
+      hits,
+      `ComputedStyle import found in display-list:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: render backends consume display-list commands', () => {
+  it('do not depend on layout node shapes', () => {
+    const hits = scan(
+      RENDER_BACKEND_FILES,
+      /\b(LayoutBlock|TextRun|RubyAnnotation|LineBox|InlineAtom|HorizontalRule)\b/g,
+    );
+    expect(hits, `Backend referenced layout node types:\n${JSON.stringify(hits, null, 2)}`).toEqual(
+      [],
+    );
+  });
+});
+
+describe('Architecture invariant: Canvas implementation lives in the Canvas backend', () => {
+  it('render/page is only the public page facade', () => {
+    const files = RENDER_PAGE_FILES.map(rel).sort();
+    expect(files).toEqual(['render/page/index.ts']);
+  });
+
+  it('render/spread is only the public spread facade', () => {
+    const files = RENDER_SPREAD_FILES.map(rel).sort();
+    expect(files).toEqual(['render/spread/index.ts']);
+  });
+
+  it('page and spread facades do not perform raw Canvas drawing', () => {
+    const facadeFiles = [...RENDER_PAGE_FILES, ...RENDER_SPREAD_FILES];
+    const hits = scan(
+      facadeFiles,
+      /\bctx\.(save|restore|scale|translate|fillStyle|fillRect|drawImage|clip|rect|fillText|stroke)\b/g,
+    );
+    expect(
+      hits,
+      `Canvas drawing leaked into render facades:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('render/text does not contain backend text helpers', () => {
+    expect(existsSync(RENDER_TEXT)).toBe(false);
+  });
+});
+
+describe('Architecture invariant: runtime is platform-neutral', () => {
+  it('does not reference browser or canvas runtime types', () => {
+    const hits = scan(RUNTIME_FILES, PLATFORM_RUNTIME_RE);
+    expect(hits, `Platform type found in runtime:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+
+  it('does not import render modules', () => {
+    const hits = scan(RUNTIME_FILES, /from\s+['"][^'"]*render[^'"]*['"]/g);
+    expect(hits, `runtime imported render modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: layout text measurement is platform-neutral', () => {
+  it('does not import render modules', () => {
+    const hits = scan(LAYOUT_FILES, /from\s+['"][^'"]*render[^'"]*['"]/g);
+    expect(hits, `layout imported render modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+
+  it('does not reference canvas runtime types or font-string serializers', () => {
+    const hits = scan(
+      LAYOUT_FILES,
+      /\b(CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D|OffscreenCanvas|buildFontString)\b/g,
+    );
+    expect(
+      hits,
+      `Platform text measurement leaked into layout:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: asset contracts are platform-neutral', () => {
+  it('does not reference browser or canvas runtime types', () => {
+    const hits = scan(ASSET_CONTRACT_FILES, PLATFORM_RUNTIME_RE);
+    expect(
+      hits,
+      `Platform type found in asset contracts:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: asset root stays platform-neutral', () => {
+  it('does not reference browser or canvas runtime types outside assets/web', () => {
+    const hits = scan(RENDER_ASSET_ROOT_FILES, PLATFORM_RUNTIME_RE);
+    expect(
+      hits,
+      `Platform runtime found in render/assets root:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('does not import Web adapters or render backends from asset root implementations', () => {
+    const hits = scan(
+      RENDER_ASSET_ROOT_FILES,
+      /from\s+['"](\.\/web|..\/backends|..\/..\/render\/backends)[^'"]*['"]/g,
+    );
+    expect(
+      hits,
+      `Platform adapter import found in render/assets root:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
   });
 });
 

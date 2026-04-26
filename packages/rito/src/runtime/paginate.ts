@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page } from '../layout/core/types';
+import type { ImageDimensions, LayoutConfig, Page } from '../layout/core/types';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { EpubDocument, PaginationResult } from './types';
 import { PaginationSession } from './pagination-session';
@@ -10,13 +10,13 @@ import type { Logger } from '../utils/logger';
  * @param document - A loaded EpubDocument.
  * @param config - Layout configuration.
  * @param measurer - Text measurer for line breaking.
- * @param images - Decoded image bitmaps for correct image sizing.
+ * @param images - Decoded image dimensions for correct image sizing.
  */
 export function paginate(
   document: EpubDocument,
   config: LayoutConfig,
   measurer: TextMeasurer,
-  images?: ReadonlyMap<string, ImageBitmap>,
+  images?: ReadonlyMap<string, ImageDimensions>,
   lineBreaking?: 'greedy' | 'optimal',
   logger?: Logger,
 ): readonly Page[] {
@@ -30,7 +30,7 @@ export function paginateWithMeta(
   document: EpubDocument,
   config: LayoutConfig,
   measurer: TextMeasurer,
-  images?: ReadonlyMap<string, ImageBitmap>,
+  images?: ReadonlyMap<string, ImageDimensions>,
   lineBreaking?: 'greedy' | 'optimal',
   logger?: Logger,
 ): PaginationResult {

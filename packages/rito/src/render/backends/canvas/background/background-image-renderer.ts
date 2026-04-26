@@ -1,10 +1,12 @@
-import type { LayoutBlock } from '../../layout/core/types';
-import type { BackgroundPosition, LengthPct } from '../../style/core/paint-types';
-import { buildHrefResolver } from '../../utils/resolve-href';
+import type { BlockBackgroundPaint, Rect } from '../../../../layout/core/types';
+import type { BackgroundPosition, LengthPct } from '../../../../style/core/paint-types';
+import { buildHrefResolver } from '../../../../utils/resolve-href';
 import { traceRoundedRect } from './background-paths';
 
-type BlockBackground = NonNullable<NonNullable<LayoutBlock['paint']>['background']>;
-type BackgroundSize = NonNullable<BlockBackground['size']>;
+type BackgroundSize = NonNullable<BlockBackgroundPaint['size']>;
+export type CanvasImageResolver =
+  | ReadonlyMap<string, ImageBitmap>
+  | ((src: string) => ImageBitmap | undefined);
 
 interface BackgroundImageGeometry {
   readonly bitmap: ImageBitmap;
@@ -25,34 +27,40 @@ const DEFAULT_POS_CENTER: BackgroundPosition = {
 
 export function renderBackgroundImage(
   ctx: CanvasRenderingContext2D,
-  block: LayoutBlock,
-  background: BlockBackground,
-  blockX: number,
-  blockY: number,
+  rect: Rect,
+  background: BlockBackgroundPaint,
   rx: number,
   ry: number,
-  images: ReadonlyMap<string, ImageBitmap>,
+  imageResolver: CanvasImageResolver,
 ): void {
   if (!background.image) return;
-  const bitmap = buildHrefResolver(images)(background.image);
+  const bitmap = resolveCanvasImage(imageResolver, background.image);
   if (!bitmap) return;
 
-  const boxW = block.bounds.width;
-  const boxH = block.bounds.height;
-  const image = resolveImageGeometry(bitmap, background, blockX, blockY, boxW, boxH);
+  const boxW = rect.width;
+  const boxH = rect.height;
+  const image = resolveImageGeometry(bitmap, background, rect.x, rect.y, boxW, boxH);
   ctx.save();
-  clipBackgroundBox(ctx, blockX, blockY, boxW, boxH, rx, ry);
+  clipBackgroundBox(ctx, rect.x, rect.y, boxW, boxH, rx, ry);
   if (background.repeat !== 'no-repeat' && image.drawW > 0 && image.drawH > 0) {
-    drawRepeatedImage(ctx, image, blockX, blockY, boxW, boxH);
+    drawRepeatedImage(ctx, image, rect.x, rect.y, boxW, boxH);
   } else {
     ctx.drawImage(bitmap, image.drawX, image.drawY, image.drawW, image.drawH);
   }
   ctx.restore();
 }
 
+export function resolveCanvasImage(
+  imageResolver: CanvasImageResolver,
+  src: string,
+): ImageBitmap | undefined {
+  if (typeof imageResolver === 'function') return imageResolver(src);
+  return buildHrefResolver(imageResolver)(src);
+}
+
 function resolveImageGeometry(
   bitmap: ImageBitmap,
-  background: BlockBackground,
+  background: BlockBackgroundPaint,
   blockX: number,
   blockY: number,
   boxW: number,

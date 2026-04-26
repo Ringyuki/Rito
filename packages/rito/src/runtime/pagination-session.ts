@@ -1,4 +1,4 @@
-import type { LayoutConfig, Page } from '../layout/core/types';
+import type { ImageDimensions, LayoutConfig, Page } from '../layout/core/types';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
@@ -60,7 +60,7 @@ export class PaginationSession {
     doc: EpubDocument,
     config: LayoutConfig,
     measurer: TextMeasurer,
-    images?: ReadonlyMap<string, ImageBitmap>,
+    images?: ReadonlyMap<string, ImageDimensions>,
     lineBreaking?: 'greedy' | 'optimal',
     logger?: Logger,
   ) {

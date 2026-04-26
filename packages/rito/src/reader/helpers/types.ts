@@ -1,5 +1,5 @@
 import type { LayoutConfig, Spread } from '../../layout/core/types';
-import type { LoadedAssets, Resources } from '../../render/assets';
+import type { LoadedAssets, Resources } from '../../render/web';
 import type { Logger } from '../../utils/logger';
 
 export type SpreadRenderedCallback = (spreadIndex: number, spread: Spread) => void;

@@ -3,19 +3,20 @@
 Rito is an EPUB rendering library, so regressions must be caught at the
 earliest useful layer and again at the final rendered output. The test pipeline
 is split by speed and risk: fast module tests run by default, structured golden
-tests protect the full layout chain, render command goldens protect the Canvas
-draw stream, and pixel goldens protect browser-rendered output.
+tests protect the full layout chain, render command goldens protect display-list
+construction plus the default Canvas backend record stream, and pixel goldens
+protect browser-rendered output.
 
 ## Layers
 
-| Layer             | Command                   | Purpose                                                                                |
-| ----------------- | ------------------------- | -------------------------------------------------------------------------------------- |
-| Unit              | `pnpm test:unit`          | Module-level parser, style, layout, render helper, kit, and React tests.               |
-| Integration       | `pnpm test:integration`   | Small end-to-end core flows and focused rare-feature render chains.                    |
-| Structured golden | `pnpm test:golden:books`  | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.    |
-| Render golden     | `pnpm test:golden:render` | Auto-selected real-book feature pages rendered into normalized Canvas command goldens. |
-| Pixel golden      | `pnpm test:golden:pixel`  | Browser Canvas PNG output compared against checked-in image goldens.                   |
-| Reader e2e        | `pnpm test:e2e`           | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.             |
+| Layer             | Command                   | Purpose                                                                                              |
+| ----------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Unit              | `pnpm test:unit`          | Module-level parser, style, layout, render helper, kit, and React tests.                             |
+| Integration       | `pnpm test:integration`   | Small end-to-end core flows and focused rare-feature render chains.                                  |
+| Structured golden | `pnpm test:golden:books`  | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                  |
+| Render golden     | `pnpm test:golden:render` | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens. |
+| Pixel golden      | `pnpm test:golden:pixel`  | Browser Canvas PNG output compared against checked-in image goldens.                                 |
+| Reader e2e        | `pnpm test:e2e`           | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                           |
 
 ## Current Gates
 
@@ -70,8 +71,9 @@ The unit gate also includes golden inventory and coverage invariants. Inventory
 validates that book fixtures are flat and registered in the manifest, and that
 layout, render-command, and pixel goldens exactly match their configured
 fixture/case sets. Coverage validates that render-command goldens still cover
-the required selected page features and Canvas command families, and that pixel
-goldens still cover the required final-output feature tags. This prevents stale
+the required selected page features, display-list command families, and Canvas
+backend record families, and that pixel goldens still cover the required
+final-output feature tags. This prevents stale
 or missing golden files from silently weakening the slower regression gates.
 
 The integration gate includes focused EPUB fixtures for rare but high-risk
@@ -153,12 +155,15 @@ real EPUB, selects the first and last pages, then selects the strongest page for
 each render feature found in that result: text, image, inline atom, ruby,
 horizontal rule, inline background, inline border, text shadow, decoration,
 block background, block border, transform, opacity, and clipping. Each selected
-page is rendered at DPR 1 and DPR 2.
+page is summarized at DPR 1 and DPR 2.
 
-Text arguments are hashed, image arguments are normalized to fixture hrefs, and
-numeric coordinates are rounded. This catches render-layer regressions in draw
-order, fill/stroke setup, inline borders, ruby placement, horizontal rules,
-images, high-DPI scaling, and clipping without depending on browser pixels.
+Each variant records both the platform-neutral `DisplayList` summary and the
+normalized Canvas backend records produced by the default Canvas renderer. Text
+arguments are hashed, image arguments are normalized to fixture hrefs, and
+numeric coordinates are rounded. This catches regressions in display-list
+construction, backend draw order, fill/stroke setup, inline borders, ruby
+placement, horizontal rules, images, high-DPI scaling, and clipping without
+depending on browser pixels.
 
 Use this layer when changing `render/**`, paint-ready layout types, or page
 composition rules.
@@ -192,9 +197,9 @@ RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:gold
 ```
 
 The committed suite renders curated spreads of every render-tier book in
-Chromium through the public `createReader` API, reads the final canvas as PNG,
-and compares it with `pixelmatch`. Each render-tier book is covered by this
-matrix:
+Chromium through the `@ritojs/core/web` `createReader` API, reads the final
+canvas as PNG, and compares it with `pixelmatch`. Each render-tier book is
+covered by this matrix:
 
 - `single-default`: `greedy`, `optimal`.
 - `single-narrow`: `greedy`, `optimal`.

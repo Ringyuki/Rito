@@ -1,19 +1,19 @@
 /**
- * Phase 0 characterization: CSS transform parsing inside block-renderer.
+ * Characterization: structured CSS transforms in the Canvas display-list backend.
  *
  * These tests pin down the CURRENT runtime behavior of the string-based
- * `applyTransform` in block-renderer.ts so that Phase 1 can replace the parser
- * with structured TransformFn[] without silent behavioral drift.
- *
- * Any intentional semantic change in Phase 1 must update these tests explicitly.
+ * These tests pin transform command execution without reaching into a legacy
+ * layout-block renderer.
  */
 import { describe, expect, it } from 'vitest';
-import { renderBlock } from '../../src/render/page/block-renderer';
+import { renderPage } from '../../src/render/page';
 import { parseTransform } from '../../src/style/css/parse-transform';
-import type { LayoutBlock } from '../../src/layout/core/types';
+import { createLayoutConfig } from '../../src/layout/core/config';
+import type { LayoutBlock, Page } from '../../src/layout/core/types';
 import { createMockCanvasContext, type CanvasCall, isCall } from '../helpers/mock-canvas-context';
 
 const DEG_TO_RAD = Math.PI / 180;
+const CONFIG = createLayoutConfig({ width: 200, height: 120, margin: 0 });
 
 /** Build a block with its CSS transform string pre-parsed into structured
  *  TransformFn[], mirroring the style cascade's behavior. */
@@ -26,9 +26,41 @@ function makeBlock(transform: string): LayoutBlock {
   };
 }
 
+function makePage(block: LayoutBlock, offsetX: number, offsetY: number): Page {
+  return {
+    index: 0,
+    bounds: { x: 0, y: 0, width: CONFIG.pageWidth, height: CONFIG.pageHeight },
+    content: [
+      {
+        ...block,
+        bounds: {
+          ...block.bounds,
+          x: block.bounds.x + offsetX,
+          y: block.bounds.y + offsetY,
+        },
+      },
+    ],
+  };
+}
+
+function renderBlock(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  offsetX = 0,
+  offsetY = 0,
+): void {
+  renderPage(makePage(block, offsetX, offsetY), ctx, CONFIG);
+}
+
 /** Calls recorded between the first save() and its matching restore(). */
 function calls(records: readonly unknown[]): CanvasCall[] {
-  return (records as ReadonlyArray<CanvasCall>).filter(isCall);
+  return (records as ReadonlyArray<CanvasCall>).filter(
+    (record): record is CanvasCall => isCall(record) && !isPageScale(record),
+  );
+}
+
+function isPageScale(call: CanvasCall): boolean {
+  return call.method === 'scale' && call.args[0] === 1 && call.args[1] === 1;
 }
 
 /** Expected transform-block center for a 100×60 block at origin. */

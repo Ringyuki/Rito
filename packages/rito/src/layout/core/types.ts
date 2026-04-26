@@ -26,6 +26,12 @@ export interface Rect {
   readonly height: number;
 }
 
+/** Platform-neutral decoded image dimensions used by layout and pagination. */
+export interface ImageDimensions {
+  readonly width: number;
+  readonly height: number;
+}
+
 /** A laid-out text run within a line. */
 export interface TextRun {
   readonly type: 'text-run';

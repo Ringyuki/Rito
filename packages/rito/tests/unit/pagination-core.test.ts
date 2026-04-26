@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { createLayoutConfig } from '../../src/layout/core/config';
-import type { Page } from '../../src/layout/core/types';
+import type { ImageDimensions, Page } from '../../src/layout/core/types';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
 import { paginateChapterNodes, preparePaginationContext } from '../../src/runtime/pagination-core';
 import { loadEpub } from '../../src/runtime/load-epub';
@@ -87,8 +87,8 @@ describe('pagination-core', () => {
       xhtml('<img src="../Images/photo.jpg" alt="cover" /><p>After image</p>'),
     );
     const measurer = createMockTextMeasurer(0.6);
-    const bitmapImages = new Map([
-      ['Images/photo.jpg', { width: 800, height: 400 } as ImageBitmap],
+    const bitmapImages = new Map<string, ImageDimensions>([
+      ['Images/photo.jpg', { width: 800, height: 400 }],
     ]);
     const sizeImages = new Map([['Images/photo.jpg', { width: 800, height: 400 }]]);
 

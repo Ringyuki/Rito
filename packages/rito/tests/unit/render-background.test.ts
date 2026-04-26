@@ -14,9 +14,9 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  renderBlockBackground,
-  resolveBlockRadius,
-} from '../../src/render/page/background-renderer';
+  renderBlockDecoration,
+  type ResolvedRadius,
+} from '../../src/render/backends/canvas/background/background-renderer';
 import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
 import type { BackgroundPosition } from '../../src/style/core/paint-types';
 import type { BlockPaint, LayoutBlock } from '../../src/layout/core/types';
@@ -81,6 +81,37 @@ function imageMap(href: string, bitmap: FakeBitmap): ReadonlyMap<string, ImageBi
   return new Map([[href, bitmap as unknown as ImageBitmap]]);
 }
 
+function resolveBlockRadius(block: LayoutBlock): ResolvedRadius {
+  const radius = block.paint?.radius;
+  if (!radius) return { rx: 0, ry: 0 };
+  if (radius.pct !== undefined) {
+    const pct = radius.pct / 100;
+    return { rx: pct * block.bounds.width, ry: pct * block.bounds.height };
+  }
+  const r = radius.px ?? 0;
+  return { rx: r, ry: r };
+}
+
+function renderBlockDecorationFixture(
+  ctx: CanvasRenderingContext2D,
+  block: LayoutBlock,
+  x: number,
+  y: number,
+  radius: ResolvedRadius,
+  imageResolver?: ReadonlyMap<string, ImageBitmap>,
+): void {
+  renderBlockDecoration(
+    ctx,
+    {
+      rect: { x, y, width: block.bounds.width, height: block.bounds.height },
+      ...(block.paint ? { paint: block.paint } : {}),
+      ...(block.borderBox ? { borderBox: block.borderBox } : {}),
+    },
+    radius,
+    imageResolver,
+  );
+}
+
 describe('Phase 0 — border-radius resolution', () => {
   it('borderRadius=8 returns {rx:8, ry:8}', () => {
     const radius = resolveBlockRadius(makeBlock({ borderRadius: 8 }));
@@ -108,7 +139,7 @@ describe('Phase 0 — backgroundColor painting', () => {
   it('solid fill uses fillRect when no radius', () => {
     const mock = createMockCanvasContext();
     const block = makeBlock({ backgroundColor: '#ff0000' });
-    renderBlockBackground(mock.ctx, block, 10, 20, { rx: 0, ry: 0 });
+    renderBlockDecorationFixture(mock.ctx, block, 10, 20, { rx: 0, ry: 0 });
 
     const fillRect = calls(mock.records).find((c) => c.method === 'fillRect');
     expect(fillRect?.args).toEqual([10, 20, 200, 100]);
@@ -119,7 +150,7 @@ describe('Phase 0 — backgroundColor painting', () => {
   it('rounded fill uses path + fill() when radius > 0', () => {
     const mock = createMockCanvasContext();
     const block = makeBlock({ backgroundColor: '#00ff00' });
-    renderBlockBackground(mock.ctx, block, 0, 0, { rx: 5, ry: 5 });
+    renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 5, ry: 5 });
 
     const fillRectCalls = calls(mock.records).filter((c) => c.method === 'fillRect');
     const fillCalls = calls(mock.records).filter((c) => c.method === 'fill');
@@ -129,7 +160,7 @@ describe('Phase 0 — backgroundColor painting', () => {
 
   it('no backgroundColor emits no fillRect / fill()', () => {
     const mock = createMockCanvasContext();
-    renderBlockBackground(mock.ctx, makeBlock(), 0, 0, { rx: 0, ry: 0 });
+    renderBlockDecorationFixture(mock.ctx, makeBlock(), 0, 0, { rx: 0, ry: 0 });
 
     const fillRect = calls(mock.records).filter((c) => c.method === 'fillRect');
     const fill = calls(mock.records).filter((c) => c.method === 'fill');
@@ -156,7 +187,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
       });
       // 200×100 block, 100×100 image → scale = max(200/100, 100/100) = 2
       // drawW = drawH = 200
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
 
       const draws = drawImageCalls(mock.records);
       expect(draws).toHaveLength(1);
@@ -172,7 +203,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundRepeat: 'no-repeat',
       });
       // scale = min(200/100, 100/100) = 1 → drawW = drawH = 100
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
 
       const draws = drawImageCalls(mock.records);
       expect(draws).toHaveLength(1);
@@ -187,7 +218,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'auto',
         backgroundRepeat: 'no-repeat',
       });
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
 
       const draws = drawImageCalls(mock.records);
       expect(draws).toHaveLength(1);
@@ -206,7 +237,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         ...(parsed ? { backgroundPosition: parsed } : {}),
         backgroundRepeat: 'no-repeat',
       });
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
       const draws = drawImageCalls(mock.records);
       const first = draws[0];
       if (!first) return [];
@@ -259,7 +290,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'auto',
         backgroundRepeat: 'no-repeat',
       });
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
       const draws = drawImageCalls(mock.records);
       expect(draws[0]?.args.slice(1)).toEqual([0, 0, 100, 100]);
     });
@@ -271,7 +302,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'cover',
         backgroundRepeat: 'no-repeat',
       });
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
       const draws = drawImageCalls(mock.records);
       // cover: drawW = drawH = 200 → centered: 0, -50, 200, 200
       expect(draws[0]?.args.slice(1)).toEqual([0, -50, 200, 200]);
@@ -289,7 +320,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'auto',
         backgroundRepeat: 'repeat',
       });
-      renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, imageMap(HREF, bitmap));
+      renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, imageMap(HREF, bitmap));
       const draws = calls(mock.records).filter((c) => c.method === 'drawImage');
       // Tile grid: columns at x=0,50,100,150; rows at y=0,50. → 4 × 2 = 8
       expect(draws).toHaveLength(8);
@@ -302,7 +333,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
         backgroundSize: 'auto',
         backgroundRepeat: 'no-repeat',
       });
-      renderBlockBackground(
+      renderBlockDecorationFixture(
         mock.ctx,
         block,
         0,
@@ -321,7 +352,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
       backgroundImage: HREF,
       backgroundSize: 'cover',
     });
-    renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 });
+    renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 });
     const draws = calls(mock.records).filter((c) => c.method === 'drawImage');
     expect(draws).toHaveLength(0);
   });
@@ -332,7 +363,7 @@ describe('Phase 0 — backgroundImage + size + position + repeat', () => {
       backgroundImage: 'missing.png',
       backgroundSize: 'cover',
     });
-    renderBlockBackground(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
+    renderBlockDecorationFixture(mock.ctx, block, 0, 0, { rx: 0, ry: 0 }, images);
     const draws = calls(mock.records).filter((c) => c.method === 'drawImage');
     expect(draws).toHaveLength(0);
   });

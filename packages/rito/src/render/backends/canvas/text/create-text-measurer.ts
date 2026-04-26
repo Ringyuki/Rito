@@ -1,4 +1,8 @@
-import { createCanvasTextMeasurer, type CachedTextMeasurer } from './canvas-text-measurer';
+import {
+  canvasTextMeasurementBackend,
+  type CachedTextMeasurer,
+  type CanvasTextMeasurementTarget,
+} from './canvas-text-measurer';
 
 /**
  * Create a {@link CachedTextMeasurer} from a canvas element.
@@ -24,5 +28,5 @@ export function createTextMeasurer(
   if (!ctx) {
     throw new Error('Failed to get 2d context from canvas');
   }
-  return createCanvasTextMeasurer(ctx as CanvasRenderingContext2D);
+  return canvasTextMeasurementBackend.createTextMeasurer(ctx as CanvasTextMeasurementTarget);
 }

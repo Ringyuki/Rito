@@ -1,4 +1,5 @@
-import type { FootnoteEntry, PackageMetadata, Page, Reader, Spread, TocEntry } from '@ritojs/core';
+import type { FootnoteEntry, PackageMetadata, Page, Spread, TocEntry } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,

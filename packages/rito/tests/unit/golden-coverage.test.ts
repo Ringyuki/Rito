@@ -28,6 +28,9 @@ interface RenderGoldenCase {
 }
 
 interface RenderGoldenRender {
+  readonly displayList?: {
+    readonly commands: Readonly<Record<string, number>>;
+  };
   readonly records: {
     readonly methods: Readonly<Record<string, number>>;
     readonly properties: Readonly<Record<string, number>>;
@@ -75,6 +78,19 @@ const REQUIRED_CANVAS_PROPERTIES = [
   'textBaseline',
 ] as const;
 
+const REQUIRED_DISPLAY_LIST_COMMANDS = [
+  'pushState',
+  'popState',
+  'clipRect',
+  'paintPage',
+  'paintBlock',
+  'paintText',
+  'paintImage',
+  'paintRuby',
+  'paintHorizontalRule',
+  'transform',
+] as const;
+
 const REQUIRED_PIXEL_TAGS = [
   'curated-sample',
   'frontmatter',
@@ -118,6 +134,14 @@ describe('golden coverage', () => {
     );
   });
 
+  it('keeps render command goldens covering required display-list command families', () => {
+    const coverage = collectRenderCoverage();
+
+    expect([...coverage.displayListCommands].sort()).toEqual(
+      expect.arrayContaining([...REQUIRED_DISPLAY_LIST_COMMANDS].sort()),
+    );
+  });
+
   it('keeps pixel goldens covering final-output feature tags', () => {
     const tags = new Set(getAllPixelGoldenRuns().flatMap((run) => run.tags));
     expect([...tags].sort()).toEqual(expect.arrayContaining([...REQUIRED_PIXEL_TAGS].sort()));
@@ -155,6 +179,7 @@ function collectRenderCoverage() {
     positiveCounts: new Set<string>(),
     methods: new Set<string>(),
     properties: new Set<string>(),
+    displayListCommands: new Set<string>(),
   };
 
   for (const file of collectJsonFiles(RENDER_GOLDEN_ROOT)) {
@@ -175,6 +200,8 @@ function addRenderSummaryCoverage(
     for (const render of testCase.renders) {
       addPositiveKeys(coverage.methods, render.records.methods);
       addPositiveKeys(coverage.properties, render.records.properties);
+      if (render.displayList)
+        addPositiveKeys(coverage.displayListCommands, render.displayList.commands);
     }
   }
 }

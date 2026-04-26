@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildFontString } from '../../src/render/text/font-string';
+import { buildFontString } from '../../src/render/backends/canvas/text/font-string';
 import type { FontShorthand } from '../../src/style/core/paint-types';
 
 const BASE: FontShorthand = {

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PackageMetadata, Reader, Spread, TocEntry } from '@ritojs/core';
-import { createReader, type ReaderOptions } from '@ritojs/core';
+import type { PackageMetadata, Spread, TocEntry } from '@ritojs/core';
+import { createReader, type Reader, type ReaderOptions } from '@ritojs/core/web';
 import {
   createController,
   type ControllerOptions,

@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';

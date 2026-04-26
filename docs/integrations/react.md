@@ -1,6 +1,7 @@
 # `@ritojs/react`
 
-`@ritojs/react` is the React integration layer on top of `@ritojs/core` and `@ritojs/kit`.
+`@ritojs/react` is the React integration layer on top of the Web reader from
+`@ritojs/core/web` and the controller layer from `@ritojs/kit`.
 
 Use it when you want hooks for reader lifecycle and state, plus a mount component
 for the controller-managed reading surface.
@@ -110,7 +111,8 @@ The controller remains the source of truth.
 
 - Use `@ritojs/react` if you want fast app integration and React state bindings.
 - Use `@ritojs/kit` directly if you want non-React UI or a custom state layer.
-- Use only `@ritojs/core` if you only need rendering and core primitives.
+- Use `@ritojs/core/web` if you only need browser Canvas rendering.
+- Use `@ritojs/core` if you only need platform-neutral parsing, pagination, and display-list primitives.
 
 ## Related Docs
 

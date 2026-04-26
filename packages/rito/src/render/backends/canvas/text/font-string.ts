@@ -1,4 +1,4 @@
-import type { FontShorthand } from '../../style/core/paint-types';
+import type { FontShorthand } from '../../../../style/core/paint-types';
 
 /**
  * Serialize a FontShorthand to the CSS font-shorthand string Canvas expects.

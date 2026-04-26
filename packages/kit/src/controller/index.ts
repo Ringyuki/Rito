@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 
 import { createDisplaySurface } from '../painter/display-surface';
 import { createPageBufferPool } from '../painter/buffer-pool';

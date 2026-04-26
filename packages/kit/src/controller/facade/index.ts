@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { ControllerOptions, ReaderController } from '../types';
 import type {
   Internals,

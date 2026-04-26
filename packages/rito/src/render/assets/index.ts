@@ -1,12 +1,15 @@
-export { loadFonts } from './font-loader';
-export { loadImages } from './image-loader';
-export { createLazyImageLoader, type LazyImageLoader } from './lazy-image-loader';
-export {
-  prepare,
-  loadAssets,
-  paginateWithAssets,
-  disposeAssets,
-  disposeResources,
-  type LoadedAssets,
-  type Resources,
-} from './resources';
+export { createImageAssetResolver } from './image-asset-resolver';
+export { loadFontsWithRegistry } from './font-loader';
+export { loadImagesWithDecoder } from './image-loader';
+export { collectPageImageSources, collectSpreadImageSources } from './image-sources';
+export { createLazyImageLoaderWithDecoder, type LazyImageLoader } from './lazy-image-loader';
+export { createWebFontRegistry, createWebImageAssetResolver, createWebImageDecoder } from './web';
+export type {
+  FontRegistry,
+  FontResource,
+  ImageAssetResolver,
+  ImageDecoder,
+  ImageDimensions,
+  ImageObjectUrlProvider,
+  ImageResource,
+} from './types';

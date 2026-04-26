@@ -1,9 +1,8 @@
 import type { LayoutConfig, Spread } from '../../layout/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
-import { disposeAssets } from '../../render/assets';
+import { disposeAssets } from '../../render/web';
 import { getSpreadDimensions } from '../../render/spread';
 import type { EpubDocument } from '../../runtime/types';
-import { buildHrefResolver } from '../../utils/resolve-href';
 import type { createReaderLayoutControls } from './layout-controls';
 import { renderSpreadToCanvas, renderSpreadToContext } from './rendering';
 import type { ReaderState } from './types';
@@ -26,7 +25,7 @@ export function buildReaderMethods(
   return {
     ...buildRenderMethods(state, canvas, ctx),
     ...buildDisplayMethods(state),
-    ...buildResourceMethods(state, doc),
+    ...buildResourceMethods(state),
     measurer: state.assets.measurer as TextMeasurer,
     ...buildTypographyMethods(state, layoutControls),
     ...buildLifecycleMethods(state, doc),
@@ -71,21 +70,12 @@ function buildDisplayMethods(state: ReaderState) {
   };
 }
 
-function buildResourceMethods(state: ReaderState, doc: EpubDocument) {
+function buildResourceMethods(state: ReaderState) {
   return {
     getChapterTextIndices: () => state.resources.chapterTextIndices,
     getFootnotes: () => state.resources.footnoteMap,
-    getImageBlobUrl: createImageBlobUrlResolver(doc),
-  };
-}
-
-function createImageBlobUrlResolver(doc: EpubDocument): (src: string) => string | undefined {
-  const resolve = buildHrefResolver(doc.images);
-  return (src: string): string | undefined => {
-    const bytes = resolve(src);
-    if (!bytes) return undefined;
-    const blob = new Blob([bytes.buffer as ArrayBuffer]);
-    return URL.createObjectURL(blob);
+    getImageBlobUrl: (src: string): string | undefined =>
+      state.assets.imageObjectUrlProvider?.createImageObjectUrl(src),
   };
 }
 

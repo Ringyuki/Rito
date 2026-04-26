@@ -4,7 +4,7 @@
  * not from layout output — so they are document-stable.
  */
 
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { ChapterTextIndex } from '@ritojs/core/annotations';
 import type { CoordinatorState } from '../core/coordinator-state';
 

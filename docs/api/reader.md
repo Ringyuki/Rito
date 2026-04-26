@@ -1,12 +1,15 @@
 # Reader API
 
+The `Reader` facade is part of the Web Canvas preset. Import it from
+`@ritojs/core/web`, not from the main `@ritojs/core` entry.
+
 ## `createReader(data, canvas, options)`
 
 ```ts
-import { createReader } from '@ritojs/core';
+import { createReader } from '@ritojs/core/web';
 ```
 
-Creates a ready-to-render `Reader` from an EPUB `ArrayBuffer`.
+Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
 It performs the standard browser-side pipeline:
 
@@ -14,9 +17,11 @@ It performs the standard browser-side pipeline:
 2. load fonts and decode images
 3. paginate the spine
 4. build spreads
-5. bind rendering to the provided canvas
+5. bind rendering to the provided Canvas target
 
 Use this when you want the normal app-facing API instead of assembling the pipeline manually.
+For non-Web runtimes, use the stable primitives and provide your own text,
+resource, and rendering adapters.
 
 ## `ReaderOptions`
 
@@ -41,7 +46,7 @@ Use this when you want the normal app-facing API instead of assembling the pipel
 | Member                                              | What it does                                     |
 | --------------------------------------------------- | ------------------------------------------------ |
 | `renderSpread(index, scale?)`                       | Render a spread to the bound canvas              |
-| `renderSpreadTo(index, ctx)`                        | Render to any 2D context                         |
+| `renderSpreadTo(index, ctx)`                        | Render to a Canvas 2D target                     |
 | `resize(width, height)`                             | Re-paginate for a new viewport                   |
 | `setSpreadMode(mode)`                               | Re-paginate with a new spread mode               |
 | `setLineBreaking(lineBreaking)`                     | Re-paginate with a new line-breaking strategy    |

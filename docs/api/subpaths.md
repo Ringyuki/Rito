@@ -1,6 +1,34 @@
 # Specialized Subpaths
 
-Rito exposes focused subpath entries for higher-level interaction and integration helpers.
+Rito exposes a Web Canvas preset plus focused subpath entries for interaction
+and integration helpers.
+
+## `@ritojs/core/web`
+
+```ts
+import { createReader, prepare, render } from '@ritojs/core/web';
+```
+
+Exports the default browser Canvas preset:
+
+- `createReader`
+- `prepare`
+- `render`
+- `renderPage`
+- `getSpreadDimensions`
+- `createTextMeasurer`
+- Web font/image resource adapters
+- Canvas display-list and text-measurement backends
+
+Use when:
+
+- you are building a browser reader
+- you want Rito's default Canvas renderer
+- you want Web resource loading through `FontFace`, `createImageBitmap`, and blob URLs
+
+Do not use this subpath for non-Web runtimes unless you intentionally provide
+compatible browser APIs. Custom runtimes should start from `@ritojs/core` and
+inject their own adapters.
 
 ## `@ritojs/core/selection`
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { MeasurePaint } from '../../src/style/core/paint-types';
-import { createCanvasTextMeasurer } from '../../src/render/text/canvas-text-measurer';
+import { canvasTextMeasurementBackend } from '../../src/render/backends/canvas';
 
 const PAINT: MeasurePaint = {
   font: {
@@ -20,7 +20,7 @@ function makeMetrics(overrides: Partial<TextMetrics>): TextMetrics {
   } as unknown as TextMetrics;
 }
 
-describe('createCanvasTextMeasurer', () => {
+describe('canvasTextMeasurementBackend', () => {
   it('uses advance width instead of ink width for layout measurement', () => {
     const ctx = {
       font: '',
@@ -33,7 +33,9 @@ describe('createCanvasTextMeasurer', () => {
       ),
     } satisfies Pick<CanvasRenderingContext2D, 'font' | 'measureText'>;
 
-    const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
 
     expect(measurer.measureText('A', PAINT).width).toBeCloseTo(38.584);
   });
@@ -48,7 +50,9 @@ describe('createCanvasTextMeasurer', () => {
       CanvasRenderingContext2D,
       'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
     >;
-    const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
 
     expect(measurer.measureText('a b c', { ...PAINT, wordSpacingPx: 2 }).width).toBe(34);
     expect(ctx.wordSpacing).toBe('0px');
@@ -65,8 +69,66 @@ describe('createCanvasTextMeasurer', () => {
       CanvasRenderingContext2D,
       'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
     >;
-    const measurer = createCanvasTextMeasurer(ctx as unknown as CanvasRenderingContext2D);
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
 
     expect(measurer.measureText('abc', { ...PAINT, letterSpacingPx: 2 }).width).toBe(34);
+  });
+
+  it('resolves and caches font metrics from the canvas backend', () => {
+    const ctx = {
+      font: '',
+      wordSpacing: '8px',
+      letterSpacing: '9px',
+      measureText: vi.fn(() =>
+        makeMetrics({
+          width: 0,
+          fontBoundingBoxAscent: 44,
+          fontBoundingBoxDescent: 12,
+          actualBoundingBoxAscent: 40,
+          actualBoundingBoxDescent: 10,
+        }),
+      ),
+    } satisfies Pick<
+      CanvasRenderingContext2D,
+      'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
+    >;
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
+
+    expect(measurer.resolveFontMetrics(PAINT)).toEqual({
+      ascentPx: 44,
+      descentPx: 12,
+      lineGapPx: 0,
+      contentHeightPx: 56,
+    });
+    expect(measurer.resolveFontMetrics(PAINT).contentHeightPx).toBe(56);
+    expect(ctx.measureText).toHaveBeenCalledTimes(1);
+    expect(ctx.wordSpacing).toBe('0px');
+    expect(ctx.letterSpacing).toBe('0px');
+  });
+
+  it('falls back to the font size when canvas font metrics are unavailable', () => {
+    const ctx = {
+      font: '',
+      wordSpacing: '0px',
+      letterSpacing: '0px',
+      measureText: vi.fn(() => makeMetrics({ width: 0 })),
+    } satisfies Pick<
+      CanvasRenderingContext2D,
+      'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
+    >;
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
+
+    expect(measurer.resolveFontMetrics(PAINT)).toEqual({
+      ascentPx: 56,
+      descentPx: 0,
+      lineGapPx: 0,
+      contentHeightPx: 56,
+    });
   });
 });

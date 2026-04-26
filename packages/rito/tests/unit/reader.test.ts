@@ -9,14 +9,24 @@ import type { Reader, ReaderOptions } from '../../src/reader';
  * Mock loadAssets so we skip real font loading, image decoding, and canvas
  * text measurement (none of which exist in a happy-dom / Node environment).
  */
-vi.mock('../../src/render/assets/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/assets/resources')>();
+vi.mock('../../src/render/web/resources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/render/web/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
     loadAssets: vi.fn(() =>
       Promise.resolve({
         images: new Map<string, ImageBitmap>(),
+        imageResolver: {
+          resolveImage: () => undefined,
+        },
+        imageObjectUrlProvider: {
+          createImageObjectUrl: () => undefined,
+        },
+        imageDecoder: {
+          decode: () => Promise.resolve({ width: 0, height: 0, close: vi.fn() } as ImageBitmap),
+          dispose: vi.fn((_: ImageBitmap) => undefined),
+        },
         measurer: mockMeasurer,
       }),
     ),
@@ -549,7 +559,7 @@ describe('createReader', () => {
     });
 
     it('calls disposeAssets', async () => {
-      const { disposeAssets } = await import('../../src/render/assets/resources');
+      const { disposeAssets } = await import('../../src/render/web/resources');
       const reader = await buildReader();
       reader.dispose();
       expect(disposeAssets).toHaveBeenCalled();

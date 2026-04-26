@@ -319,7 +319,7 @@ function renderHtml(): string {
 
   window.renderRitoPixelReady = 'loading';
 
-  import('/dist/index.mjs')
+  import('/dist/web.mjs')
     .then(({ createReader }) => {
       window.renderRitoPixelReady = 'ready';
       window.renderRitoPixelRun = async (testRun, bookBase64) => {

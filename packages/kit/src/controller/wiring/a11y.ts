@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import { buildSemanticTree, createA11yMirror, type A11yMirror } from '@ritojs/core/a11y';
 import type { DisposableCollection } from '../../utils/disposable';
 import type { ControllerOptions } from '../types';

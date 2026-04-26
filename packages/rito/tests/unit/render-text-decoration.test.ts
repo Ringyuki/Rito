@@ -11,8 +11,10 @@
  *     style !== 'none'
  */
 import { describe, expect, it } from 'vitest';
-import { drawTextRun } from '../../src/render/text/text-renderer';
-import type { TextRun } from '../../src/layout/core/types';
+import {
+  drawTextFragment,
+  type CanvasTextFragment,
+} from '../../src/render/backends/canvas/text/text-renderer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
 import { runPaintFromStyle } from '../../src/layout/text/run-paint-from-style';
@@ -27,22 +29,37 @@ interface RunOverrides {
   readonly borderEnd?: boolean;
 }
 
-function makeRun(style: ComputedStyle, overrides: RunOverrides = {}): TextRun {
+function makeRun(style: ComputedStyle, overrides: RunOverrides = {}): CanvasTextFragment {
   const start = overrides.borderStart === true;
   const end = overrides.borderEnd === true;
   return {
-    type: 'text-run',
     text: 'sample',
-    bounds: { x: 0, y: 0, width: 60, height: 24 },
+    rect: { x: 0, y: 0, width: 60, height: 24 },
     paint: runPaintFromStyle(style, { start, end }),
   };
+}
+
+function drawTextFixture(
+  ctx: CanvasRenderingContext2D,
+  fragment: CanvasTextFragment,
+  offsetX: number,
+  offsetY: number,
+): void {
+  drawTextFragment(ctx, {
+    ...fragment,
+    rect: {
+      ...fragment.rect,
+      x: fragment.rect.x + offsetX,
+      y: fragment.rect.y + offsetY,
+    },
+  });
 }
 
 describe('Phase 0 — text decoration geometry', () => {
   it('underline draws a line at y = run.y + fontSize spanning run.bounds.width', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, textDecoration: 'underline', fontSize: 16 };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
 
     // drawLine emits: strokeStyle=color, lineWidth=1, beginPath, moveTo, lineTo, stroke
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
@@ -61,7 +78,7 @@ describe('Phase 0 — text decoration geometry', () => {
   it('line-through draws at y = run.y + fontSize * 0.5', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, textDecoration: 'line-through', fontSize: 20 };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
 
     const moveTos = calls(mock.records).filter((c) => c.method === 'moveTo');
     const lineTos = calls(mock.records).filter((c) => c.method === 'lineTo');
@@ -73,7 +90,7 @@ describe('Phase 0 — text decoration geometry', () => {
   it('decoration y honors offsetX/offsetY from caller', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, textDecoration: 'underline', fontSize: 12 };
-    drawTextRun(mock.ctx, makeRun(style), 100, 50);
+    drawTextFixture(mock.ctx, makeRun(style), 100, 50);
 
     const moveTos = calls(mock.records).filter((c) => c.method === 'moveTo');
     const lineTos = calls(mock.records).filter((c) => c.method === 'lineTo');
@@ -84,14 +101,14 @@ describe('Phase 0 — text decoration geometry', () => {
 
   it('textDecoration "none" emits no decoration line', () => {
     const mock = createMockCanvasContext();
-    drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, textDecoration: 'none' }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun({ ...DEFAULT_STYLE, textDecoration: 'none' }), 0, 0);
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
     expect(strokes).toHaveLength(0);
   });
 
   it('decoration color matches run.style.color (no override)', () => {
     const mock = createMockCanvasContext();
-    drawTextRun(
+    drawTextFixture(
       mock.ctx,
       makeRun({ ...DEFAULT_STYLE, textDecoration: 'underline', color: '#cc0000', fontSize: 10 }),
       0,
@@ -110,7 +127,7 @@ describe('Phase 0 — inline border draw decisions', () => {
   it('draws left border only when borderStart=true AND style !== none', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, borderLeft: borderEdge };
-    drawTextRun(mock.ctx, makeRun(style, { borderStart: true }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style, { borderStart: true }), 0, 0);
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
     expect(strokes.length).toBeGreaterThan(0);
   });
@@ -118,7 +135,7 @@ describe('Phase 0 — inline border draw decisions', () => {
   it('skips left border when borderStart=false (even if width>0 and style=solid)', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, borderLeft: borderEdge };
-    drawTextRun(mock.ctx, makeRun(style, { borderStart: false }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style, { borderStart: false }), 0, 0);
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
     // No border strokes; no decoration stroke either (textDecoration=none by default)
     expect(strokes).toHaveLength(0);
@@ -127,7 +144,7 @@ describe('Phase 0 — inline border draw decisions', () => {
   it('skips left border when style="none" (even if borderStart=true)', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, borderLeft: NONE };
-    drawTextRun(mock.ctx, makeRun(style, { borderStart: true }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style, { borderStart: true }), 0, 0);
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
     expect(strokes).toHaveLength(0);
   });
@@ -139,7 +156,7 @@ describe('Phase 0 — inline border draw decisions', () => {
       borderTop: borderEdge,
       borderBottom: borderEdge,
     };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
     const strokes = calls(mock.records).filter((c) => c.method === 'stroke');
     // Two stroke calls for top + bottom
     expect(strokes.length).toBeGreaterThanOrEqual(2);
@@ -151,9 +168,9 @@ describe('Phase 0 — inline border draw decisions', () => {
     const withoutEnd = makeRun(style, { borderEnd: false });
 
     const m1 = createMockCanvasContext();
-    drawTextRun(m1.ctx, withEnd, 0, 0);
+    drawTextFixture(m1.ctx, withEnd, 0, 0);
     const m2 = createMockCanvasContext();
-    drawTextRun(m2.ctx, withoutEnd, 0, 0);
+    drawTextFixture(m2.ctx, withoutEnd, 0, 0);
 
     const s1 = calls(m1.records).filter((c) => c.method === 'stroke');
     const s2 = calls(m2.records).filter((c) => c.method === 'stroke');
@@ -170,7 +187,7 @@ describe('Phase 0 — inline background rect geometry', () => {
       backgroundColor: '#ffff00',
       fontSize: 16,
     };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
     const fillRect = calls(mock.records).find((c) => c.method === 'fillRect');
     // width = 60 + 0 padding + 0 border = 60; height = 16 + 0 + 0 = 16
     expect(fillRect?.args).toEqual([0, 0, 60, 16]);
@@ -191,7 +208,7 @@ describe('Phase 0 — inline background rect geometry', () => {
       borderTop: { width: 1, color: '#000', style: 'solid' },
       borderBottom: { width: 1, color: '#000', style: 'solid' },
     };
-    drawTextRun(mock.ctx, makeRun(style, { borderStart: true, borderEnd: true }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style, { borderStart: true, borderEnd: true }), 0, 0);
     const fillRect = calls(mock.records).find((c) => c.method === 'fillRect');
     // x = 0 - 3 - 1 = -4; y = 0 - 2 - 1 = -3
     // width = 60 + 3 + 4 + 1 + 1 = 69; height = 16 + 2 + 5 + 1 + 1 = 25
@@ -206,7 +223,7 @@ describe('Phase 0 — inline background rect geometry', () => {
       fontSize: 16,
       borderRadius: 4,
     };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
     const fillRectCount = calls(mock.records).filter((c) => c.method === 'fillRect').length;
     const fillCount = calls(mock.records).filter((c) => c.method === 'fill').length;
     expect(fillRectCount).toBe(0);
@@ -224,9 +241,9 @@ describe('Phase 0 — font string composition (current impl)', () => {
       fontStyle: 'italic',
       fontFamily: 'Georgia',
     };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
     const fontSets = mock.getPropertySets('font');
-    // Exactly one font set per drawTextRun
+    // Exactly one font set per drawTextFixture
     expect(fontSets.length).toBeGreaterThanOrEqual(1);
     const fontValue = String(fontSets[0]?.value);
     // Lock: buildFontString produces "italic 700 18px Georgia"
@@ -241,28 +258,28 @@ describe('Phase 0 — word/letter spacing property assignment', () => {
   it('non-zero wordSpacing is stringified as "${n}px"', () => {
     const mock = createMockCanvasContext();
     const style: ComputedStyle = { ...DEFAULT_STYLE, wordSpacing: 4 };
-    drawTextRun(mock.ctx, makeRun(style), 0, 0);
+    drawTextFixture(mock.ctx, makeRun(style), 0, 0);
     const sets = mock.getPropertySets('wordSpacing');
     expect(sets.at(-1)?.value).toBe('4px');
   });
 
   it('zero wordSpacing is reset to 0px', () => {
     const mock = createMockCanvasContext();
-    drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, wordSpacing: 0 }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun({ ...DEFAULT_STYLE, wordSpacing: 0 }), 0, 0);
     const sets = mock.getPropertySets('wordSpacing');
     expect(sets.at(-1)?.value).toBe('0px');
   });
 
   it('non-zero letterSpacing is stringified as "${n}px"', () => {
     const mock = createMockCanvasContext();
-    drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 2 }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 2 }), 0, 0);
     const sets = mock.getPropertySets('letterSpacing');
     expect(sets.at(-1)?.value).toBe('2px');
   });
 
   it('zero letterSpacing is reset to 0px', () => {
     const mock = createMockCanvasContext();
-    drawTextRun(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 0 }), 0, 0);
+    drawTextFixture(mock.ctx, makeRun({ ...DEFAULT_STYLE, letterSpacing: 0 }), 0, 0);
     const sets = mock.getPropertySets('letterSpacing');
     expect(sets.at(-1)?.value).toBe('0px');
   });

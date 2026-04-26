@@ -2,12 +2,14 @@
 
 This directory contains the opt-in render-layer golden tests. For every render
 fixture and golden layout config, the suite paginates the real book, selects
-feature-rich pages, renders them into a recording Canvas 2D context, and
-compares the normalized drawing command stream against JSON goldens.
+feature-rich pages, builds platform-neutral display lists, executes the default
+Canvas backend against a recording Canvas 2D context, and compares the
+normalized summaries against JSON goldens.
 
 It is not a pixel test. It is the deterministic render-layer gate that can run
-inside Vitest without a browser. The Playwright pixel golden suite covers the
-browser-rendered Canvas output on top of this layer.
+inside Vitest without a browser. Each case records both display-list command
+families and Canvas backend records. The Playwright pixel golden suite covers
+the browser-rendered Canvas output on top of this layer.
 
 ## Fixture Layout
 
@@ -39,4 +41,4 @@ the strongest page for each render feature found in that paginated result:
 - inline background, border, shadow, and decoration
 - block background, border, transform, opacity, and clipping
 
-Each selected page is rendered at DPR 1 and DPR 2.
+Each selected page is summarized at DPR 1 and DPR 2.

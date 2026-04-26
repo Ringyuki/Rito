@@ -3,7 +3,7 @@
  * Returns resolved annotations without syncing to the old AnnotationEngine.
  */
 
-import type { Reader } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type {
   AnnotationStore,
   ResolvedAnnotation,

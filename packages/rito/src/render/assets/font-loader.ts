@@ -3,21 +3,20 @@ import type { FontFaceRule } from '../../style/core/types';
 import { parseFontFaceRules } from '../../style/css/rule-parser';
 import { buildHrefResolver } from '../../utils/resolve-href';
 import { createLogger, type Logger } from '../../utils/logger';
+import type { FontRegistry } from './types';
 
 /**
- * Register EPUB-embedded fonts via the FontFace API.
+ * Register EPUB-embedded fonts through an injected font registry.
  *
- * Parses `@font-face` from stylesheets, resolves font data, and adds to `document.fonts`.
+ * Parses `@font-face` from stylesheets, resolves font data, and passes
+ * resources to the provided platform registry.
  * Call before `paginate()` so text measurement uses the correct fonts.
- *
- * @example
- * ```ts
- * const doc = loadEpub(data);
- * await loadFonts(doc);
- * const measurer = createTextMeasurer(canvas);
- * ```
  */
-export async function loadFonts(doc: EpubDocument, logger?: Logger): Promise<void> {
+export async function loadFontsWithRegistry(
+  doc: EpubDocument,
+  registry: FontRegistry,
+  logger?: Logger,
+): Promise<void> {
   const log = logger ?? createLogger();
   const fontFaceRules = collectFontFaceRules(doc);
   if (fontFaceRules.length === 0) return;
@@ -29,20 +28,14 @@ export async function loadFonts(doc: EpubDocument, logger?: Logger): Promise<voi
     const fontData = resolveFontData(rule, resolve);
     if (!fontData) continue;
 
-    const descriptors: FontFaceDescriptors = {};
-    if (rule.weight) descriptors.weight = rule.weight;
-    if (rule.style) descriptors.style = rule.style;
-
-    const buffer = fontData.buffer.slice(
-      fontData.byteOffset,
-      fontData.byteOffset + fontData.byteLength,
-    );
-    const face = new FontFace(rule.family, buffer as ArrayBuffer, descriptors);
     promises.push(
-      face
-        .load()
-        .then(() => {
-          document.fonts.add(face);
+      registry
+        .loadFont({
+          family: rule.family,
+          src: rule.src,
+          bytes: fontData,
+          ...(rule.weight ? { weight: rule.weight } : {}),
+          ...(rule.style ? { style: rule.style } : {}),
         })
         .catch((err: unknown) => {
           log.warn(`Failed to load font "${rule.family}":`, err);

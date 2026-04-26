@@ -1,4 +1,4 @@
-import type { TextRun } from '../../layout/core/types';
+import type { Rect, RunPaint } from '../../../../layout/core/types';
 
 export interface InlineBoxRect {
   readonly x: number;
@@ -7,12 +7,16 @@ export interface InlineBoxRect {
   readonly height: number;
 }
 
+export interface InlineBoxInput {
+  readonly rect: Rect;
+  readonly paint: RunPaint;
+}
+
 /**
  * Compute the inline-box rect (background/border area) for a text run.
  * Line-height is excluded: inline decorations follow the CSS content area.
  */
-export function computeInlineBoxRect(run: TextRun, textX: number, textY: number): InlineBoxRect {
-  const paint = run.paint;
+export function computeInlineBoxRect({ rect, paint }: InlineBoxInput): InlineBoxRect {
   const padding = paint.padding;
   const border = paint.border;
   const pl = padding?.left ?? 0;
@@ -24,9 +28,9 @@ export function computeInlineBoxRect(run: TextRun, textX: number, textY: number)
   const bt = border?.top?.widthPx ?? 0;
   const bb = border?.bottom?.widthPx ?? 0;
   return {
-    x: textX - pl - bl,
-    y: textY - pt - bt,
-    width: run.bounds.width + pl + pr + bl + br,
+    x: rect.x - pl - bl,
+    y: rect.y - pt - bt,
+    width: rect.width + pl + pr + bl + br,
     height: paint.font.sizePx + pt + pb + bt + bb,
   };
 }

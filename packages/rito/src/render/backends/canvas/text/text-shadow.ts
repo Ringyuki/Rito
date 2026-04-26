@@ -1,6 +1,6 @@
-import type { TextShadow } from '../../style/core/types';
-import type { TextRun } from '../../layout/core/types';
+import type { TextShadow } from '../../../../style/core/types';
 import { canvasSpacingValue } from './spacing';
+import type { CanvasTextFragment } from './text-renderer';
 
 /**
  * Render text-shadow layers onto the main canvas using a scratch canvas.
@@ -11,16 +11,16 @@ import { canvasSpacingValue } from './spacing';
  */
 export function drawTextShadows(
   ctx: CanvasRenderingContext2D,
-  run: TextRun,
+  fragment: CanvasTextFragment,
   x: number,
   y: number,
   color: string,
 ): void {
-  const shadows = run.paint.textShadow ?? [];
+  const shadows = fragment.paint.textShadow ?? [];
   if (shadows.length === 0) return;
   const { padLeft, padRight, padTop, padBottom } = computeShadowPadding(shadows);
-  const logicalW = run.bounds.width + padLeft + padRight;
-  const logicalH = run.bounds.height + padTop + padBottom;
+  const logicalW = fragment.rect.width + padLeft + padRight;
+  const logicalH = fragment.rect.height + padTop + padBottom;
   if (logicalW <= 0 || logicalH <= 0) return;
 
   const dpr = ctx.getTransform().a || 1;
@@ -34,10 +34,10 @@ export function drawTextShadows(
   if (!sctx) return;
 
   sctx.scale(dpr, dpr);
-  syncTextState(sctx, ctx, run, color);
+  syncTextState(sctx, ctx, fragment, color);
 
-  renderShadowLayers(sctx, shadows, run.text, padLeft, padTop, dpr);
-  eraseTextGlyph(sctx, run.text, padLeft, padTop);
+  renderShadowLayers(sctx, shadows, fragment.text, padLeft, padTop, dpr);
+  eraseTextGlyph(sctx, fragment.text, padLeft, padTop);
 
   ctx.drawImage(scratch, 0, 0, physW, physH, x - padLeft, y - padTop, logicalW, logicalH);
 }
@@ -112,12 +112,12 @@ function createScratchCanvas(w: number, h: number): HTMLCanvasElement | Offscree
 function syncTextState(
   dst: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
   src: CanvasRenderingContext2D,
-  run: TextRun,
+  fragment: CanvasTextFragment,
   color: string,
 ): void {
   dst.font = src.font;
   dst.textBaseline = 'top';
   dst.fillStyle = color;
-  dst.wordSpacing = canvasSpacingValue(run.paint.wordSpacingPx);
-  dst.letterSpacing = canvasSpacingValue(run.paint.letterSpacingPx);
+  dst.wordSpacing = canvasSpacingValue(fragment.paint.wordSpacingPx);
+  dst.letterSpacing = canvasSpacingValue(fragment.paint.letterSpacingPx);
 }

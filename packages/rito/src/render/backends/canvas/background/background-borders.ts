@@ -1,5 +1,5 @@
-import type { BlockBorderPaint, BorderBox } from '../../layout/core/types';
-import type { BorderPaintEdge } from '../../style/core/paint-types';
+import type { BlockBorderPaint, BorderBox } from '../../../../layout/core/types';
+import type { BorderPaintEdge } from '../../../../style/core/paint-types';
 import { traceBoxPathCCW, traceRoundedRect } from './background-paths';
 
 interface RenderBorderEdge {

@@ -2,7 +2,8 @@
  * Spread-level coordination: rebuilds interaction state and marks overlay dirty
  * whenever a spread is rendered or needs a visual refresh.
  */
-import type { Reader, Spread } from '@ritojs/core';
+import type { Spread } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import { buildHitMap, buildLinkMap } from '@ritojs/core/advanced';
 import type { DisposableCollection } from '../../utils/disposable';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';

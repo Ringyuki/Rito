@@ -52,7 +52,7 @@ RITO_DIAG_CASE=<case-id> pnpm diagnose:render
 ```
 
 The command renders the requested Rito spread through the same browser-side
-`createReader` path used by pixel goldens. If `case.json` contains
+`@ritojs/core/web` `createReader` path used by pixel goldens. If `case.json` contains
 `location.chapterHref`, it also extracts the EPUB, opens that XHTML chapter in
 Chromium, and captures browser reference facts.
 
@@ -78,12 +78,14 @@ Diagnostic output should stay in the same case directory:
 
 ```text
 packages/rito/test-results/render-diagnostics/cases/<case-id>/artifacts/
+  report.json
   rito/
     actual.png
-    layout.json
-    render-commands.json
     diagnostics.json
+    page-detail.json
+    summary.json
   browser/
+    extracted/
     reference.png
     computed-style.json
     dom-rects.json
@@ -93,9 +95,35 @@ packages/rito/test-results/render-diagnostics/cases/<case-id>/artifacts/
     report.md
 ```
 
-The exact files depend on the issue, but the split matters: `rito/` contains
-Rito pipeline facts, `browser/` contains reference XHTML facts, and
-`comparison/` contains derived analysis.
+`report.json` is the top-level index written by `pnpm diagnose:render`. It
+links the Rito screenshot and JSON facts, plus the browser reference facts when
+`case.json` provides `location.chapterHref`, and the comparison artifacts.
+
+`rito/` contains the output from the Web `createReader` diagnostic path:
+
+- `actual.png`: captured Rito spread image
+- `diagnostics.json`: browser console and page errors observed during capture
+- `page-detail.json`: page-level detail returned by the render harness
+- `summary.json`: case, profile, spread, chapter map, manifest map, and spread summary
+
+`browser/` contains the extracted EPUB package and, when a chapter reference is
+available, Chromium XHTML reference facts:
+
+- `extracted/`: temporary extracted EPUB package served by the diagnostic HTTP server
+- `reference.png`: screenshot of the browser-rendered XHTML reference
+- `computed-style.json`: target and ancestor computed styles
+- `dom-rects.json`: target and ancestor DOM geometry
+- `text-metrics.json`: browser font status and canvas text metrics samples
+
+`comparison/` contains the derived diagnostic comparison:
+
+- `report.md`: human-readable case summary and comparison outcome
+- `diff.png`: pixel diff between `browser/reference.png` and `rito/actual.png`
+
+`report.md` is always produced. `diff.png` is produced when a browser reference
+exists and has the same pixel dimensions as the Rito capture. If the case has
+no `location.chapterHref`, or if the screenshots have different dimensions, the
+report explains why no diff image was written.
 
 ## Standard Workflow
 
@@ -181,7 +209,8 @@ expected EPUB behavior:
 | Block layout   | block bounds, margin collapse policy, floats, tables, positioned elements     |
 | Pagination     | page/spread count, chapter ranges, widows/orphans, page breaks                |
 | Paint model    | `RunPaint`, `BlockPaint`, `PagePaint`, draw order, clipping, opacity          |
-| Canvas render  | normalized render commands, image drawing, text drawing, transforms, scaling  |
+| Display list   | draw command kinds, image references, text paint commands, transforms         |
+| Canvas backend | normalized Canvas records, image drawing, text drawing, transforms, scaling   |
 | Final pixels   | PNG diff, antialiasing, platform fallback glyphs, image decode differences    |
 
 Start at the highest layer that can explain the symptom. For example, a wrong
@@ -209,7 +238,7 @@ Useful probes include:
 - list CSS rules that match the target node
 - print computed styles for the target subtree
 - print line boxes and text-run bounds on the affected page
-- capture render commands for the affected page
+- capture display-list commands and Canvas backend records for the affected page
 - compare `measureText()` for suspicious text and font families
 
 ### 6. Classify The Difference
@@ -234,7 +263,7 @@ Choose the narrowest coverage that would have caught the issue:
 
 - parser/CSS/style bug: unit test with focused XHTML/CSS
 - layout or pagination bug: integration test plus structured golden update
-- paint model bug: render-command golden update
+- paint model or backend bug: render-command golden update
 - final browser output bug: pixel golden case or alternate baseline
 - real-book-only interaction: keep the book in `tests/fixtures/books/` and add
   the needed tiers in the manifest
@@ -284,7 +313,7 @@ This workflow does not replace the regression pipeline:
 
 - use `pnpm test:golden:books` for parser -> style -> layout -> pagination
   snapshots
-- use `pnpm test:golden:render` for normalized Canvas command regressions
+- use `pnpm test:golden:render` for display-list and Canvas backend record regressions
 - use `pnpm test:golden:pixel` for final browser-rendered Canvas pixels
 - use `pnpm test:golden:pixel:review` for human visual review
 - use `pnpm test:e2e` for reader app behavior

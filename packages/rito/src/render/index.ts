@@ -1,11 +1,35 @@
-export { type RenderOptions } from './core';
+export { type CanvasRenderOptions as RenderOptions } from './backends/canvas';
 export {
-  createCanvasTextMeasurer,
+  canvasTextMeasurementBackend,
   createTextMeasurer,
   buildFontString,
-  drawTextRun,
+  canvasDisplayListRenderer,
+  type CanvasDisplayListOptions,
+  type CanvasRenderOptions,
+  type CanvasRenderingTarget,
+  type CanvasTextMeasurementTarget,
   type CachedTextMeasurer,
-} from './text';
+} from './backends/canvas';
+export { type DisplayListRenderer, type TextMeasurementBackend } from './backends';
+export {
+  createLazyImageLoaderWithDecoder,
+  createImageAssetResolver,
+  createWebFontRegistry,
+  createWebImageAssetResolver,
+  createWebImageDecoder,
+  collectPageImageSources,
+  collectSpreadImageSources,
+  loadFontsWithRegistry,
+  loadImagesWithDecoder,
+  type LazyImageLoader,
+  type FontRegistry,
+  type FontResource,
+  type ImageAssetResolver,
+  type ImageDecoder,
+  type ImageDimensions,
+  type ImageObjectUrlProvider,
+  type ImageResource,
+} from './assets';
 export {
   createLazyImageLoader,
   disposeAssets,
@@ -15,9 +39,16 @@ export {
   loadImages,
   paginateWithAssets,
   prepare,
-  type LazyImageLoader,
   type LoadedAssets,
   type Resources,
-} from './assets';
+} from './web';
+export {
+  buildPageDisplayList,
+  buildSpreadDisplayList,
+  type BlockDecorationPaint,
+  type DisplayList,
+  type DisplayListOptions,
+  type DrawCommand,
+} from './display-list';
 export { renderPage } from './page';
 export { render, getSpreadDimensions } from './spread';

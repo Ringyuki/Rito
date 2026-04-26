@@ -56,8 +56,8 @@ describe('render', () => {
 
     const translates = mock.getCalls('translate');
     expect(translates).toHaveLength(2);
-    // (400+20)*2 = 840
-    expect(translates[1]?.args[0]).toBe(840);
+    // The display list stays in logical coordinates; the backend applies pixelRatio.
+    expect(translates[1]?.args[0]).toBe(420);
   });
 });
 

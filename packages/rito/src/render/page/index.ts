@@ -1,13 +1,16 @@
 import type { LayoutConfig, Page } from '../../layout/core/types';
-import type { RenderOptions } from '../core/types';
-import { renderBlock } from './block-renderer';
-import type { ColorOverride } from './types';
+import {
+  canvasDisplayListRenderer,
+  type CanvasRenderingTarget,
+  type CanvasRenderOptions,
+} from '../backends/canvas';
+import { buildPageDisplayList } from '../display-list';
 
 /**
- * Render a page onto a CanvasRenderingContext2D.
+ * Render a page onto a Canvas 2D target.
  *
- * Draws the page background (if configured), then walks the layout tree
- * and draws each text run and image at its computed position.
+ * Builds a platform-neutral display list for the page, then executes it with
+ * the default Web Canvas backend.
  *
  * @param page - The {@link Page} to render.
  * @param ctx - The canvas 2D rendering context.
@@ -16,42 +19,13 @@ import type { ColorOverride } from './types';
  */
 export function renderPage(
   page: Page,
-  ctx: CanvasRenderingContext2D,
+  ctx: CanvasRenderingTarget,
   config: LayoutConfig,
-  options?: RenderOptions,
+  options?: CanvasRenderOptions,
 ): void {
-  const pixelRatio = options?.pixelRatio ?? 1;
-  const colorOverride = createColorOverride(options);
-
-  ctx.save();
-  ctx.scale(pixelRatio, pixelRatio);
-
-  // Page background: spreadBodyBg means the spread renderer already filled the
-  // entire viewport with the unified body bg — skip here to avoid double-fill.
-  // Otherwise fall back to per-page EPUB body bg or reader theme bg.
-  if (!options?.spreadBodyBg) {
-    const pageBg = page.paint?.backgroundColor ?? options?.backgroundColor;
-    if (pageBg) {
-      ctx.fillStyle = pageBg;
-      ctx.fillRect(0, 0, page.bounds.width, page.bounds.height);
-    }
-  }
-
-  ctx.beginPath();
-  ctx.rect(0, 0, page.bounds.width, page.bounds.height);
-  ctx.clip();
-
-  for (const block of page.content) {
-    renderBlock(ctx, block, config.marginLeft, config.marginTop, options?.images, colorOverride);
-  }
-
-  ctx.restore();
-}
-
-function createColorOverride(options?: RenderOptions): ColorOverride | undefined {
-  if (!options?.foregroundColor || !options.backgroundColor) return undefined;
-  return {
-    foregroundColor: options.foregroundColor,
-    backgroundColor: options.backgroundColor,
-  };
+  canvasDisplayListRenderer.render(buildPageDisplayList(page, config, options), ctx, {
+    ...(options?.pixelRatio !== undefined ? { pixelRatio: options.pixelRatio } : {}),
+    ...(options?.imageResolver ? { imageResolver: options.imageResolver } : {}),
+    ...(options?.images ? { images: options.images } : {}),
+  });
 }

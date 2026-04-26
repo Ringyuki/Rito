@@ -4,6 +4,7 @@ export default defineConfig({
   entry: [
     'src/index.ts',
     'src/advanced.ts',
+    'src/web.ts',
     'src/selection.ts',
     'src/search.ts',
     'src/annotations.ts',

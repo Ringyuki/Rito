@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Reader, Spread } from '@ritojs/core';
+import type { Spread } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { SearchResult } from '@ritojs/core/search';
 import { goToSearchResult, type SearchNavDeps } from '../src/controller/engines/search-navigation';
 

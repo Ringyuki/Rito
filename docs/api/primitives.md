@@ -1,6 +1,8 @@
 # Stable Primitives
 
-These exports come from the main `@ritojs/core` entry and are intended for custom pipelines.
+The main `@ritojs/core` entry is platform-neutral. It exposes parsing,
+pagination, spread grouping, display-list construction, and adapter contracts.
+Browser Canvas helpers live in `@ritojs/core/web`.
 
 ## Pipeline Overview
 
@@ -8,11 +10,9 @@ These exports come from the main `@ritojs/core` entry and are intended for custo
 import {
   loadEpub,
   createLayoutConfig,
-  prepare,
-  createTextMeasurer,
   paginate,
   buildSpreads,
-  render,
+  buildSpreadDisplayList,
 } from '@ritojs/core';
 ```
 
@@ -20,25 +20,30 @@ Typical flow:
 
 1. `loadEpub()` to parse the archive
 2. `createLayoutConfig()` to define geometry
-3. choose one of:
-   - `createTextMeasurer()` + `paginate()` for a fully manual pipeline
-   - `prepare()` for load-assets + paginate in one step
+3. provide a platform `TextMeasurer` and call `paginate()`
 4. `buildSpreads()` to group pages
-5. `render()` to paint a spread
+5. `buildSpreadDisplayList()` to produce platform-neutral paint commands
+6. execute the display list with an injected backend
 
 ## Exports
 
-| Export                               | Use when                                                           |
-| ------------------------------------ | ------------------------------------------------------------------ |
-| `loadEpub(data, options?)`           | You want a parsed `EpubDocument` with lazy chapter reads           |
-| `prepare(doc, config, canvas)`       | You want one call that loads browser resources and paginates       |
-| `disposeResources(resources)`        | You need to release decoded image resources created by `prepare()` |
-| `render(spread, ctx, config, opts?)` | You already have a spread and want to paint it                     |
-| `paginate(doc, config, measurer)`    | You want full-book pagination from a loaded document               |
-| `buildSpreads(pages, config)`        | You want presentation-layer spread grouping from pages             |
-| `createLayoutConfig(input)`          | You want a `LayoutConfig` from shorthand viewport input            |
-| `getSpreadDimensions(config)`        | You need spread canvas dimensions without rendering                |
-| `createTextMeasurer(canvas)`         | You need a text measurer from a canvas element                     |
+| Export                                   | Use when                                                        |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `loadEpub(data, options?)`               | You want a parsed `EpubDocument` with lazy chapter reads        |
+| `paginate(doc, config, measurer)`        | You want full-book pagination from a loaded document            |
+| `buildSpreads(pages, config)`            | You want presentation-layer spread grouping from pages          |
+| `buildPageDisplayList(page, config)`     | You want paint commands for one page                            |
+| `buildSpreadDisplayList(spread, config)` | You want paint commands for a spread                            |
+| `createLayoutConfig(input)`              | You want a `LayoutConfig` from shorthand viewport input         |
+| `loadFontsWithRegistry()`                | You want injected font registration without assuming Web APIs   |
+| `loadImagesWithDecoder()`                | You want injected image decoding without assuming `ImageBitmap` |
+
+Commonly used types include `TextMeasurer`, `TextMetrics`, `FontMetricsProvider`, `FontMetrics`,
+`DisplayListRenderer`, `TextMeasurementBackend`, `ImageAssetResolver`, `ImageDecoder`, and
+`ImageDimensions`.
+
+This is the entry to build on for Flutter, Skia, native UI, server-side
+rendering, or any runtime where Rito should not assume browser globals.
 
 ## Example: Custom Pipeline
 
@@ -46,10 +51,9 @@ Typical flow:
 import {
   loadEpub,
   createLayoutConfig,
-  createTextMeasurer,
   paginate,
   buildSpreads,
-  render,
+  buildSpreadDisplayList,
 } from '@ritojs/core';
 
 const doc = loadEpub(epubData);
@@ -60,23 +64,36 @@ const config = createLayoutConfig({
   spread: 'double',
 });
 
-const measurer = createTextMeasurer(canvas);
+const measurer = createYourPlatformTextMeasurer();
 const pages = paginate(doc, config, measurer);
 const spreads = buildSpreads(pages, config);
 
 const spread = spreads[0];
-const ctx = canvas.getContext('2d');
 
-if (spread && ctx) {
-  render(spread, ctx, config, { backgroundColor: '#ffffff' });
+if (spread) {
+  const displayList = buildSpreadDisplayList(spread, config, { backgroundColor: '#ffffff' });
+  yourRenderer.render(displayList, yourTarget);
 }
 ```
 
+## Web Canvas Preset
+
+For browser Canvas code, import the Web preset:
+
+```ts
+import { createTextMeasurer, prepare, render } from '@ritojs/core/web';
+```
+
+`prepare()` loads Web fonts/images and paginates. `render()` executes the spread display list with
+the default Canvas backend.
+
 ## Notes
 
-- `prepare()` is the highest-level primitive path. It already loads assets and paginates, so you do not call `paginate()` separately on that path.
-- `paginate()` expects a text measurer. In browser code, use `createTextMeasurer()`.
-- `disposeResources()` should be called when you are done with prepared decoded assets.
+- `prepare()` is a Web preset helper, not a main-entry core API.
+- `paginate()` expects a `TextMeasurer`. In browser code, use `createTextMeasurer()` from `@ritojs/core/web`.
+- `FontMetricsProvider` is a platform text capability for backends and future line-metric work; the default Canvas measurer implements it.
+- `render()` and `disposeResources()` are Web preset helpers for the default Canvas path.
+- Backends are structural TypeScript objects; they implement the `DisplayListRenderer` or `TextMeasurementBackend` shape without inheriting from a base class.
 
 ## Related Docs
 

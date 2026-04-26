@@ -1,26 +1,29 @@
-import type { RubyAnnotation, TextRun } from '../../layout/core/types';
+import type { Rect, RunPaint } from '../../../../layout/core/types';
 import { buildFontString } from './font-string';
-import { resolveTextColor } from '../../utils/color';
+import { resolveTextColor } from '../../../../utils/color';
 import { drawInlineBackground } from './inline-background-renderer';
 import { drawInlineBorders } from './inline-border-renderer';
 import { drawTextShadows } from './text-shadow';
 import { canvasSpacingValue } from './spacing';
 
-/**
- * Draw a single text run onto a canvas context.
- * The caller is responsible for coordinate offsets (margins, block position).
- *
- * @param colorOverride - If provided, `{ foregroundColor, backgroundColor }` triggers
- *   contrast-based color replacement for theme support (e.g. dark mode).
- */
-export function drawTextRun(
+export interface CanvasTextFragment {
+  readonly text: string;
+  readonly rect: Rect;
+  readonly paint: RunPaint;
+}
+
+export interface CanvasRubyFragment {
+  readonly text: string;
+  readonly rect: Rect;
+  readonly paint: RunPaint;
+}
+
+export function drawTextFragment(
   ctx: CanvasRenderingContext2D,
-  run: TextRun,
-  offsetX: number,
-  offsetY: number,
+  fragment: CanvasTextFragment,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
-  const paint = run.paint;
+  const paint = fragment.paint;
   ctx.font = buildFontString(paint.font);
 
   const color = colorOverride
@@ -32,30 +35,28 @@ export function drawTextRun(
   ctx.wordSpacing = canvasSpacingValue(paint.wordSpacingPx);
   ctx.letterSpacing = canvasSpacingValue(paint.letterSpacingPx);
 
-  const x = offsetX + run.bounds.x;
-  const y = offsetY + run.bounds.y;
+  const x = fragment.rect.x;
+  const y = fragment.rect.y;
 
-  drawInlineBackground(ctx, run, x, y);
-  drawInlineBorders(ctx, run, x, y);
+  drawInlineBackground(ctx, fragment);
+  drawInlineBorders(ctx, fragment);
 
   if (paint.textShadow && paint.textShadow.length > 0) {
-    drawTextShadows(ctx, run, x, y, color);
+    drawTextShadows(ctx, fragment, x, y, color);
   }
 
-  ctx.fillText(run.text, x, y);
+  ctx.fillText(fragment.text, x, y);
 
   // Pre-computed decoration geometry — render just strokes the line.
   const decoration = paint.decoration;
   if (decoration) {
-    drawLine(ctx, x, y + decoration.y, run.bounds.width, decoration.color, decoration.thickness);
+    drawLine(ctx, x, y + decoration.y, fragment.rect.width, decoration.color, decoration.thickness);
   }
 }
 
-export function drawRubyAnnotation(
+export function drawRubyFragment(
   ctx: CanvasRenderingContext2D,
-  ruby: RubyAnnotation,
-  offsetX: number,
-  offsetY: number,
+  ruby: CanvasRubyFragment,
   colorOverride?: { foregroundColor: string; backgroundColor: string },
 ): void {
   const paint = ruby.paint;
@@ -66,10 +67,12 @@ export function drawRubyAnnotation(
   ctx.font = buildFontString(paint.font);
   ctx.fillStyle = color;
   ctx.textBaseline = 'top';
+  ctx.wordSpacing = '0px';
+  ctx.letterSpacing = '0px';
   // Center the annotation horizontally over its pre-computed bounds.
   const measured = ctx.measureText(ruby.text);
-  const rubyX = offsetX + ruby.bounds.x + (ruby.bounds.width - measured.width) / 2;
-  const rubyY = offsetY + ruby.bounds.y;
+  const rubyX = ruby.rect.x + (ruby.rect.width - measured.width) / 2;
+  const rubyY = ruby.rect.y;
   ctx.fillText(ruby.text, rubyX, rubyY);
   ctx.restore();
 }

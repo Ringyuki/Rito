@@ -1,4 +1,4 @@
-import type { BoxShadow } from '../../style/core/types';
+import type { BoxShadow } from '../../../../style/core/types';
 import { traceBoxPathCCW, traceRoundedRect } from './background-paths';
 
 /**

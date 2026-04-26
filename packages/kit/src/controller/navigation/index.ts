@@ -1,4 +1,5 @@
-import type { Reader, TocEntry } from '@ritojs/core';
+import type { TocEntry } from '@ritojs/core';
+import type { Reader } from '@ritojs/core/web';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { FrameDriver } from '../../driver/frame-driver';

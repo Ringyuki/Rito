@@ -5,14 +5,24 @@ import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import type { Reader, ReaderOptions } from '../../src/reader';
 
-vi.mock('../../src/render/assets/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/assets/resources')>();
+vi.mock('../../src/render/web/resources', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../src/render/web/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
     loadAssets: vi.fn(() =>
       Promise.resolve({
         images: new Map<string, ImageBitmap>(),
+        imageResolver: {
+          resolveImage: () => undefined,
+        },
+        imageObjectUrlProvider: {
+          createImageObjectUrl: () => undefined,
+        },
+        imageDecoder: {
+          decode: () => Promise.resolve({ width: 0, height: 0, close: vi.fn() } as ImageBitmap),
+          dispose: vi.fn((_: ImageBitmap) => undefined),
+        },
         measurer: mockMeasurer,
       }),
     ),

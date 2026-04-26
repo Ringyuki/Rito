@@ -11,6 +11,18 @@ export interface TextMetrics {
   readonly height: number;
 }
 
+/** Platform font metrics in CSS px. */
+export interface FontMetrics {
+  /** Positive distance from alphabetic baseline to the font box top. */
+  readonly ascentPx: number;
+  /** Positive distance from alphabetic baseline to the font box bottom. */
+  readonly descentPx: number;
+  /** Extra leading supplied by the font, if the platform exposes it. */
+  readonly lineGapPx: number;
+  /** The measured content height, normally ascent + descent + line gap. */
+  readonly contentHeightPx: number;
+}
+
 /**
  * Abstraction for measuring text dimensions.
  *
@@ -24,4 +36,15 @@ export interface TextMetrics {
  */
 export interface TextMeasurer {
   measureText(text: string, paint: MeasurePaint): TextMetrics;
+}
+
+/**
+ * Platform capability for resolving font metrics from structured paint.
+ *
+ * This stays separate from {@link TextMeasurer}: pagination only needs text
+ * advances today, while render backends and future line metric work can opt
+ * into font metrics without making Canvas a layout dependency.
+ */
+export interface FontMetricsProvider {
+  resolveFontMetrics(paint: MeasurePaint): FontMetrics;
 }
