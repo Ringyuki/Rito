@@ -1,11 +1,11 @@
 export { DEFAULT_STYLE, inheritableStyle } from './defaults';
-export { getTagStyle } from './tag-styles';
 export {
   type BorderSide,
   BOX_SIZING_VALUES,
   type BoxSizing,
   type ComputedStyle,
   type CssRule,
+  type CssRuleOrigin,
   DISPLAY_VALUES,
   type Display,
   type FontFaceRule,

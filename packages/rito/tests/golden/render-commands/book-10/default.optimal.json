@@ -7789,7 +7789,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 298,
-            "hash": "82f56e22774c49a2",
+            "hash": "96a3b8e6d4641f89",
             "methods": {
               "beginPath": 10,
               "clip": 1,
@@ -8804,7 +8804,7 @@
                     "hash": "165d2fbd53808c0b",
                     "length": 1
                   },
-                  97,
+                  96,
                   421
                 ],
                 "method": "fillText",
@@ -8833,7 +8833,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.2333338333333342px"
+                "value": "0.25416716666666755px"
               },
               {
                 "args": [
@@ -8841,7 +8841,7 @@
                     "hash": "7b9fa7ba0ec508d7",
                     "length": 49
                   },
-                  104.2,
+                  103.2,
                   424.2
                 ],
                 "method": "fillText",
@@ -8878,7 +8878,7 @@
                     "hash": "a3593fb706819966",
                     "length": 3
                   },
-                  76,
+                  75,
                   441
                 ],
                 "method": "fillText",
@@ -9075,7 +9075,7 @@
                     "hash": "a3f748155d20af68",
                     "length": 1
                   },
-                  97,
+                  96,
                   473.8
                 ],
                 "method": "fillText",
@@ -9104,7 +9104,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.057143346938775666px"
+                "value": "0.07755151020408178px"
               },
               {
                 "args": [
@@ -9112,7 +9112,7 @@
                     "hash": "f4c02ad0cbfe278c",
                     "length": 50
                   },
-                  104.2,
+                  103.2,
                   477
                 ],
                 "method": "fillText",
@@ -9149,7 +9149,7 @@
                     "hash": "f2e1e2715892d375",
                     "length": 23
                   },
-                  76,
+                  75,
                   493.8
                 ],
                 "method": "fillText",
@@ -9346,7 +9346,7 @@
                     "hash": "14e526c3196f6aa0",
                     "length": 1
                   },
-                  97,
+                  96,
                   526.6
                 ],
                 "method": "fillText",
@@ -9375,7 +9375,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.2333338333333342px"
+                "value": "0.25416716666666755px"
               },
               {
                 "args": [
@@ -9383,7 +9383,7 @@
                     "hash": "f45391b3092f6f2a",
                     "length": 49
                   },
-                  104.2,
+                  103.2,
                   529.8
                 ],
                 "method": "fillText",
@@ -9420,7 +9420,7 @@
                     "hash": "afa544c55f6203e6",
                     "length": 22
                   },
-                  76,
+                  75,
                   546.6
                 ],
                 "method": "fillText",
@@ -9669,7 +9669,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 298,
-            "hash": "33e394edbf0790f8",
+            "hash": "48ececf2485bd319",
             "methods": {
               "beginPath": 10,
               "clip": 1,
@@ -10684,7 +10684,7 @@
                     "hash": "165d2fbd53808c0b",
                     "length": 1
                   },
-                  97,
+                  96,
                   421
                 ],
                 "method": "fillText",
@@ -10713,7 +10713,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.2333338333333342px"
+                "value": "0.25416716666666755px"
               },
               {
                 "args": [
@@ -10721,7 +10721,7 @@
                     "hash": "7b9fa7ba0ec508d7",
                     "length": 49
                   },
-                  104.2,
+                  103.2,
                   424.2
                 ],
                 "method": "fillText",
@@ -10758,7 +10758,7 @@
                     "hash": "a3593fb706819966",
                     "length": 3
                   },
-                  76,
+                  75,
                   441
                 ],
                 "method": "fillText",
@@ -10955,7 +10955,7 @@
                     "hash": "a3f748155d20af68",
                     "length": 1
                   },
-                  97,
+                  96,
                   473.8
                 ],
                 "method": "fillText",
@@ -10984,7 +10984,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.057143346938775666px"
+                "value": "0.07755151020408178px"
               },
               {
                 "args": [
@@ -10992,7 +10992,7 @@
                     "hash": "f4c02ad0cbfe278c",
                     "length": 50
                   },
-                  104.2,
+                  103.2,
                   477
                 ],
                 "method": "fillText",
@@ -11029,7 +11029,7 @@
                     "hash": "f2e1e2715892d375",
                     "length": 23
                   },
-                  76,
+                  75,
                   493.8
                 ],
                 "method": "fillText",
@@ -11226,7 +11226,7 @@
                     "hash": "14e526c3196f6aa0",
                     "length": 1
                   },
-                  97,
+                  96,
                   526.6
                 ],
                 "method": "fillText",
@@ -11255,7 +11255,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.2333338333333342px"
+                "value": "0.25416716666666755px"
               },
               {
                 "args": [
@@ -11263,7 +11263,7 @@
                     "hash": "f45391b3092f6f2a",
                     "length": 49
                   },
-                  104.2,
+                  103.2,
                   529.8
                 ],
                 "method": "fillText",
@@ -11300,7 +11300,7 @@
                     "hash": "afa544c55f6203e6",
                     "length": 22
                   },
-                  76,
+                  75,
                   546.6
                 ],
                 "method": "fillText",

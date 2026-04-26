@@ -144,10 +144,16 @@ function matchesCompound(target: SelectorTarget, compound: string): boolean {
 
   // Strip attribute selectors and pseudo-classes before matching tag/class/id tokens
   const withoutAttrs = compound.replace(ATTR_SELECTOR_RE, '').replace(PSEUDO_CLASS_RE, '');
-  const tokens = withoutAttrs.match(SELECTOR_TOKEN_RE);
+  const simpleSelector = withoutAttrs.trim();
+  const tokens = simpleSelector.replace(/^\*/, '').match(SELECTOR_TOKEN_RE);
 
   // A compound may be purely attribute-based or pseudo-class-only
-  if ((!tokens || tokens.length === 0) && !compound.includes('[') && !compound.includes(':'))
+  if (
+    (!tokens || tokens.length === 0) &&
+    simpleSelector !== '*' &&
+    !compound.includes('[') &&
+    !compound.includes(':')
+  )
     return false;
 
   const nodeClasses: string[] = target.className?.split(/\s+/) ?? [];

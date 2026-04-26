@@ -230,7 +230,17 @@ describe('parseBorder', () => {
 
   it('parses none', () => {
     const b = parseBorder('none', 16);
-    expect(b?.style).toBe('none');
+    expect(b).toEqual({ width: 0, color: '#000000', style: 'none' });
+  });
+
+  it('normalizes explicit width with none style to zero used width', () => {
+    const b = parseBorder('1px none #000', 16);
+    expect(b).toEqual({ width: 0, color: '#000', style: 'none' });
+  });
+
+  it('normalizes color style width order with none style to zero used width', () => {
+    const b = parseBorder('#4682b4 none 6px', 16);
+    expect(b).toEqual({ width: 0, color: '#4682b4', style: 'none' });
   });
 
   it('parses em width', () => {

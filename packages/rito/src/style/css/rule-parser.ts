@@ -1,14 +1,19 @@
-import type { CssRule, FontFaceRule } from '../core/types';
+import type { CssRule, CssRuleOrigin, FontFaceRule } from '../core/types';
 import { parseCssDeclarations } from './property-parser';
 
 /**
  * Parse a CSS stylesheet string into an array of CssRule objects.
  * Handles comments, @-rules (skipped except @font-face), and grouped selectors.
  */
-export function parseCssRules(css: string, baseFontSize: number): readonly CssRule[] {
+export function parseCssRules(
+  css: string,
+  baseFontSize: number,
+  options?: { readonly origin?: CssRuleOrigin },
+): readonly CssRule[] {
   const cleaned = stripComments(css);
   const blocks = extractRuleBlocks(cleaned);
   const rules: CssRule[] = [];
+  const origin = options?.origin ?? 'author';
 
   for (const block of blocks) {
     // Pre-parse without viewport for eagerly-resolvable properties.
@@ -30,7 +35,7 @@ export function parseCssRules(css: string, baseFontSize: number): readonly CssRu
       .map((s) => s.trim())
       .filter((s) => s.length > 0);
     for (const selector of selectors) {
-      rules.push({ selector, declarations, rawDeclarations: block.body });
+      rules.push({ selector, origin, declarations, rawDeclarations: block.body });
     }
   }
 

@@ -1,13 +1,14 @@
 import type { DocumentNode, ElementAttributes } from '../../parser/xhtml/types';
 import { DEFAULT_STYLE, inheritableStyle } from '../core/defaults';
-import { getTagStyle } from '../core/tag-styles';
 import type { ComputedStyle, CssRule, StyledNode } from '../core/types';
 import { DISPLAY_VALUES } from '../core/types';
 import { fontShorthandFromStyle } from '../css/font-shorthand';
 import type { Viewport } from '../css/parse-utils';
+import { withDefaultUaRules } from '../ua/default-rules';
 import { type RuleIndex, buildRuleIndex } from './rule-index';
 import type { SelectorTarget } from './selector-matcher';
 import { injectPseudoElements } from './pseudo-elements';
+import { applyRuntimeElementDefaults } from './runtime-element-defaults';
 import { applyUnifiedRules } from './unified-rules';
 
 /**
@@ -15,9 +16,10 @@ import { applyUnifiedRules } from './unified-rules';
  *
  * Applies the CSS cascade in order:
  * 1. Inherited parent style (or DEFAULT_STYLE)
- * 2. Tag-based defaults
- * 3. Stylesheet rules (sorted by specificity)
- * 4. Inline `style` attribute (highest priority)
+ * 2. Runtime replaced-element defaults
+ * 3. User-agent rules
+ * 4. Author stylesheet rules
+ * 5. Inline `style` attribute (highest priority)
  */
 export function resolveStyles(
   nodes: readonly DocumentNode[],
@@ -29,8 +31,9 @@ export function resolveStyles(
   // from the body/parent style. Only inherited properties (font, color, text-align)
   // should cascade to top-level elements.
   const base = parentStyle ? inheritableStyle(parentStyle) : DEFAULT_STYLE;
-  const index = rules && rules.length > 0 ? buildRuleIndex(rules) : undefined;
-  return resolveNodesWithSiblings(nodes, base, rules, index, [], viewport);
+  const cascadeRules = withDefaultUaRules(rules);
+  const index = buildRuleIndex(cascadeRules);
+  return resolveNodesWithSiblings(nodes, base, cascadeRules, index, [], viewport);
 }
 
 /** Resolve nodes with sibling tracking for +, :first-child, :last-child. */
@@ -251,7 +254,7 @@ function applyCascade(
   ancestors: readonly SelectorTarget[],
   viewport?: Viewport,
 ): ComputedStyle {
-  let style = applyTagStyle(parentStyle, target.tag);
+  let style = applyRuntimeElementDefaults(parentStyle, target.tag);
   style = applyUnifiedRules(
     style,
     target,
@@ -276,10 +279,4 @@ function applyLanguage(
  *  cascade sources have been merged. */
 function finalizeStyle(style: ComputedStyle): ComputedStyle {
   return { ...style, font: fontShorthandFromStyle(style) };
-}
-
-function applyTagStyle(parentStyle: ComputedStyle, tag: string): ComputedStyle {
-  const overrides = getTagStyle(tag);
-  if (!overrides) return parentStyle;
-  return { ...parentStyle, ...overrides };
 }

@@ -63,14 +63,14 @@ describe('layoutBlocks', () => {
   });
 
   it('collapses adjacent margins (uses max, not sum)', () => {
-    // h1 has marginBottom=21, p has marginTop=16
-    // collapsed = max(21, 16) = 21
+    // h1 has marginBottom=0.67em at 32px = 21.44, p has marginTop=16
+    // collapsed = max(21.44, 16) = 21.44
     const styled = resolveStyles([block('h1', [text('Title')]), block('p', [text('Body')])]);
     const blocks = layoutBlocks(styled, CONTENT_WIDTH, layouter);
 
     const h1Bottom = (blocks[0]?.bounds.y ?? 0) + (blocks[0]?.bounds.height ?? 0);
     const pTop = blocks[1]?.bounds.y ?? 0;
-    expect(pTop - h1Bottom).toBeCloseTo(21);
+    expect(pTop - h1Bottom).toBeCloseTo(21.44);
   });
 
   it('produces line boxes inside text blocks', () => {

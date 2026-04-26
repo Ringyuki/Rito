@@ -6385,7 +6385,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 280,
-            "hash": "baf4d222cb537a43",
+            "hash": "6ee3c55c586ffea7",
             "methods": {
               "beginPath": 10,
               "clip": 1,
@@ -7252,7 +7252,7 @@
                     "hash": "165d2fbd53808c0b",
                     "length": 1
                   },
-                  85,
+                  84,
                   268.6
                 ],
                 "method": "fillText",
@@ -7281,15 +7281,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.6956532173913054px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "bb4d035ea4c9f266",
-                    "length": 24
+                    "hash": "07c0b9dbcfa41801",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   271.8
                 ],
                 "method": "fillText",
@@ -7323,10 +7323,10 @@
               {
                 "args": [
                   {
-                    "hash": "27f08003ce49989e",
-                    "length": 28
+                    "hash": "b11db9bef15d2a76",
+                    "length": 26
                   },
-                  64,
+                  63,
                   288.6
                 ],
                 "method": "fillText",
@@ -7523,7 +7523,7 @@
                     "hash": "a3f748155d20af68",
                     "length": 1
                   },
-                  85,
+                  84,
                   321.4
                 ],
                 "method": "fillText",
@@ -7552,15 +7552,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.31666766666666746px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "6ebc4f6938476561",
-                    "length": 25
+                    "hash": "1e6835f5b71411d6",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   324.6
                 ],
                 "method": "fillText",
@@ -7589,15 +7589,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.07857142857142918px"
+                "value": "0.42962962962963047px"
               },
               {
                 "args": [
                   {
-                    "hash": "4f836d33a247f12b",
-                    "length": 29
+                    "hash": "921311dd694886b3",
+                    "length": 28
                   },
-                  64,
+                  63,
                   341.4
                 ],
                 "method": "fillText",
@@ -7634,7 +7634,7 @@
                     "hash": "aaf19f9b3d28c61a",
                     "length": 19
                   },
-                  64,
+                  63,
                   358.2
                 ],
                 "method": "fillText",
@@ -7831,7 +7831,7 @@
                     "hash": "14e526c3196f6aa0",
                     "length": 1
                   },
-                  85,
+                  84,
                   391
                 ],
                 "method": "fillText",
@@ -7860,15 +7860,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.31666766666666746px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "5af5f4b0442c1648",
-                    "length": 25
+                    "hash": "686e3bd242b0538d",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   394.2
                 ],
                 "method": "fillText",
@@ -7897,15 +7897,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.07857142857142918px"
+                "value": "0.11428571428571489px"
               },
               {
                 "args": [
                   {
-                    "hash": "f3866574b9d0d6db",
+                    "hash": "bd23b95aa70a5b96",
                     "length": 29
                   },
-                  64,
+                  63,
                   411
                 ],
                 "method": "fillText",
@@ -7939,10 +7939,10 @@
               {
                 "args": [
                   {
-                    "hash": "d9bfd7dd9f58a711",
-                    "length": 17
+                    "hash": "bb3d034ae99d88c8",
+                    "length": 16
                   },
-                  64,
+                  63,
                   427.8
                 ],
                 "method": "fillText",
@@ -8154,7 +8154,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 280,
-            "hash": "1ff4bad0a580755a",
+            "hash": "e09bbbe07d7dd89a",
             "methods": {
               "beginPath": 10,
               "clip": 1,
@@ -9021,7 +9021,7 @@
                     "hash": "165d2fbd53808c0b",
                     "length": 1
                   },
-                  85,
+                  84,
                   268.6
                 ],
                 "method": "fillText",
@@ -9050,15 +9050,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.6956532173913054px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "bb4d035ea4c9f266",
-                    "length": 24
+                    "hash": "07c0b9dbcfa41801",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   271.8
                 ],
                 "method": "fillText",
@@ -9092,10 +9092,10 @@
               {
                 "args": [
                   {
-                    "hash": "27f08003ce49989e",
-                    "length": 28
+                    "hash": "b11db9bef15d2a76",
+                    "length": 26
                   },
-                  64,
+                  63,
                   288.6
                 ],
                 "method": "fillText",
@@ -9292,7 +9292,7 @@
                     "hash": "a3f748155d20af68",
                     "length": 1
                   },
-                  85,
+                  84,
                   321.4
                 ],
                 "method": "fillText",
@@ -9321,15 +9321,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.31666766666666746px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "6ebc4f6938476561",
-                    "length": 25
+                    "hash": "1e6835f5b71411d6",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   324.6
                 ],
                 "method": "fillText",
@@ -9358,15 +9358,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.07857142857142918px"
+                "value": "0.42962962962963047px"
               },
               {
                 "args": [
                   {
-                    "hash": "4f836d33a247f12b",
-                    "length": 29
+                    "hash": "921311dd694886b3",
+                    "length": 28
                   },
-                  64,
+                  63,
                   341.4
                 ],
                 "method": "fillText",
@@ -9403,7 +9403,7 @@
                     "hash": "aaf19f9b3d28c61a",
                     "length": 19
                   },
-                  64,
+                  63,
                   358.2
                 ],
                 "method": "fillText",
@@ -9600,7 +9600,7 @@
                     "hash": "14e526c3196f6aa0",
                     "length": 1
                   },
-                  85,
+                  84,
                   391
                 ],
                 "method": "fillText",
@@ -9629,15 +9629,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.31666766666666746px"
+                "value": "0.008000960000000532px"
               },
               {
                 "args": [
                   {
-                    "hash": "5af5f4b0442c1648",
-                    "length": 25
+                    "hash": "686e3bd242b0538d",
+                    "length": 26
                   },
-                  92.2,
+                  91.2,
                   394.2
                 ],
                 "method": "fillText",
@@ -9666,15 +9666,15 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "0.07857142857142918px"
+                "value": "0.11428571428571489px"
               },
               {
                 "args": [
                   {
-                    "hash": "f3866574b9d0d6db",
+                    "hash": "bd23b95aa70a5b96",
                     "length": 29
                   },
-                  64,
+                  63,
                   411
                 ],
                 "method": "fillText",
@@ -9708,10 +9708,10 @@
               {
                 "args": [
                   {
-                    "hash": "d9bfd7dd9f58a711",
-                    "length": 17
+                    "hash": "bb3d034ae99d88c8",
+                    "length": 16
                   },
-                  64,
+                  63,
                   427.8
                 ],
                 "method": "fillText",

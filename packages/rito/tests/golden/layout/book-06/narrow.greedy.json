@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1f35a84456b6c7d7",
+      "detailHash": "ed0615a163365e7b",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -4350,7 +4350,7 @@
     "chapterCount": 36,
     "chapterTextIndexCount": 36,
     "footnoteCount": 0,
-    "fullDetailHash": "e133211aafa2fccd",
+    "fullDetailHash": "560b7ed19308606c",
     "pageCount": 263,
     "totals": {
       "blocks": 4145,
@@ -6628,7 +6628,7 @@
             "height": 228,
             "width": 304,
             "x": 0,
-            "y": 19
+            "y": 0
           },
           "children": [
             {

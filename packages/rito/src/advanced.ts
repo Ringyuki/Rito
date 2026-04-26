@@ -50,6 +50,7 @@ export {
   compareSpecificity,
   type ComputedStyle,
   type CssRule,
+  type CssRuleOrigin,
   FONT_STYLES,
   type FontStyle,
   FONT_WEIGHTS,

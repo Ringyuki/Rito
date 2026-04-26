@@ -28,8 +28,12 @@ export function buildRuleIndex(rules: readonly CssRule[]): RuleIndex {
   const byClass = new Map<string, CssRule[]>();
   const byId = new Map<string, CssRule[]>();
   const universal: CssRule[] = [];
+  const sourceOrder = new Map<CssRule, number>();
+  let order = 0;
 
   for (const rule of rules) {
+    sourceOrder.set(rule, order);
+    order++;
     const keys = extractIndexKeys(rule.selector);
     if (keys.tags.length === 0 && keys.classes.length === 0 && keys.ids.length === 0) {
       universal.push(rule);
@@ -59,9 +63,15 @@ export function buildRuleIndex(rules: readonly CssRule[]): RuleIndex {
       }
 
       for (const r of universal) result.add(r);
-      return Array.from(result);
+      return Array.from(result).sort(
+        (a, b) => getRuleOrder(sourceOrder, a) - getRuleOrder(sourceOrder, b),
+      );
     },
   };
+}
+
+function getRuleOrder(sourceOrder: ReadonlyMap<CssRule, number>, rule: CssRule): number {
+  return sourceOrder.get(rule) ?? Number.MAX_SAFE_INTEGER;
 }
 
 interface IndexKeys {

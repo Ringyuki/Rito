@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseCssDeclarations } from '../../src/style/css/property-parser';
 import { parseDisplay, parseVerticalAlign } from '../../src/style/css/value-parsers';
-import { getTagStyle } from '../../src/style/core/tag-styles';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/core/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
@@ -125,24 +124,6 @@ describe('parseCssDeclarations — display: inline-block', () => {
     expect(parseCssDeclarations('display: inline-block', BASE_FONT_SIZE)).toEqual({
       display: 'inline-block',
     });
-  });
-});
-
-// ── tag-styles for sup/sub ─────────────────────────────────────────
-
-describe('tag-styles — sup and sub', () => {
-  it('applies super vertical-align to <sup>', () => {
-    const style = getTagStyle('sup');
-    expect(style).toBeDefined();
-    expect(style?.verticalAlign).toBe(VERTICAL_ALIGNS.Super);
-    expect(style?.fontSize).toBe(13);
-  });
-
-  it('applies sub vertical-align to <sub>', () => {
-    const style = getTagStyle('sub');
-    expect(style).toBeDefined();
-    expect(style?.verticalAlign).toBe(VERTICAL_ALIGNS.Sub);
-    expect(style?.fontSize).toBe(13);
   });
 });
 

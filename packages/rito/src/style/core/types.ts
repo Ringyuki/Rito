@@ -217,9 +217,14 @@ export interface BorderSide {
   readonly style: 'solid' | 'dotted' | 'dashed' | 'none';
 }
 
+/** CSS cascade origin tracked by the internal style resolver. */
+export type CssRuleOrigin = 'ua' | 'author';
+
 /** A single CSS rule: a selector paired with declarations. */
 export interface CssRule {
   readonly selector: string;
+  /** Cascade origin. Omitted means author for backward-compatible callers. */
+  readonly origin?: CssRuleOrigin;
   /** Pre-parsed declarations (resolved against base font size). */
   readonly declarations: Partial<ComputedStyle>;
   /** Raw CSS declaration string for re-parsing with correct em context. */

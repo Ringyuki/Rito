@@ -15,6 +15,11 @@ describe('matchesSelector', () => {
     expect(matchesSelector(target('div'), 'p')).toBe(false);
   });
 
+  it('matches universal selector', () => {
+    expect(matchesSelector(target('p'), '*')).toBe(true);
+    expect(matchesSelector(target('img'), '*')).toBe(true);
+  });
+
   it('matches class selector', () => {
     expect(matchesSelector(target('p', { className: 'intro' }), '.intro')).toBe(true);
   });

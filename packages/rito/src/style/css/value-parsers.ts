@@ -239,5 +239,5 @@ export function parseBorder(
     }
   }
 
-  return { width, color, style };
+  return { width: style === 'none' ? 0 : width, color, style };
 }

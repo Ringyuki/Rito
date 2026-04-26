@@ -123,6 +123,17 @@ describe('buildRuleIndex', () => {
     expect(candidates).toEqual([starRule]);
   });
 
+  it('preserves original source order across index buckets', () => {
+    const starRule = rule('*');
+    const pRule = rule('p');
+    const classRule = rule('.intro');
+    const index = buildRuleIndex([starRule, pRule, classRule]);
+
+    const candidates = index.getCandidates('p', 'intro', undefined);
+
+    expect(candidates).toEqual([starRule, pRule, classRule]);
+  });
+
   it('works with id compound selector (#main p)', () => {
     const idDescendant = rule('#main p');
     const index = buildRuleIndex([idDescendant]);

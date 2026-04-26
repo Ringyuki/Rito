@@ -22,8 +22,8 @@ function block(tag: string, children: DocumentNode[], attributes?: ElementAttrib
   return { type: NODE_TYPES.Block, tag, children, ...(attributes ? { attributes } : {}) };
 }
 
-function image(src = 'cover.jpg', alt = ''): DocumentNode {
-  return { type: 'image', src, alt };
+function image(src = 'cover.jpg', alt = '', attributes?: ElementAttributes): DocumentNode {
+  return { type: 'image', src, alt, ...(attributes ? { attributes } : {}) };
 }
 
 describe('resolveStyles', () => {
@@ -46,7 +46,7 @@ describe('resolveStyles', () => {
     expect(div?.style).toEqual(DEFAULT_STYLE);
   });
 
-  it('applies tag-based overrides to <strong>', () => {
+  it('applies user-agent defaults to <strong>', () => {
     const result = resolveStyles([block('p', [inline('strong', [text('bold')])])]);
 
     const p = result[0];
@@ -56,7 +56,7 @@ describe('resolveStyles', () => {
     expect(strong?.style.fontFamily).toBe('serif');
   });
 
-  it('applies tag-based overrides to <em>', () => {
+  it('applies user-agent defaults to <em>', () => {
     const result = resolveStyles([block('p', [inline('em', [text('italic')])])]);
 
     const em = result[0]?.children[0];
@@ -294,6 +294,74 @@ describe('resolveStyles', () => {
       expect(result[0]?.style.color).toBe('#000000');
     });
 
+    it('author rules override user-agent defaults regardless of lower specificity', () => {
+      const rules = [
+        {
+          selector: '*',
+          declarations: { fontWeight: 400 },
+          rawDeclarations: 'font-weight: normal',
+        },
+      ];
+
+      const result = resolveStyles([block('h1', [text('Title')])], undefined, rules);
+
+      expect(result[0]?.style.fontWeight).toBe(400);
+      expect(result[0]?.style.fontSize).toBe(32);
+    });
+
+    it('author universal reset clears user-agent heading margins', () => {
+      const rules = [
+        {
+          selector: '*',
+          declarations: { marginTop: 0, marginBottom: 0 },
+          rawDeclarations: 'margin: 0',
+        },
+      ];
+
+      const result = resolveStyles([block('h2', [text('Cover')])], undefined, rules);
+
+      expect(result[0]?.style.marginTop).toBe(0);
+      expect(result[0]?.style.marginBottom).toBe(0);
+      expect(result[0]?.style.fontSize).toBe(24);
+    });
+
+    it('author rules resolve margins after overriding user-agent font-size', () => {
+      const rules = [
+        {
+          selector: 'p',
+          declarations: {},
+          rawDeclarations: 'font-size: 0.9em; margin-top: 1em; margin-bottom: 1em',
+        },
+      ];
+
+      const result = resolveStyles([block('p', [text('Body')])], undefined, rules);
+
+      expect(result[0]?.style.fontSize).toBeCloseTo(14.4);
+      expect(result[0]?.style.marginTop).toBeCloseTo(14.4);
+      expect(result[0]?.style.marginBottom).toBeCloseTo(14.4);
+    });
+
+    it('applies runtime image defaults separately from user-agent CSS', () => {
+      const result = resolveStyles([image()]);
+
+      expect(result[0]?.style.objectFit).toBe('contain');
+      expect(result[0]?.style.boxSizing).toBe('border-box');
+    });
+
+    it('author image rules override runtime image defaults', () => {
+      const rules = [
+        {
+          selector: 'img',
+          declarations: { objectFit: 'cover' as const },
+          rawDeclarations: 'object-fit: cover',
+        },
+      ];
+      const result = resolveStyles([image()], undefined, rules);
+
+      expect(result[0]?.style.objectFit).toBe('cover');
+      expect(result[0]?.style.boxSizing).toBe('border-box');
+    });
+
     it('resolves em margins against element font-size, not base', () => {
       const node: DocumentNode = {
         type: NODE_TYPES.Block,
@@ -374,7 +442,7 @@ describe('resolveStyles', () => {
     });
 
     it('h1 em font-size resolves against parent, not tag default', () => {
-      // h1 tag default: fontSize=32. Parent body: fontSize=16.
+      // h1 UA default: font-size=2em. Parent body: fontSize=16.
       // CSS: h1 { font-size: 1.5em } → should be 1.5 * 16 = 24, NOT 1.5 * 32 = 48
       const rules = [{ selector: 'h1', declarations: {}, rawDeclarations: 'font-size: 1.5em' }];
       const result = resolveStyles([block('h1', [text('Title')])], undefined, rules);
@@ -384,7 +452,7 @@ describe('resolveStyles', () => {
     it('h2 em font-size resolves against parent, not tag default of 24', () => {
       const rules = [{ selector: 'h2', declarations: {}, rawDeclarations: 'font-size: 2em' }];
       const result = resolveStyles([block('h2', [text('Heading')])], undefined, rules);
-      // h2 tag default is 24, but em should use parent (16) → 2 * 16 = 32
+      // h2 UA default is 1.5em, but author em should use parent (16) → 2 * 16 = 32
       expect(result[0]?.style.fontSize).toBeCloseTo(32);
     });
   });

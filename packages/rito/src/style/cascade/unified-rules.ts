@@ -1,4 +1,4 @@
-import type { ComputedStyle, CssRule, Specificity } from '../core/types';
+import type { ComputedStyle, CssRule, CssRuleOrigin, Specificity } from '../core/types';
 import { parseCssDeclarations } from '../css/property-parser';
 import type { Viewport } from '../css/parse-utils';
 import type { RuleIndex } from './rule-index';
@@ -10,10 +10,18 @@ interface MatchedRule {
   readonly rawDeclarations: string;
   readonly declarations: Partial<ComputedStyle>;
   readonly specificity: Specificity;
+  readonly origin: CascadeOrigin;
 }
+
+type CascadeOrigin = CssRuleOrigin | 'inline';
 
 /** Inline style specificity - higher than any selector. */
 const INLINE_SPECIFICITY: Specificity = [Infinity, 0, 0];
+const ORIGIN_RANK: Readonly<Record<CascadeOrigin, number>> = {
+  ua: 0,
+  author: 1,
+  inline: 2,
+};
 
 /**
  * Unified cascade: stylesheet rules + inline style resolved together.
@@ -42,7 +50,7 @@ export function applyUnifiedRules(
     viewport,
   );
   if (matches.length === 0) return style;
-  matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
+  matches.sort(compareMatchedRules);
 
   const resolvedFontSize = resolveFinalFontSize(style.fontSize, matches, parentFontSize, viewport);
   return applyMatchedRules(style, matches, resolvedFontSize, viewport);
@@ -83,6 +91,7 @@ function toMatchedRule(rule: CssRule): MatchedRule {
     rawDeclarations: rule.rawDeclarations,
     declarations: rule.declarations,
     specificity: calculateSpecificity(rule.selector),
+    origin: rule.origin ?? 'author',
   };
 }
 
@@ -95,7 +104,14 @@ function createInlineRule(
     rawDeclarations: inlineCss,
     declarations: parseCssDeclarations(inlineCss, parentFontSize, parentFontSize, viewport),
     specificity: INLINE_SPECIFICITY,
+    origin: 'inline',
   };
+}
+
+function compareMatchedRules(a: MatchedRule, b: MatchedRule): number {
+  const originDiff = ORIGIN_RANK[a.origin] - ORIGIN_RANK[b.origin];
+  if (originDiff !== 0) return originDiff;
+  return compareSpecificity(a.specificity, b.specificity);
 }
 
 function resolveFinalFontSize(

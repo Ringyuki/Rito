@@ -8,7 +8,15 @@ describe('parseCssRules', () => {
     const rules = parseCssRules('p { color: red; }', BASE);
     expect(rules).toHaveLength(1);
     expect(rules[0]?.selector).toBe('p');
+    expect(rules[0]?.origin).toBe('author');
     expect(rules[0]?.declarations).toEqual({ color: 'red' });
+  });
+
+  it('accepts an explicit cascade origin', () => {
+    const rules = parseCssRules('p { color: red; }', BASE, { origin: 'ua' });
+
+    expect(rules).toHaveLength(1);
+    expect(rules[0]?.origin).toBe('ua');
   });
 
   it('parses multiple rules', () => {

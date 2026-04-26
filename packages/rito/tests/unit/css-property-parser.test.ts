@@ -505,6 +505,23 @@ describe('parseCssDeclarations', () => {
     });
   });
 
+  describe('border', () => {
+    it('parses border none as zero used width', () => {
+      const result = parseCssDeclarations('border: none', BASE_FONT_SIZE);
+
+      expect(result.borderTop).toEqual({ width: 0, color: '#000000', style: 'none' });
+      expect(result.borderRight).toEqual({ width: 0, color: '#000000', style: 'none' });
+      expect(result.borderBottom).toEqual({ width: 0, color: '#000000', style: 'none' });
+      expect(result.borderLeft).toEqual({ width: 0, color: '#000000', style: 'none' });
+    });
+
+    it('parses side border none as zero used width regardless of token order', () => {
+      const result = parseCssDeclarations('border-left: #4682b4 none 6px', BASE_FONT_SIZE);
+
+      expect(result.borderLeft).toEqual({ width: 0, color: '#4682b4', style: 'none' });
+    });
+  });
+
   describe('border-radius', () => {
     it('parses border-radius in px', () => {
       const result = parseCssDeclarations('border-radius: 8px', BASE_FONT_SIZE);
