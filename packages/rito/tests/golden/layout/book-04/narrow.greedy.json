@@ -409,7 +409,7 @@
         "ruby": 0,
         "textRuns": 10
       },
-      "detailHash": "7b7a9e237ec83752",
+      "detailHash": "84daa505c7beb530",
       "firstText": "【作者】",
       "index": 4,
       "lastText": "法。"
@@ -454,7 +454,7 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "2793cf26f2924532",
+      "detailHash": "a0d2500080b45ded",
       "firstText": "「",
       "index": 7,
       "lastText": "半个朋友。"
@@ -469,7 +469,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "ec2289afc3be6025",
+      "detailHash": "275bdc5134d5d14d",
       "firstText": "「……所以，请问我",
       "index": 8,
       "lastText": "气第一。"
@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 3
       },
-      "detailHash": "5beebded9f318b9b",
+      "detailHash": "a51d913f19606404",
       "firstText": "「喂——？」",
       "index": 9,
       "lastText": "随后风声立即转弱，直到消失为止。"
@@ -499,7 +499,7 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "5a29e4a85e688035",
+      "detailHash": "0ce03b5047f0fc64",
       "firstText": "「",
       "index": 10,
       "lastText": "吗？」"
@@ -4815,7 +4815,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "39206f9e2c89521c",
+    "fullDetailHash": "e43d55c3f15c1a36",
     "pageCount": 298,
     "totals": {
       "blocks": 4207,
@@ -8567,7 +8567,7 @@
                 {
                   "bounds": {
                     "height": 18.72,
-                    "width": 304,
+                    "width": 216,
                     "x": 0,
                     "y": 2.16
                   },
@@ -8581,8 +8581,7 @@
                       "sizePx": 14.4,
                       "style": "normal",
                       "weight": 400
-                    },
-                    "letterSpacingPx": 3.667
+                    }
                   },
                   "text": "莉与救世主!?》、《晓之护卫》和《レミニセンス》。",
                   "type": "text-run"
@@ -8805,7 +8804,7 @@
                 {
                   "bounds": {
                     "height": 18.72,
-                    "width": 304,
+                    "width": 164.16,
                     "x": 0,
                     "y": 2.16
                   },
@@ -8819,8 +8818,7 @@
                       "sizePx": 14.4,
                       "style": "normal",
                       "weight": 400
-                    },
-                    "letterSpacingPx": 7.769
+                    }
                   },
                   "text": "九月出生，射手座。游戏原画师兼插画家。",
                   "type": "text-run"
@@ -9136,8 +9134,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 52.086,
-                    "x": 21.243,
+                    "width": 28.8,
+                    "x": 9.6,
                     "y": 0
                   },
                   "href": null,
@@ -9151,7 +9149,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 11.643,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9167,8 +9164,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 73.329,
-                    "x": 84.972,
+                    "width": 38.4,
+                    "x": 38.4,
                     "y": 0
                   },
                   "href": null,
@@ -9182,7 +9179,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 11.643,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9198,8 +9194,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 30.843,
-                    "x": 169.945,
+                    "width": 19.2,
+                    "x": 76.8,
                     "y": 0
                   },
                   "href": null,
@@ -9213,7 +9209,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 11.643,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9230,7 +9225,7 @@
                   "bounds": {
                     "height": 16,
                     "width": 9.6,
-                    "x": 212.431,
+                    "x": 96,
                     "y": 0
                   },
                   "href": null,
@@ -9259,8 +9254,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 30.843,
-                    "x": 233.674,
+                    "width": 19.2,
+                    "x": 105.6,
                     "y": 0
                   },
                   "href": null,
@@ -9274,7 +9269,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 11.643,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9291,7 +9285,7 @@
                   "bounds": {
                     "height": 16,
                     "width": 9.6,
-                    "x": 276.16,
+                    "x": 124.8,
                     "y": 0
                   },
                   "href": null,
@@ -9649,7 +9643,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 47.04,
                     "x": 0,
                     "y": 0
                   },
@@ -9664,7 +9658,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 37.28,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9691,7 +9684,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 47.04,
                     "x": 0,
                     "y": 0
                   },
@@ -9706,7 +9699,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 37.28,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9733,7 +9725,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 47.04,
                     "x": 0,
                     "y": 0
                   },
@@ -9748,7 +9740,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 37.28,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9775,7 +9766,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 47.04,
                     "x": 0,
                     "y": 0
                   },
@@ -9790,7 +9781,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 37.28,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9925,7 +9915,7 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 147.68,
+                    "width": 86.4,
                     "x": 0,
                     "y": 0
                   },
@@ -9940,7 +9930,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 7.66,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9956,8 +9945,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 26.86,
-                    "x": 155.34,
+                    "width": 19.2,
+                    "x": 86.4,
                     "y": 0
                   },
                   "href": null,
@@ -9971,7 +9960,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 7.66,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -9987,8 +9975,8 @@
                 {
                   "bounds": {
                     "height": 16,
-                    "width": 95.9,
-                    "x": 189.86,
+                    "width": 57.6,
+                    "x": 105.6,
                     "y": 0
                   },
                   "href": null,
@@ -10002,7 +9990,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 7.66,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10167,7 +10154,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 265.12,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10182,7 +10169,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 21.991,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10209,7 +10195,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 265.12,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10224,7 +10210,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 21.991,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10251,7 +10236,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 265.12,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10266,7 +10251,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 21.991,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10293,7 +10277,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 265.12,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10308,7 +10292,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 21.991,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10765,7 +10748,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10780,7 +10763,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 22.613,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10807,7 +10789,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10822,7 +10804,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 22.613,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -10849,7 +10830,7 @@
                 {
                   "bounds": {
                     "height": 11.2,
-                    "width": 270.72,
+                    "width": 67.2,
                     "x": 0,
                     "y": 0
                   },
@@ -10864,7 +10845,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 22.613,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -11086,7 +11066,7 @@
                 {
                   "bounds": {
                     "height": 12.8,
-                    "width": 285.76,
+                    "width": 153.6,
                     "x": 0,
                     "y": 0
                   },
@@ -11101,7 +11081,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 6.956,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -11497,7 +11476,7 @@
                 {
                   "bounds": {
                     "height": 14.4,
-                    "width": 33.833,
+                    "width": 17.28,
                     "x": 0,
                     "y": 0
                   },
@@ -11512,7 +11491,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 16.553,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -11528,8 +11506,8 @@
                 {
                   "bounds": {
                     "height": 14.4,
-                    "width": 33.833,
-                    "x": 50.385,
+                    "width": 17.28,
+                    "x": 17.28,
                     "y": 0
                   },
                   "href": null,
@@ -11543,7 +11521,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 16.553,
                     "textShadow": [
                       {
                         "blur": 3,
@@ -11559,8 +11536,8 @@
                 {
                   "bounds": {
                     "height": 14.4,
-                    "width": 184.989,
-                    "x": 100.771,
+                    "width": 69.12,
+                    "x": 34.56,
                     "y": 0
                   },
                   "href": null,
@@ -11574,7 +11551,6 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 16.553,
                     "textShadow": [
                       {
                         "blur": 3,

@@ -153,6 +153,22 @@ describe('GreedyParagraphLayouter', () => {
       expect(lines).toHaveLength(1);
       expect(lines[0]?.runs[0]?.bounds.x).toBeCloseTo(0);
     });
+
+    it('does not justify a line ending in a forced newline', () => {
+      const lines = layouter.layoutParagraph(
+        [seg('甲乙丙\n丁戊己', { textAlign: 'justify' })],
+        200,
+        0,
+      );
+      const firstRun = lines[0]?.runs[0];
+
+      expect(lines).toHaveLength(2);
+      expect(textOf(firstRun)).toBe('甲乙丙');
+      expect(firstRun?.type === 'text-run' ? firstRun.paint.letterSpacingPx : undefined).toBe(
+        undefined,
+      );
+      expect(firstRun?.bounds.width).toBeCloseTo(28.8);
+    });
   });
 
   describe('CJK text', () => {

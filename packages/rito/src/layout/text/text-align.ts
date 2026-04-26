@@ -83,7 +83,7 @@ export function applyAlign(
   maxWidth: number,
   textAlign: TextAlignment,
   textJustify: TextJustify,
-  isLastLine: boolean,
+  isLastLineForTextAlign: boolean,
 ): LineBox {
   if (textAlign === 'center' && runs.length > 0) {
     const offset = (maxWidth - lineWidth) / 2;
@@ -91,7 +91,8 @@ export function applyAlign(
   } else if (textAlign === 'right' && runs.length > 0) {
     const offset = maxWidth - lineWidth;
     runs = runs.map((r) => ({ ...r, bounds: { ...r.bounds, x: r.bounds.x + offset } }));
-  } else if (textAlign === 'justify' && !isLastLine && runs.length > 0) {
+  } else if (textAlign === 'justify' && !isLastLineForTextAlign && runs.length > 0) {
+    // CSS treats paragraph-final lines and lines before forced breaks as non-justified by default.
     runs = justifyRuns(runs, lineWidth, maxWidth, textJustify);
   }
 

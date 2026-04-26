@@ -273,6 +273,14 @@ describe('KnuthPlassLayouter', () => {
       expect(textOf(lines[0]?.runs[0])).toBe('line1');
       expect(textOf(lines[1]?.runs[0])).toBe('line2');
     });
+
+    it('preserves empty lines produced by forced newlines', () => {
+      const lines = layouter.layoutParagraph([seg('\nline')], 400, 0);
+      expect(lines).toHaveLength(2);
+      expect(lines[0]?.runs).toHaveLength(0);
+      expect(textOf(lines[1]?.runs[0])).toBe('line');
+      expect(lines[1]?.bounds.y).toBe(19.2);
+    });
   });
 
   describe('CJK text', () => {
@@ -325,6 +333,34 @@ describe('KnuthPlassLayouter', () => {
       const lines = layouter.layoutParagraph(segments, 200, 0);
       expect(lines).toHaveLength(1);
       expect(lines[0]?.runs[0]?.bounds.x).toBeGreaterThan(170);
+    });
+
+    it('does not justify the final content line when KP breaks before the terminal penalty', () => {
+      const lines = layouter.layoutParagraph([seg('甲乙丙', { textAlign: 'justify' })], 200, 0);
+      const firstRun = lines[0]?.runs[0];
+
+      expect(lines).toHaveLength(1);
+      expect(textOf(firstRun)).toBe('甲乙丙');
+      expect(firstRun?.type === 'text-run' ? firstRun.paint.letterSpacingPx : undefined).toBe(
+        undefined,
+      );
+      expect(firstRun?.bounds.width).toBeCloseTo(28.8);
+    });
+
+    it('does not justify a line ending in a forced newline', () => {
+      const lines = layouter.layoutParagraph(
+        [seg('甲乙丙\n丁戊己', { textAlign: 'justify' })],
+        200,
+        0,
+      );
+      const firstRun = lines[0]?.runs[0];
+
+      expect(lines).toHaveLength(2);
+      expect(textOf(firstRun)).toBe('甲乙丙');
+      expect(firstRun?.type === 'text-run' ? firstRun.paint.letterSpacingPx : undefined).toBe(
+        undefined,
+      );
+      expect(firstRun?.bounds.width).toBeCloseTo(28.8);
     });
   });
 
@@ -414,6 +450,31 @@ describe('KnuthPlassLayouter', () => {
         (second.paint.border?.start?.widthPx ?? 0);
 
       expect(secondBorderLeft - firstBorderRight).toBeGreaterThan(0);
+    });
+
+    it('keeps KP-split CJK boxes merged inside one bordered inline segment', () => {
+      const bordered: ComputedStyle = {
+        ...DEFAULT_STYLE,
+        paddingLeft: 5,
+        paddingRight: 48,
+        borderRight: { width: 3, color: '#f80', style: 'solid' },
+        borderBottom: { width: 3, color: '#f80', style: 'solid' },
+        borderLeft: { width: 3, color: '#f80', style: 'solid' },
+      };
+      const lines = layouter.layoutParagraph(
+        [{ text: '栉田桔梗', style: bordered, borderStart: true, borderEnd: true }],
+        500,
+        0,
+      );
+      const textRuns = (lines[0]?.runs ?? []).filter(
+        (run): run is TextRun => run.type === 'text-run',
+      );
+
+      expect(textRuns).toHaveLength(1);
+      expect(textRuns[0]?.text).toBe('栉田桔梗');
+      expect(textRuns[0]?.bounds.x).toBe(8);
+      expect(textRuns[0]?.paint.border?.start?.widthPx).toBe(3);
+      expect(textRuns[0]?.paint.border?.end?.widthPx).toBe(3);
     });
   });
 

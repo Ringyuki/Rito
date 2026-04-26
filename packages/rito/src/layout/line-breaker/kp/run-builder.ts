@@ -102,7 +102,7 @@ function appendBox(
   lineHeight: number,
   measurer: TextMeasurer,
 ): void {
-  if (canMergeBox(ctx.currentSegment, segment)) {
+  if (text.length > 0 && canMergeBox(ctx.currentSegment, segment)) {
     ctx.currentText += text;
     return;
   }
@@ -113,6 +113,7 @@ function appendBox(
 }
 
 function canMergeBox(current: StyledSegment | undefined, next: StyledSegment): boolean {
+  if (current === next) return true;
   return (
     current?.style === next.style &&
     current.href === next.href &&

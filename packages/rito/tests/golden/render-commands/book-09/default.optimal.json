@@ -351,7 +351,7 @@
           "inlineAtoms": 0,
           "lines": 5,
           "ruby": 0,
-          "textRuns": 16
+          "textRuns": 15
         },
         "index": 1,
         "selectedFeatureCounts": {
@@ -363,10 +363,10 @@
           "horizontalRule": 1,
           "image": 0,
           "inlineAtom": 0,
-          "inlineBackground": 13,
-          "inlineBorder": 13,
+          "inlineBackground": 12,
+          "inlineBorder": 12,
           "ruby": 0,
-          "text": 16,
+          "text": 15,
           "textDecoration": 0,
           "textShadow": 2
         },
@@ -384,33 +384,33 @@
           },
           "pixelRatio": 1,
           "records": {
-            "count": 570,
-            "hash": "a5abbefbfbeab8e0",
+            "count": 542,
+            "hash": "bf2101280fd5d261",
             "methods": {
-              "beginPath": 48,
+              "beginPath": 46,
               "clip": 1,
-              "fillRect": 15,
-              "fillText": 16,
+              "fillRect": 14,
+              "fillText": 15,
               "getTransform": 2,
-              "lineTo": 47,
-              "moveTo": 47,
+              "lineTo": 45,
+              "moveTo": 45,
               "rect": 1,
-              "restore": 30,
-              "save": 30,
+              "restore": 28,
+              "save": 28,
               "scale": 2,
-              "setLineDash": 47,
-              "stroke": 47,
+              "setLineDash": 45,
+              "stroke": 45,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 31,
-              "font": 16,
-              "letterSpacing": 16,
-              "lineCap": 47,
-              "lineWidth": 47,
-              "strokeStyle": 47,
-              "textBaseline": 16,
-              "wordSpacing": 16
+              "fillStyle": 29,
+              "font": 15,
+              "letterSpacing": 15,
+              "lineCap": 45,
+              "lineWidth": 45,
+              "strokeStyle": 45,
+              "textBaseline": 15,
+              "wordSpacing": 15
             },
             "sequence": [
               {
@@ -1913,9 +1913,9 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   178.54,
-                  7.72,
+                  15.44,
                   13.2
                 ],
                 "method": "fillRect",
@@ -1960,7 +1960,7 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   179.04
                 ],
                 "method": "moveTo",
@@ -1968,7 +1968,7 @@
               },
               {
                 "args": [
-                  472.28,
+                  484,
                   179.04
                 ],
                 "method": "lineTo",
@@ -2008,7 +2008,7 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   191.24
                 ],
                 "method": "moveTo",
@@ -2016,7 +2016,7 @@
               },
               {
                 "args": [
-                  472.28,
+                  484,
                   191.24
                 ],
                 "method": "lineTo",
@@ -2056,7 +2056,7 @@
               },
               {
                 "args": [
-                  465.06,
+                  469.06,
                   178.54
                 ],
                 "method": "moveTo",
@@ -2064,176 +2064,8 @@
               },
               {
                 "args": [
-                  465.06,
+                  469.06,
                   191.74
-                ],
-                "method": "lineTo",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "stroke",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "hash": "f81f7539e7750289",
-                    "length": 1
-                  },
-                  465.56,
-                  179.54
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 11.2px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "args": [
-                  476.28,
-                  178.54,
-                  7.72,
-                  13.2
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "property": "strokeStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "lineWidth",
-                "type": "set",
-                "value": 1
-              },
-              {
-                "args": [
-                  []
-                ],
-                "method": "setLineDash",
-                "type": "call"
-              },
-              {
-                "property": "lineCap",
-                "type": "set",
-                "value": "butt"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  476.28,
-                  179.04
-                ],
-                "method": "moveTo",
-                "type": "call"
-              },
-              {
-                "args": [
-                  484,
-                  179.04
-                ],
-                "method": "lineTo",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "stroke",
-                "type": "call"
-              },
-              {
-                "property": "strokeStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "lineWidth",
-                "type": "set",
-                "value": 1
-              },
-              {
-                "args": [
-                  []
-                ],
-                "method": "setLineDash",
-                "type": "call"
-              },
-              {
-                "property": "lineCap",
-                "type": "set",
-                "value": "butt"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  476.28,
-                  191.24
-                ],
-                "method": "moveTo",
-                "type": "call"
-              },
-              {
-                "args": [
-                  484,
-                  191.24
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -2299,10 +2131,10 @@
               {
                 "args": [
                   {
-                    "hash": "f2987f641687f81a",
-                    "length": 1
+                    "hash": "f004e3147800c037",
+                    "length": 2
                   },
-                  476.28,
+                  469.56,
                   179.54
                 ],
                 "method": "fillText",
@@ -3853,33 +3685,33 @@
           },
           "pixelRatio": 2,
           "records": {
-            "count": 570,
-            "hash": "83bf33795f940a20",
+            "count": 542,
+            "hash": "c5401f4431fea877",
             "methods": {
-              "beginPath": 48,
+              "beginPath": 46,
               "clip": 1,
-              "fillRect": 15,
-              "fillText": 16,
+              "fillRect": 14,
+              "fillText": 15,
               "getTransform": 2,
-              "lineTo": 47,
-              "moveTo": 47,
+              "lineTo": 45,
+              "moveTo": 45,
               "rect": 1,
-              "restore": 30,
-              "save": 30,
+              "restore": 28,
+              "save": 28,
               "scale": 2,
-              "setLineDash": 47,
-              "stroke": 47,
+              "setLineDash": 45,
+              "stroke": 45,
               "translate": 1
             },
             "properties": {
-              "fillStyle": 31,
-              "font": 16,
-              "letterSpacing": 16,
-              "lineCap": 47,
-              "lineWidth": 47,
-              "strokeStyle": 47,
-              "textBaseline": 16,
-              "wordSpacing": 16
+              "fillStyle": 29,
+              "font": 15,
+              "letterSpacing": 15,
+              "lineCap": 45,
+              "lineWidth": 45,
+              "strokeStyle": 45,
+              "textBaseline": 15,
+              "wordSpacing": 15
             },
             "sequence": [
               {
@@ -5382,9 +5214,9 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   178.54,
-                  7.72,
+                  15.44,
                   13.2
                 ],
                 "method": "fillRect",
@@ -5429,7 +5261,7 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   179.04
                 ],
                 "method": "moveTo",
@@ -5437,7 +5269,7 @@
               },
               {
                 "args": [
-                  472.28,
+                  484,
                   179.04
                 ],
                 "method": "lineTo",
@@ -5477,7 +5309,7 @@
               },
               {
                 "args": [
-                  464.56,
+                  468.56,
                   191.24
                 ],
                 "method": "moveTo",
@@ -5485,7 +5317,7 @@
               },
               {
                 "args": [
-                  472.28,
+                  484,
                   191.24
                 ],
                 "method": "lineTo",
@@ -5525,7 +5357,7 @@
               },
               {
                 "args": [
-                  465.06,
+                  469.06,
                   178.54
                 ],
                 "method": "moveTo",
@@ -5533,176 +5365,8 @@
               },
               {
                 "args": [
-                  465.06,
+                  469.06,
                   191.74
-                ],
-                "method": "lineTo",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "stroke",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "hash": "f81f7539e7750289",
-                    "length": 1
-                  },
-                  465.56,
-                  179.54
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "700 11.2px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000"
-              },
-              {
-                "args": [
-                  476.28,
-                  178.54,
-                  7.72,
-                  13.2
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "property": "strokeStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "lineWidth",
-                "type": "set",
-                "value": 1
-              },
-              {
-                "args": [
-                  []
-                ],
-                "method": "setLineDash",
-                "type": "call"
-              },
-              {
-                "property": "lineCap",
-                "type": "set",
-                "value": "butt"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  476.28,
-                  179.04
-                ],
-                "method": "moveTo",
-                "type": "call"
-              },
-              {
-                "args": [
-                  484,
-                  179.04
-                ],
-                "method": "lineTo",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "stroke",
-                "type": "call"
-              },
-              {
-                "property": "strokeStyle",
-                "type": "set",
-                "value": "#fff"
-              },
-              {
-                "property": "lineWidth",
-                "type": "set",
-                "value": 1
-              },
-              {
-                "args": [
-                  []
-                ],
-                "method": "setLineDash",
-                "type": "call"
-              },
-              {
-                "property": "lineCap",
-                "type": "set",
-                "value": "butt"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  476.28,
-                  191.24
-                ],
-                "method": "moveTo",
-                "type": "call"
-              },
-              {
-                "args": [
-                  484,
-                  191.24
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -5768,10 +5432,10 @@
               {
                 "args": [
                   {
-                    "hash": "f2987f641687f81a",
-                    "length": 1
+                    "hash": "f004e3147800c037",
+                    "length": 2
                   },
-                  476.28,
+                  469.56,
                   179.54
                 ],
                 "method": "fillText",
@@ -24338,7 +24002,7 @@
       ]
     },
     {
-      "id": "book-09-default.optimal-page-0150",
+      "id": "book-09-default.optimal-page-0151",
       "page": {
         "bounds": {
           "height": 800,
@@ -24355,7 +24019,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 150,
+        "index": 151,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -24688,7 +24352,7 @@
   },
   "schemaVersion": 1,
   "selection": {
-    "pageCount": 151,
+    "pageCount": 152,
     "pixelRatios": [
       1,
       2
@@ -24729,10 +24393,10 @@
           "horizontalRule": 1,
           "image": 0,
           "inlineAtom": 0,
-          "inlineBackground": 13,
-          "inlineBorder": 13,
+          "inlineBackground": 12,
+          "inlineBorder": 12,
           "ruby": 0,
-          "text": 16,
+          "text": 15,
           "textDecoration": 0,
           "textShadow": 2
         },
@@ -24833,8 +24497,8 @@
         "features": [
           "last"
         ],
-        "id": "book-09-default.optimal-page-0150",
-        "pageIndex": 150
+        "id": "book-09-default.optimal-page-0151",
+        "pageIndex": 151
       }
     ]
   }

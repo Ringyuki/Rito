@@ -424,7 +424,7 @@
         "ruby": 0,
         "textRuns": 14
       },
-      "detailHash": "6e9d4c01d3d8240c",
+      "detailHash": "ffa16c82de6102ef",
       "firstText": "羊太郎",
       "index": 1,
       "lastText": "禁忌教典"
@@ -514,7 +514,7 @@
         "ruby": 0,
         "textRuns": 5
       },
-      "detailHash": "3d84ef792560985f",
+      "detailHash": "fdb7903b020089c3",
       "firstText": "这就是我们名副其实的最后一战了！",
       "index": 7,
       "lastText": "菲贝尔"
@@ -544,7 +544,7 @@
         "ruby": 0,
         "textRuns": 5
       },
-      "detailHash": "81490588329cb7cb",
+      "detailHash": "4b96ea7916437a35",
       "firstText": "……我说，大哥哥，你是从哪来的？",
       "index": 9,
       "lastText": "我从……很远很远的地方来"
@@ -4350,7 +4350,7 @@
     "chapterCount": 36,
     "chapterTextIndexCount": 36,
     "footnoteCount": 0,
-    "fullDetailHash": "560b7ed19308606c",
+    "fullDetailHash": "169b6d33b3e90213",
     "pageCount": 263,
     "totals": {
       "blocks": 4145,
@@ -4839,7 +4839,7 @@
                     {
                       "bounds": {
                         "height": 9.6,
-                        "width": 120,
+                        "width": 72,
                         "x": 0,
                         "y": 0.8
                       },
@@ -4861,8 +4861,7 @@
                             "offsetX": 0,
                             "offsetY": 0
                           }
-                        ],
-                        "wordSpacingPx": 48
+                        ]
                       },
                       "text": "Akashic records",
                       "type": "text-run"
@@ -7140,8 +7139,8 @@
           "borderBox": null,
           "bounds": {
             "height": 49.92,
-            "width": 265.6,
-            "x": 0,
+            "width": 57.6,
+            "x": 208,
             "y": 385.28
           },
           "children": [
@@ -7156,7 +7155,7 @@
                 {
                   "bounds": {
                     "height": 24.96,
-                    "width": 265.6,
+                    "width": 57.6,
                     "x": 0,
                     "y": 2.88
                   },
@@ -7171,8 +7170,7 @@
                       "sizePx": 19.2,
                       "style": "normal",
                       "weight": 700
-                    },
-                    "letterSpacingPx": 52
+                    }
                   },
                   "text": "希丝缇娜·",
                   "type": "text-run"
@@ -7680,8 +7678,8 @@
           "borderBox": null,
           "bounds": {
             "height": 49.92,
-            "width": 275.2,
-            "x": 0,
+            "width": 34.56,
+            "x": 240.64,
             "y": 301.76
           },
           "children": [
@@ -7696,7 +7694,7 @@
                 {
                   "bounds": {
                     "height": 24.96,
-                    "width": 275.2,
+                    "width": 34.56,
                     "x": 0,
                     "y": 2.88
                   },
@@ -7711,8 +7709,7 @@
                       "sizePx": 19.2,
                       "style": "normal",
                       "weight": 700
-                    },
-                    "letterSpacingPx": 120.32
+                    }
                   },
                   "text": "格伦·",
                   "type": "text-run"
@@ -7766,7 +7763,7 @@
           "borderBox": null,
           "bounds": {
             "height": 20.8,
-            "width": 1,
+            "width": 240.64,
             "x": 0,
             "y": 320.96
           },
@@ -7774,7 +7771,7 @@
             {
               "bounds": {
                 "height": 20.8,
-                "width": 1,
+                "width": 240.64,
                 "x": 0,
                 "y": 0
               },
@@ -7793,7 +7790,7 @@
           "borderBox": null,
           "bounds": {
             "height": 20.8,
-            "width": 1,
+            "width": 240.64,
             "x": 0,
             "y": 348.16
           },
@@ -7801,7 +7798,7 @@
             {
               "bounds": {
                 "height": 20.8,
-                "width": 1,
+                "width": 240.64,
                 "x": 0,
                 "y": 0
               },

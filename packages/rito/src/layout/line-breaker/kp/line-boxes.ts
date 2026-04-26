@@ -78,7 +78,13 @@ function appendLineBox(
     state.trailingEdgeTracker,
     state.lines.length,
   );
-  appendRunsAsLine(state, runs, options, lineIndex === lineCount - 1);
+  appendRunsAsLine(
+    state,
+    runs,
+    options,
+    isLastLineForTextAlign(items, breakPos, lineIndex, lineCount),
+    shouldKeepEmptyLine(items, breakPos, lineIndex, lineCount),
+  );
   state.lineStart = breakPos + 1;
 }
 
@@ -90,9 +96,13 @@ function appendRunsAsLine(
     readonly lineHeight: number;
     readonly baseStyle: ComputedStyle;
   },
-  isLastLine: boolean,
+  isLastLineForTextAlign: boolean,
+  keepEmptyLine: boolean,
 ): void {
-  if (runs.length === 0) return;
+  if (runs.length === 0) {
+    appendEmptyLineIfNeeded(state, options, keepEmptyLine);
+    return;
+  }
   const lineWidth = runs.reduce(
     (currentMax, run) => Math.max(currentMax, run.bounds.x + run.bounds.width),
     0,
@@ -108,10 +118,64 @@ function appendRunsAsLine(
       options.maxWidth,
       options.baseStyle.textAlign,
       options.baseStyle.textJustify,
-      isLastLine,
+      isLastLineForTextAlign,
     ),
   );
   state.y += effectiveLH;
+}
+
+function appendEmptyLineIfNeeded(
+  state: LineBuildState,
+  options: {
+    readonly maxWidth: number;
+    readonly lineHeight: number;
+  },
+  keepEmptyLine: boolean,
+): void {
+  if (!keepEmptyLine) return;
+  state.lines.push({
+    type: 'line-box',
+    bounds: { x: 0, y: state.y, width: options.maxWidth, height: options.lineHeight },
+    runs: [],
+  });
+  state.y += options.lineHeight;
+}
+
+function isForcedBreak(items: readonly KPItem[], breakPos: number): boolean {
+  const item = items[breakPos];
+  return item?.type === 'penalty' && item.penalty === -Infinity;
+}
+
+function isLastLineForTextAlign(
+  items: readonly KPItem[],
+  breakPos: number,
+  lineIndex: number,
+  lineCount: number,
+): boolean {
+  return (
+    lineIndex === lineCount - 1 ||
+    isForcedBreak(items, breakPos) ||
+    hasOnlyBreakMarkersBeforeForcedBreak(items, breakPos)
+  );
+}
+
+function hasOnlyBreakMarkersBeforeForcedBreak(items: readonly KPItem[], breakPos: number): boolean {
+  for (let index = breakPos + 1; index < items.length; index++) {
+    const item = items[index];
+    if (!item) continue;
+    if (item.type === 'penalty' && item.penalty === -Infinity) return true;
+    if (item.type === 'box') return false;
+  }
+  return false;
+}
+
+function shouldKeepEmptyLine(
+  items: readonly KPItem[],
+  breakPos: number,
+  lineIndex: number,
+  lineCount: number,
+): boolean {
+  return lineIndex < lineCount - 1 && isForcedBreak(items, breakPos);
 }
 
 function applyTrailingEdges(

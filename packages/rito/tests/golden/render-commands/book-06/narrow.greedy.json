@@ -382,7 +382,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 114,
-            "hash": "0b8317cb2d6be10b",
+            "hash": "a49a584a9073eaf1",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -767,7 +767,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": "48px"
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -1106,7 +1106,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 114,
-            "hash": "6739e4d8c566dca9",
+            "hash": "29c19a1523242cef",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1491,7 +1491,7 @@
               {
                 "property": "wordSpacing",
                 "type": "set",
-                "value": "48px"
+                "value": "0px"
               },
               {
                 "property": "letterSpacing",
@@ -1872,7 +1872,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 60,
-            "hash": "afc9104409268f19",
+            "hash": "f255be37910d37ef",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -2114,7 +2114,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "120.32px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -2128,9 +2128,9 @@
               },
               {
                 "args": [
-                  28,
+                  268.64,
                   332.64,
-                  275.2,
+                  34.56,
                   19.2
                 ],
                 "method": "fillRect",
@@ -2147,7 +2147,7 @@
                     "hash": "0330bc9dedd24cdb",
                     "length": 3
                   },
-                  28,
+                  268.64,
                   332.64
                 ],
                 "method": "fillText",
@@ -2190,7 +2190,7 @@
               },
               {
                 "args": [
-                  28,
+                  268.64,
                   357.6,
                   34.56,
                   19.2
@@ -2209,7 +2209,7 @@
                     "hash": "196942b5c9aae556",
                     "length": 3
                   },
-                  28,
+                  268.64,
                   357.6
                 ],
                 "method": "fillText",
@@ -2278,7 +2278,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 60,
-            "hash": "210fde9ae051db6d",
+            "hash": "6aa5ee3ec9f25f14",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -2520,7 +2520,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "120.32px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -2534,9 +2534,9 @@
               },
               {
                 "args": [
-                  28,
+                  268.64,
                   332.64,
-                  275.2,
+                  34.56,
                   19.2
                 ],
                 "method": "fillRect",
@@ -2553,7 +2553,7 @@
                     "hash": "0330bc9dedd24cdb",
                     "length": 3
                   },
-                  28,
+                  268.64,
                   332.64
                 ],
                 "method": "fillText",
@@ -2596,7 +2596,7 @@
               },
               {
                 "args": [
-                  28,
+                  268.64,
                   357.6,
                   34.56,
                   19.2
@@ -2615,7 +2615,7 @@
                     "hash": "196942b5c9aae556",
                     "length": 3
                   },
-                  28,
+                  268.64,
                   357.6
                 ],
                 "method": "fillText",

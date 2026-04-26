@@ -106,132 +106,132 @@
       "textLength": 1239
     },
     {
-      "endPage": 39,
+      "endPage": 41,
       "href": "Text/Section001.xhtml",
       "idref": "Section001.xhtml",
       "linear": true,
-      "pageCount": 30,
+      "pageCount": 32,
       "startPage": 10,
       "textHash": "2427f38081ea5519",
       "textLength": 29724
     },
     {
-      "endPage": 41,
+      "endPage": 43,
       "href": "Text/Section001-1.xhtml",
       "idref": "Section001-1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 40,
+      "startPage": 42,
       "textHash": "6512b02011f01e98",
       "textLength": 1396
     },
     {
-      "endPage": 57,
+      "endPage": 59,
       "href": "Text/Section002.xhtml",
       "idref": "Section002.xhtml",
       "linear": true,
       "pageCount": 16,
-      "startPage": 42,
+      "startPage": 44,
       "textHash": "2c5643cc7a6dc791",
       "textLength": 14734
     },
     {
-      "endPage": 59,
+      "endPage": 61,
       "href": "Text/Section002-1.xhtml",
       "idref": "Section002-1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 58,
+      "startPage": 60,
       "textHash": "73efeca7453571fa",
       "textLength": 1823
     },
     {
-      "endPage": 87,
+      "endPage": 91,
       "href": "Text/Section003.xhtml",
       "idref": "Section003.xhtml",
       "linear": true,
-      "pageCount": 28,
-      "startPage": 60,
+      "pageCount": 30,
+      "startPage": 62,
       "textHash": "9d9341996955cef1",
       "textLength": 27053
     },
     {
-      "endPage": 88,
+      "endPage": 92,
       "href": "Text/Section003-1.xhtml",
       "idref": "Section003-1.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 88,
+      "startPage": 92,
       "textHash": "6e593554cf45fc72",
       "textLength": 1127
     },
     {
-      "endPage": 113,
+      "endPage": 118,
       "href": "Text/Section004.xhtml",
       "idref": "Section004.xhtml",
       "linear": true,
-      "pageCount": 25,
-      "startPage": 89,
+      "pageCount": 26,
+      "startPage": 93,
       "textHash": "be3c5fb9f81ac2bf",
       "textLength": 22507
     },
     {
-      "endPage": 115,
+      "endPage": 120,
       "href": "Text/Section004-1.xhtml",
       "idref": "Section004-1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 114,
+      "startPage": 119,
       "textHash": "a2ff09658dc510f4",
       "textLength": 2262
     },
     {
-      "endPage": 151,
+      "endPage": 157,
       "href": "Text/Section005.xhtml",
       "idref": "Section005.xhtml",
       "linear": true,
-      "pageCount": 36,
-      "startPage": 116,
+      "pageCount": 37,
+      "startPage": 121,
       "textHash": "67f7a0127ffb7aa0",
       "textLength": 33577
     },
     {
-      "endPage": 153,
+      "endPage": 159,
       "href": "Text/Section005-1.xhtml",
       "idref": "Section005-1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 152,
+      "startPage": 158,
       "textHash": "b55d5eeeec5b1af3",
       "textLength": 1370
     },
     {
-      "endPage": 155,
+      "endPage": 161,
       "href": "Text/Section006.xhtml",
       "idref": "Section006.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 154,
+      "startPage": 160,
       "textHash": "5ba5357d3c529077",
       "textLength": 1804
     },
     {
-      "endPage": 157,
+      "endPage": 163,
       "href": "Text/Postscript.xhtml",
       "idref": "Postscript.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 156,
+      "startPage": 162,
       "textHash": "cd832470fe6b6751",
       "textLength": 1872
     },
     {
-      "endPage": 158,
+      "endPage": 164,
       "href": "Text/backcover.xhtml",
       "idref": "backcover.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 158,
+      "startPage": 164,
       "textHash": "02b3e92094939876",
       "textLength": 519
     }
@@ -305,11 +305,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 16,
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1072446f473a8908",
+      "detailHash": "c7b7fc47aa786307",
       "firstText": "制作信息",
       "index": 2,
       "lastText": "』获得最佳阅读体验。"
@@ -421,138 +421,18 @@
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 24
       },
-      "detailHash": "db37e3edfc78f831",
+      "detailHash": "a5f9e632cda5b611",
       "firstText": "第一章",
       "index": 10,
-      "lastText": "白河同学看了看她拿回的通知书，立刻转过身来，短裙随之飞舞。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 11,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "97bd17ce6a9f0d15",
-      "firstText": "接着……她朝因为事发太过突然而来不及撇开眼神的我开口：",
-      "index": 11,
-      "lastText": "眼前白河同学那低垂的浓长睫毛看起来十分耀眼。纵然我还想一窥胸口处的深谷，但因为角度上被衬衫遮住而无缘"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "048ac9c43d12a2f7",
-      "firstText": "一睹，让人心痒难耐。",
-      "index": 12,
-      "lastText": "我和两位朋友一同在教室的角落吃午餐。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 29,
-        "ruby": 0,
-        "textRuns": 29
-      },
-      "detailHash": "40581c027359c118",
-      "firstText": "我还是有几位朋友，虽然都是男生。而且若是被问到除了这两人以外还有哪些朋友，会令我有种辛酸的感觉。",
-      "index": 13,
-      "lastText": "「别提啦～！这次真的很惨耶。而且KEN竟然在考试期间招募粉丝参加活动，实在太残忍了。」"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "3a7e07407a1a46af",
-      "firstText": "「就是说啊，我很努力申请，结果也没入选。」",
-      "index": 14,
-      "lastText": "「…………」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "4320de1ee26808b7",
-      "firstText": "虽然我试着寻求阿仁的赞同，他却也是一副脸色苍白、精神恍惚的模样。看起来他们两人平时就经常被父母骂。",
-      "index": 15,
-      "lastText": "的会是什么样的校园生活。搞不好每次午休时间时就算不想上厕所也会跑去厕所，在那边数着手上的皱纹等休息时"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "2f9bf97c7fba2f14",
-      "firstText": "间结束也不一定……",
-      "index": 16,
-      "lastText": "放学后，我对自己这样说着，并且将上课时写的纸条放进白河同学的鞋柜里。"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "757fd34d4ecefe8f",
-      "firstText": "我有话想对您说。请您看过这封信后来学校后面的教师停车场。",
-      "index": 17,
-      "lastText": "「是……是的。」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "3e0b434cc39bbdcf",
-      "firstText": "我以颤抖的声音回答，让白河同学轻笑一声。",
-      "index": 18,
-      "lastText": "「我、我喜翻你！」"
+      "lastText": "「啊，真的耶。」"
     },
     {
       "counts": {
@@ -562,42 +442,177 @@
         "inlineAtoms": 0,
         "lines": 12,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 9
       },
-      "detailHash": "4464485a25922052",
-      "firstText": "搞砸了。",
+      "detailHash": "977282acefb8c1b2",
+      "firstText": "白河同学看了看她拿回的通知书，立刻转过身来，短裙随之飞舞。",
+      "index": 11,
+      "lastText": "「……！」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "49ac50839cfb9099",
+      "firstText": "她竟然就靠着我的桌子在通知书上签起名来。",
+      "index": 12,
+      "lastText": "或许在同班的这一年里，能碰到她再次向我借东西之类的接近机会……我只是暗自期待遇上这种小小的幸运，低调"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "8639caecfa672d1e",
+      "firstText": "地过着校园生活。",
+      "index": 13,
+      "lastText": "气。他的YouTube频道订阅人数已经超过了百万人，至今仍在持续增加。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "021f328b27e04970",
+      "firstText": "KEN的死忠粉丝被称为「KEN粉」，在KEN粉之中游戏实力特别强的人会收到KEN的直接联络，还能和他",
+      "index": 14,
+      "lastText": "此时的我没有想太多，也碍于现场的气氛无法强硬拒绝，便随口接受了这个乱来的约定。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "8cc4f21e49ec62c3",
+      "firstText": "◇",
+      "index": 15,
+      "lastText": "「那个命令是什么鬼啦！再说了……！」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "03644348f5d50776",
+      "firstText": "「别担心啦，阿加！」",
+      "index": 16,
+      "lastText": "了。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "8070ee8be4dffa10",
+      "firstText": "我联想到报考高攀不上的学校那种行为。",
+      "index": 17,
+      "lastText": "就我所知，学校后方的教师停车场是整间学校里最不会有人来的地方。在刚放学社团活动最多的这个时间点，也不"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "a1bebeef2f3f7dfd",
+      "firstText": "会有准备回家的老师出现。就在并排停放十几台轿车的那块空地上，我独自静静地等待着白河同学。",
+      "index": 18,
+      "lastText": "啊，白河同学……"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 13,
+        "ruby": 0,
+        "textRuns": 11
+      },
+      "detailHash": "d277270936896dea",
+      "firstText": "虽说我太过紧张没办法仔细看清楚她的样子，不过她今天的长相一定也是非常甜美可爱吧。",
       "index": 19,
-      "lastText": "白河同学依然摆着一张认真的表情。"
+      "lastText": "「我、我喜翻你！」"
     },
     {
       "counts": {
-        "blocks": 28,
+        "blocks": 11,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 11
       },
-      "detailHash": "52f11c5b7226882d",
-      "firstText": "「咦？」",
+      "detailHash": "55bb12db7c0ed49e",
+      "firstText": "搞砸了。",
       "index": 20,
-      "lastText": "那我们就交往吧？反正人家现在也是单身。"
+      "lastText": "「欸，稀饭泥是什么呀？」"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "5e15fa4607f206d1",
-      "firstText": "胶网？交往？",
+      "detailHash": "c983c373d93c2e7e",
+      "firstText": "白河同学依然摆着一张认真的表情。",
       "index": 21,
-      "lastText": "总之，看起来这应该不是那两个家伙的整人计划吧。"
+      "lastText": "「那我们就交往吧？反正人家现在也是单身。」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "f49a62817ec68bf6",
+      "firstText": "刚开始时，我根本听不懂她在说什么。",
+      "index": 22,
+      "lastText": "「那就一起回家吧！反正我已经跟朋友说我有事先离开了。」"
     },
     {
       "counts": {
@@ -607,16 +622,16 @@
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 24
       },
-      "detailHash": "82e5a04d88c95237",
-      "firstText": "◇",
-      "index": 22,
-      "lastText": "我则是想问一个让我在意得不得了的问题。"
+      "detailHash": "b4911c229d400634",
+      "firstText": "于是，我和白河同学一起走向后门。",
+      "index": 23,
+      "lastText": "「咦？呃……这个……」"
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 20,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
@@ -624,25 +639,25 @@
         "ruby": 0,
         "textRuns": 29
       },
-      "detailHash": "922c36d18b6fcf80",
-      "firstText": "「白河同学，那个，为什么……你愿意和我交往呢……？」",
-      "index": 23,
-      "lastText": "「我们没有聊过天吧？你是因为外表而喜欢人家吧？」"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "e22e014547e41446",
-      "firstText": "「…………」",
+      "detailHash": "3e6763a569cd8e6e",
+      "firstText": "有一瞬间，我打算说出借笔的事。然而那件事实在太微不足道，如果把它当成一次「聊天」，对方可能会觉得我很",
       "index": 24,
-      "lastText": "这个标准会不会太特定了？ 话说她无法接受的对象就只有这样？"
+      "lastText": "「既然如此，人家从现在开始认识你、喜欢上你，不就好了吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "7570db3e5e0bf173",
+      "firstText": "「咦？」",
+      "index": 25,
+      "lastText": "「咦？『咦』什么？」"
     },
     {
       "counts": {
@@ -654,10 +669,55 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "25cc2f666e28e8ef",
-      "firstText": "我对白河同学如同传闻般宽到不行的好球带感到惊愕，她则是以仍然有些忿忿不平的不满表情盯着我。",
-      "index": 25,
-      "lastText": "见她露出有点自嘲的微笑，我战战兢兢地提问："
+      "detailHash": "a46fe950b1c1b67e",
+      "firstText": "「不是啦，呃……就、就只因为这样……？」",
+      "index": 26,
+      "lastText": "她毫不在意我的质问。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "420f19dfcb7e76ad",
+      "firstText": "「就算感情基础还很薄弱，但只要觉得对象不错，不就会让人想更进一步认识对方吗？既然如此，那就能试着交往",
+      "index": 27,
+      "lastText": "以白河同学才会在此时问出这样的问题吧。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "aff9576de496bb42",
+      "firstText": "「呃，是……K站。」",
+      "index": 28,
+      "lastText": "面对无法从白河同学那脱俗气质推测的住家风貌，我不知道该怎么回应，只能做出「这栋房子很不错呢」这种最保"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "94f2d2e819a6da60",
+      "firstText": "险的评语。",
+      "index": 29,
+      "lastText": "于是，我诚惶诚恐地走进交往三十分钟的人生第一任「女友」……的家里。"
     },
     {
       "counts": {
@@ -667,72 +727,12 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "57ee5d8b8f4cd6cc",
-      "firstText": "「……为什么……？」",
-      "index": 26,
-      "lastText": "「话说那不就是搭同一辆车吗？走吧走吧！」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "d6088340df062936",
-      "firstText": "「唔，好……」",
-      "index": 27,
-      "lastText": "即使她可爱的神情使我心中小鹿乱撞，但同时又让我感到很内疚，恨不得赶快离开。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "302b2ec235c9101f",
-      "firstText": "「那、那我走喽……」",
-      "index": 28,
-      "lastText": "白河同学催促着我走上眼前的狭窄阶梯。"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "baf230b55df9c549",
-      "firstText": "二楼的入口处有装设纸拉门的和室房与西式门板的房间，白河同学转开后者的门把。",
-      "index": 29,
-      "lastText": "这也太恶心了吧！我在搞什么啊！"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "8a557758abc1a6fd",
-      "firstText": "然而现况就是我独自待在爱慕的女孩子房间里，想做坏事的冲动快逼得我失控了。",
+      "detailHash": "71638fc0d674962d",
+      "firstText": "虽然我仍怀疑自己是不是被骗了，不过现在的我已踏入「白河同学的家」。",
       "index": 30,
-      "lastText": "「锵锵！超可爱的对吧？这是之前买的小可爱！人家想拿来和露背上衣搭配喔～」"
+      "lastText": "我到底为什么会在这种地方……"
     },
     {
       "counts": {
@@ -740,14 +740,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "a406910db3338e88",
-      "firstText": "「…………」",
+      "detailHash": "d1b2a8d60cb0677e",
+      "firstText": "只做好遭到拒绝心理准备的我现在正以白河同学「男友」的身分待在她家的房间里。连我都还无法相信这个状况。",
       "index": 31,
-      "lastText": "还是白河同学有重度的洁癖，只愿意让洗过澡的客人进入她的房间？或是她拐了个弯暗指我身上很臭？"
+      "lastText": "「好痛……！」"
     },
     {
       "counts": {
@@ -759,40 +759,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "1cfcfe9266492760",
-      "firstText": "不不，都不是吧。毕竟她刚才很稀松平常地请我坐下……当我脑中胡思乱想时，白河同学似乎又灵光一闪，摆出有",
+      "detailHash": "6d41bee90b0edf6b",
+      "firstText": "糟糕，还没关上抽屉……！",
       "index": 32,
-      "lastText": "「嗯，怎么了？」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "40e30accb21b8451",
-      "firstText": "我吞了吞口水，对一脸疑惑的白河同学说：",
-      "index": 33,
-      "lastText": "「愿意啊。你现在不是人家的男朋友吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "dabe72ba3a327c54",
-      "firstText": "白河同学在此时摆出抬眼的怜爱表情……不妙不妙，超可爱啦！",
-      "index": 34,
-      "lastText": "话说，一般情况下男女的角色应该对调吧？希望珍惜两人关系的女孩与不管那么多的性急男生，这种老套到不行的"
+      "lastText": "得住！"
     },
     {
       "counts": {
@@ -804,10 +774,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c3d7101c0bd7e370",
-      "firstText": "画面才算正常吧。",
-      "index": 35,
-      "lastText": "听到白河同学的话，脑中徘徊着许多想法的我突然回过神来。"
+      "detailHash": "fa13dd5190758554",
+      "firstText": "这个房间的主人可是我心仪已久的全年级第一美少女，就在刚才不可置信地成为我的「女友」的白河同学啊。",
+      "index": 33,
+      "lastText": "她打算和我做……色色的事情。虽然这让人很难相信。"
     },
     {
       "counts": {
@@ -819,25 +789,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "fb1f1d6b2b810f4e",
-      "firstText": "「呃，这……」",
-      "index": 36,
-      "lastText": "没办法做色色的事已经让我感到很后悔。如果还被她冷眼对待，那简直是双重打击。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "e215055447e56ac5",
-      "firstText": "「人家可能是第一次遇到龙斗这样的男朋友喔。」",
-      "index": 37,
-      "lastText": "「没关系啦～人家明白龙斗的想法了。」"
+      "detailHash": "2b7e99558674e205",
+      "firstText": "咦，真的假的？",
+      "index": 34,
+      "lastText": "「那个……会、会不会太快了？你不是直到刚才连我的名字也不知道吗？要和那样的对象做……白河同学，你愿意"
     },
     {
       "counts": {
@@ -849,9 +804,84 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "798f7dc2db46ebbf",
-      "firstText": "白河同学爽快地说着，迈开步伐往前走去。这时，她主动向前面提着购物袋的大婶开口问好。让我这个甚至无法好",
+      "detailHash": "cb3eed26ad8b3812",
+      "firstText": "吗……？」",
+      "index": 35,
+      "lastText": "白河同学困惑到不行，狐疑地望着我。接着她似乎想到什么，突然说着「难道……」，并且脸色凝重地将视线往下"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "918626350099a526",
+      "firstText": "移到我两腿间制服裤子的拉链处。",
+      "index": 36,
+      "lastText": "不可能吧……我脑中瞬间浮现这个念头。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "eea24c48aa016805",
+      "firstText": "然而同样身为男性，我也不是无法了解白河同学的前男友们的想法。",
+      "index": 37,
+      "lastText": "我只能在心中淌着血泪这么回答。"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "7d4ed815f14a718e",
+      "firstText": "「哦～？」",
       "index": 38,
+      "lastText": "由于话题有点敏感，我不太敢在外头谈论，因此压低了声音。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "f0f460eec240ad97",
+      "firstText": "「以后如果要做那种事，我希望是在白河同学打从心底也想和我『做』的时候……」",
+      "index": 39,
+      "lastText": "她的话让我的心脏噗通一跳。纵然我已经完全爱上了白河同学，不过我可以相信……她也深爱着我，两人有如一对"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 13,
+        "ruby": 0,
+        "textRuns": 11
+      },
+      "detailHash": "e6daff027b516dd0",
+      "firstText": "情侣恩恩爱爱的那天将会到来吗？",
+      "index": 40,
       "lastText": "我因为强烈的后悔而在床上痛苦呻吟的事，绝对不能让白河同学知道。"
     },
     {
@@ -864,9 +894,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1ec63b16c03f18e0",
+      "detailHash": "f6c198db1dc7c5c8",
       "firstText": "",
-      "index": 39,
+      "index": 41,
       "lastText": ""
     },
     {
@@ -879,9 +909,9 @@
         "ruby": 2,
         "textRuns": 28
       },
-      "detailHash": "6563f7830c1dd413",
+      "detailHash": "2ed9c1e1da99f765",
       "firstText": "第一·五章",
-      "index": 40,
+      "index": 42,
       "lastText": "「啊？莫名其妙，你又不是处女。」"
     },
     {
@@ -894,9 +924,9 @@
         "ruby": 0,
         "textRuns": 3
       },
-      "detailHash": "00d2db21d5fc7523",
+      "detailHash": "f557f0076e515c29",
       "firstText": "「就是说呀～」",
-      "index": 41,
+      "index": 43,
       "lastText": "「他似乎是个有点奇怪的人呢。让人家感到满有趣的，开始对他有些兴趣了。」"
     },
     {
@@ -905,13 +935,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d5db179c42b37880",
+      "detailHash": "008a05196b2ece9b",
       "firstText": "第二章",
-      "index": 42,
+      "index": 44,
       "lastText": "「……没有做啦。」"
     },
     {
@@ -924,160 +954,160 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "6b21127919a209f5",
+      "detailHash": "b2c32159782a0ff6",
       "firstText": "「「为什么！」」",
-      "index": 43,
+      "index": 45,
       "lastText": "「咦？咦咦……！」"
     },
     {
       "counts": {
-        "blocks": 30,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "0aa082ec854cf017",
-      "firstText": "阿仁看着困惑不已的我，无奈地摇了摇头。",
-      "index": 44,
-      "lastText": "手机又震动了一下，是白河同学传来的回信。"
-    },
-    {
-      "counts": {
         "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "68640112de7e020c",
-      "firstText": "☆LUNA☆",
-      "index": 45,
-      "lastText": "我的心脏不禁噗通跳了一下，连必须注意四周的情况都忘了，只是直直地注视着她。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 1,
-        "textRuns": 28
-      },
-      "detailHash": "6cfe57457da559ba",
-      "firstText": "「人家第一次遇到龙斗这样的人，感觉很奇妙呢。」",
-      "index": 46,
-      "lastText": "「你看吧。」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "04eedf3d59eccc4b",
-      "firstText": "状况突然变得很不妙，因为我没有要求她别说出去，如今没办法表示什么。况且阿伊和阿仁就是制造我和白河同学",
-      "index": 47,
-      "lastText": "「没问题，可以喔。」"
-    },
-    {
-      "counts": {
-        "blocks": 28,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "4883ee1e16bb70c5",
-      "firstText": "白河同学马上回答。",
-      "index": 48,
-      "lastText": "白河同学穿着居家服般粉红色毛茸茸连帽上衣（拉链拉得很低，一样能看到乳沟）的模样让我有些慌张，她则是嘟"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "f0f588f1b187c61a",
-      "firstText": "起了嘴。",
-      "index": 49,
-      "lastText": "「……白河同学呢？」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "1d40919600d0f2fd",
-      "firstText": "不知该怎么回答的我反问回去。",
-      "index": 50,
-      "lastText": "「再见喽～明天见！」"
-    },
-    {
-      "counts": {
-        "blocks": 28,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "10d89f58b27836ea",
-      "firstText": "「嗯，明天见。」",
-      "index": 51,
-      "lastText": "万一被别人看到怎么办。虽说我不是没有想秀给别人看的想法，可是又怕惹人非议，说我这种边缘人怎么和她在一"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "b41f690b0cf1bd4f",
-      "firstText": "起。",
-      "index": 52,
-      "lastText": "之后我们来到一间适合拍照上传至IG的咖啡店。白河同学享用着宛如圣代般堆满佐料的饮品，这时她突然提问："
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 24,
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "691cdab514506348",
-      "firstText": "「……呐，龙斗。」",
+      "detailHash": "da000c887b3b0eab",
+      "firstText": "阿仁看着困惑不已的我，无奈地摇了摇头。",
+      "index": 46,
+      "lastText": "骑自行车去车站吧，动作快一点的话还能赶上第一节课喔。加油！"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "9f37e1d66f1fc4a1",
+      "firstText": "我只能回这种没什么意思的讯息，而她每次都会立刻回信。",
+      "index": 47,
+      "lastText": "「嗯～人家睡过头了。」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "2dcf92deb6075277",
+      "firstText": "「怎么了？太晚睡吗？」",
+      "index": 48,
+      "lastText": "「有跟人家的好朋友妮可说过就是了。」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 1,
+        "textRuns": 29
+      },
+      "detailHash": "b8228b44569fde48",
+      "firstText": "「…………」",
+      "index": 49,
+      "lastText": "白河同学突然恢复原本的声量问我，害我发出怪声。"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "20796a78b8c54fff",
+      "firstText": "幸好前一堂课在理化教室，已经回到教室的学生只有少数几人，看起来没有其他同学竖起耳朵偷听我们的对话。",
+      "index": 50,
+      "lastText": "而且还是视讯通话。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "5e723f7dffe6f17d",
+      "firstText": "「呃，哇啊……！」",
+      "index": 51,
+      "lastText": "「你想认识人家的什么呢？」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "d523da23648e6fc7",
+      "firstText": "白河同学扭了扭身体，挤在双臂间的乳沟变得更深。我吞了一大口口水。",
+      "index": 52,
+      "lastText": "她说完后轻轻笑了。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "ad22364b066752c2",
+      "firstText": "「人家是第一次遇到说出这种话的男朋友呢。」",
       "index": 53,
-      "lastText": "「看着白河同学愉快的样子……我感觉自己也跟着开心起来了。」"
+      "lastText": "「……不行不行！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "e65498bb45d01f04",
+      "firstText": "当我反复想着这些事情时，夜已经深了。",
+      "index": 54,
+      "lastText": "唉，要是有和她做就好了……不对不对，我和她的前男友不同──这些想法不断来来去去，让我的脑袋闲不下来。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "28abcbdd61fca1c5",
+      "firstText": "而白河同学则在我的身旁忘我地鉴赏商品。",
+      "index": 55,
+      "lastText": "「不、那个……我想的是原来你喜欢那种衣服，或是开心的样子很可爱之类的……唔哇，抱歉，我很恶心吧……」"
     },
     {
       "counts": {
@@ -1085,14 +1115,14 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 12,
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "28a7c8b864094469",
-      "firstText": "「…………」",
-      "index": 54,
-      "lastText": "我爱上白河同学了。"
+      "detailHash": "4189015c2acdce33",
+      "firstText": "连我都受不了这套说词而自嘲了一下，但白河同学认真地摇了摇头。",
+      "index": 56,
+      "lastText": "那个白河同学害羞了？"
     },
     {
       "counts": {
@@ -1104,10 +1134,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "7cf800039e0aa618",
-      "firstText": "不，虽说我本来就爱慕她。只是当开始交往之后，我变得越来越喜欢她了。",
-      "index": 55,
-      "lastText": "只要我不克服无法信任可爱女孩子的毛病，就没办法与这种超级可爱的女朋友持续交往下去……"
+      "detailHash": "427bb73080fa6bf5",
+      "firstText": "「……龙斗，你果然很奇怪。」",
+      "index": 57,
+      "lastText": "不不！不能有被害妄想。"
     },
     {
       "counts": {
@@ -1119,24 +1149,24 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "62a8ba5446db5001",
-      "firstText": "但……不知道为什么。白河同学应该是个坦率的好孩子，可是有那么一瞬间，我想起甩掉我的那位美少女的脸。",
-      "index": 56,
-      "lastText": "「啊，嗯……我只是想起下周有汉字小考，感觉有点糟。」"
+      "detailHash": "18c9c3f85200f201",
+      "firstText": "之所以会有这种想法，全是因为我缺乏自信。",
+      "index": 58,
+      "lastText": "看来我的负面思考模式就是来自这种「缺乏身为男友的自信」。"
     },
     {
       "counts": {
-        "blocks": 6,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 10,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 10
       },
-      "detailHash": "6a63bae4f62afb6b",
-      "firstText": "听到这句话，白河同学用力地皱起眉头。",
-      "index": 57,
+      "detailHash": "6f8ff5c0d66e2c5b",
+      "firstText": "只不过就算明白这点，我也不知道该如何解决。",
+      "index": 59,
       "lastText": "我笑着对抱头哀号的她吐嘈，并将眼前那杯为了装成熟而点的黑咖啡连同心中的苦涩一同咽下。"
     },
     {
@@ -1149,9 +1179,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "505e0e120337db50",
+      "detailHash": "0fef19c389b55e1f",
       "firstText": "第二·五章",
-      "index": 58,
+      "index": 60,
       "lastText": "「那家伙叫龙斗是吗？感觉……还满接近我所想的『适合露娜的男人』。」"
     },
     {
@@ -1164,10 +1194,40 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "e55ec43c7173f430",
+      "detailHash": "02187d5960253f57",
       "firstText": "「…………」",
-      "index": 59,
+      "index": 61,
       "lastText": "「人家觉得要是能和龙斗顺利进展下去就好了呢。」"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "9a491f857c8d584d",
+      "firstText": "第三章",
+      "index": 62,
+      "lastText": "「怎么啦，吾友？」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 1,
+        "textRuns": 27
+      },
+      "detailHash": "02cf95daddb314cb",
+      "firstText": "阿伊看着我开口询问，阿仁也担心地说道：",
+      "index": 63,
+      "lastText": "我之所以突然在意那个足球社员，又考虑公开与白河同学的交往，起因是周日时发生的一件小事。"
     },
     {
       "counts": {
@@ -1175,134 +1235,104 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "6e300e6491cc7b87",
-      "firstText": "第三章",
-      "index": 60,
-      "lastText": "阿伊看着我开口询问，阿仁也担心地说道："
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 1,
-        "textRuns": 28
-      },
-      "detailHash": "d4809c0a9a26412a",
-      "firstText": "「你是KEN粉的事吗？这是当然的啊。虽然KEN在我们之中是神，但对一般人而言别说没没无闻了，还是开枪",
-      "index": 61,
-      "lastText": "我回了讯息给她。然而与平时不同，一直都没出现已读的标示。理所当然地也没有回我话，就这样过去了好几个小"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "174708adff6a6ac6",
-      "firstText": "时。当已读标示终于出现，她也回了LINE时，已经是四小时后了。",
-      "index": 62,
-      "lastText": "现在？她想做什么……我的心脏跳了一下。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 23
       },
-      "detailHash": "44fe13453f6f5a88",
-      "firstText": "「应该不是要说『我们还是分手吧』之类的话吧……？」",
-      "index": 63,
-      "lastText": "那是白河同学装在同一款手机壳里的智慧型手机。"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "ffd4dc5a376ae99b",
-      "firstText": "「人家拜托妮可，一起排队买到的。我们俩从早上就一直在玩游戏，商店开门前就没电了。所以到家前都没办法回",
+      "detailHash": "560cf46feea025e6",
+      "firstText": "星期日……也就是约会的隔天，白河同学如往常般传了LINE给我。",
       "index": 64,
-      "lastText": "「……怎么了，龙斗？」"
+      "lastText": "放在枕头边的手机响了起来。看了一下，萤幕上跳出LINE的通知。"
     },
     {
       "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "cf622a169bce5d4c",
-      "firstText": "白河同学的声音使我回过神来。由于我太过感动，也不管女友就在眼前，一不小心就陷入自己的世界。",
-      "index": 65,
-      "lastText": "「咦，你说什么？不是龙斗告白的吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "e1a32f03ea270b7f",
-      "firstText": "「是这样没错……但我没想到你真的愿意和我交往。」",
-      "index": 66,
-      "lastText": "一放暑假前被人告白时，就想着会不会和对方结婚。」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "d3a7550504b67b3f",
-      "firstText": "「原来如此……」",
-      "index": 67,
-      "lastText": "不过……她特地在切换到其他话题后，再次将话题拉回到家人。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "4a3da58677351137",
+      "firstText": "☆LUNA☆",
+      "index": 65,
+      "lastText": "白河同学这么说着，顺手将手机壳推给我。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "4ed952117968e7d0",
+      "firstText": "「什么？」",
+      "index": 66,
+      "lastText": "只是看到白河同学无忧无虑的笑容后，我发现根本不需要感到不安。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "c797a6ad6ec110e8",
+      "firstText": "一周前，我提心吊胆地想着她是不是为了开我玩笑而答应告白，她会不会做出和以前拒绝我的美少女同样的事而开",
+      "index": 67,
+      "lastText": "「结果那个女生做了什么吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "0338532afc4ec2a7",
+      "firstText": "「我被拒绝了。她对我很亲近，还说了类似喜欢我的话，我还以为那个女生肯定对我有意思……结果是我误会",
+      "index": 68,
+      "lastText": "「哦～……」"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "4f85698b872e4029",
+      "firstText": "好猛……从父母那代就是现充啊……话说原来她还有个姐姐，应该是位大美女吧。",
+      "index": 69,
+      "lastText": "要是有那么一天就好了。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "8519c3a9c6752746",
-      "firstText": "这代表当我思考白河同学前男友的事而沉默不语时，白河同学正在犹豫是否该对我透漏如今的家庭状况吗？",
-      "index": 68,
-      "lastText": "「是男的？还是女的？」"
+      "detailHash": "c94e3835eeb96d2c",
+      "firstText": "「……只不过呢。」",
+      "index": 70,
+      "lastText": "此时让我感到古怪的原因在不远的将来就会获得解答。"
     },
     {
       "counts": {
@@ -1312,27 +1342,42 @@
         "inlineAtoms": 1,
         "lines": 26,
         "ruby": 1,
-        "textRuns": 28
+        "textRuns": 26
       },
-      "detailHash": "3af4cfa2b8c84585",
-      "firstText": "导师没有直接回答，而是打开教室的门，朝走廊招了招手。",
-      "index": 69,
-      "lastText": "在导师的催促下，黑濑同学说着「好的」，开口问候："
+      "detailHash": "8a9e023109dcb702",
+      "firstText": "◇",
+      "index": 71,
+      "lastText": "──我只是把加岛同学当成好朋友……"
     },
     {
       "counts": {
         "blocks": 13,
         "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 13,
+        "ruby": 0,
+        "textRuns": 13
+      },
+      "detailHash": "ef8fa82c1421079f",
+      "firstText": "不会错的。",
+      "index": 72,
+      "lastText": "「谢谢，麻烦各位关照了。」"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
         "lines": 12,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 11
       },
-      "detailHash": "b8603ad826428b3a",
-      "firstText": "「时隔三年回到这里。我对这间学校有很多不懂的地方，还请大家多多指教喔。」",
-      "index": 70,
-      "lastText": "只不过现在的我已经有白河同学这位我简直高攀不起的超棒女友，那道心理创伤比以前复原不少了。"
+      "detailHash": "8619c5f7af54013a",
+      "firstText": "黑濑带着有点害羞的笑容环视整间教室的人，看到一半时……与我对上了视线。",
+      "index": 73,
+      "lastText": "「黑濑同学坐这里可以吗？在你习惯班上的生活之前，先待在这个方便向老师提问的位子吧。」"
     },
     {
       "counts": {
@@ -1344,70 +1389,55 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "6915867b7f49b38a",
-      "firstText": "对她而言，和我之间发生的事应该也是没必要特别想起的过去。因此我打算尽量不要和黑濑同学有所牵扯。",
-      "index": 71,
-      "lastText": "「……嗯，对。是同一间国中的。」"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "cae6b5d10acbea3f",
-      "firstText": "听起来是在问我的事。",
-      "index": 72,
-      "lastText": "不对，先等一下，仔细想清楚。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "a9414339f4e3feb5",
-      "firstText": "黑濑同学说的是「『明白』加岛同学的『优点』」，而且还加了「好像」这两个字当作退路。万一这次又会错意，",
-      "index": 73,
-      "lastText": "我认识她。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "d6e68546ca65d231",
-      "firstText": "没错，她就是白河同学的浓妆辣妹好友，「妮可」山名笑琉。",
+      "detailHash": "131b30a5c37e4c88",
+      "firstText": "在导师的决定之下，黑濑同学的座位设在讲桌前，而我隔壁排的学生则是全部往后移动一位。",
       "index": 74,
-      "lastText": "当薯条盒子终于空了，山名同学用纸巾擦干净手指，这才望向我。"
+      "lastText": "感觉还是与黑濑同学尽量保持距离比较好。"
     },
     {
       "counts": {
-        "blocks": 26,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "ac14bd8082087744",
-      "firstText": "「话说喔，下个星期日就是露娜的生日，你知道吗？」",
+      "detailHash": "a3e7fe5ce0fc28b8",
+      "firstText": "可是黑濑同学从那之后却常常找我说话。",
       "index": 75,
-      "lastText": "我低下了头，望向自己放在桌上的手机（装着大叔兔手机壳）。"
+      "lastText": "话说回来，不管有没有会错意，现在的我有白河同学。根本没必要被她动摇。"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "337aea41e20cbbba",
+      "firstText": "黑濑同学以水汪汪的眼睛注视着我，看起来似乎没有化妆。但为了斩断杂念，我尽可能地面无表情开口回答：",
+      "index": 76,
+      "lastText": "「我有点话对你说。」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "46d5dba771abd706",
+      "firstText": "「咦……？」",
+      "index": 77,
+      "lastText": "「话说喔，下个星期日就是露娜的生日，你知道吗？」"
     },
     {
       "counts": {
@@ -1419,40 +1449,40 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "5fac5d58298d8316",
-      "firstText": "「……这个手机壳是白河同学送我的。」",
-      "index": 76,
+      "detailHash": "f70c264c1c2c120a",
+      "firstText": "这句话令我顿时说不出话。",
+      "index": 78,
+      "lastText": "「……这个手机壳是白河同学送我的。」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "77f8888dd9c4f8ac",
+      "firstText": "「我知道，是我陪她去买的。」",
+      "index": 79,
       "lastText": "招呼还没打完，白河同学就将自己的手机拿给我看。"
     },
     {
       "counts": {
-        "blocks": 28,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 23
       },
-      "detailHash": "0fbaab4d8d37eecc",
+      "detailHash": "29448d0869b6020c",
       "firstText": "「这是真的吗？」",
-      "index": 77,
-      "lastText": "「什么嘛，早点说就好了呀。」"
-    },
-    {
-      "counts": {
-        "blocks": 28,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "96c5c236cc43ed86",
-      "firstText": "「啊，抱歉……因为我觉得在讲生日的事之前，应该先约你才行。」",
-      "index": 78,
-      "lastText": "时间来到白河同学的生日当天。"
+      "index": 80,
+      "lastText": "「是这样啊！」"
     },
     {
       "counts": {
@@ -1464,40 +1494,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "7ca35ceb15233c67",
-      "firstText": "为了这天，我在这一周里把能做的事都做了。",
-      "index": 79,
-      "lastText": "山名同学说的没错，白河同学看起来非常高兴。"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "67898e2f5d444243",
-      "firstText": "「多少钱？这杯人家来付。」",
-      "index": 80,
-      "lastText": "想展现自己所有的知识。"
-    },
-    {
-      "counts": {
-        "blocks": 4,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 14,
-        "ruby": 0,
-        "textRuns": 14
-      },
-      "detailHash": "4869e0b082d0b9f4",
-      "firstText": "「说到底喔，我怀疑最适合珍珠的饮料真的是奶茶吗？珍珠原本就没味道，即使以黑糖炖煮之类的方式调味，也很",
+      "detailHash": "4b158109ed3a12e2",
+      "firstText": "刚才的焦急神色很快从她的脸上消失了。",
       "index": 81,
-      "lastText": "样。"
+      "lastText": "我暗暗地鼓起心中的干劲，随着人群坐上了电车。"
     },
     {
       "counts": {
@@ -1507,27 +1507,57 @@
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 23
       },
-      "detailHash": "709a86319740cda9",
-      "firstText": "「啊……」",
+      "detailHash": "0d208bd8637a5529",
+      "firstText": "◇",
       "index": 82,
-      "lastText": "怎么办……她可能被我这种处男味太重的恶烂说词吓到了。"
+      "lastText": "我在店外递给白河同学的是那家店的招牌珍奶。"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 27
       },
-      "detailHash": "35014da99b4afbe8",
-      "firstText": "那段话有那么沉重吗……现在是不是该说点玩笑话缓和气氛比较好呢？",
+      "detailHash": "2e055a4b862a6d35",
+      "firstText": "「谢谢！……嗯～好喝～！」",
       "index": 83,
-      "lastText": "「没、没有……我要喝，谢谢。」"
+      "lastText": "我一心想着尽快展示这一周来的成果，不小心说得太快了。虽说担心她会觉得我很恶心而想停下来，我却越来越投"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "2384b7d8f61e5a3c",
+      "firstText": "入，说话速度越来越快。",
+      "index": 84,
+      "lastText": "样。"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 12,
+        "ruby": 0,
+        "textRuns": 11
+      },
+      "detailHash": "bde2e8e0a5f13ae9",
+      "firstText": "「啊……」",
+      "index": 85,
+      "lastText": "感觉白河同学听到这句话后眼睛瞬间亮了起来。"
     },
     {
       "counts": {
@@ -1539,10 +1569,25 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "736b2c5c81f62b22",
-      "firstText": "我连忙接过杯子含住吸管。",
-      "index": 84,
-      "lastText": "「接下来……」"
+      "detailHash": "4d08b7e216b49786",
+      "firstText": "「嗯，是啊……只不过好像做过头了……」",
+      "index": 86,
+      "lastText": "白河同学对我露出了最灿烂的笑容。"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "cf5487dfd04eadc7",
+      "firstText": "「今天的珍奶感觉是人家喝过最好喝的！」",
+      "index": 87,
+      "lastText": "「是间接接吻呢。」"
     },
     {
       "counts": {
@@ -1552,41 +1597,56 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "8b423eddba1b47f9",
+      "firstText": "「咦……咦！」",
+      "index": 88,
+      "lastText": "「…………」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "55cb7ef88b905f39",
-      "firstText": "虽然上一次也是这样，我决定这次约会在太阳下山前就回家。毕竟双方都是未成年的高中生。我认为这是「珍惜」",
-      "index": 85,
-      "lastText": "「哎，可是，我还想送实物……」"
+      "detailHash": "19a9ad2d77836481",
+      "firstText": "礼物。我还没买礼物。",
+      "index": 89,
+      "lastText": "「人家会小心保存它。下次能再一起过珍奶约会吗？」"
     },
     {
       "counts": {
-        "blocks": 26,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "d79c73c4999f75f4",
-      "firstText": "「那就给人家这个吧？人家只要这张地图就好了。」",
-      "index": 86,
-      "lastText": "刻意凸显的过长袖子十分可爱。不过，或许是因为她身材娇小才会看起来如此吧。"
+      "detailHash": "534daf20f25d777e",
+      "firstText": "她抬眼注视着我，我则用力地点了头。",
+      "index": 90,
+      "lastText": "这时，我突然想起白河同学给我看的LINE画面。"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 14,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 12
       },
-      "detailHash": "5b87a64012c4dc5c",
-      "firstText": "「什么事？」",
-      "index": 87,
+      "detailHash": "7a9d2fdb4af00453",
+      "firstText": "妮可和班上的老土男在麦当●约会耶w",
+      "index": 91,
       "lastText": "我是这么认为的。"
     },
     {
@@ -1599,9 +1659,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "5c2a3047ebfafe3a",
+      "detailHash": "fff504a972857964",
       "firstText": "第三·五章",
-      "index": 88,
+      "index": 92,
       "lastText": "如今的我……已经不是那时候的我了。"
     },
     {
@@ -1614,14 +1674,14 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c3947d64eb939e1a",
+      "detailHash": "f5190ff1e369ae3e",
       "firstText": "第四章",
-      "index": 89,
+      "index": 93,
       "lastText": "就是最近经常找她说话的那位足球社员。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 11,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
@@ -1629,100 +1689,40 @@
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "173993eee0cb3804",
+      "detailHash": "61b9e2de6df7360a",
       "firstText": "「可以来一下吗？」",
-      "index": 90,
+      "index": 94,
       "lastText": "「要不要和我交往？」"
     },
     {
       "counts": {
-        "blocks": 25,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "d124b82e77abee1b",
+      "detailHash": "8e2358c65ebe14a3",
       "firstText": "「……！」",
-      "index": 91,
-      "lastText": "看确实与白河同学很登对……"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "cee80da91340aa2a",
-      "firstText": "就在这个想法让我再次稍微陷入失落时──",
-      "index": 92,
-      "lastText": "你很会讲喔，足球社的……"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "8c4ff8c8b0155d31",
-      "firstText": "或许他是因为被拒绝而怀恨在心。但被贬成这样，我真的生气了。",
-      "index": 93,
-      "lastText": "「大家都在传喔。的确，回家社的人应该有在打工，钱应该很多吧。」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "0d1c11a0a5cce0a8",
-      "firstText": "「啥？」",
-      "index": 94,
-      "lastText": "白河同学打断我的话，开朗地笑了。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "288c45bf79abce10",
-      "firstText": "「谣言只是谣言，人家一点也没有在意喔。」",
       "index": 95,
-      "lastText": "「不、不会，没关系啦。」"
+      "lastText": "但是，或许白河同学内心认为说出我是男朋友是一件很羞耻的事。毕竟那个男生是一位阳光型男，从旁人的角度来"
     },
     {
       "counts": {
-        "blocks": 25,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "d5d64c88d8689a38",
-      "firstText": "男学生红着脸别开目光。",
+      "detailHash": "441046d44b17f919",
+      "firstText": "看确实与白河同学很登对……",
       "index": 96,
-      "lastText": "如果是国一时的我，想必会兴高采烈地说「我来写吧」。就像捡笔记本的男同学跟斋藤那样。"
+      "lastText": "「不过嘛，我能体谅露娜不想说的心情。若是和那种无聊的家伙交往，一定会耻于说出口吧。」"
     },
     {
       "counts": {
@@ -1734,40 +1734,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "468e3ec993de886e",
-      "firstText": "不过，这个女孩肯定就是那种人。该说是容易勾起男人的保护欲，或是会下意识地展现让人会错意的态度呢……总",
+      "detailHash": "67e90f7bb56cc3b0",
+      "firstText": "你很会讲喔，足球社的……",
       "index": 97,
-      "lastText": "黑濑同学似乎很享受我的狼狈模样，满意地露出微笑。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "39321586c3f4a7aa",
-      "firstText": "「但是没关系啦。我也会一起写日志。」",
-      "index": 98,
-      "lastText": "「没关系，你走吧。」"
-    },
-    {
-      "counts": {
-        "blocks": 28,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "f4d6e0ee7a20626f",
-      "firstText": "送走白河同学后，我变回了一个人。",
-      "index": 99,
-      "lastText": "「……那个人怎么了吗？」"
+      "lastText": "「啊？你在说什么？」"
     },
     {
       "counts": {
@@ -1779,10 +1749,55 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "f62b8fbf733aa642",
-      "firstText": "我尽量冷静地提问，黑濑同学则是看到我表示兴趣后满意地露出微笑。",
+      "detailHash": "2d62ce45c599bf39",
+      "firstText": "「大家都在传喔。的确，回家社的人应该有在打工，钱应该很多吧。」",
+      "index": 98,
+      "lastText": "「别担心！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "a6bcef3f862743bd",
+      "firstText": "白河同学打断我的话，开朗地笑了。",
+      "index": 99,
+      "lastText": "本的她正好碰触到拿起笔记本的男同学手臂。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "6ec603558baa16d3",
+      "firstText": "「啊，对不起喔……谢谢。」",
       "index": 100,
-      "lastText": "「白河同学不是很受男生欢迎吗？所以她会准备好几个想和她交往的男生当备胎，花光男朋友的钱后就换下一个。"
+      "lastText": "她接着又露出伤脑筋的表情。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "205d726357ee5d0b",
+      "firstText": "「我今天放学后有事耶……怎么办……」",
+      "index": 101,
+      "lastText": "「咦……」"
     },
     {
       "counts": {
@@ -1794,44 +1809,44 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "e903a91907f2d907",
-      "firstText": "好可怕喔～」",
-      "index": 101,
-      "lastText": "我心无旁骛地继续说下去。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "b0e589618819c189",
-      "firstText": "「白河同学是个好孩子喔。她会在纪念日时送男友和她同款式的东西当成惊喜礼物。就算对方没钱了不能买生日礼",
+      "detailHash": "3060580f83e8dc19",
+      "firstText": "我之所以会不小心叫出声，是因为她这次没有加上「好像」这个退路。",
       "index": 102,
-      "lastText": "「……嗯。」"
+      "lastText": "「啊……嗯！」"
     },
     {
       "counts": {
-        "blocks": 28,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 24
       },
-      "detailHash": "e1b75173292810ca",
-      "firstText": "「咦？」",
+      "detailHash": "5107200341f8425e",
+      "firstText": "她回应女生集团后对我露出不好意思的表情。",
       "index": 103,
-      "lastText": "突然受到同学们的注目，情势不妙的黑濑同学脸上冒出大汗。"
+      "lastText": "当我沉默下来时，黑濑同学面露喜色地贴到我的身边。"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "1d87a56cab730774",
+      "firstText": "「你听我说喔，我姐姐的学弟是白河同学的前男友。」",
+      "index": 104,
+      "lastText": "「为什么这么问？唔，嗯……我忘了。但这是事实，你不觉得应该让大家都知道吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1839,10 +1854,55 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "cd329601019f861f",
-      "firstText": "「我真的听说了……」",
-      "index": 104,
-      "lastText": "她、她到底在说什么？"
+      "detailHash": "8b0f74533f94f881",
+      "firstText": "「…………」",
+      "index": 105,
+      "lastText": "我似乎从那张脸上看见她的本性，背后掠过一股凉意。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "1dfedf75f3d89a15",
+      "firstText": "「你在幻想吗？我可是认识那个前男友本人喔？」",
+      "index": 106,
+      "lastText": "「喂～他这么说耶，是真的吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "750dfc5a8b4fb16b",
+      "firstText": "大部分人都不相信，其中那位班上的开心果男生还半开玩笑地询问白河同学。",
+      "index": 107,
+      "lastText": "「唔哇～听起来她人超好的耶！我越来越喜欢她了。」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "956d8394a42e294b",
+      "firstText": "「等她下次单身时，就算不行我也要试试看对她告白！」",
+      "index": 108,
+      "lastText": "当我想靠过去时，她用力推开了我。"
     },
     {
       "counts": {
@@ -1850,14 +1910,44 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 12
       },
-      "detailHash": "bcf72d339fe1a3a4",
-      "firstText": "「……我现在正在和白河同学交往，这不是当然的吗？」",
-      "index": 105,
-      "lastText": "她这么说着，眼中再次泛出泪水。"
+      "detailHash": "b575381a4f41f266",
+      "firstText": "「……为什么要过来……你明明就不喜欢我……继续待在那个女人身边不就好了！」",
+      "index": 109,
+      "lastText": "「我就讨厌那样！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0e975d6997af7e10",
+      "firstText": "黑濑同学像个小孩般哭闹大喊。",
+      "index": 110,
+      "lastText": "「可是姓氏……」"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "57a6cf02acfc1553",
+      "firstText": "「我们的父母在小五时就离婚了，我改从母姓。那个女人一直维持爸爸的姓氏。加岛同学是国中时和我同校，才会",
+      "index": 111,
+      "lastText": "她做出那些反应时，心中或许就是想着黑濑同学。"
     },
     {
       "counts": {
@@ -1869,114 +1959,99 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "e02cbea0e33cf038",
-      "firstText": "「我想成为第一名……不是第一名的女生就不会被选上。我已经不想再被那个女人夺去任何东西了……」",
-      "index": 106,
-      "lastText": "就像猜到我的想法似的，黑濑同学如此表示。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "6621d53efda94137",
-      "firstText": "我仔细地注视着她。",
-      "index": 107,
-      "lastText": "「我是个文静的小孩……没办法清楚表达自己的感情，也不擅长讨好别人。但我认为非得改变那样的自己不可。」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "b3fead7663761700",
-      "firstText": "黑濑同学带着无比苦恼的表情低下了头。",
-      "index": 108,
-      "lastText": "我的话让黑濑同学抬起了脸，欲言又止地看着我。"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "260995246cea9a36",
-      "firstText": "「我明白黑濑同学的『想要成为最受喜爱的女孩子』想法。然而，那是希望自己被令尊……被对自己而言特别重要",
-      "index": 109,
-      "lastText": "「但是……」"
-    },
-    {
-      "counts": {
-        "blocks": 29,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "2f62a766756ac735",
-      "firstText": "我打断一脸赌气正想回嘴的黑濑同学，接了下去。",
-      "index": 110,
-      "lastText": "当我正准备回到教室时，白河同学从敞开的教室门口冲出来。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "1c8c818d9c09eb6f",
-      "firstText": "「龙斗！」",
-      "index": 111,
-      "lastText": "「为了人家……？」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "2f120556080c6ffa",
-      "firstText": "那双注视着我的眼瞳闪现着水光。",
+      "detailHash": "c952572aa16c440d",
+      "firstText": "「是你们的大姐和爸爸把你从妈妈那边接回去的吗？」",
       "index": 112,
-      "lastText": "实际上我没办法像说的那样彻底放下。一想到她的前男友时，胸口依旧会感到难过。"
+      "lastText": "并且成为她往后人生的精神粮食。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 17
+        "textRuns": 27
       },
-      "detailHash": "f593c3e6f55e6eac",
-      "firstText": "可是……",
+      "detailHash": "afe16e5bf0604435",
+      "firstText": "「……你没问过为什么令尊选择了白河同学吗？」",
       "index": 113,
+      "lastText": "虽然知道黑濑同学很不高兴，我还是继续说下去。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "5d1dffb43f2d8f37",
+      "firstText": "「白河同学并非为了博取众人喜爱而特别做什么事。她只是如实表达自己的想法，活出自我，就让许多的人对她产",
+      "index": 114,
+      "lastText": "「可是……」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "956f475270e5fdae",
+      "firstText": "「废话少说。我才没有落魄到得让月爱的男友来安慰的程度。快走啦！」",
+      "index": 115,
+      "lastText": "我对感到惊讶的白河同学说着。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "d28ae3200eab060c",
+      "firstText": "「如果真的讨厌对方到不想见面的程度，就算是出于骚扰的目的，应该也不会想和对方待在同个空间里吧。」",
+      "index": 116,
+      "lastText": "难道说……"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "c48948a0e0341ece",
+      "firstText": "白河同学没发现那个谣言是黑濑同学为了攻击白河同学而捏造的吗？",
+      "index": 117,
+      "lastText": "「谢谢你，龙斗！」"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 5,
+        "ruby": 0,
+        "textRuns": 5
+      },
+      "detailHash": "c8bcdf4bcfaf4c71",
+      "firstText": "目睹那绝顶可爱的笑容，我不禁想一把抱住她。",
+      "index": 118,
       "lastText": "注意到这个事实以后，除了涌上心头的爱意，我还感到了一丝苦涩。"
     },
     {
@@ -1989,9 +2064,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "a30eed574080404a",
+      "detailHash": "1988c688ac169224",
       "firstText": "第四·五章",
-      "index": 114,
+      "index": 119,
       "lastText": "「她说是顾虑到你和男生单独在一起。毕竟优娜也有男友。」"
     },
     {
@@ -2004,9 +2079,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "779748c177a64240",
+      "detailHash": "785265ccb58ae890",
       "firstText": "「哎呀，那怎么看都不像是约会的气氛耶。而且我还准备好，如果那家伙是个软弱的男生就狠狠教训他一顿。」",
-      "index": 115,
+      "index": 120,
       "lastText": "「……和龙斗在一起时的感觉跟过去不一样，常常会心跳加快。难道说这就是真正的恋爱吗……？」"
     },
     {
@@ -2015,13 +2090,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "0833a35f64245ccf",
+      "detailHash": "aedc2dce819a526b",
       "firstText": "第五章",
-      "index": 116,
+      "index": 121,
       "lastText": "「黑濑同学。」"
     },
     {
@@ -2034,25 +2109,25 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "f38eff1e5f42026a",
+      "detailHash": "8c46db1cc6c96db5",
       "firstText": "我准备将自己这排的作业交过去，朝她喊了一声。后脑勺对着我的黑濑同学的肩膀抖了一下，却迟迟没有转过头",
-      "index": 117,
+      "index": 122,
       "lastText": "望着满脸通红，害羞地垂下眼睛的黑濑同学……"
     },
     {
       "counts": {
-        "blocks": 28,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 24
       },
-      "detailHash": "1a732bd9d18cd98a",
+      "detailHash": "2948c106bb6c267e",
       "firstText": "「咦……？」",
-      "index": 118,
-      "lastText": "虽然远处确实有人在意地偷看我们，不过大多数的同学只关注着他们自己的事情。"
+      "index": 123,
+      "lastText": "白河同学秀出违反校规的闪亮造型美甲，而我却是在意周围的视线在意得不得了。"
     },
     {
       "counts": {
@@ -2060,29 +2135,29 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "227cc5553a244933",
-      "firstText": "「……唔，是啊。」",
-      "index": 119,
-      "lastText": "和白河同学接吻……光是想想鼻血就要喷出来了。"
+      "detailHash": "adbef9782b665183",
+      "firstText": "然而出乎意料地，同学们都没什么反应。",
+      "index": 124,
+      "lastText": "这种说法太拐弯抹角了……"
     },
     {
       "counts": {
-        "blocks": 25,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "54f017d1ad7b4af3",
-      "firstText": "好想……好想接吻！",
-      "index": 120,
-      "lastText": "「我可不会道歉喔。」"
+      "detailHash": "911e8316e165d9ac",
+      "firstText": "简单来说，我想接吻！",
+      "index": 125,
+      "lastText": "「阿伊……」"
     },
     {
       "counts": {
@@ -2094,10 +2169,25 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "948dd01ec12d3f70",
-      "firstText": "他用顽固大叔的风格说着，瞪了我一眼。",
-      "index": 121,
-      "lastText": "「那试试用『啊～好冷喔～！手冰得快冻僵了！』这种话？」"
+      "detailHash": "537720e33fb4ea12",
+      "firstText": "原来从那件事之后的几天，他一直在意这点吗……",
+      "index": 126,
+      "lastText": "「完全是唬烂嘛。而且就算给我看手也看不出什么东西。」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "2f285594e893c09a",
+      "firstText": "「反正只要随便说说对方也不会发现啦。」",
+      "index": 127,
+      "lastText": "我从KEN的游戏风格里找到了灵感。"
     },
     {
       "counts": {
@@ -2107,41 +2197,26 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 25
       },
-      "detailHash": "cb504585a8f1a6d0",
-      "firstText": "「太拐弯抹角听起来又很烦！这只会被当成表示自己有手脚冰冷的毛病！」",
-      "index": 122,
-      "lastText": "况。"
+      "detailHash": "d9d837c9a7c31213",
+      "firstText": "玩大逃杀型的射击游戏时，KEN经常会将敌方玩家引诱到自己预想的位置上再攻击该处。由于他是前职业选手，",
+      "index": 128,
+      "lastText": "「那就说定喽！」"
     },
     {
       "counts": {
-        "blocks": 28,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 18
       },
-      "detailHash": "bec6c7e5efbcf2cd",
-      "firstText": "可是该怎么做呢？",
-      "index": 123,
-      "lastText": "「居酒屋。」"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 13
-      },
-      "detailHash": "076a8ec9412a4d38",
-      "firstText": "「哦～感觉很适合她呢。」",
-      "index": 124,
+      "detailHash": "73a7a2018f37f530",
+      "firstText": "白河同学愉快地说着，于是我们就一起离开学校。",
+      "index": 129,
       "lastText": "「我只是在想白河同学似乎很适合蛋糕店的制服。」"
     },
     {
@@ -2150,44 +2225,44 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 12,
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "cde7a6f994d0ae65",
+      "detailHash": "43a8a19bed35c2e3",
       "firstText": "听到我的话，白河同学睁大了眼。",
-      "index": 125,
+      "index": 130,
       "lastText": "「有什么关系嘛，不用害羞呀。」"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "71b521606aa3f130",
+      "detailHash": "0d4704f3d30ee77f",
       "firstText": "「又、又不是只有我这样！那可是男人的梦想啊……！」",
-      "index": 126,
-      "lastText": "「那么我们稍微绕点路吧～！」"
+      "index": 131,
+      "lastText": "白河同学对着心脏噗通一跳的我露出可爱的笑容。"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "630991f980d3944a",
-      "firstText": "虽然她只碰到我的手臂一下，而且还是隔着制服衬衫。",
-      "index": 127,
-      "lastText": "「所以人家觉得……应该把自己喜欢的东西全都告诉龙斗让你知道。」"
+      "detailHash": "ed0c09f909b57fac",
+      "firstText": "「那么我们稍微绕点路吧～！」",
+      "index": 132,
+      "lastText": "我记得……那是让我四处调查珍奶店的那场生日约会时所说的话。"
     },
     {
       "counts": {
@@ -2199,10 +2274,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "08a73faf800d0bce",
-      "firstText": "白河同学这么说着，有点害羞地笑了。",
-      "index": 128,
-      "lastText": "太完美了。"
+      "detailHash": "f9d716fc29a60398",
+      "firstText": "她还记得啊。",
+      "index": 133,
+      "lastText": "说到这一带的动物园，首先想到的就是上野动物园。"
     },
     {
       "counts": {
@@ -2214,40 +2289,40 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "6de3b503b6abd048",
-      "firstText": "之后就只要等当天白河同学上船时脚步不稳想抓着我的那一刻，我再轻轻牵着她的手就好了。",
-      "index": 129,
-      "lastText": "「不、不是啦！」"
+      "detailHash": "27b8d55b0bd899df",
+      "firstText": "在上野公园的园区里有个大型池塘，只要花钱就能租到小船。所以能在逛完动物园后顺势邀请她坐船。",
+      "index": 134,
+      "lastText": "「可是……」"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 28,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 28
+        "textRuns": 27
       },
-      "detailHash": "be0e4ebf625e9992",
-      "firstText": "慌慌张张的我只好如实招来。",
-      "index": 130,
-      "lastText": "这时我才突然回过神来，我又自顾自地讲太多了。和珍奶店那时犯了一样的错。幸好至少我有想起当时的教训，稍"
+      "detailHash": "d6f4a2d5041dfdb4",
+      "firstText": "「我知道了！是色色的事情吧？」",
+      "index": 135,
+      "lastText": "脑袋配合不同的情况使用最佳的思考方式，借此在游戏过程中说服别人喔。那是很不容易的事。实际亲自玩过就会"
     },
     {
       "counts": {
-        "blocks": 25,
+        "blocks": 24,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "af0095571b04c2ec",
-      "firstText": "微早一点拉了煞车。",
-      "index": 131,
-      "lastText": "「还有那种像果酱一样黏稠的口红……」"
+      "detailHash": "0d2a30b41e4b8311",
+      "firstText": "知道了，要做的事太多忙不过来，根本没办法注意到战术。啊，所谓要做的事，如果当狼人就是说谎，那会有罪恶",
+      "index": 136,
+      "lastText": "「谢谢。不过那是因为有兴趣才记住的喔。白河同学不也是很熟悉时尚用语吗？像是那种你常常穿的肩膀镂空衣"
     },
     {
       "counts": {
@@ -2257,27 +2332,27 @@
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 24
       },
-      "detailHash": "ca7707667ecfe0f4",
-      "firstText": "「你是说『染唇液』吗？」",
-      "index": 132,
-      "lastText": "「那是有一段时间之前上传的影片吧，真亏你能找到呢。」"
+      "detailHash": "d0f439da7b4e68ba",
+      "firstText": "服……」",
+      "index": 137,
+      "lastText": "「呐，你看了KEN的『外遇系列』吗？那个超有趣的耶！因为人家很在意后面的发展，一直看到三点呢～！」"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 25
       },
-      "detailHash": "0b2803c5f9e48002",
-      "firstText": "看到我惊讶地这么说，白河同学露出得意的微笑。",
-      "index": 133,
-      "lastText": "「……熊猫有点脏脏的呢～不过会不会太大只了？原来不是小宝宝的样子啊……」"
+      "detailHash": "5a28728c68a24be8",
+      "firstText": "「咦……」",
+      "index": 138,
+      "lastText": "◇"
     },
     {
       "counts": {
@@ -2289,10 +2364,160 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "39cc40e7a9fa83ed",
-      "firstText": "发现实际的熊猫与想像不同，导致她的情绪有点降温。",
-      "index": 134,
-      "lastText": "白河同学这么说着，自暴自弃般拿下背上的背包，从里头取出某个东西。"
+      "detailHash": "745b40ded9a05fa4",
+      "firstText": "时间来到下一个星期日，我和白河同学前往动物园。",
+      "index": 139,
+      "lastText": "此时，白河同学才终于出声。她的脸上带着些许红晕。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "8b7b32c2bd2ee883",
+      "firstText": "「唔，什么事？」",
+      "index": 140,
+      "lastText": "因为我迟迟没接过便当盒，让白河同学哭丧着一张脸。脸颊仍红润的她眉毛垂成八字，准备收回便当盒。"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "02b99b9517796b50",
+      "firstText": "「不，我要！谢谢你，白河同学。」",
+      "index": 141,
+      "lastText": "手机随意地震动了两次，我有些在意地从口袋里掏出手机看了一下画面。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "616a5c9d5007d170",
+      "firstText": "妮可",
+      "index": 142,
+      "lastText": "她露出有些闷闷不乐的神情，就如同她质问我为什么在速食店与山名同学待在一起时那样。"
+    },
+    {
+      "counts": {
+        "blocks": 12,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 12,
+        "ruby": 0,
+        "textRuns": 12
+      },
+      "detailHash": "41c81546fe9671d4",
+      "firstText": "「是啊……是在询问你生日的那天，山名同学告诉我的。她说只要想问白河同学的事就可以LINE给她。她从那",
+      "index": 143,
+      "lastText": "「嗯，好吃！」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "6494ebaf06c7a443",
+      "firstText": "这道蛋包饭以在家制作的菜肴而言味道算是相当标准，即使我如此称赞也不算说谎。",
+      "index": 144,
+      "lastText": "「真的耶。」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "d89f8b36c43bbd14",
+      "firstText": "今天天气很好，即使现在是太阳逐渐西斜的午后两点多，仍有许多人在搭船游玩。看上去大多都是天鹅船，不过我",
+      "index": 145,
+      "lastText": "只见白河同学立刻恢复平衡，两三下就顺利坐进船里。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "7116305b33342d05",
+      "firstText": "「……嗯，是啊……」",
+      "index": 146,
+      "lastText": "我还以为自己的想法被听到，心脏噗通地跳了一下。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "e30355a4122d5760",
+      "firstText": "辣妹一向给人喜欢疯狂自拍的印象，不过白河同学没那么夸张。和她在一起时，她几乎不自拍，所以在之前的约会",
+      "index": 147,
+      "lastText": "「呵呵，又多一样相同的东西了呢。」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "664360ff5cb04758",
+      "firstText": "她的笑脸之所以耀眼夺目，应该不只是因为池塘水面反射了午后阳光的缘故。",
+      "index": 148,
+      "lastText": "「要不要稍微走一走？」"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "8231e29a2d63a14f",
+      "firstText": "我想破头后挤出的提议就是这个。",
+      "index": 149,
+      "lastText": "「人家知道这是什么状况……每个人都是在约会到一半时，突然用这种态度提出的。」"
     },
     {
       "counts": {
@@ -2304,209 +2529,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "3c6457248c6c2bb4",
-      "firstText": "「这个！人家做了便当！」",
-      "index": 135,
-      "lastText": "虽然白河同学害羞地这么说，却造成了反效果。她越是那么说，我的期待度就冲得越高。是说，不管是什么样的便"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "1915b50767f6b5e6",
-      "firstText": "当我都不会在意。",
-      "index": 136,
-      "lastText": "看到我的表情僵硬，白河同学不经意地望向手机画面。"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "e18fbbddfeb93c3e",
-      "firstText": "「啊！这不是妮可吗？」",
-      "index": 137,
-      "lastText": "于是我终于开始品尝便当。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 11,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "1e7bc871241f4a60",
-      "firstText": "至于好不好吃这个重点，可以说味道并没有危险到需要先做好心理准备。",
-      "index": 138,
-      "lastText": "今天的白河同学很常笑。她原本就是个性开朗的女孩。不过当我们两人独处时，她的笑容就比一开始更常见了。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "3529d2f2339a8ff8",
-      "firstText": "是因为她比以前更喜欢我的关系吗？",
-      "index": 139,
-      "lastText": "「咦，但是坐船的人要一起划吧？」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "f3ffa1e22146c4dd",
-      "firstText": "「那是独木舟啦！」",
-      "index": 140,
-      "lastText": "我打算和这么可爱的女孩牵手吗？"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "cf80c2082db0b7b0",
-      "firstText": "……真的办得到吗？",
-      "index": 141,
-      "lastText": "「……！」"
-    },
-    {
-      "counts": {
-        "blocks": 28,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "786df333f5ba5761",
-      "firstText": "下一秒，她按下快门键。",
-      "index": 142,
-      "lastText": "下船与乘船相反，是从不稳定的地面踏上稳定地面的行为。只要平衡感够好，或许就不需要他人的帮助。"
-    },
-    {
-      "counts": {
-        "blocks": 27,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "3ded83cec242bcb8",
-      "firstText": "计划，失败。",
-      "index": 143,
-      "lastText": "即使如此，我也不想像她的前男友们一样，成为一个让她认为发生关系是「义务」的男友。因此，我对肢体接触非"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "1a1b401e3d467c10",
-      "firstText": "常慎重。",
-      "index": 144,
-      "lastText": "这时，我突然想到她刚才说的话。"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "e4ee4252af5b14c9",
-      "firstText": "──人家知道这是什么状况……每个人都是在约会到一半时，突然用这种态度提出的。",
-      "index": 145,
-      "lastText": "而是鼓起勇气，由我主动伸手。"
-    },
-    {
-      "counts": {
-        "blocks": 26,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "5d727ba045ccbb6f",
-      "firstText": "我想碰触你。如果你露出排斥的表情，那就干脆地道歉，等待时机成熟。",
-      "index": 146,
-      "lastText": "公园的池畔绿意盎然，隔着树能看到摩天大楼。池水混浊不见鱼踪，不过远方能看到一群鸭子正在戏水。"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "c8f50fecf2db8dec",
-      "firstText": "我一边眺望周遭的风景，一边以满足的心情划着船。",
-      "index": 147,
-      "lastText": "当我还搞不清楚状况时，她半蹲着将手搭在小船边缘，用力左右摇晃。"
-    },
-    {
-      "counts": {
-        "blocks": 29,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "4bc6bb8a70f8076b",
+      "detailHash": "5228b490b4c2de79",
       "firstText": "「咦？」",
-      "index": 148,
-      "lastText": "听到这句话，我这才豁然开朗。想起开始交往那天的对话。"
+      "index": 150,
+      "lastText": "我现在完全……无论在任何情况下都不会考虑那种事。"
     },
     {
       "counts": {
-        "blocks": 27,
+        "blocks": 26,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2514,14 +2544,59 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "ef3a8f28a6941c74",
-      "firstText": "白河同学竟然是这么想的……",
-      "index": 149,
-      "lastText": "没想到我竟然会有用名字称呼那位白河同学的一天，而且还是直乎其名。"
+      "detailHash": "535f8687fcd8c651",
+      "firstText": "就算未来某一天这段恋情会结束。",
+      "index": 151,
+      "lastText": "我把仅有的一点勇气全都挤光了，不敢看她的眼睛。"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "c9fffad97fa7e8c1",
+      "firstText": "「…………」",
+      "index": 152,
+      "lastText": "那就是这种暗示啊。"
     },
     {
       "counts": {
         "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "36789de3b16bc5c5",
+      "firstText": "「人家觉得可能不太好，所以没有明说。人家明明还没打算主动要求做爱却想牵手。这很自私对吧？毕竟男生只要",
+      "index": 153,
+      "lastText": "「有机可趁！」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c395b288605c4dc3",
+      "firstText": "回到自己座位后，白河同学笑着这么说。",
+      "index": 154,
+      "lastText": "「请。」"
+    },
+    {
+      "counts": {
+        "blocks": 26,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 1,
@@ -2529,10 +2604,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "52a9856749a00710",
-      "firstText": "「月、月月月……」",
-      "index": 150,
-      "lastText": "「……龙斗，你的手好冰喔。」"
+      "detailHash": "fdeab8669b80e0c6",
+      "firstText": "「谢谢。」",
+      "index": 155,
+      "lastText": "我总算好好说出口了。第一次叫出了白河同学的名字。我却有种明明是自己的声音，但不像自己说出来的古怪感"
     },
     {
       "counts": {
@@ -2544,39 +2619,54 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "99312b9fe1b55619",
-      "firstText": "白河同学突然对大受感动的我这么说。",
-      "index": 151,
+      "detailHash": "b3249c8a1049d736",
+      "firstText": "觉。",
+      "index": 156,
+      "lastText": "我也红着一张脸，不过白河同学似乎实在是害羞到受不了，急忙抬头望向天空想要掩饰过去。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "0b20de7c6b5a1e54",
+      "firstText": "「啊……如果一开始就做了，一定就不会像这样害羞了呢。」",
+      "index": 157,
       "lastText": "我怀抱这些想法，轻轻反握住那纤细的小手。"
     },
     {
       "counts": {
-        "blocks": 24,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "detailHash": "eab75672efd2a559",
+      "detailHash": "937b9d43b6a3a7e5",
       "firstText": "第五·五章",
-      "index": 152,
-      "lastText": "我真正的复仇从今天才开始。"
+      "index": 158,
+      "lastText": "我要让她和我一样品尝到世上最重要之人被夺走的悲伤。"
     },
     {
       "counts": {
-        "blocks": 1,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 3
       },
-      "detailHash": "1f61bce382a85ce0",
-      "firstText": "敬请期待吧，月爱。",
-      "index": 153,
+      "detailHash": "ef009f414735fc59",
+      "firstText": "这就是我的复仇。",
+      "index": 159,
       "lastText": "敬请期待吧，月爱。"
     },
     {
@@ -2589,9 +2679,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "bb130c22bfc2c531",
+      "detailHash": "69f83d5c0cc1329a",
       "firstText": "尾声",
-      "index": 154,
+      "index": 160,
       "lastText": "「也不是一步都走不动，还好啦～」"
     },
     {
@@ -2600,13 +2690,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 16,
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "fe0623764b78d7c0",
+      "detailHash": "263f44de18c47343",
       "firstText": "如此回答的白河同学望向刚才我手伸向的展示架，接着对我恶作剧般地一笑。",
-      "index": 155,
+      "index": 161,
       "lastText": "我果然拿白河同学没辙啊。"
     },
     {
@@ -2617,26 +2707,26 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "87663e57fef89123",
+      "detailHash": "bf53d3ec0747f45e",
       "firstText": "后记",
-      "index": 156,
-      "lastText": "漂亮而独自欢呼起来。"
+      "index": 162,
+      "lastText": "负责绘制插画的magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太"
     },
     {
       "counts": {
-        "blocks": 6,
+        "blocks": 7,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 7,
+        "lines": 9,
         "ruby": 0,
-        "textRuns": 7
+        "textRuns": 8
       },
-      "detailHash": "1c6ec1b199a0046d",
-      "firstText": "从大纲阶段开始与我详细进行讨论的铃木前责编，非常感谢您的照顾。这三年来辛苦您了。还有新任的松林责编，",
-      "index": 157,
+      "detailHash": "7f2bf3008b655cb5",
+      "firstText": "漂亮而独自欢呼起来。",
+      "index": 163,
       "lastText": "长冈マキ子"
     },
     {
@@ -2649,9 +2739,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6d073e43c781b79c",
+      "detailHash": "5dae153186fcce72",
       "firstText": "",
-      "index": 158,
+      "index": 164,
       "lastText": ""
     }
   ],
@@ -2660,14 +2750,14 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 4,
-    "fullDetailHash": "40053ef2058efc7d",
-    "pageCount": 159,
+    "fullDetailHash": "21c532b39f2cda49",
+    "pageCount": 165,
     "totals": {
-      "blocks": 3492,
+      "blocks": 3494,
       "hrs": 0,
       "images": 21,
       "inlineAtoms": 4,
-      "lines": 3637,
+      "lines": 3766,
       "ruby": 6,
       "textRuns": 3654
     }
@@ -3800,12 +3890,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 19.2,
             "width": 520,
             "x": 0,
             "y": 339.04
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -3819,7 +3920,7 @@
             "height": 15.36,
             "width": 520,
             "x": 0,
-            "y": 342.24
+            "y": 361.44
           },
           "children": [
             {
@@ -3918,7 +4019,7 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 16,
         "ruby": 0,
         "textRuns": 19
       },
@@ -7097,12 +7198,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 471.68
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -7116,7 +7228,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 478.08
+            "y": 498.88
           },
           "children": [
             {
@@ -7166,7 +7278,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 505.28
+            "y": 526.08
           },
           "children": [
             {
@@ -7250,7 +7362,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 553.28
+            "y": 574.08
           },
           "children": [
             {
@@ -7334,7 +7446,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 601.28
+            "y": 622.08
           },
           "children": [
             {
@@ -7384,7 +7496,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 628.48
+            "y": 649.28
           },
           "children": [
             {
@@ -7434,7 +7546,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 655.68
+            "y": 676.48
           },
           "children": [
             {
@@ -7476,56 +7588,6 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 682.88
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 278.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "白河同学看了看她拿回的通知书，立刻转过身来，短裙随之飞舞。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
         }
       ],
       "bounds": {
@@ -7535,17 +7597,17 @@
         "y": 0
       },
       "counts": {
-        "blocks": 21,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 24
       },
       "firstText": "第一章",
       "index": 10,
-      "lastText": "白河同学看了看她拿回的通知书，立刻转过身来，短裙随之飞舞。",
+      "lastText": "「啊，真的耶。」",
       "paint": null
     },
     {
@@ -7596,7 +7658,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 39,
+      "index": 41,
       "lastText": "",
       "paint": null
     },
@@ -8928,7 +8990,7 @@
         "textRuns": 28
       },
       "firstText": "第一·五章",
-      "index": 40,
+      "index": 42,
       "lastText": "「啊？莫名其妙，你又不是处女。」",
       "paint": null
     },
@@ -9101,7 +9163,7 @@
         "textRuns": 3
       },
       "firstText": "「就是说呀～」",
-      "index": 41,
+      "index": 43,
       "lastText": "「他似乎是个有点奇怪的人呢。让人家感到满有趣的，开始对他有些兴趣了。」",
       "paint": null
     },
@@ -9395,12 +9457,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 212.48
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -9414,7 +9487,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 218.88
+            "y": 239.68
           },
           "children": [
             {
@@ -9464,7 +9537,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 246.08
+            "y": 266.88
           },
           "children": [
             {
@@ -9514,7 +9587,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 273.28
+            "y": 294.08
           },
           "children": [
             {
@@ -9564,7 +9637,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 300.48
+            "y": 321.28
           },
           "children": [
             {
@@ -9648,7 +9721,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 348.48
+            "y": 369.28
           },
           "children": [
             {
@@ -9698,7 +9771,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 375.68
+            "y": 396.48
           },
           "children": [
             {
@@ -9748,7 +9821,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 402.88
+            "y": 423.68
           },
           "children": [
             {
@@ -9798,7 +9871,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 430.08
+            "y": 450.88
           },
           "children": [
             {
@@ -9848,7 +9921,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 457.28
+            "y": 478.08
           },
           "children": [
             {
@@ -9898,7 +9971,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 484.48
+            "y": 505.28
           },
           "children": [
             {
@@ -9948,7 +10021,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 511.68
+            "y": 532.48
           },
           "children": [
             {
@@ -9998,7 +10071,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 538.88
+            "y": 559.68
           },
           "children": [
             {
@@ -10048,7 +10121,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 566.08
+            "y": 586.88
           },
           "children": [
             {
@@ -10098,7 +10171,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 593.28
+            "y": 614.08
           },
           "children": [
             {
@@ -10148,7 +10221,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 620.48
+            "y": 641.28
           },
           "children": [
             {
@@ -10198,7 +10271,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 647.68
+            "y": 668.48
           },
           "children": [
             {
@@ -10248,7 +10321,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 674.88
+            "y": 695.68
           },
           "children": [
             {
@@ -10303,12 +10376,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
         "textRuns": 24
       },
       "firstText": "第二章",
-      "index": 42,
+      "index": 44,
       "lastText": "「……没有做啦。」",
       "paint": null
     },
@@ -10322,6 +10395,206 @@
             "width": 520,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 201.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "只不过就算明白这点，我也不知道该如何解决。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 86.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「怎么了，龙斗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 297.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "白河同学不晓得在什么时候已经结束与朋友的通话，疑惑地注视着我。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 249.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「啊，嗯……我只是想起下周有汉字小考，感觉有点糟。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 108.8
           },
           "children": [
             {
@@ -10371,7 +10644,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 27.2
+            "y": 136
           },
           "children": [
             {
@@ -10421,7 +10694,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 54.4
+            "y": 163.2
           },
           "children": [
             {
@@ -10471,7 +10744,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 81.6
+            "y": 190.4
           },
           "children": [
             {
@@ -10521,7 +10794,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 108.8
+            "y": 217.6
           },
           "children": [
             {
@@ -10571,7 +10844,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 136
+            "y": 244.8
           },
           "children": [
             {
@@ -10622,16 +10895,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 6,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 10,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 10
       },
-      "firstText": "听到这句话，白河同学用力地皱起眉头。",
-      "index": 57,
+      "firstText": "只不过就算明白这点，我也不知道该如何解决。",
+      "index": 59,
       "lastText": "我笑着对抱头哀号的她吐嘈，并将眼前那杯为了装成熟而点的黑咖啡连同心中的苦涩一同咽下。",
       "paint": null
     },
@@ -11837,7 +12110,7 @@
         "textRuns": 24
       },
       "firstText": "第二·五章",
-      "index": 58,
+      "index": 60,
       "lastText": "「那家伙叫龙斗是吗？感觉……还满接近我所想的『适合露娜的男人』。」",
       "paint": null
     },
@@ -12810,7 +13083,7 @@
         "textRuns": 19
       },
       "firstText": "「…………」",
-      "index": 59,
+      "index": 61,
       "lastText": "「人家觉得要是能和龙斗顺利进展下去就好了呢。」",
       "paint": null
     },
@@ -13806,12 +14079,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 601.28
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -13825,7 +14109,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 607.68
+            "y": 628.48
           },
           "children": [
             {
@@ -13875,7 +14159,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 634.88
+            "y": 655.68
           },
           "children": [
             {
@@ -13925,7 +14209,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 662.08
+            "y": 682.88
           },
           "children": [
             {
@@ -13967,56 +14251,6 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 689.28
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "阿伊看着我开口询问，阿仁也担心地说道：",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
         }
       ],
       "bounds": {
@@ -14026,17 +14260,17 @@
         "y": 0
       },
       "counts": {
-        "blocks": 22,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 24
       },
       "firstText": "第三章",
-      "index": 60,
-      "lastText": "阿伊看着我开口询问，阿仁也担心地说道：",
+      "index": 62,
+      "lastText": "「怎么啦，吾友？」",
       "paint": null
     },
     {
@@ -14058,399 +14292,10 @@
                 "x": 0,
                 "y": 0
               },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「什么事？」",
-                  "type": "text-run"
-                }
-              ],
+              "runs": [],
               "type": "line-box"
             }
           ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "当我这么一问，她便露出别有深意的微笑。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 54.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 240,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「加岛同学的女友是谁呀？我还是很在意，告诉我嘛。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 81.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 48,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「啊……」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 108.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "是这件事啊。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 136
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 211.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "之前我打算说出口时，因为老师回来而被打断了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 163.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 67.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「其实是……」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 190.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "这时，我突然想起白河同学给我看的LINE画面。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 0,
-            "width": 520,
-            "x": 0,
-            "y": 217.6
-          },
-          "children": [],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -14469,7 +14314,7 @@
             "height": 72.4,
             "width": 520,
             "x": 0,
-            "y": 224
+            "y": 27.2
           },
           "children": [
             {
@@ -14602,12 +14447,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 302.8
+            "y": 106
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -14621,7 +14477,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 309.2
+            "y": 133.2
           },
           "children": [
             {
@@ -14671,7 +14527,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 336.4
+            "y": 160.4
           },
           "children": [
             {
@@ -14721,7 +14577,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 363.6
+            "y": 187.6
           },
           "children": [
             {
@@ -14771,7 +14627,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 390.8
+            "y": 214.8
           },
           "children": [
             {
@@ -14821,7 +14677,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 418
+            "y": 242
           },
           "children": [
             {
@@ -14871,7 +14727,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 445.2
+            "y": 269.2
           },
           "children": [
             {
@@ -14921,7 +14777,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 472.4
+            "y": 296.4
           },
           "children": [
             {
@@ -14971,7 +14827,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 499.6
+            "y": 323.6
           },
           "children": [
             {
@@ -15021,7 +14877,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 526.8
+            "y": 350.8
           },
           "children": [
             {
@@ -15071,7 +14927,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 554
+            "y": 378
           },
           "children": [
             {
@@ -15122,16 +14978,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 23,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 14,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 12
       },
-      "firstText": "「什么事？」",
-      "index": 87,
+      "firstText": "妮可和班上的老土男在麦当●约会耶w",
+      "index": 91,
       "lastText": "我是这么认为的。",
       "paint": null
     },
@@ -16039,7 +15895,7 @@
         "textRuns": 19
       },
       "firstText": "第三·五章",
-      "index": 88,
+      "index": 92,
       "lastText": "如今的我……已经不是那时候的我了。",
       "paint": null
     },
@@ -17280,7 +17136,7 @@
         "textRuns": 25
       },
       "firstText": "第四章",
-      "index": 89,
+      "index": 93,
       "lastText": "就是最近经常找她说话的那位足球社员。",
       "paint": null
     },
@@ -17294,590 +17150,6 @@
             "width": 520,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 38.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "可是……",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "「就算过去的白河同学如谣言所说做过那些事，现在的白河同学也已经是另一个人了。我不会容许那种陈年往事伤",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 124.8,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "害现在的白河同学的名誉。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 75.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "看着认真回答的我，白河同学微微地苦笑。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 102.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 163.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「人家是没做过谣言里面那些事啦。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 129.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「嗯，我也这么觉得。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 156.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "我微笑着点头，白河同学也跟着一起微笑。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 184
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 124.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "接着，她的脸颊微泛起红晕。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 211.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 134.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「……龙斗你果然很奇怪呢。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 238.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "就算不必问她，我也知道那并非负面的意义。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 265.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "证据就是白河同学开心地朝我露出了笑容。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 292.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 86.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「谢谢你，龙斗！」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 320
           },
           "children": [
             {
@@ -17927,7 +17199,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 347.2
+            "y": 27.2
           },
           "children": [
             {
@@ -17977,7 +17249,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 374.4
+            "y": 54.4
           },
           "children": [
             {
@@ -18027,7 +17299,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 401.6
+            "y": 81.6
           },
           "children": [
             {
@@ -18077,7 +17349,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 428.8
+            "y": 108.8
           },
           "children": [
             {
@@ -18128,16 +17400,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 16,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 5,
         "ruby": 0,
-        "textRuns": 17
+        "textRuns": 5
       },
-      "firstText": "可是……",
-      "index": 113,
+      "firstText": "目睹那绝顶可爱的笑容，我不禁想一把抱住她。",
+      "index": 118,
       "lastText": "注意到这个事实以后，除了涌上心头的爱意，我还感到了一丝苦涩。",
       "paint": null
     },
@@ -19343,7 +18615,7 @@
         "textRuns": 24
       },
       "firstText": "第四·五章",
-      "index": 114,
+      "index": 119,
       "lastText": "「她说是顾虑到你和男生单独在一起。毕竟优娜也有男友。」",
       "paint": null
     },
@@ -20616,7 +19888,7 @@
         "textRuns": 25
       },
       "firstText": "「哎呀，那怎么看都不像是约会的气氛耶。而且我还准备好，如果那家伙是个软弱的男生就狠狠教训他一顿。」",
-      "index": 115,
+      "index": 120,
       "lastText": "「……和龙斗在一起时的感觉跟过去不一样，常常会心跳加快。难道说这就是真正的恋爱吗……？」",
       "paint": null
     },
@@ -21610,12 +20882,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 593.28
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -21629,7 +20912,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 599.68
+            "y": 620.48
           },
           "children": [
             {
@@ -21679,7 +20962,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 626.88
+            "y": 647.68
           },
           "children": [
             {
@@ -21763,7 +21046,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 674.88
+            "y": 695.68
           },
           "children": [
             {
@@ -21818,12 +21101,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
         "textRuns": 24
       },
       "firstText": "第五章",
-      "index": 116,
+      "index": 121,
       "lastText": "「黑濑同学。」",
       "paint": null
     },
@@ -21837,356 +21120,6 @@
             "width": 520,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 163.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "白河同学突然对大受感动的我这么说。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 163.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「真假？抱、抱歉，我太紧张了……」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 54.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "看到从刚才开始一直道歉的我，白河同学被逗笑了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 81.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 230.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「没关系啦，反正已经是夏天了。人家来帮你取暖。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 108.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 172.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "她说完后，脸颊微微泛红，羞赧地笑了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 136
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 86.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「感觉好害羞喔。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 163.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 393.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "我也红着一张脸，不过白河同学似乎实在是害羞到受不了，急忙抬头望向天空想要掩饰过去。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 190.4
           },
           "children": [
             {
@@ -22236,7 +21169,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 217.6
+            "y": 27.2
           },
           "children": [
             {
@@ -22286,7 +21219,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 244.8
+            "y": 54.4
           },
           "children": [
             {
@@ -22336,7 +21269,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 272
+            "y": 81.6
           },
           "children": [
             {
@@ -22386,7 +21319,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 299.2
+            "y": 108.8
           },
           "children": [
             {
@@ -22436,7 +21369,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 326.4
+            "y": 136
           },
           "children": [
             {
@@ -22486,7 +21419,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 353.6
+            "y": 163.2
           },
           "children": [
             {
@@ -22536,7 +21469,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 380.8
+            "y": 190.4
           },
           "children": [
             {
@@ -22586,7 +21519,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 408
+            "y": 217.6
           },
           "children": [
             {
@@ -22636,7 +21569,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 435.2
+            "y": 244.8
           },
           "children": [
             {
@@ -22686,7 +21619,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 462.4
+            "y": 272
           },
           "children": [
             {
@@ -22736,7 +21669,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 489.6
+            "y": 299.2
           },
           "children": [
             {
@@ -22786,7 +21719,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 516.8
+            "y": 326.4
           },
           "children": [
             {
@@ -22836,7 +21769,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 544
+            "y": 353.6
           },
           "children": [
             {
@@ -22886,7 +21819,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 571.2
+            "y": 380.8
           },
           "children": [
             {
@@ -22936,7 +21869,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 598.4
+            "y": 408
           },
           "children": [
             {
@@ -22986,7 +21919,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 625.6
+            "y": 435.2
           },
           "children": [
             {
@@ -23036,7 +21969,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 652.8
+            "y": 462.4
           },
           "children": [
             {
@@ -23086,7 +22019,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 680
+            "y": 489.6
           },
           "children": [
             {
@@ -23137,16 +22070,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 26,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 19
       },
-      "firstText": "白河同学突然对大受感动的我这么说。",
-      "index": 151,
+      "firstText": "「啊……如果一开始就做了，一定就不会像这样害羞了呢。」",
+      "index": 157,
       "lastText": "我怀抱这些想法，轻轻反握住那纤细的小手。",
       "paint": null
     },
@@ -23889,12 +22822,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 463.36
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -23908,7 +22852,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 469.76
+            "y": 490.56
           },
           "children": [
             {
@@ -23958,7 +22902,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 496.96
+            "y": 517.76
           },
           "children": [
             {
@@ -24005,12 +22949,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 524.16
+            "y": 544.96
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -24024,7 +22979,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 530.56
+            "y": 572.16
           },
           "children": [
             {
@@ -24074,7 +23029,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 557.76
+            "y": 599.36
           },
           "children": [
             {
@@ -24158,7 +23113,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 605.76
+            "y": 647.36
           },
           "children": [
             {
@@ -24208,7 +23163,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 632.96
+            "y": 674.56
           },
           "children": [
             {
@@ -24250,7 +23205,30 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        },
+        }
+      ],
+      "bounds": {
+        "height": 800,
+        "width": 600,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "firstText": "第五·五章",
+      "index": 158,
+      "lastText": "我要让她和我一样品尝到世上最重要之人被夺走的悲伤。",
+      "paint": null
+    },
+    {
+      "blocks": [
         {
           "anchorId": null,
           "borderBox": null,
@@ -24258,7 +23236,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 660.16
+            "y": 0
           },
           "children": [
             {
@@ -24308,7 +23286,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 687.36
+            "y": 27.2
           },
           "children": [
             {
@@ -24350,30 +23328,7 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 800,
-        "width": 600,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "firstText": "第五·五章",
-      "index": 152,
-      "lastText": "我真正的复仇从今天才开始。",
-      "paint": null
-    },
-    {
-      "blocks": [
+        },
         {
           "anchorId": null,
           "borderBox": null,
@@ -24381,7 +23336,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 0
+            "y": 54.4
           },
           "children": [
             {
@@ -24432,16 +23387,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 1,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 3
       },
-      "firstText": "敬请期待吧，月爱。",
-      "index": 153,
+      "firstText": "这就是我的复仇。",
+      "index": 159,
       "lastText": "敬请期待吧，月爱。",
       "paint": null
     },
@@ -25648,7 +24603,7 @@
         "textRuns": 24
       },
       "firstText": "尾声",
-      "index": 154,
+      "index": 160,
       "lastText": "「也不是一步都走不动，还好啦～」",
       "paint": null
     },
@@ -26342,12 +25297,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 374.4
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -26361,7 +25327,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 380.8
+            "y": 401.6
           },
           "children": [
             {
@@ -26416,12 +25382,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 16,
         "ruby": 0,
         "textRuns": 15
       },
       "firstText": "如此回答的白河同学望向刚才我手伸向的展示架，接着对我恶作剧般地一笑。",
-      "index": 155,
+      "index": 161,
       "lastText": "我果然拿白河同学没辙啊。",
       "paint": null
     },
@@ -27521,12 +26487,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 671.68
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -27537,10 +26514,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 678.08
+            "y": 698.88
           },
           "children": [
             {
@@ -27576,13 +26553,53 @@
                 }
               ],
               "type": "line-box"
-            },
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        }
+      ],
+      "bounds": {
+        "height": 800,
+        "width": 600,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "firstText": "后记",
+      "index": 162,
+      "lastText": "负责绘制插画的magako老师，感谢您画出这么多漂亮可爱的插画！每次责编寄来档案时，我都会因为图片太",
+      "paint": null
+    },
+    {
+      "blocks": [
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 0
+          },
+          "children": [
             {
               "bounds": {
                 "height": 20.8,
                 "width": 520,
                 "x": 0,
-                "y": 20.8
+                "y": 0
               },
               "runs": [
                 {
@@ -27616,30 +26633,7 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 800,
-        "width": 600,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "firstText": "后记",
-      "index": 156,
-      "lastText": "漂亮而独自欢呼起来。",
-      "paint": null
-    },
-    {
-      "blocks": [
+        },
         {
           "anchorId": null,
           "borderBox": null,
@@ -27647,7 +26641,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 0
+            "y": 27.2
           },
           "children": [
             {
@@ -27731,7 +26725,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 48
+            "y": 75.2
           },
           "children": [
             {
@@ -27781,7 +26775,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 75.2
+            "y": 102.4
           },
           "children": [
             {
@@ -27831,7 +26825,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 102.4
+            "y": 129.6
           },
           "children": [
             {
@@ -27878,12 +26872,23 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 129.6
+            "y": 156.8
           },
-          "children": [],
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
@@ -27897,7 +26902,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 136
+            "y": 184
           },
           "children": [
             {
@@ -27981,16 +26986,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 6,
+        "blocks": 7,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 7,
+        "lines": 9,
         "ruby": 0,
-        "textRuns": 7
+        "textRuns": 8
       },
-      "firstText": "从大纲阶段开始与我详细进行讨论的铃木前责编，非常感谢您的照顾。这三年来辛苦您了。还有新任的松林责编，",
-      "index": 157,
+      "firstText": "漂亮而独自欢呼起来。",
+      "index": 163,
       "lastText": "长冈マキ子",
       "paint": null
     },
@@ -28042,7 +27047,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 158,
+      "index": 164,
       "lastText": "",
       "paint": null
     }

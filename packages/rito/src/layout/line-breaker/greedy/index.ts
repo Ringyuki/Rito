@@ -53,7 +53,7 @@ function layoutText(
 
     const result = layoutSingleLine(ctx, pos, isFirstLine, indent);
     pos = consumeNewlines(text, result.nextPos, ctx.preserveWs);
-    const isLastLine = pos >= text.length;
+    const isLastLineForTextAlign = pos >= text.length || result.endsWithForcedBreak;
     const { height: effectiveLH, yShift } = computeEffectiveLineMetrics(result.runs, lineHeight);
     shiftRunsY(result.runs, yShift);
     lines.push(
@@ -65,7 +65,7 @@ function layoutText(
         maxWidth,
         baseStyle.textAlign,
         baseStyle.textJustify,
-        isLastLine,
+        isLastLineForTextAlign,
       ),
     );
     y += effectiveLH;
@@ -80,7 +80,12 @@ function layoutSingleLine(
   pos: number,
   isFirstLine: boolean,
   indent: number,
-): { runs: (TextRun | InlineAtom)[]; width: number; nextPos: number } {
+): {
+  runs: (TextRun | InlineAtom)[];
+  width: number;
+  nextPos: number;
+  endsWithForcedBreak: boolean;
+} {
   const { text, maxWidth, preserveWs, allowWrap, baseStyle, ranges, lineHeight, measurer, atoms } =
     ctx;
   const effectiveMax = isFirstLine && indent !== 0 ? maxWidth - indent : maxWidth;
@@ -91,6 +96,7 @@ function layoutSingleLine(
     ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms, ranges)
     : lineEnd;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
+  const endsWithForcedBreak = newlineIndex >= 0 && lineTextEnd >= newlineIndex;
   const lineText = preserveWs
     ? text.slice(pos, lineTextEnd)
     : text.slice(pos, lineTextEnd).trimEnd();
@@ -105,5 +111,5 @@ function layoutSingleLine(
     baseStyle.fontSize,
   );
 
-  return { runs, width: getRunsWidth(runs), nextPos: lineTextEnd };
+  return { runs, width: getRunsWidth(runs), nextPos: lineTextEnd, endsWithForcedBreak };
 }

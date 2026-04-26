@@ -6221,7 +6221,7 @@
           "pixelRatio": 1,
           "records": {
             "count": 206,
-            "hash": "f18e73675bb3b991",
+            "hash": "e52f7ea54fd430ea",
             "methods": {
               "beginPath": 5,
               "clip": 1,
@@ -6366,7 +6366,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6408,7 +6408,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6421,7 +6421,7 @@
                     "hash": "3a4979bfaa8cb1a8",
                     "length": 2
                   },
-                  192.46,
+                  123.52,
                   64.32
                 ],
                 "method": "fillText",
@@ -6450,7 +6450,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6463,7 +6463,7 @@
                     "hash": "6aab093530a7dd76",
                     "length": 6
                   },
-                  226.98,
+                  142.72,
                   64.32
                 ],
                 "method": "fillText",
@@ -6682,7 +6682,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6724,7 +6724,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6766,7 +6766,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -6808,7 +6808,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7334,7 +7334,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7376,7 +7376,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7418,7 +7418,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7500,7 +7500,7 @@
           "pixelRatio": 2,
           "records": {
             "count": 206,
-            "hash": "c5bdb427a0c9949b",
+            "hash": "d1715ba3e4439845",
             "methods": {
               "beginPath": 5,
               "clip": 1,
@@ -7645,7 +7645,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7687,7 +7687,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7700,7 +7700,7 @@
                     "hash": "3a4979bfaa8cb1a8",
                     "length": 2
                   },
-                  192.46,
+                  123.52,
                   64.32
                 ],
                 "method": "fillText",
@@ -7729,7 +7729,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "7.66px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -7742,7 +7742,7 @@
                     "hash": "6aab093530a7dd76",
                     "length": 6
                   },
-                  226.98,
+                  142.72,
                   64.32
                 ],
                 "method": "fillText",
@@ -7961,7 +7961,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8003,7 +8003,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8045,7 +8045,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8087,7 +8087,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "21.991111111111113px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8613,7 +8613,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8655,7 +8655,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
@@ -8697,7 +8697,7 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
-                "value": "22.61333333333333px"
+                "value": "0px"
               },
               {
                 "args": [],
