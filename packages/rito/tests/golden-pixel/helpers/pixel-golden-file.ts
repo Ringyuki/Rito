@@ -1,3 +1,4 @@
+import type { Dirent } from 'node:fs';
 import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -12,6 +13,7 @@ const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 export const COMMITTED_PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../golden/pixels');
 const FULL_PIXEL_GOLDEN_ROOT = resolve(HELPER_DIR, '../../../test-results/pixel-full-baselines');
 export const PIXEL_GOLDEN_ROOT = pixelGoldenRoot();
+const PRIMARY_SPREAD_GOLDEN_RE = /^spread-\d{4}\.png$/u;
 
 export const SHOULD_RUN_PIXEL_GOLDEN = process.env['RITO_PIXEL_GOLDEN'] === '1';
 export const SHOULD_UPDATE_PIXEL_GOLDEN = process.env['RITO_UPDATE_GOLDEN'] === '1';
@@ -55,8 +57,17 @@ export async function writePixelGoldenSummary(
   await writeFile(path, `${JSON.stringify(summary, null, 2)}\n`);
 }
 
-export async function resetPixelGoldenRun(run: PixelGoldenRun): Promise<void> {
-  await rm(pixelGoldenRunDir(run), { recursive: true, force: true });
+export async function clearPixelGoldenPrimaryFiles(run: PixelGoldenRun): Promise<void> {
+  await clearPixelGoldenPrimaryFilesInDir(pixelGoldenRunDir(run));
+}
+
+export async function clearPixelGoldenPrimaryFilesInDir(dir: string): Promise<void> {
+  const entries = await readOptionalDirEntries(dir);
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && isPrimaryPixelGoldenFile(entry.name))
+      .map((entry) => rm(resolve(dir, entry.name), { force: true })),
+  );
 }
 
 export async function readPixelGoldenSpread(
@@ -122,6 +133,19 @@ async function readOptionalDir(path: string): Promise<readonly string[]> {
     if (isNodeError(error) && error.code === 'ENOENT') return [];
     throw error;
   }
+}
+
+async function readOptionalDirEntries(path: string): Promise<readonly Dirent[]> {
+  try {
+    return await readdir(path, { withFileTypes: true });
+  } catch (error) {
+    if (isNodeError(error) && error.code === 'ENOENT') return [];
+    throw error;
+  }
+}
+
+function isPrimaryPixelGoldenFile(file: string): boolean {
+  return file === 'summary.json' || PRIMARY_SPREAD_GOLDEN_RE.test(file);
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

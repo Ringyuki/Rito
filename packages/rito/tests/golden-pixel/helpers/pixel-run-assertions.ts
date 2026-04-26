@@ -9,10 +9,10 @@ import {
   type PixelGoldenSummary,
 } from './pixel-cases';
 import {
+  clearPixelGoldenPrimaryFiles,
   readPixelGoldenSpread,
   readPixelGoldenSpreadAlternatives,
   readPixelGoldenSummary,
-  resetPixelGoldenRun,
   SHOULD_WRITE_PIXEL_DIAGNOSTICS,
   type PixelGoldenSpreadAlternative,
   writePixelGoldenSpread,
@@ -82,7 +82,7 @@ export async function updatePixelRunGoldens(
   result: PixelRunRenderResult,
 ): Promise<void> {
   if (run.spreadSelection.mode !== 'explicit') {
-    await resetPixelGoldenRun(run);
+    await clearPixelGoldenPrimaryFiles(run);
   }
   await writePixelGoldenSummary(run, createPixelGoldenSummary(run, result.totalSpreads));
   for (const spread of result.spreads) {

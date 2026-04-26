@@ -18,7 +18,9 @@ matrix is still available as an opt-in external-baseline mode.
   remain visible.
 - Rare platform-specific fallback glyph differences can be represented by
   `spread-0000.alt-{label}.png`; compare mode accepts the primary spread or any
-  alternate image within the same threshold.
+  alternate image within the same threshold. Update mode preserves these
+  alternates because they are manually reviewed platform baselines; remove stale
+  alternates explicitly when a platform fallback is no longer valid.
 
 ## Commands
 
