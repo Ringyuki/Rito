@@ -1,5 +1,22 @@
 # @ritojs/kit
 
+## 0.10.0
+
+### Minor Changes
+
+- 89e3441: Split core into a platform-neutral display-list API and a Web Canvas preset entry.
+
+### Patch Changes
+
+- 897cbfa: Fix float clearing to use CSS float margin boxes.
+- e798c67: Refactor tag defaults into the UA cascade and fix none border layout
+- 49ab16d: Fix forced-break line alignment and KP inline run merging.
+- Updated dependencies [897cbfa]
+- Updated dependencies [e798c67]
+- Updated dependencies [49ab16d]
+- Updated dependencies [89e3441]
+  - @ritojs/core@0.10.0
+
 ## 0.9.0
 
 ### Minor Changes
