@@ -18,6 +18,7 @@ export function buildMinimalEpub(options?: {
   chapters?: Array<{ id: string; href: string; content: string }>;
   stylesheets?: Array<{ id: string; href: string; content: string }>;
   fonts?: Array<{ id: string; href: string; mediaType: string; data: Uint8Array }>;
+  images?: Array<{ id: string; href: string; mediaType: string; data: Uint8Array }>;
   toc?: readonly TocItem[];
 }): ArrayBuffer {
   const title = options?.title ?? 'Test Book';
@@ -34,6 +35,7 @@ export function buildMinimalEpub(options?: {
 
   const stylesheets = options?.stylesheets ?? [];
   const fontItems = options?.fonts ?? [];
+  const imageItems = options?.images ?? [];
   const toc = options?.toc ?? [];
   const creatorTag = creator ? `    <dc:creator>${creator}</dc:creator>\n` : '';
 
@@ -48,12 +50,18 @@ export function buildMinimalEpub(options?: {
   const fontManifest = fontItems
     .map((f) => `    <item id="${f.id}" href="${f.href}" media-type="${f.mediaType}"/>`)
     .join('\n');
+  const imageManifest = imageItems
+    .map(
+      (image) =>
+        `    <item id="${image.id}" href="${image.href}" media-type="${image.mediaType}"/>`,
+    )
+    .join('\n');
   const navManifest =
     toc.length > 0
       ? '    <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>'
       : '';
 
-  const manifestItems = [chapterManifest, cssManifest, fontManifest, navManifest]
+  const manifestItems = [chapterManifest, cssManifest, fontManifest, imageManifest, navManifest]
     .filter((s) => s.length > 0)
     .join('\n');
   const spineItems = chapters.map((ch) => `    <itemref idref="${ch.id}"/>`).join('\n');
@@ -96,6 +104,10 @@ ${spineItems}
 
   for (const f of fontItems) {
     files[`OEBPS/${f.href}`] = f.data;
+  }
+
+  for (const image of imageItems) {
+    files[`OEBPS/${image.href}`] = image.data;
   }
 
   if (toc.length > 0) {

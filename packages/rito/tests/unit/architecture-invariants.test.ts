@@ -19,11 +19,22 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 const SRC = join(import.meta.dirname, '../../src');
+const PACKAGE_ROOT = join(SRC, '..');
+const PACKAGE_JSON = join(SRC, '../package.json');
+const TSDOWN_CONFIG = join(PACKAGE_ROOT, 'tsdown.config.ts');
 const MAIN_ENTRY = join(SRC, 'index.ts');
 const WEB_ENTRY = join(SRC, 'web.ts');
+const PACKAGE_JSON_RECORD = readJsonRecord(PACKAGE_JSON);
+const PUBLIC_ENTRY_FILES = packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG));
+const WEB_WORKER_ADAPTER = join(SRC, 'web/reader-runtime-worker-port.ts');
+const WEB_WORKER_ENDPOINT = join(SRC, 'web/reader-runtime-worker-endpoint.ts');
+const WEB_WORKER_ENTRYPOINT = join(SRC, 'web/reader-runtime-worker-entry.ts');
+const WEB_WORKER_DISPATCHER = join(SRC, 'web/reader-runtime-worker-dispatcher.ts');
 const LAYOUT = join(SRC, 'layout');
 const RENDER = join(SRC, 'render');
 const RUNTIME = join(SRC, 'runtime');
+const READER_SESSION = join(RUNTIME, 'reader-session');
+const READER_SESSION_FRAME = join(READER_SESSION, 'frame.ts');
 const RENDER_BACKENDS = join(RENDER, 'backends');
 const DISPLAY_LIST = join(RENDER, 'display-list');
 const RENDER_PAGE = join(RENDER, 'page');
@@ -55,6 +66,14 @@ function read(path: string): string {
   return readFileSync(path, 'utf8');
 }
 
+function readJsonRecord(path: string): { readonly [key: string]: unknown } {
+  const parsed: unknown = JSON.parse(read(path));
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error(`${path} must contain a JSON object`);
+  }
+  return parsed as { readonly [key: string]: unknown };
+}
+
 function rel(path: string): string {
   return relative(SRC, path).split(sep).join('/');
 }
@@ -77,8 +96,133 @@ function scan(
   return hits;
 }
 
+function packageSourceEntryFiles(
+  packageJson: { readonly [key: string]: unknown },
+  tsdownConfig: string,
+): string[] {
+  const exportsValue = packageJson['exports'];
+  if (!isRecord(exportsValue)) throw new Error('package.json exports must be an object');
+  const sourceEntries = sortedUnique(tsdownSourceEntries(tsdownConfig));
+  const exportEntries = sortedUnique(packageExportSourceEntries(exportsValue));
+  const expected = exportEntries.filter((entry) => entry !== 'package.json');
+  if (!sameStringList(sourceEntries, expected)) {
+    throw new Error(
+      `package.json exports and tsdown entries disagree:\nexports=${JSON.stringify(
+        expected,
+      )}\ntsdown=${JSON.stringify(sourceEntries)}`,
+    );
+  }
+  return sourceEntries.map((entry) => join(PACKAGE_ROOT, entry));
+}
+
+function tsdownSourceEntries(config: string): string[] {
+  const matches = [...config.matchAll(/['"]src\/([^'"]+\.ts)['"]/g)];
+  return matches.map((match) => {
+    const entry = match[1];
+    if (entry === undefined) throw new Error('Malformed tsdown entry');
+    return `src/${entry}`;
+  });
+}
+
+function packageExportSourceEntries(exportsValue: { readonly [key: string]: unknown }): string[] {
+  const entries: string[] = [];
+  for (const [key, target] of Object.entries(exportsValue)) {
+    if (key === './package.json') {
+      entries.push('package.json');
+      continue;
+    }
+    const importTarget = packageExportImportTarget(target);
+    if (importTarget === undefined) {
+      throw new Error(`package export ${key} is missing an import target`);
+    }
+    entries.push(distTargetToSourceEntry(importTarget));
+  }
+  return entries;
+}
+
+function packageExportImportTarget(value: unknown): string | undefined {
+  if (typeof value === 'string') return value;
+  if (!isRecord(value)) return undefined;
+  const importValue = value['import'];
+  return typeof importValue === 'string' ? importValue : undefined;
+}
+
+function distTargetToSourceEntry(target: string): string {
+  const match = /^\.\/dist\/([^/]+)\.mjs$/.exec(target);
+  if (match?.[1] === undefined) {
+    throw new Error(`package export target ${target} is not a dist entry`);
+  }
+  return `src/${match[1]}.ts`;
+}
+
+function sortedUnique(values: readonly string[]): string[] {
+  return [...new Set(values)].sort();
+}
+
+function sameStringList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
+
+function packageExportLeaks(packageJson: { readonly [key: string]: unknown }): string[] {
+  const exportsValue = packageJson['exports'];
+  if (!isRecord(exportsValue)) return ['package.json exports must be an object'];
+  const leaks: string[] = [];
+  for (const [key, target] of Object.entries(exportsValue)) {
+    collectPackageExportLeak(leaks, `exports.${key}`, key);
+    collectPackageExportTargetLeaks(leaks, `exports.${key}`, target);
+  }
+  return leaks;
+}
+
+function collectPackageExportTargetLeaks(leaks: string[], path: string, value: unknown): void {
+  if (typeof value === 'string') {
+    collectPackageExportLeak(leaks, path, value);
+    return;
+  }
+  if (!isRecord(value)) return;
+  for (const [key, target] of Object.entries(value)) {
+    collectPackageExportLeak(leaks, `${path}.${key}`, key);
+    collectPackageExportTargetLeaks(leaks, `${path}.${key}`, target);
+  }
+}
+
+function collectPackageExportLeak(leaks: string[], path: string, value: string): void {
+  if (
+    !/(?:^|\/)reader-session(?:\/|$)|runtime\/reader-session|reader-runtime-worker-/.test(value)
+  ) {
+    return;
+  }
+  leaks.push(`${path}: ${value}`);
+}
+
+function isRecord(value: unknown): value is { readonly [key: string]: unknown } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function scanRenderImports(
+  files: readonly string[],
+  allow?: (path: string, line: string) => boolean,
+): { file: string; line: number; match: string }[] {
+  const hits: { file: string; line: number; match: string }[] = [];
+  const detector = /from\s+['"][^'"]*render[^'"]*['"]/;
+  for (const file of files) {
+    const lines = read(file).split('\n');
+    lines.forEach((line, index) => {
+      if (!detector.test(line)) return;
+      if (allow?.(file, line)) return;
+      hits.push({ file: rel(file), line: index + 1, match: line.trim() });
+    });
+  }
+  return hits;
+}
+
 const RENDER_FILES = walkTs(RENDER);
 const RUNTIME_FILES = walkTs(RUNTIME);
+const READER_SESSION_FILES = existsSync(READER_SESSION) ? walkTs(READER_SESSION) : [];
+const READER_SESSION_FILE_SET = new Set(READER_SESSION_FILES);
+const READER_SESSION_PROTOCOL_FILES = READER_SESSION_FILES.filter(
+  (file) => file !== READER_SESSION_FRAME,
+);
 const LAYOUT_FILES = walkTs(LAYOUT);
 const RENDER_BACKEND_FILES = existsSync(RENDER_BACKENDS) ? walkTs(RENDER_BACKENDS) : [];
 const DISPLAY_LIST_FILES = existsSync(DISPLAY_LIST) ? walkTs(DISPLAY_LIST) : [];
@@ -86,6 +230,14 @@ const RENDER_PAGE_FILES = existsSync(RENDER_PAGE) ? walkTs(RENDER_PAGE) : [];
 const RENDER_SPREAD_FILES = existsSync(RENDER_SPREAD) ? walkTs(RENDER_SPREAD) : [];
 const PLATFORM_RUNTIME_RE =
   /\b(CanvasRenderingContext2D|OffscreenCanvasRenderingContext2D|HTMLCanvasElement|OffscreenCanvas|ImageBitmap|ImageData|FontFace|FontFaceSet|HTMLElement|Document|Window|Blob|createImageBitmap)\b/g;
+const WEB_WORKER_RUNTIME_RE = /\b(Worker|MessageEvent|ErrorEvent|MessagePort)\b/g;
+const READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE =
+  /^\s*import\s+type\s+.*\s+from\s+['"]\.\.\/\.\.\/render\/display-list\/types['"];?\s*$/;
+const READER_SESSION_FRAME_RENDER_IMPORTS = [
+  /^\s*import\s+\{\s*buildSpreadDisplayList\s*\}\s+from\s+['"]\.\.\/\.\.\/render\/display-list['"];?\s*$/,
+  /^\s*import\s+\{\s*collectSpreadImageSources\s*\}\s+from\s+['"]\.\.\/\.\.\/render\/assets\/image-sources['"];?\s*$/,
+  READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE,
+] as const;
 
 describe('Architecture invariant: render/ does not import ComputedStyle', () => {
   it('no file in render/ imports the ComputedStyle type', () => {
@@ -111,6 +263,55 @@ describe('Architecture invariant: public entries are split by platform', () => {
     expect(read(WEB_ENTRY)).toContain("from './render/spread'");
     expect(read(WEB_ENTRY)).toContain("from './render/web'");
     expect(read(WEB_ENTRY)).toContain("from './render/backends/canvas'");
+  });
+
+  it('reader runtime worker adapter is not exposed through stable entries yet', () => {
+    expect(existsSync(WEB_WORKER_ADAPTER)).toBe(true);
+    expect(existsSync(WEB_WORKER_ENDPOINT)).toBe(true);
+    expect(existsSync(WEB_WORKER_ENTRYPOINT)).toBe(true);
+    expect(existsSync(WEB_WORKER_DISPATCHER)).toBe(true);
+    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-port');
+    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-endpoint');
+    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-entry');
+    expect(read(MAIN_ENTRY)).not.toContain('reader-runtime-worker-dispatcher');
+    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-port');
+    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-endpoint');
+    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-entry');
+    expect(read(WEB_ENTRY)).not.toContain('reader-runtime-worker-dispatcher');
+    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-port');
+    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-endpoint');
+    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-entry');
+    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-runtime-worker-dispatcher');
+  });
+
+  it('reader runtime internals are not exposed through package entrypoints yet', () => {
+    const hits = scan(
+      PUBLIC_ENTRY_FILES,
+      /reader-session|reader-runtime-worker-(?:port|endpoint|entry|dispatcher)/g,
+    );
+    expect(
+      hits,
+      `Reader runtime internals leaked through public entries:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+    const exportedEntryFiles = [...PUBLIC_ENTRY_FILES].sort();
+    expect(exportedEntryFiles).toEqual(
+      packageSourceEntryFiles(PACKAGE_JSON_RECORD, read(TSDOWN_CONFIG)),
+    );
+    const exportLeaks = packageExportLeaks(PACKAGE_JSON_RECORD);
+    expect(
+      exportLeaks,
+      `Reader runtime internals leaked through package exports:\n${JSON.stringify(
+        exportLeaks,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+  });
+
+  it('reader runtime worker entry does not bind to a global worker scope', () => {
+    const text = read(WEB_WORKER_ENTRYPOINT);
+    expect(text).not.toContain('self');
+    expect(text).not.toContain('DedicatedWorkerGlobalScope');
   });
 });
 
@@ -177,9 +378,69 @@ describe('Architecture invariant: runtime is platform-neutral', () => {
     expect(hits, `Platform type found in runtime:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
   });
 
-  it('does not import render modules', () => {
-    const hits = scan(RUNTIME_FILES, /from\s+['"][^'"]*render[^'"]*['"]/g);
+  it('only imports approved platform-neutral render contracts from reader-session', () => {
+    const hits = scanRenderImports(RUNTIME_FILES, (file, line) => {
+      if (!READER_SESSION_FILE_SET.has(file)) return false;
+      if (file === READER_SESSION_FRAME) {
+        return READER_SESSION_FRAME_RENDER_IMPORTS.some((pattern) => pattern.test(line));
+      }
+      return READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE.test(line);
+    });
     expect(hits, `runtime imported render modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: reader-session protocol stays neutral and internal', () => {
+  it('protocol files only import render/display-list/types with type-only syntax', () => {
+    const hits = scanRenderImports(READER_SESSION_PROTOCOL_FILES, (_file, line) => {
+      return READER_SESSION_DISPLAY_LIST_TYPE_IMPORT_RE.test(line);
+    });
+    expect(
+      hits,
+      `reader-session protocol imported render implementation modules:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('frame builder only imports approved platform-neutral render modules', () => {
+    const hits = scanRenderImports([READER_SESSION_FRAME], (_file, line) => {
+      return READER_SESSION_FRAME_RENDER_IMPORTS.some((pattern) => pattern.test(line));
+    });
+    expect(
+      hits,
+      `frame builder imported disallowed render modules:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('does not import Web Canvas adapters, render backends, or Web render helpers', () => {
+    const hits = scan(
+      READER_SESSION_FILES,
+      /from\s+['"][^'"]*render(?:\/(?:index|web|page|spread|backends|assets\/web)(?:\/[^'"]*)?)?['"]/g,
+    );
+    expect(
+      hits,
+      `reader-session imported a platform render module:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('does not reference browser or canvas runtime types', () => {
+    const hits = scan(READER_SESSION_FILES, PLATFORM_RUNTIME_RE);
+    expect(
+      hits,
+      `Platform type found in reader-session:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('does not reference Web Worker runtime types', () => {
+    const hits = scan(READER_SESSION_FILES, WEB_WORKER_RUNTIME_RE);
+    expect(
+      hits,
+      `Web Worker runtime type found in reader-session:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
+  });
+
+  it('is not exposed through stable public entries yet', () => {
+    expect(read(MAIN_ENTRY)).not.toContain('reader-session');
+    expect(read(join(RUNTIME, 'index.ts'))).not.toContain('reader-session');
   });
 });
 

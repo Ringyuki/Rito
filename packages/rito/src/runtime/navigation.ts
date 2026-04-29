@@ -4,6 +4,17 @@ import type { Spread } from '../layout/core/types';
 import { buildHrefResolver } from '../utils/resolve-href';
 import type { ChapterRange } from './types';
 
+export interface HrefPageLocation {
+  readonly pageIndex: number;
+  readonly spineIdref: string;
+  readonly fragment?: string;
+}
+
+export interface ResolveHrefPageLocationOptions {
+  readonly allowChapterStart?: boolean;
+  readonly allowMissingAnchorFallback?: boolean;
+}
+
 /**
  * Resolve a TOC entry to a page number using the chapter-to-page mapping.
  *
@@ -23,7 +34,26 @@ export function findPageForTocEntry(
   manifestHrefs: ReadonlyMap<string, string>,
   anchorMap?: ReadonlyMap<string, number>,
 ): number | undefined {
-  const [hrefPath, fragment] = splitHrefAndFragment(entry.href);
+  return resolveHrefPageLocation(entry.href, chapterMap, spine, manifestHrefs, anchorMap)
+    ?.pageIndex;
+}
+
+/**
+ * Resolve an EPUB href through manifest/spine metadata into a page.
+ *
+ * TOC navigation may allow chapter-start fallback. Runtime locators should pass
+ * strict options so `href#anchor` only resolves when the anchor is known inside
+ * the target chapter range.
+ */
+export function resolveHrefPageLocation(
+  href: string,
+  chapterMap: ReadonlyMap<string, ChapterRange>,
+  spine: readonly SpineItem[],
+  manifestHrefs: ReadonlyMap<string, string>,
+  anchorMap?: ReadonlyMap<string, number>,
+  options?: ResolveHrefPageLocationOptions,
+): HrefPageLocation | undefined {
+  const [hrefPath, fragment] = splitHrefAndFragment(href);
   if (!hrefPath) return undefined;
 
   const spineIdref = findSpineItemForHref(hrefPath, spine, manifestHrefs);
@@ -40,11 +70,15 @@ export function findPageForTocEntry(
       anchorPage >= chapterRange.startPage &&
       anchorPage <= chapterRange.endPage
     ) {
-      return anchorPage;
+      return { pageIndex: anchorPage, spineIdref, fragment };
     }
   }
 
-  return chapterRange.startPage;
+  if (fragment && options?.allowMissingAnchorFallback === false) return undefined;
+  if (options?.allowChapterStart === false) return undefined;
+  return fragment
+    ? { pageIndex: chapterRange.startPage, spineIdref, fragment }
+    : { pageIndex: chapterRange.startPage, spineIdref };
 }
 
 /** Find the spread index containing a given page index. */

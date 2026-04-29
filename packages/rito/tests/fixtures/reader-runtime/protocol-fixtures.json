@@ -1,0 +1,628 @@
+{
+  "schemaVersion": 1,
+  "successPath": [
+    {
+      "name": "open session",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-open",
+        "kind": "openSession",
+        "payload": {
+          "publicationRef": "fixture.epub"
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-open",
+        "kind": "openSession",
+        "ok": true,
+        "sessionId": "session-1",
+        "payload": {
+          "publication": {
+            "metadata": {
+              "title": "Fixture",
+              "language": "en",
+              "identifier": "fixture-id"
+            },
+            "spineItemCount": 1
+          }
+        }
+      }
+    },
+    {
+      "name": "create revision",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-revision",
+        "kind": "createRevision",
+        "sessionId": "session-1",
+        "payload": {
+          "viewport": {
+            "width": 800,
+            "height": 600
+          },
+          "spreadMode": "double",
+          "margin": 24
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-revision",
+        "kind": "createRevision",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "revision": {
+            "id": "rev-1",
+            "sessionId": "session-1",
+            "layoutKey": "fixture-layout",
+            "status": "ready",
+            "knownSpreadCount": 3,
+            "finalSpreadCount": 3,
+            "createdAt": 1000
+          }
+        }
+      }
+    },
+    {
+      "name": "cancel revision",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-cancel",
+        "kind": "cancelRevision",
+        "sessionId": "session-1",
+        "revisionId": "rev-1"
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-cancel",
+        "kind": "cancelRevision",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "cancelled": true
+        }
+      }
+    },
+    {
+      "name": "resolve locator",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resolve-locator",
+        "kind": "resolveLocator",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "locator": {
+            "href": "Text/chapter-1.xhtml",
+            "mediaType": "application/xhtml+xml",
+            "progression": 0.25,
+            "sourceRange": {
+              "start": 10,
+              "end": 18
+            }
+          }
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resolve-locator",
+        "kind": "resolveLocator",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "locator": {
+            "href": "Text/chapter-1.xhtml",
+            "mediaType": "application/xhtml+xml",
+            "progression": 0.25,
+            "sourceRange": {
+              "start": 10,
+              "end": 18
+            }
+          },
+          "revisionId": "rev-1",
+          "pageIndex": 4,
+          "spreadIndex": 2
+        }
+      }
+    },
+    {
+      "name": "resolve locator geometry",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resolve-geometry",
+        "kind": "resolveLocatorGeometry",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "locator": {
+            "href": "Text/chapter-1.xhtml",
+            "mediaType": "application/xhtml+xml",
+            "progression": 0.25,
+            "sourceRange": {
+              "start": 10,
+              "end": 18
+            }
+          }
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resolve-geometry",
+        "kind": "resolveLocatorGeometry",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "locator": {
+            "href": "Text/chapter-1.xhtml",
+            "mediaType": "application/xhtml+xml",
+            "progression": 0.25,
+            "sourceRange": {
+              "start": 10,
+              "end": 18
+            }
+          },
+          "revisionId": "rev-1",
+          "segments": [
+            {
+              "spreadIndex": 2,
+              "pageIndex": 4,
+              "rects": [
+                {
+                  "x": 40,
+                  "y": 80,
+                  "width": 120,
+                  "height": 20
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "get spread frame",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-frame",
+        "kind": "getSpreadFrame",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "spreadIndex": 2
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-frame",
+        "kind": "getSpreadFrame",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "frame": {
+            "sessionId": "session-1",
+            "revisionId": "rev-1",
+            "spreadIndex": 2,
+            "pageIndexes": [4, 5],
+            "viewport": {
+              "width": 800,
+              "height": 600
+            },
+            "displayList": {
+              "width": 800,
+              "height": 600,
+              "commands": []
+            },
+            "textRuns": [
+              {
+                "rect": {
+                  "x": 40,
+                  "y": 80,
+                  "width": 120,
+                  "height": 20
+                },
+                "text": "highlight",
+                "locator": {
+                  "href": "Text/chapter-1.xhtml",
+                  "mediaType": "application/xhtml+xml",
+                  "progression": 0.25,
+                  "totalProgression": 0.1,
+                  "position": 42,
+                  "sourceRange": {
+                    "start": 10,
+                    "end": 18
+                  }
+                },
+                "sourceTextOffset": 10
+              }
+            ],
+            "targets": [
+              {
+                "kind": "link",
+                "rect": {
+                  "x": 40,
+                  "y": 80,
+                  "width": 120,
+                  "height": 20
+                },
+                "locator": {
+                  "href": "Text/chapter-1.xhtml",
+                  "mediaType": "application/xhtml+xml",
+                  "progression": 0.25,
+                  "totalProgression": 0.1,
+                  "position": 42,
+                  "sourceRange": {
+                    "start": 10,
+                    "end": 18
+                  }
+                },
+                "href": "chapter-2.xhtml",
+                "label": "chapter link"
+              }
+            ],
+            "resourceRefs": [
+              {
+                "id": "image-1",
+                "kind": "image",
+                "href": "Images/cover.jpg",
+                "mediaType": "image/jpeg"
+              }
+            ],
+            "primaryLocator": {
+              "href": "Text/chapter-1.xhtml",
+              "mediaType": "application/xhtml+xml",
+              "progression": 0.25,
+              "totalProgression": 0.1,
+              "position": 42,
+              "sourceRange": {
+                "start": 10,
+                "end": 18
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "prefetch",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-prefetch",
+        "kind": "prefetch",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "spreadIndexes": [1, 2]
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-prefetch",
+        "kind": "prefetch",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "spreadIndexes": [1, 2]
+        }
+      }
+    },
+    {
+      "name": "search",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-search",
+        "kind": "search",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "query": "highlight",
+          "limit": 1
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-search",
+        "kind": "search",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "results": [
+            {
+              "locator": {
+                "href": "Text/chapter-1.xhtml",
+                "mediaType": "application/xhtml+xml",
+                "progression": 0.25,
+                "sourceRange": {
+                  "start": 10,
+                  "end": 18
+                },
+                "text": {
+                  "highlight": "highlight"
+                }
+              },
+              "snippet": "fixture highlight text"
+            }
+          ],
+          "hasMore": false
+        }
+      }
+    },
+    {
+      "name": "get footnote",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-footnote",
+        "kind": "getFootnote",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "ref": {
+            "href": "Text/chapter-1.xhtml#fn1"
+          }
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-footnote",
+        "kind": "getFootnote",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "ref": {
+            "href": "Text/chapter-1.xhtml#fn1"
+          },
+          "footnote": {
+            "kind": "footnote",
+            "text": "Footnote body",
+            "html": "<p>Footnote body</p>"
+          }
+        }
+      }
+    },
+    {
+      "name": "get resource",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resource",
+        "kind": "getResource",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "resource": {
+            "id": "image-1",
+            "kind": "image",
+            "href": "Images/cover.jpg",
+            "mediaType": "image/jpeg"
+          }
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-resource",
+        "kind": "getResource",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "resource": {
+            "id": "image-1",
+            "kind": "image",
+            "href": "Images/cover.jpg",
+            "mediaType": "image/jpeg"
+          },
+          "byteLength": 3,
+          "transferId": "transfer-1",
+          "mediaType": "image/jpeg"
+        }
+      }
+    },
+    {
+      "name": "close session",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-close",
+        "kind": "closeSession",
+        "sessionId": "session-1"
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-close",
+        "kind": "closeSession",
+        "ok": true,
+        "sessionId": "session-1",
+        "payload": {
+          "closed": true
+        }
+      }
+    }
+  ],
+  "structuredErrors": [
+    {
+      "name": "missing spread frame",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-missing-frame",
+        "kind": "getSpreadFrame",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "spreadIndex": 99
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-missing-frame",
+        "kind": "error",
+        "ok": false,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "error": {
+          "code": "not-found",
+          "message": "Reader spread frame was not found"
+        }
+      }
+    },
+    {
+      "name": "unsupported resource",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-unsupported-resource",
+        "kind": "getResource",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "resource": {
+            "id": "publication:book",
+            "kind": "publication",
+            "href": "book.epub",
+            "mediaType": "application/epub+zip"
+          }
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-unsupported-resource",
+        "kind": "error",
+        "ok": false,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "error": {
+          "code": "not-supported",
+          "message": "Publication resource fetch is not supported"
+        }
+      }
+    }
+  ],
+  "malformedOrStaleEnvelopes": [
+    {
+      "name": "wrong request id",
+      "expectedErrorCode": "bad-request",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-wrong-request",
+        "kind": "getSpreadFrame",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "spreadIndex": 0
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-other-request",
+        "kind": "getSpreadFrame",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "frame": {
+            "sessionId": "session-1",
+            "revisionId": "rev-1",
+            "spreadIndex": 0,
+            "pageIndexes": [0],
+            "viewport": {
+              "width": 800,
+              "height": 600
+            },
+            "displayList": {
+              "width": 800,
+              "height": 600,
+              "commands": []
+            },
+            "textRuns": [],
+            "targets": [],
+            "resourceRefs": [],
+            "primaryLocator": {
+              "href": "page:0",
+              "mediaType": "application/xhtml+xml",
+              "progression": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "stale revision envelope",
+      "expectedErrorCode": "bad-request",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-stale-revision",
+        "kind": "getSpreadFrame",
+        "sessionId": "session-1",
+        "revisionId": "rev-2",
+        "payload": {
+          "spreadIndex": 0
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-stale-revision",
+        "kind": "getSpreadFrame",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "frame": {
+            "sessionId": "session-1",
+            "revisionId": "rev-1",
+            "spreadIndex": 0,
+            "pageIndexes": [0],
+            "viewport": {
+              "width": 800,
+              "height": 600
+            },
+            "displayList": {
+              "width": 800,
+              "height": 600,
+              "commands": []
+            },
+            "textRuns": [],
+            "targets": [],
+            "resourceRefs": [],
+            "primaryLocator": {
+              "href": "page:0",
+              "mediaType": "application/xhtml+xml",
+              "progression": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "search payload revision id mismatch",
+      "expectedErrorCode": "bad-request",
+      "command": {
+        "protocolVersion": 1,
+        "requestId": "fixture-search-payload-revision",
+        "kind": "search",
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "query": "Chapter",
+          "limit": 1
+        }
+      },
+      "response": {
+        "protocolVersion": 1,
+        "requestId": "fixture-search-payload-revision",
+        "kind": "search",
+        "ok": true,
+        "sessionId": "session-1",
+        "revisionId": "rev-1",
+        "payload": {
+          "revisionId": "rev-2",
+          "results": [],
+          "hasMore": false
+        }
+      }
+    }
+  ]
+}

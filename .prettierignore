@@ -3,3 +3,8 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 packages/rito/tests/golden/render-commands/**/*.json
+**/.dart_tool/
+**/build/
+**/.idea/
+**/*.iml
+**/pubspec.lock
