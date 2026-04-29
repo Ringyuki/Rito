@@ -1,5 +1,14 @@
 # @ritojs/core
 
+## 0.11.0
+
+### Minor Changes
+
+- fe48b60: Add the internal reader runtime foundation: revision-scoped protocol contracts,
+  reader-session orchestration, frame building, locator/search/footnote/resource
+  commands, worker-neutral transports, resource transfer lifecycle, and native
+  reader architecture/UI planning docs.
+
 ## 0.10.0
 
 ### Minor Changes
