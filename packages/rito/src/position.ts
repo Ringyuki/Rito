@@ -1,2 +1,8 @@
-export { createPositionTracker } from './interaction/position';
-export type { PositionTracker, ReadingPosition } from './interaction/position';
+export { createPositionTracker, projectReadingPosition } from './interaction/position';
+export type {
+  PositionLayout,
+  PositionProjection,
+  PositionTracker,
+  ReadingLocator,
+  ReadingPosition,
+} from './interaction/position';

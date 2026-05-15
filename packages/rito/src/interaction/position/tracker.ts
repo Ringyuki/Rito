@@ -6,53 +6,66 @@
  * for persistence by the consumer.
  */
 
-import type { Page, Spread } from '../../layout/core/types';
-import type { ChapterRange } from '../../runtime/types';
-import { createReadingPosition, resolveReadingPosition, type ReadingPosition } from './model';
+import {
+  createReadingPosition,
+  projectReadingPosition,
+  resolveReadingPosition,
+  type PositionLayout,
+  type ReadingPosition,
+} from './model';
 
 export interface PositionTracker {
+  /** Capture a new canonical locator from the current layout spread. */
   update(spreadIndex: number): void;
+  /** Project an existing canonical locator onto the current layout. */
+  project(position: ReadingPosition): ReadingPosition;
+  /** Publish an already computed position without recapturing from layout. */
+  setCurrent(position: ReadingPosition): void;
   getCurrent(): ReadingPosition | null;
+  resolve(position: ReadingPosition): number | undefined;
   serialize(): string;
   restore(serialized: string): number | undefined;
   onPositionChange(cb: (position: ReadingPosition) => void): () => void;
 }
 
-export function createPositionTracker(
-  spreads: readonly Spread[],
-  pages: readonly Page[],
-  chapterMap: ReadonlyMap<string, ChapterRange>,
-): PositionTracker {
+export function createPositionTracker(getLayout: () => PositionLayout): PositionTracker {
   let current: ReadingPosition | null = null;
   const listeners = new Set<(p: ReadingPosition) => void>();
 
-  function notify(pos: ReadingPosition): void {
-    for (const cb of listeners) cb(pos);
+  function publish(position: ReadingPosition): void {
+    current = position;
+    for (const cb of listeners) cb(position);
   }
 
   return {
     update(spreadIndex) {
-      current = createReadingPosition(spreads, pages, chapterMap, spreadIndex);
-      notify(current);
+      publish(createReadingPosition(getLayout(), spreadIndex));
+    },
+
+    project(position) {
+      return projectReadingPosition(position, getLayout());
+    },
+
+    setCurrent(position) {
+      publish(position);
     },
 
     getCurrent: () => current,
+
+    resolve(position) {
+      return resolveReadingPosition(position, getLayout());
+    },
 
     serialize() {
       return JSON.stringify(current);
     },
 
     restore(serialized) {
-      try {
-        const parsed = JSON.parse(serialized) as ReadingPosition;
-        if (typeof parsed.spreadIndex !== 'number') return undefined;
-        const idx = resolveReadingPosition(parsed, spreads);
-        current = createReadingPosition(spreads, pages, chapterMap, idx);
-        notify(current);
-        return idx;
-      } catch {
-        return undefined;
-      }
+      const parsed = parsePosition(serialized);
+      if (!parsed) return undefined;
+      const projected = projectReadingPosition(parsed, getLayout());
+      publish(projected);
+      return projected.projection.spreadIndex;
     },
 
     onPositionChange(cb) {
@@ -60,4 +73,19 @@ export function createPositionTracker(
       return () => listeners.delete(cb);
     },
   };
+}
+
+function parsePosition(serialized: string): ReadingPosition | undefined {
+  try {
+    const parsed: unknown = JSON.parse(serialized);
+    return isPosition(parsed) ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function isPosition(value: unknown): value is ReadingPosition {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as { readonly projection?: { readonly spreadIndex?: unknown } };
+  return typeof candidate.projection?.spreadIndex === 'number';
 }

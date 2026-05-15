@@ -5,6 +5,7 @@
 import type { Spread } from '@ritojs/core';
 import type { Reader } from '@ritojs/core/web';
 import { buildHitMap, buildLinkMap } from '@ritojs/core/advanced';
+import type { PositionTracker } from '@ritojs/core/position';
 import type { DisposableCollection } from '../../utils/disposable';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
@@ -31,7 +32,22 @@ export function coordinateOnSpreadRendered(
     state.resolvedAnnotations = resolveVisibleAnnotations(state.annotationStore, state, reader);
   }
 
-  engines.position?.update(spreadIndex);
+  updatePosition(spreadIndex, engines.position, state);
+}
+
+function updatePosition(
+  spreadIndex: number,
+  tracker: PositionTracker | null,
+  state: CoordinatorState,
+): void {
+  const mode = state.positionUpdateMode;
+  state.positionUpdateMode = { kind: 'capture' };
+  if (!tracker || mode.kind === 'skip') return;
+  if (mode.kind === 'preserve') {
+    tracker.setCurrent(tracker.project(mode.position));
+    return;
+  }
+  tracker.update(spreadIndex);
 }
 
 function rebuildHitMaps(spread: Spread, state: CoordinatorState): void {

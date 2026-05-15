@@ -168,4 +168,30 @@ describe('buildLayoutActions', () => {
     });
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(0);
   });
+
+  it('marks layout repagination as a projection of the existing position', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    const anchor = {
+      projection: { spreadIndex: 1, pageIndex: 1 },
+      progress: 0.5,
+      timestamp: 1,
+    };
+    const getCurrent = vi.fn(() => anchor);
+    const resolve = vi.fn(() => 2);
+    internals.engines = { position: { getCurrent, resolve } } as unknown as Internals['engines'];
+    internals.coordState = {
+      positionUpdateMode: { kind: 'capture' },
+    } as unknown as Internals['coordState'];
+    const actions = buildLayoutActions(internals, emitter, runtime);
+
+    expect(actions.setTypography({ fontSize: 18 })).toBe(true);
+
+    expect(resolve).toHaveBeenCalledWith(anchor);
+    expect(internals.currentSpread).toBe(2);
+    expect(internals.coordState.positionUpdateMode).toEqual({
+      kind: 'preserve',
+      position: anchor,
+    });
+    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(2);
+  });
 });

@@ -20,7 +20,13 @@ export function createEngines(
   coordState.annotationStore = store;
   if (opts.annotationStorage) void store.init(opts.annotationStorage);
 
-  const position = createPositionTracker(reader.spreads, reader.pages, reader.chapterMap);
+  const position = createPositionTracker(() => ({
+    spreads: reader.spreads,
+    pages: reader.pages,
+    chapterMap: reader.chapterMap,
+    manifestHrefMap: reader.manifestHrefMap,
+    chapterTextIndices: reader.getChapterTextIndices(),
+  }));
   return { selection, search, position };
 }
 

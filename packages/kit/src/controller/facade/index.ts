@@ -33,9 +33,8 @@ export function buildController(
   canvas: HTMLCanvasElement,
   reader: Reader,
 ): ReaderController {
-  return {
+  const controller = {
     ...buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
-    ...buildReaderProxies(internals),
     ...nav,
     ...buildLayoutActions(internals, emitter, runtime),
     ...buildSearchActions(internals, emitter, nav, runtime),
@@ -45,5 +44,10 @@ export function buildController(
     ...buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-  };
+  } as ReaderController;
+  Object.defineProperties(
+    controller,
+    Object.getOwnPropertyDescriptors(buildReaderProxies(internals)),
+  );
+  return controller;
 }

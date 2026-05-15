@@ -49,4 +49,10 @@ export type { LazyImageLoader } from './render/assets/lazy-image-loader';
 
 // ── Interaction / diagnostics ──────────────────────────────────────
 export type { LogLevel } from './utils/logger';
-export type { ReadingPosition, TextPosition, TextRange } from './interaction/index';
+export type {
+  PositionProjection,
+  ReadingLocator,
+  ReadingPosition,
+  TextPosition,
+  TextRange,
+} from './interaction/index';

@@ -8,5 +8,16 @@ export { buildSearchIndex, search, createSearchEngine } from './search';
 export type { SearchIndex, SearchResult, SearchOptions, SearchEngine } from './search';
 export { resolveAnnotationRects } from './annotations';
 export type { Annotation, AnnotationRenderData } from './annotations';
-export { createReadingPosition, resolveReadingPosition, createPositionTracker } from './position';
-export type { ReadingPosition, PositionTracker } from './position';
+export {
+  createReadingPosition,
+  createPositionTracker,
+  projectReadingPosition,
+  resolveReadingPosition,
+} from './position';
+export type {
+  PositionLayout,
+  PositionProjection,
+  PositionTracker,
+  ReadingLocator,
+  ReadingPosition,
+} from './position';

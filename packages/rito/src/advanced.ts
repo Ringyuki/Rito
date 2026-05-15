@@ -181,5 +181,7 @@ export {
   type SemanticRole,
   type Annotation,
   type AnnotationRenderData,
+  type PositionProjection,
+  type ReadingLocator,
   type ReadingPosition,
 } from './interaction/index';

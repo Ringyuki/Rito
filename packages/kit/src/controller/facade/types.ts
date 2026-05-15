@@ -48,7 +48,10 @@ export type AnnotationActionsSlice = Pick<
   ReaderController,
   'addAnnotation' | 'removeAnnotation' | 'updateAnnotation' | 'annotations'
 >;
-export type PositionActionsSlice = Pick<ReaderController, 'restorePosition' | 'savePosition'>;
+export type PositionActionsSlice = Pick<
+  ReaderController,
+  'restorePosition' | 'savePosition' | 'goToPosition'
+>;
 export type Keyboard = KeyboardManager;
 export type MiscSlice = Pick<
   ReaderController,
