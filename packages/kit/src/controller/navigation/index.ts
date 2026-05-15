@@ -23,6 +23,12 @@ export interface NavigationActions {
   nextSpread(): void;
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
+  /**
+   * Snap to a spread without playing a transition animation. Use for cold-start
+   * restore, deep-linking, search jumps, and other programmatic navigation
+   * where the user did not initiate a turn.
+   */
+  jumpToSpread(index: number): void;
 }
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
@@ -42,7 +48,24 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       const resolved = reader.resolveTocEntry(entry);
       if (resolved) goToSpread(deps, resolved.spreadIndex);
     },
+    jumpToSpread(index: number): void {
+      jumpToSpread(deps, index);
+    },
   };
+}
+
+function jumpToSpread(deps: NavigationDeps, index: number): void {
+  const reader = deps.getReader();
+  if (!reader) return;
+  const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
+  if (deps.td.isAnimating) deps.td.forceSettle();
+  deps.pool.jump(clamped);
+  deps.pool.ensureContent('curr', deps.contentRenderer);
+  deps.setCurrentSpread(clamped);
+  const spread = reader.spreads[clamped];
+  if (spread) deps.emitter.emit('spreadChange', { spreadIndex: clamped, spread });
+  reader.notifyActiveSpread(clamped);
+  deps.frameDriver.scheduleComposite();
 }
 
 function goToSpread(deps: NavigationDeps, index: number): void {

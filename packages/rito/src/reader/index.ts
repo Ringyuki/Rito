@@ -40,6 +40,18 @@ export interface ReaderOptions {
   readonly logLevel?: LogLevel;
   /** Pagination policy for widow/orphan control. */
   readonly paginationPolicy?: PaginationPolicy;
+  /**
+   * Initial typography overrides applied before first pagination, mirroring {@link Reader.setTypography}.
+   *
+   * Use these when consumers already know the user's preferred font size / line height / family
+   * at mount time. Changing them later still requires {@link Reader.setTypography} to trigger a
+   * re-pagination.
+   */
+  readonly fontSize?: number;
+  readonly lineHeight?: number;
+  readonly lineHeightForce?: boolean;
+  readonly fontFamily?: string;
+  readonly fontFamilyForce?: boolean;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */

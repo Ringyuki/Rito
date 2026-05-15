@@ -16,7 +16,15 @@ export async function initReaderState(
   const lineBreaking = normalizeLineBreaking(options.lineBreaking);
   const dpr =
     options.devicePixelRatio ?? (typeof window !== 'undefined' ? window.devicePixelRatio : 1);
-  const config = makeLayoutConfig(options, spreadMode);
+  const config = makeLayoutConfig(
+    options,
+    spreadMode,
+    options.fontSize,
+    options.lineHeight,
+    options.fontFamily,
+    options.lineHeightForce,
+    options.fontFamilyForce,
+  );
   const assets = await loadAssets(doc, canvas, logger);
   const paginationResult = paginateWithAssets(doc, config, assets, lineBreaking, logger);
   const resources: Resources = { ...paginationResult, images: assets.images };
@@ -34,11 +42,11 @@ export async function initReaderState(
     resources,
     spreads: buildSpreads(resources.pages, config, getChapterStartPages(resources.chapterMap)),
     spreadRenderedListeners: new Set(),
-    fontSizeOverride: undefined,
-    lineHeightOverride: undefined,
-    lineHeightForce: false,
-    fontFamilyOverride: undefined,
-    fontFamilyForce: false,
+    fontSizeOverride: options.fontSize,
+    lineHeightOverride: options.lineHeight,
+    lineHeightForce: options.lineHeightForce ?? false,
+    fontFamilyOverride: options.fontFamily,
+    fontFamilyForce: options.fontFamilyForce ?? false,
   };
 }
 

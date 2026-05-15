@@ -9,4 +9,11 @@ export interface Internals {
   options: ControllerOptions;
   engines: CoordinatorEngines;
   coordState: CoordinatorState;
+  /**
+   * `true` once {@link ReaderController.restorePosition} has resolved at least once
+   * (regardless of whether saved state was found). Used to gate automatic
+   * `positionStorage.save` calls so the consumer's hydrated value is never overwritten
+   * by the controller's own initial `positionChange` event.
+   */
+  restoreCompleted: boolean;
 }

@@ -111,6 +111,7 @@ function bootstrapRuntime(
     options: opts,
     engines,
     coordState,
+    restoreCompleted: false,
   };
 
   const { contentRenderer, frameDriver } = createRuntimeFrameParts(

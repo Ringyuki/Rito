@@ -41,7 +41,7 @@ export function buildController(
     ...buildSearchActions(internals, emitter, nav, runtime),
     ...buildSelectionAccessors(internals),
     ...buildAnnotationActions(internals),
-    ...buildPositionActions(internals),
+    ...buildPositionActions(internals, nav),
     ...buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),

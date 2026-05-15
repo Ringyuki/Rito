@@ -3,7 +3,9 @@ import type { WiringDeps } from '../core/wiring-deps';
 
 export function checkAnnotationClick(pos: { x: number; y: number }, deps: WiringDeps): void {
   const ann = findAnnotationAtPos(pos, deps);
-  if (ann) deps.emitter.emit('annotationClick', { annotation: ann });
+  if (!ann) return;
+  const center = getAnnotationScreenCenter(ann, deps.canvas, deps);
+  deps.emitter.emit('annotationClick', { annotation: ann, x: center.x, y: center.y });
 }
 
 /**

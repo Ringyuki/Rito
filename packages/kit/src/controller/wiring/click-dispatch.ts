@@ -1,6 +1,6 @@
 import type { Reader } from '@ritojs/core/web';
 import type { HitEntry, LinkRegion } from '@ritojs/core/advanced';
-import { findAnnotationAtPos } from './annotation';
+import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
 
@@ -19,7 +19,8 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
   // 1. Annotation click (highest priority)
   const ann = findAnnotationAtPos(pos, deps);
   if (ann) {
-    deps.emitter.emit('annotationClick', { annotation: ann });
+    const center = getAnnotationScreenCenter(ann, deps.canvas, deps);
+    deps.emitter.emit('annotationClick', { annotation: ann, x: center.x, y: center.y });
     return;
   }
 

@@ -19,6 +19,13 @@ export interface WiringDeps {
   getRenderScale: () => number;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
+  /**
+   * `true` once {@link ReaderController.restorePosition} has resolved at least once.
+   * `wirePositionTracker` reads this to suppress automatic `positionStorage.save`
+   * calls before the consumer has had a chance to hydrate, avoiding overwrites of
+   * the persisted position with the controller's own initial spread-0 event.
+   */
+  hasRestored: () => boolean;
 }
 
 /** Build a WiringDeps object from internals + runtime components. */
@@ -45,6 +52,7 @@ export function buildWiringDeps(
     goToSpread: (i) => {
       nav.goToSpread(i);
     },
+    hasRestored: () => internals.restoreCompleted,
   };
 }
 

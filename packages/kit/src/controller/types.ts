@@ -50,7 +50,8 @@ export interface ReaderControllerEvents {
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
   annotationsChange: { annotations: readonly AnnotationRecord[] };
-  annotationClick: { annotation: ResolvedAnnotation };
+  /** Annotation click event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
+  annotationClick: { annotation: ResolvedAnnotation; x: number; y: number };
   /** Annotation hover event. `x` and `y` are in **screen** coordinates (suitable for CSS `position: fixed`). */
   annotationHover: { annotation: ResolvedAnnotation | null; x: number; y: number };
   positionChange: { position: ReadingPosition };
@@ -120,6 +121,12 @@ export interface ReaderController {
   nextSpread(): void;
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
+  /**
+   * Snap to a spread without playing a transition animation. Use for cold-start
+   * restore, deep-linking, search jumps, and other programmatic navigation
+   * where the user did not initiate a turn.
+   */
+  jumpToSpread(index: number): void;
 
   /** Re-paginate with new viewport dimensions (and optional margin). Also syncs canvas size using renderScale. */
   resize(width: number, height: number, margin?: number): void;
