@@ -1,5 +1,12 @@
 # @ritojs/core
 
+## 0.12.0
+
+### Minor Changes
+
+- bf99147: Add reader typography initialization, restore-safe position persistence, annotation click coordinates, and jump navigation.
+- 82a637c: Add source-anchored reading positions with restore-safe layout projection.
+
 ## 0.11.0
 
 ### Minor Changes
