@@ -40,6 +40,16 @@ function stripRelativePrefix(src: string): string {
   return normalized;
 }
 
+/** Percent-decode an href, falling back to the raw value if malformed. */
+function percentDecode(src: string): string {
+  if (!src.includes('%')) return src;
+  try {
+    return decodeURIComponent(src);
+  } catch {
+    return src;
+  }
+}
+
 /**
  * Build a lookup function that resolves an EPUB-internal src reference
  * (e.g., `../Images/cover.jpg`) against a map keyed by manifest hrefs
@@ -53,42 +63,54 @@ function stripRelativePrefix(src: string): string {
 export function buildHrefResolver<T>(
   resources: ReadonlyMap<string, T>,
 ): (src: string) => T | undefined {
-  const { byHref, bySuffix, byBasename } = buildHrefIndex(resources);
+  const index = buildHrefIndex(resources);
 
   return (src: string): T | undefined => {
-    // 1. Exact match
-    const exact = byHref.get(src);
-    if (exact !== undefined) return exact;
-
-    // 2. Suffix match via pre-built maps.
-    const normalized = stripRelativePrefix(src);
-
-    // Check normalized src in suffix map: handles href.endsWith(src) case.
-    const suffixDirect = bySuffix.get(normalized);
-    if (suffixDirect !== undefined && suffixDirect !== null) return suffixDirect;
-
-    // Check if stripping ../ yields an exact href match.
-    if (normalized !== src) {
-      const afterStrip = byHref.get(normalized);
-      if (afterStrip !== undefined) return afterStrip;
-    }
-
-    // Check path suffixes of normalized src against exact hrefs:
-    // handles src.endsWith(href) case.
-    const srcParts = normalized.split('/');
-    for (let i = 1; i < srcParts.length; i++) {
-      const srcSuffix = srcParts.slice(i).join('/');
-      const hrefMatch = byHref.get(srcSuffix);
-      if (hrefMatch !== undefined) return hrefMatch;
-    }
-
-    // 3. Basename match (only if unambiguous)
-    const srcBasename = srcParts[srcParts.length - 1];
-    if (srcBasename) {
-      const match = byBasename.get(srcBasename);
-      if (match !== undefined && match !== null) return match;
-    }
-
-    return undefined;
+    // Try the raw src first, then a percent-decoded form. EPUB hrefs are URLs,
+    // so `Images/My%20Pic.jpg` must resolve to a literal `Images/My Pic.jpg` key.
+    const direct = resolveAgainstIndex(index, src);
+    if (direct !== undefined) return direct;
+    const decoded = percentDecode(src);
+    return decoded === src ? undefined : resolveAgainstIndex(index, decoded);
   };
+}
+
+function resolveAgainstIndex<T>(
+  { byHref, bySuffix, byBasename }: HrefIndex<T>,
+  src: string,
+): T | undefined {
+  // 1. Exact match
+  const exact = byHref.get(src);
+  if (exact !== undefined) return exact;
+
+  // 2. Suffix match via pre-built maps.
+  const normalized = stripRelativePrefix(src);
+
+  // Check normalized src in suffix map: handles href.endsWith(src) case.
+  const suffixDirect = bySuffix.get(normalized);
+  if (suffixDirect !== undefined && suffixDirect !== null) return suffixDirect;
+
+  // Check if stripping ../ yields an exact href match.
+  if (normalized !== src) {
+    const afterStrip = byHref.get(normalized);
+    if (afterStrip !== undefined) return afterStrip;
+  }
+
+  // Check path suffixes of normalized src against exact hrefs:
+  // handles src.endsWith(href) case.
+  const srcParts = normalized.split('/');
+  for (let i = 1; i < srcParts.length; i++) {
+    const srcSuffix = srcParts.slice(i).join('/');
+    const hrefMatch = byHref.get(srcSuffix);
+    if (hrefMatch !== undefined) return hrefMatch;
+  }
+
+  // 3. Basename match (only if unambiguous)
+  const srcBasename = srcParts[srcParts.length - 1];
+  if (srcBasename) {
+    const match = byBasename.get(srcBasename);
+    if (match !== undefined && match !== null) return match;
+  }
+
+  return undefined;
 }

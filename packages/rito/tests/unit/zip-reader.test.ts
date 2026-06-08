@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { zipSync } from 'fflate';
 import { createZipReader } from '../../src/parser/epub/zip-reader';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 
@@ -36,6 +37,28 @@ describe('createZipReader', () => {
     const reader = createZipReader(epub);
 
     expect(() => reader.readFile('nonexistent.xml')).toThrow('File not found in EPUB archive');
+  });
+
+  it('resolves a percent-encoded href to its literal entry name', () => {
+    // Real EPUBs (e.g. some Sigil exports) reference "Character%20Profile.xhtml"
+    // while the actual zip entry name contains a literal space.
+    const zip = zipSync({
+      'OEBPS/Text/Character Profile.xhtml': new TextEncoder().encode('<p>hi</p>'),
+    });
+    const reader = createZipReader(zip.buffer as ArrayBuffer);
+
+    expect(reader.readTextFile('OEBPS/Text/Character%20Profile.xhtml')).toBe('<p>hi</p>');
+    // a literal path still resolves directly
+    expect(reader.readTextFile('OEBPS/Text/Character Profile.xhtml')).toBe('<p>hi</p>');
+  });
+
+  it('still throws for a percent-encoded path with no matching entry', () => {
+    const zip = zipSync({ 'OEBPS/a.xhtml': new TextEncoder().encode('x') });
+    const reader = createZipReader(zip.buffer as ArrayBuffer);
+
+    expect(() => reader.readFile('OEBPS/missing%20file.xhtml')).toThrow(
+      'File not found in EPUB archive',
+    );
   });
 
   it('rejects data that is too small', () => {

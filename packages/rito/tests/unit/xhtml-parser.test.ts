@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
+import { normalizeXhtmlSource } from '../../src/parser/xhtml/xhtml-source-normalizer';
 import { XhtmlParseError } from '../../src/parser/xhtml/errors';
 import type { BlockNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
 
@@ -62,6 +63,97 @@ describe('parseXhtml', () => {
 
       const p = nodes[0] as BlockNode;
       expect((p.children[0] as TextNode).content).toBe('Hello\u00A0world');
+    });
+
+    it('keeps a raw ampersand as literal text instead of aborting the parse', () => {
+      // Regression: real EPUB chapters contain unescaped `&` (e.g. "Schmidt & Bender").
+      // A strict application/xhtml+xml parser otherwise fails with "EntityRef: expecting ';'".
+      const { nodes } = parseXhtml(
+        xhtml('<p>\u65BD\u5BC6\u7279&\u73ED\u7279\u578B\u7784\u51C6\u955C</p>'),
+      );
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe(
+        '\u65BD\u5BC6\u7279&\u73ED\u7279\u578B\u7784\u51C6\u955C',
+      );
+    });
+
+    it('preserves a raw ampersand inside an attribute value', () => {
+      const { nodes } = parseXhtml(xhtml('<p><a href="page?a=1&b=2">link</a></p>'));
+
+      const a = (nodes[0] as BlockNode).children[0] as InlineNode;
+      expect(a.tag).toBe('a');
+      expect(a.attributes?.href).toBe('page?a=1&b=2');
+    });
+
+    it('remaps HTML named entities undefined in XML to their characters', () => {
+      const { nodes } = parseXhtml(xhtml('<p>A&copy;B&mdash;C&hellip;D&rsquo;E</p>'));
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe('A\u00A9B\u2014C\u2026D\u2019E');
+    });
+
+    it('preserves valid numeric character references', () => {
+      const { nodes } = parseXhtml(xhtml('<p>&#160;&#x40;&#8212;</p>'));
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe('\u00A0@\u2014');
+    });
+
+    it('escapes an unknown named entity to literal text', () => {
+      const { nodes } = parseXhtml(xhtml('<p>x&notarealentity;y</p>'));
+
+      const p = nodes[0] as BlockNode;
+      expect((p.children[0] as TextNode).content).toBe('x&notarealentity;y');
+    });
+  });
+
+  // Source normalization is a pure string transform applied before XML parsing.
+  // CDATA/comment preservation is asserted here rather than through parseXhtml
+  // because happy-dom's XML parser (unlike real browsers / libxml2) rejects CDATA.
+  describe('source normalization', () => {
+    it('escapes a raw ampersand to a valid entity', () => {
+      expect(normalizeXhtmlSource('<p>a & b</p>')).toBe('<p>a &amp; b</p>');
+    });
+
+    it('remaps known HTML named entities to numeric references', () => {
+      expect(normalizeXhtmlSource('<p>&copy;&mdash;&nbsp;</p>')).toBe('<p>&#169;&#8212;&#160;</p>');
+    });
+
+    it('preserves valid numeric and XML-predefined references', () => {
+      expect(normalizeXhtmlSource('<p>&#160;&#x40;&amp;&lt;&gt;</p>')).toBe(
+        '<p>&#160;&#x40;&amp;&lt;&gt;</p>',
+      );
+    });
+
+    it('escapes an unknown named entity', () => {
+      expect(normalizeXhtmlSource('<p>&bogus;</p>')).toBe('<p>&amp;bogus;</p>');
+    });
+
+    it('leaves ampersands inside comments untouched', () => {
+      expect(normalizeXhtmlSource('<!-- a && b & c --><p>x & y</p>')).toBe(
+        '<!-- a && b & c --><p>x &amp; y</p>',
+      );
+    });
+
+    it('leaves ampersands inside CDATA sections untouched', () => {
+      expect(normalizeXhtmlSource('<p>x & y<![CDATA[ a && b & c ]]>z & w</p>')).toBe(
+        '<p>x &amp; y<![CDATA[ a && b & c ]]>z &amp; w</p>',
+      );
+    });
+
+    it('strips control characters illegal in XML, keeping TAB/LF/CR', () => {
+      // U+001F (Unit Separator) is illegal PCDATA; tab/newline/CR are legal.
+      const input = '<p>“\u001F? ok”\tline\nbreak\r</p>';
+      expect(normalizeXhtmlSource(input)).toBe('<p>“? ok”\tline\nbreak\r</p>');
+    });
+
+    it('preserves valid astral characters (surrogate pairs)', () => {
+      expect(normalizeXhtmlSource('<p>emoji 😀 漢字</p>')).toBe('<p>emoji 😀 漢字</p>');
+    });
+
+    it('drops numeric references that point to illegal characters', () => {
+      expect(normalizeXhtmlSource('<p>a&#31;b&#x1F;c&#0;d</p>')).toBe('<p>abcd</p>');
     });
   });
 

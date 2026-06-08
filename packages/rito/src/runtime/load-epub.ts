@@ -27,24 +27,16 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
   const rootfilePath = parseContainer(containerXml);
 
   const opfXml = reader.readTextFile(rootfilePath);
-  const packageDocument = parsePackageDocument(opfXml);
+  const packageDocument = parsePackageDocument(opfXml, log);
 
   const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
-  const manifestById = new Map(packageDocument.manifest.map((item) => [item.id, item.href]));
-
-  // Build the idref → full zip path lookup for lazy chapter loading
-  const maxChapters = options?.maxChapters ?? Infinity;
-  const chapterPaths = new Map<string, string>();
-  let count = 0;
-  for (const spineItem of packageDocument.spine) {
-    if (count >= maxChapters) break;
-    const href = manifestById.get(spineItem.idref);
-    if (!href) continue;
-    chapterPaths.set(spineItem.idref, opfDir + href);
-    count++;
-  }
-
-  const { stylesheets, fonts, images } = loadManifestResources(packageDocument, reader, opfDir);
+  const chapterPaths = buildChapterPaths(packageDocument, opfDir, options?.maxChapters ?? Infinity);
+  const { stylesheets, fonts, images } = loadManifestResources(
+    packageDocument,
+    reader,
+    opfDir,
+    log,
+  );
 
   const toc = loadToc(reader, packageDocument, opfDir, log);
   log.info('EPUB loaded: %d spine items, %d stylesheets', chapterPaths.size, stylesheets.size);
@@ -66,6 +58,25 @@ export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument
   };
 }
 
+/** Build the idref → full zip path lookup used for lazy chapter loading. */
+function buildChapterPaths(
+  pkg: PackageDocument,
+  opfDir: string,
+  maxChapters: number,
+): Map<string, string> {
+  const manifestById = new Map(pkg.manifest.map((item) => [item.id, item.href]));
+  const chapterPaths = new Map<string, string>();
+  let count = 0;
+  for (const spineItem of pkg.spine) {
+    if (count >= maxChapters) break;
+    const href = manifestById.get(spineItem.idref);
+    if (!href) continue;
+    chapterPaths.set(spineItem.idref, opfDir + href);
+    count++;
+  }
+  return chapterPaths;
+}
+
 const FONT_MEDIA_TYPES = new Set([
   'font/ttf',
   'font/otf',
@@ -79,10 +90,13 @@ const FONT_MEDIA_TYPES = new Set([
   'application/font-sfnt',
 ]);
 
+const IMAGE_EXTENSIONS_RE = /\.(jpe?g|png|gif|webp|avif|bmp|svg|tiff?|ico)$/i;
+
 function loadManifestResources(
   pkg: PackageDocument,
   reader: ZipReader,
   opfDir: string,
+  log: Logger,
 ): {
   stylesheets: Map<string, string>;
   fonts: Map<string, Uint8Array>;
@@ -93,12 +107,31 @@ function loadManifestResources(
   const images = new Map<string, Uint8Array>();
 
   for (const item of pkg.manifest) {
-    if (item.mediaType === 'text/css') {
-      stylesheets.set(item.href, reader.readTextFile(opfDir + item.href));
-    } else if (FONT_MEDIA_TYPES.has(item.mediaType)) {
-      fonts.set(item.href, reader.readFile(opfDir + item.href));
-    } else if (item.mediaType.startsWith('image/')) {
-      images.set(item.href, reader.readFile(opfDir + item.href));
+    // A single missing/mislabeled manifest entry must not abort the whole load.
+    try {
+      if (item.mediaType === 'text/css') {
+        stylesheets.set(item.href, reader.readTextFile(opfDir + item.href));
+      } else if (FONT_MEDIA_TYPES.has(item.mediaType)) {
+        fonts.set(item.href, reader.readFile(opfDir + item.href));
+      } else if (item.mediaType.startsWith('image/')) {
+        images.set(item.href, reader.readFile(opfDir + item.href));
+      }
+    } catch (e) {
+      log.warn('Skipping unreadable manifest resource %s: %s', item.href, e);
+    }
+  }
+
+  // Some EPUBs (especially older ones) reference images that are absent from the
+  // manifest. Index every image file in the archive so undeclared illustrations
+  // still resolve. Keyed opfDir-relative to match the resolver's href matching.
+  for (const fullPath of reader.listFiles()) {
+    if (!IMAGE_EXTENSIONS_RE.test(fullPath)) continue;
+    const key = fullPath.startsWith(opfDir) ? fullPath.slice(opfDir.length) : fullPath;
+    if (images.has(key)) continue;
+    try {
+      images.set(key, reader.readFile(fullPath));
+    } catch (e) {
+      log.warn('Failed to read archive image %s: %s', fullPath, e);
     }
   }
 

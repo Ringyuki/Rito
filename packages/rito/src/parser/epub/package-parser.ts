@@ -1,10 +1,11 @@
 import type { ManifestItem, PackageDocument, PackageMetadata, SpineItem } from './types';
 import { EpubParseError } from './errors';
+import type { Logger } from '../../utils/logger';
 
 /**
  * Parse an OPF package document XML string into a PackageDocument.
  */
-export function parsePackageDocument(opfXml: string): PackageDocument {
+export function parsePackageDocument(opfXml: string, logger?: Logger): PackageDocument {
   const doc = new DOMParser().parseFromString(opfXml, 'application/xml');
 
   const parserError = doc.querySelector('parsererror');
@@ -12,30 +13,37 @@ export function parsePackageDocument(opfXml: string): PackageDocument {
     throw new EpubParseError(`Invalid OPF package document: ${parserError.textContent}`);
   }
 
-  const metadata = parseMetadata(doc);
+  const metadata = parseMetadata(doc, logger);
   const manifest = parseManifest(doc);
   const spine = parseSpine(doc);
 
   return { metadata, manifest, spine };
 }
 
-function parseMetadata(doc: Document): PackageMetadata {
+/**
+ * Parse Dublin Core metadata. The EPUB spec requires `<dc:title>`,
+ * `<dc:language>` and `<dc:identifier>`, but spec-violating files (e.g. some
+ * Sigil exports) omit them while remaining perfectly readable. Rather than
+ * refusing to open such books, missing fields fall back to an empty string and
+ * a warning — the structural `<manifest>`/`<spine>` checks below stay strict.
+ */
+function parseMetadata(doc: Document, logger?: Logger): PackageMetadata {
   const title = getMetadataText(doc, 'title');
   const language = getMetadataText(doc, 'language');
   const identifier = getMetadataText(doc, 'identifier');
 
-  if (!title) {
-    throw new EpubParseError('Missing required <dc:title> in package metadata');
-  }
-  if (!language) {
-    throw new EpubParseError('Missing required <dc:language> in package metadata');
-  }
+  if (!title) logger?.warn('Missing <dc:title> in package metadata; using empty title');
+  if (!language) logger?.warn('Missing <dc:language> in package metadata; using empty language');
   if (!identifier) {
-    throw new EpubParseError('Missing required <dc:identifier> in package metadata');
+    logger?.warn('Missing <dc:identifier> in package metadata; using empty identifier');
   }
 
   const creator = getMetadataText(doc, 'creator');
-  const result: PackageMetadata = { title, language, identifier };
+  const result: PackageMetadata = {
+    title: title ?? '',
+    language: language ?? '',
+    identifier: identifier ?? '',
+  };
 
   if (creator) {
     return { ...result, creator };
