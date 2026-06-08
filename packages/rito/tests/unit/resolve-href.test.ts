@@ -57,4 +57,12 @@ describe('buildHrefResolver', () => {
 
     expect(resolve('Images/cover.jpg')).toBe('blob:exact');
   });
+
+  it('resolves a percent-encoded src to a literal key', () => {
+    const resources = new Map([['Images/My Pic.jpg', 'blob:pic']]);
+    const resolve = buildHrefResolver(resources);
+
+    expect(resolve('Images/My%20Pic.jpg')).toBe('blob:pic');
+    expect(resolve('../Images/My%20Pic.jpg')).toBe('blob:pic');
+  });
 });

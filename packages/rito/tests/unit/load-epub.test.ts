@@ -1,7 +1,38 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
+import { zipSync, strToU8 } from 'fflate';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { buildMinimalEpub } from '../helpers/epub-builder';
+import { buildHrefResolver } from '../../src/utils/resolve-href';
+
+/** Build an EPUB whose archive contains an image that is NOT in the manifest. */
+function epubWithUndeclaredImage(): ArrayBuffer {
+  const opf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="uid">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Undeclared</dc:title><dc:language>en</dc:language>
+    <dc:identifier id="uid">urn:uuid:x</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="ch1" href="ch1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="cover" href="images/cover.jpg" media-type="image/jpeg"/>
+  </manifest>
+  <spine><itemref idref="ch1"/></spine>
+</package>`;
+  const container = `<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles>
+</container>`;
+  const zip = zipSync({
+    mimetype: strToU8('application/epub+zip'),
+    'META-INF/container.xml': strToU8(container),
+    'OEBPS/content.opf': strToU8(opf),
+    'OEBPS/ch1.xhtml': strToU8('<html><body><img src="images/illus1.jpg"/></body></html>'),
+    'OEBPS/images/cover.jpg': new Uint8Array([0xff, 0xd8, 0xff, 1]),
+    'OEBPS/images/illus1.jpg': new Uint8Array([0xff, 0xd8, 0xff, 2]), // not in manifest
+  });
+  return zip.buffer as ArrayBuffer;
+}
 
 describe('loadEpub', () => {
   it('loads a minimal EPUB and returns an EpubDocument', () => {
@@ -92,5 +123,16 @@ describe('loadEpub', () => {
     expect(() => {
       doc.close();
     }).not.toThrow();
+  });
+
+  it('indexes images present in the archive but absent from the manifest', () => {
+    // Spec-violating books reference illustrations not declared in the manifest;
+    // those must still be loaded so they are not rendered as broken images.
+    const doc = loadEpub(epubWithUndeclaredImage());
+    const resolve = buildHrefResolver(doc.images);
+
+    expect(resolve('images/cover.jpg')).toBeDefined(); // declared
+    expect(resolve('images/illus1.jpg')).toBeDefined(); // undeclared, still indexed
+    expect(doc.images.get('images/illus1.jpg')).toEqual(new Uint8Array([0xff, 0xd8, 0xff, 2]));
   });
 });

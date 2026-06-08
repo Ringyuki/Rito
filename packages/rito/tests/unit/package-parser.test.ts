@@ -44,19 +44,30 @@ describe('parsePackageDocument', () => {
       expect(pkg.metadata).not.toHaveProperty('creator');
     });
 
-    it('throws on missing title', () => {
+    it('defaults missing title to empty string instead of throwing', () => {
       const opf = VALID_OPF.replace('<dc:title>Test Book</dc:title>', '');
-      expect(() => parsePackageDocument(opf)).toThrow('dc:title');
+      const pkg = parsePackageDocument(opf);
+      expect(pkg.metadata.title).toBe('');
     });
 
-    it('throws on missing language', () => {
+    it('defaults missing language to empty string instead of throwing', () => {
       const opf = VALID_OPF.replace('<dc:language>en</dc:language>', '');
-      expect(() => parsePackageDocument(opf)).toThrow('dc:language');
+      const pkg = parsePackageDocument(opf);
+      expect(pkg.metadata.language).toBe('');
     });
 
-    it('throws on missing identifier', () => {
+    it('defaults missing identifier to empty string instead of throwing', () => {
       const opf = VALID_OPF.replace('<dc:identifier id="uid">urn:uuid:1234</dc:identifier>', '');
-      expect(() => parsePackageDocument(opf)).toThrow('dc:identifier');
+      const pkg = parsePackageDocument(opf);
+      expect(pkg.metadata.identifier).toBe('');
+    });
+
+    it('loads a spec-violating book missing all required metadata', () => {
+      const opf = VALID_OPF.replace(/<metadata[\s\S]*?<\/metadata>/, '<metadata></metadata>');
+      const pkg = parsePackageDocument(opf);
+      expect(pkg.metadata).toEqual({ title: '', language: '', identifier: '' });
+      expect(pkg.manifest.length).toBeGreaterThan(0);
+      expect(pkg.spine.length).toBeGreaterThan(0);
     });
   });
 
