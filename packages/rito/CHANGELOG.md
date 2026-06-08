@@ -1,5 +1,30 @@
 # @ritojs/core
 
+## 0.12.1
+
+### Patch Changes
+
+- 9c1688b: Open spec-violating EPUBs that earlier failed to load. The OPF parser now
+  defaults missing `dc:title` / `dc:language` / `dc:identifier` to an empty string
+  with a warning instead of throwing (the structural `<manifest>` / `<spine>`
+  checks stay strict), and the ZIP reader percent-decodes container paths on a
+  lookup miss, so a manifest href like `Text/Character%20Profile.xhtml` resolves
+  to the literal `Text/Character Profile.xhtml` archive entry.
+- 9c1688b: Resolve in-content illustrations that previously rendered as broken images.
+  `loadEpub` now indexes every image file present in the archive — not only those
+  declared in the OPF manifest — so spec-violating books that reference undeclared
+  illustrations still get image data. Manifest resource reads are individually
+  tolerant (a single missing/mislabeled entry is skipped with a warning instead of
+  aborting the load), and href resolution percent-decodes on miss so references
+  like `Images/My%20Pic.jpg` match a literal `Images/My Pic.jpg` entry.
+- 9c1688b: Parse EPUB chapters whose XHTML is invalid in strict XML. The source normalizer
+  now escapes stray ampersands (e.g. `Schmidt & Bender`), remaps HTML named
+  entities undefined without a DTD (`&copy;`, `&mdash;`, `&nbsp;`, …) to numeric
+  references, and strips characters illegal in XML (C0 controls, `U+FFFE/FFFF`,
+  lone surrogates, and numeric refs pointing to them), while leaving comments and
+  CDATA sections untouched. Chapters that previously failed with errors such as
+  `EntityRef: expecting ';'` or `PCDATA invalid Char value 31` now parse.
+
 ## 0.12.0
 
 ### Minor Changes

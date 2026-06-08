@@ -1,5 +1,15 @@
 # @ritojs/react
 
+## 0.12.1
+
+### Patch Changes
+
+- Updated dependencies [9c1688b]
+- Updated dependencies [9c1688b]
+- Updated dependencies [9c1688b]
+  - @ritojs/core@0.12.1
+  - @ritojs/kit@0.12.1
+
 ## 0.12.0
 
 ### Minor Changes
