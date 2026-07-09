@@ -2,8 +2,22 @@
   "name": "Rito",
   "private": true,
   "type": "module",
+  "packageManager": "pnpm@10.22.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "pnpm": {
+    "overrides": {
+      "@babel/core": "7.29.6",
+      "brace-expansion@5": "5.0.6",
+      "js-yaml@3": "3.15.0",
+      "js-yaml@4": "4.2.0",
+      "postcss": "8.5.10"
+    }
+  },
   "scripts": {
     "build": "pnpm -r run build",
+    "audit:dependencies": "pnpm audit --audit-level=high",
     "changeset": "changeset",
     "release:status": "changeset status --verbose",
     "release:pack-check": "node ./scripts/check-release-tarballs.mjs",
@@ -31,6 +45,7 @@
     "test:golden:pixel:review": "pnpm --filter @ritojs/core test:golden:pixel:review",
     "test:golden:pixel:update": "pnpm --filter @ritojs/core build && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c packages/rito/playwright.config.ts",
     "test:e2e": "pnpm --filter @ritojs/reader test:e2e",
+    "test:coverage": "pnpm -r --if-present run test:coverage",
     "test:ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build",
     "check": "pnpm run test:ci",
     "prepare": "husky"
@@ -40,11 +55,12 @@
     "*": "prettier --write --ignore-unknown"
   },
   "devDependencies": {
-    "@changesets/cli": "^2.30.0",
+    "@changesets/cli": "^2.31.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.59.1",
     "@types/node": "^25.5.0",
     "@types/pngjs": "^6.0.5",
+    "@vitest/coverage-v8": "4.1.2",
     "eslint": "^10.1.0",
     "eslint-config-prettier": "^10.1.8",
     "husky": "^9.1.7",
@@ -54,7 +70,7 @@
     "prettier": "^3.8.1",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "^6.4.1",
+    "vite": "^6.4.3",
     "vite-tsconfig-paths": "^6.1.1"
   }
 }

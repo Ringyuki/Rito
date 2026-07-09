@@ -40,6 +40,10 @@
       "import": "./dist/web.mjs",
       "types": "./dist/web.d.mts"
     },
+    "./integration": {
+      "import": "./dist/integration.mjs",
+      "types": "./dist/integration.d.mts"
+    },
     "./selection": {
       "import": "./dist/selection.mjs",
       "types": "./dist/selection.d.mts"
@@ -93,12 +97,13 @@
     "access": "public"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.8.11",
     "css-line-break": "^2.1.0",
     "fflate": "^0.8.2"
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
-    "happy-dom": "^20.8.9",
+    "happy-dom": "^20.10.6",
     "tsdown": "^0.21.7",
     "vitest": "^4.1.2"
   }

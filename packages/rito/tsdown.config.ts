@@ -5,6 +5,7 @@ export default defineConfig({
     'src/index.ts',
     'src/advanced.ts',
     'src/web.ts',
+    'src/integration.ts',
     'src/selection.ts',
     'src/search.ts',
     'src/annotations.ts',
@@ -17,4 +18,8 @@ export default defineConfig({
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
+  deps: {
+    alwaysBundle: ['@xmldom/xmldom'],
+    onlyBundle: ['@xmldom/xmldom'],
+  },
 });
