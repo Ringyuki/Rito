@@ -89,6 +89,15 @@ describe('parseNavDocument', () => {
     expect(parseNavDocument(xhtml)).toEqual([]);
   });
 
+  it('recognizes the EPUB type namespace when a document uses a different prefix', () => {
+    const xhtml = `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:ops="http://www.idpf.org/2007/ops">
+<body><nav ops:type="toc"><ol><li><a href="ch.xhtml">Chapter</a></li></ol></nav></body>
+</html>`;
+
+    expect(parseNavDocument(xhtml)).toEqual([{ label: 'Chapter', href: 'ch.xhtml', children: [] }]);
+  });
+
   it('skips entries with empty labels', () => {
     const xhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">

@@ -7,6 +7,11 @@ import type { ZipReader } from '../parser/epub/zip-reader';
 import type { PackageDocument } from '../parser/epub/types';
 import type { EpubDocument, LoadOptions } from './types';
 import { createLogger, type Logger } from '../utils/logger';
+import {
+  archiveDirname,
+  relativeArchivePath,
+  resolveArchiveHref,
+} from '../parser/epub/archive-path';
 
 /**
  * Load and parse an EPUB file from an ArrayBuffer.
@@ -17,45 +22,70 @@ import { createLogger, type Logger } from '../utils/logger';
  * @param data - The raw EPUB file as an ArrayBuffer.
  * @param options - Optional loading options (e.g. `maxChapters` to limit loading).
  * @returns A parsed {@link EpubDocument} ready for pagination.
- * @throws {@link EpubParseError} if the EPUB structure is invalid.
+ * @throws {@link EpubParseError} if the EPUB structure is invalid or a ZIP safety limit is exceeded.
  */
 export function loadEpub(data: ArrayBuffer, options?: LoadOptions): EpubDocument {
   const log = options?.logger ?? createLogger();
-  const reader = createZipReader(data);
+  const reader = createZipReader(data, options?.zipLimits);
 
-  const containerXml = reader.readTextFile(CONTAINER_PATH);
-  const rootfilePath = parseContainer(containerXml);
+  try {
+    const containerXml = reader.readTextFile(CONTAINER_PATH);
+    const rootfilePath = resolveArchiveHref('', parseContainer(containerXml));
+    const opfDir = archiveDirname(rootfilePath);
 
-  const opfXml = reader.readTextFile(rootfilePath);
-  const packageDocument = parsePackageDocument(opfXml, log);
+    const opfXml = reader.readTextFile(rootfilePath);
+    const parsedPackage = parsePackageDocument(opfXml, log);
+    const packageDocument = normalizePackagePaths(parsedPackage, opfDir, log);
 
-  const opfDir = rootfilePath.substring(0, rootfilePath.lastIndexOf('/') + 1);
-  const chapterPaths = buildChapterPaths(packageDocument, opfDir, options?.maxChapters ?? Infinity);
-  const { stylesheets, fonts, images } = loadManifestResources(
-    packageDocument,
-    reader,
-    opfDir,
-    log,
-  );
+    const chapterPaths = buildChapterPaths(
+      packageDocument,
+      opfDir,
+      options?.maxChapters ?? Infinity,
+      log,
+    );
+    const { stylesheets, fonts, images } = loadManifestResources(
+      packageDocument,
+      reader,
+      opfDir,
+      log,
+    );
 
-  const toc = loadToc(reader, packageDocument, opfDir, log);
-  log.info('EPUB loaded: %d spine items, %d stylesheets', chapterPaths.size, stylesheets.size);
+    const toc = loadToc(reader, packageDocument, opfDir, log);
+    log.info('EPUB loaded: %d spine items, %d stylesheets', chapterPaths.size, stylesheets.size);
 
-  return {
-    packageDocument,
-    readChapter(idref: string): string | undefined {
-      const path = chapterPaths.get(idref);
-      if (!path) return undefined;
-      return reader.readTextFile(path);
-    },
-    stylesheets,
-    fonts,
-    images,
-    toc,
-    close(): void {
-      reader.close();
-    },
-  };
+    return {
+      packageDocument,
+      readChapter(idref: string): string | undefined {
+        const path = chapterPaths.get(idref);
+        if (!path) return undefined;
+        return reader.readTextFile(path);
+      },
+      stylesheets,
+      fonts,
+      images,
+      toc,
+      close(): void {
+        reader.close();
+      },
+    };
+  } catch (error) {
+    reader.close();
+    throw error;
+  }
+}
+
+/** Canonicalize valid manifest URLs while retaining unreadable items for metadata compatibility. */
+function normalizePackagePaths(pkg: PackageDocument, opfDir: string, log: Logger): PackageDocument {
+  const manifest = pkg.manifest.map((item) => {
+    try {
+      const archivePath = resolveArchiveHref(opfDir, item.href);
+      return { ...item, href: relativeArchivePath(opfDir, archivePath) };
+    } catch (error) {
+      log.warn('Manifest href will not be loaded because it is unsafe (%s): %s', item.href, error);
+      return item;
+    }
+  });
+  return { ...pkg, manifest };
 }
 
 /** Build the idref → full zip path lookup used for lazy chapter loading. */
@@ -63,16 +93,22 @@ function buildChapterPaths(
   pkg: PackageDocument,
   opfDir: string,
   maxChapters: number,
+  log: Logger,
 ): Map<string, string> {
   const manifestById = new Map(pkg.manifest.map((item) => [item.id, item.href]));
   const chapterPaths = new Map<string, string>();
   let count = 0;
   for (const spineItem of pkg.spine) {
+    if (!spineItem.linear) continue;
     if (count >= maxChapters) break;
     const href = manifestById.get(spineItem.idref);
     if (!href) continue;
-    chapterPaths.set(spineItem.idref, opfDir + href);
-    count++;
+    try {
+      chapterPaths.set(spineItem.idref, resolveArchiveHref(opfDir, href));
+      count++;
+    } catch (error) {
+      log.warn('Skipping chapter with unsafe href %s: %s', href, error);
+    }
   }
   return chapterPaths;
 }
@@ -110,11 +146,11 @@ function loadManifestResources(
     // A single missing/mislabeled manifest entry must not abort the whole load.
     try {
       if (item.mediaType === 'text/css') {
-        stylesheets.set(item.href, reader.readTextFile(opfDir + item.href));
+        stylesheets.set(item.href, reader.readTextFile(resolveArchiveHref(opfDir, item.href)));
       } else if (FONT_MEDIA_TYPES.has(item.mediaType)) {
-        fonts.set(item.href, reader.readFile(opfDir + item.href));
+        fonts.set(item.href, reader.readFile(resolveArchiveHref(opfDir, item.href)));
       } else if (item.mediaType.startsWith('image/')) {
-        images.set(item.href, reader.readFile(opfDir + item.href));
+        images.set(item.href, reader.readFile(resolveArchiveHref(opfDir, item.href)));
       }
     } catch (e) {
       log.warn('Skipping unreadable manifest resource %s: %s', item.href, e);
@@ -126,7 +162,7 @@ function loadManifestResources(
   // still resolve. Keyed opfDir-relative to match the resolver's href matching.
   for (const fullPath of reader.listFiles()) {
     if (!IMAGE_EXTENSIONS_RE.test(fullPath)) continue;
-    const key = fullPath.startsWith(opfDir) ? fullPath.slice(opfDir.length) : fullPath;
+    const key = relativeArchivePath(opfDir, fullPath);
     if (images.has(key)) continue;
     try {
       images.set(key, reader.readFile(fullPath));
@@ -148,7 +184,7 @@ function loadToc(
   const navItem = pkg.manifest.find((item) => item.properties?.includes('nav'));
   if (navItem) {
     try {
-      const navXhtml = reader.readTextFile(opfDir + navItem.href);
+      const navXhtml = reader.readTextFile(resolveArchiveHref(opfDir, navItem.href));
       const entries = parseNavDocument(navXhtml);
       if (entries.length > 0) return entries;
     } catch (e) {
@@ -159,7 +195,7 @@ function loadToc(
   const ncxItem = pkg.manifest.find((item) => item.mediaType === 'application/x-dtbncx+xml');
   if (ncxItem) {
     try {
-      const ncxXml = reader.readTextFile(opfDir + ncxItem.href);
+      const ncxXml = reader.readTextFile(resolveArchiveHref(opfDir, ncxItem.href));
       return parseNcx(ncxXml);
     } catch (e) {
       log.warn('Failed to parse NCX document:', e);

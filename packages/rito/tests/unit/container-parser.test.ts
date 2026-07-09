@@ -45,6 +45,10 @@ describe('parseContainer', () => {
     expect(() => parseContainer(xml)).toThrow('full-path attribute');
   });
 
+  it('rejects malformed XML instead of accepting parser recovery', () => {
+    expect(() => parseContainer('<container><rootfiles>')).toThrow('Invalid container.xml');
+  });
+
   it('exports CONTAINER_PATH constant', () => {
     expect(CONTAINER_PATH).toBe('META-INF/container.xml');
   });

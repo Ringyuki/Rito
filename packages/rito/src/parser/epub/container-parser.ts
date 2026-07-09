@@ -1,4 +1,5 @@
 import { EpubParseError } from './errors';
+import { parseEpubXmlDocument } from './xml-dom';
 
 const CONTAINER_PATH = 'META-INF/container.xml';
 
@@ -6,12 +7,7 @@ const CONTAINER_PATH = 'META-INF/container.xml';
  * Parse container.xml and extract the rootfile path (path to the OPF package document).
  */
 export function parseContainer(containerXml: string): string {
-  const doc = new DOMParser().parseFromString(containerXml, 'application/xml');
-
-  const parserError = doc.querySelector('parsererror');
-  if (parserError) {
-    throw new EpubParseError(`Invalid container.xml: ${parserError.textContent}`);
-  }
+  const doc = parseEpubXmlDocument(containerXml, 'application/xml', 'container.xml');
 
   const rootfile = doc.getElementsByTagName('rootfile')[0];
   if (!rootfile) {

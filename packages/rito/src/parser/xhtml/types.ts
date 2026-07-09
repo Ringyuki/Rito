@@ -17,7 +17,15 @@ export type NodeType = (typeof NODE_TYPES)[keyof typeof NODE_TYPES];
 /** A text node containing raw text content. */
 export interface TextNode {
   readonly type: typeof NODE_TYPES.Text;
+  /** Text normalized for the default `white-space: normal` behavior. */
   readonly content: string;
+  /**
+   * Original DOM text, retained when normalization changed it.  The style
+   * layer uses this value for CSS `white-space: pre` / `pre-wrap`; keeping it
+   * alongside `content` avoids committing to whitespace semantics before the
+   * cascade has run.
+   */
+  readonly sourceText?: string;
   readonly sourceRef?: SourceRef;
 }
 

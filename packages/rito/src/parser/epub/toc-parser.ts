@@ -1,4 +1,5 @@
 import type { TocEntry } from './types';
+import { childElements, parseEpubXmlDocument } from './xml-dom';
 
 /**
  * Parse an EPUB 3 navigation document (XHTML with `<nav epub:type="toc">`).
@@ -7,7 +8,7 @@ import type { TocEntry } from './types';
  * @returns Parsed table of contents entries, or an empty array if none found.
  */
 export function parseNavDocument(xhtml: string): readonly TocEntry[] {
-  const doc = new DOMParser().parseFromString(xhtml, 'application/xhtml+xml');
+  const doc = parseEpubXmlDocument(xhtml, 'application/xhtml+xml', 'EPUB navigation document');
 
   // Find the <nav> element with epub:type="toc"
   const navElements = doc.getElementsByTagName('nav');
@@ -16,7 +17,7 @@ export function parseNavDocument(xhtml: string): readonly TocEntry[] {
     const nav = navElements[i];
     if (!nav) continue;
     const epubType =
-      nav.getAttribute('epub:type') ?? nav.getAttributeNS('http://www.idpf.org/2007/ops', 'type');
+      nav.getAttribute('epub:type') || nav.getAttributeNS('http://www.idpf.org/2007/ops', 'type');
     if (epubType === 'toc') {
       tocNav = nav;
       break;
@@ -39,7 +40,7 @@ export function parseNavDocument(xhtml: string): readonly TocEntry[] {
  * @returns Parsed table of contents entries, or an empty array if none found.
  */
 export function parseNcx(ncxXml: string): readonly TocEntry[] {
-  const doc = new DOMParser().parseFromString(ncxXml, 'application/xml');
+  const doc = parseEpubXmlDocument(ncxXml, 'application/xml', 'NCX document');
 
   const navMap = doc.getElementsByTagName('navMap')[0];
   if (!navMap) return [];
@@ -50,9 +51,8 @@ export function parseNcx(ncxXml: string): readonly TocEntry[] {
 /** Recursively parse <li> children of an <ol> element. */
 function parseOlEntries(ol: Element): TocEntry[] {
   const entries: TocEntry[] = [];
-  for (let i = 0; i < ol.children.length; i++) {
-    const li = ol.children[i];
-    if (!li || li.tagName.toLowerCase() !== 'li') continue;
+  for (const li of childElements(ol)) {
+    if (li.tagName.toLowerCase() !== 'li') continue;
 
     const anchor = li.getElementsByTagName('a')[0];
     if (!anchor) continue;
@@ -72,9 +72,8 @@ function parseOlEntries(ol: Element): TocEntry[] {
 
 /** Find a direct child <ol> of an element (not nested deeper). */
 function findDirectChildOl(el: Element): Element | undefined {
-  for (let i = 0; i < el.children.length; i++) {
-    const child = el.children[i];
-    if (child?.tagName.toLowerCase() === 'ol') return child;
+  for (const child of childElements(el)) {
+    if (child.tagName.toLowerCase() === 'ol') return child;
   }
   return undefined;
 }
@@ -82,11 +81,8 @@ function findDirectChildOl(el: Element): Element | undefined {
 /** Recursively parse <navPoint> children of a parent element. */
 function parseNavPoints(parent: Element): TocEntry[] {
   const entries: TocEntry[] = [];
-  const navPoints = parent.children;
-
-  for (let i = 0; i < navPoints.length; i++) {
-    const np = navPoints[i];
-    if (!np || np.tagName !== 'navPoint') continue;
+  for (const np of childElements(parent)) {
+    if (np.tagName !== 'navPoint') continue;
 
     const navLabel = np.getElementsByTagName('navLabel')[0];
     const textEl = navLabel?.getElementsByTagName('text')[0];

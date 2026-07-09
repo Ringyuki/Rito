@@ -1,6 +1,6 @@
 import type { Page } from '../layout/core/types';
 import type { ChapterTextIndex } from '../interaction/anchors/chapter-text-index';
-import type { PackageDocument, TocEntry } from '../parser/epub/types';
+import type { PackageDocument, TocEntry, ZipLimits } from '../parser/epub/types';
 import type { FootnoteEntry } from './footnote-extractor'; // re-exported via index.ts
 import type { Logger } from '../utils/logger';
 
@@ -15,7 +15,7 @@ export interface EpubDocument {
   readonly packageDocument: PackageDocument;
   /** Read a chapter's XHTML content by spine item idref. Returns undefined if not found. */
   readChapter(idref: string): string | undefined;
-  /** Map from manifest item id to raw CSS stylesheet content. */
+  /** Map from canonical package-relative href to raw CSS stylesheet content. */
   readonly stylesheets: ReadonlyMap<string, string>;
   /** Map from relative href to font binary data. */
   readonly fonts: ReadonlyMap<string, Uint8Array>;
@@ -40,6 +40,8 @@ export interface PaginationResult {
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   /** Map from fragment identifier (id attribute) to page index. */
   readonly anchorMap: ReadonlyMap<string, number>;
+  /** Chapter-scoped anchors, preserving duplicate fragment IDs across spine items. */
+  readonly chapterAnchorMap?: ReadonlyMap<string, ReadonlyMap<string, number>>;
   /** Source-based chapter text indices for annotation anchoring. */
   readonly chapterTextIndices: ReadonlyMap<string, ChapterTextIndex>;
   /** Map from `manifestHref#fragment` to structured footnote entry. */
@@ -52,6 +54,8 @@ export interface PaginationResult {
 export interface LoadOptions {
   /** Maximum number of spine chapters to load. Defaults to all. */
   readonly maxChapters?: number;
+  /** Resource limits enforced before ZIP entries are decompressed. */
+  readonly zipLimits?: ZipLimits;
   /** Optional logger instance. Defaults to a warn-level logger. */
   readonly logger?: Logger;
 }

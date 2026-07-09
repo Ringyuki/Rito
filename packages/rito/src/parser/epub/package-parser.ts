@@ -1,17 +1,13 @@
 import type { ManifestItem, PackageDocument, PackageMetadata, SpineItem } from './types';
 import { EpubParseError } from './errors';
 import type { Logger } from '../../utils/logger';
+import { childElements, parseEpubXmlDocument } from './xml-dom';
 
 /**
  * Parse an OPF package document XML string into a PackageDocument.
  */
 export function parsePackageDocument(opfXml: string, logger?: Logger): PackageDocument {
-  const doc = new DOMParser().parseFromString(opfXml, 'application/xml');
-
-  const parserError = doc.querySelector('parsererror');
-  if (parserError) {
-    throw new EpubParseError(`Invalid OPF package document: ${parserError.textContent}`);
-  }
+  const doc = parseEpubXmlDocument(opfXml, 'application/xml', 'OPF package document');
 
   const metadata = parseMetadata(doc, logger);
   const manifest = parseManifest(doc);
@@ -128,9 +124,8 @@ function findMetadataElement(doc: Document, localName: string): Element | undefi
     return undefined;
   }
 
-  for (let i = 0; i < metadataEl.children.length; i++) {
-    const child = metadataEl.children[i];
-    if (child?.localName === localName) {
+  for (const child of childElements(metadataEl)) {
+    if (child.localName === localName) {
       return child;
     }
   }

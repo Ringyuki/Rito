@@ -11,6 +11,9 @@ import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
 import { collapseWhitespace, isWhitespaceOnly } from './text-normalizer';
 import { normalizeXhtmlSource } from './xhtml-source-normalizer';
+import { parseXmlDocument } from '../xml-dom';
+import { extractElementAttributes } from './element-attributes';
+import { extractEmbeddedStylesheets, extractStylesheetHrefs } from './stylesheet-metadata';
 
 /** Warnings collected during parsing for unsupported elements. */
 export interface ParseResult {
@@ -20,6 +23,8 @@ export interface ParseResult {
   readonly bodyAttributes?: ElementAttributes;
   /** Relative hrefs of `<link rel="stylesheet">` tags from the chapter `<head>`. */
   readonly stylesheetHrefs?: readonly string[];
+  /** Author CSS declared by chapter-local `<style>` elements. */
+  readonly embeddedStylesheets?: readonly string[];
 }
 
 /**
@@ -27,24 +32,27 @@ export interface ParseResult {
  * Returns the nodes from the <body> element, or all root-level nodes if no body is found.
  */
 export function parseXhtml(xhtml: string): ParseResult {
-  const doc = new DOMParser().parseFromString(normalizeXhtmlSource(xhtml), 'application/xhtml+xml');
-
-  const parserError = doc.querySelector('parsererror');
-  if (parserError) {
-    throw new XhtmlParseError(`Invalid XHTML: ${parserError.textContent}`);
-  }
+  const doc = parseXmlDocument(
+    normalizeXhtmlSource(xhtml),
+    'application/xhtml+xml',
+    (details) => new XhtmlParseError(`Invalid XHTML: ${details}`),
+  );
 
   const body = doc.getElementsByTagName('body')[0] ?? doc.documentElement;
   const warnings: string[] = [];
   const nodes = convertChildren(body, warnings, false, []);
-  const bodyAttributes = extractAttributes(body);
+  const bodyAttributes = extractElementAttributes(body);
   const stylesheetHrefs = extractStylesheetHrefs(doc);
+  const embeddedStylesheets = extractEmbeddedStylesheets(doc);
 
   const result: ParseResult = { nodes, warnings };
   if (bodyAttributes)
     (result as { bodyAttributes: ElementAttributes }).bodyAttributes = bodyAttributes;
   if (stylesheetHrefs.length > 0)
     (result as { stylesheetHrefs: readonly string[] }).stylesheetHrefs = stylesheetHrefs;
+  if (embeddedStylesheets.length > 0)
+    (result as { embeddedStylesheets: readonly string[] }).embeddedStylesheets =
+      embeddedStylesheets;
   return result;
 }
 
@@ -97,11 +105,11 @@ function convertNode(
   preserveWhitespace: boolean,
   nodePath: readonly number[],
 ): DocumentNode | undefined {
-  if (domNode.nodeType === Node.TEXT_NODE) {
+  if (domNode.nodeType === 3) {
     return convertTextNode(domNode, preserveWhitespace, nodePath);
   }
 
-  if (domNode.nodeType === Node.ELEMENT_NODE) {
+  if (domNode.nodeType === 1) {
     return convertElement(domNode as Element, warnings, preserveWhitespace, nodePath);
   }
 
@@ -120,11 +128,22 @@ function convertTextNode(
   if (!preserveWhitespace) {
     if (isWhitespaceOnly(raw)) {
       if (raw.length > 0) {
-        return { type: NODE_TYPES.Text, content: ' ', sourceRef };
+        return {
+          type: NODE_TYPES.Text,
+          content: ' ',
+          ...(raw === ' ' ? {} : { sourceText: raw }),
+          sourceRef,
+        };
       }
       return undefined;
     }
-    return { type: NODE_TYPES.Text, content: collapseWhitespace(raw), sourceRef };
+    const content = collapseWhitespace(raw);
+    return {
+      type: NODE_TYPES.Text,
+      content,
+      ...(content === raw ? {} : { sourceText: raw }),
+      sourceRef,
+    };
   }
 
   if (raw.length === 0) return undefined;
@@ -153,7 +172,7 @@ function convertElement(
 
   const isPreformatted = preserveWhitespace || tagName === 'pre';
   const children = convertChildren(el, warnings, isPreformatted, nodePath);
-  const attributes = extractAttributes(el);
+  const attributes = extractElementAttributes(el);
 
   if (classification === 'block') {
     const block: BlockNode = attributes
@@ -189,9 +208,9 @@ function extractSvgImage(svg: Element, nodePath: readonly number[]): DocumentNod
     const img = imageEls[i];
     if (!img) continue;
     const src =
-      img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ??
-      img.getAttribute('xlink:href') ??
-      img.getAttribute('href') ??
+      img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
+      img.getAttribute('xlink:href') ||
+      img.getAttribute('href') ||
       '';
     if (src && !src.startsWith('blob:')) {
       return { type: 'image', src, alt: '', sourceRef: { nodePath } };
@@ -214,76 +233,4 @@ function mergeAnchorAttrs(
     result.style = result.style ? `${anchorStyle}; ${result.style}` : anchorStyle;
   }
   return result;
-}
-
-function extractAttributes(el: Element): ElementAttributes | undefined {
-  const cls = el.getAttribute('class') ?? undefined;
-  const style = el.getAttribute('style') ?? undefined;
-  const id = el.getAttribute('id') ?? undefined;
-  const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
-  const language = extractLanguage(el);
-  const { colspan, rowspan } = extractTableCellSpans(el);
-
-  // Collect all attributes for CSS attribute selector matching
-  const allAttributes = collectAllAttributes(el);
-
-  const attributes = {
-    ...(cls !== undefined ? { class: cls } : {}),
-    ...(style !== undefined ? { style } : {}),
-    ...(id !== undefined ? { id } : {}),
-    ...(href !== undefined ? { href } : {}),
-    ...(language !== undefined ? { language } : {}),
-    ...(colspan !== undefined ? { colspan } : {}),
-    ...(rowspan !== undefined ? { rowspan } : {}),
-    ...(allAttributes !== undefined ? { allAttributes } : {}),
-  } satisfies ElementAttributes;
-
-  return Object.keys(attributes).length > 0 ? attributes : undefined;
-}
-
-function extractLanguage(el: Element): string | undefined {
-  return (
-    el.getAttribute('lang') ??
-    el.getAttribute('xml:lang') ??
-    el.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'lang') ??
-    undefined
-  );
-}
-
-/** Extract `<link rel="stylesheet">` hrefs from the document's `<head>`. */
-function extractStylesheetHrefs(doc: Document): string[] {
-  const hrefs: string[] = [];
-  const links = doc.querySelectorAll('link[rel="stylesheet"]');
-  for (let i = 0; i < links.length; i++) {
-    const href = links[i]?.getAttribute('href');
-    if (href) hrefs.push(href);
-  }
-  return hrefs;
-}
-
-function collectAllAttributes(el: Element): ReadonlyMap<string, string> | undefined {
-  if (el.attributes.length === 0) return undefined;
-  // Only create the map if there are attributes beyond the common ones
-  // that might be targeted by CSS attribute selectors
-  const map = new Map<string, string>();
-  for (let i = 0; i < el.attributes.length; i++) {
-    const attr = el.attributes[i];
-    if (attr) map.set(attr.name, attr.value);
-  }
-  return map.size > 0 ? map : undefined;
-}
-
-function extractTableCellSpans(el: Element): {
-  colspan: number | undefined;
-  rowspan: number | undefined;
-} {
-  if (el.localName !== 'td' && el.localName !== 'th') {
-    return { colspan: undefined, rowspan: undefined };
-  }
-  const colspanRaw = parseInt(el.getAttribute('colspan') ?? '', 10);
-  const rowspanRaw = parseInt(el.getAttribute('rowspan') ?? '', 10);
-  return {
-    colspan: !isNaN(colspanRaw) && colspanRaw > 1 ? colspanRaw : undefined,
-    rowspan: !isNaN(rowspanRaw) && rowspanRaw > 1 ? rowspanRaw : undefined,
-  };
 }
