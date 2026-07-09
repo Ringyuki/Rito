@@ -25,7 +25,7 @@ integration layers:
 - [Reader API](./api/reader.md) — Web Canvas `createReader()`, `ReaderOptions`, `Reader`
 - [Stable Primitives](./api/primitives.md) — `loadEpub`, `paginate`, `buildSpreads`, display-list builders, and adapter contracts
 - [Advanced Entry](./api/advanced.md) — `@ritojs/core/advanced` exports for expert use
-- [Specialized Subpaths](./api/subpaths.md) — `@ritojs/core/web`, `selection`, `search`, `annotations`, `position`, `a11y`, `dom`
+- [Specialized Subpaths](./api/subpaths.md) — `@ritojs/core/web`, `integration`, `selection`, `search`, `annotations`, `position`, `a11y`, `dom`
 
 ## Integrations
 

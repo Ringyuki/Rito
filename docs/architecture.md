@@ -78,7 +78,10 @@ Current backend status:
 - `render/page/**` is only the Web Canvas facade that builds a display list and invokes the
   default Canvas backend.
 - `render/spread/**` is only the Web Canvas facade over spread display-list construction.
+- `reader/resources.ts` owns Web asset + runtime pagination orchestration; `render/**` never
+  imports runtime modules.
 - `@ritojs/core` exposes platform-neutral display-list builders and backend contracts.
+- `@ritojs/core/integration` is the narrow, stable interaction boundary consumed by `@ritojs/kit`.
 - `@ritojs/core/advanced` exposes lower-level render internals for experimental backends.
 - Flutter/Skia/native integrations should start from display lists plus platform adapters, not from
   `@ritojs/kit` or DOM controller code.

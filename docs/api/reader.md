@@ -25,19 +25,24 @@ resource, and rendering adapters.
 
 ## `ReaderOptions`
 
-| Option             | Type                    | Default                          | Notes                             |
-| ------------------ | ----------------------- | -------------------------------- | --------------------------------- |
-| `width`            | `number`                | required                         | Viewport width in logical pixels  |
-| `height`           | `number`                | required                         | Viewport height in logical pixels |
-| `margin`           | `number`                | `40`                             | Page margin                       |
-| `spread`           | `'single' \| 'double'`  | `'single'`                       | Requested spread mode             |
-| `spreadGap`        | `number`                | `20`                             | Gap between pages in double mode  |
-| `backgroundColor`  | `string`                | `'#ffffff'`                      | Page background                   |
-| `foregroundColor`  | `string`                | unset                            | Reader-wide foreground override   |
-| `devicePixelRatio` | `number`                | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio               |
-| `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking strategy            |
-| `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity             |
-| `paginationPolicy` | `PaginationPolicy`      | unset                            | Widow/orphan configuration        |
+| Option             | Type                    | Default                          | Notes                                  |
+| ------------------ | ----------------------- | -------------------------------- | -------------------------------------- |
+| `width`            | `number`                | required                         | Viewport width in logical pixels       |
+| `height`           | `number`                | required                         | Viewport height in logical pixels      |
+| `margin`           | `number`                | `40`                             | Page margin                            |
+| `spread`           | `'single' \| 'double'`  | `'single'`                       | Requested spread mode                  |
+| `spreadGap`        | `number`                | `20`                             | Gap between pages in double mode       |
+| `backgroundColor`  | `string \| null`        | `'#ffffff'`                      | Page background; `null` restores white |
+| `foregroundColor`  | `string \| null`        | unset                            | Reader-wide override; `null` clears it |
+| `devicePixelRatio` | `number`                | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
+| `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking strategy                 |
+| `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity                  |
+| `paginationPolicy` | `PaginationPolicy`      | unset                            | Widow/orphan configuration             |
+| `fontSize`         | `number`                | unset                            | Initial root font-size override        |
+| `lineHeight`       | `number`                | unset                            | Initial line-height override           |
+| `lineHeightForce`  | `boolean`               | `false`                          | Force line height on every node        |
+| `fontFamily`       | `string`                | unset                            | Initial body font-family override      |
+| `fontFamilyForce`  | `boolean`               | `false`                          | Force font family on every node        |
 
 ## `Reader`
 
@@ -62,13 +67,20 @@ resource, and rendering adapters.
 | `setTheme({ backgroundColor, foregroundColor })`      | Update render colors without re-pagination               |
 | `setTypography({ fontSize, lineHeight, fontFamily })` | Re-paginate with coarse reader-wide typography overrides |
 
-`setTypography()` is intentionally coarse:
+Each `setTypography()` value accepts `undefined` (leave unchanged), `null`
+(clear the override), or an explicit value. By default it is intentionally
+coarse:
 
 - `fontSize` overrides root font size
 - `lineHeight` overrides body line-height behavior
 - `fontFamily` overrides body font family
 
-It does not rewrite EPUB-authored selectors.
+EPUB element-level rules continue to win in coarse mode. Set
+`lineHeightForce` or `fontFamilyForce` to apply that override to every element.
+
+For `setTheme()`, omitted fields remain unchanged. Pass `null` to clear a
+foreground override or restore the default white background; this is useful
+when switching from a dark theme back to a book-authored light theme.
 
 ### Navigation / metadata
 

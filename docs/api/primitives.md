@@ -42,6 +42,22 @@ Commonly used types include `TextMeasurer`, `TextMetrics`, `FontMetricsProvider`
 `DisplayListRenderer`, `TextMeasurementBackend`, `ImageAssetResolver`, `ImageDecoder`, and
 `ImageDimensions`.
 
+`loadEpub()` is safe to use in Node and worker runtimes; XML parsing does not
+depend on a browser-global `DOMParser`. ZIP resource budgets are enabled by
+default and can be tightened for a host application:
+
+```ts
+const doc = loadEpub(epubData, {
+  zipLimits: {
+    maxArchiveBytes: 100 * 1024 * 1024,
+    maxTotalUncompressedBytes: 250 * 1024 * 1024,
+    maxEntryUncompressedBytes: 64 * 1024 * 1024,
+    maxEntries: 5_000,
+    maxCompressionRatio: 100,
+  },
+});
+```
+
 This is the entry to build on for Flutter, Skia, native UI, server-side
 rendering, or any runtime where Rito should not assume browser globals.
 

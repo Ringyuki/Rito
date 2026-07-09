@@ -27,13 +27,14 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 
 ## Loading Model
 
-- ZIP inflation is eager
+- ZIP inflation is eager, but archive, entry, total-output, entry-count, and compression-ratio budgets are enforced before/during inflation
 - `createReader()` and `prepare()` from `@ritojs/core/web` paginate the full spine up front
-- Web resource preparation is eager for fonts/images used by the current pipeline
+- Web resource preparation is eager for fonts/images used by the current pipeline; image decoding is concurrency-limited and measurement caches are bounded
 
 ## Platform Assumptions
 
 - the main `@ritojs/core` entry is platform-neutral at the render/backend boundary
+- core EPUB/XML parsing works without browser-global DOM APIs
 - `@ritojs/core/web` depends on browser APIs such as `FontFace`, `createImageBitmap`, Canvas, and optional `OffscreenCanvas`
 - `OffscreenCanvas` is supported by the Web preset but not required for the basic `Reader` path
 - `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing architecture
