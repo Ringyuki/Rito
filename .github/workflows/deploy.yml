@@ -1,7 +1,9 @@
 name: Deploy Reader
 
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
     branches: [master]
 
 permissions:
@@ -16,15 +18,21 @@ concurrency:
 jobs:
   build:
     name: Build Reader
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'master' &&
+      github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
       - uses: pnpm/action-setup@v4
         with:
-          version: 10
+          version: 10.22.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build

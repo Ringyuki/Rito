@@ -26,7 +26,7 @@ Public releases are lockstep-versioned across:
 Requirements:
 
 - Node.js 24
-- pnpm 10
+- pnpm 10.22.0 (pinned by the root `packageManager` field)
 
 Install dependencies:
 
@@ -65,6 +65,10 @@ Typical flow:
 CI runs on both pushes to `master` and pull requests targeting `master`. The CI workflow currently verifies:
 
 - `pnpm run check`
+- `pnpm run audit:dependencies`
+- `pnpm run test:coverage`
+- `pnpm run test:e2e`
+- `pnpm run test:golden:pixel` on macOS
 - `pnpm release:pack-check`
 
 Please keep PRs focused. Small, single-purpose changes are easier to review and less likely to break the layout/render boundary.
