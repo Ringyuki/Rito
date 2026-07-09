@@ -6,6 +6,7 @@ import type { EpubDocument } from '../../runtime/types';
 import type { createReaderLayoutControls } from './layout-controls';
 import { renderSpreadToCanvas, renderSpreadToContext } from './rendering';
 import type { ReaderState } from './types';
+import type { ReaderThemeOptions } from '../../reader';
 
 type ReaderLayoutControls = ReturnType<typeof createReaderLayoutControls>;
 type ReaderMethods = ReturnType<typeof buildRenderMethods> &
@@ -57,9 +58,9 @@ function buildRenderMethods(
 
 function buildDisplayMethods(state: ReaderState) {
   return {
-    setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
-      if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor;
-      if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor;
+    setTheme(opts: ReaderThemeOptions): void {
+      if (opts.backgroundColor !== undefined) state.bgColor = opts.backgroundColor ?? '#ffffff';
+      if (opts.foregroundColor !== undefined) state.fgColor = opts.foregroundColor ?? undefined;
     },
     getCanvasSize: (scale = 1) => {
       const effectiveRatio = scale * state.dpr;

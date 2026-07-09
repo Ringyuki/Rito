@@ -284,8 +284,14 @@ function resolveRunPaint(
   options: DisplayListOptions | undefined,
 ): TextRun['paint'] {
   if (!options?.foregroundColor || !options.backgroundColor) return run.paint;
+  const color = resolveTextColor(run.paint.color, options.backgroundColor, options.foregroundColor);
+  if (color === run.paint.color) return run.paint;
   return {
     ...run.paint,
-    color: resolveTextColor(run.paint.color, options.backgroundColor, options.foregroundColor),
+    color,
+    ...(run.paint.decoration ? { decoration: { ...run.paint.decoration, color } } : {}),
+    ...(run.paint.textShadow
+      ? { textShadow: run.paint.textShadow.map((shadow) => ({ ...shadow, color })) }
+      : {}),
   };
 }

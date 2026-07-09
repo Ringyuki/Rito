@@ -82,7 +82,9 @@ function renderCommand(
       applyTransform(ctx, command.transforms, command.origin.x, command.origin.y, command.box);
       break;
     case 'opacity':
-      ctx.globalAlpha = command.value;
+      // Canvas save/restore scopes alpha, but assigning here would replace a
+      // parent block's opacity. CSS opacity composes multiplicatively.
+      ctx.globalAlpha = currentGlobalAlpha(ctx) * command.value;
       break;
     case 'clipRect':
       applyClipRect(ctx, command);
@@ -108,6 +110,10 @@ function renderCommand(
     default:
       assertNever(command);
   }
+}
+
+function currentGlobalAlpha(ctx: CanvasRenderingContext2D): number {
+  return Number.isFinite(ctx.globalAlpha) ? ctx.globalAlpha : 1;
 }
 
 function assertNever(value: never): never {

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createImageAssetResolver,
   createLazyImageLoaderWithDecoder,
@@ -10,6 +10,7 @@ import {
   type ImageDecoder,
   type ImageDimensions,
 } from '../../src/render/assets';
+import { createWebFontRegistry } from '../../src/render/assets/web';
 import type { Page, Spread } from '../../src/layout/core/types';
 import type { EpubDocument } from '../../src/runtime/types';
 
@@ -38,6 +39,8 @@ function makeDoc(options?: {
 }
 
 describe('asset adapters', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('loads @font-face resources through an injected FontRegistry', async () => {
     const fontBytes = new Uint8Array([1, 2, 3]);
     const doc = makeDoc({
@@ -96,6 +99,41 @@ describe('asset adapters', () => {
     });
   });
 
+  it('limits concurrent eager image decodes', async () => {
+    const doc = makeDoc({
+      images: new Map(
+        Array.from({ length: 6 }, (_, index) => [`${String(index)}.png`, new Uint8Array([index])]),
+      ),
+    });
+    let active = 0;
+    let maxActive = 0;
+    const decoder: ImageDecoder<TestImage> = {
+      async decode(resource) {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await Promise.resolve();
+        active -= 1;
+        return { id: resource.href, width: 1, height: 1 };
+      },
+      dispose: () => undefined,
+    };
+
+    await loadImagesWithDecoder(doc, decoder, undefined, { maxConcurrency: 2 });
+
+    expect(maxActive).toBe(2);
+  });
+
+  it('rejects invalid eager image concurrency', async () => {
+    const decoder: ImageDecoder<TestImage> = {
+      decode: () => Promise.resolve({ id: 'unused', width: 1, height: 1 }),
+      dispose: () => undefined,
+    };
+
+    await expect(
+      loadImagesWithDecoder(makeDoc(), decoder, undefined, { maxConcurrency: 0 }),
+    ).rejects.toThrow('maxConcurrency must be a positive integer');
+  });
+
   it('resolves images without exposing map lookups to render callers', () => {
     const cover = { id: 'cover', width: 100, height: 150 };
     const resolver = createImageAssetResolver(new Map([['OPS/Images/cover.png', cover]]));
@@ -130,6 +168,87 @@ describe('asset adapters', () => {
     expect(loader.getCached('b.png')?.id).toBe('b.png');
     expect(loader.resolveImage('b.png')?.id).toBe('b.png');
     expect(disposed).toEqual(['a.png']);
+  });
+
+  it('deduplicates concurrent lazy image requests', async () => {
+    let decodeCount = 0;
+    let resolveDecode: ((image: TestImage) => void) | undefined;
+    const decoder: ImageDecoder<TestImage> = {
+      decode() {
+        decodeCount += 1;
+        return new Promise((resolve) => {
+          resolveDecode = resolve;
+        });
+      },
+      dispose: () => undefined,
+    };
+    const loader = createLazyImageLoaderWithDecoder(
+      new Map([['a.png', new Uint8Array([1])]]),
+      decoder,
+    );
+
+    const first = loader.get('Images/a.png');
+    const second = loader.get('../Images/a.png');
+    resolveDecode?.({ id: 'a.png', width: 1, height: 1 });
+
+    const [firstImage, secondImage] = await Promise.all([first, second]);
+    expect(decodeCount).toBe(1);
+    expect(firstImage).toBe(secondImage);
+  });
+
+  it('disposes a lazy image that finishes decoding after loader disposal', async () => {
+    const disposed: string[] = [];
+    let resolveDecode: ((image: TestImage) => void) | undefined;
+    const decoder: ImageDecoder<TestImage> = {
+      decode() {
+        return new Promise((resolve) => {
+          resolveDecode = resolve;
+        });
+      },
+      dispose(image) {
+        disposed.push(image.id);
+      },
+    };
+    const loader = createLazyImageLoaderWithDecoder(
+      new Map([['Images/a.png', new Uint8Array([1])]]),
+      decoder,
+    );
+
+    const request = loader.get('a.png');
+    loader.dispose();
+    resolveDecode?.({ id: 'a.png', width: 1, height: 1 });
+
+    await expect(request).resolves.toBeUndefined();
+    expect(disposed).toEqual(['a.png']);
+  });
+
+  it('removes Web fonts registered by its registry on disposal', async () => {
+    const created: FakeFontFace[] = [];
+    class FakeFontFace {
+      constructor() {
+        created.push(this);
+      }
+
+      load(): Promise<FakeFontFace> {
+        return Promise.resolve(this);
+      }
+    }
+    const add = vi.fn();
+    const remove = vi.fn(() => true);
+    vi.stubGlobal('FontFace', FakeFontFace);
+    const registry = createWebFontRegistry({ add, delete: remove } as unknown as FontFaceSet);
+
+    await registry.loadFont({
+      family: 'Book Font',
+      src: 'book.woff2',
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+    registry.dispose?.();
+    registry.dispose?.();
+
+    expect(add).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledWith(created[0]);
   });
 
   it('collects spread image sources for lazy preloading', () => {

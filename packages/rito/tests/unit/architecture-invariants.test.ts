@@ -246,6 +246,13 @@ describe('Architecture invariant: render/ does not import ComputedStyle', () => 
   });
 });
 
+describe('Architecture invariant: render stays below runtime orchestration', () => {
+  it('does not import runtime modules', () => {
+    const hits = scan(RENDER_FILES, /from\s+['"][^'"]*runtime[^'"]*['"]/g);
+    expect(hits, `render imported runtime modules:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+});
+
 describe('Architecture invariant: public entries are split by platform', () => {
   it('main entry does not export Web Canvas preset modules', () => {
     const hits = scan(

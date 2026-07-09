@@ -6,7 +6,13 @@
 export type { PackageMetadata, TocEntry } from './parser/index';
 export { paginate } from './runtime/index';
 export { loadEpub } from './runtime/index';
-export type { ChapterRange, EpubDocument, LoadOptions, PaginationResult } from './runtime/index';
+export type {
+  ChapterRange,
+  EpubDocument,
+  LoadOptions,
+  PaginationResult,
+  ZipLimits,
+} from './runtime/index';
 export type { FootnoteEntry } from './runtime/footnote-extractor';
 
 // ── Layout ─────────────────────────────────────────────────────────
@@ -36,9 +42,11 @@ export type { DisplayListRenderer, TextMeasurementBackend } from './render/backe
 export { createImageAssetResolver } from './render/assets/image-asset-resolver';
 export { loadFontsWithRegistry } from './render/assets/font-loader';
 export { loadImagesWithDecoder } from './render/assets/image-loader';
+export type { ImageLoadOptions } from './render/assets/image-loader';
 export { createLazyImageLoaderWithDecoder } from './render/assets/lazy-image-loader';
 export { collectPageImageSources, collectSpreadImageSources } from './render/assets/image-sources';
 export type {
+  EpubAssetSource,
   FontRegistry,
   FontResource,
   ImageAssetResolver,

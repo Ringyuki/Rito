@@ -35,6 +35,8 @@ class LruCache<TImage extends ImageDimensions> {
   }
 
   set(key: string, image: TImage): void {
+    const previous = this.cache.get(key);
+    if (previous && previous !== image) this.disposeImage(previous);
     this.cache.set(key, image);
     this.touch(key);
     this.evict();
@@ -70,42 +72,91 @@ export function createLazyImageLoaderWithDecoder<TImage extends ImageDimensions>
   maxSize = 50,
   logger?: Logger,
 ): LazyImageLoader<TImage> {
-  const log = logger ?? createLogger();
-  const resolve = buildHrefResolver(imageData);
-  const lru = new LruCache<TImage>(maxSize, (image) => {
-    decoder.dispose(image);
-  });
+  if (!Number.isInteger(maxSize) || maxSize < 1) {
+    throw new RangeError('maxSize must be a positive integer');
+  }
+  return new DecoderBackedLazyImageLoader(imageData, decoder, maxSize, logger ?? createLogger());
+}
 
-  async function decode(src: string, data: Uint8Array): Promise<TImage> {
-    const image = await decoder.decode({ href: src, bytes: data });
-    lru.set(src, image);
+class DecoderBackedLazyImageLoader<
+  TImage extends ImageDimensions,
+> implements LazyImageLoader<TImage> {
+  private readonly pending = new Map<string, Promise<TImage | undefined>>();
+  private readonly resolveHref: (src: string) => string | undefined;
+  private readonly lru: LruCache<TImage>;
+  private disposed = false;
+
+  constructor(
+    private readonly imageData: ReadonlyMap<string, Uint8Array>,
+    private readonly decoder: ImageDecoder<TImage>,
+    maxSize: number,
+    private readonly logger: Logger,
+  ) {
+    this.resolveHref = buildHrefResolver(
+      new Map(Array.from(imageData.keys(), (href) => [href, href] as const)),
+    );
+    this.lru = new LruCache(maxSize, (image) => {
+      decoder.dispose(image);
+    });
+  }
+
+  async get(src: string): Promise<TImage | undefined> {
+    if (this.disposed) return undefined;
+    const href = this.resolveHref(src);
+    if (!href) return undefined;
+    const cached = this.lru.get(href);
+    if (cached) {
+      this.lru.touch(href);
+      return cached;
+    }
+    const inFlight = this.pending.get(href);
+    if (inFlight) return inFlight;
+    return this.startDecode(href);
+  }
+
+  getCached(src: string): TImage | undefined {
+    return this.resolveCached(src);
+  }
+
+  resolveImage(src: string): TImage | undefined {
+    return this.resolveCached(src);
+  }
+
+  async preload(srcs: readonly string[]): Promise<void> {
+    await Promise.all(Array.from(new Set(srcs), (src) => this.get(src)));
+  }
+
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.lru.clear();
+  }
+
+  private startDecode(href: string): Promise<TImage | undefined> {
+    const data = this.imageData.get(href);
+    if (!data) return Promise.resolve(undefined);
+    const request = this.decode(href, data)
+      .catch((err: unknown) => {
+        this.logger.warn('Failed to decode image: %s', href, err);
+        return undefined;
+      })
+      .finally(() => this.pending.delete(href));
+    this.pending.set(href, request);
+    return request;
+  }
+
+  private async decode(href: string, data: Uint8Array): Promise<TImage | undefined> {
+    const image = await this.decoder.decode({ href, bytes: data });
+    if (this.disposed) {
+      this.decoder.dispose(image);
+      return undefined;
+    }
+    this.lru.set(href, image);
     return image;
   }
 
-  const loader: LazyImageLoader<TImage> = {
-    async get(src: string): Promise<TImage | undefined> {
-      const cached = lru.get(src);
-      if (cached) {
-        lru.touch(src);
-        return cached;
-      }
-      const data = resolve(src);
-      if (!data) return undefined;
-      try {
-        return await decode(src, data);
-      } catch (err: unknown) {
-        log.warn('Failed to decode image: %s', src, err);
-        return undefined;
-      }
-    },
-    getCached: (src: string) => lru.get(src),
-    resolveImage: (src: string) => lru.get(src),
-    async preload(srcs: readonly string[]): Promise<void> {
-      await Promise.all(srcs.map((s) => loader.get(s)));
-    },
-    dispose(): void {
-      lru.clear();
-    },
-  };
-  return loader;
+  private resolveCached(src: string): TImage | undefined {
+    const href = this.resolveHref(src);
+    return href ? this.lru.get(href) : undefined;
+  }
 }

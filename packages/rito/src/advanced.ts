@@ -121,7 +121,6 @@ export {
   collectPageImageSources,
   collectSpreadImageSources,
   loadAssets,
-  paginateWithAssets,
   disposeAssets,
   canvasDisplayListRenderer,
   buildPageDisplayList,
@@ -141,12 +140,12 @@ export {
   type ImageResource,
   type LazyImageLoader,
   type LoadedAssets,
-  type Resources,
   type BlockDecorationPaint,
   type DisplayList,
   type DisplayListOptions,
   type DrawCommand,
 } from './render/index';
+export { paginateWithAssets, type Resources } from './reader/resources';
 
 // ── Model ──────────────────────────────────────────────────────────
 export { type LayoutElement, type Rect, type Spacing } from './model/index';

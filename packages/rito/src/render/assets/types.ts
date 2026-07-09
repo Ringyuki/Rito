@@ -2,6 +2,13 @@ import type { ImageDimensions } from '../../layout/core/types';
 
 export type { ImageDimensions };
 
+/** EPUB-owned binary and stylesheet resources consumed by render adapters. */
+export interface EpubAssetSource {
+  readonly stylesheets: ReadonlyMap<string, string>;
+  readonly fonts: ReadonlyMap<string, Uint8Array>;
+  readonly images: ReadonlyMap<string, Uint8Array>;
+}
+
 export interface ImageResource {
   readonly href: string;
   readonly bytes: Uint8Array;
@@ -22,6 +29,8 @@ export interface FontResource {
 
 export interface FontRegistry {
   loadFont(resource: FontResource): Promise<void>;
+  /** Remove fonts registered by this instance, when the platform supports it. */
+  dispose?(): void;
 }
 
 export interface ImageAssetResolver<TImage extends ImageDimensions> {

@@ -43,13 +43,17 @@ function xhtml(body: string): string {
 }
 
 function createMockCanvas(): HTMLCanvasElement {
+  return createInspectableMockCanvas().canvas;
+}
+
+function createInspectableMockCanvas() {
   const mockCtx = createMockCanvasContext();
   const canvas = {
     width: 0,
     height: 0,
     getContext: vi.fn(() => mockCtx.ctx),
   } as unknown as HTMLCanvasElement;
-  return canvas;
+  return { canvas, mockCtx };
 }
 
 const DEFAULT_OPTIONS: ReaderOptions = {
@@ -397,6 +401,30 @@ describe('createReader', () => {
       expect(() => {
         reader.setTheme({ backgroundColor: '#1a1a1a', foregroundColor: '#e0e0e0' });
       }).not.toThrow();
+    });
+
+    it('can clear theme overrides when returning to the default theme', async () => {
+      const { createReader } = await import('../../src/reader');
+      const data = buildMinimalEpub({
+        chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Theme text</p>') }],
+      });
+      const { canvas, mockCtx } = createInspectableMockCanvas();
+      const reader = await createReader(data, canvas, DEFAULT_OPTIONS);
+      reader.setTheme({ backgroundColor: '#1a1a1a', foregroundColor: '#e0e0e0' });
+      reader.renderSpread(0);
+      expect(mockCtx.getPropertySets('fillStyle').map(({ value }) => value)).toContain('#e0e0e0');
+      const previousSetCount = mockCtx.getPropertySets('fillStyle').length;
+
+      reader.setTheme({ backgroundColor: null, foregroundColor: null });
+      reader.renderSpread(0);
+
+      const restoredValues = mockCtx
+        .getPropertySets('fillStyle')
+        .slice(previousSetCount)
+        .map(({ value }) => value);
+      expect(restoredValues).toContain('#ffffff');
+      expect(restoredValues).not.toContain('#e0e0e0');
+      reader.dispose();
     });
 
     it('does not re-paginate (no side effects on pages/spreads)', async () => {

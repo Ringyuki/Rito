@@ -87,4 +87,27 @@ describe('canvas display-list backend', () => {
       [-50, -60],
     ]);
   });
+
+  it('multiplies nested opacity instead of replacing the parent alpha', () => {
+    const mock = createMockCanvasContext();
+    mock.ctx.globalAlpha = 1;
+    const displayList: DisplayList = {
+      width: 100,
+      height: 100,
+      commands: [
+        { kind: 'pushState' },
+        { kind: 'opacity', value: 0.5 },
+        { kind: 'pushState' },
+        { kind: 'opacity', value: 0.5 },
+        { kind: 'popState' },
+        { kind: 'popState' },
+      ],
+    };
+
+    canvasDisplayListRenderer.render(displayList, mock.ctx);
+
+    expect(mock.getPropertySets('globalAlpha').map((record) => record.value)).toEqual([
+      1, 0.5, 0.25,
+    ]);
+  });
 });

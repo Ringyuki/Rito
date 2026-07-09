@@ -10,6 +10,8 @@ import { buildFontString } from './font-string';
 import { textSpacingAdvance } from './spacing';
 
 const FONT_METRICS_SAMPLE = 'Hg';
+const MAX_TEXT_WIDTH_CACHE_ENTRIES = 4096;
+const MAX_FONT_METRICS_CACHE_ENTRIES = 256;
 
 export type CanvasTextMeasurementTarget =
   | CanvasRenderingContext2D
@@ -54,14 +56,14 @@ function createCachedCanvasMeasurer(ctx: CanvasTextMeasurementTarget): CachedTex
       const ws = paint.wordSpacingPx ?? 0;
       const ls = paint.letterSpacingPx ?? 0;
       const cacheKey = font + '\0' + String(ws) + '\0' + String(ls) + '\0' + text;
-      let width = textWidthCache.get(cacheKey);
+      let width = readLru(textWidthCache, cacheKey);
 
       if (width === undefined) {
         canvasCtx.font = font;
         resetCanvasSpacing(canvasCtx);
         const metrics = canvasCtx.measureText(text);
         width = metrics.width + textSpacingAdvance(text, ws, ls);
-        textWidthCache.set(cacheKey, width);
+        writeLru(textWidthCache, cacheKey, width, MAX_TEXT_WIDTH_CACHE_ENTRIES);
       }
 
       // Content-box height only — layout must not source line-box height from here.
@@ -70,12 +72,12 @@ function createCachedCanvasMeasurer(ctx: CanvasTextMeasurementTarget): CachedTex
 
     resolveFontMetrics(paint: MeasurePaint): FontMetrics {
       const font = buildFontString(paint.font);
-      let fontMetrics = fontMetricsCache.get(font);
+      let fontMetrics = readLru(fontMetricsCache, font);
       if (fontMetrics === undefined) {
         canvasCtx.font = font;
         resetCanvasSpacing(canvasCtx);
         fontMetrics = resolveCanvasFontMetrics(canvasCtx.measureText(FONT_METRICS_SAMPLE), paint);
-        fontMetricsCache.set(font, fontMetrics);
+        writeLru(fontMetricsCache, font, fontMetrics, MAX_FONT_METRICS_CACHE_ENTRIES);
       }
       return fontMetrics;
     },
@@ -85,6 +87,22 @@ function createCachedCanvasMeasurer(ctx: CanvasTextMeasurementTarget): CachedTex
       fontMetricsCache.clear();
     },
   };
+}
+
+function readLru<T>(cache: Map<string, T>, key: string): T | undefined {
+  const value = cache.get(key);
+  if (value === undefined) return undefined;
+  cache.delete(key);
+  cache.set(key, value);
+  return value;
+}
+
+function writeLru<T>(cache: Map<string, T>, key: string, value: T, maxSize: number): void {
+  cache.delete(key);
+  cache.set(key, value);
+  if (cache.size <= maxSize) return;
+  const oldest = cache.keys().next().value;
+  if (oldest !== undefined) cache.delete(oldest);
 }
 
 function resetCanvasSpacing(ctx: CanvasRenderingContext2D): void {

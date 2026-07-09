@@ -15,6 +15,7 @@ import {
   type ReaderState,
 } from './helpers';
 import type { LogLevel } from '../utils/logger';
+import { disposeAssets } from '../render/web';
 
 /** Options for creating a Reader. */
 export interface ReaderOptions {
@@ -29,9 +30,9 @@ export interface ReaderOptions {
   /** Gap between pages in double mode. Defaults to 20. */
   readonly spreadGap?: number;
   /** Page background color. Defaults to '#ffffff'. */
-  readonly backgroundColor?: string;
+  readonly backgroundColor?: string | null;
   /** Text color override for dark mode. Replaces low-contrast text colors automatically. */
-  readonly foregroundColor?: string;
+  readonly foregroundColor?: string | null;
   /** Device pixel ratio for HiDPI rendering. Defaults to `window.devicePixelRatio` (or 1 in non-browser environments). */
   readonly devicePixelRatio?: number;
   /** Line-breaking algorithm. 'greedy' is fast, 'optimal' uses Knuth-Plass for more even line lengths. Defaults to 'greedy'. */
@@ -52,6 +53,14 @@ export interface ReaderOptions {
   readonly lineHeightForce?: boolean;
   readonly fontFamily?: string;
   readonly fontFamilyForce?: boolean;
+}
+
+/** Theme colors that can be updated without re-pagination. */
+export interface ReaderThemeOptions {
+  /** Set a page background, leave it unchanged with `undefined`, or restore white with `null`. */
+  readonly backgroundColor?: string | null;
+  /** Set a text override, leave it unchanged with `undefined`, or clear it with `null`. */
+  readonly foregroundColor?: string | null;
 }
 
 /** A Rito reader instance. Created by {@link createReader}. */
@@ -111,7 +120,7 @@ export interface Reader {
   ): boolean;
 
   /** Update theme colors. Takes effect on the next renderSpread() call without re-pagination. */
-  setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
+  setTheme(options: ReaderThemeOptions): void;
 
   /** Find the page index for a TOC entry. */
   findPage(entry: TocEntry): number | undefined;
@@ -203,8 +212,15 @@ export async function createReader(
   options: ReaderOptions,
 ): Promise<Reader> {
   const doc: EpubDocument = loadEpub(data);
-  const state = await initReaderState(doc, canvas, options);
-  return buildReader(doc, canvas, options, state);
+  let state: ReaderState | undefined;
+  try {
+    state = await initReaderState(doc, canvas, options);
+    return buildReader(doc, canvas, options, state);
+  } catch (error: unknown) {
+    if (state) disposeAssets(state.assets);
+    doc.close();
+    throw error;
+  }
 }
 
 function buildReader(
