@@ -5,7 +5,10 @@ import {
   FITNESS_DEMERITS,
   type CandidateState,
 } from './fitness';
-import type { KPBreakpoint, KPItem } from './types';
+import { resolveLineWidth } from './line-width';
+import type { KPBreakpoint, KPItem, LineWidthSpec } from './types';
+export { emergencyBreaks } from './emergency';
+export type { LineWidthSpec } from './types';
 
 const TOLERANCE = 10;
 const FLAGGED_DEMERITS = 3000;
@@ -17,7 +20,7 @@ interface CumulativeSums {
   readonly shrink: Float64Array;
 }
 
-export function solveKP(items: readonly KPItem[], lineWidth: number): number[] | undefined {
+export function solveKP(items: readonly KPItem[], lineWidth: LineWidthSpec): number[] | undefined {
   if (items.length === 0) return undefined;
 
   const sums = buildSums(items);
@@ -59,30 +62,6 @@ export function solveKP(items: readonly KPItem[], lineWidth: number): number[] |
   return positions;
 }
 
-export function emergencyBreaks(items: readonly KPItem[], lineWidth: number): number[] {
-  const positions: number[] = [];
-  let currentWidth = 0;
-
-  for (let index = 0; index < items.length; index++) {
-    const item = items[index];
-    if (!item) continue;
-
-    if (item.type === 'penalty' && item.penalty === -Infinity) {
-      positions.push(index);
-      currentWidth = 0;
-      continue;
-    }
-
-    if (item.type === 'box') {
-      currentWidth = emergencyBox(items, positions, index, item.width, currentWidth, lineWidth);
-    } else if (item.type === 'glue') {
-      currentWidth += item.width;
-    }
-  }
-
-  return positions;
-}
-
 function buildSums(items: readonly KPItem[]): CumulativeSums {
   const width = new Float64Array(items.length + 1);
   const stretch = new Float64Array(items.length + 1);
@@ -103,7 +82,7 @@ function stepBreak(
   items: readonly KPItem[],
   position: number,
   active: readonly KPBreakpoint[],
-  lineWidth: number,
+  lineWidth: LineWidthSpec,
   sums: CumulativeSums,
   forced: boolean,
   finishing: boolean,
@@ -117,7 +96,7 @@ function stepBreak(
   };
 
   for (const node of active) {
-    const ratio = adjustmentRatio(items, node.position, position, lineWidth, sums);
+    const ratio = breakpointRatio(items, node, position, lineWidth, sums);
     if (ratio < -1) {
       if (forced)
         pushBreakpoint(node, position, ratio, items, finishing, candidates, recordFinished);
@@ -144,6 +123,22 @@ function stepBreak(
   }
 
   return { active: [...survivors, ...candidates.values()], finished };
+}
+
+function breakpointRatio(
+  items: readonly KPItem[],
+  node: KPBreakpoint,
+  position: number,
+  lineWidth: LineWidthSpec,
+  sums: CumulativeSums,
+): number {
+  return adjustmentRatio(
+    items,
+    node.position,
+    position,
+    resolveLineWidth(lineWidth, node.line),
+    sums,
+  );
 }
 
 function pushBreakpoint(
@@ -198,49 +193,6 @@ function makeBreakpoint(
     line: node.line + 1,
     prev: node,
   };
-}
-
-function emergencyBox(
-  items: readonly KPItem[],
-  positions: number[],
-  index: number,
-  boxWidth: number,
-  currentWidth: number,
-  lineWidth: number,
-): number {
-  if (currentWidth + boxWidth <= lineWidth || currentWidth === 0) {
-    return currentWidth + boxWidth;
-  }
-
-  const start = positions.length > 0 ? (positions[positions.length - 1] ?? 0) + 1 : 0;
-  let breakPos = -1;
-  for (let cursor = index - 1; cursor >= start; cursor--) {
-    const candidate = items[cursor];
-    if (
-      candidate?.type === 'glue' ||
-      (candidate?.type === 'penalty' && isFinite(candidate.penalty))
-    ) {
-      breakPos = cursor;
-      break;
-    }
-  }
-
-  if (breakPos >= 0) {
-    positions.push(breakPos);
-    let nextWidth = 0;
-    for (let cursor = breakPos + 1; cursor <= index; cursor++) {
-      const item = items[cursor];
-      if (item && item.type !== 'penalty') nextWidth += item.width;
-    }
-    return nextWidth;
-  }
-
-  if (index > 0) {
-    positions.push(index - 1);
-    return boxWidth;
-  }
-
-  return currentWidth + boxWidth;
 }
 
 function isLegalBreak(items: readonly KPItem[], index: number): boolean {

@@ -10,6 +10,8 @@ export interface StyledSegment {
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
+  /** Source offset corresponding to the first code unit in `text`. */
+  readonly sourceTextOffset?: number;
   /** Ruby annotation text (from `<rt>`) to render above the base text. */
   readonly rubyAnnotation?: string;
   /** Inline margin-left in px (from the inline element, not inherited). */
@@ -52,6 +54,10 @@ export function flattenInlineContent(
   inheritedHref?: string,
 ): readonly InlineSegment[] {
   const segments: InlineSegment[] = [];
-  collectSegments(children, segments, { imageSizes, href: inheritedHref });
+  collectSegments(children, segments, {
+    imageSizes,
+    href: inheritedHref,
+    whitespace: { previousEndedWithSpace: false },
+  });
   return segments;
 }

@@ -247,6 +247,8 @@ export interface StyledNode {
   readonly type: 'block' | 'inline' | 'text' | 'image';
   readonly tag?: string;
   readonly content?: string;
+  /** Original text before parser-level default whitespace normalization. */
+  readonly sourceText?: string;
   readonly src?: string;
   readonly alt?: string;
   readonly id?: string;

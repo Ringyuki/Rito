@@ -26,12 +26,21 @@ export function injectPseudoElements(
   rules: readonly CssRule[] | undefined,
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  rootFontSize: number,
   hostIsInline?: boolean,
 ): StyledNode[] {
   if (!rules || rules.length === 0) return children;
 
-  let before = buildPseudoNode('before', target, parentStyle, rules, index, ancestors);
-  let after = buildPseudoNode('after', target, parentStyle, rules, index, ancestors);
+  let before = buildPseudoNode(
+    'before',
+    target,
+    parentStyle,
+    rules,
+    index,
+    ancestors,
+    rootFontSize,
+  );
+  let after = buildPseudoNode('after', target, parentStyle, rules, index, ancestors, rootFontSize);
 
   if (!before && !after) return children;
 
@@ -102,6 +111,7 @@ function buildPseudoNode(
   rules: readonly CssRule[],
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
+  rootFontSize: number,
 ): StyledNode | undefined {
   const candidates = index ? index.getCandidates(target.tag, target.className, target.id) : rules;
 
@@ -130,7 +140,7 @@ function buildPseudoNode(
   if (matches.length === 0) return undefined;
 
   matches.sort((a, b) => compareSpecificity(a.specificity, b.specificity));
-  const style = resolvePseudoStyle(matches, parentStyle);
+  const style = resolvePseudoStyle(matches, parentStyle, rootFontSize);
 
   if (style.display === DISPLAY_VALUES.None) return undefined;
 
@@ -143,6 +153,7 @@ function buildPseudoNode(
 function resolvePseudoStyle(
   matches: readonly MatchedPseudoRule[],
   parentStyle: ComputedStyle,
+  rootFontSize: number,
 ): ComputedStyle {
   // Pseudo-elements default to inline display (CSS spec), not block
   const base: ComputedStyle = { ...inheritableStyle(parentStyle), display: DISPLAY_VALUES.Inline };
@@ -151,13 +162,13 @@ function resolvePseudoStyle(
   // Two-pass em resolution (same as resolver.ts applyRules)
   let resolvedFontSize = base.fontSize;
   for (const m of matches) {
-    const parsed = parseCssDeclarations(m.rawDeclarations, parentFontSize);
+    const parsed = parseCssDeclarations(m.rawDeclarations, parentFontSize, rootFontSize);
     if (parsed.fontSize !== undefined) resolvedFontSize = parsed.fontSize;
   }
 
   let style: ComputedStyle = { ...base, fontSize: resolvedFontSize };
   for (const m of matches) {
-    const parsed = parseCssDeclarations(m.rawDeclarations, resolvedFontSize);
+    const parsed = parseCssDeclarations(m.rawDeclarations, resolvedFontSize, rootFontSize);
     style = { ...style, ...parsed, fontSize: resolvedFontSize };
   }
   return style;

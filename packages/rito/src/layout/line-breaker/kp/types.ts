@@ -14,6 +14,9 @@ export interface KPGlue {
   readonly stretch: number;
   readonly shrink: number;
   readonly text: string;
+  /** Source segment consumed by this glue (ordinary collapsed spaces/newlines). */
+  readonly segment?: StyledSegment;
+  readonly sourceLength?: number;
 }
 
 export interface KPPenalty {
@@ -24,6 +27,9 @@ export interface KPPenalty {
 }
 
 export type KPItem = KPBox | KPGlue | KPPenalty;
+export type LineWidthSpec =
+  | number
+  | { readonly firstLine: number; readonly subsequentLines: number };
 export type KPFitnessClass = 'very-tight' | 'tight' | 'loose' | 'very-loose';
 
 export interface KPBreakpoint {

@@ -38,6 +38,7 @@ export function applyUnifiedRules(
   index: RuleIndex | undefined,
   ancestors: readonly SelectorTarget[],
   inlineCss: string | undefined,
+  rootFontSize: number,
   viewport?: Viewport,
 ): ComputedStyle {
   const matches = collectMatchedRules(
@@ -47,13 +48,20 @@ export function applyUnifiedRules(
     ancestors,
     inlineCss,
     parentFontSize,
+    rootFontSize,
     viewport,
   );
   if (matches.length === 0) return style;
   matches.sort(compareMatchedRules);
 
-  const resolvedFontSize = resolveFinalFontSize(style.fontSize, matches, parentFontSize, viewport);
-  return applyMatchedRules(style, matches, resolvedFontSize, viewport);
+  const resolvedFontSize = resolveFinalFontSize(
+    style.fontSize,
+    matches,
+    parentFontSize,
+    rootFontSize,
+    viewport,
+  );
+  return applyMatchedRules(style, matches, resolvedFontSize, rootFontSize, viewport);
 }
 
 function collectMatchedRules(
@@ -63,6 +71,7 @@ function collectMatchedRules(
   ancestors: readonly SelectorTarget[],
   inlineCss: string | undefined,
   parentFontSize: number,
+  rootFontSize: number,
   viewport: Viewport | undefined,
 ): MatchedRule[] {
   const matches: MatchedRule[] = [];
@@ -72,7 +81,7 @@ function collectMatchedRules(
     }
   }
   if (inlineCss) {
-    matches.push(createInlineRule(inlineCss, parentFontSize, viewport));
+    matches.push(createInlineRule(inlineCss, parentFontSize, rootFontSize, viewport));
   }
   return matches;
 }
@@ -98,11 +107,12 @@ function toMatchedRule(rule: CssRule): MatchedRule {
 function createInlineRule(
   inlineCss: string,
   parentFontSize: number,
+  rootFontSize: number,
   viewport: Viewport | undefined,
 ): MatchedRule {
   return {
     rawDeclarations: inlineCss,
-    declarations: parseCssDeclarations(inlineCss, parentFontSize, parentFontSize, viewport),
+    declarations: parseCssDeclarations(inlineCss, parentFontSize, rootFontSize, viewport),
     specificity: INLINE_SPECIFICITY,
     origin: 'inline',
   };
@@ -118,6 +128,7 @@ function resolveFinalFontSize(
   initialFontSize: number,
   matches: readonly MatchedRule[],
   parentFontSize: number,
+  rootFontSize: number,
   viewport: Viewport | undefined,
 ): number {
   let resolvedFontSize = initialFontSize;
@@ -125,7 +136,7 @@ function resolveFinalFontSize(
     const reparsed = parseCssDeclarations(
       match.rawDeclarations,
       parentFontSize,
-      parentFontSize,
+      rootFontSize,
       viewport,
     );
     if (reparsed.fontSize !== undefined) resolvedFontSize = reparsed.fontSize;
@@ -137,6 +148,7 @@ function applyMatchedRules(
   style: ComputedStyle,
   matches: readonly MatchedRule[],
   resolvedFontSize: number,
+  rootFontSize: number,
   viewport: Viewport | undefined,
 ): ComputedStyle {
   let result: ComputedStyle = { ...style, fontSize: resolvedFontSize };
@@ -144,7 +156,7 @@ function applyMatchedRules(
     const resolved = parseCssDeclarations(
       match.rawDeclarations,
       resolvedFontSize,
-      resolvedFontSize,
+      rootFontSize,
       viewport,
     );
     result = { ...result, ...resolved, fontSize: resolvedFontSize };

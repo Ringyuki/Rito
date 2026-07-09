@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { paginate } from '../../src/runtime/paginate';
+import { paginate, paginateWithMeta } from '../../src/runtime/paginate';
 import { loadEpub } from '../../src/runtime/load-epub';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';
@@ -115,5 +115,20 @@ describe('paginate', () => {
     expect(pages).toHaveLength(2);
     expect(pages[0]?.index).toBe(0);
     expect(pages[1]?.index).toBe(1);
+  });
+
+  it('preserves duplicate fragment IDs in chapter-scoped anchor maps', () => {
+    const data = buildMinimalEpub({
+      chapters: [
+        { id: 'ch1', href: 'ch1.xhtml', content: xhtml('<h1 id="same">One</h1>') },
+        { id: 'ch2', href: 'ch2.xhtml', content: xhtml('<h1 id="same">Two</h1>') },
+      ],
+    });
+    const doc = loadEpub(data);
+    const result = paginateWithMeta(doc, CONFIG, measurer);
+
+    expect(result.anchorMap.get('same')).toBe(0);
+    expect(result.chapterAnchorMap?.get('ch1')?.get('same')).toBe(0);
+    expect(result.chapterAnchorMap?.get('ch2')?.get('same')).toBe(1);
   });
 });

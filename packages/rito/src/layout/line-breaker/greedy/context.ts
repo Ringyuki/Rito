@@ -34,6 +34,9 @@ export function buildStyleRanges(segments: readonly InlineSegment[]): {
       style: segment.style,
       ...(segment.sourceRef ? { sourceRef: segment.sourceRef } : {}),
       ...(segment.sourceText !== undefined ? { sourceText: segment.sourceText } : {}),
+      ...(segment.sourceTextOffset !== undefined
+        ? { sourceTextOffset: segment.sourceTextOffset }
+        : {}),
     };
     if (segment.href) range = { ...range, href: segment.href };
     if (segment.rubyAnnotation) range = { ...range, rubyAnnotation: segment.rubyAnnotation };

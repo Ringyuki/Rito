@@ -49,7 +49,8 @@ describe('GreedyParagraphLayouter', () => {
       const lines = layouter.layoutParagraph([seg('superlongword')], 100, 0);
       expect(lines.length).toBeGreaterThan(1);
       const allText = lines.flatMap((l) => l.runs.map((r) => textOf(r) ?? '')).join('');
-      expect(allText).toBe('superlongword');
+      expect(allText.replaceAll('-', '')).toBe('superlongword');
+      expect(allText).toContain('-');
     });
 
     it('returns empty array for empty input', () => {

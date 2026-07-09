@@ -24,6 +24,12 @@ export interface SegmentCollectionContext {
   readonly padding?: InlinePadding | undefined;
   readonly borderRadius?: number | undefined;
   readonly borders?: InlineBorders | undefined;
+  /** Shared across nested inline elements so collapsible spaces collapse at boundaries. */
+  readonly whitespace?: WhitespaceCollapseState | undefined;
+}
+
+export interface WhitespaceCollapseState {
+  previousEndedWithSpace: boolean;
 }
 
 export interface InlineChildContext {
@@ -51,6 +57,7 @@ export function buildInlineChildContext(
       borders: hasOwnBorders
         ? mergeBorders(inherited.borders, bordersFromStyle(node.style))
         : inherited.borders,
+      whitespace: inherited.whitespace,
     },
   };
 }
@@ -76,16 +83,25 @@ export function patchInheritedStyle(
 }
 
 export function applyTextTransform(text: string, style: ComputedStyle): string {
+  let transformed: string;
   switch (style.textTransform) {
     case TEXT_TRANSFORMS.Uppercase:
-      return text.toUpperCase();
+      transformed = text.toUpperCase();
+      break;
     case TEXT_TRANSFORMS.Lowercase:
-      return text.toLowerCase();
+      transformed = text.toLowerCase();
+      break;
     case TEXT_TRANSFORMS.Capitalize:
-      return text.replace(/\b\w/g, (c) => c.toUpperCase());
+      transformed = text.replace(/\b\w/g, (c) => c.toUpperCase());
+      break;
     case TEXT_TRANSFORMS.None:
       return text;
   }
+  // TextRun source mapping is code-unit based. Some Unicode case mappings
+  // expand or contract (for example, `ß` -> `SS`); applying those without a
+  // per-character map would corrupt annotations and selections. Preserve the
+  // source spelling in that rare case until such a map is part of the model.
+  return transformed.length === text.length ? transformed : text;
 }
 
 function hasInlinePadding(style: ComputedStyle): boolean {

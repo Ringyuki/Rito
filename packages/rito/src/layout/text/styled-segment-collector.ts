@@ -1,4 +1,4 @@
-import type { StyledNode } from '../../style/core/types';
+import type { ComputedStyle, StyledNode } from '../../style/core/types';
 import { DISPLAY_VALUES } from '../../style/core/types';
 import { createImageAtom, createInlineBlockAtom } from './styled-segment-atoms';
 import {
@@ -33,7 +33,7 @@ function collectSegmentNode(
       collectImageSegment(node, out, context);
       break;
     case 'block':
-      collectInlineBlockSegment(node, out);
+      collectInlineBlockSegment(node, out, context);
       break;
   }
 }
@@ -43,15 +43,53 @@ function collectTextSegment(
   out: InlineSegment[],
   context: SegmentCollectionContext,
 ): void {
-  const raw = node.content ?? '';
-  if (raw.length === 0) return;
+  const content = node.content ?? '';
+  if (content.length === 0) return;
   const style = patchInheritedStyle(node.style, context);
+  const normalized = normalizeTextForWhiteSpace(node, style, context);
+  if (normalized.text.length === 0) return;
   const seg: StyledSegment = {
-    text: applyTextTransform(raw, style),
+    text: applyTextTransform(normalized.text, style),
     style,
-    ...(node.sourceRef ? { sourceRef: node.sourceRef, sourceText: raw } : {}),
+    ...(node.sourceRef
+      ? {
+          sourceRef: node.sourceRef,
+          sourceText: normalized.sourceText,
+          ...(normalized.sourceTextOffset > 0
+            ? { sourceTextOffset: normalized.sourceTextOffset }
+            : {}),
+        }
+      : {}),
   };
   out.push(context.href ? { ...seg, href: context.href } : seg);
+}
+
+function normalizeTextForWhiteSpace(
+  node: StyledNode,
+  style: ComputedStyle,
+  context: SegmentCollectionContext,
+): { readonly text: string; readonly sourceText: string; readonly sourceTextOffset: number } {
+  const content = node.content ?? '';
+  const preserve = style.whiteSpace === 'pre' || style.whiteSpace === 'pre-wrap';
+  const sourceText = preserve ? (node.sourceText ?? content) : content;
+  let text = sourceText;
+  let sourceTextOffset = 0;
+
+  // A synthetic newline produced by <br> is a forced break under every
+  // white-space mode and must not participate in ordinary space collapsing.
+  const forcedBreak = content === '\n' && node.sourceText === undefined;
+  if (!preserve && !forcedBreak && context.whitespace?.previousEndedWithSpace) {
+    if (text.startsWith(' ')) {
+      text = text.slice(1);
+      sourceTextOffset = 1;
+    }
+  }
+
+  if (context.whitespace) {
+    if (preserve || forcedBreak) context.whitespace.previousEndedWithSpace = false;
+    else if (text.length > 0) context.whitespace.previousEndedWithSpace = text.endsWith(' ');
+  }
+  return { text, sourceText, sourceTextOffset };
 }
 
 function collectInlineSegments(
@@ -82,10 +120,17 @@ function collectImageSegment(
   } else {
     out.push(atom);
   }
+  if (context.whitespace) context.whitespace.previousEndedWithSpace = false;
 }
 
-function collectInlineBlockSegment(node: StyledNode, out: InlineSegment[]): void {
-  if (node.style.display === DISPLAY_VALUES.InlineBlock) out.push(createInlineBlockAtom(node));
+function collectInlineBlockSegment(
+  node: StyledNode,
+  out: InlineSegment[],
+  context: SegmentCollectionContext,
+): void {
+  if (node.style.display !== DISPLAY_VALUES.InlineBlock) return;
+  out.push(createInlineBlockAtom(node));
+  if (context.whitespace) context.whitespace.previousEndedWithSpace = false;
 }
 
 function markInlineFragments(
@@ -161,6 +206,7 @@ function flushRubyBase(
     href: context.href,
     bgColor: context.bgColor,
     verticalAlign: context.verticalAlign,
+    whitespace: context.whitespace,
   });
   return annotation ? attachRubyAnnotation(baseSegments, annotation) : baseSegments;
 }

@@ -182,6 +182,14 @@ describe('Emergency Breaks', () => {
     // Should contain a break at the forced penalty
     expect(breaks.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('uses the wider subsequent-line budget after a narrow first line', () => {
+    const items = buildKPItems([seg('aaaa bbbb cccc')], measurer);
+    const breaks = emergencyBreaks(items, { firstLine: 50, subsequentLines: 100 });
+
+    // First line breaks after "aaaa"; both remaining words then fit together.
+    expect(breaks).toHaveLength(2);
+  });
 });
 
 describe('KnuthPlassLayouter', () => {

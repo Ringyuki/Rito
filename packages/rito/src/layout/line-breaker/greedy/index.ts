@@ -92,14 +92,14 @@ function layoutSingleLine(
   const lineStartX = isFirstLine && indent !== 0 ? indent : 0;
   const newlineIndex = text.indexOf('\n', pos);
   const lineEnd = newlineIndex >= 0 ? newlineIndex : text.length;
-  const breakPos = allowWrap
+  const breakResult = allowWrap
     ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms, ranges)
-    : lineEnd;
+    : { position: lineEnd, hyphenated: false };
+  const breakPos = breakResult.position;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
   const endsWithForcedBreak = newlineIndex >= 0 && lineTextEnd >= newlineIndex;
-  const lineText = preserveWs
-    ? text.slice(pos, lineTextEnd)
-    : text.slice(pos, lineTextEnd).trimEnd();
+  let lineText = preserveWs ? text.slice(pos, lineTextEnd) : text.slice(pos, lineTextEnd).trimEnd();
+  if (breakResult.hyphenated) lineText += '-';
   const runs = buildStyledRuns(
     lineText,
     pos,

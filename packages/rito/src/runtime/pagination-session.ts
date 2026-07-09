@@ -1,6 +1,6 @@
 import type { ImageDimensions, LayoutConfig, Page } from '../layout/core/types';
 import type { TextMeasurer } from '../layout/text/text-measurer';
-import type { DocumentNode } from '../parser/xhtml/types';
+import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
 import { parseXhtml } from '../parser/xhtml/xhtml-parser';
 import type { Logger } from '../utils/logger';
 import { createLogger } from '../utils/logger';
@@ -21,12 +21,11 @@ import {
 } from './footnote-extractor';
 import { logXhtmlWarnings } from './xhtml-diagnostics';
 
-type BodyAttributes = { readonly class?: string; readonly style?: string };
-
 interface ChapterSources {
   readonly nodesByIdref: ReadonlyMap<string, readonly DocumentNode[]>;
-  readonly bodyAttrsByIdref: ReadonlyMap<string, BodyAttributes>;
+  readonly bodyAttrsByIdref: ReadonlyMap<string, ElementAttributes>;
   readonly stylesheetHrefsByIdref: ReadonlyMap<string, readonly string[]>;
+  readonly embeddedStylesheetsByIdref: ReadonlyMap<string, readonly string[]>;
 }
 
 /** Result of paginating a single chapter. */
@@ -53,6 +52,7 @@ export class PaginationSession {
   private readonly allPages: Page[] = [];
   private readonly chapterMap = new Map<string, ChapterRange>();
   private readonly anchorMap = new Map<string, number>();
+  private readonly chapterAnchorMap = new Map<string, ReadonlyMap<string, number>>();
   private readonly chapterTextIndices = new Map<string, ChapterTextIndex>();
   private readonly footnoteMap = new Map<string, FootnoteEntry>();
 
@@ -93,7 +93,13 @@ export class PaginationSession {
       const xhtml = this.doc.readChapter(spineItem.idref);
       if (!xhtml) continue;
 
-      const { nodes: rawNodes, warnings, bodyAttributes, stylesheetHrefs } = parseXhtml(xhtml);
+      const {
+        nodes: rawNodes,
+        warnings,
+        bodyAttributes,
+        stylesheetHrefs,
+        embeddedStylesheets,
+      } = parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, spineItem.idref);
       const chapterHref = this.hrefMap.get(spineItem.idref) ?? spineItem.idref;
       const { filtered: nodes, footnotes } = extractChapterFootnotes(rawNodes, chapterHref);
@@ -108,6 +114,7 @@ export class PaginationSession {
         startPage,
         bodyAttributes,
         stylesheetHrefs,
+        embeddedStylesheets,
       );
       if (chapter.pages.length === 0) continue;
 
@@ -115,6 +122,7 @@ export class PaginationSession {
       const newPages = [...chapter.pages];
       this.allPages.push(...newPages);
       mergeAnchorMap(this.anchorMap, chapter.anchorMap);
+      this.chapterAnchorMap.set(spineItem.idref, chapter.anchorMap);
       this.chapterMap.set(spineItem.idref, { startPage, endPage: this.allPages.length - 1 });
 
       return { pages: newPages, done: this.spineIndex >= spine.length };
@@ -145,26 +153,35 @@ export class PaginationSession {
     this.allPages.length = 0;
     this.chapterMap.clear();
     this.anchorMap.clear();
+    this.chapterAnchorMap.clear();
     this.chapterTextIndices.clear();
     this.footnoteMap.clear();
   }
 
   private collectChapterSources(): ChapterSources {
     const nodesByIdref = new Map<string, readonly DocumentNode[]>();
-    const bodyAttrsByIdref = new Map<string, BodyAttributes>();
+    const bodyAttrsByIdref = new Map<string, ElementAttributes>();
     const stylesheetHrefsByIdref = new Map<string, readonly string[]>();
+    const embeddedStylesheetsByIdref = new Map<string, readonly string[]>();
 
     for (const item of this.doc.packageDocument.spine) {
       const xhtml = this.doc.readChapter(item.idref);
       if (!xhtml) continue;
-      const { nodes, warnings, bodyAttributes, stylesheetHrefs } = parseXhtml(xhtml);
+      const { nodes, warnings, bodyAttributes, stylesheetHrefs, embeddedStylesheets } =
+        parseXhtml(xhtml);
       logXhtmlWarnings(warnings, this.logger, item.idref);
       nodesByIdref.set(item.idref, nodes);
       if (bodyAttributes) bodyAttrsByIdref.set(item.idref, bodyAttributes);
       if (stylesheetHrefs) stylesheetHrefsByIdref.set(item.idref, stylesheetHrefs);
+      if (embeddedStylesheets) embeddedStylesheetsByIdref.set(item.idref, embeddedStylesheets);
     }
 
-    return { nodesByIdref, bodyAttrsByIdref, stylesheetHrefsByIdref };
+    return {
+      nodesByIdref,
+      bodyAttrsByIdref,
+      stylesheetHrefsByIdref,
+      embeddedStylesheetsByIdref,
+    };
   }
 
   private paginateFilteredChapters(
@@ -181,6 +198,7 @@ export class PaginationSession {
       const startPage = this.allPages.length;
       const bodyAttributes = sources.bodyAttrsByIdref.get(item.idref);
       const chapterStylesheetHrefs = sources.stylesheetHrefsByIdref.get(item.idref);
+      const embeddedStylesheets = sources.embeddedStylesheetsByIdref.get(item.idref);
       const chapter = paginateChapterNodes(
         nodes,
         this.config,
@@ -188,11 +206,13 @@ export class PaginationSession {
         startPage,
         bodyAttributes,
         chapterStylesheetHrefs,
+        embeddedStylesheets,
       );
       if (chapter.pages.length === 0) continue;
 
       this.allPages.push(...chapter.pages);
       mergeAnchorMap(this.anchorMap, chapter.anchorMap);
+      this.chapterAnchorMap.set(item.idref, chapter.anchorMap);
       this.chapterMap.set(item.idref, { startPage, endPage: this.allPages.length - 1 });
     }
   }
@@ -210,6 +230,7 @@ export class PaginationSession {
       pages: this.allPages,
       chapterMap: this.chapterMap,
       anchorMap: this.anchorMap,
+      chapterAnchorMap: this.chapterAnchorMap,
       chapterTextIndices: this.chapterTextIndices,
       footnoteMap: this.footnoteMap,
     };

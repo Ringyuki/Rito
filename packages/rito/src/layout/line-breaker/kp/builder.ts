@@ -65,28 +65,30 @@ function addTokenItems(
   spaceWidth: number,
 ): void {
   if (token === '\n') {
-    addForcedBreak(items);
+    addForcedBreak(items, segment, 1);
   } else if (token === ' ' || token === '\t') {
-    items.push(createGlue(spaceWidth, spaceWidth * 1.5, spaceWidth * 0.5, ' '));
+    items.push(createGlue(spaceWidth, spaceWidth * 1.5, spaceWidth * 0.5, ' ', segment, 1));
   } else {
     addWordItems(items, token, segment, measurer);
   }
 }
 
 function addInlineStartInset(items: KPItem[], segment: StyledSegment): void {
-  if (!segment.borderStart) return;
-  const inset = segment.style.borderLeft.width + segment.style.paddingLeft;
+  const inset =
+    (segment.borderStart ? segment.style.borderLeft.width + segment.style.paddingLeft : 0) +
+    (segment.inlineMarginLeft ?? 0);
   if (inset > 0) items.push(createBox(inset, '', segment));
 }
 
 function addInlineEndInset(items: KPItem[], segment: StyledSegment): void {
-  if (!segment.borderEnd) return;
-  const inset = segment.style.paddingRight + segment.style.borderRight.width;
+  const inset =
+    (segment.borderEnd ? segment.style.paddingRight + segment.style.borderRight.width : 0) +
+    (segment.inlineMarginRight ?? 0);
   if (inset > 0) items.push(createBox(inset, '', segment));
 }
 
-function addForcedBreak(items: KPItem[]): void {
-  items.push(createGlue(0, 1e6, 0, ''));
+function addForcedBreak(items: KPItem[], segment?: StyledSegment, sourceLength = 0): void {
+  items.push(createGlue(0, 1e6, 0, '', segment, sourceLength));
   items.push(createPenalty(0, FORCED_BREAK_PENALTY, false));
 }
 
@@ -245,8 +247,23 @@ function createBox(width: number, text: string, segment: StyledSegment): KPBox {
   return { type: 'box', width, text, segment };
 }
 
-function createGlue(width: number, stretch: number, shrink: number, text: string): KPGlue {
-  return { type: 'glue', width, stretch, shrink, text };
+function createGlue(
+  width: number,
+  stretch: number,
+  shrink: number,
+  text: string,
+  segment?: StyledSegment,
+  sourceLength?: number,
+): KPGlue {
+  return {
+    type: 'glue',
+    width,
+    stretch,
+    shrink,
+    text,
+    ...(segment ? { segment } : {}),
+    ...(sourceLength !== undefined ? { sourceLength } : {}),
+  };
 }
 
 function createPenalty(width: number, penalty: number, flagged: boolean): KPPenalty {
