@@ -8,9 +8,9 @@
 
 import type { AnnotationTarget } from '@ritojs/core/annotations';
 import { createAnnotationTarget, sourcePointToOffset } from '@ritojs/core/annotations';
-import type { HitEntry, HitMap } from '@ritojs/core/advanced';
+import type { HitEntry, HitMap } from '@ritojs/core/integration';
 import type { SelectionSnapshot } from '@ritojs/core/selection';
-import type { SourceRef } from '@ritojs/core/advanced';
+import type { SourceRef } from '@ritojs/core/integration';
 import type { Internals } from '../core/internals';
 
 /**

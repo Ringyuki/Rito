@@ -1,5 +1,10 @@
 import type { LayoutBlock, LineBox, Page, TextRun } from '../../layout/core/types';
 import type { TextPosition, TextRange } from './types';
+import {
+  createPageVisualGeometry,
+  enterBlockVisualGeometry,
+  type VisualGeometry,
+} from './visual-geometry';
 
 export interface TraversedLineBox {
   readonly blockIndex: number;
@@ -7,6 +12,7 @@ export interface TraversedLineBox {
   readonly lineBox: LineBox;
   readonly originX: number;
   readonly originY: number;
+  readonly visual: VisualGeometry;
 }
 
 export interface TraversedTextRun {
@@ -16,6 +22,7 @@ export interface TraversedTextRun {
   readonly run: TextRun;
   readonly originX: number;
   readonly originY: number;
+  readonly visual: VisualGeometry;
 }
 
 interface LineTraversalState {
@@ -26,11 +33,12 @@ export function walkPageLineBoxes(
   page: Page,
   callback: (entry: TraversedLineBox) => boolean | undefined,
 ): void {
+  const visual = createPageVisualGeometry();
   for (let blockIndex = 0; blockIndex < page.content.length; blockIndex++) {
     const block = page.content[blockIndex];
     if (!block) continue;
     const state: LineTraversalState = { lineIndex: 0 };
-    if (walkBlockLineBoxes(block, blockIndex, 0, 0, state, callback)) return;
+    if (walkBlockLineBoxes(block, blockIndex, 0, 0, visual, state, callback)) return;
   }
 }
 
@@ -38,11 +46,11 @@ export function walkPageTextRuns(
   page: Page,
   callback: (entry: TraversedTextRun) => boolean | undefined,
 ): void {
-  walkPageLineBoxes(page, ({ blockIndex, lineIndex, lineBox, originX, originY }) => {
+  walkPageLineBoxes(page, ({ blockIndex, lineIndex, lineBox, originX, originY, visual }) => {
     for (let runIndex = 0; runIndex < lineBox.runs.length; runIndex++) {
       const run = lineBox.runs[runIndex];
       if (run?.type !== 'text-run') continue;
-      if (callback({ blockIndex, lineIndex, runIndex, run, originX, originY })) return true;
+      if (callback({ blockIndex, lineIndex, runIndex, run, originX, originY, visual })) return true;
     }
     return false;
   });
@@ -98,11 +106,13 @@ function walkBlockLineBoxes(
   blockIndex: number,
   offsetX: number,
   offsetY: number,
+  parentVisual: VisualGeometry,
   state: LineTraversalState,
   callback: (entry: TraversedLineBox) => boolean | undefined,
 ): boolean {
   const blockX = offsetX + block.bounds.x;
   const blockY = offsetY + block.bounds.y;
+  const visual = enterBlockVisualGeometry(block, blockX, blockY, parentVisual);
 
   for (const child of block.children) {
     if (child.type === 'line-box') {
@@ -113,12 +123,14 @@ function walkBlockLineBoxes(
         lineBox: child,
         originX: blockX + child.bounds.x,
         originY: blockY + child.bounds.y,
+        visual,
       });
       if (shouldStop) return true;
       continue;
     }
     if (child.type === 'layout-block') {
-      if (walkBlockLineBoxes(child, blockIndex, blockX, blockY, state, callback)) return true;
+      if (walkBlockLineBoxes(child, blockIndex, blockX, blockY, visual, state, callback))
+        return true;
     }
   }
 

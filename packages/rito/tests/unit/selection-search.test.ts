@@ -234,4 +234,43 @@ describe('buildSearchIndex + search', () => {
     expect(results[0]?.range.start.lineIndex).toBe(1);
     expect(results[0]?.range.start.charIndex).toBe(0);
   });
+
+  it('does not create matches across visual line or block boundaries', () => {
+    const boundaryIndex = buildSearchIndex([
+      makePage([makeBlock([makeLine([makeRun('foo', 0)], 0), makeLine([makeRun('bar', 0)], 25)])]),
+    ]);
+    expect(search(boundaryIndex, 'obar')).toHaveLength(0);
+
+    const sameLineIndex = buildSearchIndex([
+      makePage([makeBlock([makeLine([makeRun('foo', 0), makeRun('bar', 30)], 0)])]),
+    ]);
+    expect(search(sameLineIndex, 'obar')).toHaveLength(1);
+  });
+
+  it('maps case-fold expansions back to safe source offsets', () => {
+    const unicodeIndex = buildSearchIndex([
+      makePage([makeBlock([makeLine([makeRun('\u0130stanbul', 0)], 0)])]),
+    ]);
+    const results = search(unicodeIndex, 'i');
+    expect(results).toHaveLength(1);
+    expect(results[0]?.range.start.charIndex).toBe(0);
+    expect(results[0]?.range.end.charIndex).toBe(1);
+
+    const sharpSIndex = buildSearchIndex([
+      makePage([makeBlock([makeLine([makeRun('Straße', 0)], 0)])]),
+    ]);
+    const sharpSResults = search(sharpSIndex, 'STRASSE');
+    expect(sharpSResults).toHaveLength(1);
+    expect(sharpSResults[0]?.range.end.charIndex).toBe(6);
+    expect(search(sharpSIndex, 's')).toHaveLength(2);
+  });
+
+  it('uses Unicode letters for whole-word boundaries', () => {
+    const unicodeIndex = buildSearchIndex([
+      makePage([makeBlock([makeLine([makeRun('caféine café', 0)], 0)])]),
+    ]);
+    const results = search(unicodeIndex, 'CAFÉ', { wholeWord: true });
+    expect(results).toHaveLength(1);
+    expect(results[0]?.range.start.charIndex).toBe(8);
+  });
 });

@@ -28,6 +28,7 @@ export function createReaderNavigation(
         doc.packageDocument.spine,
         manifestHrefs,
         state.resources.anchorMap,
+        state.resources.chapterAnchorMap,
       ),
     findSpread: (pageIndex: number) => findSpreadForPage(pageIndex, state.spreads),
     resolveTocEntry: (entry: TocEntry) =>
@@ -38,6 +39,7 @@ export function createReaderNavigation(
         manifestHrefs,
         state.spreads,
         state.resources.anchorMap,
+        state.resources.chapterAnchorMap,
       ),
     findActiveTocEntry: (pageIndex: number) =>
       findActiveTocEntryForPage(
@@ -47,6 +49,7 @@ export function createReaderNavigation(
         doc.packageDocument.spine,
         manifestHrefs,
         state.resources.anchorMap,
+        state.resources.chapterAnchorMap,
       ),
   };
 }

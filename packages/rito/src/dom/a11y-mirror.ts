@@ -1,7 +1,4 @@
-/**
- * Hidden DOM mirror for screen readers.
- * Creates an aria-live region that reflects the semantic tree of the current spread.
- */
+/** Hidden DOM mirror for screen readers. */
 
 import type { SemanticNode } from '../interaction/core';
 
@@ -12,10 +9,7 @@ export interface A11yMirror {
   dispose(): void;
 }
 
-/**
- * Create an A11y mirror as a child of the given parent element.
- * The mirror is visually hidden but accessible to screen readers.
- */
+/** Create a visually hidden semantic mirror under the given parent. */
 export function createA11yMirror(parent: HTMLElement): A11yMirror {
   const container = document.createElement('div');
   container.setAttribute('aria-live', 'polite');
@@ -26,11 +20,7 @@ export function createA11yMirror(parent: HTMLElement): A11yMirror {
   return {
     container,
     update(tree) {
-      container.innerHTML = '';
-      for (const node of tree) {
-        const el = renderNode(node);
-        if (el) container.appendChild(el);
-      }
+      container.replaceChildren(...tree.map(renderNode));
     },
     dispose() {
       container.remove();
@@ -38,65 +28,82 @@ export function createA11yMirror(parent: HTMLElement): A11yMirror {
   };
 }
 
-function renderNode(node: SemanticNode): HTMLElement | null {
+function renderNode(node: SemanticNode): HTMLElement {
+  const element = createNodeElement(node);
+  appendSemanticContent(element, node);
+  return element;
+}
+
+function createNodeElement(node: SemanticNode): HTMLElement {
   switch (node.role) {
     case 'heading':
-      return createHeading(node);
+      return document.createElement(`h${String(clampHeadingLevel(node.level))}`);
     case 'paragraph':
-      return createEl('p', node.text);
+      return document.createElement('p');
     case 'listitem':
-      return createEl('li', node.text);
+      return document.createElement('li');
     case 'list':
-      return createList(node);
+      return document.createElement('ul');
     case 'image':
-      return createImage(node);
+      return createImage(node.alt);
     case 'link':
-      return createLink(node);
+      return createLinkElement(node.href);
     case 'blockquote':
-      return createEl('blockquote', node.text);
-    case 'table':
-      return createEl('div', node.text);
+      return document.createElement('blockquote');
+    case 'table': {
+      const table = document.createElement('div');
+      table.setAttribute('role', 'table');
+      return table;
+    }
     case 'generic':
-      return node.text ? createEl('div', node.text) : null;
+      return document.createElement(node.children.length > 0 ? 'div' : 'span');
   }
 }
 
-function createHeading(node: SemanticNode): HTMLElement {
-  const level = Math.max(1, Math.min(6, node.level ?? 1));
-  return createEl(`h${String(level)}`, node.text);
-}
-
-function createList(node: SemanticNode): HTMLElement {
-  const ul = document.createElement('ul');
-  for (const child of node.children) {
-    const li = renderNode(child);
-    if (li) ul.appendChild(li);
+function appendSemanticContent(element: HTMLElement, node: SemanticNode): void {
+  if (node.role === 'image') return;
+  if (node.children.length > 0) {
+    element.append(...node.children.map(renderNode));
+  } else if (node.text) {
+    element.textContent = node.text;
   }
-  return ul;
 }
 
-function createImage(node: SemanticNode): HTMLElement {
-  const el = document.createElement('span');
-  el.setAttribute('role', 'img');
-  el.setAttribute('aria-label', node.alt ?? '');
-  return el;
+function clampHeadingLevel(level: number | undefined): number {
+  return Math.max(1, Math.min(6, level ?? 1));
 }
 
-function createLink(node: SemanticNode): HTMLElement {
-  const a = document.createElement('a');
-  if (node.href) a.href = node.href;
-  a.textContent = node.text ?? '';
-  return a;
+function createImage(alt: string | undefined): HTMLElement {
+  const element = document.createElement('span');
+  element.setAttribute('role', 'img');
+  element.setAttribute('aria-label', alt ?? '');
+  return element;
 }
 
-function createEl(tag: string, text?: string): HTMLElement {
-  const el = document.createElement(tag);
-  if (text) el.textContent = text;
-  return el;
+function createLinkElement(href: string | undefined): HTMLElement {
+  const safeHref = sanitizeA11yHref(href);
+  if (!safeHref) return document.createElement('span');
+  const anchor = document.createElement('a');
+  anchor.setAttribute('href', safeHref);
+  return anchor;
 }
 
-function applyVisuallyHidden(el: HTMLElement): void {
-  Object.assign(el.style, {
+/** Allow normal EPUB-relative links and a small set of navigable URL schemes. */
+export function sanitizeA11yHref(href: string | undefined): string | undefined {
+  const trimmed = href?.trim();
+  if (!trimmed) return undefined;
+  const protocolProbe = Array.from(trimmed)
+    .filter((character) => character.charCodeAt(0) > 0x20)
+    .join('');
+  const scheme = /^([a-z][a-z\d+.-]*):/i.exec(protocolProbe)?.[1]?.toLowerCase();
+  if (!scheme) return trimmed;
+  return scheme === 'http' || scheme === 'https' || scheme === 'mailto' || scheme === 'tel'
+    ? trimmed
+    : undefined;
+}
+
+function applyVisuallyHidden(element: HTMLElement): void {
+  Object.assign(element.style, {
     position: 'absolute',
     width: '1px',
     height: '1px',

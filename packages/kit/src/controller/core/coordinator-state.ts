@@ -6,7 +6,7 @@ import type {
   ChapterTextIndex,
 } from '@ritojs/core/annotations';
 import type { PositionTracker, ReadingPosition } from '@ritojs/core/position';
-import type { HitMap, LinkRegion } from '@ritojs/core/advanced';
+import type { HitMap, LinkRegion } from '@ritojs/core/integration';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 
 export interface CoordinatorEngines {

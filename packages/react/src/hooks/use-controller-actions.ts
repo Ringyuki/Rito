@@ -1,6 +1,7 @@
 import { useCallback, type RefObject } from 'react';
 import type { TocEntry } from '@ritojs/core';
 import type { ReaderController, TransitionDriverOptions } from '@ritojs/kit';
+import type { ReaderThemeOptions } from '@ritojs/core/web';
 
 export interface ControllerActions {
   readonly nextSpread: () => void;
@@ -11,7 +12,7 @@ export interface ControllerActions {
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setLineBreaking: (lineBreaking: 'greedy' | 'optimal') => boolean;
-  readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
+  readonly setTheme: (opts: ReaderThemeOptions) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;
     lineHeight?: number | null;
@@ -39,10 +40,7 @@ export function useControllerActions(
         ctrlRef.current?.setLineBreaking(lineBreaking) ?? false,
       [],
     ),
-    setTheme: useCallback(
-      (o: { backgroundColor?: string; foregroundColor?: string }) => ctrlRef.current?.setTheme(o),
-      [],
-    ),
+    setTheme: useCallback((o: ReaderThemeOptions) => ctrlRef.current?.setTheme(o), []),
     setTypography: useCallback(
       (o: {
         fontSize?: number | null;

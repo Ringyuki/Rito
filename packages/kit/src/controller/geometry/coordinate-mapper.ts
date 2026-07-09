@@ -13,7 +13,7 @@
  */
 
 import type { LayoutConfig, Spread } from '@ritojs/core';
-import type { Rect } from '@ritojs/core/advanced';
+import type { Rect } from '@ritojs/core/integration';
 import { buildSelectionConfig } from './selection-config';
 import { resolveSpreadPage } from './page-resolution';
 import { spreadContentRectToViewport, toViewport, scaleRect, toScreen } from './rect-projection';

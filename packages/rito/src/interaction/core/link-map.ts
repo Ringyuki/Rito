@@ -1,107 +1,115 @@
 import type { LayoutBlock, LineBox, Page, Rect } from '../../layout/core/types';
+import { offsetBounds } from './bounds';
+import { walkPageLineBoxes } from './text-traversal';
 import type { LinkRegion } from './types';
+import {
+  containsPoint,
+  createPageVisualGeometry,
+  enterBlockVisualGeometry,
+  inverseTransformPoint,
+  resolveVisualRect,
+  type VisualGeometry,
+} from './visual-geometry';
 
-/**
- * Build a list of hyperlink regions from a page's layout data.
- * All region bounds are in **page-content** space (origin = top-left of content area, no margins).
- */
+interface LinkPartGeometry {
+  readonly sourceBounds: Rect;
+  readonly visual: VisualGeometry;
+}
+
+const LINK_GEOMETRY = new WeakMap<LinkRegion, readonly LinkPartGeometry[]>();
+const ADJACENCY_EPSILON = 0.5;
+
+/** Build transformed and clipped hyperlink regions in page-content space. */
 export function buildLinkMap(page: Page): readonly LinkRegion[] {
   const regions: LinkRegion[] = [];
-  for (const block of page.content) {
-    collectBlockLinks(regions, block, 0, 0);
-  }
+  walkPageLineBoxes(page, ({ lineBox, originX, originY, visual }) => {
+    collectLineLinks(regions, lineBox, originX, originY, visual);
+  });
+
+  const pageVisual = createPageVisualGeometry();
+  for (const block of page.content) collectBlockImageLinks(regions, block, 0, 0, pageVisual);
   return mergeAdjacentLinks(regions);
 }
 
-/** Hit-test a point (in page-content space) against link regions. Returns the matched region or undefined. */
+/** Hit-test a page-content point against the regions' actual transformed boxes. */
 export function hitTestLink(
   regions: readonly LinkRegion[],
   x: number,
   y: number,
 ): LinkRegion | undefined {
   for (const region of regions) {
-    const b = region.bounds;
-    if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) {
-      return region;
-    }
+    if (!containsPoint(region.bounds, x, y)) continue;
+    const parts = LINK_GEOMETRY.get(region);
+    if (!parts || parts.some((part) => partContainsPoint(part, x, y))) return region;
   }
   return undefined;
-}
-
-function collectBlockLinks(
-  out: LinkRegion[],
-  block: LayoutBlock,
-  offsetX: number,
-  offsetY: number,
-): void {
-  const bx = offsetX + block.bounds.x;
-  const by = offsetY + block.bounds.y;
-
-  for (const child of block.children) {
-    if (child.type === 'line-box') {
-      collectLineLinks(out, child, bx, by);
-    } else if (child.type === 'layout-block') {
-      collectBlockLinks(out, child, bx, by);
-    } else if (child.type === 'image' && child.href) {
-      out.push({
-        bounds: {
-          x: bx + child.bounds.x,
-          y: by + child.bounds.y,
-          width: child.bounds.width,
-          height: child.bounds.height,
-        },
-        href: child.href,
-        text: child.alt ?? '',
-      });
-    }
-  }
 }
 
 function collectLineLinks(
   out: LinkRegion[],
   lineBox: LineBox,
-  offsetX: number,
-  offsetY: number,
+  lineOriginX: number,
+  lineOriginY: number,
+  visual: VisualGeometry,
 ): void {
-  const lx = offsetX + lineBox.bounds.x;
-  const ly = offsetY + lineBox.bounds.y;
-
   for (const run of lineBox.runs) {
-    // Ruby annotations don't participate in linking; only text runs and
-    // inline atoms carry an `href`.
-    if (run.type === 'ruby-annotation') continue;
-    const href = run.href;
-    if (!href) continue;
-
-    out.push({
-      bounds: {
-        x: lx + run.bounds.x,
-        y: ly + run.bounds.y,
-        width: run.bounds.width,
-        height: run.bounds.height,
-      },
-      href,
-      text: run.type === 'text-run' ? run.text : '',
-    });
+    if (run.type === 'ruby-annotation' || !run.href) continue;
+    const sourceBounds = offsetBounds(run.bounds, lineOriginX, lineOriginY);
+    addRegion(out, sourceBounds, visual, run.href, run.type === 'text-run' ? run.text : '');
   }
 }
 
-/**
- * Merge adjacent link regions with the same href on the same line (same y position).
- * This collapses multiple TextRuns from a single <a> into one clickable region.
- */
+function collectBlockImageLinks(
+  out: LinkRegion[],
+  block: LayoutBlock,
+  offsetX: number,
+  offsetY: number,
+  parentVisual: VisualGeometry,
+): void {
+  const blockX = offsetX + block.bounds.x;
+  const blockY = offsetY + block.bounds.y;
+  const visual = enterBlockVisualGeometry(block, blockX, blockY, parentVisual);
+  for (const child of block.children) {
+    if (child.type === 'image' && child.href) {
+      addRegion(
+        out,
+        offsetBounds(child.bounds, blockX, blockY),
+        visual,
+        child.href,
+        child.alt ?? '',
+      );
+    } else if (child.type === 'layout-block') {
+      collectBlockImageLinks(out, child, blockX, blockY, visual);
+    }
+  }
+}
+
+function addRegion(
+  out: LinkRegion[],
+  sourceBounds: Rect,
+  visual: VisualGeometry,
+  href: string,
+  text: string,
+): void {
+  const bounds = resolveVisualRect(sourceBounds, visual);
+  if (!bounds) return;
+  const region: LinkRegion = { bounds, href, text };
+  LINK_GEOMETRY.set(region, [{ sourceBounds, visual }]);
+  out.push(region);
+}
+
+/** Merge only directly touching fragments from the same link on one visual line. */
 function mergeAdjacentLinks(regions: readonly LinkRegion[]): LinkRegion[] {
   if (regions.length === 0) return [];
   const merged: LinkRegion[] = [];
   let current = regions[0];
   if (!current) return [];
 
-  for (let i = 1; i < regions.length; i++) {
-    const next = regions[i];
+  for (let index = 1; index < regions.length; index++) {
+    const next = regions[index];
     if (!next) continue;
-    if (canMerge(current, next)) {
-      current = mergeRegions(current, next);
-    } else {
+    if (canMerge(current, next)) current = mergeRegions(current, next);
+    else {
       merged.push(current);
       current = next;
     }
@@ -111,12 +119,30 @@ function mergeAdjacentLinks(regions: readonly LinkRegion[]): LinkRegion[] {
 }
 
 function canMerge(a: LinkRegion, b: LinkRegion): boolean {
-  return a.href === b.href && a.bounds.y === b.bounds.y;
+  if (a.href !== b.href) return false;
+  const verticalMatch =
+    Math.abs(a.bounds.y - b.bounds.y) <= ADJACENCY_EPSILON &&
+    Math.abs(a.bounds.height - b.bounds.height) <= ADJACENCY_EPSILON;
+  const gap = b.bounds.x - (a.bounds.x + a.bounds.width);
+  return verticalMatch && Math.abs(gap) <= ADJACENCY_EPSILON;
 }
 
 function mergeRegions(a: LinkRegion, b: LinkRegion): LinkRegion {
-  const x = Math.min(a.bounds.x, b.bounds.x);
+  const left = Math.min(a.bounds.x, b.bounds.x);
+  const top = Math.min(a.bounds.y, b.bounds.y);
   const right = Math.max(a.bounds.x + a.bounds.width, b.bounds.x + b.bounds.width);
-  const bounds: Rect = { x, y: a.bounds.y, width: right - x, height: a.bounds.height };
-  return { bounds, href: a.href, text: a.text + b.text };
+  const bottom = Math.max(a.bounds.y + a.bounds.height, b.bounds.y + b.bounds.height);
+  const merged: LinkRegion = {
+    bounds: { x: left, y: top, width: right - left, height: bottom - top },
+    href: a.href,
+    text: a.text + b.text,
+  };
+  LINK_GEOMETRY.set(merged, [...(LINK_GEOMETRY.get(a) ?? []), ...(LINK_GEOMETRY.get(b) ?? [])]);
+  return merged;
+}
+
+function partContainsPoint(part: LinkPartGeometry, x: number, y: number): boolean {
+  if (part.visual.clip && !containsPoint(part.visual.clip, x, y)) return false;
+  const point = inverseTransformPoint(x, y, part.visual.matrix);
+  return point ? containsPoint(part.sourceBounds, point.x, point.y) : false;
 }

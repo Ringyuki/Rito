@@ -84,11 +84,23 @@ function createMocks(opts?: {
       notifyActiveSpread,
       setTypography,
       setLineBreaking,
+      setTheme,
     },
   };
 }
 
 describe('buildLayoutActions', () => {
+  it('forwards cleared theme overrides and invalidates rendered content', () => {
+    const { internals, runtime, emitter, spies } = createMocks();
+    const actions = buildLayoutActions(internals, emitter, runtime);
+
+    actions.setTheme({ backgroundColor: null, foregroundColor: null });
+
+    expect(spies.setTheme).toHaveBeenCalledWith({ backgroundColor: null, foregroundColor: null });
+    expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
+    expect(spies.scheduleComposite).toHaveBeenCalledOnce();
+  });
+
   it('refreshes layout state when typography changes trigger repagination', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime);

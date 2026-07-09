@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TocEntry } from '@ritojs/core';
+import type { ReaderThemeOptions } from '@ritojs/core/web';
 import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   useRitoReader,
@@ -22,9 +23,9 @@ const ZOOM_SCALE_MAX = 2.0;
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
 
-function getThemeOptions(theme: 'light' | 'dark') {
+function getThemeOptions(theme: 'light' | 'dark'): ReaderThemeOptions {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
-  return { backgroundColor: '#ffffff' };
+  return { backgroundColor: '#ffffff', foregroundColor: null };
 }
 
 export function useReader(

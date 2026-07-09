@@ -136,6 +136,18 @@ export default defineConfig([
       complexity: ['warn', 24],
       'max-lines': ['warn', 300],
       'max-lines-per-function': ['warn', 50],
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: '@ritojs/core/advanced',
+              message:
+                'Kit must use the stable @ritojs/core/integration or focused subpaths instead of the experimental advanced entry.',
+            },
+          ],
+        },
+      ],
     },
   },
   {

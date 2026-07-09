@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PackageMetadata, Spread, TocEntry } from '@ritojs/core';
-import { createReader, type Reader, type ReaderOptions } from '@ritojs/core/web';
+import {
+  createReader,
+  type Reader,
+  type ReaderOptions,
+  type ReaderThemeOptions,
+} from '@ritojs/core/web';
 import {
   createController,
   type ControllerOptions,
@@ -36,7 +41,7 @@ export interface RitoReaderActions {
   readonly setRenderScale: (scale: number) => void;
   readonly setSpreadMode: (mode: 'single' | 'double') => void;
   readonly setLineBreaking: (lineBreaking: 'greedy' | 'optimal') => boolean;
-  readonly setTheme: (opts: { backgroundColor?: string; foregroundColor?: string }) => void;
+  readonly setTheme: (opts: ReaderThemeOptions) => void;
   readonly setTypography: (opts: {
     fontSize?: number | null;
     lineHeight?: number | null;
@@ -186,7 +191,13 @@ async function loadReaderStack(
     return null;
   }
 
-  const ctrl = createController(reader, canvas, opts.controller);
+  let ctrl: ReaderController;
+  try {
+    ctrl = createController(reader, canvas, opts.controller);
+  } catch (error: unknown) {
+    reader.dispose();
+    throw error;
+  }
   if (requestId !== loadRequestIdRef.current) {
     ctrl.dispose();
     reader.dispose();

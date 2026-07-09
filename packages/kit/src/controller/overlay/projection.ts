@@ -4,8 +4,8 @@
  */
 import type { Page, Spread } from '@ritojs/core';
 import type { Reader } from '@ritojs/core/web';
-import { buildHitMap, getSelectionRects } from '@ritojs/core/advanced';
-import type { HitMap } from '@ritojs/core/advanced';
+import { buildHitMap, getSelectionRects } from '@ritojs/core/integration';
+import type { HitMap } from '@ritojs/core/integration';
 import type { ResolvedAnnotation } from '@ritojs/core/annotations';
 import { resolveAnnotations } from '@ritojs/core/annotations';
 import type { Rect } from '../../painter/types';
