@@ -402,14 +402,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "fcd773af4f79bcc5",
+            "hash": "af1114354eb9861c",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 406,
-            "hash": "e380eb50881f1f61",
+            "hash": "723cb8bfa179d817",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -2106,8 +2106,8 @@
               {
                 "args": [
                   {
-                    "hash": "3e4e8b833e466266",
-                    "length": 10
+                    "hash": "39182c0550ca0420",
+                    "length": 11
                   },
                   143.32,
                   81.32
@@ -3307,14 +3307,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "fcd773af4f79bcc5",
+            "hash": "af1114354eb9861c",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 406,
-            "hash": "7206989f63cf7252",
+            "hash": "c7e7550ba280f9ab",
             "methods": {
               "arcTo": 16,
               "beginPath": 25,
@@ -5011,8 +5011,8 @@
               {
                 "args": [
                   {
-                    "hash": "3e4e8b833e466266",
-                    "length": 10
+                    "hash": "39182c0550ca0420",
+                    "length": 11
                   },
                   143.32,
                   81.32

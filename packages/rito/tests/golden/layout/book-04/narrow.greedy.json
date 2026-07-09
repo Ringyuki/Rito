@@ -364,7 +364,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "ba6ce278c03ae094",
+      "detailHash": "2df5df3949c7fdde",
       "firstText": "Youkoso",
       "index": 1,
       "lastText": "１"
@@ -4815,7 +4815,7 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "e43d55c3f15c1a36",
+    "fullDetailHash": "3684f2597e7a97e5",
     "pageCount": 298,
     "totals": {
       "blocks": 4207,
@@ -5098,7 +5098,7 @@
                             {
                               "bounds": {
                                 "height": 6.4,
-                                "width": 38.4,
+                                "width": 42.24,
                                 "x": 0,
                                 "y": 0
                               },
@@ -5114,7 +5114,7 @@
                                   "weight": 400
                                 }
                               },
-                              "text": "Nokyoushit",
+                              "text": "Nokyoushit-",
                               "type": "text-run"
                             }
                           ],

@@ -424,7 +424,7 @@
         "ruby": 0,
         "textRuns": 14
       },
-      "detailHash": "ffa16c82de6102ef",
+      "detailHash": "28c100c331403d2d",
       "firstText": "羊太郎",
       "index": 1,
       "lastText": "禁忌教典"
@@ -600,14 +600,14 @@
         "hrs": 0,
         "images": 7,
         "inlineAtoms": 0,
-        "lines": 77,
+        "lines": 74,
         "ruby": 0,
-        "textRuns": 73
+        "textRuns": 70
       },
-      "detailHash": "569a7402cf60777c",
+      "detailHash": "c015791d9f38bd1a",
       "firstText": "Character",
       "index": 13,
-      "lastText": "术师做派的格伦充满敌意"
+      "lastText": "伦充满敌意"
     },
     {
       "counts": {
@@ -4350,16 +4350,16 @@
     "chapterCount": 36,
     "chapterTextIndexCount": 36,
     "footnoteCount": 0,
-    "fullDetailHash": "169b6d33b3e90213",
+    "fullDetailHash": "3e44047c5176a0a0",
     "pageCount": 263,
     "totals": {
       "blocks": 4145,
       "hrs": 0,
       "images": 25,
       "inlineAtoms": 0,
-      "lines": 5437,
+      "lines": 5434,
       "ruby": 7,
-      "textRuns": 4953
+      "textRuns": 4950
     }
   },
   "samples": [
@@ -4421,45 +4421,45 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 136.563,
-            "width": 88.96,
-            "x": 8,
-            "y": 16
+            "height": 119.493,
+            "width": 77.84,
+            "x": 7,
+            "y": 14
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 28.8,
-                "width": 288,
+                "height": 25.2,
+                "width": 290,
                 "x": 0,
                 "y": 0
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 28.8,
-                    "width": 288,
+                    "height": 25.2,
+                    "width": 290,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 28.8,
-                        "width": 51.84,
+                        "height": 25.2,
+                        "width": 45.36,
                         "x": 0,
                         "y": 0
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 28.8,
+                      "lineHeightPx": 25.2,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title",
-                          "sizePx": 28.8,
+                          "sizePx": 25.2,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4489,35 +4489,35 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 6.4,
-                "width": 287.36,
-                "x": 0.64,
-                "y": 30.4
+                "height": 5.6,
+                "width": 289.44,
+                "x": 0.56,
+                "y": 26.6
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 6.4,
-                    "width": 287.36,
+                    "height": 5.6,
+                    "width": 289.44,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 6.4,
-                        "width": 88.32,
+                        "height": 5.6,
+                        "width": 77.28,
                         "x": 0,
                         "y": 0
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 6.4,
+                      "lineHeightPx": 5.6000000000000005,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title3",
-                          "sizePx": 6.4,
+                          "sizePx": 5.6,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4547,35 +4547,35 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 13.283,
-                "width": 287.44,
-                "x": 0.56,
-                "y": 42.96
+                "height": 11.623,
+                "width": 289.51,
+                "x": 0.49,
+                "y": 37.59
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 13.283,
-                    "width": 287.44,
+                    "height": 11.623,
+                    "width": 289.51,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 11.2,
-                        "width": 46.771,
+                        "height": 9.8,
+                        "width": 40.925,
                         "x": 0,
-                        "y": 4.435
+                        "y": 3.881
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 11.2,
+                      "lineHeightPx": 9.799999999999999,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title",
-                          "sizePx": 6.496,
+                          "sizePx": 5.684,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4593,19 +4593,19 @@
                     },
                     {
                       "bounds": {
-                        "height": 11.2,
-                        "width": 40.32,
-                        "x": 46.771,
-                        "y": -1.12
+                        "height": 9.8,
+                        "width": 35.28,
+                        "x": 40.925,
+                        "y": -0.98
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 11.2,
+                      "lineHeightPx": 9.799999999999999,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title",
-                          "sizePx": 13.44,
+                          "sizePx": 11.76,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4635,35 +4635,35 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 6.4,
-                "width": 287.04,
-                "x": 0.96,
-                "y": 58.163
+                "height": 5.6,
+                "width": 289.16,
+                "x": 0.84,
+                "y": 50.893
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 6.4,
-                    "width": 287.04,
+                    "height": 5.6,
+                    "width": 289.16,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 6.4,
-                        "width": 53.76,
+                        "height": 5.6,
+                        "width": 47.04,
                         "x": 0,
                         "y": 0
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 6.4,
+                      "lineHeightPx": 5.6000000000000005,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title3",
-                          "sizePx": 6.4,
+                          "sizePx": 5.6,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4693,35 +4693,35 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 48,
-                "width": 288,
+                "height": 42,
+                "width": 290,
                 "x": 0,
-                "y": 83.763
+                "y": 73.293
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 48,
-                    "width": 288,
+                    "height": 42,
+                    "width": 290,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 48,
-                        "width": 57.6,
+                        "height": 42,
+                        "width": 50.4,
                         "x": 0,
                         "y": 0
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 48,
+                      "lineHeightPx": 42,
                       "paint": {
                         "color": "#c5004f",
                         "font": {
                           "family": "title",
-                          "sizePx": 48,
+                          "sizePx": 42,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4758,16 +4758,16 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 16,
-            "width": 288,
-            "x": 8,
-            "y": 152.563
+            "height": 14,
+            "width": 290,
+            "x": 7,
+            "y": 133.493
           },
           "children": [
             {
               "bounds": {
-                "height": 16,
-                "width": 288,
+                "height": 14,
+                "width": 290,
                 "x": 0,
                 "y": 0
               },
@@ -4785,16 +4785,16 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 16,
-            "width": 288,
-            "x": 8,
-            "y": 174.963
+            "height": 14,
+            "width": 290,
+            "x": 7,
+            "y": 153.093
           },
           "children": [
             {
               "bounds": {
-                "height": 16,
-                "width": 288,
+                "height": 14,
+                "width": 290,
                 "x": 0,
                 "y": 0
               },
@@ -4812,45 +4812,45 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 144.72,
-            "width": 256,
-            "x": 40,
-            "y": 141.363
+            "height": 126.63,
+            "width": 224,
+            "x": 73,
+            "y": 123.693
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 28.8,
-                "width": 120,
-                "x": 40,
-                "y": 30.8
+                "height": 25.2,
+                "width": 105,
+                "x": 35,
+                "y": 26.95
               },
               "children": [
                 {
                   "bounds": {
-                    "height": 9.6,
-                    "width": 120,
+                    "height": 8.4,
+                    "width": 105,
                     "x": 0,
                     "y": 0
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 9.6,
-                        "width": 72,
+                        "height": 8.4,
+                        "width": 63,
                         "x": 0,
-                        "y": 0.8
+                        "y": 0.7
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 9.6,
+                      "lineHeightPx": 8.4,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title2",
-                          "sizePx": 8,
+                          "sizePx": 7,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4871,27 +4871,27 @@
                 },
                 {
                   "bounds": {
-                    "height": 9.6,
-                    "width": 120,
+                    "height": 8.4,
+                    "width": 105,
                     "x": 0,
-                    "y": 9.6
+                    "y": 8.4
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 9.6,
-                        "width": 120,
+                        "height": 8.4,
+                        "width": 105,
                         "x": 0,
-                        "y": 0.8
+                        "y": 0.7
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 9.6,
+                      "lineHeightPx": 8.4,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title2",
-                          "sizePx": 8,
+                          "sizePx": 7,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4903,7 +4903,7 @@
                             "offsetY": 0
                           }
                         ],
-                        "wordSpacingPx": 21.6
+                        "wordSpacingPx": 18.9
                       },
                       "text": "of bastard magic",
                       "type": "text-run"
@@ -4913,27 +4913,27 @@
                 },
                 {
                   "bounds": {
-                    "height": 9.6,
-                    "width": 120,
+                    "height": 8.4,
+                    "width": 105,
                     "x": 0,
-                    "y": 19.2
+                    "y": 16.8
                   },
                   "runs": [
                     {
                       "bounds": {
-                        "height": 9.6,
-                        "width": 48,
+                        "height": 8.4,
+                        "width": 42,
                         "x": 0,
-                        "y": 0.8
+                        "y": 0.7
                       },
                       "href": null,
                       "inlineMarginRight": null,
-                      "lineHeightPx": 9.6,
+                      "lineHeightPx": 8.4,
                       "paint": {
                         "color": "#000000",
                         "font": {
                           "family": "title2",
-                          "sizePx": 8,
+                          "sizePx": 7,
                           "style": "normal",
                           "weight": 700
                         },
@@ -4963,45 +4963,45 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 85.12,
-                "width": 256,
+                "height": 74.48,
+                "width": 224,
                 "x": 0,
-                "y": 59.6
+                "y": 52.15
               },
               "children": [
                 {
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 30.4,
-                    "width": 256,
+                    "height": 26.6,
+                    "width": 224,
                     "x": 0,
                     "y": 0
                   },
                   "children": [
                     {
                       "bounds": {
-                        "height": 30.4,
-                        "width": 256,
+                        "height": 26.6,
+                        "width": 224,
                         "x": 0,
                         "y": 0
                       },
                       "runs": [
                         {
                           "bounds": {
-                            "height": 30.4,
-                            "width": 54.72,
+                            "height": 26.6,
+                            "width": 47.88,
                             "x": 0,
                             "y": 0
                           },
                           "href": null,
                           "inlineMarginRight": null,
-                          "lineHeightPx": 30.4,
+                          "lineHeightPx": 26.599999999999998,
                           "paint": {
                             "color": "#000000",
                             "font": {
                               "family": "title",
-                              "sizePx": 30.4,
+                              "sizePx": 26.6,
                               "style": "normal",
                               "weight": 700
                             },
@@ -5019,19 +5019,19 @@
                         },
                         {
                           "bounds": {
-                            "height": 18.24,
-                            "width": 10.944,
-                            "x": 54.72,
-                            "y": 9.728
+                            "height": 15.96,
+                            "width": 9.576,
+                            "x": 47.88,
+                            "y": 8.512
                           },
                           "href": null,
                           "inlineMarginRight": null,
-                          "lineHeightPx": 18.24,
+                          "lineHeightPx": 15.959999999999997,
                           "paint": {
                             "color": "#000000",
                             "font": {
                               "family": "title",
-                              "sizePx": 18.24,
+                              "sizePx": 15.96,
                               "style": "normal",
                               "weight": 700
                             },
@@ -5049,19 +5049,19 @@
                         },
                         {
                           "bounds": {
-                            "height": 30.4,
-                            "width": 72.96,
-                            "x": 65.664,
+                            "height": 26.6,
+                            "width": 63.84,
+                            "x": 57.456,
                             "y": 0
                           },
                           "href": null,
                           "inlineMarginRight": null,
-                          "lineHeightPx": 30.4,
+                          "lineHeightPx": 26.599999999999998,
                           "paint": {
                             "color": "#000000",
                             "font": {
                               "family": "title",
-                              "sizePx": 30.4,
+                              "sizePx": 26.6,
                               "style": "normal",
                               "weight": 700
                             },
@@ -5079,19 +5079,19 @@
                         },
                         {
                           "bounds": {
-                            "height": 18.24,
-                            "width": 10.944,
-                            "x": 138.624,
-                            "y": 9.728
+                            "height": 15.96,
+                            "width": 9.576,
+                            "x": 121.296,
+                            "y": 8.512
                           },
                           "href": null,
                           "inlineMarginRight": null,
-                          "lineHeightPx": 18.24,
+                          "lineHeightPx": 15.959999999999997,
                           "paint": {
                             "color": "#000000",
                             "font": {
                               "family": "title",
-                              "sizePx": 18.24,
+                              "sizePx": 15.96,
                               "style": "normal",
                               "weight": 700
                             },
@@ -5121,45 +5121,45 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 54.72,
-                    "width": 131.328,
-                    "x": 124.672,
-                    "y": 30.4
+                    "height": 47.88,
+                    "width": 114.912,
+                    "x": 109.088,
+                    "y": 26.6
                   },
                   "children": [
                     {
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 54.72,
-                        "width": 256,
+                        "height": 47.88,
+                        "width": 224,
                         "x": 0,
                         "y": 0
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 54.72,
-                            "width": 256,
+                            "height": 47.88,
+                            "width": 224,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 54.72,
-                                "width": 131.328,
+                                "height": 47.88,
+                                "width": 114.912,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 54.72,
+                              "lineHeightPx": 47.879999999999995,
                               "paint": {
                                 "color": "#c5004f",
                                 "font": {
                                   "family": "title",
-                                  "sizePx": 54.72,
+                                  "sizePx": 47.88,
                                   "style": "normal",
                                   "weight": 400
                                 },
@@ -5210,16 +5210,16 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 16,
-            "width": 288,
-            "x": 8,
-            "y": 292.483
+            "height": 14,
+            "width": 290,
+            "x": 7,
+            "y": 255.923
           },
           "children": [
             {
               "bounds": {
-                "height": 16,
-                "width": 288,
+                "height": 14,
+                "width": 290,
                 "x": 0,
                 "y": 0
               },
@@ -8718,15 +8718,15 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 9.6,
+            "height": 6,
             "width": 304,
             "x": 0,
-            "y": 3.84
+            "y": 2.4
           },
           "children": [
             {
               "bounds": {
-                "height": 9.6,
+                "height": 6,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -8745,35 +8745,35 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 21.6,
-            "width": 304,
-            "x": 0,
-            "y": 17.28
+            "height": 13.5,
+            "width": 225,
+            "x": 39.5,
+            "y": 10.8
           },
           "children": [
             {
               "bounds": {
-                "height": 21.6,
-                "width": 304,
+                "height": 13.5,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
               "runs": [
                 {
                   "bounds": {
-                    "height": 21.6,
-                    "width": 116.64,
-                    "x": 187.36,
+                    "height": 13.5,
+                    "width": 72.9,
+                    "x": 152.1,
                     "y": 0
                   },
                   "href": null,
                   "inlineMarginRight": null,
-                  "lineHeightPx": 21.6,
+                  "lineHeightPx": 13.5,
                   "paint": {
                     "color": "#FFF",
                     "font": {
                       "family": "page",
-                      "sizePx": 21.6,
+                      "sizePx": 13.5,
                       "style": "normal",
                       "weight": 700
                     }
@@ -8795,35 +8795,35 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 14.4,
-            "width": 304,
-            "x": 0,
-            "y": 36
+            "height": 9,
+            "width": 225,
+            "x": 39.5,
+            "y": 22.5
           },
           "children": [
             {
               "bounds": {
-                "height": 14.4,
-                "width": 304,
+                "height": 9,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
               "runs": [
                 {
                   "bounds": {
-                    "height": 14.4,
-                    "width": 34.56,
-                    "x": 134.72,
+                    "height": 9,
+                    "width": 21.6,
+                    "x": 101.7,
                     "y": 0
                   },
                   "href": null,
                   "inlineMarginRight": null,
-                  "lineHeightPx": 14.4,
+                  "lineHeightPx": 9,
                   "paint": {
                     "color": "#FFF",
                     "font": {
                       "family": "title2",
-                      "sizePx": 14.4,
+                      "sizePx": 9,
                       "style": "normal",
                       "weight": 400
                     }
@@ -8850,16 +8850,16 @@
             "topWidth": 1
           },
           "bounds": {
-            "height": 15.4,
-            "width": 318.4,
-            "x": -7.2,
-            "y": 54.72
+            "height": 10,
+            "width": 234,
+            "x": 35,
+            "y": 34.2
           },
           "children": [
             {
               "bounds": {
-                "height": 14.4,
-                "width": 318.4,
+                "height": 9,
+                "width": 234,
                 "x": 0,
                 "y": 1
               },
@@ -8884,18 +8884,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 133.272,
-            "width": 304,
-            "x": 0,
-            "y": 67.24
+            "height": 83.295,
+            "width": 225,
+            "x": 39.5,
+            "y": 42.4
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 133.272,
-                "width": 304,
+                "height": 83.295,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
@@ -8904,8 +8904,8 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 133.272,
-                    "width": 94.163,
+                    "height": 83.295,
+                    "width": 65.333,
                     "x": 0,
                     "y": 0
                   },
@@ -8914,8 +8914,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 70.2,
-                        "width": 94.163,
+                        "height": 43.875,
+                        "width": 65.333,
                         "x": 0,
                         "y": 0
                       },
@@ -8923,9 +8923,9 @@
                         {
                           "alt": "char1",
                           "bounds": {
-                            "height": 70.2,
-                            "width": 93.6,
-                            "x": 0.281,
+                            "height": 43.875,
+                            "width": 58.5,
+                            "x": 3.417,
                             "y": 0
                           },
                           "href": null,
@@ -8943,35 +8943,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 11.52,
-                        "width": 94.163,
+                        "height": 7.2,
+                        "width": 65.333,
                         "x": 0,
-                        "y": 75.96
+                        "y": 47.475
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 11.52,
-                            "width": 94.163,
+                            "height": 7.2,
+                            "width": 65.333,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 11.52,
-                                "width": 55.296,
-                                "x": 19.433,
+                                "height": 7.2,
+                                "width": 34.56,
+                                "x": 15.387,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 11.520000000000001,
+                              "lineHeightPx": 7.2,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 11.52,
+                                  "sizePx": 7.2,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -8993,35 +8993,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 94.163,
+                        "height": 5.4,
+                        "width": 65.333,
                         "x": 0,
-                        "y": 90.936
+                        "y": 56.835
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 94.163,
+                            "height": 5.4,
+                            "width": 65.333,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 44.489,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.047,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9043,40 +9043,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 104.243,
-                        "x": -5.04,
-                        "y": 103.032
+                        "height": 18.9,
+                        "width": 71.633,
+                        "x": -3.15,
+                        "y": 64.395
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 104.243,
+                            "height": 6.3,
+                            "width": 71.633,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 102.816,
+                                "height": 6.3,
+                                "width": 68.04,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "一本正经的优等生，继承了身为伟大魔",
+                              "text": "一本正经的优等生，继承了身为伟大魔术",
                               "type": "text-run"
                             }
                           ],
@@ -9084,32 +9084,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 104.243,
+                            "height": 6.3,
+                            "width": 71.633,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 102.816,
+                                "height": 6.3,
+                                "width": 68.04,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "术师的祖父的梦想，是一个为实现这个",
+                              "text": "师的祖父的梦想，是一个为实现这个梦想",
                               "type": "text-run"
                             }
                           ],
@@ -9117,32 +9117,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 104.243,
+                            "height": 6.3,
+                            "width": 71.633,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 60.48,
+                                "height": 6.3,
+                                "width": 30.24,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "梦想而倾注热情的少女",
+                              "text": "而倾注热情的少女",
                               "type": "text-run"
                             }
                           ],
@@ -9166,9 +9166,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 133.272,
-                    "width": 0.938,
-                    "x": 94.163,
+                    "height": 83.295,
+                    "width": 11.389,
+                    "x": 65.333,
                     "y": 0
                   },
                   "children": [],
@@ -9182,9 +9182,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 133.272,
-                    "width": 103.98,
-                    "x": 95.101,
+                    "height": 83.295,
+                    "width": 68.444,
+                    "x": 76.722,
                     "y": 0
                   },
                   "children": [
@@ -9192,8 +9192,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 70.2,
-                        "width": 103.98,
+                        "height": 43.875,
+                        "width": 68.444,
                         "x": 0,
                         "y": 0
                       },
@@ -9201,9 +9201,9 @@
                         {
                           "alt": "char2",
                           "bounds": {
-                            "height": 70.2,
-                            "width": 93.6,
-                            "x": 5.19,
+                            "height": 43.875,
+                            "width": 58.5,
+                            "x": 4.972,
                             "y": 0
                           },
                           "href": null,
@@ -9221,35 +9221,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 11.52,
-                        "width": 103.68,
+                        "height": 7.2,
+                        "width": 64.8,
                         "x": 0,
-                        "y": 75.96
+                        "y": 47.475
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 11.52,
-                            "width": 103.68,
+                            "height": 7.2,
+                            "width": 64.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 11.52,
-                                "width": 41.472,
-                                "x": 31.104,
+                                "height": 7.2,
+                                "width": 25.92,
+                                "x": 19.44,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 11.520000000000001,
+                              "lineHeightPx": 7.2,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 11.52,
+                                  "sizePx": 7.2,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9271,35 +9271,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 103.98,
+                        "height": 5.4,
+                        "width": 68.444,
                         "x": 0,
-                        "y": 90.936
+                        "y": 56.835
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 103.98,
+                            "height": 5.4,
+                            "width": 68.444,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 49.398,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 32.602,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9321,40 +9321,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 114.06,
-                        "x": -5.04,
-                        "y": 103.032
+                        "height": 18.9,
+                        "width": 74.744,
+                        "x": -3.15,
+                        "y": 64.395
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
+                            "height": 6.3,
+                            "width": 74.744,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 108.864,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "讨厌魔术的魔术教师。只会敷衍了事又没",
+                              "text": "讨厌魔术的魔术教师。只会敷衍了事又没有",
                               "type": "text-run"
                             }
                           ],
@@ -9362,32 +9362,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
+                            "height": 6.3,
+                            "width": 74.744,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 108.864,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "有干劲，作为魔术师也是三流，完全没有",
+                              "text": "干劲，作为魔术师也是三流，完全没有优秀",
                               "type": "text-run"
                             }
                           ],
@@ -9395,32 +9395,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
+                            "height": 6.3,
+                            "width": 74.744,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 108.864,
+                                "height": 6.3,
+                                "width": 60.48,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "优秀的地方。但是，真正的面目是——？",
+                              "text": "的地方。但是，真正的面目是——？",
                               "type": "text-run"
                             }
                           ],
@@ -9444,9 +9444,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 133.272,
-                    "width": 0.938,
-                    "x": 199.081,
+                    "height": 83.295,
+                    "width": 11.389,
+                    "x": 145.167,
                     "y": 0
                   },
                   "children": [],
@@ -9460,9 +9460,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 133.272,
-                    "width": 103.98,
-                    "x": 200.02,
+                    "height": 83.295,
+                    "width": 68.444,
+                    "x": 156.556,
                     "y": 0
                   },
                   "children": [
@@ -9470,8 +9470,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 70.2,
-                        "width": 103.98,
+                        "height": 43.875,
+                        "width": 68.444,
                         "x": 0,
                         "y": 0
                       },
@@ -9479,9 +9479,9 @@
                         {
                           "alt": "char3",
                           "bounds": {
-                            "height": 70.2,
-                            "width": 93.6,
-                            "x": 5.19,
+                            "height": 43.875,
+                            "width": 58.5,
+                            "x": 4.972,
                             "y": 0
                           },
                           "href": null,
@@ -9499,35 +9499,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 11.52,
-                        "width": 103.68,
+                        "height": 7.2,
+                        "width": 64.8,
                         "x": 0,
-                        "y": 75.96
+                        "y": 47.475
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 11.52,
-                            "width": 103.68,
+                            "height": 7.2,
+                            "width": 64.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 11.52,
-                                "width": 48.384,
-                                "x": 27.648,
+                                "height": 7.2,
+                                "width": 30.24,
+                                "x": 17.28,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 11.520000000000001,
+                              "lineHeightPx": 7.2,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 11.52,
+                                  "sizePx": 7.2,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9549,35 +9549,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 103.98,
+                        "height": 5.4,
+                        "width": 68.444,
                         "x": 0,
-                        "y": 90.936
+                        "y": 56.835
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 103.98,
+                            "height": 5.4,
+                            "width": 68.444,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 49.398,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 32.602,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9599,40 +9599,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 114.06,
-                        "x": -5.04,
-                        "y": 103.032
+                        "height": 12.6,
+                        "width": 74.744,
+                        "x": -3.15,
+                        "y": 64.395
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
+                            "height": 6.3,
+                            "width": 74.744,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 108.864,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "清纯又温柔的少女。有着对任何人都不能",
+                              "text": "清纯又温柔的少女。有着对任何人都不能说",
                               "type": "text-run"
                             }
                           ],
@@ -9640,65 +9640,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
+                            "height": 6.3,
+                            "width": 74.744,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 108.864,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "说的秘密，和好友希丝缇娜一起努力钻研",
-                              "type": "text-run"
-                            }
-                          ],
-                          "type": "line-box"
-                        },
-                        {
-                          "bounds": {
-                            "height": 10.08,
-                            "width": 114.06,
-                            "x": 0,
-                            "y": 20.16
-                          },
-                          "runs": [
-                            {
-                              "bounds": {
-                                "height": 10.08,
-                                "width": 12.096,
-                                "x": 0,
-                                "y": 0
-                              },
-                              "href": null,
-                              "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
-                              "paint": {
-                                "color": "#FFF",
-                                "font": {
-                                  "family": "character1",
-                                  "sizePx": 10.08,
-                                  "style": "normal",
-                                  "weight": 400
-                                }
-                              },
-                              "text": "魔术",
+                              "text": "的秘密，和好友希丝缇娜一起努力钻研魔术",
                               "type": "text-run"
                             }
                           ],
@@ -9736,18 +9703,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 140.472,
-            "width": 316.8,
-            "x": 0,
-            "y": 214.912
+            "height": 87.795,
+            "width": 225,
+            "x": 39.5,
+            "y": 134.695
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 140.472,
-                "width": 316.8,
+                "height": 87.795,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
@@ -9756,8 +9723,8 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 79.2,
+                    "height": 87.795,
+                    "width": 49.5,
                     "x": 0,
                     "y": 0
                   },
@@ -9766,8 +9733,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 59.4,
-                        "width": 79.2,
+                        "height": 37.125,
+                        "width": 49.5,
                         "x": 0,
                         "y": 0
                       },
@@ -9775,8 +9742,8 @@
                         {
                           "alt": "char4",
                           "bounds": {
-                            "height": 59.4,
-                            "width": 79.2,
+                            "height": 37.125,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
@@ -9795,35 +9762,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 20.16,
-                        "width": 79.2,
+                        "height": 12.6,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 64.44
+                        "y": 40.275
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 18.144,
-                                "x": 30.528,
+                                "height": 6.3,
+                                "width": 11.34,
+                                "x": 19.08,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9836,27 +9803,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 24.192,
-                                "x": 27.504,
+                                "height": 6.3,
+                                "width": 15.12,
+                                "x": 17.19,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9878,35 +9845,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 79.2,
+                        "height": 5.4,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 88.056
+                        "y": 55.035
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 79.2,
+                            "height": 5.4,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 37.008,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 23.13,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9928,35 +9895,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 89.28,
-                        "x": -5.04,
-                        "y": 100.152
+                        "height": 18.9,
+                        "width": 55.8,
+                        "x": -3.15,
+                        "y": 62.595
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -9969,27 +9936,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10002,27 +9969,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 54.432,
+                                "height": 6.3,
+                                "width": 34.02,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10051,9 +10018,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 0,
-                    "x": 79.2,
+                    "height": 87.795,
+                    "width": 9,
+                    "x": 49.5,
                     "y": 0
                   },
                   "children": [],
@@ -10067,9 +10034,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 79.2,
-                    "x": 79.2,
+                    "height": 87.795,
+                    "width": 49.5,
+                    "x": 58.5,
                     "y": 0
                   },
                   "children": [
@@ -10077,8 +10044,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 59.4,
-                        "width": 79.2,
+                        "height": 37.125,
+                        "width": 49.5,
                         "x": 0,
                         "y": 0
                       },
@@ -10086,8 +10053,8 @@
                         {
                           "alt": "char5",
                           "bounds": {
-                            "height": 59.4,
-                            "width": 79.2,
+                            "height": 37.125,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
@@ -10106,35 +10073,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 20.16,
-                        "width": 79.2,
+                        "height": 12.6,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 64.44
+                        "y": 40.275
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 24.192,
-                                "x": 27.504,
+                                "height": 6.3,
+                                "width": 15.12,
+                                "x": 17.19,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10147,27 +10114,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 24.192,
-                                "x": 27.504,
+                                "height": 6.3,
+                                "width": 15.12,
+                                "x": 17.19,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10189,35 +10156,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 79.2,
+                        "height": 5.4,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 88.056
+                        "y": 55.035
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 79.2,
+                            "height": 5.4,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 37.008,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 23.13,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10239,35 +10206,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 40.32,
-                        "width": 89.28,
-                        "x": -5.04,
-                        "y": 100.152
+                        "height": 25.2,
+                        "width": 55.8,
+                        "x": -3.15,
+                        "y": 62.595
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10280,27 +10247,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10313,27 +10280,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10346,27 +10313,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 30.24
+                            "y": 18.9
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 24.192,
+                                "height": 6.3,
+                                "width": 15.12,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10395,9 +10362,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 0,
-                    "x": 158.4,
+                    "height": 87.795,
+                    "width": 9,
+                    "x": 108,
                     "y": 0
                   },
                   "children": [],
@@ -10411,9 +10378,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 79.2,
-                    "x": 158.4,
+                    "height": 87.795,
+                    "width": 49.5,
+                    "x": 117,
                     "y": 0
                   },
                   "children": [
@@ -10421,8 +10388,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 59.4,
-                        "width": 79.2,
+                        "height": 37.125,
+                        "width": 49.5,
                         "x": 0,
                         "y": 0
                       },
@@ -10430,8 +10397,8 @@
                         {
                           "alt": "char6",
                           "bounds": {
-                            "height": 59.4,
-                            "width": 79.2,
+                            "height": 37.125,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
@@ -10450,35 +10417,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 20.16,
-                        "width": 75.6,
+                        "height": 12.6,
+                        "width": 47.25,
                         "x": 0,
-                        "y": 64.44
+                        "y": 40.275
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 75.6,
+                            "height": 6.3,
+                            "width": 47.25,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 18.144,
-                                "x": 28.728,
+                                "height": 6.3,
+                                "width": 11.34,
+                                "x": 17.955,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10491,27 +10458,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 75.6,
+                            "height": 6.3,
+                            "width": 47.25,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 24.192,
-                                "x": 25.704,
+                                "height": 6.3,
+                                "width": 15.12,
+                                "x": 16.065,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10533,35 +10500,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 79.2,
+                        "height": 5.4,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 88.056
+                        "y": 55.035
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 79.2,
+                            "height": 5.4,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 37.008,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 23.13,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10583,35 +10550,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 89.28,
-                        "x": -5.04,
-                        "y": 100.152
+                        "height": 18.9,
+                        "width": 55.8,
+                        "x": -3.15,
+                        "y": 62.595
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10624,27 +10591,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10657,27 +10624,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 78.624,
+                                "height": 6.3,
+                                "width": 49.14,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10706,9 +10673,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 0,
-                    "x": 237.6,
+                    "height": 87.795,
+                    "width": 9,
+                    "x": 166.5,
                     "y": 0
                   },
                   "children": [],
@@ -10722,9 +10689,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 140.472,
-                    "width": 79.2,
-                    "x": 237.6,
+                    "height": 87.795,
+                    "width": 49.5,
+                    "x": 175.5,
                     "y": 0
                   },
                   "children": [
@@ -10732,8 +10699,8 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 59.4,
-                        "width": 79.2,
+                        "height": 37.125,
+                        "width": 49.5,
                         "x": 0,
                         "y": 0
                       },
@@ -10741,8 +10708,8 @@
                         {
                           "alt": "char7",
                           "bounds": {
-                            "height": 59.4,
-                            "width": 79.2,
+                            "height": 37.125,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
@@ -10761,35 +10728,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 20.16,
-                        "width": 79.2,
+                        "height": 12.6,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 64.44
+                        "y": 40.275
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 18.144,
-                                "x": 30.528,
+                                "height": 6.3,
+                                "width": 11.34,
+                                "x": 19.08,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10802,27 +10769,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 79.2,
+                            "height": 6.3,
+                            "width": 49.5,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 36.288,
-                                "x": 21.456,
+                                "height": 6.3,
+                                "width": 22.68,
+                                "x": 13.41,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10844,35 +10811,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 79.2,
+                        "height": 5.4,
+                        "width": 49.5,
                         "x": 0,
-                        "y": 88.056
+                        "y": 55.035
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 79.2,
+                            "height": 5.4,
+                            "width": 49.5,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 37.008,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 23.13,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10894,35 +10861,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 40.32,
-                        "width": 89.28,
-                        "x": -5.04,
-                        "y": 100.152
+                        "height": 25.2,
+                        "width": 55.8,
+                        "x": -3.15,
+                        "y": 62.595
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10935,27 +10902,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 78.624,
+                                "height": 6.3,
+                                "width": 49.14,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -10968,27 +10935,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 84.672,
+                                "height": 6.3,
+                                "width": 52.92,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11001,27 +10968,27 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.28,
+                            "height": 6.3,
+                            "width": 55.8,
                             "x": 0,
-                            "y": 30.24
+                            "y": 18.9
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 30.24,
+                                "height": 6.3,
+                                "width": 18.9,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11064,35 +11031,35 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 14.4,
-            "width": 304,
-            "x": 0,
-            "y": 376.984
+            "height": 9,
+            "width": 225,
+            "x": 39.5,
+            "y": 235.99
           },
           "children": [
             {
               "bounds": {
-                "height": 14.4,
-                "width": 304,
+                "height": 9,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
               "runs": [
                 {
                   "bounds": {
-                    "height": 14.4,
-                    "width": 60.48,
-                    "x": 121.76,
+                    "height": 9,
+                    "width": 37.8,
+                    "x": 93.6,
                     "y": 0
                   },
                   "href": null,
                   "inlineMarginRight": null,
-                  "lineHeightPx": 14.4,
+                  "lineHeightPx": 9,
                   "paint": {
                     "color": "#FFF",
                     "font": {
                       "family": "title2",
-                      "sizePx": 14.4,
+                      "sizePx": 9,
                       "style": "normal",
                       "weight": 400
                     }
@@ -11119,16 +11086,16 @@
             "topWidth": 1
           },
           "bounds": {
-            "height": 15.4,
-            "width": 318.4,
-            "x": -7.2,
-            "y": 397.144
+            "height": 10,
+            "width": 234,
+            "x": 35,
+            "y": 248.59
           },
           "children": [
             {
               "bounds": {
-                "height": 14.4,
-                "width": 318.4,
+                "height": 9,
+                "width": 234,
                 "x": 0,
                 "y": 1
               },
@@ -11153,18 +11120,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 51.84,
-            "width": 304,
-            "x": 0,
-            "y": 412.544
+            "height": 32.4,
+            "width": 225,
+            "x": 39.5,
+            "y": 258.59
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 51.84,
-                "width": 304,
+                "height": 32.4,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
@@ -11173,8 +11140,8 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 51.84,
-                    "width": 89.345,
+                    "height": 32.4,
+                    "width": 66.039,
                     "x": 0,
                     "y": 0
                   },
@@ -11183,35 +11150,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -4.032
+                        "y": -2.52
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 42.336,
-                                "x": 23.504,
+                                "height": 6.3,
+                                "width": 26.46,
+                                "x": 19.79,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11233,35 +11200,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 9.504
+                        "y": 5.94
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11283,40 +11250,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 21.6
+                        "height": 12.6,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 13.5
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 90.72,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "格伦班的女学生。地方名门贵族出",
+                              "text": "格伦班的女学生。地方名门贵族出身。是个",
                               "type": "text-run"
                             }
                           ],
@@ -11324,65 +11291,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 56.7,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "身。是个高傲、有点狂妄、不懂世故",
-                              "type": "text-run"
-                            }
-                          ],
-                          "type": "line-box"
-                        },
-                        {
-                          "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
-                            "x": 0,
-                            "y": 20.16
-                          },
-                          "runs": [
-                            {
-                              "bounds": {
-                                "height": 10.08,
-                                "width": 18.144,
-                                "x": 0,
-                                "y": 0
-                              },
-                              "href": null,
-                              "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
-                              "paint": {
-                                "color": "#FFF",
-                                "font": {
-                                  "family": "character1",
-                                  "sizePx": 10.08,
-                                  "style": "normal",
-                                  "weight": 400
-                                }
-                              },
-                              "text": "的女孩",
+                              "text": "高傲、有点狂妄、不懂世故的女孩",
                               "type": "text-run"
                             }
                           ],
@@ -11406,9 +11340,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 51.84,
-                    "width": 17.983,
-                    "x": 89.345,
+                    "height": 32.4,
+                    "width": 13.441,
+                    "x": 66.039,
                     "y": 0
                   },
                   "children": [],
@@ -11422,9 +11356,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 51.84,
-                    "width": 89.345,
-                    "x": 107.328,
+                    "height": 32.4,
+                    "width": 66.039,
+                    "x": 79.48,
                     "y": 0
                   },
                   "children": [
@@ -11432,35 +11366,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -4.032
+                        "y": -2.52
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 30.24,
-                                "x": 29.552,
+                                "height": 6.3,
+                                "width": 18.9,
+                                "x": 23.57,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11482,35 +11416,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 9.504
+                        "y": 5.94
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11532,40 +11466,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 21.6
+                        "height": 18.9,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 13.5
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "格伦班的女学生。是个柔弱，身材矮",
+                              "text": "格伦班的女学生。是个柔弱，身材矮小如小",
                               "type": "text-run"
                             }
                           ],
@@ -11573,32 +11507,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "小如小动物般的女孩。正处于没有自",
+                              "text": "动物般的女孩。正处于没有自信，而且多愁",
                               "type": "text-run"
                             }
                           ],
@@ -11606,32 +11540,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 66.528,
+                                "height": 6.3,
+                                "width": 18.9,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "信，而且多愁善感的年纪",
+                              "text": "善感的年纪",
                               "type": "text-run"
                             }
                           ],
@@ -11655,9 +11589,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 51.84,
-                    "width": 17.983,
-                    "x": 196.672,
+                    "height": 32.4,
+                    "width": 13.441,
+                    "x": 145.52,
                     "y": 0
                   },
                   "children": [],
@@ -11671,9 +11605,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 51.84,
-                    "width": 89.345,
-                    "x": 214.655,
+                    "height": 32.4,
+                    "width": 66.039,
+                    "x": 158.961,
                     "y": 0
                   },
                   "children": [
@@ -11681,35 +11615,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -4.032
+                        "y": -2.52
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 42.336,
-                                "x": 23.504,
+                                "height": 6.3,
+                                "width": 26.46,
+                                "x": 19.79,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11731,35 +11665,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 9.504
+                        "y": 5.94
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11781,40 +11715,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 21.6
+                        "height": 18.9,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 13.5
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "格伦班的男学生。是个仅次于希丝缇",
+                              "text": "格伦班的男学生。是个仅次于希丝缇娜的优",
                               "type": "text-run"
                             }
                           ],
@@ -11822,32 +11756,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "娜的优等生，不过他完全不想和周围",
+                              "text": "等生，不过他完全不想和周围打好关系，喜",
                               "type": "text-run"
                             }
                           ],
@@ -11855,32 +11789,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 66.528,
+                                "height": 6.3,
+                                "width": 18.9,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "打好关系，喜欢冷嘲热讽",
+                              "text": "欢冷嘲热讽",
                               "type": "text-run"
                             }
                           ],
@@ -11918,18 +11852,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 52.848,
-            "width": 304,
-            "x": 0,
-            "y": 478.784
+            "height": 33.03,
+            "width": 225,
+            "x": 39.5,
+            "y": 299.99
           },
           "children": [
             {
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 52.848,
-                "width": 304,
+                "height": 33.03,
+                "width": 225,
                 "x": 0,
                 "y": 0
               },
@@ -11938,8 +11872,8 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 52.848,
-                    "width": 89.345,
+                    "height": 33.03,
+                    "width": 66.039,
                     "x": 0,
                     "y": 0
                   },
@@ -11948,35 +11882,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -3.024
+                        "y": -1.89
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 30.24,
-                                "x": 29.552,
+                                "height": 6.3,
+                                "width": 18.9,
+                                "x": 23.57,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -11998,35 +11932,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 10.512
+                        "y": 6.57
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -12048,40 +11982,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 20.16,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 22.608
+                        "height": 12.6,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 14.13
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "格伦班的男学生。身材魁梧而且性格",
+                              "text": "格伦班的男学生。身材魁梧而且性格开朗，",
                               "type": "text-run"
                             }
                           ],
@@ -12089,32 +12023,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 60.48,
+                                "height": 6.3,
+                                "width": 26.46,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "开朗，对格伦深有好感",
+                              "text": "对格伦深有好感",
                               "type": "text-run"
                             }
                           ],
@@ -12138,9 +12072,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 52.848,
-                    "width": 17.983,
-                    "x": 89.345,
+                    "height": 33.03,
+                    "width": 13.441,
+                    "x": 66.039,
                     "y": 0
                   },
                   "children": [],
@@ -12154,9 +12088,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 52.848,
-                    "width": 89.345,
-                    "x": 107.328,
+                    "height": 33.03,
+                    "width": 66.039,
+                    "x": 79.48,
                     "y": 0
                   },
                   "children": [
@@ -12164,35 +12098,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -3.024
+                        "y": -1.89
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 42.336,
-                                "x": 23.504,
+                                "height": 6.3,
+                                "width": 26.46,
+                                "x": 19.79,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -12214,35 +12148,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 10.512
+                        "y": 6.57
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -12264,40 +12198,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 22.608
+                        "height": 12.6,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 14.13
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 90.72,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "格伦班的男学生。个性文静喜欢读",
+                              "text": "格伦班的男学生。个性文静喜欢读书。具有",
                               "type": "text-run"
                             }
                           ],
@@ -12305,65 +12239,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 64.26,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "书。具有很高的专注力，并具有魔术",
-                              "type": "text-run"
-                            }
-                          ],
-                          "type": "line-box"
-                        },
-                        {
-                          "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
-                            "x": 0,
-                            "y": 20.16
-                          },
-                          "runs": [
-                            {
-                              "bounds": {
-                                "height": 10.08,
-                                "width": 30.24,
-                                "x": 0,
-                                "y": 0
-                              },
-                              "href": null,
-                              "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
-                              "paint": {
-                                "color": "#FFF",
-                                "font": {
-                                  "family": "character1",
-                                  "sizePx": 10.08,
-                                  "style": "normal",
-                                  "weight": 400
-                                }
-                              },
-                              "text": "狙击的才能",
+                              "text": "很高的专注力，并具有魔术狙击的才能",
                               "type": "text-run"
                             }
                           ],
@@ -12387,9 +12288,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 52.848,
-                    "width": 17.983,
-                    "x": 196.672,
+                    "height": 33.03,
+                    "width": 13.441,
+                    "x": 145.52,
                     "y": 0
                   },
                   "children": [],
@@ -12403,9 +12304,9 @@
                   "anchorId": null,
                   "borderBox": null,
                   "bounds": {
-                    "height": 52.848,
-                    "width": 89.345,
-                    "x": 214.655,
+                    "height": 33.03,
+                    "width": 66.039,
+                    "x": 158.961,
                     "y": 0
                   },
                   "children": [
@@ -12413,35 +12314,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 10.08,
-                        "width": 89.345,
+                        "height": 6.3,
+                        "width": 66.039,
                         "x": 0,
-                        "y": -3.024
+                        "y": -1.89
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 89.345,
+                            "height": 6.3,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 42.336,
-                                "x": 23.504,
+                                "height": 6.3,
+                                "width": 26.46,
+                                "x": 19.79,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -12463,35 +12364,35 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 8.64,
-                        "width": 89.345,
+                        "height": 5.4,
+                        "width": 66.039,
                         "x": 0,
-                        "y": 10.512
+                        "y": 6.57
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 8.64,
-                            "width": 89.345,
+                            "height": 5.4,
+                            "width": 66.039,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 8.64,
-                                "width": 5.184,
-                                "x": 42.08,
+                                "height": 5.4,
+                                "width": 3.24,
+                                "x": 31.4,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 8.64,
+                              "lineHeightPx": 5.3999999999999995,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 8.64,
+                                  "sizePx": 5.4,
                                   "style": "normal",
                                   "weight": 400
                                 }
@@ -12513,40 +12414,40 @@
                       "anchorId": null,
                       "borderBox": null,
                       "bounds": {
-                        "height": 30.24,
-                        "width": 99.425,
-                        "x": -5.04,
-                        "y": 22.608
+                        "height": 18.9,
+                        "width": 72.339,
+                        "x": -3.15,
+                        "y": 14.13
                       },
                       "children": [
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
                             "y": 0
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "帝国魔术学院的资深讲师。出身于魔",
+                              "text": "帝国魔术学院的资深讲师。出身于魔术名门",
                               "type": "text-run"
                             }
                           ],
@@ -12554,32 +12455,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 10.08
+                            "y": 6.3
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 96.768,
+                                "height": 6.3,
+                                "width": 71.82,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "术名门阿斯特雷家。对不屑于传统魔",
+                              "text": "阿斯特雷家。对不屑于传统魔术师做派的格",
                               "type": "text-run"
                             }
                           ],
@@ -12587,32 +12488,32 @@
                         },
                         {
                           "bounds": {
-                            "height": 10.08,
-                            "width": 99.425,
+                            "height": 6.3,
+                            "width": 72.339,
                             "x": 0,
-                            "y": 20.16
+                            "y": 12.6
                           },
                           "runs": [
                             {
                               "bounds": {
-                                "height": 10.08,
-                                "width": 66.528,
+                                "height": 6.3,
+                                "width": 18.9,
                                 "x": 0,
                                 "y": 0
                               },
                               "href": null,
                               "inlineMarginRight": null,
-                              "lineHeightPx": 10.08,
+                              "lineHeightPx": 6.3,
                               "paint": {
                                 "color": "#FFF",
                                 "font": {
                                   "family": "character1",
-                                  "sizePx": 10.08,
+                                  "sizePx": 6.3,
                                   "style": "normal",
                                   "weight": 400
                                 }
                               },
-                              "text": "术师做派的格伦充满敌意",
+                              "text": "伦充满敌意",
                               "type": "text-run"
                             }
                           ],
@@ -12650,15 +12551,15 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 13,
             "width": 304,
             "x": 0,
-            "y": 539.952
+            "y": 338.22
           },
           "children": [
             {
               "bounds": {
-                "height": 20.8,
+                "height": 13,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -12685,13 +12586,13 @@
         "hrs": 0,
         "images": 7,
         "inlineAtoms": 0,
-        "lines": 77,
+        "lines": 74,
         "ruby": 0,
-        "textRuns": 73
+        "textRuns": 70
       },
       "firstText": "Character",
       "index": 13,
-      "lastText": "术师做派的格伦充满敌意",
+      "lastText": "伦充满敌意",
       "paint": {
         "backgroundColor": "#000"
       }

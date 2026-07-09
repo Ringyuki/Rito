@@ -296,20 +296,20 @@
     },
     "spineCount": 26,
     "stylesheetCount": 2,
-    "tocCount": 0
+    "tocCount": 8
   },
   "pages": [
     {
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6bafdc32584096be",
+      "detailHash": "32e206f6f6ab693a",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -354,23 +354,23 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "03a60b4f50f6bcda",
+      "detailHash": "df63b1371995d98e",
       "firstText": "制作信息",
       "index": 3,
-      "lastText": "转载时请保留錄入信息"
+      "lastText": "http://"
     },
     {
       "counts": {
-        "blocks": 5,
+        "blocks": 8,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 9,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 9
       },
-      "detailHash": "fde87812124eb055",
-      "firstText": "僅供試看學習交流，禁作商业用途，下载后请在24小时内删除",
+      "detailHash": "bd7370170b49a89c",
+      "firstText": "www.sosg.net",
       "index": 4,
       "lastText": "轻之国度ePub制作组（IceKIno）制作"
     },
@@ -4989,25 +4989,25 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c3f782ccd6b848b5",
+      "detailHash": "7dbf023f745a5b7b",
       "firstText": "「我，我好受伤。我的发育已经算很好了，我是说真的！真是的，",
       "index": 312,
       "lastText": "注：日文谚语，原文直译应为鳞片从眼睛里掉下来，意指恍"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 12,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 18
       },
-      "detailHash": "7390f8ee2cdc838c",
+      "detailHash": "55ed9f2704f8e794",
       "firstText": "然大悟的意思。",
       "index": 313,
-      "lastText": "「也没什么，那个……诶？热情？」"
+      "lastText": "呢。」"
     },
     {
       "counts": {
@@ -5019,10 +5019,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "575ae88d6613e310",
-      "firstText": "「你用那种眼神看我，我的横膈膜会一阵抽动。」",
+      "detailHash": "4d8a508161b28e3d",
+      "firstText": "「也没什么，那个……诶？热情？」",
       "index": 314,
-      "lastText": "她骑着越野脚踏车进到了公图内。"
+      "lastText": "战场原黑仪毫无前兆，突然登场。"
     },
     {
       "counts": {
@@ -5034,10 +5034,10 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "9ae06990f112fb96",
-      "firstText": "她已经把脚踏车驾驭自如……真是个灵巧的家伙。",
+      "detailHash": "27199cd345ecdcbf",
+      "firstText": "她骑着越野脚踏车进到了公图内。",
       "index": 315,
-      "lastText": "这么说来，忍野那家伙好像把那间补习班的所在地，称作结界之类"
+      "lastText": "「不，羞耻PLAY非常地不健康！」"
     },
     {
       "counts": {
@@ -5045,12 +5045,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 20
       },
-      "detailHash": "134c0e6bb44d4878",
-      "firstText": "的。仔细想想或许刚才我应该亲自去找他才对。",
+      "detailHash": "091278e8c4deac64",
+      "firstText": "这么说来，忍野那家伙好像把那间补习班的所在地，称作结界之类",
       "index": 316,
       "lastText": "「我连阿良良木的份也吃了喔。」"
     },
@@ -8829,7 +8829,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7c22f4cdcea47b36",
+      "detailHash": "1f8db1e925a2ac5d",
       "firstText": "身的能力都获得提升，所以我不太清楚和普通状态有什么差别。",
       "index": 568,
       "lastText": "注：六小福是mister donut的一种六入盒装甜"
@@ -8844,7 +8844,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e078129731e7c855",
+      "detailHash": "ec831dedfc3efea8",
       "firstText": "甜圈。",
       "index": 569,
       "lastText": "道。"
@@ -9665,16 +9665,16 @@
     "chapterCount": 26,
     "chapterTextIndexCount": 26,
     "footnoteCount": 0,
-    "fullDetailHash": "5fe6884ac9e55457",
+    "fullDetailHash": "9b89369dca5c547d",
     "pageCount": 624,
     "totals": {
-      "blocks": 7445,
+      "blocks": 7447,
       "hrs": 1,
-      "images": 11,
+      "images": 12,
       "inlineAtoms": 0,
-      "lines": 11284,
+      "lines": 11287,
       "ruby": 0,
-      "textRuns": 11422
+      "textRuns": 11425
     }
   },
   "samples": [
@@ -9684,16 +9684,29 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 228,
             "width": 304,
             "x": 0,
             "y": 0
           },
-          "children": [],
+          "children": [
+            {
+              "alt": null,
+              "bounds": {
+                "height": 228,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "href": null,
+              "src": "cover.jpeg",
+              "type": "image"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
-          "tag": "div",
+          "tag": null,
           "type": "layout-block"
         }
       ],
@@ -9706,7 +9719,7 @@
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
@@ -10274,10 +10287,93 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 19.2,
+            "height": 38.4,
             "width": 304,
             "x": 0,
             "y": 150.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 278.4,
+                    "x": 24,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "-----------------------------",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 19.2
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 144,
+                    "x": 0,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "---------------",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": null,
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 204.8
           },
           "children": [
             {
@@ -10327,7 +10423,7 @@
             "height": 57.6,
             "width": 304,
             "x": 0,
-            "y": 185.6
+            "y": 240
           },
           "children": [
             {
@@ -10445,7 +10541,7 @@
             "height": 57.6,
             "width": 304,
             "x": 0,
-            "y": 259.2
+            "y": 313.6
           },
           "children": [
             {
@@ -10563,7 +10659,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 332.8
+            "y": 387.2
           },
           "children": [
             {
@@ -10613,7 +10709,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 368
+            "y": 422.4
           },
           "children": [
             {
@@ -10663,7 +10759,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 403.2
+            "y": 457.6
           },
           "children": [
             {
@@ -10713,7 +10809,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 438.4
+            "y": 492.8
           },
           "children": [
             {
@@ -10763,7 +10859,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 473.6
+            "y": 528
           },
           "children": [
             {
@@ -10810,10 +10906,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 38.4,
+            "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 508.8
+            "y": 563.2
           },
           "children": [
             {
@@ -10872,13 +10968,53 @@
                 }
               ],
               "type": "line-box"
-            },
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        }
+      ],
+      "bounds": {
+        "height": 640,
+        "width": 360,
+        "x": 0,
+        "y": 0
+      },
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "firstText": "制作信息",
+      "index": 3,
+      "lastText": "http://",
+      "paint": null
+    },
+    {
+      "blocks": [
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 0
+          },
+          "children": [
             {
               "bounds": {
                 "height": 19.2,
                 "width": 304,
                 "x": 0,
-                "y": 19.2
+                "y": 0
               },
               "runs": [
                 {
@@ -10920,7 +11056,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 563.2
+            "y": 35.2
           },
           "children": [
             {
@@ -10962,30 +11098,7 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
-        }
-      ],
-      "bounds": {
-        "height": 640,
-        "width": 360,
-        "x": 0,
-        "y": 0
-      },
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "firstText": "制作信息",
-      "index": 3,
-      "lastText": "转载时请保留錄入信息",
-      "paint": null
-    },
-    {
-      "blocks": [
+        },
         {
           "anchorId": null,
           "borderBox": null,
@@ -10993,7 +11106,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 0
+            "y": 70.4
           },
           "children": [
             {
@@ -11043,7 +11156,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 35.2
+            "y": 105.6
           },
           "children": [
             {
@@ -11127,7 +11240,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 89.6
+            "y": 160
           },
           "children": [
             {
@@ -11177,7 +11290,57 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 124.8
+            "y": 195.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 259.2,
+                    "x": 24,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "---------------------------",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": null,
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 230.4
           },
           "children": [
             {
@@ -11227,7 +11390,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 160
+            "y": 265.6
           },
           "children": [
             {
@@ -11278,15 +11441,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 5,
+        "blocks": 8,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 9,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 9
       },
-      "firstText": "僅供試看學習交流，禁作商业用途，下载后请在24小时内删除",
+      "firstText": "www.sosg.net",
       "index": 4,
       "lastText": "轻之国度ePub制作组（IceKIno）制作",
       "paint": null
