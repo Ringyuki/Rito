@@ -100,7 +100,10 @@ Frame display command bytes stay outside this bundle and continue to use
   artifact, creates matching full-revision JSON/RITORB1 payloads once from a
   real fixture, and then alternates repeated decode-only batches. It reports raw
   samples plus median/p95 without defining a CI performance threshold; run it
-  in independent processes and treat a single result as diagnostic only.
+  in independent processes and treat a single result as diagnostic only. Set
+  `RITO_WIRE_EPUB=/absolute/path/book.epub` on this command or
+  `pnpm test:e2e:wire-ab` to use a representative local EPUB rather than the
+  built-in fixture/demo.
 
 ## Required Compatibility During Migration
 

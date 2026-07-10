@@ -67,6 +67,7 @@ export async function runWireSession(
   baseURL: string,
   wire: ReaderRuntimeWire,
   sessionIndex: number,
+  epubPath?: string,
 ): Promise<WireSessionReport> {
   const context = await browser.newContext({
     ...devices['Desktop Chrome'],
@@ -77,7 +78,7 @@ export async function runWireSession(
   const page = await context.newPage();
   const errors = capturePageErrors(page);
   try {
-    return await collectSessionReport(page, wire, sessionIndex, errors);
+    return await collectSessionReport(page, wire, sessionIndex, errors, epubPath);
   } finally {
     await context.close();
   }
@@ -97,10 +98,11 @@ async function collectSessionReport(
   wire: ReaderRuntimeWire,
   sessionIndex: number,
   errors: SessionErrors,
+  epubPath?: string,
 ): Promise<WireSessionReport> {
   await page.goto('/');
   await expect(page.getByTestId('reader-empty')).toBeVisible();
-  const initial = await measureInitialRevision(page, wire);
+  const initial = await measureInitialRevision(page, wire, epubPath);
   const initialTurns = await measureTurnPhase(page, 'initial-full');
   const reflow = await measureSettingsReflow(page, wire);
   const reflowTurns = await measureTurnPhase(page, 'settings-reflow-full');
@@ -124,10 +126,11 @@ async function collectSessionReport(
 async function measureInitialRevision(
   page: Page,
   wire: ReaderRuntimeWire,
+  epubPath?: string,
 ): Promise<WireSessionReport['initial']> {
   const observationStart = (await readReaderWireObservations(page)).length;
   const startedAt = performance.now();
-  await page.getByTestId('load-demo-button').click();
+  await loadBenchmarkBook(page, epubPath);
   await waitForLoadedReader(page);
   const previewReadyMs = performance.now() - startedAt;
   const preview = await checkedRevision(page, observationStart, 'preview', wire);
@@ -144,6 +147,14 @@ async function measureInitialRevision(
     full,
     committedSpreadCount: full.spreadCount ?? 0,
   };
+}
+
+async function loadBenchmarkBook(page: Page, epubPath?: string): Promise<void> {
+  if (epubPath === undefined) {
+    await page.getByTestId('load-demo-button').click();
+    return;
+  }
+  await page.locator('input[type="file"][accept=".epub"]').first().setInputFiles(epubPath);
 }
 
 function waitForLoadedReader(page: Page): Promise<void> {

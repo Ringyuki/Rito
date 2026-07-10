@@ -348,6 +348,7 @@ For native wire work, run the dedicated non-default A/B harness:
 
 ```bash
 pnpm test:e2e:wire-ab
+RITO_WIRE_EPUB=/absolute/path/book.epub pnpm test:e2e:wire-ab
 ```
 
 It uses fresh browser contexts in JSON/binary/binary/JSON order, intercepts the
@@ -362,18 +363,23 @@ than summarized across unlike payloads; ordinary reader sessions do not pay the
 measurement overhead. Trace and video recording are disabled for this
 performance-oriented test. Treat turn measurements as a regression probe:
 ordinary frame-window warming still uses JSON metadata plus `RITOFCB2`.
+When `RITO_WIRE_EPUB` is set, the high-level initial-ready timings also include
+Playwright staging the local file through the normal reader input; the detailed
+wire-boundary metrics remain directly comparable.
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 
 ```bash
 pnpm --filter @ritojs/core-wasm bench:runtime-wire
+RITO_WIRE_EPUB=/absolute/path/book.epub pnpm --filter @ritojs/core-wasm bench:runtime-wire
 ```
 
 The command builds fresh WASM output, creates matching full-revision JSON and
-`RITORB1` payloads once from `book-01`, verifies decoded equality, warms both
-decoders, and then alternates timed batches. Layout and Rust encoding stay
-outside the measured region. The JSON output includes payload sizes, raw timing
-samples, median/p95, runtime/machine context, and the paired binary/JSON ratio.
+`RITORB1` payloads once from `book-01` or the configured local EPUB, verifies
+decoded equality, warms both decoders, and then alternates timed batches. Layout
+and Rust encoding stay outside the measured region. The JSON output includes
+payload sizes, raw timing samples, median/p95, runtime/machine context, and the
+paired binary/JSON ratio.
 `RITO_WIRE_BENCH_SAMPLES`, `RITO_WIRE_BENCH_TARGET_MS`,
 `RITO_WIRE_BENCH_WARMUP_MS`, and `RITO_WIRE_BENCH_BATCH` can tune diagnostic
 runs. This is not a CI threshold: compare multiple independent processes and

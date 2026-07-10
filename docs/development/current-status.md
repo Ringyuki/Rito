@@ -220,6 +220,9 @@ Pick one of these, in order:
      round-trip trends before making binary metadata default;
    - use `pnpm --filter @ritojs/core-wasm bench:runtime-wire` for repeated
      fixed-payload decode comparisons without layout/encode noise;
+   - set `RITO_WIRE_EPUB=/absolute/path/book.epub` on either the decode
+     benchmark or `pnpm test:e2e:wire-ab` to repeat the same measurements with
+     representative local books instead of the built-in fixture;
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.

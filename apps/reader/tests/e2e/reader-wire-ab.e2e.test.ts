@@ -1,8 +1,11 @@
 import { expect, test, type TestInfo } from '@playwright/test';
+import { existsSync, statSync } from 'node:fs';
+import { isAbsolute, resolve } from 'node:path';
 import { summarizeNumbers, summarizeScalars } from './reader-wire-metrics';
 import { runWireSession, type WireSessionReport } from './reader-wire-session';
 
 const SESSION_ORDER = ['json', 'ritorb1', 'ritorb1', 'json'] as const;
+const EPUB_PATH = configuredEpubPath();
 
 test.use({ trace: 'off', video: 'off' });
 
@@ -16,7 +19,7 @@ test.describe('real WebWorker RITORB1 A/B sessions', () => {
     const baseURL = configuredBaseURL(testInfo);
     const sessions: WireSessionReport[] = [];
     for (const [sessionIndex, wire] of SESSION_ORDER.entries()) {
-      sessions.push(await runWireSession(browser, baseURL, wire, sessionIndex));
+      sessions.push(await runWireSession(browser, baseURL, wire, sessionIndex, EPUB_PATH));
     }
 
     const report = buildReport(sessions);
@@ -39,10 +42,23 @@ function configuredBaseURL(testInfo: TestInfo): string {
 function buildReport(sessions: readonly WireSessionReport[]) {
   return {
     generatedAt: new Date().toISOString(),
+    fixture: EPUB_PATH ?? 'built-in demo',
     order: SESSION_ORDER,
     sessions,
     summaries: (['json', 'ritorb1'] as const).map((wire) => summarizeWire(sessions, wire)),
   };
+}
+
+function configuredEpubPath(): string | undefined {
+  const configured = process.env['RITO_WIRE_EPUB'];
+  if (configured === undefined) return undefined;
+  if (configured.trim().length === 0) throw new Error('RITO_WIRE_EPUB must not be empty');
+  if (!isAbsolute(configured)) throw new Error('RITO_WIRE_EPUB must be an absolute path');
+  const path = resolve(configured);
+  if (!existsSync(path) || !statSync(path).isFile()) {
+    throw new Error(`RITO_WIRE_EPUB must identify a file: ${path}`);
+  }
+  return path;
 }
 
 function summarizeWire(sessions: readonly WireSessionReport[], wire: 'json' | 'ritorb1') {

@@ -1,16 +1,18 @@
 import assert from 'node:assert/strict';
 import { Buffer } from 'node:buffer';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { arch, cpus, platform, release, totalmem } from 'node:os';
+import { isAbsolute, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 
 const entryUrl = new URL('../dist/index.mjs', import.meta.url);
 const wasmUrl = new URL('../dist/rito_wasm_bg.wasm', import.meta.url);
-const epubUrl = new URL(
+const defaultEpubUrl = new URL(
   '../../../packages/rito/tests/fixtures/books/book-01.epub',
   import.meta.url,
 );
+const benchmarkEpub = resolveBenchmarkEpub();
 let benchmarkSink = 0;
 
 if (!existsSync(entryUrl) || !existsSync(wasmUrl)) {
@@ -25,7 +27,7 @@ const config = {
 };
 const { decodeRitoRuntimeBundle, initRitoCoreWasmEngine } = await import(entryUrl.href);
 const engine = await initRitoCoreWasmEngine({ module_or_path: await readFile(wasmUrl) });
-const epubBytes = await readFile(epubUrl);
+const epubBytes = await readFile(benchmarkEpub.source);
 const requestJson = JSON.stringify(viewRevisionRequest());
 const { jsonWire, ritorb1Wire } = createWirePayloads(engine, epubBytes, requestJson);
 const jsonPayload = JSON.parse(jsonWire);
@@ -58,7 +60,7 @@ process.stdout.write(
   `${JSON.stringify(
     {
       benchmark: 'runtime-wire-decode',
-      fixture: 'packages/rito/tests/fixtures/books/book-01.epub',
+      fixture: benchmarkEpub.label,
       machine: machineInfo(),
       runtime: {
         node: process.version,
@@ -227,6 +229,23 @@ function assertBenchmarkPayload(payload) {
   if (!Number.isInteger(payload?.result?.bundle?.revision?.pageCount)) {
     throw new Error('Expected view-revision benchmark payload to include a page count.');
   }
+}
+
+function resolveBenchmarkEpub() {
+  const configured = process.env.RITO_WIRE_EPUB;
+  if (configured === undefined) {
+    return {
+      source: defaultEpubUrl,
+      label: 'packages/rito/tests/fixtures/books/book-01.epub',
+    };
+  }
+  if (configured.trim().length === 0) throw new Error('RITO_WIRE_EPUB must not be empty.');
+  if (!isAbsolute(configured)) throw new Error('RITO_WIRE_EPUB must be an absolute path.');
+  const path = resolve(configured);
+  if (!existsSync(path) || !statSync(path).isFile()) {
+    throw new Error(`RITO_WIRE_EPUB must identify a file: ${path}`);
+  }
+  return { source: path, label: path };
 }
 
 function readPositiveInteger(name, fallback) {
