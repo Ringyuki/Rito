@@ -94,18 +94,24 @@ Those names now belong to the old TS reference tree only.
   buffers are derived from the same command model.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
 - `RITORB1` has a private, opt-in view-revision slice. Its Rust encoder and
-  Rust/JavaScript decoders share a checked 633-byte cross-language golden
+  Rust/JavaScript decoders share a checked 574-byte cross-language golden
   vector; unsafe integers, malformed counts, and special object keys such as
   `__proto__` have explicit regression coverage.
+- Repeated primitive values reuse existing value-table indexes without changing
+  the V1 wire or either decoder. Full-revision calibrations for `book-01`,
+  `book-06`, and `book-10` now produce binary payloads between 78.6% and 81.2%
+  of their JSON byte lengths, instead of 111.4% to 117.9% before reuse.
 - The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
   `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
   initial preview, deferred full layout, settings reflow, and real page turns.
-  The first local run matched all revision/spread results with no console or
-  page errors, no per-turn long tasks, and the same 17.7 ms page-turn rAF p95.
+  Two local runs, including one after primitive reuse, matched all
+  revision/spread results with no console or page errors. The post-change run
+  had no per-turn long tasks and the same 17.7 ms page-turn rAF p95 for both
+  wires.
 - JSON remains the production default. The first A/B run is evidence that the
   opt-in path does not reproduce the old page-turn regression, not enough data
-  to claim a general speedup; the generic binary value bundle also remains
-  larger than JSON in the current full-book payload calibration.
+  to claim a general speedup. The initial payload-size blocker is addressed,
+  but encode/decode and worker timing still need repeated measurements.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -125,7 +131,8 @@ Those names now belong to the old TS reference tree only.
      resource payload metadata already present in `WasmViewRevisionResponse`.
    - The binary reader path is still opt-in only. The A/B harness and always-on
      browser smoke now exist; the next milestone is repeated trend data and
-     payload/decoder optimization before deciding whether to make it default.
+     separate raw-wire/encode/decode timing before deciding whether to make it
+     default.
    - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
      currently moved through JSON.
 3. **Generated boundary types**
@@ -191,8 +198,7 @@ Pick one of these, in order:
      ABBA session across representative machines and larger/resource-heavy
      books;
    - use the existing private reader switch and `test:e2e:wire-ab` report to
-     guide value-table and decoder optimization before making binary metadata
-     default;
+     add raw-wire/encode/decode timing before making binary metadata default;
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.
@@ -263,7 +269,8 @@ display details.
      and type direction evolves; its generated output is already bundled into
      the public core artifact.
 
-The first local ABBA run met the semantic and page-turn no-regression criterion
-for the demo book. Keep the binary path opt-in until repeated trend runs and
-payload-size work justify a default switch; do not expand into search or
-geometry merely because the first session passed.
+The local ABBA runs met the semantic and page-turn no-regression criterion for
+the demo book. Keep the binary path opt-in until trend runs on representative
+machines/books and separate boundary timing justify a default switch; do not
+expand into search or geometry merely because these sessions passed or the
+payload is now smaller.

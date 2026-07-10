@@ -29,6 +29,18 @@ fn round_trips_runtime_bundle_values() {
 }
 
 #[test]
+fn reuses_scalar_value_records_without_changing_payload() {
+    let value =
+        json!([null, null, true, true, false, false, 7, 7, -2, -2, 3.25, 3.25, "repeat", "repeat"]);
+
+    let bytes = encode_runtime_bundle(&value).expect("bundle encodes");
+    let decoded = decode_runtime_bundle(&bytes).expect("bundle decodes");
+
+    assert_eq!(decoded.payload, value);
+    assert_eq!(decoded.value_count, 8);
+}
+
+#[test]
 fn rejects_malformed_runtime_bundle_bytes() {
     let mut bytes = encode_runtime_bundle(&json!({"ok": true})).expect("bundle encodes");
     bytes[0] = b'X';

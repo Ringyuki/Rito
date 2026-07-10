@@ -67,18 +67,26 @@ Frame display command bytes stay outside this bundle and continue to use
   wasm runtime calls.
 - JSON/binary agreement covers initial preview, active visual preview, full
   revision, and resource-bearing frame-window metadata.
-- The Rust encoder and both decoders share a 633-byte golden vector covering
+- The Rust encoder and both decoders share a 574-byte golden vector covering
   every value tag, nested/repeated values, Unicode, safe integer boundaries,
   and an own `__proto__` object key. Rust rejects integer values outside the
   JavaScript safe range and count fields that cannot fit their section before
   allocating containers.
+- The encoder reuses value indexes for repeated primitive records while leaving
+  arrays and objects distinct. This is wire-compatible with the existing V1
+  decoder and avoids changing observable JavaScript identity for composite
+  values. In a 420 x 640 single-page full-revision calibration, `RITORB1` is
+  78.6% to 81.2% of JSON across `book-01`, `book-06`, and `book-10`; before
+  primitive reuse those same payloads were 111.4% to 117.9% of JSON.
 - Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
   `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
   revision round trips, committed spread counts, page-turn readiness, rAF
   gaps, long tasks, and browser errors.
-- The first local ABBA run matched preview/full/reflow results and showed no
-  page-turn regression. JSON remains the default while the result is repeated
-  and the current binary payload-size overhead is addressed.
+- Two local ABBA runs, including one after primitive reuse, matched
+  preview/full/reflow results and showed no page-turn regression. The
+  post-change run kept both wires at a 17.7 ms page-turn rAF p95 with no
+  per-turn long tasks. JSON remains the default while the result and the new
+  smaller payload are repeated on representative machines and books.
 
 ## Required Compatibility During Migration
 
@@ -118,6 +126,7 @@ turns still use JSON frame-window metadata plus `RITOFCB2`, so turn metrics are 
 no-regression probe rather than a claim that turns themselves use `RITORB1`.
 
 Do not make the binary path default or move another payload solely from one
-local run. Repeat the report on representative machines/books and reduce the
-current generic value-bundle overhead first. `RITOFCB2` command bytes, transfer
-bytes, and JSON fixture/debug output remain available throughout that work.
+local run. Repeat the report on representative machines/books and measure raw
+wire, encode/decode, and worker round-trip costs separately before changing the
+default. `RITOFCB2` command bytes, transfer bytes, and JSON fixture/debug output
+remain available throughout that work.

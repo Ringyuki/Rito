@@ -73,20 +73,34 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
 struct RuntimeBundleEncoder {
     strings: Vec<String>,
     string_indexes: BTreeMap<String, u32>,
+    scalar_indexes: BTreeMap<ScalarValueKey, u32>,
     values: Vec<u8>,
     value_count: u32,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+enum ScalarValueKey {
+    Null,
+    Bool(bool),
+    I64(i64),
+    U64(u64),
+    F64(u64),
+    String(u32),
 }
 
 impl RuntimeBundleEncoder {
     fn encode_value(&mut self, value: &Value) -> EpubResult<u32> {
         match value {
-            Value::Null => self.push_record(TAG_NULL, |_| Ok(())),
-            Value::Bool(false) => self.push_record(TAG_FALSE, |_| Ok(())),
-            Value::Bool(true) => self.push_record(TAG_TRUE, |_| Ok(())),
+            Value::Null => self.intern_scalar(ScalarValueKey::Null, TAG_NULL, |_| Ok(())),
+            Value::Bool(value) => self.intern_scalar(
+                ScalarValueKey::Bool(*value),
+                if *value { TAG_TRUE } else { TAG_FALSE },
+                |_| Ok(()),
+            ),
             Value::Number(number) => self.encode_number(number),
             Value::String(value) => {
                 let string_index = self.intern_string(value)?;
-                self.push_record(TAG_STRING, |bytes| {
+                self.intern_scalar(ScalarValueKey::String(string_index), TAG_STRING, |bytes| {
                     write_u32(bytes, string_index);
                     Ok(())
                 })
@@ -99,14 +113,14 @@ impl RuntimeBundleEncoder {
     fn encode_number(&mut self, number: &Number) -> EpubResult<u32> {
         if let Some(value) = number.as_u64() {
             let value = validate_safe_u64(value)?;
-            return self.push_record(TAG_U64, |bytes| {
+            return self.intern_scalar(ScalarValueKey::U64(value), TAG_U64, |bytes| {
                 bytes.extend_from_slice(&value.to_le_bytes());
                 Ok(())
             });
         }
         if let Some(value) = number.as_i64() {
             let value = validate_safe_i64(value)?;
-            return self.push_record(TAG_I64, |bytes| {
+            return self.intern_scalar(ScalarValueKey::I64(value), TAG_I64, |bytes| {
                 bytes.extend_from_slice(&value.to_le_bytes());
                 Ok(())
             });
@@ -114,7 +128,7 @@ impl RuntimeBundleEncoder {
         let value = number
             .as_f64()
             .ok_or_else(|| wire_error("RITORB1 cannot encode non-finite number"))?;
-        self.push_record(TAG_F64, |bytes| {
+        self.intern_scalar(ScalarValueKey::F64(value.to_bits()), TAG_F64, |bytes| {
             bytes.extend_from_slice(&value.to_le_bytes());
             Ok(())
         })
@@ -163,6 +177,20 @@ impl RuntimeBundleEncoder {
             .ok_or_else(|| wire_error("RITORB1 value table is too large"))?;
         self.values.push(tag);
         write_payload(&mut self.values)?;
+        Ok(index)
+    }
+
+    fn intern_scalar(
+        &mut self,
+        key: ScalarValueKey,
+        tag: u8,
+        write_payload: impl FnOnce(&mut Vec<u8>) -> EpubResult<()>,
+    ) -> EpubResult<u32> {
+        if let Some(index) = self.scalar_indexes.get(&key) {
+            return Ok(*index);
+        }
+        let index = self.push_record(tag, write_payload)?;
+        self.scalar_indexes.insert(key, index);
         Ok(index)
     }
 
