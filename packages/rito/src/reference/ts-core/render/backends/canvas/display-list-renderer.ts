@@ -1,6 +1,5 @@
 import type { Rect } from '../../../layout/core/types';
 import type { LengthPct, TransformFn } from '../../../style/core/paint-types';
-import { buildHrefResolver } from '../../../utils/resolve-href';
 import type { ImageAssetResolver } from '../../assets/types';
 import type { DisplayListRenderer } from '../types';
 import type {
@@ -14,6 +13,7 @@ import type {
   PaintTextCommand,
 } from '../../display-list';
 import { renderBlockDecoration, traceRoundedRect } from './background/background-renderer';
+import { createCanvasImageResolver } from './image-resolver';
 import { drawRubyFragment, drawTextFragment } from './text/text-renderer';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -73,12 +73,6 @@ function createCanvasRenderState(options: CanvasDisplayListOptions | undefined):
     ? createCanvasImageResolver(options.images)
     : () => undefined;
   return { resolveImage, ...(colorOverride ? { colorOverride } : {}) };
-}
-
-export function createCanvasImageResolver(
-  images: ReadonlyMap<string, ImageBitmap>,
-): (src: string) => ImageBitmap | undefined {
-  return buildHrefResolver(images);
 }
 
 function renderCommand(

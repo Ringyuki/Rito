@@ -1,14 +1,28 @@
 import {
-  canvasDisplayListRenderer,
   createCanvasImageResolver,
+  drawRubyFragment,
+  drawTextFragment,
+  renderBlockDecoration,
+  traceRoundedRect,
 } from '../../reference/ts-core/render/backends/canvas';
-import type { DisplayList } from '../../reference/ts-core/render/display-list';
+import {
+  renderFrameCommandsToCanvas,
+  type CanvasRenderingTarget,
+  type FrameCommandPaintHooks,
+} from './frame-command-renderer';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader/layout';
 import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 
-export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+export type { CanvasRenderingTarget } from './frame-command-renderer';
+
+const FRAME_COMMAND_PAINT_HOOKS: FrameCommandPaintHooks = {
+  renderBlockDecoration,
+  drawTextFragment,
+  drawRubyFragment,
+  traceRoundedRect,
+};
 
 export function renderSpreadToBoundCanvas(
   state: BrowserReaderState,
@@ -79,22 +93,14 @@ function renderFrameToCanvas(
   frame: BrowserReaderFrame,
   state: BrowserReaderState,
 ): void {
-  const displayList = toDisplayList(frame);
-  const pixelRatio = framePixelRatio(ctx, displayList.width, displayList.height);
+  const pixelRatio = framePixelRatio(ctx, frame.width, frame.height);
   if (pixelRatio === undefined) return;
-  canvasDisplayListRenderer.render(displayList, ctx, {
+  renderFrameCommandsToCanvas(frame.commands, ctx, {
     pixelRatio,
-    images: state.images,
+    resolveImage: createCanvasImageResolver(state.images),
+    hooks: FRAME_COMMAND_PAINT_HOOKS,
     ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
   });
-}
-
-function toDisplayList(frame: BrowserReaderFrame): DisplayList {
-  return {
-    width: frame.width,
-    height: frame.height,
-    commands: frame.commands,
-  };
 }
 
 function framePixelRatio(

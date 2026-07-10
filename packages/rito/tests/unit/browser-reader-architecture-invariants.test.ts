@@ -10,6 +10,7 @@ const READER_ROOT = join(SRC, 'reader');
 const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
+const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
 const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
@@ -153,16 +154,35 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the Canvas renderer adapter limited to temporary display-list imports', () => {
+  it('keeps the Canvas renderer adapter limited to reference paint hooks', () => {
     const source = read(BROWSER_RENDERING);
     const imports = [...source.matchAll(/from\s+['"]([^'"]*reference\/ts-core[^'"]*)['"]/g)]
       .map((match) => match[1])
       .sort();
-    expect(imports).toEqual([
-      '../../reference/ts-core/render/backends/canvas',
-      '../../reference/ts-core/render/display-list',
+    expect(imports).toEqual(['../../reference/ts-core/render/backends/canvas']);
+    const hookImport = source.match(
+      /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\.\/\.\.\/reference\/ts-core\/render\/backends\/canvas['"]/,
+    );
+    const hookNames = hookImport?.[1]
+      ?.split(',')
+      .map((name) => name.trim())
+      .filter(Boolean)
+      .sort();
+    expect(hookNames).toEqual([
+      'createCanvasImageResolver',
+      'drawRubyFragment',
+      'drawTextFragment',
+      'renderBlockDecoration',
+      'traceRoundedRect',
     ]);
+    expect(source).toContain('renderFrameCommandsToCanvas');
+    expect(source).not.toContain('canvasDisplayListRenderer');
     expect(source).not.toContain('as unknown as');
+  });
+
+  it('keeps the production frame-command executor independent of the reference core', () => {
+    const source = read(BROWSER_FRAME_COMMAND_RENDERER);
+    expect(source).not.toContain('reference/ts-core');
   });
 
   it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {
