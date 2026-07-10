@@ -51,7 +51,7 @@ fn open_document_with_chapter_loading_owned(
     let opf_dir = opf_dir(&rootfile_path);
 
     package.toc = toc::load_toc(&mut archive, &package, opf_dir);
-    let stylesheets = load_text_resources(&mut archive, &package, opf_dir)?;
+    let stylesheets = load_text_resources(&mut archive, &package, opf_dir);
     let binary_loading = match chapter_loading {
         ChapterLoading::Eager => BinaryResourceLoading::Eager,
         ChapterLoading::FirstChapterOnly => BinaryResourceLoading::Indexed,
@@ -63,7 +63,7 @@ fn open_document_with_chapter_loading_owned(
         is_font_media_type,
         false,
         binary_loading,
-    )?;
+    );
     let images = load_binary_resources(
         &mut archive,
         &package,
@@ -71,7 +71,7 @@ fn open_document_with_chapter_loading_owned(
         is_image_media_type,
         true,
         binary_loading,
-    )?;
+    );
     let chapters = load_chapters(&mut archive, &package, opf_dir, chapter_loading)?;
 
     Ok(LoadedEpubDocument {
@@ -87,18 +87,22 @@ fn open_document_with_chapter_loading_owned(
     })
 }
 
+// Real-world OPFs can retain stale ancillary manifest entries. Keep the spine
+// strict, but skip unreadable styles, fonts, and images so content still opens.
 fn load_text_resources(
     archive: &mut archive::EpubArchive<'_>,
     package: &PackageDocument,
     opf_dir: &str,
-) -> EpubResult<Vec<LoadedTextResource>> {
+) -> Vec<LoadedTextResource> {
     package
         .manifest
         .iter()
         .filter(|item| item.media_type == "text/css")
-        .map(|item| {
-            let text = archive.read_text(&join_zip_path(opf_dir, &item.href))?;
-            Ok(LoadedTextResource {
+        .filter_map(|item| {
+            let text = archive
+                .read_text(&join_zip_path(opf_dir, &item.href))
+                .ok()?;
+            Some(LoadedTextResource {
                 href: item.href.clone(),
                 text,
             })
@@ -113,19 +117,19 @@ fn load_binary_resources(
     matches_media_type: impl Fn(&str) -> bool,
     include_dimensions: bool,
     loading: BinaryResourceLoading,
-) -> EpubResult<Vec<LoadedBinaryResource>> {
+) -> Vec<LoadedBinaryResource> {
     package
         .manifest
         .iter()
         .filter(|item| matches_media_type(&item.media_type))
-        .map(|item| {
+        .filter_map(|item| {
             let path = join_zip_path(opf_dir, &item.href);
             let bytes = match loading {
-                BinaryResourceLoading::Eager => archive.read_bytes(&path)?,
+                BinaryResourceLoading::Eager => archive.read_bytes(&path).ok()?,
                 BinaryResourceLoading::Indexed => Vec::new(),
             };
             let byte_length = if bytes.is_empty() {
-                archive.entry_size(&path)?
+                archive.entry_size(&path).ok()?
             } else {
                 bytes.len()
             };
@@ -133,7 +137,7 @@ fn load_binary_resources(
             let dimensions = include_dimensions
                 .then(|| detect_image_dimensions(&bytes))
                 .flatten();
-            Ok(LoadedBinaryResource {
+            Some(LoadedBinaryResource {
                 href: item.href.clone(),
                 media_type: item.media_type.clone(),
                 byte_length,

@@ -74,7 +74,38 @@ fn caches_image_bytes_loaded_for_dimension_detection() {
     assert_eq!(document.images[0].bytes, minimal_png());
 }
 
+#[test]
+fn skips_missing_optional_manifest_resources() {
+    let bytes = fixture_epub_with_entries(true, false);
+
+    let document = open_document(&bytes).expect("missing optional resources do not block open");
+    assert!(document.stylesheets.is_empty());
+    assert!(document.fonts.is_empty());
+    assert!(document.images.is_empty());
+    assert!(document
+        .read_chapter("chapter")
+        .is_some_and(|chapter| chapter.contains("<p>Hello</p>")));
+
+    let runtime = open_runtime_document_owned(bytes)
+        .expect("missing optional resources do not block runtime open");
+    assert!(runtime.stylesheets.is_empty());
+    assert!(runtime.fonts.is_empty());
+    assert!(runtime.images.is_empty());
+}
+
+#[test]
+fn rejects_missing_spine_chapter() {
+    let error = open_document(&fixture_epub_with_entries(false, true))
+        .expect_err("missing spine chapter must still fail");
+
+    assert!(error.message().contains("OEBPS/Text/chapter.xhtml"));
+}
+
 fn fixture_epub() -> Vec<u8> {
+    fixture_epub_with_entries(true, true)
+}
+
+fn fixture_epub_with_entries(include_chapter: bool, include_optional_resources: bool) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(
@@ -109,25 +140,29 @@ fn fixture_epub() -> Vec<u8> {
           </spine>
         </package>"#,
     );
-    add_file(
-        &mut writer,
-        options,
-        "OEBPS/Text/chapter.xhtml",
-        br#"<html><body><p>Hello</p></body></html>"#,
-    );
-    add_file(
-        &mut writer,
-        options,
-        "OEBPS/styles/main.css",
-        b"p { color: red; }",
-    );
-    add_file(&mut writer, options, "OEBPS/Fonts/book.otf", b"font-bytes");
-    add_file(
-        &mut writer,
-        options,
-        "OEBPS/Images/cover.png",
-        &minimal_png(),
-    );
+    if include_chapter {
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/Text/chapter.xhtml",
+            br#"<html><body><p>Hello</p></body></html>"#,
+        );
+    }
+    if include_optional_resources {
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/styles/main.css",
+            b"p { color: red; }",
+        );
+        add_file(&mut writer, options, "OEBPS/Fonts/book.otf", b"font-bytes");
+        add_file(
+            &mut writer,
+            options,
+            "OEBPS/Images/cover.png",
+            &minimal_png(),
+        );
+    }
     writer.finish().expect("zip finalizes").into_inner()
 }
 
