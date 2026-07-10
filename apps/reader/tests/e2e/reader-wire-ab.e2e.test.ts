@@ -47,8 +47,6 @@ function buildReport(sessions: readonly WireSessionReport[]) {
 
 function summarizeWire(sessions: readonly WireSessionReport[], wire: 'json' | 'ritorb1') {
   const matching = sessions.filter((session) => session.wire === wire);
-  const revisions = matching.flatMap((session) => session.revisions);
-  const metrics = revisions.flatMap((revision) => (revision.metrics ? [revision.metrics] : []));
   const turns = matching.flatMap((session) => [
     ...session.initialTurns.turns,
     ...session.reflowTurns.turns,
@@ -63,6 +61,18 @@ function summarizeWire(sessions: readonly WireSessionReport[], wire: 'json' | 'r
     settingsFullReady: summarizeNumbers(matching.map((session) => session.reflow.fullReadyMs)),
     turnReadiness: summarizeNumbers(turns.map((turn) => turn.readinessMs)),
     turnFrameGapP95: summarizeNumbers(turns.map((turn) => turn.frameGaps.p95Ms)),
+    initialPreview: summarizeRevisionPhase(matching.map((session) => session.initial.preview)),
+    initialFull: summarizeRevisionPhase(matching.map((session) => session.initial.full)),
+    reflowPreview: summarizeRevisionPhase(matching.map((session) => session.reflow.preview)),
+    reflowFull: summarizeRevisionPhase(matching.map((session) => session.reflow.full)),
+  };
+}
+
+type RevisionObservation = WireSessionReport['revisions'][number];
+
+function summarizeRevisionPhase(revisions: readonly RevisionObservation[]) {
+  const metrics = revisions.flatMap((revision) => (revision.metrics ? [revision.metrics] : []));
+  return {
     rawWireBytes: summarizeScalars(metrics.map((entry) => entry.rawWireBytes)),
     wasmMethodMs: summarizeScalars(metrics.map((entry) => entry.wasmMethodMs)),
     rustEncodeMs: summarizeScalars(metrics.map((entry) => entry.rustEncodeMs)),

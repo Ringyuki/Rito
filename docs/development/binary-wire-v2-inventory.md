@@ -89,7 +89,9 @@ Frame display command bytes stay outside this bundle and continue to use
   `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
   revision round trips, committed spread counts, page-turn readiness, rAF
   gaps, long tasks, browser errors, raw wire bytes, Rust encode time, complete
-  WASM method time, JavaScript decode time, and worker processing time.
+  WASM method time, JavaScript decode time, and worker processing time. Wire
+  metrics are summarized separately for initial preview/full and reflow
+  preview/full so different payload scales are never mixed into one median.
 - Local ABBA runs matched preview/full/reflow results and showed no page-turn
   regression. The instrumented report now exposes the cost at each wire
   boundary, but JSON remains the default while the result and the smaller

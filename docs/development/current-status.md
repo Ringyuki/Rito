@@ -113,8 +113,9 @@ Those names now belong to the old TS reference tree only.
   initial preview, deferred full layout, settings reflow, and real page turns.
   The opt-in report now separates raw wire bytes, Rust encode time, the complete
   WASM method call, JavaScript decode time, worker processing, and worker round
-  trip. Local runs have matched all revision/spread results with no console or
-  page errors.
+  trip, grouped independently for initial preview/full and reflow preview/full
+  revisions. Local runs have matched all revision/spread results with no console
+  or page errors.
 - JSON remains the production default. Local A/B runs are evidence that the
   opt-in path does not reproduce the old page-turn regression, not enough data
   to claim a general speedup. The initial payload-size blocker is addressed,

@@ -356,11 +356,12 @@ report. It covers initial preview, deferred full layout, settings reflow, and
 forward/back turns while recording raw wire bytes, Rust encode time, complete
 WASM method time, JavaScript decode time, worker processing and round-trip time,
 committed spread counts, rAF gaps, Long Tasks, and browser errors. The diagnostic
-marker is opt-in and stripped before the public worker result is delivered;
-ordinary reader sessions do not pay the measurement overhead. Trace and video
-recording are disabled for this performance-oriented test. Treat turn
-measurements as a regression probe: ordinary frame-window warming still uses
-JSON metadata plus `RITOFCB2`.
+marker is opt-in and stripped before the public worker result is delivered. Wire
+metrics are grouped by initial preview/full and reflow preview/full phase rather
+than summarized across unlike payloads; ordinary reader sessions do not pay the
+measurement overhead. Trace and video recording are disabled for this
+performance-oriented test. Treat turn measurements as a regression probe:
+ordinary frame-window warming still uses JSON metadata plus `RITOFCB2`.
 
 ## Failure Policy
 
