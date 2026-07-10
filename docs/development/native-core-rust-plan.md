@@ -322,9 +322,11 @@ in place:
   path. The browser shell no longer warms/probes frames or scans decoded
   display-list commands to infer font policy. Image and font preload failures
   are best-effort, matching the old TS loader behavior.
-- TypeScript fixture matrix for `book-01` through `book-10` across the selected
-  greedy/optimal viewport configurations.
-- Render-command exact-hash parity for selected pages.
+- Rust package/layout parity matches the TypeScript fixture matrix for
+  `book-01` through `book-10` across all 4 selected greedy/optimal viewport
+  configurations.
+- Runtime render-command exact-hash parity passes all 30 selected groups,
+  covering 189 cases and 378 render summaries.
 - Packed frame command buffer with a stable V2 manifest, command metadata,
   resource metadata, payload tables, and JavaScript decoder tests.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
@@ -732,6 +734,10 @@ pnpm lint
 pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run build
 ```
+
+`rust:parity:full` includes the ignored 10-book × 4-config package/layout
+fixture matrix and the ignored 30-group exhaustive runtime render-command
+matrix. Ordinary `cargo test` does not run either milestone suite.
 
 Do not expand the fixture book matrix casually. Add fixtures only when a new
 class of TS behavior needs coverage.

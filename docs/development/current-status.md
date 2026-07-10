@@ -92,6 +92,9 @@ Those names now belong to the old TS reference tree only.
   geometry, search, frame-resource prefetch, and packed frame command buffers.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
+- The milestone parity suites are green for the current selected surface: all
+  10 fixture books across 4 package/layout configurations, plus 30 exhaustive
+  runtime render-command groups covering 189 cases and 378 render summaries.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
 - `RITORB1` has a private, opt-in view-revision slice. Its Rust encoder and
   Rust/JavaScript decoders share a checked 574-byte cross-language golden
@@ -175,6 +178,7 @@ pnpm test:e2e:wire-ab
 Milestone loop:
 
 ```sh
+pnpm run rust:parity:full
 cargo test -p rito-core
 cargo test -p rito-wasm
 cargo clippy -p rito-core --all-targets -- -D warnings
@@ -188,6 +192,10 @@ pnpm --filter @ritojs/core build
 pnpm lint
 git diff --check
 ```
+
+The full parity command includes both ignored milestone suites: the selected
+10-book × 4-config package/layout fixture matrix and the 30-group exhaustive
+runtime render-command matrix.
 
 ## Best Next Work
 
