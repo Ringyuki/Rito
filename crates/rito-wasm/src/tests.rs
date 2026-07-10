@@ -323,19 +323,100 @@ fn create_view_revision_json_declares_display_policy() {
 }
 
 #[test]
-fn create_view_revision_ritorb1_matches_json_view() {
-    let request = serde_json::json!({
-        "layoutConfig": layout(),
-        "lineBreaking": "greedy",
-        "activeSpreadIndex": 0,
-        "mode": "preview"
-    })
-    .to_string();
+fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
     let mut json_document =
         WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
     let mut binary_document =
         WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
 
+    let initial = assert_view_revision_wire_agreement(
+        &mut json_document,
+        &mut binary_document,
+        serde_json::json!({
+            "layoutConfig": layout(),
+            "lineBreaking": "greedy",
+            "activeSpreadIndex": 0,
+            "mode": "preview"
+        }),
+    );
+    let initial_revision_id = initial["result"]["bundle"]["revision"]["revisionId"]
+        .as_str()
+        .expect("initial revision id is present");
+    assert_eq!(initial["kind"], "preview");
+    assert_eq!(initial["display"], "revision");
+    assert_eq!(initial["followUp"]["mode"], "full");
+
+    let active = assert_view_revision_wire_agreement(
+        &mut json_document,
+        &mut binary_document,
+        serde_json::json!({
+            "layoutConfig": layout(),
+            "lineBreaking": "greedy",
+            "activeSpreadIndex": 1,
+            "previousRevisionId": initial_revision_id,
+            "mode": "preview"
+        }),
+    );
+    let active_revision_id = active["result"]["bundle"]["revision"]["revisionId"]
+        .as_str()
+        .expect("active revision id is present");
+    assert_eq!(active["kind"], "preview");
+    assert_eq!(active["display"], "visualPreview");
+    assert_eq!(
+        active["followUp"]["previousRevisionId"],
+        initial_revision_id
+    );
+
+    let full = assert_view_revision_wire_agreement(
+        &mut json_document,
+        &mut binary_document,
+        serde_json::json!({
+            "layoutConfig": layout(),
+            "lineBreaking": "greedy",
+            "activeSpreadIndex": 1,
+            "previousRevisionId": active_revision_id,
+            "mode": "full"
+        }),
+    );
+    assert_eq!(full["kind"], "full");
+    assert_eq!(full["display"], "revision");
+    assert!(full["followUp"].is_null());
+}
+
+#[test]
+fn create_view_revision_ritorb1_matches_json_with_resource_metadata() {
+    let mut json_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut binary_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    let full = assert_view_revision_wire_agreement(
+        &mut json_document,
+        &mut binary_document,
+        serde_json::json!({
+            "layoutConfig": layout(),
+            "lineBreaking": "greedy",
+            "activeSpreadIndex": 0,
+            "mode": "full"
+        }),
+    );
+
+    let initial_window = &full["result"]["initialFrameWindow"];
+    assert!(initial_window["spreads"]
+        .as_array()
+        .is_some_and(|spreads| !spreads.is_empty()));
+    assert!(initial_window["spreads"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .flat_map(|spread| spread["payloads"].as_array().into_iter().flatten())
+        .any(|payload| payload["href"] == "Images/cover.png"));
+}
+
+fn assert_view_revision_wire_agreement(
+    json_document: &mut WasmRuntimeDocument,
+    binary_document: &mut WasmRuntimeDocument,
+    request: Value,
+) -> Value {
+    let request = request.to_string();
     let json_payload = json_document
         .create_view_revision_bundle_json(&request)
         .expect("JSON view bundle is returned");
@@ -347,6 +428,7 @@ fn create_view_revision_ritorb1_matches_json_view() {
 
     assert_eq!(&binary_payload[0..7], b"RITORB1");
     assert_eq!(decoded.payload, json_value);
+    json_value
 }
 
 #[test]

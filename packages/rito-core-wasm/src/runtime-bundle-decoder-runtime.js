@@ -181,7 +181,12 @@ function readObject(values, strings, readUint32, count) {
   const result = {};
   for (let index = 0; index < count; index += 1) {
     const key = readString(strings, readUint32('RITORB1 object key index'));
-    result[key] = readValue(values, readUint32('RITORB1 object value index'));
+    Object.defineProperty(result, key, {
+      configurable: true,
+      enumerable: true,
+      value: readValue(values, readUint32('RITORB1 object value index')),
+      writable: true,
+    });
   }
   return result;
 }

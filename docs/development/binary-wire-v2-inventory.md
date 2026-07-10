@@ -65,8 +65,20 @@ Frame display command bytes stay outside this bundle and continue to use
   The binary path is reachable only through the private reader wire switch
   (`globalThis.__RITO_CORE_WASM_READER_WIRE__ = 'ritorb1'`) or direct private
   wasm runtime calls.
-- The next implementation must use that opt-in path for A/B or benchmark
-  validation before replacing any default reader call.
+- JSON/binary agreement covers initial preview, active visual preview, full
+  revision, and resource-bearing frame-window metadata.
+- The Rust encoder and both decoders share a 633-byte golden vector covering
+  every value tag, nested/repeated values, Unicode, safe integer boundaries,
+  and an own `__proto__` object key. Rust rejects integer values outside the
+  JavaScript safe range and count fields that cannot fit their section before
+  allocating containers.
+- Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
+  `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
+  revision round trips, committed spread counts, page-turn readiness, rAF
+  gaps, long tasks, and browser errors.
+- The first local ABBA run matched preview/full/reflow results and showed no
+  page-turn regression. JSON remains the default while the result is repeated
+  and the current binary payload-size overhead is addressed.
 
 ## Required Compatibility During Migration
 
@@ -89,13 +101,23 @@ The JS decoder must reject:
 - table offset/length pairs outside the byte length;
 - unsorted or overlapping table ranges;
 - invalid UTF-8/string indexes;
-- invalid resource, page, frame, target, or geometry indexes;
+- invalid value-table indexes;
+- integers outside the JavaScript safe range and non-finite floats;
+- string/value/array/object counts that cannot fit the remaining section;
 - mismatched declared and decoded record counts.
+
+Resource, page, frame, target, and geometry relationships belong to the typed
+revision envelope and its consumer agreement tests; the generic value-table
+decoder cannot validate those business relationships by itself.
 
 ## Exit Criterion For The First Slice
 
-The first slice is not ready to become default until an opt-in binary reader
-path proves it does not regress page-turn UX. `RITOFCB2` command bytes, transfer
-bytes, and JSON fixture/debug output remain available. The next slice should add
-an A/B switch or benchmark harness before moving another payload such as search,
-locator, page targets, page text positions, or text range geometry.
+The opt-in reader path, always-on browser smoke, and ABBA harness now exist, and
+the first local run did not reproduce the old page-turn regression. Ordinary
+turns still use JSON frame-window metadata plus `RITOFCB2`, so turn metrics are a
+no-regression probe rather than a claim that turns themselves use `RITORB1`.
+
+Do not make the binary path default or move another payload solely from one
+local run. Repeat the report on representative machines/books and reduce the
+current generic value-bundle overhead first. `RITOFCB2` command bytes, transfer
+bytes, and JSON fixture/debug output remain available throughout that work.

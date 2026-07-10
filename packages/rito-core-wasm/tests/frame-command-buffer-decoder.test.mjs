@@ -16,6 +16,10 @@ const RECORD_BYTES = 32;
 const NO_INDEX = 0xffffffff;
 const RUNTIME_BUNDLE_VERSION = 1;
 const RUNTIME_BUNDLE_HEADER_BYTES = 56;
+const RUNTIME_BUNDLE_GOLDEN_ROOT = new URL(
+  '../../../crates/rito-core/src/runtime/bundle_wire/fixtures/',
+  import.meta.url,
+);
 
 test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
   const status = getRitoCoreWasmStatus();
@@ -324,6 +328,44 @@ test('decodeRitoRuntimeBundle decodes string-table object payloads', () => {
     kind: 'preview',
     result: { ok: true, count: 2 },
   });
+});
+
+test('decodeRitoRuntimeBundle preserves __proto__ as an own data property', () => {
+  const bytes = runtimeBundleBytes({
+    strings: ['__proto__'],
+    values: [runtimeTrueRecord(), runtimeObjectRecord([[0, 0]])],
+    rootIndex: 1,
+  });
+
+  const payload = decodeRitoRuntimeBundle(bytes).payload;
+
+  assert.equal(Object.getPrototypeOf(payload), Object.prototype);
+  assert.equal(Object.hasOwn(payload, '__proto__'), true);
+  assert.equal(payload.__proto__, true);
+});
+
+test('decodeRitoRuntimeBundle matches the shared Rust golden vector', async () => {
+  const [jsonSource, hexSource] = await Promise.all([
+    readFile(new URL('ritorb1-v1.json', RUNTIME_BUNDLE_GOLDEN_ROOT), 'utf8'),
+    readFile(new URL('ritorb1-v1.hex', RUNTIME_BUNDLE_GOLDEN_ROOT), 'utf8'),
+  ]);
+  const expected = JSON.parse(jsonSource);
+  const compactHex = hexSource.replaceAll(/\s/g, '');
+  assert.match(compactHex, /^(?:[0-9a-f]{2})+$/);
+
+  const decoded = decodeRitoRuntimeBundle(Uint8Array.from(Buffer.from(compactHex, 'hex')));
+
+  assert.deepEqual(decoded.payload, expected);
+  assert.equal(Object.getPrototypeOf(decoded.payload), Object.prototype);
+  assert.equal(Object.hasOwn(decoded.payload, '__proto__'), true);
+  assert.deepEqual(decoded.payload.__proto__, { polluted: true });
+  assert.deepEqual(Object.getOwnPropertyDescriptor(decoded.payload, '__proto__'), {
+    configurable: true,
+    enumerable: true,
+    value: { polluted: true },
+    writable: true,
+  });
+  assert.equal(Object.hasOwn(Object.prototype, 'polluted'), false);
 });
 
 test('decodeRitoRuntimeBundle rejects malformed runtime bundles', () => {

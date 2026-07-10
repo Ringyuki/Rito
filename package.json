@@ -62,6 +62,7 @@
     "test:golden:pixel:review": "pnpm --filter @ritojs/core test:golden:pixel:review",
     "test:golden:pixel:update": "pnpm --filter @ritojs/core build && pnpm --filter @ritojs/core run build:reference && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c packages/rito/playwright.config.ts",
     "test:e2e": "pnpm --filter @ritojs/reader test:e2e",
+    "test:e2e:wire-ab": "pnpm --filter @ritojs/reader test:e2e:wire-ab",
     "test:coverage": "pnpm run bootstrap:core-wasm && pnpm -r --if-present run test:coverage",
     "test:ci": "pnpm run bootstrap:core-wasm && pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build && pnpm --filter @ritojs/core run test:dom-free:reference",
     "check": "pnpm run test:ci",

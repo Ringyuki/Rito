@@ -25,6 +25,7 @@ pub(crate) const TAG_F64: u8 = 5;
 pub(crate) const TAG_STRING: u8 = 6;
 pub(crate) const TAG_ARRAY: u8 = 7;
 pub(crate) const TAG_OBJECT: u8 = 8;
+pub(crate) const JS_NUMBER_MAX_SAFE_INTEGER: u64 = (1_u64 << 53) - 1;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DecodedRuntimeBundle {
@@ -110,6 +111,25 @@ pub(crate) fn runtime_bundle_checksum(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x100000001b3);
     }
     hash
+}
+
+pub(crate) fn validate_safe_i64(value: i64) -> EpubResult<i64> {
+    let max = JS_NUMBER_MAX_SAFE_INTEGER as i64;
+    if !(-max..=max).contains(&value) {
+        return Err(wire_error(format!(
+            "RITORB1 i64 is outside the JS Number safe integer range: {value}"
+        )));
+    }
+    Ok(value)
+}
+
+pub(crate) fn validate_safe_u64(value: u64) -> EpubResult<u64> {
+    if value > JS_NUMBER_MAX_SAFE_INTEGER {
+        return Err(wire_error(format!(
+            "RITORB1 u64 is outside the JS Number safe integer range: {value}"
+        )));
+    }
+    Ok(value)
 }
 
 pub(crate) fn wire_error(message: impl Into<String>) -> EpubError {

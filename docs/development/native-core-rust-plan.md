@@ -327,6 +327,10 @@ in place:
 - Render-command exact-hash parity for selected pages.
 - Packed frame command buffer with a stable V2 manifest, command metadata,
   resource metadata, payload tables, and JavaScript decoder tests.
+- Private `RITORB1` view-revision metadata with cross-language golden coverage,
+  safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
+  WebWorker smoke, and an opt-in ABBA reader-session harness. JSON remains the
+  default while payload size and repeated performance trends are evaluated.
 - Generated browser binding smoke path that opens a fixture book, creates a
   revision, reads a frame, queries targets/search, and reads/releases a resource
   transfer.
@@ -400,6 +404,9 @@ These are the real gaps against this plan:
      invalidate one another.
    - Keep JSON frame output and packed frame output sourced from the same
      commands.
+   - Keep `RITORB1` opt-in while repeating the ABBA reader-session report and
+     reducing its current generic value-table overhead. Do not extend the wire
+     to search/geometry until the view-revision slice earns a default decision.
 4. **Binary render path**
    - Current packed buffers are a V2 ABI, not the final renderer-ready contract.
    - V3 should reduce per-command object allocation and make renderers consume
@@ -710,6 +717,7 @@ Use focused gates during normal rounds:
 pnpm run rust:parity:fast
 pnpm --filter @ritojs/core-wasm run test
 pnpm --filter @ritojs/core-wasm run typecheck
+pnpm test:e2e:wire-ab
 ```
 
 Use milestone gates before claiming parity or release readiness:

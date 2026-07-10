@@ -13,6 +13,7 @@ export default defineConfig([
       '**/.output/',
       '**/node_modules/',
       '**/coverage/',
+      '**/playwright-report/',
       '**/test-results/',
       'apps/reader/src/components/ui/',
     ],

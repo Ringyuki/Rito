@@ -4,9 +4,9 @@ use crate::epub::EpubResult;
 
 use super::{
     checked_end, read_u32, read_u32_bounded, read_u64, read_u64_bounded, runtime_bundle_checksum,
-    usize_from_u32, wire_error, DecodedRuntimeBundle, RUNTIME_BUNDLE_HEADER_BYTES,
-    RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64, TAG_FALSE, TAG_I64, TAG_NULL,
-    TAG_OBJECT, TAG_STRING, TAG_TRUE, TAG_U64,
+    usize_from_u32, validate_safe_i64, validate_safe_u64, wire_error, DecodedRuntimeBundle,
+    RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64,
+    TAG_FALSE, TAG_I64, TAG_NULL, TAG_OBJECT, TAG_STRING, TAG_TRUE, TAG_U64,
 };
 
 pub fn decode_runtime_bundle(bytes: &[u8]) -> EpubResult<DecodedRuntimeBundle> {
@@ -50,7 +50,8 @@ fn decode_string_table(
 ) -> EpubResult<Vec<String>> {
     let end = checked_end(offset, length, bytes.len(), "RITORB1 string table")?;
     let mut cursor = offset;
-    let mut strings = Vec::with_capacity(usize_from_u32(count));
+    let capacity = validate_count_fits_remaining(count, cursor, end, 4, "RITORB1 string count")?;
+    let mut strings = Vec::with_capacity(capacity);
     for _ in 0..count {
         let byte_length = read_u32_cursor(bytes, &mut cursor, end, "RITORB1 string length")?;
         let string_end = checked_end(cursor, usize_from_u32(byte_length), end, "RITORB1 string")?;
@@ -75,25 +76,26 @@ fn decode_value_table(
 ) -> EpubResult<Vec<Value>> {
     let end = checked_end(offset, length, bytes.len(), "RITORB1 value table")?;
     let mut cursor = offset;
-    let mut values = Vec::with_capacity(usize_from_u32(count));
+    let capacity = validate_count_fits_remaining(count, cursor, end, 1, "RITORB1 value count")?;
+    let mut values = Vec::with_capacity(capacity);
     for _ in 0..count {
         let tag = read_u8_cursor(bytes, &mut cursor, end, "RITORB1 value tag")?;
         let value = match tag {
             TAG_NULL => Value::Null,
             TAG_FALSE => Value::Bool(false),
             TAG_TRUE => Value::Bool(true),
-            TAG_I64 => Value::Number(Number::from(read_i64_cursor(
+            TAG_I64 => Value::Number(Number::from(validate_safe_i64(read_i64_cursor(
                 bytes,
                 &mut cursor,
                 end,
                 "RITORB1 i64",
-            )?)),
-            TAG_U64 => Value::Number(Number::from(read_u64_cursor(
+            )?)?)),
+            TAG_U64 => Value::Number(Number::from(validate_safe_u64(read_u64_cursor(
                 bytes,
                 &mut cursor,
                 end,
                 "RITORB1 u64",
-            )?)),
+            )?)?)),
             TAG_F64 => number_from_f64(read_f64_cursor(bytes, &mut cursor, end, "RITORB1 f64")?)?,
             TAG_STRING => {
                 let index = read_u32_cursor(bytes, &mut cursor, end, "RITORB1 string index")?;
@@ -118,7 +120,8 @@ fn read_array_value(
     values: &[Value],
 ) -> EpubResult<Value> {
     let count = read_u32_cursor(bytes, cursor, end, "RITORB1 array length")?;
-    let mut items = Vec::with_capacity(usize_from_u32(count));
+    let capacity = validate_count_fits_remaining(count, *cursor, end, 4, "RITORB1 array length")?;
+    let mut items = Vec::with_capacity(capacity);
     for _ in 0..count {
         let index = read_u32_cursor(bytes, cursor, end, "RITORB1 array index")?;
         items.push(read_value(values, index)?.clone());
@@ -134,6 +137,7 @@ fn read_object_value(
     strings: &[String],
 ) -> EpubResult<Value> {
     let count = read_u32_cursor(bytes, cursor, end, "RITORB1 object length")?;
+    validate_count_fits_remaining(count, *cursor, end, 8, "RITORB1 object length")?;
     let mut object = Map::new();
     for _ in 0..count {
         let key_index = read_u32_cursor(bytes, cursor, end, "RITORB1 object key index")?;
@@ -230,6 +234,25 @@ fn number_from_f64(value: f64) -> EpubResult<Value> {
     Number::from_f64(value)
         .map(Value::Number)
         .ok_or_else(|| wire_error("RITORB1 f64 is not finite"))
+}
+
+fn validate_count_fits_remaining(
+    count: u32,
+    cursor: usize,
+    end: usize,
+    minimum_bytes_per_item: usize,
+    label: &str,
+) -> EpubResult<usize> {
+    let remaining = end
+        .checked_sub(cursor)
+        .ok_or_else(|| wire_error(format!("{label} starts after its section boundary")))?;
+    let count = usize_from_u32(count);
+    if count > remaining / minimum_bytes_per_item {
+        return Err(wire_error(format!(
+            "{label} exceeds the remaining section bytes"
+        )));
+    }
+    Ok(count)
 }
 
 fn read_string(strings: &[String], index: u32) -> EpubResult<&str> {

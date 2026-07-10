@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { installReaderWireProbe, readReaderWireObservations } from './reader-wire-probe';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
 
@@ -89,6 +90,59 @@ test.describe('reader app', () => {
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-theme', 'dark');
   });
 });
+
+test.describe('reader app RITORB1 session', () => {
+  test('loads the demo and completes real page turns through the private binary wire', async ({
+    page,
+  }) => {
+    await installReaderWireProbe(page, 'ritorb1');
+    await page.goto('/');
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+    await page.reload();
+
+    const observationStart = (await readReaderWireObservations(page)).length;
+    await loadDemoBook(page);
+    await expect
+      .poll(async () => completedRevisionModes(page, observationStart), {
+        timeout: READER_LOAD_TIMEOUT_MS,
+      })
+      .toEqual(['preview', 'full']);
+    const observations = (await readReaderWireObservations(page)).slice(observationStart);
+    const full = observations.find((entry) => entry.mode === 'full');
+    expect(observations.map((entry) => entry.wire)).toEqual(['ritorb1', 'ritorb1']);
+    expect(observations.every((entry) => entry.ok === true)).toBe(true);
+    expect(full?.spreadCount).toBeGreaterThan(5);
+    await expect
+      .poll(() => readerNumberAttribute(page, 'data-total-spreads'))
+      .toBe(full?.spreadCount);
+    await expect.poll(() => hasNonBlankCanvas(page)).toBe(true);
+
+    const firstSpread = await currentSpread(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentSpread(page)).toBe(firstSpread + 1);
+    await page.waitForTimeout(750);
+    await page.keyboard.press('ArrowLeft');
+    await expect.poll(() => currentSpread(page)).toBe(firstSpread);
+
+    await expect(
+      page.evaluate(() => {
+        const runtime = globalThis as typeof globalThis & {
+          __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
+        };
+        return runtime.__RITO_CORE_WASM_READER_WIRE__;
+      }),
+    ).resolves.toBe('ritorb1');
+  });
+});
+
+async function completedRevisionModes(page: Page, startIndex: number): Promise<string[]> {
+  return (await readReaderWireObservations(page))
+    .slice(startIndex)
+    .filter((entry) => entry.completedAt !== null)
+    .map((entry) => entry.mode);
+}
 
 async function loadDemoBook(page: Page): Promise<void> {
   const shell = page.getByTestId('reader-shell');

@@ -6,9 +6,10 @@ use serde_json::{Map, Number, Value};
 use crate::epub::{EpubError, EpubResult};
 
 use super::{
-    checked_u32, runtime_bundle_checksum, wire_error, write_u32, write_u32_at, write_u64_at,
-    RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64,
-    TAG_FALSE, TAG_I64, TAG_NULL, TAG_OBJECT, TAG_STRING, TAG_TRUE, TAG_U64,
+    checked_u32, runtime_bundle_checksum, validate_safe_i64, validate_safe_u64, wire_error,
+    write_u32, write_u32_at, write_u64_at, RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC,
+    RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64, TAG_FALSE, TAG_I64, TAG_NULL, TAG_OBJECT,
+    TAG_STRING, TAG_TRUE, TAG_U64,
 };
 
 pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
@@ -96,14 +97,16 @@ impl RuntimeBundleEncoder {
     }
 
     fn encode_number(&mut self, number: &Number) -> EpubResult<u32> {
-        if let Some(value) = number.as_i64() {
-            return self.push_record(TAG_I64, |bytes| {
+        if let Some(value) = number.as_u64() {
+            let value = validate_safe_u64(value)?;
+            return self.push_record(TAG_U64, |bytes| {
                 bytes.extend_from_slice(&value.to_le_bytes());
                 Ok(())
             });
         }
-        if let Some(value) = number.as_u64() {
-            return self.push_record(TAG_U64, |bytes| {
+        if let Some(value) = number.as_i64() {
+            let value = validate_safe_i64(value)?;
+            return self.push_record(TAG_I64, |bytes| {
                 bytes.extend_from_slice(&value.to_le_bytes());
                 Ok(())
             });

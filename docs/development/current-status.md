@@ -93,9 +93,19 @@ Those names now belong to the old TS reference tree only.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
-- `RITORB1` is the next runtime-metadata wire target, but it is not active in
-  the runtime after the page-turn UX regression. Keep the reader on the proven
-  JSON metadata path until a flagged A/B path demonstrates smooth turns.
+- `RITORB1` has a private, opt-in view-revision slice. Its Rust encoder and
+  Rust/JavaScript decoders share a checked 633-byte cross-language golden
+  vector; unsafe integers, malformed counts, and special object keys such as
+  `__proto__` have explicit regression coverage.
+- The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
+  `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
+  initial preview, deferred full layout, settings reflow, and real page turns.
+  The first local run matched all revision/spread results with no console or
+  page errors, no per-turn long tasks, and the same 17.7 ms page-turn rAF p95.
+- JSON remains the production default. The first A/B run is evidence that the
+  opt-in path does not reproduce the old page-turn regression, not enough data
+  to claim a general speedup; the generic binary value bundle also remains
+  larger than JSON in the current full-book payload calibration.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -113,9 +123,9 @@ Those names now belong to the old TS reference tree only.
    - `RITORB1` now has a private first slice for the normal reader
      view-revision response, including the bundled initial frame-window and
      resource payload metadata already present in `WasmViewRevisionResponse`.
-   - The binary reader path is still opt-in only. The next wire milestone is an
-     A/B switch or benchmark harness that proves the binary path has no UX
-     regression before it becomes the default.
+   - The binary reader path is still opt-in only. The A/B harness and always-on
+     browser smoke now exist; the next milestone is repeated trend data and
+     payload/decoder optimization before deciding whether to make it default.
    - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
      currently moved through JSON.
 3. **Generated boundary types**
@@ -152,6 +162,7 @@ pnpm --filter @ritojs/core-wasm run test
 pnpm --filter @ritojs/core-wasm run typecheck
 pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run test
+pnpm test:e2e:wire-ab
 ```
 
 Milestone loop:
@@ -176,10 +187,12 @@ git diff --check
 Pick one of these, in order:
 
 1. Continue Binary Wire V2 implementation:
-   - keep the production reader on JSON while validating the opt-in `RITORB1`
-     reader wire under real page-turn sessions;
-   - use the existing private reader switch for A/B or benchmark runs before
-     making binary metadata default;
+   - keep the production reader on JSON while repeating the opt-in `RITORB1`
+     ABBA session across representative machines and larger/resource-heavy
+     books;
+   - use the existing private reader switch and `test:e2e:wire-ab` report to
+     guide value-table and decoder optimization before making binary metadata
+     default;
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.
@@ -214,6 +227,8 @@ display details.
 3. **Derive JSON and binary from one Rust model**
    - Done for `createViewRevisionBundle`: JSON and bytes are generated from the
      same typed `WasmViewRevisionResponse` model.
+   - Agreement tests cover initial preview, active-chapter visual preview, full
+     revision, and resource-bearing frame-window metadata.
    - Keep existing JSON dump/fixture view.
    - Add binary encoder from the same typed Rust structs.
    - Add Rust tests proving JSON view and binary-decoded view agree on revision
@@ -223,7 +238,10 @@ display details.
    - Done in `packages/rito-core-wasm/src/runtime-bundle-decoder-runtime.js`.
    - The decoder rejects wrong magic, unsupported version, truncated buffers,
      invalid table ranges, invalid UTF-8/string/value indexes, checksum
-     mismatch, and mismatched declared/decoded record counts.
+     mismatch, unsafe integers, and mismatched declared/decoded record counts.
+   - Rust and JavaScript consume the same checked golden vector, including
+     Unicode, nested/repeated values, safe integer boundaries, and an own
+     `__proto__` data property.
    - Do not hand-maintain a second schema shape in JS beyond the decoder view.
 5. **Migrate one hot path end to end**
    - First slice is wired behind the private reader wire switch, not on the
@@ -233,6 +251,9 @@ display details.
    - Keep the public `@ritojs/core` API object-shaped by decoding at the facade
      boundary.
    - Keep debug JSON methods available for fixtures and diagnostics.
+   - A real WebWorker smoke is part of normal E2E, and the opt-in ABBA harness
+     records revision round trips, committed spread counts, turn readiness,
+     rAF gaps, long tasks, and browser errors.
 6. **Only then expand**
    - Do not move search/geometry/page targets until the binary
      revision/frame/resource path is proven behind an opt-in switch.
@@ -242,7 +263,7 @@ display details.
      and type direction evolves; its generated output is already bundled into
      the public core artifact.
 
-Exit criterion for the next implementation slice: the opt-in binary
-revision/frame/resource path matches JSON output and shows no page-turn UX
-regression under a real reader session. Only after that should it become the
-default runtime path.
+The first local ABBA run met the semantic and page-turn no-regression criterion
+for the demo book. Keep the binary path opt-in until repeated trend runs and
+payload-size work justify a default switch; do not expand into search or
+geometry merely because the first session passed.

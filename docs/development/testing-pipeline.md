@@ -18,6 +18,7 @@ protect browser-rendered output.
 | Pixel golden       | `pnpm test:golden:pixel`                             | Browser Canvas PNG output compared against checked-in image goldens.                                           |
 | DOM-free reference | `pnpm --filter @ritojs/core test:dom-free:reference` | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
 | Reader e2e         | `pnpm test:e2e`                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
+| Reader wire A/B    | `pnpm test:e2e:wire-ab`                              | Opt-in JSON/`RITORB1` WebWorker sessions with revision, turn, rAF, long-task, and error measurements.          |
 | Coverage           | `pnpm test:coverage`                                 | V8 coverage for all published packages, checked against package baselines.                                     |
 | Dependency audit   | `pnpm audit:dependencies`                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
 
@@ -330,6 +331,8 @@ rather than exhaustive pixel diffs:
 - table-of-contents navigation
 - search and jump to a result
 - settings changes that trigger reflow and theme updates
+- a real opt-in `RITORB1` WebWorker smoke covering preview, deferred full
+  layout, and page turns
 
 Reader e2e can use a smaller fixture set than render golden because its job is
 runtime behavior, not visual coverage.
@@ -340,6 +343,20 @@ Chromium is unavailable locally, pass a browser channel:
 ```bash
 PLAYWRIGHT_BROWSER_CHANNEL=msedge pnpm test:e2e
 ```
+
+For native wire work, run the dedicated non-default A/B harness:
+
+```bash
+pnpm test:e2e:wire-ab
+```
+
+It uses fresh browser contexts in JSON/binary/binary/JSON order, intercepts the
+actual `createViewRevision` worker requests and responses, and attaches a JSON
+report. It covers initial preview, deferred full layout, settings reflow, and
+forward/back turns while recording request latency, committed spread counts,
+rAF gaps, Long Tasks, and browser errors. Trace and video recording are disabled
+for this performance-oriented test. Treat turn measurements as a regression
+probe: ordinary frame-window warming still uses JSON metadata plus `RITOFCB2`.
 
 ## Failure Policy
 
