@@ -113,7 +113,7 @@ fn opens_percent_encoded_manifest_hrefs_against_literal_zip_names() {
 
 #[test]
 fn skips_missing_optional_manifest_resources() {
-    let bytes = fixture_epub_with_entries(true, false);
+    let bytes = fixture_epub_with_entries(true, false, "chapter");
 
     let document = open_document(&bytes).expect("missing optional resources do not block open");
     assert!(document.stylesheets.is_empty());
@@ -132,17 +132,36 @@ fn skips_missing_optional_manifest_resources() {
 
 #[test]
 fn rejects_missing_spine_chapter() {
-    let error = open_document(&fixture_epub_with_entries(false, true))
+    let error = open_document(&fixture_epub_with_entries(false, true, "chapter"))
         .expect_err("missing spine chapter must still fail");
 
     assert!(error.message().contains("OEBPS/Text/chapter.xhtml"));
 }
 
-fn fixture_epub() -> Vec<u8> {
-    fixture_epub_with_entries(true, true)
+#[test]
+fn rejects_spine_idrefs_missing_from_the_manifest() {
+    let bytes = fixture_epub_with_entries(true, true, "missing-chapter");
+    let eager = open_document(&bytes).expect_err("eager open rejects dangling spine idref");
+    let runtime =
+        open_runtime_document_owned(bytes).expect_err("runtime open rejects dangling spine idref");
+
+    for error in [eager, runtime] {
+        assert_eq!(
+            error.message(),
+            "spine idref is missing from manifest: missing-chapter"
+        );
+    }
 }
 
-fn fixture_epub_with_entries(include_chapter: bool, include_optional_resources: bool) -> Vec<u8> {
+fn fixture_epub() -> Vec<u8> {
+    fixture_epub_with_entries(true, true, "chapter")
+}
+
+fn fixture_epub_with_entries(
+    include_chapter: bool,
+    include_optional_resources: bool,
+    spine_idref: &str,
+) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(
@@ -156,11 +175,8 @@ fn fixture_epub_with_entries(include_chapter: bool, include_optional_resources: 
           </rootfiles>
         </container>"#,
     );
-    add_file(
-        &mut writer,
-        options,
-        "OEBPS/content.opf",
-        br#"<package xmlns:dc="http://purl.org/dc/elements/1.1/">
+    let package = format!(
+        r#"<package xmlns:dc="http://purl.org/dc/elements/1.1/">
           <metadata>
             <dc:title>Runtime fixture</dc:title>
             <dc:language>en</dc:language>
@@ -173,9 +189,15 @@ fn fixture_epub_with_entries(include_chapter: bool, include_optional_resources: 
             <item id="cover" href="Images/cover.png" media-type="image/png"/>
           </manifest>
           <spine>
-            <itemref idref="chapter"/>
+            <itemref idref="{spine_idref}"/>
           </spine>
-        </package>"#,
+        </package>"#
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OEBPS/content.opf",
+        package.as_bytes(),
     );
     if include_chapter {
         add_file(

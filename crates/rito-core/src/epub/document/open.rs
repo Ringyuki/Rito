@@ -2,7 +2,9 @@ use crate::resources::{
     detect_image_dimensions, hash_bytes, is_font_media_type, is_image_media_type,
 };
 
-use super::super::{archive, join_zip_path, opf_dir, parser, toc, EpubResult, PackageDocument};
+use super::super::{
+    archive, join_zip_path, opf_dir, parser, toc, EpubError, EpubResult, PackageDocument,
+};
 use super::{
     LoadedArchiveSource, LoadedBinaryResource, LoadedChapter, LoadedEpubDocument,
     LoadedTextResource,
@@ -165,12 +167,17 @@ fn load_chapters(
             let href = package
                 .manifest_item(&spine.idref)
                 .map(|item| item.href.clone())
-                .unwrap_or_default();
+                .ok_or_else(|| {
+                    EpubError::new(format!(
+                        "spine idref is missing from manifest: {}",
+                        spine.idref
+                    ))
+                })?;
             let should_load = match chapter_loading {
                 ChapterLoading::Eager => true,
                 ChapterLoading::FirstChapterOnly => index == 0,
             };
-            let xhtml_source = if href.is_empty() || !should_load {
+            let xhtml_source = if !should_load {
                 String::new()
             } else {
                 archive.read_text(&join_zip_path(opf_dir, &href))?
