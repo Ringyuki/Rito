@@ -139,17 +139,7 @@ fn parse_nav_point(nav_point: Node<'_, '_>) -> Option<TocEntry> {
 }
 
 fn parse_toc_xml(xml: &str) -> EpubResult<Document<'_>> {
-    if has_ts_rejected_xml_declaration(xml) {
-        return Err(super::EpubError::new(
-            "Invalid TOC XML: TypeScript DOMParser rejected XML declaration",
-        ));
-    }
     Document::parse(xml).map_err(|error| super::EpubError::new(format!("Invalid TOC XML: {error}")))
-}
-
-fn has_ts_rejected_xml_declaration(xml: &str) -> bool {
-    let source = xml.trim_start();
-    source.starts_with("<?xml") && source.contains("version='")
 }
 
 fn has_toc_type(node: Node<'_, '_>) -> bool {
@@ -248,8 +238,8 @@ mod tests {
     }
 
     #[test]
-    fn rejects_single_quoted_xml_declaration_like_ts_dom_parser() {
-        let result = parse_ncx(
+    fn parses_ncx_with_single_quoted_xml_declaration() {
+        let entries = parse_ncx(
             r#"<?xml version='1.0' encoding='utf-8'?>
             <ncx>
               <navMap>
@@ -260,8 +250,11 @@ mod tests {
               </navMap>
             </ncx>
             "#,
-        );
+        )
+        .expect("ncx toc");
 
-        assert!(result.is_err());
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].label, "Chapter 1");
+        assert_eq!(entries[0].href, "Text/ch1.xhtml");
     }
 }
