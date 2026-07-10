@@ -119,8 +119,11 @@ Those names now belong to the old TS reference tree only.
 - JSON remains the production default. Local A/B runs are evidence that the
   opt-in path does not reproduce the old page-turn regression, not enough data
   to claim a general speedup. The initial payload-size blocker is addressed,
-  and the timing instrumentation now exists; representative books and machines
-  still need repeated measurements before a default decision.
+  the timing instrumentation now exists, and a fixed-payload microbenchmark on
+  a real fixture isolates eager JSON/RITORB1 decode from layout and encoding.
+  Current local samples still show a CPU cost for eager binary decoding;
+  representative books and machines need repeated measurements before a default
+  decision.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -215,6 +218,8 @@ Pick one of these, in order:
    - use the existing private reader switch and instrumented
      `test:e2e:wire-ab` report to compare raw-wire, encode/decode, worker, and
      round-trip trends before making binary metadata default;
+   - use `pnpm --filter @ritojs/core-wasm bench:runtime-wire` for repeated
+     fixed-payload decode comparisons without layout/encode noise;
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.

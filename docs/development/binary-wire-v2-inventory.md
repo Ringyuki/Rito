@@ -96,6 +96,11 @@ Frame display command bytes stay outside this bundle and continue to use
   regression. The instrumented report now exposes the cost at each wire
   boundary, but JSON remains the default while the result and the smaller
   payload are repeated on representative machines and books.
+- `pnpm --filter @ritojs/core-wasm bench:runtime-wire` builds a fresh WASM
+  artifact, creates matching full-revision JSON/RITORB1 payloads once from a
+  real fixture, and then alternates repeated decode-only batches. It reports raw
+  samples plus median/p95 without defining a CI performance threshold; run it
+  in independent processes and treat a single result as diagnostic only.
 
 ## Required Compatibility During Migration
 

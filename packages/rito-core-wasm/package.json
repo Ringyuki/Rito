@@ -34,6 +34,7 @@
     "README.md"
   ],
   "scripts": {
+    "bench:runtime-wire": "pnpm run build && node scripts/bench-runtime-wire.mjs",
     "build": "node scripts/build-wasm.mjs",
     "build:placeholder": "node scripts/build-placeholder.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",

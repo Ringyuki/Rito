@@ -363,6 +363,23 @@ measurement overhead. Trace and video recording are disabled for this
 performance-oriented test. Treat turn measurements as a regression probe:
 ordinary frame-window warming still uses JSON metadata plus `RITOFCB2`.
 
+For a repeatable decode-only comparison on one fixed real payload, run:
+
+```bash
+pnpm --filter @ritojs/core-wasm bench:runtime-wire
+```
+
+The command builds fresh WASM output, creates matching full-revision JSON and
+`RITORB1` payloads once from `book-01`, verifies decoded equality, warms both
+decoders, and then alternates timed batches. Layout and Rust encoding stay
+outside the measured region. The JSON output includes payload sizes, raw timing
+samples, median/p95, runtime/machine context, and the paired binary/JSON ratio.
+`RITO_WIRE_BENCH_SAMPLES`, `RITO_WIRE_BENCH_TARGET_MS`,
+`RITO_WIRE_BENCH_WARMUP_MS`, and `RITO_WIRE_BENCH_BATCH` can tune diagnostic
+runs. This is not a CI threshold: compare multiple independent processes and
+use the browser ABBA harness to confirm whether a decode change reaches the real
+worker path.
+
 ## Failure Policy
 
 Golden diffs should not be accepted by blindly running update commands. Before
