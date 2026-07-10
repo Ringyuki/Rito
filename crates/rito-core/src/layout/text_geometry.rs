@@ -380,6 +380,8 @@ mod tests {
                 border_box: None,
                 page_break_before: false,
                 page_break_after: false,
+                orphans: None,
+                widows: None,
                 children: vec![RuntimeChild::Line(LineBox {
                     x: 0.0,
                     y: 5.0,

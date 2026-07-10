@@ -467,6 +467,8 @@ fn place_continuous_hr(state: &mut ContinuousLayoutState, node: &StyledNode, con
         border_box: None,
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: vec![ContinuousChild::Hr(ContinuousHr {
             x: 0.0,
             y: 0.0,
@@ -577,8 +579,18 @@ fn layout_continuous_text_block(
         border_box: border_box_from_style(&node.style),
         page_break_before: false,
         page_break_after: false,
+        orphans: non_default_line_constraint(&node.style, "orphans"),
+        widows: non_default_line_constraint(&node.style, "widows"),
         children,
     }
+}
+
+fn non_default_line_constraint(style: &Map<String, Value>, key: &str) -> Option<usize> {
+    style
+        .get(key)
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
+        .filter(|value| *value != 2)
 }
 
 fn layout_continuous_container_block(
@@ -821,6 +833,8 @@ fn layout_continuous_floated_container(
         border_box: border_box_from_style(&node.style),
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: child_blocks
             .into_iter()
             .map(|block| ContinuousChild::Block(Box::new(block)))
@@ -1179,6 +1193,8 @@ fn build_continuous_container_wrapper(
         border_box: border_box_from_style(&node.style),
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: child_blocks
             .into_iter()
             .map(|block| ContinuousChild::Block(Box::new(block)))
@@ -1540,7 +1556,10 @@ pub(crate) fn summarize_pagination_flow_for_chapter(
 mod tests {
     use serde_json::{json, Map};
 
-    use super::wrap_anonymous_inline_runs;
+    use super::{
+        layout_continuous_text_block, wrap_anonymous_inline_runs, ImageSizeIndex, LineBreaking,
+        TextMeasurementFonts,
+    };
     use crate::style::{StyledNode, StyledNodeKind};
 
     #[test]
@@ -1561,6 +1580,41 @@ mod tests {
         assert_eq!(wrapped[1].children, vec![nodes[1].clone()]);
         assert_eq!(wrapped[1].style["fontSize"], json!(16));
         assert_eq!(wrapped[1].style["marginTop"], json!(0));
+    }
+
+    #[test]
+    fn text_blocks_store_only_non_default_widow_and_orphan_constraints() {
+        let images = ImageSizeIndex::new(&[]);
+        let fonts = TextMeasurementFonts::empty();
+        let mut styled = node(StyledNodeKind::Block, vec![text_node("A short paragraph")]);
+        styled.style.insert("orphans".to_owned(), json!(4));
+        styled.style.insert("widows".to_owned(), json!(2));
+
+        let block = layout_continuous_text_block(
+            &styled,
+            320.0,
+            0.0,
+            &images,
+            LineBreaking::Greedy,
+            &fonts,
+        );
+
+        assert_eq!(block.orphans, Some(4));
+        assert_eq!(block.widows, None);
+
+        styled.style.insert("orphans".to_owned(), json!(2));
+        styled.style.insert("widows".to_owned(), json!(5));
+        let block = layout_continuous_text_block(
+            &styled,
+            320.0,
+            0.0,
+            &images,
+            LineBreaking::Greedy,
+            &fonts,
+        );
+
+        assert_eq!(block.orphans, None);
+        assert_eq!(block.widows, Some(5));
     }
 
     fn text_node(content: &str) -> StyledNode {

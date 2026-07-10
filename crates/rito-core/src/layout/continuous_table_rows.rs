@@ -110,6 +110,8 @@ fn layout_continuous_table_row(
             border_box: None,
             page_break_before: false,
             page_break_after: false,
+            orphans: None,
+            widows: None,
             children,
         },
         max_cell_height,
@@ -190,6 +192,8 @@ fn layout_continuous_single_cell(
             border_box: None,
             page_break_before: false,
             page_break_after: false,
+            orphans: None,
+            widows: None,
             children: offset_continuous_children(children, padding_left, padding_top),
         },
         vertical_align: string_or_default(&cell.style, "verticalAlign", "baseline"),
@@ -253,6 +257,8 @@ fn empty_continuous_cell_block(col_widths: &[f64], col: usize) -> ContinuousBloc
         border_box: None,
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: Vec::new(),
     }
 }

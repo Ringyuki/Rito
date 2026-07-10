@@ -431,13 +431,17 @@ fn try_split_pagination_block(
     let line_boxes = direct_line_children(block)?;
     let policy = layout_config.pagination_policy.as_ref();
     let policy_enabled = policy.and_then(|policy| policy.enabled).unwrap_or(true);
-    let default_orphans = policy
-        .and_then(|policy| policy.default_orphans)
-        .unwrap_or(2) as usize;
-    let default_widows = policy.and_then(|policy| policy.default_widows).unwrap_or(2) as usize;
-    let orphans = if policy_enabled { default_orphans } else { 1 };
-    let widows = if policy_enabled { default_widows } else { 1 };
-    let min_total = orphans + widows;
+    let orphans = resolve_pagination_line_constraint(
+        block.orphans,
+        policy.and_then(|policy| policy.default_orphans),
+        policy_enabled,
+    );
+    let widows = resolve_pagination_line_constraint(
+        block.widows,
+        policy.and_then(|policy| policy.default_widows),
+        policy_enabled,
+    );
+    let min_total = orphans.saturating_add(widows);
     let mut split_index = find_pagination_split_index(&line_boxes, available_height);
 
     if line_boxes.len() >= min_total {
@@ -450,6 +454,19 @@ fn try_split_pagination_block(
     }
 
     build_pagination_split_result(block, &line_boxes, split_index, available_height)
+}
+
+fn resolve_pagination_line_constraint(
+    block_value: Option<usize>,
+    policy_value: Option<u32>,
+    policy_enabled: bool,
+) -> usize {
+    if !policy_enabled {
+        return 1;
+    }
+    block_value
+        .or_else(|| policy_value.map(|value| value as usize))
+        .unwrap_or(2)
 }
 
 fn force_split_pagination_block(
@@ -962,7 +979,7 @@ mod tests {
         content::{RuntimeBlock, RuntimeChild, RuntimeImage},
         create_layout_config,
         line::{LineBox, LineRun, TextRunBox},
-        LayoutConfigInput, MarginInput, SpreadMode,
+        LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
     };
 
     #[test]
@@ -1065,6 +1082,77 @@ mod tests {
         assert!(force_split_pagination_block(&block, 25.0).is_none());
     }
 
+    #[test]
+    fn split_constraints_prefer_block_then_policy_then_css_defaults() {
+        let block = block_with_lines(8);
+        let default_split = try_split_pagination_block(&block, 25.0, &test_layout())
+            .expect("CSS default orphans moves the split after two lines");
+        assert_eq!(default_split.head.children.len(), 2);
+
+        let policy_layout = test_layout_with_policy(PaginationPolicy {
+            enabled: None,
+            default_orphans: Some(3),
+            default_widows: Some(2),
+        });
+        let policy_split = try_split_pagination_block(&block, 25.0, &policy_layout)
+            .expect("policy orphans moves the split after three lines");
+        assert_eq!(policy_split.head.children.len(), 3);
+
+        let mut block_override = block.clone();
+        block_override.orphans = Some(4);
+        let block_split = try_split_pagination_block(&block_override, 25.0, &policy_layout)
+            .expect("block orphans overrides the policy default");
+        assert_eq!(block_split.head.children.len(), 4);
+
+        let default_split = try_split_pagination_block(&block, 125.0, &test_layout())
+            .expect("CSS default widows leaves two lines in the tail");
+        assert_eq!(default_split.head.children.len(), 6);
+
+        let policy_layout = test_layout_with_policy(PaginationPolicy {
+            enabled: None,
+            default_orphans: Some(2),
+            default_widows: Some(3),
+        });
+        let policy_split = try_split_pagination_block(&block, 125.0, &policy_layout)
+            .expect("policy widows leaves three lines in the tail");
+        assert_eq!(policy_split.head.children.len(), 5);
+
+        block_override = block;
+        block_override.widows = Some(4);
+        let block_split = try_split_pagination_block(&block_override, 125.0, &policy_layout)
+            .expect("block widows overrides the policy default");
+        assert_eq!(block_split.head.children.len(), 4);
+    }
+
+    #[test]
+    fn disabled_policy_uses_one_line_constraints_even_with_block_overrides() {
+        let mut block = block_with_lines(8);
+        block.orphans = Some(4);
+        block.widows = Some(4);
+        let layout = test_layout_with_policy(PaginationPolicy {
+            enabled: Some(false),
+            default_orphans: Some(5),
+            default_widows: Some(5),
+        });
+
+        let split = try_split_pagination_block(&block, 25.0, &layout)
+            .expect("disabled policy permits a one-line fragment");
+
+        assert_eq!(split.head.children.len(), 1);
+    }
+
+    #[test]
+    fn extreme_block_constraints_do_not_overflow() {
+        let mut block = block_with_lines(8);
+        block.orphans = Some(usize::MAX);
+        block.widows = Some(2);
+
+        let split = try_split_pagination_block(&block, 25.0, &test_layout())
+            .expect("an unsatisfiable constraint preserves the natural split");
+
+        assert_eq!(split.head.children.len(), 1);
+    }
+
     fn test_layout() -> crate::layout::LayoutConfig {
         create_layout_config(LayoutConfigInput {
             width: 320.0,
@@ -1083,6 +1171,20 @@ mod tests {
         })
     }
 
+    fn test_layout_with_policy(policy: PaginationPolicy) -> crate::layout::LayoutConfig {
+        let mut layout = test_layout();
+        layout.pagination_policy = Some(policy);
+        layout
+    }
+
+    fn block_with_lines(line_count: usize) -> RuntimeBlock<LineBox> {
+        let mut block = block_with_line("0", 0.0, line_count as f64 * 20.0);
+        block.children = (0..line_count)
+            .map(|index| RuntimeChild::Line(line_box(&index.to_string(), index as f64 * 20.0)))
+            .collect();
+        block
+    }
+
     fn block_with_line(text: &str, y: f64, height: f64) -> RuntimeBlock<LineBox> {
         RuntimeBlock {
             x: 0.0,
@@ -1095,6 +1197,8 @@ mod tests {
             border_box: None,
             page_break_before: false,
             page_break_after: false,
+            orphans: None,
+            widows: None,
             children: vec![RuntimeChild::Line(line_box(text, 0.0))],
         }
     }

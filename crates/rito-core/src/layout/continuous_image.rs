@@ -53,6 +53,8 @@ pub(crate) fn layout_continuous_image_block(
         border_box: border_box_from_style(input.style),
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: vec![ContinuousChild::Image(ContinuousImage {
             x,
             y: 0.0,

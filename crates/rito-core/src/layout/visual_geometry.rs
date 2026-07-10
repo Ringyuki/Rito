@@ -254,6 +254,8 @@ mod tests {
             border_box: None,
             page_break_before: false,
             page_break_after: false,
+            orphans: None,
+            widows: None,
             children: Vec::new(),
         };
         let visual = VisualGeometry::page().enter_block(&block, 10.0, 20.0);
@@ -287,6 +289,8 @@ mod tests {
             border_box: None,
             page_break_before: false,
             page_break_after: false,
+            orphans: None,
+            widows: None,
             children: Vec::new(),
         };
         let visual = VisualGeometry::page().enter_block(&block, 0.0, 0.0);

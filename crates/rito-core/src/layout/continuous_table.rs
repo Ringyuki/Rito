@@ -73,6 +73,8 @@ pub(crate) fn layout_continuous_table(
         border_box: None,
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: row_blocks
             .into_iter()
             .map(|block| ContinuousChild::Block(Box::new(block)))
@@ -92,6 +94,8 @@ fn empty_continuous_table_block(content_width: f64, y: f64) -> ContinuousBlock {
         border_box: None,
         page_break_before: false,
         page_break_after: false,
+        orphans: None,
+        widows: None,
         children: Vec::new(),
     }
 }

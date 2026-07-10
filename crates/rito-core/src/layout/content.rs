@@ -12,6 +12,8 @@ pub(crate) struct RuntimeBlock<Line> {
     pub(crate) border_box: Option<Value>,
     pub(crate) page_break_before: bool,
     pub(crate) page_break_after: bool,
+    pub(crate) orphans: Option<usize>,
+    pub(crate) widows: Option<usize>,
     pub(crate) children: Vec<RuntimeChild<Line>>,
 }
 
@@ -63,6 +65,8 @@ mod tests {
             border_box: Some(json!({ "topWidth": 1 })),
             page_break_before: false,
             page_break_after: true,
+            orphans: Some(3),
+            widows: Some(4),
             children: vec![RuntimeChild::Line("line")],
         };
 
@@ -70,6 +74,7 @@ mod tests {
         assert_eq!(block.anchor_id.as_deref(), Some("anchor"));
         assert_eq!(block.children.len(), 1);
         assert!(block.page_break_after);
+        assert_eq!((block.orphans, block.widows), (Some(3), Some(4)));
     }
 
     #[test]
