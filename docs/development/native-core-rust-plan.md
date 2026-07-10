@@ -421,10 +421,12 @@ These are the real gaps against this plan:
    - Keep JSON frame output and packed frame output sourced from the same
      commands.
    - The reader cache currently removes repeated serialization and cross-worker
-     delivery of full chapter-text entries, but Rust still constructs and
-     clones revision-owned indices before the private projection sees a cache
-     hit. Move stable full-document data toward document-owned shared storage
-     or an internal handle without weakening revision-scoped API semantics.
+     delivery of full chapter-text entries. Full revision records now use a
+     document-owned lazy scope, so a reader cache hit also skips Rust index
+     construction and cloning while explicit revision reads materialize on
+     demand. Preview/window revisions keep their own scoped snapshots. The
+     first inline full response still materializes and copies the map; optimize
+     that only if a measured case justifies more ownership complexity.
    - Keep `RITORB1` opt-in. The local decode/ABBA evidence is an explicit no-go
      for a default switch: bytes are smaller, but eager encode/decode costs are
      materially higher. Optimize materialization, repeat the same matrix, and

@@ -148,9 +148,10 @@ Those names now belong to the old TS reference tree only.
      resource payload metadata already present in `WasmViewRevisionResponse`.
    - Repeated full revisions now omit cached chapter-text entries on both wire
      choices, reducing repeated metadata transport without changing the public
-     facade or generic V1 payload. Rust still prepares revision-owned entries
-     before the reader-private projection can omit them; removing that
-     construction is the next ownership/materialization target.
+     facade or generic V1 payload. Full revision records now retain a lazy
+     full-document scope, so reader cache hits also skip Rust index construction
+     and cloning; explicit revision reads materialize the shared index on
+     demand. Preview/window revisions retain scoped snapshots.
    - The binary reader path is still opt-in only. The A/B harness and always-on
      browser smoke now exist, and the A/B report separates raw-wire,
      Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
@@ -227,9 +228,8 @@ Pick one of these, in order:
      an explicit no-go for switching the default;
    - reduce eager value-table materialization and encode/decode elapsed cost
      without changing V1 bytes or the public object-shaped facade;
-   - stop rebuilding or deeply cloning full chapter-text indices before a
-     reader cache-hit projection; prefer document-owned shared data or an
-     internal handle while preserving revision-scoped public semantics;
+   - keep the new document-owned lazy chapter-text scope intact; only optimize
+     the remaining first-inline materialization/copy after a measured case;
    - repeat the same decode/ABBA matrix after optimization and add another
      machine class before reconsidering the default;
    - use the existing private reader switch and instrumented

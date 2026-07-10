@@ -152,8 +152,9 @@ metrics are a no-regression probe rather than a claim that turns themselves use
 
 The local result is an explicit no-go for making the binary path default:
 payloads are smaller, but eager encode/decode costs are materially higher. Do
-not move another payload yet. Optimize value-table materialization and avoid
-constructing stable full chapter-text entries before a reader cache-hit
-projection without changing V1 bytes, repeat the same report, and add another
-machine class before changing the default. `RITOFCB2` command bytes, transfer
-bytes, and JSON fixture/debug output remain available throughout that work.
+not move another payload yet. Reader full-reference hits now skip stable
+chapter-text construction through a lazy full-document scope; continue with
+value-table and first-inline materialization work only without changing V1
+bytes, repeat the same report, and add another machine class before changing
+the default. `RITOFCB2` command bytes, transfer bytes, and JSON fixture/debug
+output remain available throughout that work.

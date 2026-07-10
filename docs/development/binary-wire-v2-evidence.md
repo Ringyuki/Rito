@@ -131,9 +131,30 @@ The cache is scoped to one reader publication and shared only by that reader's
 foreground/full worker clients. Publication identity is committed only after a
 successful open, cached entries are hydrated from an immutable snapshot, and
 invalid references or failed hydration release the newly created revision.
-The remaining Rust path still prepares revision-owned interaction data before
-the private projection can omit it; avoiding that redundant construction is a
-separate follow-up.
+
+`f3298ae02477ab4787817b646c1570e380e5afac` then moved full-document indices
+behind a document-owned lazy scope. Reader full-reference creation now omits
+the metadata before bundle materialization; explicit revision reads still
+initialize the shared full-document index on demand. Preview/window revisions
+keep their revision-scoped materialized snapshots.
+
+An 8+8 native release ABBA using `book-01`, fresh documents, the same JSON full
+reference request, and a counting system allocator compared `032055a` with
+`f3298ae`:
+
+| Allocation metric                 |     `032055a` |     `f3298ae` |            Difference |
+| --------------------------------- | ------------: | ------------: | --------------------: |
+| Allocation count                  |    67,276,419 |    67,257,348 |               -19,071 |
+| Cumulative allocated bytes        | 3,623,813,545 | 3,620,162,650 | -3,650,895 (3.48 MiB) |
+| Live bytes added at method return |    33,306,133 |    31,887,059 | -1,419,074 (1.35 MiB) |
+| Peak bytes added during method    |   266,843,654 |   266,843,654 |                     0 |
+
+The allocation values were identical on every sample, confirming that the
+full index is no longer materialized on a reference hit. Real WASM output also
+remained identical at 35,456 bytes and 271 pages. Full-layout peak memory was
+unchanged, and method timing was noisy enough to show no end-to-end speedup;
+layout still dominates this operation. These measurements support a smaller
+allocation footprint, not a claim that full reflow is faster.
 
 These changes remove repeated transport work but do not reverse the no-go:
 the first full payload remains inline, the binary reference still costs more
@@ -147,10 +168,10 @@ eager encoder/decoder does not earn a default switch:
 1. JSON remains the production reader default.
 2. `RITORB1` remains private and opt-in for agreement and performance work.
 3. Do not move search, locator, geometry, or other payloads yet.
-4. Continue reducing eager value-table materialization and avoid constructing
-   document-stable metadata when the reader-private transport will emit a
-   cache reference, without changing V1 bytes or the public object-shaped
-   facade.
+4. Continue reducing eager value-table materialization and first-inline
+   encode/decode cost without changing V1 bytes or the public object-shaped
+   facade. Do not optimize the remaining first-inline index copy without a
+   measured allocation or latency case.
 5. Re-run this matrix after that optimization, then add at least one second
    machine class before reconsidering the default.
 
