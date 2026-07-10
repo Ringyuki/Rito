@@ -311,11 +311,16 @@ fn non_empty_style_array_raw(style: &Map<String, Value>, key: &str) -> Option<Va
 }
 
 pub(crate) fn apply_text_transform(text: &str, style: &Map<String, Value>) -> String {
-    match string_style(style, "textTransform").as_deref() {
+    let transformed = match string_style(style, "textTransform").as_deref() {
         Some("uppercase") => text.to_uppercase(),
         Some("lowercase") => text.to_lowercase(),
         Some("capitalize") => capitalize_ascii_words(text),
-        _ => text.to_owned(),
+        _ => return text.to_owned(),
+    };
+    if transformed.encode_utf16().count() == text.encode_utf16().count() {
+        transformed
+    } else {
+        text.to_owned()
     }
 }
 

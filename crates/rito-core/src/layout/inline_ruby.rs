@@ -1,5 +1,5 @@
 use super::{
-    inline_content::flatten_inline_content,
+    inline_content::{collect_segments, WhitespaceCollapseState},
     inline_segment::{InlineSegment, SegmentContext},
 };
 use crate::style::{StyledNode, StyledNodeKind};
@@ -8,6 +8,7 @@ pub(crate) fn collect_ruby_segments(
     node: &StyledNode,
     out: &mut Vec<InlineSegment>,
     context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
 ) {
     let mut pending_base_nodes = Vec::new();
 
@@ -15,11 +16,12 @@ pub(crate) fn collect_ruby_segments(
         if child.node_type == StyledNodeKind::Text {
             pending_base_nodes.push(child.clone());
         } else if child.node_type == StyledNodeKind::Inline {
-            pending_base_nodes = handle_ruby_inline_child(child, pending_base_nodes, out, context);
+            pending_base_nodes =
+                handle_ruby_inline_child(child, pending_base_nodes, out, context, whitespace);
         }
     }
 
-    flush_ruby_base(&pending_base_nodes, "", out, context);
+    flush_ruby_base(&pending_base_nodes, "", out, context, whitespace);
 }
 
 fn handle_ruby_inline_child(
@@ -27,15 +29,22 @@ fn handle_ruby_inline_child(
     pending_base_nodes: Vec<StyledNode>,
     out: &mut Vec<InlineSegment>,
     context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
 ) -> Vec<StyledNode> {
     match child.tag.as_deref() {
         Some("rt") => {
-            flush_ruby_base(&pending_base_nodes, &extract_text(child), out, context);
+            flush_ruby_base(
+                &pending_base_nodes,
+                &extract_text(child),
+                out,
+                context,
+                whitespace,
+            );
             Vec::new()
         }
         Some("rp") => pending_base_nodes,
         Some("rb") => {
-            flush_ruby_base(&pending_base_nodes, "", out, context);
+            flush_ruby_base(&pending_base_nodes, "", out, context, whitespace);
             child.children.clone()
         }
         _ => {
@@ -51,6 +60,7 @@ fn flush_ruby_base(
     annotation: &str,
     out: &mut Vec<InlineSegment>,
     context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
 ) {
     if pending_base_nodes.is_empty() {
         return;
@@ -61,7 +71,13 @@ fn flush_ruby_base(
         vertical_align: context.vertical_align.clone(),
         ..SegmentContext::default()
     };
-    let mut base_segments = flatten_inline_content(pending_base_nodes, ruby_context);
+    let mut base_segments = Vec::new();
+    collect_segments(
+        pending_base_nodes,
+        &mut base_segments,
+        &ruby_context,
+        whitespace,
+    );
     if !annotation.is_empty() {
         for segment in &mut base_segments {
             if let InlineSegment::Text(text) = segment {

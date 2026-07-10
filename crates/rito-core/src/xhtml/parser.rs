@@ -219,9 +219,17 @@ fn convert_text_node(
 ) -> Option<DocumentNode> {
     if !preserve_whitespace {
         if is_whitespace_only(raw) {
-            return (!raw.is_empty()).then(|| text_node(" ".to_owned(), node_path));
+            return (!raw.is_empty()).then(|| {
+                text_node_with_source(
+                    " ".to_owned(),
+                    (raw != " ").then(|| raw.to_owned()),
+                    node_path,
+                )
+            });
         }
-        return Some(text_node(collapse_whitespace(raw), node_path));
+        let content = collapse_whitespace(raw);
+        let source_text = (content != raw).then(|| raw.to_owned());
+        return Some(text_node_with_source(content, source_text, node_path));
     }
 
     (!raw.is_empty()).then(|| text_node(raw.to_owned(), node_path))
@@ -500,8 +508,17 @@ fn extract_embedded_stylesheets(document: &Document<'_>) -> Vec<String> {
 }
 
 fn text_node(content: String, node_path: Vec<usize>) -> DocumentNode {
+    text_node_with_source(content, None, node_path)
+}
+
+fn text_node_with_source(
+    content: String,
+    source_text: Option<String>,
+    node_path: Vec<usize>,
+) -> DocumentNode {
     DocumentNode::Text(TextNode {
         content,
+        source_text,
         source_ref: SourceRef { node_path },
     })
 }
@@ -905,5 +922,29 @@ mod tests {
         );
         assert_eq!(all_attributes.get("xml:lang"), Some(&"ja".to_owned()));
         assert_eq!(attributes.language, Some("ja".to_owned()));
+    }
+
+    #[test]
+    fn retains_original_text_when_default_whitespace_normalization_changes_it() {
+        let parsed = parse_xhtml("<html><body><p>a   \n  b</p><pre>c   \n  d</pre></body></html>")
+            .expect("xhtml");
+
+        let super::DocumentNode::Block(paragraph) = &parsed.nodes[0] else {
+            panic!("expected paragraph");
+        };
+        let super::DocumentNode::Text(text) = &paragraph.children[0] else {
+            panic!("expected paragraph text");
+        };
+        assert_eq!(text.content, "a b");
+        assert_eq!(text.source_text.as_deref(), Some("a   \n  b"));
+
+        let super::DocumentNode::Block(pre) = &parsed.nodes[1] else {
+            panic!("expected pre");
+        };
+        let super::DocumentNode::Text(text) = &pre.children[0] else {
+            panic!("expected pre text");
+        };
+        assert_eq!(text.content, "c   \n  d");
+        assert_eq!(text.source_text, None);
     }
 }

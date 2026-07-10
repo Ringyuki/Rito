@@ -99,6 +99,7 @@ pub struct ElementNode {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TextNode {
     pub content: String,
+    pub source_text: Option<String>,
     pub source_ref: SourceRef,
 }
 

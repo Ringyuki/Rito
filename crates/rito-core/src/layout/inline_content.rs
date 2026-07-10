@@ -8,50 +8,77 @@ use super::{
     summary_json::number_value,
 };
 use crate::style::{StyledNode, StyledNodeKind};
+pub(super) use whitespace::WhitespaceCollapseState;
+use whitespace::{normalize_text_for_white_space, reset_whitespace_after_atom};
 
 pub(crate) use super::inline_summary::normalize_inline_segment;
+
+#[cfg(test)]
+mod tests;
+mod whitespace;
 
 pub(crate) fn flatten_inline_content(
     nodes: &[StyledNode],
     context: SegmentContext<'_>,
 ) -> Vec<InlineSegment> {
     let mut segments = Vec::new();
-    collect_segments(nodes, &mut segments, &context);
+    let mut whitespace = WhitespaceCollapseState::default();
+    collect_segments(nodes, &mut segments, &context, &mut whitespace);
     segments
 }
 
-fn collect_segments(nodes: &[StyledNode], out: &mut Vec<InlineSegment>, context: &SegmentContext) {
+pub(super) fn collect_segments(
+    nodes: &[StyledNode],
+    out: &mut Vec<InlineSegment>,
+    context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
+) {
     for node in nodes {
-        collect_segment_node(node, out, context);
+        collect_segment_node(node, out, context, whitespace);
     }
 }
 
-fn collect_segment_node(node: &StyledNode, out: &mut Vec<InlineSegment>, context: &SegmentContext) {
+fn collect_segment_node(
+    node: &StyledNode,
+    out: &mut Vec<InlineSegment>,
+    context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
+) {
     match node.node_type {
-        StyledNodeKind::Text => collect_text_segment(node, out, context),
-        StyledNodeKind::Inline => collect_inline_segments(node, out, context),
-        StyledNodeKind::Image => collect_image_segment(node, out, context),
-        StyledNodeKind::Block => collect_inline_block_segment(node, out),
+        StyledNodeKind::Text => collect_text_segment(node, out, context, whitespace),
+        StyledNodeKind::Inline => collect_inline_segments(node, out, context, whitespace),
+        StyledNodeKind::Image => collect_image_segment(node, out, context, whitespace),
+        StyledNodeKind::Block => collect_inline_block_segment(node, out, whitespace),
     }
 }
 
-fn collect_text_segment(node: &StyledNode, out: &mut Vec<InlineSegment>, context: &SegmentContext) {
+fn collect_text_segment(
+    node: &StyledNode,
+    out: &mut Vec<InlineSegment>,
+    context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
+) {
     let raw = node.content.as_deref().unwrap_or_default();
     if raw.is_empty() {
         return;
     }
 
     let style = patch_inherited_style(&node.style, context);
+    let normalized = normalize_text_for_white_space(node, &style, whitespace);
+    if normalized.text.is_empty() {
+        return;
+    }
     out.push(InlineSegment::Text(TextSegment {
-        text: apply_text_transform(raw, &style),
+        text: apply_text_transform(&normalized.text, &style),
         style,
         href: context.href.clone(),
         source_path: node
             .source_ref
             .as_ref()
             .map(|source| source.node_path.clone()),
-        source_text: node.source_ref.as_ref().map(|_| raw.to_owned()),
-        source_text_offset: None,
+        source_text: node.source_ref.as_ref().map(|_| normalized.source_text),
+        source_text_offset: (normalized.source_text_offset > 0)
+            .then_some(normalized.source_text_offset),
         ruby_annotation: None,
         inline_margin_left: None,
         inline_margin_right: None,
@@ -64,15 +91,16 @@ fn collect_inline_segments(
     node: &StyledNode,
     out: &mut Vec<InlineSegment>,
     context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
 ) {
     if node.tag.as_deref() == Some("ruby") {
-        collect_ruby_segments(node, out, context);
+        collect_ruby_segments(node, out, context, whitespace);
         return;
     }
 
     let child = build_inline_child_context(node, context);
     let before_len = out.len();
-    collect_segments(&node.children, out, &child.context);
+    collect_segments(&node.children, out, &child.context, whitespace);
     mark_inline_fragments(out, before_len, node, child.has_own_borders);
 }
 
@@ -80,6 +108,7 @@ fn collect_image_segment(
     node: &StyledNode,
     out: &mut Vec<InlineSegment>,
     context: &SegmentContext,
+    whitespace: &mut WhitespaceCollapseState,
 ) {
     let mut atom = create_image_atom(node, context.image_sizes);
     atom.href = context.href.clone();
@@ -94,11 +123,17 @@ fn collect_image_segment(
         }
     }
     out.push(InlineSegment::Atom(atom));
+    reset_whitespace_after_atom(whitespace);
 }
 
-fn collect_inline_block_segment(node: &StyledNode, out: &mut Vec<InlineSegment>) {
+fn collect_inline_block_segment(
+    node: &StyledNode,
+    out: &mut Vec<InlineSegment>,
+    whitespace: &mut WhitespaceCollapseState,
+) {
     if string_style(&node.style, "display").as_deref() == Some("inline-block") {
         out.push(InlineSegment::Atom(create_inline_block_atom(node)));
+        reset_whitespace_after_atom(whitespace);
     }
 }
 

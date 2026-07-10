@@ -22,6 +22,8 @@ pub struct StyledNode {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub source_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub src: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alt: Option<String>,
@@ -40,11 +42,17 @@ pub struct StyledNode {
 }
 
 impl StyledNode {
-    pub(crate) fn text(content: String, style: Map<String, Value>, source_ref: SourceRef) -> Self {
+    pub(crate) fn text(
+        content: String,
+        source_text: Option<String>,
+        style: Map<String, Value>,
+        source_ref: SourceRef,
+    ) -> Self {
         Self {
             node_type: StyledNodeKind::Text,
             tag: None,
             content: Some(content),
+            source_text,
             src: None,
             alt: None,
             id: None,

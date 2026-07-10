@@ -92,10 +92,12 @@ mod tests {
             &[
                 DocumentNode::Text(TextNode {
                     content: "A".to_owned(),
+                    source_text: None,
                     source_ref: SourceRef { node_path: vec![0] },
                 }),
                 DocumentNode::Text(TextNode {
                     content: "😀B".to_owned(),
+                    source_text: None,
                     source_ref: SourceRef { node_path: vec![1] },
                 }),
             ],

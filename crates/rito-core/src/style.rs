@@ -879,6 +879,7 @@ fn resolve_node(
     match node {
         DocumentNode::Text(text) => Some(StyledNode::text(
             text.content.clone(),
+            text.source_text.clone(),
             parent_style.clone(),
             text.source_ref.clone(),
         )),
@@ -919,6 +920,7 @@ fn resolve_node(
                 node_type: StyledNodeKind::Image,
                 tag: None,
                 content: None,
+                source_text: None,
                 src: Some(image.src.clone()),
                 alt: Some(image.alt.clone()),
                 id: image
@@ -1005,6 +1007,7 @@ fn resolve_element_node(
         node_type: host_kind,
         tag: Some(element.tag.clone()),
         content: None,
+        source_text: None,
         src: None,
         alt: None,
         id: element
