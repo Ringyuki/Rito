@@ -19,36 +19,22 @@ pub(super) fn parse_container(container_xml: &str) -> EpubResult<String> {
 pub(super) fn parse_package_document(opf_xml: &str) -> EpubResult<PackageDocument> {
     let document = parse_xml(opf_xml, "OPF package document")?;
     Ok(PackageDocument {
-        metadata: parse_metadata(&document)?,
+        metadata: parse_metadata(&document),
         manifest: parse_manifest(&document)?,
         spine: parse_spine(&document)?,
         toc: Vec::new(),
     })
 }
 
-fn parse_metadata(document: &Document<'_>) -> EpubResult<PackageMetadata> {
-    let title = required_metadata_text(
-        document,
-        "title",
-        "Missing required <dc:title> in package metadata",
-    )?;
-    let language = required_metadata_text(
-        document,
-        "language",
-        "Missing required <dc:language> in package metadata",
-    )?;
-    let identifier = required_metadata_text(
-        document,
-        "identifier",
-        "Missing required <dc:identifier> in package metadata",
-    )?;
-
-    Ok(PackageMetadata {
-        title,
-        language,
-        identifier,
+// Keep the package structure strict, but match the reference reader's
+// real-world tolerance for missing Dublin Core scalar values.
+fn parse_metadata(document: &Document<'_>) -> PackageMetadata {
+    PackageMetadata {
+        title: metadata_text(document, "title").unwrap_or_default(),
+        language: metadata_text(document, "language").unwrap_or_default(),
+        identifier: metadata_text(document, "identifier").unwrap_or_default(),
         creator: metadata_text(document, "creator"),
-    })
+    }
 }
 
 fn parse_manifest(document: &Document<'_>) -> EpubResult<Vec<ManifestItem>> {
@@ -100,14 +86,6 @@ fn parse_spine_item(node: Node<'_, '_>) -> Option<SpineItem> {
         idref,
         linear: node.attribute("linear") != Some("no"),
     })
-}
-
-fn required_metadata_text(
-    document: &Document<'_>,
-    local_name: &str,
-    message: &'static str,
-) -> EpubResult<String> {
-    metadata_text(document, local_name).ok_or_else(|| EpubError::new(message))
 }
 
 fn metadata_text(document: &Document<'_>, local_name: &str) -> Option<String> {
@@ -188,5 +166,54 @@ mod tests {
         assert_eq!(package.manifest[1].properties, ["nav", "scripted"]);
         assert_eq!(package.spine.len(), 2);
         assert!(!package.spine[1].linear);
+    }
+
+    #[test]
+    fn tolerates_missing_package_metadata_values() {
+        for (metadata, expected) in [
+            ("<dc:title>Title only</dc:title>", ("Title only", "", "")),
+            ("<dc:language>zh</dc:language>", ("", "zh", "")),
+            (
+                "<dc:identifier>book-id</dc:identifier>",
+                ("", "", "book-id"),
+            ),
+            ("<dc:title>   </dc:title>", ("", "", "")),
+        ] {
+            let package = parse_package_document(&package_xml(Some(metadata)))
+                .expect("incomplete metadata remains readable");
+            assert_eq!(package.metadata.title, expected.0);
+            assert_eq!(package.metadata.language, expected.1);
+            assert_eq!(package.metadata.identifier, expected.2);
+        }
+
+        let package = parse_package_document(&package_xml(None))
+            .expect("missing metadata element remains readable");
+        assert_eq!(package.metadata.title, "");
+        assert_eq!(package.metadata.language, "");
+        assert_eq!(package.metadata.identifier, "");
+    }
+
+    #[test]
+    fn still_requires_manifest_and_spine_structure() {
+        let missing_manifest = parse_package_document(r#"<package><metadata/><spine/></package>"#)
+            .expect_err("manifest remains required");
+        assert!(missing_manifest.message().contains("Missing <manifest>"));
+
+        let missing_spine = parse_package_document(r#"<package><metadata/><manifest/></package>"#)
+            .expect_err("spine remains required");
+        assert!(missing_spine.message().contains("Missing <spine>"));
+    }
+
+    fn package_xml(metadata: Option<&str>) -> String {
+        let metadata = metadata
+            .map(|content| format!("<metadata>{content}</metadata>"))
+            .unwrap_or_default();
+        format!(
+            r#"<package xmlns:dc="http://purl.org/dc/elements/1.1/">
+              {metadata}
+              <manifest/>
+              <spine/>
+            </package>"#
+        )
     }
 }
