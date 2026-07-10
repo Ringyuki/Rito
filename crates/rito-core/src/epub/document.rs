@@ -221,6 +221,9 @@ impl LoadedEpubDocument {
         start: usize,
         count: usize,
     ) -> EpubResult<Vec<String>> {
+        if start >= self.chapters.len() {
+            return Ok(Vec::new());
+        }
         let end = start.saturating_add(count).min(self.chapters.len());
         let mut refs = BTreeSet::new();
         for chapter in &mut self.chapters[start..end] {

@@ -75,6 +75,19 @@ fn caches_image_bytes_loaded_for_dimension_detection() {
 }
 
 #[test]
+fn ignores_image_dimension_ranges_beyond_available_chapters() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for range check");
+
+    document
+        .ensure_chapter_image_dimensions_loaded(usize::MAX, 1)
+        .expect("out-of-range image preloading is a no-op");
+
+    assert!(document.images[0].bytes.is_empty());
+    assert!(!document.images[0].dimensions_loaded);
+}
+
+#[test]
 fn opens_percent_encoded_manifest_hrefs_against_literal_zip_names() {
     let bytes = percent_encoded_fixture_epub();
 
