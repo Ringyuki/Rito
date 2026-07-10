@@ -333,8 +333,13 @@ in place:
   12 validated frame-command kinds in
   `src/bindings/browser/frame-command-renderer.ts`. The historical
   `canvasDisplayListRenderer` is no longer present in the production bundle;
-  production helpers own rounded clip paths and image href resolution, while
-  `rendering.ts` injects only three reference paint hooks.
+  production helpers own rounded paths, image href resolution, and block
+  decoration, while `rendering.ts` injects only two reference text paint hooks.
+  Production/reference Canvas-record differentials cover block backgrounds,
+  images, straight/uniform/split borders, shadows, layer ordering, and local
+  state restoration on paint failures. The built reader sourcemap no longer
+  contains the old reference background closure, and the public DTS is
+  unchanged.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
   WebWorker smoke, an opt-in ABBA reader-session harness, and wire-compatible
@@ -361,10 +366,9 @@ This is the production core baseline, though display parity and runtime/wire
 hardening remain active work. The old TypeScript implementation is physically
 quarantined under `src/reference/ts-core`, and the public package artifact no
 longer has a runtime dependency on the private WASM workspace. The remaining
-direct reference edge is exactly three guarded Canvas paint hooks. Frame-command
-execution, rounded clip paths, and image href resolution are production-owned;
-the remaining `renderBlockDecoration` hook still carries its reference
-background-paint closure.
+direct reference edge is exactly two guarded Canvas text paint hooks.
+Frame-command execution, rounded paths, image href resolution, and block
+background/image/border/shadow painting are production-owned.
 
 Current source ownership is:
 
@@ -376,12 +380,12 @@ Current source ownership is:
   single worker boundary call; the browser shell only decodes/caches browser
   frames and image resources.
 - Direct browser-binding imports of old TypeScript parser/layout/render/runtime
-  contracts are now reduced to three Canvas paint-hook imports in
+  contracts are now reduced to two Canvas text-paint imports in
   `src/bindings/browser/rendering.ts`. Other browser-binding files must not
   import the TypeScript reference tree, so the remaining TS paint dependency is
   visible and replaceable. The 12-kind command dispatcher and Canvas state
-  machine, rounded-path helper, and image href resolver live under the
-  production browser binding.
+  machine, rounded-path helper, image href resolver, and block-decoration
+  renderer live under the production browser binding.
 - `src/reader/types.ts` owns the root reader's structural public types. The
   browser binding no longer imports Reader API shapes from the TypeScript
   reference tree; the guarded Canvas paint leaves are the only remaining
@@ -412,12 +416,13 @@ These are the real gaps against this plan:
      comparison, and diagnostics through `src/reference/index.ts`.
    - Keep compatibility source files for diagnostics only; do not publish them
      as package subpaths.
-   - Replace the remaining `renderBlockDecoration`, `drawTextFragment`, and
-     `drawRubyFragment` imports from `src/reference/ts-core/render/**`. Command
-     dispatch, Canvas state, transforms, clipping, rounded paths, image href
-     resolution, page/image/HR painting, and pixel-ratio scaling are already
-     production-owned. Migrating `renderBlockDecoration` must account for its
-     internal background, border, shadow, and image-paint closure.
+   - Replace the remaining `drawTextFragment` and `drawRubyFragment` imports
+     from `src/reference/ts-core/render/**`. Command dispatch, Canvas state,
+     transforms, clipping, rounded paths, image href resolution, block
+     background/image/border/shadow painting, page/image/HR painting, and
+     pixel-ratio scaling are already production-owned. Text and ruby share
+     font, color, inline-decoration, and shadow helpers, so migrate them as one
+     renderer slice instead of temporarily bundling duplicate closures.
 2. **Core parity hardening**
    - Continue tightening the CSS subset already supported by the TS core.
    - Continue line-breaking and typography policy hardening.
@@ -524,8 +529,8 @@ Compatibility rules:
 - `src/compatibility/**` may re-export old TS primitives for source-level
   diagnostics, but it must not become a package export.
 - `src/bindings/**` must not import `src/reference/**` except for the exact
-  guarded `renderBlockDecoration`, `drawTextFragment`, and `drawRubyFragment`
-  imports in `src/bindings/browser/rendering.ts`.
+  guarded `drawTextFragment` and `drawRubyFragment` imports in
+  `src/bindings/browser/rendering.ts`.
   `src/bindings/browser/frame-command-renderer.ts` must remain reference-free.
 - `@ritojs/kit`, `@ritojs/react`, and apps must not import `src/reference/**` or
   removed legacy core subpaths for the main reader API.
@@ -583,10 +588,10 @@ practical.
 
 1. **Quarantine the old TypeScript core - done, still reducing shims**
    - Browser binding guardrails are in place: only
-     `src/bindings/browser/rendering.ts` may import the exact three old TS Canvas
-     paint hooks. This prevents new scattered dependencies while the remaining
-     paint leaves are migrated. Production command execution and its path/image
-     helpers must remain reference-free.
+     `src/bindings/browser/rendering.ts` may import the exact two old TS Canvas
+     text paint hooks. This prevents new scattered dependencies while the
+     remaining paint leaves are migrated. Production command execution and its
+     path/image/block helpers must remain reference-free.
    - The old TS implementation now lives under `src/reference/ts-core/**`:
      parser, style, layout, render, runtime, interaction, dom/web helpers, and
      supporting utilities/models.
@@ -597,9 +602,9 @@ practical.
    - Root old-core directories are no longer kept as generated shims; test and
      diagnostic imports were retargeted to `src/reference/ts-core/**`.
    - Do not let reference imports leak through production package entries. The
-     only current exception is the guarded block/text/ruby paint hooks. The
-     historical display-list dispatcher, direct rounded-path hook, and reference
-     image resolver are no longer direct production imports.
+     only current exception is the guarded text/ruby paint hooks. The historical
+     display-list dispatcher, direct rounded-path hook, reference image resolver,
+     and block-decoration closure are no longer direct production imports.
 2. **Tighten public and compatibility entries**
    - Keep root `@ritojs/core` focused on the Rust-backed reader and the small
      public capability surface.
@@ -617,9 +622,9 @@ practical.
      WASM loading, worker setup, request correlation, Canvas presentation,
      ImageBitmap/object URL/FontFace lifecycle, and conversion to the existing
      `Reader` contract.
-   - Browser binding files may consume the three old TS Canvas paint hooks only
-     through `src/bindings/browser/rendering.ts` until the browser presentation
-     layer no longer depends on TS reference render code.
+   - Browser binding files may consume the two old TS Canvas text paint hooks
+     only through `src/bindings/browser/rendering.ts` until the browser
+     presentation layer no longer depends on TS reference render code.
      They must not consume the historical TS display-list renderer.
    - It should not grow new core policy. Preview/full revision scheduling,
      active frame policy, frame-cache policy, and resource warm decisions should
@@ -704,9 +709,9 @@ practical.
    - EPUB bytes open through Rust.
    - Layout revisions are created from existing `ReaderOptions`.
    - Validated Rust frame-command buffers are executed by the production-owned
-     browser Canvas command executor. Production helpers own rounded paths and
-     image href resolution; reference code supplies only the guarded
-     block/text/ruby paint hooks.
+     browser Canvas command executor. Production helpers own rounded paths,
+     image href resolution, and block decoration; reference code supplies only
+     the guarded text/ruby paint hooks.
    - Image resources use Rust transfer leases and are prewarmed best-effort.
    - Browser font registration uses Rust `@font-face` summaries.
 
@@ -830,8 +835,8 @@ Required cleanup:
      comparison, and diagnostics.
    - Add invariants that prohibit `src/reader/**`, `@ritojs/kit`,
      `@ritojs/react`, apps, and browser binding files other than the guarded
-     `rendering.ts` three-hook adapter from importing `src/reference/**`; keep
-     the production executor, path helper, and image resolver reference-free.
+     `rendering.ts` two-hook adapter from importing `src/reference/**`; keep the
+     production executor, path/image helpers, and block renderer reference-free.
    - Add invariants that force any stable package entry using the old TS core to
      go through `src/compatibility/**`, so compatibility debt is visible and
      removable.
@@ -845,7 +850,7 @@ Required cleanup:
      compatibility code and parity tests, not the production reader contract.
    - Reader API structural types used by the browser binding come from
      `src/reader/types.ts`, not from the old TS reference tree. This keeps the
-     remaining reference import limited to the three temporary Canvas paint
+     remaining reference import limited to the two temporary Canvas text paint
      hooks.
    - Root `@ritojs/core` exports the reader-facing structural types and
      `createLayoutConfig` from `src/reader/**`. Kit may still call legacy
@@ -906,8 +911,8 @@ Required cleanup:
    - The old TypeScript reader and old TypeScript core should be reachable
      through `src/reference/index.ts` for parity and diagnostic use. Production
      reader binding files and app-facing packages must not import it, except for
-     the guarded browser Canvas block/text/ruby paint imports while those hooks
-     still delegate part of painting to TS reference render code.
+     the guarded browser Canvas text/ruby paint imports while those hooks still
+     delegate part of painting to TS reference render code.
 4. **Runtime state machine**
    - Keep preview reflow, full revision commit, frame cache, and resource warm
      as explicit pipeline stages.
