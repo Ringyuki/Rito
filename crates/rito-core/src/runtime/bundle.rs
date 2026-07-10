@@ -10,8 +10,8 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimePreviewRevisionBundleRequest,
     RuntimeRevisionBundle, RuntimeRevisionRequest, RuntimeTocTargets, RuntimeViewRevisionDisplay,
-    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind, RuntimeViewRevisionMode,
-    RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
+    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind, RuntimeViewRevisionMetadata,
+    RuntimeViewRevisionMode, RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
     DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT,
 };
 
@@ -38,6 +38,17 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeFullRevisionBundleRequest,
     ) -> EpubResult<RuntimeCreatedRevisionBundle> {
+        self.create_full_revision_bundle_with_metadata(
+            request,
+            RuntimeViewRevisionMetadata::Complete,
+        )
+    }
+
+    fn create_full_revision_bundle_with_metadata(
+        &mut self,
+        request: RuntimeFullRevisionBundleRequest,
+        metadata: RuntimeViewRevisionMetadata,
+    ) -> EpubResult<RuntimeCreatedRevisionBundle> {
         let revision = self.create_revision_from_request(&super::RuntimeRevisionRequest {
             layout_config: request.layout_config,
             line_breaking: request.line_breaking,
@@ -45,7 +56,7 @@ impl RuntimeDocument {
             preview_chapter_index: None,
         })?;
         let revision_id = revision.revision_id.clone();
-        let bundle = self.revision_bundle(&revision_id, true)?;
+        let bundle = self.revision_bundle_with_metadata(&revision_id, true, metadata)?;
         let initial_frame = if revision.spread_count == 0 {
             None
         } else {
@@ -142,13 +153,28 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeViewRevisionRequest,
     ) -> EpubResult<RuntimeCreatedViewRevision> {
+        self.create_view_revision_bundle_with_metadata(
+            request,
+            RuntimeViewRevisionMetadata::Complete,
+        )
+    }
+
+    #[doc(hidden)]
+    pub fn create_view_revision_bundle_with_metadata(
+        &mut self,
+        request: RuntimeViewRevisionRequest,
+        metadata: RuntimeViewRevisionMetadata,
+    ) -> EpubResult<RuntimeCreatedViewRevision> {
         match request.mode {
             RuntimeViewRevisionMode::Full => self
-                .create_full_revision_bundle(RuntimeFullRevisionBundleRequest {
-                    layout_config: request.layout_config,
-                    line_breaking: request.line_breaking,
-                    active_spread_index: request.active_spread_index,
-                })
+                .create_full_revision_bundle_with_metadata(
+                    RuntimeFullRevisionBundleRequest {
+                        layout_config: request.layout_config,
+                        line_breaking: request.line_breaking,
+                        active_spread_index: request.active_spread_index,
+                    },
+                    metadata,
+                )
                 .map(|revision| RuntimeCreatedViewRevision {
                     kind: RuntimeViewRevisionKind::Full,
                     display: RuntimeViewRevisionDisplay::Revision,
@@ -182,11 +208,14 @@ impl RuntimeDocument {
                         revision,
                     });
                 }
-                self.create_full_revision_bundle(RuntimeFullRevisionBundleRequest {
-                    layout_config: request.layout_config,
-                    line_breaking: request.line_breaking,
-                    active_spread_index: request.active_spread_index,
-                })
+                self.create_full_revision_bundle_with_metadata(
+                    RuntimeFullRevisionBundleRequest {
+                        layout_config: request.layout_config,
+                        line_breaking: request.line_breaking,
+                        active_spread_index: request.active_spread_index,
+                    },
+                    metadata,
+                )
                 .map(|revision| RuntimeCreatedViewRevision {
                     kind: RuntimeViewRevisionKind::Full,
                     display: RuntimeViewRevisionDisplay::Revision,
@@ -201,6 +230,19 @@ impl RuntimeDocument {
         &self,
         revision_id: &str,
         include_toc_targets: bool,
+    ) -> EpubResult<RuntimeRevisionBundle> {
+        self.revision_bundle_with_metadata(
+            revision_id,
+            include_toc_targets,
+            RuntimeViewRevisionMetadata::Complete,
+        )
+    }
+
+    fn revision_bundle_with_metadata(
+        &self,
+        revision_id: &str,
+        include_toc_targets: bool,
+        metadata: RuntimeViewRevisionMetadata,
     ) -> EpubResult<RuntimeRevisionBundle> {
         let (revision, navigation, toc_targets) =
             self.revision_bundle_navigation(revision_id, include_toc_targets)?;
@@ -218,7 +260,12 @@ impl RuntimeDocument {
             },
             chapter_text_indices: RuntimeChapterTextIndices {
                 revision_id: revision_id.to_owned(),
-                entries: revision_record.interactions.chapter_text_indices.clone(),
+                entries: match metadata {
+                    RuntimeViewRevisionMetadata::Complete => {
+                        self.chapter_text_indices_for_revision(revision_id)?.clone()
+                    }
+                    RuntimeViewRevisionMetadata::OmitFullChapterTextIndices => Default::default(),
+                },
             },
             font_families: summarize_layout_font_families(&revision_record.layout.pages),
         })

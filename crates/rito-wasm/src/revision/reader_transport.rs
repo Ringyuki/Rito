@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use rito_core::runtime::{
     encode_runtime_bundle, RuntimeChapterTextIndex, RuntimeFootnotes, RuntimeRevisionNavigation,
     RuntimeRevisionSummary, RuntimeTocTargets, RuntimeViewRevisionDisplay,
-    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind,
+    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind, RuntimeViewRevisionMetadata,
 };
 use serde::Serialize;
 
@@ -72,7 +72,10 @@ impl WasmRuntimeDocument {
         omit_full_indices: bool,
     ) -> Result<String, WasmRuntimeError> {
         let measure = self.view_revision_wire_measurement.consume_arm();
-        let response = self.create_view_revision_bundle_response(request_json)?;
+        let response = self.create_view_revision_bundle_response_with_metadata(
+            request_json,
+            reader_view_revision_metadata(omit_full_indices),
+        )?;
         let projection = reader_view_revision_projection(&response, omit_full_indices);
         if !measure {
             return serialize_json(&projection);
@@ -97,7 +100,10 @@ impl WasmRuntimeDocument {
         omit_full_indices: bool,
     ) -> Result<Vec<u8>, WasmRuntimeError> {
         let measure = self.view_revision_wire_measurement.consume_arm();
-        let response = self.create_view_revision_bundle_response(request_json)?;
+        let response = self.create_view_revision_bundle_response_with_metadata(
+            request_json,
+            reader_view_revision_metadata(omit_full_indices),
+        )?;
         let projection = reader_view_revision_projection(&response, omit_full_indices);
         if !measure {
             return encode_runtime_bundle(&projection).map_err(WasmRuntimeError::from_engine);
@@ -115,6 +121,14 @@ impl WasmRuntimeDocument {
             );
         }
         result
+    }
+}
+
+fn reader_view_revision_metadata(omit_full_indices: bool) -> RuntimeViewRevisionMetadata {
+    if omit_full_indices {
+        RuntimeViewRevisionMetadata::OmitFullChapterTextIndices
+    } else {
+        RuntimeViewRevisionMetadata::Complete
     }
 }
 

@@ -9,6 +9,7 @@ use crate::{
 };
 use rito_core::runtime::{
     encode_runtime_bundle, RuntimeInitialFrameDecision, RuntimeRevisionBundle,
+    RuntimeViewRevisionMetadata,
 };
 use serde::Serialize;
 
@@ -209,11 +210,22 @@ impl WasmRuntimeDocument {
         &mut self,
         request_json: &str,
     ) -> Result<WasmViewRevisionResponse, WasmRuntimeError> {
+        self.create_view_revision_bundle_response_with_metadata(
+            request_json,
+            RuntimeViewRevisionMetadata::Complete,
+        )
+    }
+
+    fn create_view_revision_bundle_response_with_metadata(
+        &mut self,
+        request_json: &str,
+        metadata: RuntimeViewRevisionMetadata,
+    ) -> Result<WasmViewRevisionResponse, WasmRuntimeError> {
         let request = parse_view_revision_request(request_json)?;
         let previous_revision_id = request.previous_revision_id.clone();
         let view = self
             .document
-            .create_view_revision_bundle(request)
+            .create_view_revision_bundle_with_metadata(request, metadata)
             .map_err(WasmRuntimeError::from_engine)?;
         let revision_id = view.revision.bundle.revision.revision_id.clone();
         let released_previous_revision_transfer_count =

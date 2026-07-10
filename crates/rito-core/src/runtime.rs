@@ -2,7 +2,7 @@ pub const NAME: &str = "runtime";
 pub const OWNS: &str =
     "Engine-owned document handles, layout revisions, frame caches, and resource lifetimes";
 
-use std::collections::BTreeMap;
+use std::{cell::OnceCell, collections::BTreeMap};
 
 mod bundle;
 mod bundle_wire;
@@ -30,7 +30,8 @@ pub use bundle_wire::{
     RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_MAGIC_TEXT,
     RUNTIME_BUNDLE_VERSION,
 };
-use frame::RuntimeRevision;
+use chapter_text::runtime_chapter_text_index_entries;
+use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
 use page::{page_targets, page_text_positions, text_range_geometry};
@@ -47,6 +48,7 @@ pub struct RuntimeDocument {
     document: LoadedEpubDocument,
     prepared: Option<crate::epub::PreparedLoadedDocument>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
+    full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     text_measurement_cache: TextMeasurementCache,
     next_revision_index: usize,
@@ -69,6 +71,7 @@ impl RuntimeDocument {
             document,
             prepared: None,
             prepared_base: None,
+            full_chapter_text_indices: OnceCell::new(),
             parsed_chapters: BTreeMap::new(),
             text_measurement_cache: TextMeasurementCache::default(),
             next_revision_index: 1,
@@ -246,14 +249,32 @@ impl RuntimeDocument {
         &mut self,
         revision_id: &str,
     ) -> EpubResult<RuntimeChapterTextIndices> {
+        Ok(RuntimeChapterTextIndices {
+            revision_id: revision_id.to_owned(),
+            entries: self.chapter_text_indices_for_revision(revision_id)?.clone(),
+        })
+    }
+
+    pub(super) fn chapter_text_indices_for_revision(
+        &self,
+        revision_id: &str,
+    ) -> EpubResult<&BTreeMap<String, RuntimeChapterTextIndex>> {
         let revision = self
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(RuntimeChapterTextIndices {
-            revision_id: revision_id.to_owned(),
-            entries: revision.interactions.chapter_text_indices.clone(),
-        })
+        match &revision.interactions.chapter_text_indices {
+            RuntimeChapterTextIndexSource::Materialized(entries) => Ok(entries),
+            RuntimeChapterTextIndexSource::FullDocument => {
+                let prepared = self
+                    .prepared
+                    .as_ref()
+                    .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
+                Ok(self
+                    .full_chapter_text_indices
+                    .get_or_init(|| runtime_chapter_text_index_entries(prepared)))
+            }
+        }
     }
 
     fn assert_revision_exists(&self, revision_id: &str) -> EpubResult<()> {

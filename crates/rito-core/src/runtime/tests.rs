@@ -14,8 +14,8 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePrefetchRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeSearchRequest,
-    RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionMode,
-    RuntimeViewRevisionRequest,
+    RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
+    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::{LineBreaking, SpreadMode};
@@ -555,6 +555,101 @@ fn view_revision_response_declares_display_policy() {
 }
 
 #[test]
+fn omitted_full_view_metadata_materializes_chapter_text_indices_on_demand() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let request = RuntimeViewRevisionRequest {
+        layout_config: layout(),
+        line_breaking: LineBreaking::Greedy,
+        active_spread_index: 0,
+        previous_revision_id: None,
+        mode: RuntimeViewRevisionMode::Full,
+    };
+    let first = document
+        .create_view_revision_bundle_with_metadata(
+            request.clone(),
+            RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,
+        )
+        .expect("first projected full view resolves");
+    let second = document
+        .create_view_revision_bundle_with_metadata(
+            request,
+            RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,
+        )
+        .expect("second projected full view resolves");
+    let revision_id = first.revision.bundle.revision.revision_id.clone();
+
+    assert_eq!(first.kind, RuntimeViewRevisionKind::Full);
+    assert!(first
+        .revision
+        .bundle
+        .chapter_text_indices
+        .entries
+        .is_empty());
+    assert!(second
+        .revision
+        .bundle
+        .chapter_text_indices
+        .entries
+        .is_empty());
+    assert!(document.full_chapter_text_indices.get().is_none());
+
+    let indices = document
+        .get_chapter_text_indices(&revision_id)
+        .expect("omitted indices remain revision-readable");
+
+    assert_eq!(chapter_text_index_keys(&indices).len(), 3);
+    assert!(document.full_chapter_text_indices.get().is_some());
+}
+
+#[test]
+fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
+    let mut document =
+        RuntimeDocument::open(&many_chapter_fixture_epub(10)).expect("many-chapter document opens");
+    let preview = document
+        .create_view_revision_bundle_with_metadata(
+            RuntimeViewRevisionRequest {
+                layout_config: layout(),
+                line_breaking: LineBreaking::Greedy,
+                active_spread_index: 0,
+                previous_revision_id: None,
+                mode: RuntimeViewRevisionMode::Preview,
+            },
+            RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,
+        )
+        .expect("preview view resolves");
+
+    assert_eq!(preview.kind, RuntimeViewRevisionKind::Preview);
+    assert_eq!(
+        chapter_text_index_keys(&preview.revision.bundle.chapter_text_indices).len(),
+        8
+    );
+    assert!(document.full_chapter_text_indices.get().is_none());
+
+    let fallback = document
+        .create_view_revision_bundle_with_metadata(
+            RuntimeViewRevisionRequest {
+                layout_config: layout(),
+                line_breaking: LineBreaking::Greedy,
+                active_spread_index: usize::MAX,
+                previous_revision_id: Some(preview.revision.bundle.revision.revision_id.clone()),
+                mode: RuntimeViewRevisionMode::Preview,
+            },
+            RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,
+        )
+        .expect("preview fallback resolves");
+
+    assert_eq!(fallback.kind, RuntimeViewRevisionKind::Full);
+    assert!(fallback
+        .revision
+        .bundle
+        .chapter_text_indices
+        .entries
+        .is_empty());
+    assert!(document.full_chapter_text_indices.get().is_none());
+}
+
+#[test]
 fn resolves_initial_frame_decision_in_runtime() {
     let mut document =
         RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
@@ -654,6 +749,18 @@ fn releases_obsolete_revisions() {
     assert!(!document.has_revision(&first.revision_id));
     assert!(document.has_revision(&second.revision_id));
     assert!(!document.release_revision(&first.revision_id));
+    assert_eq!(
+        document
+            .get_chapter_text_indices(&first.revision_id)
+            .expect_err("released revision indices stay unavailable")
+            .message(),
+        format!("unknown revision: {}", first.revision_id)
+    );
+    assert!(!document
+        .get_chapter_text_indices(&second.revision_id)
+        .expect("remaining revision lazily materializes indices")
+        .entries
+        .is_empty());
 }
 
 #[test]

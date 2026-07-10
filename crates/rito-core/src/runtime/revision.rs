@@ -8,8 +8,8 @@ use crate::{
 use super::{
     chapter_text::runtime_chapter_text_index_entries,
     frame::{
-        chapter_window_layout_config, revision_summary, RuntimeRevision,
-        RuntimeRevisionInteractions,
+        chapter_window_layout_config, revision_summary, RuntimeChapterTextIndexSource,
+        RuntimeRevision, RuntimeRevisionInteractions,
     },
     metadata::layout_key,
     RuntimeDocument, RuntimeRevisionRequest, RuntimeRevisionSummary,
@@ -60,6 +60,7 @@ impl RuntimeDocument {
         let revision_id = self.create_revision_id();
         let partial_chapter_limit =
             chapter_limit.filter(|limit| *limit < self.document.chapters.len());
+        let full_document = partial_chapter_limit.is_none();
         if let Some(limit) = partial_chapter_limit {
             self.document.ensure_chapter_range_loaded(0, limit)?;
             self.document
@@ -93,7 +94,7 @@ impl RuntimeDocument {
         self.revisions.insert(
             revision_id,
             RuntimeRevision {
-                interactions: runtime_revision_interactions(prepared),
+                interactions: runtime_revision_interactions(prepared, full_document),
                 layout,
                 layout_config: layout_config.clone(),
                 frame_cache: BTreeMap::new(),
@@ -143,7 +144,7 @@ impl RuntimeDocument {
         self.revisions.insert(
             revision_id,
             RuntimeRevision {
-                interactions: runtime_revision_interactions(&prepared),
+                interactions: runtime_revision_interactions(&prepared, false),
                 layout,
                 layout_config: window_layout_config,
                 frame_cache: BTreeMap::new(),
@@ -213,9 +214,16 @@ impl RuntimeDocument {
 
 fn runtime_revision_interactions(
     prepared: &crate::epub::PreparedLoadedDocument,
+    full_document: bool,
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
         footnotes: prepared.interaction.footnotes.clone(),
-        chapter_text_indices: runtime_chapter_text_index_entries(prepared),
+        chapter_text_indices: if full_document {
+            RuntimeChapterTextIndexSource::FullDocument
+        } else {
+            RuntimeChapterTextIndexSource::Materialized(runtime_chapter_text_index_entries(
+                prepared,
+            ))
+        },
     }
 }

@@ -35,7 +35,13 @@ pub(super) struct RuntimeRevision {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(super) struct RuntimeRevisionInteractions {
     pub(super) footnotes: BTreeMap<String, FootnoteEntry>,
-    pub(super) chapter_text_indices: BTreeMap<String, RuntimeChapterTextIndex>,
+    pub(super) chapter_text_indices: RuntimeChapterTextIndexSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum RuntimeChapterTextIndexSource {
+    FullDocument,
+    Materialized(BTreeMap<String, RuntimeChapterTextIndex>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

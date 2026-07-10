@@ -141,6 +141,13 @@ pub enum RuntimeViewRevisionDisplay {
     VisualPreview,
 }
 
+#[doc(hidden)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RuntimeViewRevisionMetadata {
+    Complete,
+    OmitFullChapterTextIndices,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeCreatedViewRevision {
