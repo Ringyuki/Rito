@@ -4,7 +4,6 @@ export {
   type CanvasRenderOptions,
   type CanvasRenderingTarget,
 } from './display-list-renderer';
-export { createCanvasImageResolver } from './image-resolver';
 export {
   canvasTextMeasurementBackend,
   type CachedTextMeasurer,
@@ -12,7 +11,7 @@ export {
 } from './text/canvas-text-measurer';
 export { createTextMeasurer } from './text/create-text-measurer';
 export { buildFontString } from './text/font-string';
-export { renderBlockDecoration, traceRoundedRect } from './background/background-renderer';
+export { renderBlockDecoration } from './background/background-renderer';
 export {
   drawRubyFragment,
   drawTextFragment,

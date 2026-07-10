@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { preloadReaderFonts } from '../../src/bindings/browser/resources';
 import { renderSpreadToContext } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
-import type { CanvasRenderingTarget } from '../../src/reference/ts-core/render/backends/canvas';
+import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
 import type {
   BrowserReaderFrame,
   BrowserReaderState,
@@ -71,16 +71,19 @@ describe('Browser reader resource-backed rendering', () => {
     expect(invalidated).toEqual([0]);
   });
 
-  it('recognizes a manifest-keyed bitmap referenced through an EPUB-relative path', () => {
+  it('draws a cached manifest bitmap referenced through an encoded EPUB-relative path', () => {
     const warmFrameWindow = vi.fn();
+    const bitmap = fakeImageBitmap();
     const state = createState({
       worker: createWorker(warmFrameWindow),
-      frames: new Map([[0, frameWithImages('../Images/cover.png')]]),
-      images: new Map([['Images/cover.png', fakeImageBitmap()]]),
+      frames: new Map([[0, frameWithImages('../Images/My%20Pic.png')]]),
+      images: new Map([['Images/My Pic.png', bitmap]]),
     });
+    const ctx = fakeCanvasContext();
 
-    expect(renderSpreadToContext(state, 0, fakeCanvasContext())).toBe(true);
+    expect(renderSpreadToContext(state, 0, ctx)).toBe(true);
     expect(warmFrameWindow).not.toHaveBeenCalled();
+    expect(ctx.drawImage).toHaveBeenCalledWith(bitmap, 0, 0, 10, 10);
   });
 
   it('invalidates loaded frame buffers after publication fonts are registered', async () => {
@@ -159,7 +162,11 @@ function frameWithImages(...images: string[]): BrowserReaderFrame {
     spreadIndex: 0,
     width: 320,
     height: 480,
-    commands: [],
+    commands: images.map((src) => ({
+      kind: 'paintImage',
+      src,
+      rect: { x: 0, y: 0, width: 10, height: 10 },
+    })),
     commandHash: 'hash',
     resourceRefs: { images },
     fontFamilies: [],
@@ -245,14 +252,19 @@ function createWorker(
 
 function fakeCanvasContext(): CanvasRenderingTarget & {
   readonly clearRect: ReturnType<typeof vi.fn>;
+  readonly drawImage: ReturnType<typeof vi.fn>;
 } {
   return {
     canvas: { width: 320, height: 480 },
     clearRect: vi.fn(),
+    drawImage: vi.fn(),
     save: vi.fn(),
     scale: vi.fn(),
     restore: vi.fn(),
-  } as unknown as CanvasRenderingTarget & { readonly clearRect: ReturnType<typeof vi.fn> };
+  } as unknown as CanvasRenderingTarget & {
+    readonly clearRect: ReturnType<typeof vi.fn>;
+    readonly drawImage: ReturnType<typeof vi.fn>;
+  };
 }
 
 function fakeImageBitmap(): ImageBitmap {

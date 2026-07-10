@@ -1,4 +1,5 @@
 import type { CoreFrameCommand } from './core-contracts';
+import { traceRoundedRect } from './canvas-path';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type CanvasContext = CanvasRenderingContext2D;
@@ -53,15 +54,6 @@ export interface FrameCommandPaintHooks {
     ctx: CanvasRenderingContext2D,
     fragment: FrameCommandRubyFragment,
     colorOverride?: FrameCommandColorOverride,
-  ) => void;
-  readonly traceRoundedRect: (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radiusX: number,
-    radiusY?: number,
   ) => void;
 }
 
@@ -138,7 +130,7 @@ function renderCommand(ctx: CanvasContext, command: CoreFrameCommand, state: Ren
       ctx.globalAlpha = (Number.isFinite(ctx.globalAlpha) ? ctx.globalAlpha : 1) * command.value;
       return;
     case 'clipRect':
-      applyClipRect(ctx, command, state.hooks);
+      applyClipRect(ctx, command);
       return;
     case 'paintPage':
       paintPage(ctx, command.paint.backgroundColor, command.rect);
@@ -163,14 +155,10 @@ function renderCommand(ctx: CanvasContext, command: CoreFrameCommand, state: Ren
   }
 }
 
-function applyClipRect(
-  ctx: CanvasRenderingContext2D,
-  command: ClipCommand,
-  hooks: FrameCommandPaintHooks,
-): void {
+function applyClipRect(ctx: CanvasRenderingContext2D, command: ClipCommand): void {
   const { rect, radius } = command;
   if (radius && (radius.rx > 0 || radius.ry > 0)) {
-    hooks.traceRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, radius.rx, radius.ry);
+    traceRoundedRect(ctx, rect.x, rect.y, rect.width, rect.height, radius.rx, radius.ry);
   } else {
     ctx.beginPath();
     ctx.rect(rect.x, rect.y, rect.width, rect.height);

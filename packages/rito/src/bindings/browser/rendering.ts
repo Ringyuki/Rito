@@ -1,15 +1,14 @@
 import {
-  createCanvasImageResolver,
   drawRubyFragment,
   drawTextFragment,
   renderBlockDecoration,
-  traceRoundedRect,
 } from '../../reference/ts-core/render/backends/canvas';
 import {
   renderFrameCommandsToCanvas,
   type CanvasRenderingTarget,
   type FrameCommandPaintHooks,
 } from './frame-command-renderer';
+import { createCanvasImageResolver } from './image-href-resolver';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader/layout';
@@ -21,7 +20,6 @@ const FRAME_COMMAND_PAINT_HOOKS: FrameCommandPaintHooks = {
   renderBlockDecoration,
   drawTextFragment,
   drawRubyFragment,
-  traceRoundedRect,
 };
 
 export function renderSpreadToBoundCanvas(

@@ -5,13 +5,12 @@ import {
   type FrameCommandPaintHooks,
   renderFrameCommandsToCanvas,
 } from '../../src/bindings/browser/frame-command-renderer';
+import { createCanvasImageResolver } from '../../src/bindings/browser/image-href-resolver';
 import {
   canvasDisplayListRenderer,
-  createCanvasImageResolver,
   drawRubyFragment,
   drawTextFragment,
   renderBlockDecoration,
-  traceRoundedRect,
 } from '../../src/reference/ts-core/render/backends/canvas';
 import type { DisplayList } from '../../src/reference/ts-core/render/display-list';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
@@ -20,7 +19,6 @@ const REFERENCE_PAINT_HOOKS: FrameCommandPaintHooks = {
   renderBlockDecoration,
   drawTextFragment,
   drawRubyFragment,
-  traceRoundedRect,
 };
 
 describe('browser frame-command Canvas renderer', () => {
@@ -93,6 +91,66 @@ describe('browser frame-command Canvas renderer', () => {
     expect(mock.getCalls('save')).toHaveLength(3);
     expect(mock.getCalls('restore')).toHaveLength(3);
   });
+
+  it.each([
+    { name: 'plain', expectedRect: 1, expectedArc: 0, expectedEllipse: 0 },
+    {
+      name: 'zero radius',
+      radius: { rx: 0, ry: 0 },
+      expectedRect: 1,
+      expectedArc: 0,
+      expectedEllipse: 0,
+    },
+    {
+      name: 'circular radius',
+      radius: { rx: 4, ry: 4 },
+      expectedRect: 0,
+      expectedArc: 4,
+      expectedEllipse: 0,
+    },
+    {
+      name: 'elliptical radius',
+      radius: { rx: 4, ry: 2 },
+      expectedRect: 0,
+      expectedArc: 0,
+      expectedEllipse: 4,
+    },
+    {
+      name: 'oversized radius',
+      radius: { rx: 99, ry: 99 },
+      expectedRect: 0,
+      expectedArc: 0,
+      expectedEllipse: 4,
+      expectedFirstEllipse: [12, 8, 10, 5, 0, -Math.PI / 2, 0],
+    },
+  ])(
+    'matches the reference $name clip path',
+    ({ radius, expectedRect, expectedArc, expectedEllipse, expectedFirstEllipse }) => {
+      const command: RitoCoreWasmFrameCommand = {
+        kind: 'clipRect',
+        rect: { x: 2, y: 3, width: 20, height: 10 },
+        ...(radius ? { radius } : {}),
+      };
+      const reference = createMockCanvasContext();
+      const production = createMockCanvasContext();
+
+      canvasDisplayListRenderer.render(
+        { width: 20, height: 10, commands: [command] } as DisplayList,
+        reference.ctx,
+      );
+      renderFrameCommandsToCanvas([command], production.ctx, { hooks: REFERENCE_PAINT_HOOKS });
+
+      expect(production.records).toEqual(reference.records);
+      expect(production.getCalls('rect')).toHaveLength(expectedRect);
+      expect(production.getCalls('arcTo')).toHaveLength(expectedArc);
+      expect(production.getCalls('ellipse')).toHaveLength(expectedEllipse);
+      expect(production.getCalls('clip')).toHaveLength(1);
+      expect(production.getCalls('closePath')).toHaveLength(expectedRect === 0 ? 1 : 0);
+      if (expectedFirstEllipse) {
+        expect(production.getCalls('ellipse')[0]?.args).toEqual(expectedFirstEllipse);
+      }
+    },
+  );
 });
 
 function representativeCommands(): readonly RitoCoreWasmFrameCommand[] {

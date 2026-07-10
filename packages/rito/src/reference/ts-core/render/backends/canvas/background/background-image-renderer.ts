@@ -1,12 +1,9 @@
 import type { BlockBackgroundPaint, Rect } from '../../../../layout/core/types';
 import type { BackgroundPosition, LengthPct } from '../../../../style/core/paint-types';
-import { buildHrefResolver } from '../../../../utils/resolve-href';
 import { traceRoundedRect } from './background-paths';
 
 type BackgroundSize = NonNullable<BlockBackgroundPaint['size']>;
-export type CanvasImageResolver =
-  | ReadonlyMap<string, ImageBitmap>
-  | ((src: string) => ImageBitmap | undefined);
+export type CanvasImageResolver = (src: string) => ImageBitmap | undefined;
 
 interface BackgroundImageGeometry {
   readonly bitmap: ImageBitmap;
@@ -54,8 +51,7 @@ export function resolveCanvasImage(
   imageResolver: CanvasImageResolver,
   src: string,
 ): ImageBitmap | undefined {
-  if (typeof imageResolver === 'function') return imageResolver(src);
-  return buildHrefResolver(imageResolver)(src);
+  return imageResolver(src);
 }
 
 function resolveImageGeometry(
