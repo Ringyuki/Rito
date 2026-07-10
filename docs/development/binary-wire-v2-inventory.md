@@ -77,7 +77,9 @@ Frame display command bytes stay outside this bundle and continue to use
   decoder and avoids changing observable JavaScript identity for composite
   values. In a 420 x 640 single-page full-revision calibration, `RITORB1` is
   78.6% to 81.2% of JSON across `book-01`, `book-06`, and `book-10`; before
-  primitive reuse those same payloads were 111.4% to 117.9% of JSON.
+  primitive reuse those same payloads were 111.4% to 117.9% of JSON. String and
+  scalar intern indexes use hash lookup; index assignment still follows first
+  encounter order, so the byte-exact V1 wire remains unchanged.
 - The JavaScript decoder preserves the V1 FNV-1a checksum and normal object
   semantics while computing the checksum with exact u32 lanes instead of a
   `BigInt` allocation per byte. Ordinary keys use fast assignment; inherited

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::HashMap;
 
 use serde::Serialize;
 use serde_json::{Map, Number, Value};
@@ -72,13 +72,13 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
 #[derive(Default)]
 struct RuntimeBundleEncoder {
     strings: Vec<String>,
-    string_indexes: BTreeMap<String, u32>,
-    scalar_indexes: BTreeMap<ScalarValueKey, u32>,
+    string_indexes: HashMap<String, u32>,
+    scalar_indexes: HashMap<ScalarValueKey, u32>,
     values: Vec<u8>,
     value_count: u32,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum ScalarValueKey {
     Null,
     Bool(bool),
