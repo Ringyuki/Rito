@@ -167,7 +167,8 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /readonly resourceTable: readonly string\[];/);
   assert.match(declaration, /readonly fontFamilies: readonly string\[];/);
   assert.match(declaration, /readonly imageDominated: boolean;/);
-  assert.match(declaration, /readonly commands: readonly RitoCoreWasmJsonObject\[];/);
+  assert.match(declaration, /export type RitoCoreWasmFrameCommand/);
+  assert.match(declaration, /readonly commands: readonly RitoCoreWasmFrameCommand\[];/);
   assert.match(declaration, /decodeRitoFrameCommandBuffer/);
   assert.match(declaration, /decodeRitoRuntimeBundle/);
   assert.match(declaration, /export interface DecodedRitoRuntimeBundle/);
@@ -451,7 +452,18 @@ test('decodeRitoRuntimeBundle rejects malformed runtime bundles', () => {
 });
 
 test('decodeRitoFrameCommandBuffer decodes geometry, strings, and payloads', () => {
-  const payload = '{"kind":"paintText","text":"Hello"}';
+  const command = {
+    kind: 'paintText',
+    text: 'Hello',
+    rect: { x: 1, y: 2, width: 30, height: 40 },
+    paint: completeRunPaint(),
+    lineHeightPx: 20,
+    href: '#target',
+    sourceText: 'Hello',
+    sourceTextOffset: 0,
+    futureField: { retained: true },
+  };
+  const payload = JSON.stringify(command);
   const bytes = commandBufferBytes([
     {
       opcode: 9,
@@ -503,33 +515,79 @@ test('decodeRitoFrameCommandBuffer decodes geometry, strings, and payloads', () 
     secondaryString: '#target',
     payload,
   });
-  assert.deepEqual(decoded.commands, [{ kind: 'paintText', text: 'Hello' }]);
+  assert.deepEqual(decoded.commands, [command]);
 });
 
 test('decodeRitoFrameCommandBuffer decodes complex paint payload records', () => {
-  const payloads = [
-    '{"kind":"transform","origin":{"x":10,"y":20}}',
-    '{"kind":"clipRect","radius":{"rx":2,"ry":2}}',
-    '{"kind":"paintBlock","paint":{"background":{"color":"#fff"}}}',
-    '{"kind":"paintImage","src":"images/cover.jpg","alt":"cover"}',
-    '{"kind":"paintHorizontalRule","paint":{"style":"dashed"}}',
+  const commands = [
+    {
+      kind: 'transform',
+      origin: { x: 10, y: 20 },
+      box: { width: 100, height: 80 },
+      transforms: [
+        {
+          kind: 'translate',
+          x: { unit: 'px', value: 4 },
+          y: { unit: 'percent', value: -25 },
+        },
+        { kind: 'scale', sx: -1, sy: 0.5 },
+        { kind: 'rotate', rad: 0.25 },
+      ],
+    },
+    {
+      kind: 'clipRect',
+      rect: { x: 1, y: 2, width: 3, height: 4 },
+      radius: { rx: 0, ry: 2 },
+    },
+    {
+      kind: 'paintPage',
+      rect: { x: 0, y: 0, width: 320, height: 480 },
+      paint: {},
+    },
+    {
+      kind: 'paintBlock',
+      rect: { x: 5, y: 6, width: 7, height: 8 },
+      paint: completeBlockPaint(),
+      borderBox: { topWidth: 1, rightWidth: 2, bottomWidth: 3, leftWidth: 4 },
+    },
+    {
+      kind: 'paintRuby',
+      text: 'ruby',
+      rect: { x: 6, y: 7, width: 8, height: 9 },
+      paint: completeRunPaint(),
+    },
+    {
+      kind: 'paintImage',
+      src: 'images/cover.jpg',
+      rect: { x: 9, y: 10, width: 11, height: 12 },
+      alt: 'cover',
+      href: '',
+    },
+    {
+      kind: 'paintHorizontalRule',
+      rect: { x: 13, y: 14, width: 15, height: 16 },
+      paint: { color: '#333', style: 'dashed' },
+    },
   ];
+  const payloads = commands.map((command) => JSON.stringify(command));
   const bytes = commandBufferBytes([
     record({ opcode: 5, flags: flags({ payload: true }), payloadIndex: 0 }),
     record({ opcode: 6, payloadIndex: 1, x: 1, y: 2, width: 3, height: 4 }),
+    record({ opcode: 7, flags: flags({ payload: true }), payloadIndex: 2 }),
     record({
       opcode: 8,
       flags: flags({ geometry: true, paint: true, payload: true }),
-      payloadIndex: 2,
+      payloadIndex: 3,
       x: 5,
       y: 6,
       width: 7,
       height: 8,
     }),
+    record({ opcode: 10, flags: flags({ payload: true }), payloadIndex: 4 }),
     record({
       opcode: 11,
       flags: flags({ geometry: true, primary: true, payload: true }),
-      payloadIndex: 3,
+      payloadIndex: 5,
       primaryIndex: 0,
       x: 9,
       y: 10,
@@ -539,7 +597,7 @@ test('decodeRitoFrameCommandBuffer decodes complex paint payload records', () =>
     record({
       opcode: 12,
       flags: flags({ geometry: true, paint: true, payload: true }),
-      payloadIndex: 4,
+      payloadIndex: 6,
       x: 13,
       y: 14,
       width: 15,
@@ -557,19 +615,29 @@ test('decodeRitoFrameCommandBuffer decodes complex paint payload records', () =>
 
   assert.deepEqual(
     decoded.records.map((record) => record.kind),
-    ['transform', 'clipRect', 'paintBlock', 'paintImage', 'paintHorizontalRule'],
+    [
+      'transform',
+      'clipRect',
+      'paintPage',
+      'paintBlock',
+      'paintRuby',
+      'paintImage',
+      'paintHorizontalRule',
+    ],
   );
   assert.deepEqual(decoded.commandCounts, {
     transform: 1,
     clipRect: 1,
+    paintPage: 1,
     paintBlock: 1,
+    paintRuby: 1,
     paintImage: 1,
     paintHorizontalRule: 1,
   });
   assert.deepEqual(decoded.recordStats, {
     geometryRecords: 4,
     paintRecords: 2,
-    payloadRecords: 5,
+    payloadRecords: 7,
     primaryStringRecords: 1,
     secondaryStringRecords: 0,
   });
@@ -577,11 +645,8 @@ test('decodeRitoFrameCommandBuffer decodes complex paint payload records', () =>
     decoded.records.map((record) => record.payload),
     payloads,
   );
-  assert.equal(decoded.records[3].primaryString, 'images/cover.jpg');
-  assert.deepEqual(
-    decoded.commands,
-    payloads.map((payload) => JSON.parse(payload)),
-  );
+  assert.equal(decoded.records[5].primaryString, 'images/cover.jpg');
+  assert.deepEqual(decoded.commands, commands);
 });
 
 test('decodeRitoFrameCommandBuffer reconstructs simple non-payload commands', () => {
@@ -638,6 +703,111 @@ test('decodeRitoFrameCommandBuffer reconstructs simple non-payload commands', ()
     primaryStringRecords: 1,
     secondaryStringRecords: 1,
   });
+});
+
+test('decodeRitoFrameCommandBuffer rejects malformed display commands', () => {
+  const malformed = [
+    {
+      opcode: 7,
+      payload: { kind: 'paintPage', paint: {} },
+      message: /commands\[0\]\.rect/,
+    },
+    {
+      opcode: 9,
+      payload: {
+        kind: 'paintText',
+        text: 'missing font',
+        rect: { x: 0, y: 0, width: 10, height: 10 },
+        paint: { color: '#000' },
+      },
+      message: /commands\[0\]\.paint\.font/,
+    },
+    {
+      opcode: 5,
+      payload: {
+        kind: 'transform',
+        origin: { x: 0, y: 0 },
+        box: { width: 10, height: 10 },
+        transforms: [
+          {
+            kind: 'translate',
+            x: { unit: 'em', value: 1 },
+            y: { unit: 'px', value: 2 },
+          },
+        ],
+      },
+      message: /commands\[0\]\.transforms\[0\]\.x\.unit/,
+    },
+    {
+      opcode: 8,
+      payload:
+        '{"kind":"paintBlock","rect":{"x":0,"y":0,"width":10,"height":10},"paint":{"boxShadow":[{"offsetX":1e400,"offsetY":0,"blur":0,"spread":0,"color":"#000","inset":false}]}}',
+      message: /commands\[0\]\.paint\.boxShadow\[0\]\.offsetX/,
+    },
+    {
+      opcode: 11,
+      payload: {
+        kind: 'paintImage',
+        src: '',
+        rect: { x: 0, y: 0, width: 0, height: 0 },
+        alt: 42,
+      },
+      message: /commands\[0\]\.alt/,
+    },
+    {
+      opcode: 12,
+      payload: {
+        kind: 'paintHorizontalRule',
+        rect: { x: 0, y: 0, width: 10, height: 1 },
+        paint: { color: '#000', style: 'none' },
+      },
+      message: /commands\[0\]\.paint\.style/,
+    },
+    {
+      opcode: 9,
+      payload: {
+        kind: 'paintText',
+        text: '',
+        rect: { x: 0, y: 0, width: 0, height: 0 },
+        paint: completeRunPaint(),
+        sourceTextOffset: -1,
+      },
+      message: /commands\[0\]\.sourceTextOffset/,
+    },
+  ];
+
+  for (const { opcode, payload, message } of malformed) {
+    const payloadText = typeof payload === 'string' ? payload : JSON.stringify(payload);
+    const bytes = commandBufferBytes([
+      { opcode, flags: flags({ payload: true }), payloadIndex: 0 },
+    ]);
+    assert.throws(
+      () => decodeRitoFrameCommandBuffer(metadata(bytes, { payloadTable: [payloadText] }), bytes),
+      { message },
+    );
+  }
+
+  const nonFiniteGeometry = commandBufferBytes([
+    {
+      opcode: 6,
+      flags: flags({ geometry: true }),
+      x: Number.POSITIVE_INFINITY,
+      y: 0,
+      width: 10,
+      height: 10,
+    },
+  ]);
+  assert.throws(
+    () => decodeRitoFrameCommandBuffer(metadata(nonFiniteGeometry), nonFiniteGeometry),
+    { message: /records\[0\]\.x/ },
+  );
+
+  for (const opcode of [1, 2]) {
+    const unbalancedState = commandBufferBytes([{ opcode, flags: 0 }]);
+    assert.throws(() => decodeRitoFrameCommandBuffer(metadata(unbalancedState), unbalancedState), {
+      message: /matching pushState|balanced pushState/,
+    });
+  }
 });
 
 test('decodeRitoFrameCommandBuffer rejects malformed metadata and headers', () => {
@@ -975,6 +1145,58 @@ test('decodeRitoFrameCommandBuffer rejects unsupported record fields', () => {
     message: /Unsupported Rito frame command buffer record flags: 0x20/,
   });
 });
+
+function completeRunPaint() {
+  return {
+    color: '#111',
+    font: { style: 'italic', weight: 400, sizePx: 16, family: 'Test Serif' },
+    wordSpacingPx: 1,
+    letterSpacingPx: 0.5,
+    backgroundColor: '#eee',
+    backgroundRadius: 2,
+    textShadow: [{ offsetX: 1, offsetY: 2, blur: 3, color: '#222' }],
+    decoration: { kind: 'underline', y: 13, thickness: 1, color: '#333' },
+    padding: { top: 1, right: 2, bottom: 3, left: 4 },
+    border: {
+      top: { widthPx: 1, paint: { color: '#444', style: 'solid' } },
+      bottom: { widthPx: 2, paint: { color: '#555', style: 'dotted' } },
+      start: { widthPx: 3, paint: { color: '#666', style: 'dashed' } },
+      end: { widthPx: 4, paint: { color: '#777', style: 'solid' } },
+    },
+  };
+}
+
+function completeBlockPaint() {
+  return {
+    background: {
+      color: '#fff',
+      image: 'images/pattern.png',
+      size: 'cover',
+      repeat: 'no-repeat',
+      position: {
+        x: { unit: 'px', value: -2 },
+        y: { unit: 'percent', value: 120 },
+      },
+    },
+    border: {
+      top: { color: '#111', style: 'solid' },
+      right: { color: '#222', style: 'dotted' },
+      bottom: { color: '#333', style: 'dashed' },
+      left: { color: '#444', style: 'solid' },
+    },
+    radius: { px: 0, pct: 25 },
+    boxShadow: [
+      {
+        offsetX: -1,
+        offsetY: 2,
+        blur: 3,
+        spread: 4,
+        color: '#555',
+        inset: true,
+      },
+    ],
+  };
+}
 
 function commandBufferBytes(records) {
   const bytes = new Uint8Array(HEADER_BYTES + records.length * RECORD_BYTES);

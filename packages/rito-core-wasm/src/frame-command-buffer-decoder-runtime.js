@@ -12,19 +12,24 @@ import {
   validateFrameCommandBufferMetadata,
   validateStableJsonMatch,
 } from './frame-command-buffer-decoder-validation.js';
+import {
+  validateDecodedFrameCommandRecord,
+  validateFrameCommand,
+  validateFrameCommandSequence,
+} from './frame-command-buffer-command-validation.js';
 
 export function decodeRitoFrameCommandBuffer(metadata, bytes) {
   validateFrameCommandBufferMetadata(metadata, bytes);
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   const records = [];
   for (let index = 0; index < metadata.commandCount; index += 1) {
-    records.push(
-      readFrameCommandRecord(
-        metadata,
-        view,
-        FRAME_COMMAND_HEADER_BYTES + index * FRAME_COMMAND_RECORD_BYTES,
-      ),
+    const record = readFrameCommandRecord(
+      metadata,
+      view,
+      FRAME_COMMAND_HEADER_BYTES + index * FRAME_COMMAND_RECORD_BYTES,
     );
+    validateDecodedFrameCommandRecord(record, index);
+    records.push(record);
   }
   const commandCounts = countDecodedRecords(records);
   validateStableJsonMatch(
@@ -38,6 +43,10 @@ export function decodeRitoFrameCommandBuffer(metadata, bytes) {
     recordStats,
     'Rito frame command buffer record stats do not match decoded records.',
   );
+  const commands = records.map((record, index) =>
+    validateFrameCommand(recordToDisplayCommand(record), index),
+  );
+  validateFrameCommandSequence(commands);
   return {
     protocolVersion: metadata.protocolVersion,
     commandCount: metadata.commandCount,
@@ -47,6 +56,6 @@ export function decodeRitoFrameCommandBuffer(metadata, bytes) {
     resourceRefCount: metadata.resourceRefCount,
     resourceTable: metadata.resourceTable,
     records,
-    commands: records.map(recordToDisplayCommand),
+    commands,
   };
 }

@@ -281,18 +281,39 @@ async function flushPromises(): Promise<void> {
   await Promise.resolve();
 }
 
-function frame(commandKinds: readonly string[], imageRefs: readonly string[]): BrowserReaderFrame {
+function frame(
+  commandKinds: readonly ('paintImage' | 'paintRuby' | 'paintText')[],
+  imageRefs: readonly string[],
+): BrowserReaderFrame {
   return {
     revisionId: 'rev',
     spreadIndex: 0,
     width: 800,
     height: 600,
     commandHash: 'hash',
-    commands: commandKinds.map((kind) => ({ kind })),
+    commands: commandKinds.map(frameCommand),
     resourceRefs: { images: imageRefs },
     fontFamilies: [],
     imageDominated:
       imageRefs.length > 0 &&
       !commandKinds.some((kind) => kind === 'paintText' || kind === 'paintRuby'),
+  };
+}
+
+function frameCommand(
+  kind: 'paintImage' | 'paintRuby' | 'paintText',
+): BrowserReaderFrame['commands'][number] {
+  const rect = { x: 0, y: 0, width: 10, height: 10 };
+  if (kind === 'paintImage') return { kind, src: 'cover.jpg', rect };
+  const paint = {
+    color: '#000',
+    font: { style: 'normal' as const, weight: 400, sizePx: 16, family: 'serif' },
+  };
+  if (kind === 'paintRuby') return { kind, text: 'ruby', rect, paint };
+  return {
+    kind,
+    text: 'text',
+    rect,
+    paint,
   };
 }

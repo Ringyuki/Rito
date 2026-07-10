@@ -20,7 +20,7 @@ describe('browser reader frame decoding', () => {
       spreadIndex: 2,
       width: 800,
       height: 600,
-      commands: [{ kind: 'paintPage' }],
+      commands: [paintPageCommand()],
       commandHash: 'metadata-hash',
       resourceRefs: { images: ['images/cover.jpg'] },
       fontFamilies: ['BookFont'],
@@ -102,7 +102,15 @@ function decodedFrameCommandBuffer(): DecodedRitoFrameCommandBuffer {
     resourceRefCount: 1,
     resourceTable: ['images/cover.jpg'],
     records: [],
-    commands: [{ kind: 'paintPage' }],
+    commands: [paintPageCommand()],
+  };
+}
+
+function paintPageCommand(): DecodedRitoFrameCommandBuffer['commands'][number] {
+  return {
+    kind: 'paintPage',
+    rect: { x: 0, y: 0, width: 800, height: 600 },
+    paint: {},
   };
 }
 

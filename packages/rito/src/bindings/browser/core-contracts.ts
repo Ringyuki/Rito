@@ -17,6 +17,7 @@ export {
 export type {
   RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
   RitoCoreWasmFootnotes as CoreFootnotes,
+  RitoCoreWasmFrameCommand as CoreFrameCommand,
   RitoCoreWasmFrameCommandBufferMetadata as CoreFrameCommandBufferMetadata,
   RitoCoreWasmFrameResourceWarmPlan as CoreFrameResourceWarmPlan,
   RitoCoreWasmJsonObject as CoreJsonObject,

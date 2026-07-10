@@ -16,6 +16,9 @@ const runtimeSources = [
   'reader-worker-client-runtime.js',
   'reader-worker-session-runtime.js',
   'runtime-bundle-decoder-runtime.js',
+  'frame-command-buffer-value-validation.js',
+  'frame-command-buffer-paint-validation.js',
+  'frame-command-buffer-command-validation.js',
   'frame-command-buffer-decoder-constants.js',
   'frame-command-buffer-decoder-records.js',
   'frame-command-buffer-decoder-runtime.js',
@@ -28,6 +31,7 @@ const errorDeclarationSource = resolve(packageRoot, 'src/core-wasm-error-runtime
 const compatDeclarationSource = resolve(packageRoot, 'src/reader-compat-runtime.d.ts');
 const typeDeclarationSources = [
   'common',
+  'frame-command',
   'publication',
   'revision',
   'frame',

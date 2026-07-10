@@ -2,7 +2,7 @@ import {
   canvasDisplayListRenderer,
   createCanvasImageResolver,
 } from '../../reference/ts-core/render/backends/canvas';
-import type { DisplayList, DrawCommand } from '../../reference/ts-core/render/display-list';
+import type { DisplayList } from '../../reference/ts-core/render/display-list';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader/layout';
@@ -93,7 +93,7 @@ function toDisplayList(frame: BrowserReaderFrame): DisplayList {
   return {
     width: frame.width,
     height: frame.height,
-    commands: frame.commands as unknown as readonly DrawCommand[],
+    commands: frame.commands,
   };
 }
 

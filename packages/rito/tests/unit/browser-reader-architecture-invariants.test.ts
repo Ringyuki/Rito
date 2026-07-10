@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import type { RitoCoreWasmFrameCommand } from '@ritojs/core-wasm';
+
+import type { DrawCommand } from '../../src/reference/ts-core/render/display-list';
 
 const SRC = join(import.meta.dirname, '../../src');
 const READER_ROOT = join(SRC, 'reader');
@@ -62,6 +65,10 @@ function scan(
 }
 
 describe('Browser reader architecture invariant: browser reader binding stays product-facing', () => {
+  it('keeps decoded frame commands structurally equal to the Canvas contract', () => {
+    expectTypeOf<RitoCoreWasmFrameCommand>().toEqualTypeOf<DrawCommand>();
+  });
+
   it('stays within the counted thin-shell budget', () => {
     expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(20);
     expect(lineCount(BROWSER_READER_BINDING_FILES)).toBeLessThanOrEqual(1550);
@@ -155,6 +162,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       '../../reference/ts-core/render/backends/canvas',
       '../../reference/ts-core/render/display-list',
     ]);
+    expect(source).not.toContain('as unknown as');
   });
 
   it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {

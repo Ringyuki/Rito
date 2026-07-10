@@ -1,4 +1,5 @@
-import type { RitoCoreWasmJsonObject, RitoCoreWasmJsonValue } from './common';
+import type { RitoCoreWasmJsonValue } from './common';
+import type { RitoCoreWasmFrameCommand } from './frame-command';
 
 export interface RitoCoreWasmDisplayListResourceRefs {
   readonly imageRefs: number;
@@ -13,7 +14,7 @@ export interface RitoCoreWasmFrame {
   readonly pageIndexes: readonly number[];
   readonly width: RitoCoreWasmJsonValue;
   readonly height: RitoCoreWasmJsonValue;
-  readonly commands: readonly RitoCoreWasmJsonObject[];
+  readonly commands: readonly RitoCoreWasmFrameCommand[];
   readonly commandCount: number;
   readonly commandCounts: Readonly<Record<string, number>>;
   readonly commandHash: string;
@@ -61,7 +62,7 @@ export interface DecodedRitoFrameCommandBuffer {
   readonly resourceRefCount: number;
   readonly resourceTable: readonly string[];
   readonly records: readonly DecodedRitoFrameCommandRecord[];
-  readonly commands: readonly RitoCoreWasmJsonObject[];
+  readonly commands: readonly RitoCoreWasmFrameCommand[];
 }
 
 export interface DecodedRitoFrameCommandRecord {

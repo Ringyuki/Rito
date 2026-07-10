@@ -2,6 +2,7 @@ import type {
   decodeRitoFrameCommandBuffer,
   CoreRevisionBundle,
   CoreReaderViewRevisionResult,
+  CoreFrameCommand,
   CoreJsonObject,
   CoreLayoutConfig,
   CoreLineBreaking,
@@ -28,7 +29,7 @@ export interface BrowserReaderFrame {
   readonly spreadIndex: number;
   readonly width: number;
   readonly height: number;
-  readonly commands: readonly CoreJsonObject[];
+  readonly commands: readonly CoreFrameCommand[];
   readonly commandHash: string;
   readonly resourceRefs: {
     readonly images: readonly string[];
