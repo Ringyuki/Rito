@@ -42,6 +42,7 @@ type TestCreateRevision = (
 
 interface TestWorkerFixture {
   readonly worker: BrowserReaderWorkerClient;
+  readonly open: Mock<BrowserReaderWorkerClient['open']>;
   readonly createRevision: Mock<TestCreateRevision>;
   readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
   readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindow']>;
@@ -86,11 +87,12 @@ export function createWorker(
   const activeChapterPreview = vi.fn((_revisionId: string, _spreadIndex: number) =>
     Promise.resolve<TestActiveChapterPreview | undefined>(undefined),
   );
+  const open = vi.fn<BrowserReaderWorkerClient['open']>();
   const createViewRevision = vi.fn((request: CoreViewRevisionRequest) =>
     createViewRevisionResult(request, createRevision, activeChapterPreview),
   );
   const worker: BrowserReaderWorkerClient = {
-    open: vi.fn(),
+    open,
     createViewRevision,
     readResource: vi.fn(),
     warmFrameWindow,
@@ -102,6 +104,7 @@ export function createWorker(
   };
   return {
     worker,
+    open,
     createRevision,
     createViewRevision,
     warmFrameWindow,

@@ -4,6 +4,7 @@ const dist = new URL('../dist/', import.meta.url);
 const runtimeSources = [
   'core-wasm-error-runtime.js',
   'reader-compat-runtime.js',
+  'reader-worker-cache-runtime.js',
   'reader-worker-client-runtime.js',
   'reader-worker-session-runtime.js',
   'runtime-bundle-decoder-runtime.js',
@@ -148,9 +149,11 @@ function readerClientDeclarations() {
   return [
     'export declare function createRitoCoreWasmWorkerReaderClient(',
     '  worker: RitoCoreWasmReaderWorkerLike,',
+    '  cache?: RitoCoreWasmReaderSessionCache,',
     '): RitoCoreWasmReaderWorkerClient;',
     'export declare function createRitoCoreWasmInProcessReaderClient(',
     '  module: RitoCoreWasmReaderBindingRuntimeModule,',
+    '  cache?: RitoCoreWasmReaderSessionCache,',
     '): RitoCoreWasmReaderWorkerClient;',
     'export declare function createRitoCoreWasmReaderWorkerHandler(',
     '  scope: RitoCoreWasmReaderWorkerScope,',

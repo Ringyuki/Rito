@@ -381,6 +381,159 @@ fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
     assert_eq!(full["kind"], "full");
     assert_eq!(full["display"], "revision");
     assert!(full["followUp"].is_null());
+    assert!(full["result"]["bundle"]["chapterTextIndices"]["entries"]
+        .as_object()
+        .is_some_and(|entries| !entries.is_empty()));
+    assert!(full["result"]["bundle"]["chapterTextIndices"]
+        .get("scopeKey")
+        .is_none());
+}
+
+#[test]
+fn reader_preview_view_revision_preserves_public_shape() {
+    let request = serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "mode": "preview"
+    })
+    .to_string();
+    let mut public_document =
+        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
+    let mut reader_document =
+        WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
+
+    let public: Value = serde_json::from_str(
+        &public_document
+            .create_view_revision_bundle_json(&request)
+            .expect("public preview is returned"),
+    )
+    .expect("public preview parses");
+    let reader: Value = serde_json::from_str(
+        &reader_document
+            .create_reader_view_revision_bundle_json(&request, true)
+            .expect("reader preview is returned"),
+    )
+    .expect("reader preview parses");
+
+    assert_eq!(reader["kind"], "preview");
+    assert_eq!(reader, public);
+}
+
+#[test]
+fn reader_preview_request_uses_full_projection_when_preview_falls_back() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());
+    let initial_request = serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "mode": "preview"
+    })
+    .to_string();
+    let initial: Value = serde_json::from_str(
+        &document
+            .create_reader_view_revision_bundle_json(&initial_request, true)
+            .expect("initial reader preview is returned"),
+    )
+    .expect("initial reader preview parses");
+    let fallback_request = serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 99,
+        "previousRevisionId": initial["result"]["bundle"]["revision"]["revisionId"],
+        "mode": "preview"
+    })
+    .to_string();
+    let fallback: Value = serde_json::from_str(
+        &document
+            .create_reader_view_revision_bundle_json(&fallback_request, true)
+            .expect("fallback reader full revision is returned"),
+    )
+    .expect("fallback reader full revision parses");
+    let indices = &fallback["result"]["bundle"]["chapterTextIndices"];
+
+    assert_eq!(fallback["kind"], "full");
+    assert_eq!(indices["scopeKey"], "chapter-text-v1:full");
+    assert!(indices.get("entries").is_none());
+}
+
+#[test]
+fn reader_full_view_revision_supports_inline_and_scoped_index_reference() {
+    let request = full_view_revision_request();
+    let mut inline_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut reference_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    let inline: Value = serde_json::from_str(
+        &inline_document
+            .create_reader_view_revision_bundle_json(&request, false)
+            .expect("inline reader full revision is returned"),
+    )
+    .expect("inline reader full revision parses");
+    let reference: Value = serde_json::from_str(
+        &reference_document
+            .create_reader_view_revision_bundle_json(&request, true)
+            .expect("referenced reader full revision is returned"),
+    )
+    .expect("referenced reader full revision parses");
+    let inline_indices = &inline["result"]["bundle"]["chapterTextIndices"];
+    let reference_indices = &reference["result"]["bundle"]["chapterTextIndices"];
+
+    assert_eq!(inline["kind"], "full");
+    assert_eq!(inline_indices["scopeKey"], "chapter-text-v1:full");
+    assert_eq!(
+        inline_indices["entries"]["chapter"]["normalizedText"],
+        "Hello WASM1"
+    );
+    assert_eq!(reference["kind"], "full");
+    assert_eq!(reference_indices["scopeKey"], "chapter-text-v1:full");
+    assert!(reference_indices.get("entries").is_none());
+
+    let revision_id = reference_indices["revisionId"]
+        .as_str()
+        .expect("referenced revision id is present");
+    let fetched: Value = serde_json::from_str(
+        &reference_document
+            .get_chapter_text_indices_json(revision_id)
+            .expect("full chapter indices remain fetchable"),
+    )
+    .expect("fetched chapter indices parse");
+    assert_eq!(
+        fetched["entries"]["chapter"],
+        inline_indices["entries"]["chapter"]
+    );
+}
+
+#[test]
+fn reader_full_ritorb1_decodes_and_omitting_indices_reduces_bytes() {
+    let mut loaded = fixture_document();
+    let large_text = "reader transport index ".repeat(2_000);
+    loaded.chapters[0].xhtml_source = format!(
+        r#"<html><head><style>.index-only {{ display: none; }}</style></head><body><p>Hello WASM</p><div class="index-only">{large_text}</div></body></html>"#
+    );
+    let mut inline_document = WasmRuntimeDocument::from_loaded_document(loaded.clone());
+    let mut reference_document = WasmRuntimeDocument::from_loaded_document(loaded);
+    let request = full_view_revision_request();
+
+    let inline_bytes = inline_document
+        .create_reader_view_revision_bundle_bytes(&request, false)
+        .expect("inline reader RITORB1 is returned");
+    let reference_bytes = reference_document
+        .create_reader_view_revision_bundle_bytes(&request, true)
+        .expect("referenced reader RITORB1 is returned");
+    let inline = decode_runtime_bundle(&inline_bytes).expect("inline reader RITORB1 decodes");
+    let reference =
+        decode_runtime_bundle(&reference_bytes).expect("referenced reader RITORB1 decodes");
+
+    assert_eq!(inline.payload["kind"], "full");
+    assert_eq!(
+        inline.payload["result"]["bundle"]["chapterTextIndices"]["scopeKey"],
+        "chapter-text-v1:full"
+    );
+    assert!(inline.payload["result"]["bundle"]["chapterTextIndices"]["entries"].is_object());
+    assert!(reference.payload["result"]["bundle"]["chapterTextIndices"]
+        .get("entries")
+        .is_none());
+    assert!(reference_bytes.len() * 2 < inline_bytes.len());
 }
 
 #[test]
@@ -438,6 +591,25 @@ fn measures_ritorb1_view_revision_wire_bytes() {
         .expect("RITORB1 view bundle is returned");
 
     assert_view_revision_wire_metrics(&mut document, "ritorb1", payload.len());
+}
+
+#[test]
+fn measures_reader_view_revision_wires() {
+    let request = full_view_revision_request();
+    let mut json_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let mut binary_document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    json_document.measure_next_view_revision_wire();
+    let json_payload = json_document
+        .create_reader_view_revision_bundle_json(&request, true)
+        .expect("reader JSON is returned");
+    assert_view_revision_wire_metrics(&mut json_document, "json", json_payload.len());
+
+    binary_document.measure_next_view_revision_wire();
+    let binary_payload = binary_document
+        .create_reader_view_revision_bundle_bytes(&request, true)
+        .expect("reader RITORB1 is returned");
+    assert_view_revision_wire_metrics(&mut binary_document, "ritorb1", binary_payload.len());
 }
 
 #[test]

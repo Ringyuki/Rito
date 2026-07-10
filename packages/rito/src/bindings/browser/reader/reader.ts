@@ -14,8 +14,13 @@ import { startBrowserReaderInitialReflow } from './pipeline/reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { preloadReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
-import { createBrowserReaderWorkerClient } from './worker-client';
-import { createLogger, type BrowserReaderBindingModule, type BrowserReaderState } from './types';
+import { createBrowserReaderWorkerClientFactory } from './worker-client';
+import {
+  createLogger,
+  type BrowserReaderBindingModule,
+  type BrowserReaderState,
+  type BrowserReaderWorkerClientFactory,
+} from './types';
 import { loadRuntimeCoreModule } from './wasm-module';
 import type { BrowserReaderWorkerClient, BrowserReaderOpenResult } from '../core-contracts';
 
@@ -25,7 +30,8 @@ export async function createReader(
   options: ReaderOptions,
 ): Promise<Reader> {
   const module = await loadRuntimeCoreModule();
-  const worker = createBrowserReaderWorkerClient(module);
+  const workerFactory = createBrowserReaderWorkerClientFactory(module);
+  const worker = workerFactory();
   try {
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
@@ -35,6 +41,7 @@ export async function createReader(
     const openResult = await worker.open(data);
     const state = createInitialState(
       worker,
+      workerFactory,
       module,
       documentData,
       openResult,
@@ -69,6 +76,7 @@ export async function preloadReaderRuntime(): Promise<void> {
 
 function createInitialState(
   worker: BrowserReaderWorkerClient,
+  workerFactory: BrowserReaderWorkerClientFactory,
   module: BrowserReaderBindingModule,
   documentData: ArrayBuffer,
   openResult: BrowserReaderOpenResult,
@@ -81,9 +89,9 @@ function createInitialState(
   const state: BrowserReaderState = {
     worker,
     foregroundWorker: worker,
+    workerFactory,
     fullReflowWorker: undefined,
     fullReflowOpenPromise: undefined,
-    coreModule: module,
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     canvas,

@@ -29,6 +29,7 @@ export type {
   RitoCoreWasmReaderFrameWindowWarmResult as CoreReaderFrameWindowWarmResult,
   RitoCoreWasmReaderFrameWindowWarmResult as BrowserReaderFrameWindowWarmResult,
   RitoCoreWasmReaderBindingRuntimeModule as CoreReaderBindingRuntimeModule,
+  RitoCoreWasmReaderSessionCache as BrowserReaderSessionCache,
   RitoCoreWasmReaderOpenResult as CoreReaderOpenResult,
   RitoCoreWasmReaderOpenResult as BrowserReaderOpenResult,
   RitoCoreWasmReaderResourceBytes as CoreReaderResourceBytes,

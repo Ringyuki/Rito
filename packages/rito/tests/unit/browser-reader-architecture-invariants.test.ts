@@ -9,6 +9,7 @@ const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
+const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
 const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
 const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client.ts');
 const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
@@ -317,6 +318,25 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       expect(workerClientSource).not.toContain(legacyName);
       expect(reflowSource).not.toContain(legacyName);
     }
+  });
+
+  it('scopes the shared session cache to one BrowserReader factory', () => {
+    const facadeSource = read(BROWSER_READER_FACADE);
+    const workerClientSource = read(BROWSER_READER_WORKER_CLIENT);
+    const revisionSource = read(BROWSER_READER_REVISION);
+    const stateSource = read(BROWSER_READER_TYPES);
+
+    expect(workerClientSource).toContain('createBrowserReaderWorkerClientFactory');
+    expect(workerClientSource).toContain('const cache: BrowserReaderSessionCache = {}');
+    expect(workerClientSource).toContain('createInProcessBrowserReaderSession(module, cache)');
+    expect(workerClientSource).toContain(
+      'createRitoCoreWasmWorkerReaderClient(createBrowserWorker(), cache)',
+    );
+    expect(facadeSource).toContain('const workerFactory = createBrowserReaderWorkerClientFactory');
+    expect(facadeSource).toContain('const worker = workerFactory()');
+    expect(stateSource).toContain('readonly workerFactory: BrowserReaderWorkerClientFactory');
+    expect(revisionSource).toContain('const worker = state.workerFactory()');
+    expect(revisionSource).not.toContain('createBrowserReaderWorkerClient');
   });
 
   it('delegates worker payload construction to the private core-wasm wrapper', () => {

@@ -11,11 +11,18 @@ const VIEW_RESPONSE = {
   kind: 'full',
   display: 'canonical',
   result: {
-    bundle: { revision: { revisionId: 'revision-1' } },
+    bundle: {
+      revision: { revisionId: 'revision-1' },
+      chapterTextIndices: {
+        revisionId: 'revision-1',
+        entries: {},
+        scopeKey: 'chapter-text-v1:full',
+      },
+    },
     preview: false,
   },
 };
-const PUBLIC_WORKER_PAYLOAD = {
+const TRANSPORT_WORKER_PAYLOAD = {
   kind: 'createViewRevision',
   result: {
     kind: 'full',
@@ -42,7 +49,7 @@ for (const wire of ['json', 'ritorb1']) {
     const response = await runtime.scope.send(createViewRevisionRequest(wire, false));
 
     assert.equal(response.ok, true);
-    assert.deepEqual(response.payload, PUBLIC_WORKER_PAYLOAD);
+    assert.deepEqual(response.payload, TRANSPORT_WORKER_PAYLOAD);
     assert.equal(Object.hasOwn(response, '__ritoWireMetrics'), false);
     assert.doesNotMatch(JSON.stringify(response.payload), /__ritoWireMetrics/);
     assert.equal(runtime.state.measureCalls, 0);
@@ -54,14 +61,22 @@ for (const wire of ['json', 'ritorb1']) {
     const response = await runtime.scope.send(createViewRevisionRequest(wire, true));
 
     assert.equal(response.ok, true);
-    assert.deepEqual(response.payload, PUBLIC_WORKER_PAYLOAD);
+    assert.deepEqual(response.payload, TRANSPORT_WORKER_PAYLOAD);
     assert.doesNotMatch(JSON.stringify(response.payload), /__ritoWireMetrics/);
     assert.equal(runtime.state.measureCalls, 1);
     assert.equal(runtime.state.takeCalls, 1);
     assert.deepEqual(
-      runtime.state.requests.map((value) => JSON.parse(value)),
-      [VIEW_REQUEST],
+      runtime.state.requests.map(({ requestJson, omitFullIndices }) => ({
+        request: JSON.parse(requestJson),
+        omitFullIndices,
+      })),
+      [{ request: VIEW_REQUEST, omitFullIndices: false }],
     );
+    assert.deepEqual(runtime.state.methods, [
+      wire === 'ritorb1'
+        ? 'createReaderViewRevisionBundleBytes'
+        : 'createReaderViewRevisionBundleJson',
+    ]);
     assertCompleteMetrics(response.__ritoWireMetrics, wire, runtime.state.rawWireBytes);
   });
 }
@@ -112,6 +127,7 @@ function createRawDocumentState(wire, metricsOverride) {
     measureCalls: 0,
     takeCalls: 0,
     requests: [],
+    methods: [],
     rawWireBytes: wire === 'json' ? 98_765 : 87_654,
     rustMetrics: metricsOverride,
     wire,
@@ -123,9 +139,22 @@ function createRawDocument(state) {
   const binaryPayload = viewRevisionBundleBytes();
   return {
     publicationJson: () => JSON.stringify({ title: 'Fixture' }),
-    createViewRevisionBundleJson: (requestJson) => rawViewPayload(state, requestJson, jsonPayload),
-    createViewRevisionBundleBytes: (requestJson) =>
-      rawViewPayload(state, requestJson, binaryPayload),
+    createReaderViewRevisionBundleJson: (requestJson, omitFullIndices) =>
+      rawViewPayload(
+        state,
+        'createReaderViewRevisionBundleJson',
+        requestJson,
+        omitFullIndices,
+        jsonPayload,
+      ),
+    createReaderViewRevisionBundleBytes: (requestJson, omitFullIndices) =>
+      rawViewPayload(
+        state,
+        'createReaderViewRevisionBundleBytes',
+        requestJson,
+        omitFullIndices,
+        binaryPayload,
+      ),
     measureNextViewRevisionWire: () => {
       state.measureCalls += 1;
       state.armed = true;
@@ -139,8 +168,9 @@ function createRawDocument(state) {
   };
 }
 
-function rawViewPayload(state, requestJson, payload) {
-  state.requests.push(requestJson);
+function rawViewPayload(state, method, requestJson, omitFullIndices, payload) {
+  state.methods.push(method);
+  state.requests.push({ requestJson, omitFullIndices });
   if (state.armed) {
     state.rustMetrics ??= {
       wire: state.wire,
@@ -205,25 +235,39 @@ function viewRevisionBundleBytes() {
     'revisionId',
     'revision-1',
     'preview',
+    'chapterTextIndices',
+    'entries',
+    'scopeKey',
+    'chapter-text-v1:full',
   ];
   const values = [
     stringRecord(1),
     stringRecord(3),
     stringRecord(8),
     objectRecord([[7, 2]]),
-    objectRecord([[6, 3]]),
+    objectRecord([]),
+    stringRecord(13),
+    objectRecord([
+      [7, 2],
+      [11, 4],
+      [12, 5],
+    ]),
+    objectRecord([
+      [6, 3],
+      [10, 6],
+    ]),
     new Uint8Array([1]),
     objectRecord([
-      [5, 4],
-      [9, 5],
+      [5, 7],
+      [9, 8],
     ]),
     objectRecord([
       [0, 0],
       [2, 1],
-      [4, 6],
+      [4, 9],
     ]),
   ];
-  return runtimeBundleBytes(strings, values, 7);
+  return runtimeBundleBytes(strings, values, 10);
 }
 
 function runtimeBundleBytes(strings, values, rootIndex) {

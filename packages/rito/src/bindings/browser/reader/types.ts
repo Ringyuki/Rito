@@ -117,12 +117,14 @@ export interface BrowserReaderReflowState {
   lastError: Error | undefined;
 }
 
+export type BrowserReaderWorkerClientFactory = () => BrowserReaderWorkerClient;
+
 export interface BrowserReaderState {
   worker: BrowserReaderWorkerClient;
   foregroundWorker: BrowserReaderWorkerClient;
+  readonly workerFactory: BrowserReaderWorkerClientFactory;
   fullReflowWorker: BrowserReaderWorkerClient | undefined;
   fullReflowOpenPromise: Promise<void> | undefined;
-  readonly coreModule: BrowserReaderBindingModule;
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
   readonly documentData: ArrayBuffer;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;

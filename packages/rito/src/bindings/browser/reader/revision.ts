@@ -1,5 +1,4 @@
 import type { LayoutConfig } from '../../../reader';
-import { createBrowserReaderWorkerClient } from './worker-client';
 import { applyBrowserReaderFrameWindow, cacheFrame, resetFrameCache } from './frame-cache';
 import { decodeBrowserReaderFrame } from './frame';
 import { preloadFrameResourceBytes } from '../resources';
@@ -33,7 +32,7 @@ export async function fullReflowWorker(
     await state.fullReflowOpenPromise;
     return state.fullReflowWorker;
   }
-  const worker = createBrowserReaderWorkerClient(state.coreModule);
+  const worker = state.workerFactory();
   state.fullReflowWorker = worker;
   state.fullReflowOpenPromise = worker
     .open(state.documentData.slice(0))
@@ -88,7 +87,8 @@ export function applyBrowserReaderRevisionState(
   );
   if (
     previousRevisionId.length > 0 &&
-    previousRevisionId !== input.result.bundle.revision.revisionId
+    (previousWorker !== input.worker ||
+      previousRevisionId !== input.result.bundle.revision.revisionId)
   ) {
     releaseRevision(previousWorker, previousRevisionId);
   }

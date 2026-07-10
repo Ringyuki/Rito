@@ -12,6 +12,8 @@ use rito_core::runtime::{
 };
 use serde::Serialize;
 
+mod reader_transport;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WasmRevisionFrameSelection {

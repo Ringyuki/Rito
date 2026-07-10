@@ -2,14 +2,17 @@ import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmWorkerReaderClient,
 } from '../core-contracts';
-import type { BrowserReaderBindingModule } from './types';
-import type { BrowserReaderWorkerClient } from '../core-contracts';
+import type { BrowserReaderSessionCache } from '../core-contracts';
+import type { BrowserReaderBindingModule, BrowserReaderWorkerClientFactory } from './types';
 
-export function createBrowserReaderWorkerClient(
+export function createBrowserReaderWorkerClientFactory(
   module: BrowserReaderBindingModule,
-): BrowserReaderWorkerClient {
-  if (typeof Worker === 'undefined') return createInProcessBrowserReaderSession(module);
-  return createRitoCoreWasmWorkerReaderClient(createBrowserWorker());
+): BrowserReaderWorkerClientFactory {
+  const cache: BrowserReaderSessionCache = {};
+  return () =>
+    typeof Worker === 'undefined'
+      ? createInProcessBrowserReaderSession(module, cache)
+      : createRitoCoreWasmWorkerReaderClient(createBrowserWorker(), cache);
 }
 
 export const createInProcessBrowserReaderSession = createRitoCoreWasmInProcessReaderClient;

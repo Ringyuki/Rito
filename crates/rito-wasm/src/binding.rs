@@ -83,6 +83,28 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = createReaderViewRevisionBundleJson)]
+    pub fn create_reader_view_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+        omit_full_indices: bool,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .create_reader_view_revision_bundle_json(request_json, omit_full_indices)
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = createReaderViewRevisionBundleBytes)]
+    pub fn create_reader_view_revision_bundle_bytes(
+        &mut self,
+        request_json: &str,
+        omit_full_indices: bool,
+    ) -> Result<Vec<u8>, JsValue> {
+        self.inner
+            .create_reader_view_revision_bundle_bytes(request_json, omit_full_indices)
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = measureNextViewRevisionWire)]
     pub fn measure_next_view_revision_wire(&mut self) {
         self.inner.measure_next_view_revision_wire();

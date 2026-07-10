@@ -56,14 +56,17 @@ test('failed publication rolls back the candidate and permits one retry', async 
   const bad = fakeDocument('bad', new Error('publication failed'));
   const good = fakeDocument('good');
   const documents = [bad.document, good.document];
-  const client = createRitoCoreWasmInProcessReaderClient({
-    initRitoCoreWasmEngine: async () => ({ openDocument: () => documents.shift() }),
-  });
+  const client = createRitoCoreWasmInProcessReaderClient(
+    {
+      initRitoCoreWasmEngine: async () => ({ openDocument: () => documents.shift() }),
+    },
+    {},
+  );
 
-  await assert.rejects(client.open(new ArrayBuffer(1)), /publication failed/);
+  await assert.rejects(client.open(Uint8Array.of(1).buffer), /publication failed/);
   assert.equal(bad.state.freeCalls, 1);
 
-  assert.deepEqual(await client.open(new ArrayBuffer(1)), {
+  assert.deepEqual(await client.open(Uint8Array.of(2).buffer), {
     publication: { title: 'good' },
   });
   assert.deepEqual(await client.search('rev-1', { query: 'text' }), {

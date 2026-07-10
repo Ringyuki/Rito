@@ -17,16 +17,9 @@ export function createState(
   return {
     worker,
     foregroundWorker: worker,
+    workerFactory: () => worker,
     fullReflowWorker: undefined,
     fullReflowOpenPromise: undefined,
-    coreModule: {
-      decodeRitoFrameCommandBuffer: vi.fn(),
-      initRitoCoreWasmEngine: vi.fn(),
-      normalizeRitoCoreWasmError: vi.fn((error: unknown, operation?: string) => {
-        const message = error instanceof Error ? error.message : String(error);
-        return new Error(`${operation ?? 'browser reader'}: ${message}`);
-      }),
-    } as unknown as BrowserReaderState['coreModule'],
     decodeFrameCommandBuffer: vi.fn(() => ({
       protocolVersion: 2,
       commandCount: 0,

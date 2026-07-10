@@ -3,8 +3,15 @@ import {
   disposeReaderSession,
   openReaderSessionDocument,
 } from './reader-worker-session-runtime.js';
+import {
+  commitReaderSessionCache,
+  createCachedReaderViewRevision,
+  normalizeReaderSessionCache,
+  prepareReaderSessionCache,
+} from './reader-worker-cache-runtime.js';
 
-export function createRitoCoreWasmWorkerReaderClient(worker) {
+export function createRitoCoreWasmWorkerReaderClient(worker, cache) {
+  const sessionCache = normalizeReaderSessionCache(cache);
   const pending = new Map();
   let nextId = 1;
   let disposed = false;
@@ -65,11 +72,13 @@ export function createRitoCoreWasmWorkerReaderClient(worker) {
         terminate();
       }
     },
+    sessionCache,
   );
 }
 
-export function createRitoCoreWasmInProcessReaderClient(module) {
+export function createRitoCoreWasmInProcessReaderClient(module, cache) {
   const state = createReaderSessionState();
+  const sessionCache = normalizeReaderSessionCache(cache);
   return createRitoCoreWasmReaderClient(
     async (input) => {
       if (input.kind === 'open') {
@@ -93,6 +102,7 @@ export function createRitoCoreWasmInProcessReaderClient(module) {
       return state.document.readerWorkerPayload({ ...input, id: 0 });
     },
     () => disposeReaderSession(state),
+    sessionCache,
   );
 }
 
@@ -103,14 +113,20 @@ export function createRitoCoreWasmReaderWorkerHandler(scope, deps) {
   });
 }
 
-function createRitoCoreWasmReaderClient(request, dispose) {
+function createRitoCoreWasmReaderClient(request, dispose, cache) {
   let phase = 'idle';
   const open = async (data) => {
     if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
     phase = 'opening';
     try {
+      const cacheIdentity = await prepareReaderSessionCache(cache, data);
+      if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
       const openResult = await result(request, { kind: 'open', data }, 'open', [data]);
       if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
+      commitReaderSessionCache(cache, cacheIdentity, () => {
+        phase = 'disposed';
+        dispose();
+      });
       phase = 'open';
       return openResult;
     } catch (error) {
@@ -126,11 +142,7 @@ function createRitoCoreWasmReaderClient(request, dispose) {
   return {
     open,
     createViewRevision: (viewRequest) =>
-      result(
-        request,
-        { kind: 'createViewRevision', request: viewRequest, wire: readerRuntimeWire() },
-        'createViewRevision',
-      ),
+      createCachedReaderViewRevision(cache, viewRequest, readerRuntimeWire(), request),
     readResource: (revisionId, resourceKind, href) =>
       result(request, { kind: 'readResource', revisionId, resourceKind, href }, 'readResource'),
     warmFrameWindow: (revisionId, spreadIndex) =>

@@ -3,6 +3,7 @@ import {
   scheduleBrowserReaderReflow,
   startBrowserReaderInitialReflow,
 } from '../../src/bindings/browser/reader/pipeline/reflow';
+import { fullReflowWorker } from '../../src/bindings/browser/reader/revision';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import type { BrowserReaderRevisionResult } from '../../src/bindings/browser/core-contracts';
 import {
@@ -25,6 +26,23 @@ afterEach(() => {
 });
 
 describe('Browser reader reflow scheduling', () => {
+  it('opens the full-reflow client from the foreground reader factory', async () => {
+    vi.stubGlobal('Worker', vi.fn());
+    const foreground = createWorker(() => undefined);
+    const background = createWorker(() => undefined);
+    const state = createState(foreground.worker);
+    const workerFactory = vi.fn(() => background.worker);
+    Object.assign(state, { workerFactory });
+    background.open.mockResolvedValue({ publication: state.publication });
+
+    await expect(fullReflowWorker(state)).resolves.toBe(background.worker);
+    await expect(fullReflowWorker(state)).resolves.toBe(background.worker);
+
+    expect(workerFactory).toHaveBeenCalledOnce();
+    expect(background.open).toHaveBeenCalledOnce();
+    expect(background.open).toHaveBeenCalledWith(expect.any(ArrayBuffer));
+  });
+
   it('keeps one worker pagination active and commits only the latest queued layout', async () => {
     vi.useFakeTimers();
     const pending: Deferred<BrowserReaderRevisionResult>[] = [];

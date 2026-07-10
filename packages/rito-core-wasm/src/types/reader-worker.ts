@@ -1,5 +1,6 @@
 import type { RitoCoreWasmJsonObject, RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
+import type { RitoCoreWasmChapterTextIndices } from './interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
 import type { RitoCoreWasmFrameResourceWarmPlan, RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
@@ -39,6 +40,40 @@ export interface RitoCoreWasmReaderWorkerClient {
   releaseRevision(revisionId: string): Promise<void>;
   dispose(): void;
 }
+
+/** Opaque cache shared by reader clients for one publication session. */
+export interface RitoCoreWasmReaderSessionCache {
+  readonly __ritoCoreWasmReaderSessionCache?: true;
+}
+
+export type RitoCoreWasmReaderChapterTextIndicesTransport =
+  | RitoCoreWasmChapterTextIndices
+  | {
+      readonly revisionId: string;
+      readonly entries?: RitoCoreWasmChapterTextIndices['entries'] | undefined;
+      readonly scopeKey: 'chapter-text-v1:full';
+    };
+
+export type RitoCoreWasmReaderRevisionBundleTransport = Omit<
+  RitoCoreWasmRevisionBundle,
+  'chapterTextIndices'
+> & {
+  readonly chapterTextIndices: RitoCoreWasmReaderChapterTextIndicesTransport;
+};
+
+export type RitoCoreWasmReaderRevisionResultTransport = Omit<
+  RitoCoreWasmReaderRevisionResult,
+  'bundle'
+> & {
+  readonly bundle: RitoCoreWasmReaderRevisionBundleTransport;
+};
+
+export type RitoCoreWasmReaderViewRevisionResultTransport = Omit<
+  RitoCoreWasmReaderViewRevisionResult,
+  'result'
+> & {
+  readonly result: RitoCoreWasmReaderRevisionResultTransport;
+};
 
 export interface RitoCoreWasmReaderWorkerErrorPayload {
   readonly name: string;
@@ -158,6 +193,7 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
         readonly kind: 'createViewRevision';
         readonly request: RitoCoreWasmViewRevisionRequest;
         readonly wire?: RitoCoreWasmReaderRuntimeWire | undefined;
+        readonly knownFullChapterTextIndicesScopeKey?: 'chapter-text-v1:full' | undefined;
       }
     | {
         readonly kind: 'readResource';
@@ -187,7 +223,10 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
 
 export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'open'; readonly result: RitoCoreWasmReaderOpenResult }
-  | { readonly kind: 'createViewRevision'; readonly result: RitoCoreWasmReaderViewRevisionResult }
+  | {
+      readonly kind: 'createViewRevision';
+      readonly result: RitoCoreWasmReaderViewRevisionResultTransport;
+    }
   | { readonly kind: 'readResource'; readonly result: RitoCoreWasmReaderResourceBytes }
   | { readonly kind: 'warmFrameWindow'; readonly result: RitoCoreWasmReaderFrameWindowWarmResult }
   | { readonly kind: 'resolveLocator'; readonly result: RitoCoreWasmReaderTocTarget }

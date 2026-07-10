@@ -1,5 +1,6 @@
 import type {
   RitoCoreWasmReaderBindingRuntimeModule,
+  RitoCoreWasmReaderSessionCache,
   RitoCoreWasmReaderWorkerHandlerDeps,
   RitoCoreWasmReaderWorkerClient,
   RitoCoreWasmReaderWorkerLike,
@@ -8,10 +9,12 @@ import type {
 
 export function createRitoCoreWasmWorkerReaderClient(
   worker: RitoCoreWasmReaderWorkerLike,
+  cache?: RitoCoreWasmReaderSessionCache,
 ): RitoCoreWasmReaderWorkerClient;
 
 export function createRitoCoreWasmInProcessReaderClient(
   module: RitoCoreWasmReaderBindingRuntimeModule,
+  cache?: RitoCoreWasmReaderSessionCache,
 ): RitoCoreWasmReaderWorkerClient;
 
 export function createRitoCoreWasmReaderWorkerHandler(
