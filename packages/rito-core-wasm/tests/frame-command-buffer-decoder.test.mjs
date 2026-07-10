@@ -398,6 +398,18 @@ test('decodeRitoRuntimeBundle matches the shared Rust golden vector', async () =
   assert.equal(Object.hasOwn(Object.prototype, 'polluted'), false);
 });
 
+test('decodeRitoRuntimeBundle validates a long mixed UTF-8 payload checksum', () => {
+  const value = 'ASCII-中文-😀'.repeat(4_096);
+  assert.ok(new TextEncoder().encode(value).byteLength > 64 * 1_024);
+  const bytes = runtimeBundleBytes({
+    strings: ['payload', value],
+    values: [runtimeStringRecord(1), runtimeObjectRecord([[0, 0]])],
+    rootIndex: 1,
+  });
+
+  assert.deepEqual(decodeRitoRuntimeBundle(bytes).payload, { payload: value });
+});
+
 test('decodeRitoRuntimeBundle rejects malformed runtime bundles', () => {
   const bytes = runtimeBundleBytes({
     strings: ['ok'],

@@ -5,7 +5,7 @@ const FNV64_OFFSET_LOW = 0x84222325;
 const FNV64_OFFSET_HIGH = 0xcbf29ce4;
 const FNV64_PRIME_LOW = 0x1b3;
 const FNV64_PRIME_HIGH = 0x100;
-const U32_RANGE = 0x1_0000_0000;
+const U16_SHIFT = 16;
 
 const TAG_NULL = 0;
 const TAG_FALSE = 1;
@@ -250,15 +250,17 @@ function checkedEnd(offset, length, limit, label) {
 
 function runtimeBundleChecksum(bytes) {
   // FNV-1a's prime is 0x00000100_000001b3. Two u32 lanes avoid a temporary
-  // BigInt per byte; mixedLow * 0x1b3 stays below 2^41 and remains exact.
+  // BigInt per byte. Split the low-lane carry into exact 16-bit products so
+  // the hot loop does not divide a double-width product by 2^32.
   let low = FNV64_OFFSET_LOW;
   let high = FNV64_OFFSET_HIGH;
   for (let index = 0; index < bytes.length; index += 1) {
     const mixedLow = (low ^ bytes[index]) >>> 0;
-    const lowProduct = mixedLow * FNV64_PRIME_LOW;
-    const carry = Math.floor(lowProduct / U32_RANGE);
+    const lowHalfProduct = (mixedLow & 0xffff) * FNV64_PRIME_LOW;
+    const carry =
+      ((mixedLow >>> U16_SHIFT) * FNV64_PRIME_LOW + (lowHalfProduct >>> U16_SHIFT)) >>> U16_SHIFT;
     high = (Math.imul(high, FNV64_PRIME_LOW) + Math.imul(mixedLow, FNV64_PRIME_HIGH) + carry) >>> 0;
-    low = lowProduct >>> 0;
+    low = Math.imul(mixedLow, FNV64_PRIME_LOW) >>> 0;
   }
   return (BigInt(high) << 32n) | BigInt(low);
 }
