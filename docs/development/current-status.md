@@ -169,14 +169,15 @@ Those names now belong to the old TS reference tree only.
    - `packages/rito/src/bindings/browser/frame-command-renderer.ts` now owns
      dispatch and Canvas state for all 12 decoded Rust frame-command kinds,
      including transforms, clipping, page/image/HR painting, color overrides,
-     and pixel-ratio scaling.
+     and pixel-ratio scaling. Its production-owned helpers now also implement
+     rounded clip paths and manifest-image href resolution.
    - `packages/rito/src/bindings/browser/rendering.ts` retains one guarded
-     reference edge for four paint-leaf hooks (block, text, ruby, and rounded
-     paths) plus the image href resolver: `renderBlockDecoration`,
-     `drawTextFragment`, `drawRubyFragment`, `traceRoundedRect`, and
-     `createCanvasImageResolver`. The old TS display-list dispatcher is no
-     longer in the production bundle, and the production executor must remain
-     reference-free.
+     reference edge for exactly three paint hooks: `renderBlockDecoration`,
+     `drawTextFragment`, and `drawRubyFragment`. The old TS display-list
+     dispatcher, direct rounded-path hook, and reference image resolver are no
+     longer in the production boundary. The block hook still carries its
+     reference background-paint closure, so this is a direct-boundary reduction
+     rather than complete renderer independence.
    - This smaller dependency is visible and intentional for parity, but the
      paint leaves are not the final renderer-ready boundary.
 
