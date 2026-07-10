@@ -64,10 +64,44 @@ enum FitnessClass {
 #[derive(Debug, Clone)]
 struct KpBreakpoint {
     position: isize,
+    line: usize,
     demerits: f64,
     ratio: f64,
     fitness: FitnessClass,
     prev: Option<usize>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) enum LineWidthSpec {
+    Fixed(f64),
+    FirstAndSubsequent {
+        first_line: f64,
+        subsequent_lines: f64,
+    },
+}
+
+impl LineWidthSpec {
+    fn resolve(self, line: usize) -> f64 {
+        match self {
+            Self::Fixed(width) => width,
+            Self::FirstAndSubsequent {
+                first_line,
+                subsequent_lines,
+            } => {
+                if line == 0 {
+                    first_line
+                } else {
+                    subsequent_lines
+                }
+            }
+        }
+    }
+}
+
+impl From<f64> for LineWidthSpec {
+    fn from(width: f64) -> Self {
+        Self::Fixed(width)
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -126,10 +160,9 @@ pub(crate) fn layout_optimal_lines_with_fonts<'a>(
     }
 
     let indent = number_style(base_style, "textIndent").unwrap_or(0.0);
-    let line_width = if indent != 0.0 {
-        max_width - indent
-    } else {
-        max_width
+    let line_width = LineWidthSpec::FirstAndSubsequent {
+        first_line: max_width - indent,
+        subsequent_lines: max_width,
     };
     let break_positions =
         solve_kp(&items, line_width).unwrap_or_else(|| emergency_breaks(&items, line_width));
@@ -1073,14 +1106,19 @@ fn last_text_unit(text: &str) -> String {
         .unwrap_or_default()
 }
 
-pub(crate) fn solve_kp(items: &[KpItem], line_width: f64) -> Option<Vec<usize>> {
+pub(crate) fn solve_kp(
+    items: &[KpItem],
+    line_width: impl Into<LineWidthSpec>,
+) -> Option<Vec<usize>> {
     if items.is_empty() {
         return None;
     }
 
+    let line_width = line_width.into();
     let sums = build_sums(items);
     let mut nodes = vec![KpBreakpoint {
         position: -1,
+        line: 0,
         demerits: 0.0,
         ratio: 0.0,
         fitness: FitnessClass::Tight,
@@ -1122,7 +1160,11 @@ pub(crate) fn solve_kp(items: &[KpItem], line_width: f64) -> Option<Vec<usize>> 
     best.map(|index| collect_break_positions(index, &nodes))
 }
 
-pub(crate) fn emergency_breaks(items: &[KpItem], line_width: f64) -> Vec<usize> {
+pub(crate) fn emergency_breaks(
+    items: &[KpItem],
+    line_width: impl Into<LineWidthSpec>,
+) -> Vec<usize> {
+    let line_width = line_width.into();
     let mut positions = Vec::new();
     let mut current_width = 0.0;
 
@@ -1133,13 +1175,14 @@ pub(crate) fn emergency_breaks(items: &[KpItem], line_width: f64) -> Vec<usize> 
                 current_width = 0.0;
             }
             KpItem::Box(item_box) => {
+                let current_line_width = line_width.resolve(positions.len());
                 current_width = emergency_box(
                     items,
                     &mut positions,
                     index,
                     item_box.width,
                     current_width,
-                    line_width,
+                    current_line_width,
                 );
             }
             KpItem::Glue(glue) => {
@@ -1160,7 +1203,7 @@ struct StepResult {
 struct StepContext<'a> {
     items: &'a [KpItem],
     position: usize,
-    line_width: f64,
+    line_width: LineWidthSpec,
     sums: &'a [CumulativeSums],
     forced: bool,
     finishing: bool,
@@ -1181,7 +1224,7 @@ fn step_break(
             context.items,
             node.position,
             context.position,
-            context.line_width,
+            context.line_width.resolve(node.line),
             context.sums,
         );
         if ratio < -1.0 {
@@ -1296,6 +1339,7 @@ fn make_breakpoint(
 
     KpBreakpoint {
         position: position as isize,
+        line: previous.line + 1,
         demerits: demerits + previous.demerits,
         ratio,
         fitness,
@@ -1538,7 +1582,7 @@ mod tests {
 
     use super::{
         build_kp_items, emergency_breaks, layout_optimal_lines, solve_kp, KpBox, KpGlue, KpItem,
-        KpPenalty,
+        KpPenalty, LineWidthSpec,
     };
     use crate::layout::inline_segment::{AtomSegment, InlineSegment, TextSegment};
 
@@ -1595,6 +1639,25 @@ mod tests {
     }
 
     #[test]
+    fn solver_restores_width_after_forced_first_line() {
+        let items = vec![
+            word(40.0),
+            forced_break(),
+            word(40.0),
+            space(5.0, 10.0, 2.0),
+            word(40.0),
+            space(0.0, 1_000_000.0, 0.0),
+            forced_break(),
+        ];
+        let line_width = LineWidthSpec::FirstAndSubsequent {
+            first_line: 40.0,
+            subsequent_lines: 85.0,
+        };
+
+        assert_eq!(solve_kp(&items, line_width), Some(vec![1, 6]));
+    }
+
+    #[test]
     fn normal_breaks_match_ts_negative_spacing_tolerance() {
         let items = vec![
             word(20.0),
@@ -1629,6 +1692,24 @@ mod tests {
         ];
 
         assert_eq!(emergency_breaks(&items, 65.0), vec![3, 6]);
+    }
+
+    #[test]
+    fn emergency_breaks_restore_width_after_first_line() {
+        let items = vec![
+            word(40.0),
+            space(5.0, 10.0, 2.0),
+            word(40.0),
+            space(5.0, 10.0, 2.0),
+            word(40.0),
+            forced_break(),
+        ];
+        let line_width = LineWidthSpec::FirstAndSubsequent {
+            first_line: 50.0,
+            subsequent_lines: 100.0,
+        };
+
+        assert_eq!(emergency_breaks(&items, line_width), vec![1, 5]);
     }
 
     #[test]
@@ -1827,9 +1908,9 @@ mod tests {
                 .iter()
                 .map(|text| text.chars().count())
                 .collect::<Vec<_>>(),
-            vec![50, 50, 20]
+            vec![50, 54, 16]
         );
-        assert_eq!(offsets, vec![0, 50, 100]);
+        assert_eq!(offsets, vec![0, 50, 104]);
     }
 
     #[test]
@@ -1860,8 +1941,8 @@ mod tests {
             .map(|text| text.chars().count())
             .collect::<Vec<_>>();
 
-        assert_eq!(lengths, vec![50, 50, 50, 20]);
-        assert_eq!(offsets, vec![0, 50, 100, 150]);
+        assert_eq!(lengths, vec![50, 53, 54, 13]);
+        assert_eq!(offsets, vec![0, 50, 103, 157]);
     }
 
     #[test]
