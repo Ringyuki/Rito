@@ -102,11 +102,11 @@ const COMMITTED_PROFILE_LINE_BREAKING: Readonly<Record<string, readonly PixelLin
 };
 
 const COMMITTED_PROFILE_SPREAD_SELECTION: Readonly<Record<string, PixelSpreadSelectionMode>> = {
-  'single-default': 'curated',
-  'single-narrow': 'curated',
-  'single-wide': 'curated',
-  'single-default-dpr2': 'curated',
-  'double-default': 'curated',
+  'single-default': 'key',
+  'single-narrow': 'key',
+  'single-wide': 'key',
+  'single-default-dpr2': 'key',
+  'double-default': 'key',
 };
 
 export const COMMITTED_PIXEL_PROFILES = PIXEL_PROFILES.filter((profile) =>

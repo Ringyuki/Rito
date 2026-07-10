@@ -165,4 +165,62 @@ describe('createController', () => {
     expect(controller.currentSpread).toBe(1);
     expect(notifyActiveSpread).toHaveBeenLastCalledWith(1);
   });
+
+  it('cleans up subscriptions and scheduled frames when initialization throws', () => {
+    vi.stubGlobal(
+      'requestAnimationFrame',
+      vi.fn(() => 42),
+    );
+    const cancelAnimationFrame = vi.fn();
+    vi.stubGlobal('cancelAnimationFrame', cancelAnimationFrame);
+    const canvas = document.createElement('canvas');
+    canvas.getContext = vi.fn(() => ({
+      clearRect: vi.fn(),
+      drawImage: vi.fn(),
+    })) as unknown as typeof canvas.getContext;
+    const unsubscribe = vi.fn();
+    const sentinel = new Error('initial spread listener failed');
+    const reader = {
+      metadata: { title: 'Demo' },
+      totalSpreads: 1,
+      toc: [],
+      chapterMap: new Map(),
+      manifestHrefMap: new Map(),
+      pages: [],
+      spreads: [{ left: { index: 0 }, right: undefined }],
+      dpr: 1,
+      renderSpread: vi.fn(),
+      renderSpreadTo: vi.fn(),
+      notifyActiveSpread: vi.fn(() => {
+        throw sentinel;
+      }),
+      resize: vi.fn(),
+      setSpreadMode: vi.fn(),
+      updateLayout: vi.fn(() => false),
+      setTheme: vi.fn(),
+      findPage: vi.fn(),
+      findSpread: vi.fn(),
+      resolveTocEntry: vi.fn(),
+      findActiveTocEntry: vi.fn(),
+      getCanvasSize: vi.fn(() => ({ width: 400, height: 300 })),
+      getLayoutGeometry: vi.fn(() => ({
+        viewportWidth: 400,
+        viewportHeight: 300,
+        marginLeft: 40,
+        marginTop: 40,
+        spreadGap: 20,
+      })),
+      getChapterTextIndices: vi.fn(() => new Map()),
+      getFootnotes: vi.fn(() => new Map()),
+      getImageBlobUrl: vi.fn(),
+      measurer: {},
+      setTypography: vi.fn(() => false),
+      onSpreadRendered: vi.fn(() => unsubscribe),
+      dispose: vi.fn(),
+    };
+
+    expect(() => createController(reader as never, canvas)).toThrow(sentinel);
+    expect(unsubscribe).toHaveBeenCalledOnce();
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(42);
+  });
 });

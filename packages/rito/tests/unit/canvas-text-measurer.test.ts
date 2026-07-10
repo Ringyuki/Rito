@@ -131,4 +131,26 @@ describe('canvasTextMeasurementBackend', () => {
       contentHeightPx: 56,
     });
   });
+
+  it('bounds the text-width cache with least-recently-used eviction', () => {
+    const ctx = {
+      font: '',
+      wordSpacing: '0px',
+      letterSpacing: '0px',
+      measureText: vi.fn(() => makeMetrics({ width: 10 })),
+    } satisfies Pick<
+      CanvasRenderingContext2D,
+      'font' | 'wordSpacing' | 'letterSpacing' | 'measureText'
+    >;
+    const measurer = canvasTextMeasurementBackend.createTextMeasurer(
+      ctx as unknown as CanvasRenderingContext2D,
+    );
+
+    for (let index = 0; index <= 4096; index++) {
+      measurer.measureText(`entry-${String(index)}`, PAINT);
+    }
+    measurer.measureText('entry-0', PAINT);
+
+    expect(ctx.measureText).toHaveBeenCalledTimes(4098);
+  });
 });

@@ -36,6 +36,14 @@ describe('public API surface', () => {
     expect(web.canvasTextMeasurementBackend).toBeDefined();
   });
 
+  it('exports the stable controller-integration boundary', async () => {
+    const integration = await import('../../src/integration');
+    expect(integration.buildHitMap).toBeDefined();
+    expect(integration.buildLinkMap).toBeDefined();
+    expect(integration.getSelectionRects).toBeDefined();
+    expect(integration.hitTestLink).toBeDefined();
+  });
+
   it('does not export internal APIs from main entry', async () => {
     const api = await import('../../src/index');
     // Parser internals should be in @ritojs/core/advanced

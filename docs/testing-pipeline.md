@@ -9,14 +9,17 @@ protect browser-rendered output.
 
 ## Layers
 
-| Layer             | Command                   | Purpose                                                                                              |
-| ----------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Unit              | `pnpm test:unit`          | Module-level parser, style, layout, render helper, kit, and React tests.                             |
-| Integration       | `pnpm test:integration`   | Small end-to-end core flows and focused rare-feature render chains.                                  |
-| Structured golden | `pnpm test:golden:books`  | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                  |
-| Render golden     | `pnpm test:golden:render` | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens. |
-| Pixel golden      | `pnpm test:golden:pixel`  | Browser Canvas PNG output compared against checked-in image goldens.                                 |
-| Reader e2e        | `pnpm test:e2e`           | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                           |
+| Layer             | Command                                         | Purpose                                                                                                |
+| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Unit              | `pnpm test:unit`                                | Module-level parser, style, layout, render helper, kit, and React tests.                               |
+| Integration       | `pnpm test:integration`                         | Small end-to-end core flows and focused rare-feature render chains.                                    |
+| Structured golden | `pnpm test:golden:books`                        | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                    |
+| Render golden     | `pnpm test:golden:render`                       | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.   |
+| Pixel golden      | `pnpm test:golden:pixel`                        | Browser Canvas PNG output compared against checked-in image goldens.                                   |
+| DOM-free dist     | `pnpm --filter @ritojs/core test:dom-free:dist` | Built core package parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
+| Reader e2e        | `pnpm test:e2e`                                 | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                             |
+| Coverage          | `pnpm test:coverage`                            | V8 coverage for all published packages, checked against package baselines.                             |
+| Dependency audit  | `pnpm audit:dependencies`                       | Fails on high-severity advisories in the resolved workspace dependency graph.                          |
 
 ## Current Gates
 
@@ -49,6 +52,10 @@ This includes:
 - structured full-book golden tests
 - render command golden tests
 - build
+- DOM-free distribution verification in a real Node worker
+
+CI also audits the exact frozen dependency graph and rejects high-severity
+advisories with `pnpm run audit:dependencies`.
 
 The GitHub CI workflow also installs Chromium and runs:
 
@@ -60,6 +67,13 @@ Pixel goldens run in a separate macOS CI job:
 
 ```bash
 pnpm test:golden:pixel
+```
+
+V8 coverage runs in a parallel CI job and publishes its HTML reports as build
+artifacts:
+
+```bash
+pnpm test:coverage
 ```
 
 The structured golden step is intentionally part of the PR gate. It covers
@@ -214,10 +228,11 @@ composition. Each run stores a `summary.json`; changes to spread count,
 viewport, DPR, spread mode, or line-breaking mode are treated as golden
 regressions.
 
-Every committed run includes all manifest-declared frontmatter spreads for its
-book, plus body/tail anchor spreads. The pre-body pages are intentionally not
-sampled down because they are the representative real-world cases for covers,
-production notes, introductions, color pages, and tables of contents.
+Every committed run samples the first three spreads, the last declared
+frontmatter spread, and the beginning, middle, and end of the body. The full
+every-profile/every-spread matrix remains available through
+`RITO_PIXEL_SCOPE=full` with an external baseline root, so exhaustive release
+investigations do not inflate the default Git checkout.
 
 Compare and update mode use 2 Playwright workers by default. Use
 `RITO_PIXEL_WORKERS` for larger local or CI machines. Review mode stays on one

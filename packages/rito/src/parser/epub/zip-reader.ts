@@ -1,4 +1,6 @@
 import { EpubParseError } from './errors';
+import { normalizeArchiveEntryPath, resolveArchiveHref } from './archive-path';
+import type { ZipLimits } from './types';
 import { unzip } from './unzip';
 
 export interface ZipReader {
@@ -8,17 +10,18 @@ export interface ZipReader {
   close(): void;
 }
 
-export function createZipReader(data: ArrayBuffer): ZipReader {
-  let entries: Record<string, Uint8Array> | null = unzip(new Uint8Array(data));
+export function createZipReader(data: ArrayBuffer, limits?: ZipLimits): ZipReader {
+  let entries: Record<string, Uint8Array> | null = unzip(new Uint8Array(data), limits);
   const paths = Object.keys(entries);
 
   return {
     readFile(path: string): Uint8Array {
       if (!entries) throw new EpubParseError('ZipReader has been closed');
-      // OPF/NCX hrefs are URLs, so they may be percent-encoded (e.g.
-      // "Character%20Profile.xhtml") while the actual zip entry name is literal.
-      // Try the raw path first, then fall back to its percent-decoded form.
-      const entry = entries[path] ?? entries[percentDecodePath(path)];
+      // Try the literal ZIP spelling first, then URL-decode an EPUB href. Both
+      // variants are dot-normalized and forbidden from escaping archive root.
+      const literalPath = normalizeArchiveEntryPath(path);
+      const literalEntry = entries[literalPath];
+      const entry = literalEntry ?? entries[resolveArchiveHref('', path)];
       if (!entry) {
         throw new EpubParseError(`File not found in EPUB archive: ${path}`);
       }
@@ -38,14 +41,4 @@ export function createZipReader(data: ArrayBuffer): ZipReader {
       entries = null;
     },
   };
-}
-
-/** Percent-decode a container path, falling back to the raw path if malformed. */
-function percentDecodePath(path: string): string {
-  if (!path.includes('%')) return path;
-  try {
-    return decodeURIComponent(path);
-  } catch {
-    return path;
-  }
 }

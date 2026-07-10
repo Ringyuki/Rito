@@ -1,5 +1,6 @@
-import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
+import type { DocumentNode } from '../parser/xhtml/types';
 import { buildHrefResolver } from '../utils/resolve-href';
+import { serializeFootnoteHtml } from './footnote-html';
 
 /**
  * Canonical and deprecated epub:type values for footnote semantics.
@@ -19,7 +20,7 @@ export interface FootnoteEntry {
   readonly kind: FootnoteKind;
   /** Plain-text content (for search / quick display). */
   readonly text: string;
-  /** Serialized HTML fragment preserving structure, attributes, and links. */
+  /** Allowlist-sanitized HTML fragment preserving safe structure and links. */
   readonly html: string;
 }
 
@@ -150,7 +151,7 @@ function resolveNoterefTarget(
 ): string | null {
   const hashIdx = href.indexOf('#');
   if (hashIdx < 0) return null;
-  const fragment = href.slice(hashIdx + 1);
+  const fragment = decodeHrefComponent(href.slice(hashIdx + 1));
   if (!fragment) return null;
 
   if (hashIdx === 0) {
@@ -158,9 +159,19 @@ function resolveNoterefTarget(
   }
 
   // Cross-document: use the same resolution logic as image/font href matching
-  const filePart = href.slice(0, hashIdx);
+  const rawFilePart = href.slice(0, hashIdx);
+  const queryIdx = rawFilePart.indexOf('?');
+  const filePart = queryIdx < 0 ? rawFilePart : rawFilePart.slice(0, queryIdx);
   const resolved = fileResolver(filePart);
   return resolved ? `${resolved}#${fragment}` : null;
+}
+
+function decodeHrefComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 function isNoteref(node: DocumentNode): boolean {
@@ -187,7 +198,11 @@ function removeFootnotes(
       const key = id ? `${chapterHref}#${id}` : null;
       if (key && targets.has(key)) {
         const children = 'children' in node ? node.children : [];
-        footnotes.set(key, { kind, text: collectText(children), html: serializeHtml(children) });
+        footnotes.set(key, {
+          kind,
+          text: collectText(children),
+          html: serializeFootnoteHtml(children),
+        });
         changed = true;
         continue;
       }
@@ -217,8 +232,6 @@ function getFootnoteKind(node: DocumentNode): FootnoteKind | null {
   return null;
 }
 
-// ── Serialization ───────────────────────────────────────────────────
-
 /**
  * Collect plain text from nodes.
  * Block boundaries insert a space; inline elements concatenate directly.
@@ -240,39 +253,4 @@ function collectText(nodes: readonly DocumentNode[]): string {
     }
   }
   return result.trim();
-}
-
-/** Serialize DocumentNode[] to HTML, preserving tag names AND attributes. */
-function serializeHtml(nodes: readonly DocumentNode[]): string {
-  const parts: string[] = [];
-  for (const node of nodes) {
-    if (node.type === 'text') {
-      parts.push(escapeHtml(node.content));
-    } else if (node.type === 'image') {
-      parts.push(`<img${serializeAttrs(node.attributes)}>`);
-    } else {
-      const tag = node.tag;
-      const attrs = serializeAttrs(node.attributes);
-      parts.push(`<${tag}${attrs}>${serializeHtml(node.children)}</${tag}>`);
-    }
-  }
-  return parts.join('');
-}
-
-/** Serialize all element attributes from allAttributes map. */
-function serializeAttrs(attrs: ElementAttributes | undefined): string {
-  if (!attrs?.allAttributes || attrs.allAttributes.size === 0) return '';
-  const parts: string[] = [];
-  for (const [name, value] of attrs.allAttributes) {
-    parts.push(` ${name}="${escapeAttr(value)}"`);
-  }
-  return parts.join('');
-}
-
-function escapeHtml(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-function escapeAttr(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
 }

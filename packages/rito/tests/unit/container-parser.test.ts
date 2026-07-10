@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { CONTAINER_PATH, parseContainer } from '../../src/parser/epub/container-parser';
 
@@ -43,6 +42,10 @@ describe('parseContainer', () => {
 </container>`;
 
     expect(() => parseContainer(xml)).toThrow('full-path attribute');
+  });
+
+  it('rejects malformed XML instead of accepting parser recovery', () => {
+    expect(() => parseContainer('<container><rootfiles>')).toThrow('Invalid container.xml');
   });
 
   it('exports CONTAINER_PATH constant', () => {

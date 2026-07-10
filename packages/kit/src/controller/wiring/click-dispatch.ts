@@ -1,5 +1,5 @@
 import type { Reader } from '@ritojs/core/web';
-import type { HitEntry, LinkRegion } from '@ritojs/core/advanced';
+import type { HitEntry, LinkRegion } from '@ritojs/core/integration';
 import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
@@ -96,7 +96,8 @@ function dispatchLinkClick(
   }
 
   // Internal link — resolve target page and TOC label
-  const syntheticEntry = { label: '', href, children: [] as never[] };
+  const resolvedHref = resolveInternalLinkHref(href, currentChapterHref);
+  const syntheticEntry = { label: '', href: resolvedHref, children: [] as never[] };
   const targetPage = reader.findPage(syntheticEntry);
   const navigate = (): void => {
     if (targetPage === undefined) return;
@@ -114,6 +115,14 @@ function dispatchLinkClick(
     resolvedLabel,
     navigate,
   });
+}
+
+/** Resolve a same-document fragment against the chapter under the click. */
+export function resolveInternalLinkHref(
+  href: string,
+  currentChapterHref: string | undefined,
+): string {
+  return href.startsWith('#') && currentChapterHref ? `${currentChapterHref}${href}` : href;
 }
 
 /**

@@ -1,10 +1,2 @@
 export { createLazyImageLoader, loadFonts, loadImages } from './asset-loaders';
-export {
-  prepare,
-  loadAssets,
-  paginateWithAssets,
-  disposeAssets,
-  disposeResources,
-  type LoadedAssets,
-  type Resources,
-} from './resources';
+export { loadAssets, disposeAssets, type LoadedAssets } from './resources';

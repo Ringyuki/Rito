@@ -214,6 +214,36 @@ describe('useRitoReader', () => {
     expect(expectHookValue(latest).totalSpreads).toBe(3);
   });
 
+  it('disposes a created reader when controller construction fails', async () => {
+    const dispose = vi.fn();
+    createReaderMock.mockResolvedValue({ ...createReaderStub(), dispose });
+    createControllerMock.mockImplementation(() => {
+      throw new Error('controller setup failed');
+    });
+    const options: UseRitoReaderOptions = {
+      reader: { width: 800, height: 600 },
+    };
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={options}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await expectHookValue(latest).load(new ArrayBuffer(8));
+    });
+
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(expectHookValue(latest).isLoaded).toBe(false);
+    expect(expectHookValue(latest).error).toBe('controller setup failed');
+  });
+
   it('renders safely without document during server rendering', () => {
     const options: UseRitoReaderOptions = {
       reader: { width: 800, height: 600 },

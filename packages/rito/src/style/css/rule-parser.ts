@@ -21,7 +21,7 @@ export function parseCssRules(
     // because viewport-relative values (vh/vw) can only be resolved later
     // when viewport dimensions are available. rawDeclarations is re-parsed
     // in the cascade with full context.
-    const declarations = parseCssDeclarations(block.body, baseFontSize);
+    const declarations = parseCssDeclarations(block.body, baseFontSize, baseFontSize);
     const hasPseudoElement = /::?(?:before|after)\b/i.test(block.selector);
     if (
       Object.keys(declarations).length === 0 &&

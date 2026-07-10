@@ -8991,7 +8991,7 @@
       ]
     },
     {
-      "id": "book-07-default.greedy-page-0163",
+      "id": "book-07-default.greedy-page-0162",
       "page": {
         "bounds": {
           "height": 800,
@@ -9008,7 +9008,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 163,
+        "index": 162,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -9353,7 +9353,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 164,
+    "pageCount": 163,
     "pixelRatios": [
       1,
       2
@@ -9497,8 +9497,8 @@
         "features": [
           "last"
         ],
-        "id": "book-07-default.greedy-page-0163",
-        "pageIndex": 163
+        "id": "book-07-default.greedy-page-0162",
+        "pageIndex": 162
       }
     ]
   }

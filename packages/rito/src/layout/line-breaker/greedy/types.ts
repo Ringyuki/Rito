@@ -10,6 +10,7 @@ export interface StyleRange {
   readonly href?: string;
   readonly sourceRef?: SourceRef;
   readonly sourceText?: string;
+  readonly sourceTextOffset?: number;
   readonly rubyAnnotation?: string;
   readonly borderStart?: boolean;
   readonly borderEnd?: boolean;

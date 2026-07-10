@@ -401,14 +401,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "f027209aa89f1410",
+            "hash": "94b2111c49cbe1a5",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 113,
-            "hash": "ed4c1b0462c34f8e",
+            "hash": "23ea541867c49ccc",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -513,7 +513,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 28.8px title"
+                "value": "700 25.2px title"
               },
               {
                 "property": "fillStyle",
@@ -546,8 +546,8 @@
                     "hash": "a34a87d4384d6c66",
                     "length": 3
                   },
-                  48,
-                  56
+                  47,
+                  54
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -555,7 +555,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4px title3"
+                "value": "700 5.6000000000000005px title3"
               },
               {
                 "property": "fillStyle",
@@ -588,8 +588,8 @@
                     "hash": "d1455e72b85077ab",
                     "length": 23
                   },
-                  48.64,
-                  86.4
+                  47.56,
+                  80.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -597,7 +597,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4959999999999996px title"
+                "value": "700 5.683999999999999px title"
               },
               {
                 "property": "fillStyle",
@@ -630,8 +630,8 @@
                     "hash": "05d81c60806f82eb",
                     "length": 12
                   },
-                  48.56,
-                  103.395
+                  47.49,
+                  95.471
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -639,7 +639,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 13.44px title"
+                "value": "700 11.759999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -672,8 +672,8 @@
                     "hash": "cc67786c5c7bbde4",
                     "length": 5
                   },
-                  95.331,
-                  97.84
+                  88.415,
+                  90.61
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -681,7 +681,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4px title3"
+                "value": "700 5.6000000000000005px title3"
               },
               {
                 "property": "fillStyle",
@@ -714,8 +714,8 @@
                     "hash": "6bb2901fae54c0c0",
                     "length": 14
                   },
-                  48.96,
-                  114.163
+                  47.84,
+                  104.893
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -723,7 +723,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 48px title"
+                "value": "700 42px title"
               },
               {
                 "property": "fillStyle",
@@ -756,8 +756,8 @@
                     "hash": "75c41c60a6de46b2",
                     "length": 2
                   },
-                  48,
-                  139.763
+                  47,
+                  127.293
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -765,7 +765,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -798,8 +798,8 @@
                     "hash": "052400a510ab739e",
                     "length": 15
                   },
-                  336,
-                  212.963
+                  364,
+                  191.343
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -807,7 +807,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -840,8 +840,8 @@
                     "hash": "a64f0595ab575271",
                     "length": 25
                   },
-                  336,
-                  222.563
+                  364,
+                  199.743
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -849,7 +849,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -882,8 +882,8 @@
                     "hash": "6930dc705aba2b6f",
                     "length": 3
                   },
-                  336,
-                  232.163
+                  364,
+                  208.143
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -891,7 +891,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 30.4px title"
+                "value": "700 26.599999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -924,8 +924,8 @@
                     "hash": "1eabea0de815d5de",
                     "length": 3
                   },
-                  296,
-                  240.963
+                  329,
+                  215.843
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -933,7 +933,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 18.24px title"
+                "value": "700 15.959999999999997px title"
               },
               {
                 "property": "fillStyle",
@@ -966,8 +966,8 @@
                     "hash": "1dedcb84f7c37aa5",
                     "length": 1
                   },
-                  350.72,
-                  250.691
+                  376.88,
+                  224.355
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -975,7 +975,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 30.4px title"
+                "value": "700 26.599999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -1008,8 +1008,8 @@
                     "hash": "b70c2b10c9a61866",
                     "length": 4
                   },
-                  361.664,
-                  240.963
+                  386.456,
+                  215.843
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1017,7 +1017,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 18.24px title"
+                "value": "700 15.959999999999997px title"
               },
               {
                 "property": "fillStyle",
@@ -1050,8 +1050,8 @@
                     "hash": "01a258fd127e9692",
                     "length": 1
                   },
-                  434.624,
-                  250.691
+                  450.296,
+                  224.355
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1059,7 +1059,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "54.72px title"
+                "value": "47.879999999999995px title"
               },
               {
                 "property": "fillStyle",
@@ -1092,8 +1092,8 @@
                     "hash": "e7fde6786ed686ab",
                     "length": 4
                   },
-                  420.672,
-                  271.363
+                  438.088,
+                  242.443
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1131,14 +1131,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "f027209aa89f1410",
+            "hash": "94b2111c49cbe1a5",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 113,
-            "hash": "efa5be77fb80c05b",
+            "hash": "4b763623024214c7",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1243,7 +1243,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 28.8px title"
+                "value": "700 25.2px title"
               },
               {
                 "property": "fillStyle",
@@ -1276,8 +1276,8 @@
                     "hash": "a34a87d4384d6c66",
                     "length": 3
                   },
-                  48,
-                  56
+                  47,
+                  54
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1285,7 +1285,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4px title3"
+                "value": "700 5.6000000000000005px title3"
               },
               {
                 "property": "fillStyle",
@@ -1318,8 +1318,8 @@
                     "hash": "d1455e72b85077ab",
                     "length": 23
                   },
-                  48.64,
-                  86.4
+                  47.56,
+                  80.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1327,7 +1327,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4959999999999996px title"
+                "value": "700 5.683999999999999px title"
               },
               {
                 "property": "fillStyle",
@@ -1360,8 +1360,8 @@
                     "hash": "05d81c60806f82eb",
                     "length": 12
                   },
-                  48.56,
-                  103.395
+                  47.49,
+                  95.471
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1369,7 +1369,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 13.44px title"
+                "value": "700 11.759999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -1402,8 +1402,8 @@
                     "hash": "cc67786c5c7bbde4",
                     "length": 5
                   },
-                  95.331,
-                  97.84
+                  88.415,
+                  90.61
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1411,7 +1411,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 6.4px title3"
+                "value": "700 5.6000000000000005px title3"
               },
               {
                 "property": "fillStyle",
@@ -1444,8 +1444,8 @@
                     "hash": "6bb2901fae54c0c0",
                     "length": 14
                   },
-                  48.96,
-                  114.163
+                  47.84,
+                  104.893
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1453,7 +1453,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 48px title"
+                "value": "700 42px title"
               },
               {
                 "property": "fillStyle",
@@ -1486,8 +1486,8 @@
                     "hash": "75c41c60a6de46b2",
                     "length": 2
                   },
-                  48,
-                  139.763
+                  47,
+                  127.293
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1495,7 +1495,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -1528,8 +1528,8 @@
                     "hash": "052400a510ab739e",
                     "length": 15
                   },
-                  336,
-                  212.963
+                  364,
+                  191.343
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1537,7 +1537,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -1570,8 +1570,8 @@
                     "hash": "a64f0595ab575271",
                     "length": 25
                   },
-                  336,
-                  222.563
+                  364,
+                  199.743
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1579,7 +1579,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 8px title2"
+                "value": "700 7px title2"
               },
               {
                 "property": "fillStyle",
@@ -1612,8 +1612,8 @@
                     "hash": "6930dc705aba2b6f",
                     "length": 3
                   },
-                  336,
-                  232.163
+                  364,
+                  208.143
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1621,7 +1621,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 30.4px title"
+                "value": "700 26.599999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -1654,8 +1654,8 @@
                     "hash": "1eabea0de815d5de",
                     "length": 3
                   },
-                  296,
-                  240.963
+                  329,
+                  215.843
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1663,7 +1663,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 18.24px title"
+                "value": "700 15.959999999999997px title"
               },
               {
                 "property": "fillStyle",
@@ -1696,8 +1696,8 @@
                     "hash": "1dedcb84f7c37aa5",
                     "length": 1
                   },
-                  350.72,
-                  250.691
+                  376.88,
+                  224.355
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1705,7 +1705,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 30.4px title"
+                "value": "700 26.599999999999998px title"
               },
               {
                 "property": "fillStyle",
@@ -1738,8 +1738,8 @@
                     "hash": "b70c2b10c9a61866",
                     "length": 4
                   },
-                  361.664,
-                  240.963
+                  386.456,
+                  215.843
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1747,7 +1747,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 18.24px title"
+                "value": "700 15.959999999999997px title"
               },
               {
                 "property": "fillStyle",
@@ -1780,8 +1780,8 @@
                     "hash": "01a258fd127e9692",
                     "length": 1
                   },
-                  434.624,
-                  250.691
+                  450.296,
+                  224.355
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1789,7 +1789,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "54.72px title"
+                "value": "47.879999999999995px title"
               },
               {
                 "property": "fillStyle",
@@ -1822,8 +1822,8 @@
                     "hash": "e7fde6786ed686ab",
                     "length": 4
                   },
-                  420.672,
-                  271.363
+                  438.088,
+                  242.443
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3795,14 +3795,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "741e1ee0e2afae1b",
+            "hash": "a8aa8b7bd87e2da3",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 462,
-            "hash": "7eea303d712f18a2",
+            "hash": "232813d005dc23c9",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -3914,7 +3914,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 21.6px page"
+                "value": "700 13.5px page"
               },
               {
                 "property": "fillStyle",
@@ -3942,8 +3942,8 @@
                     "hash": "273e568544a65ab6",
                     "length": 9
                   },
-                  363.36,
-                  57.28
+                  339.6,
+                  50.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3951,7 +3951,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "14.4px title2"
+                "value": "9px title2"
               },
               {
                 "property": "fillStyle",
@@ -3979,8 +3979,8 @@
                     "hash": "1b1ef77b7732da94",
                     "length": 4
                   },
-                  282.72,
-                  76
+                  289.2,
+                  62.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4019,16 +4019,16 @@
               },
               {
                 "args": [
-                  113.5,
-                  95.5
+                  183.5,
+                  75.5
                 ],
                 "method": "moveTo",
                 "type": "call"
               },
               {
                 "args": [
-                  487.5,
-                  95.5
+                  417.5,
+                  75.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -4048,10 +4048,10 @@
                   {
                     "imageHref": "Images/XSTN.png"
                   },
-                  125.467,
-                  107.24,
-                  93.6,
-                  70.2
+                  190.917,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4059,7 +4059,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -4087,8 +4087,8 @@
                     "hash": "423e2f6c1113c459",
                     "length": 8
                   },
-                  144.619,
-                  183.2
+                  202.887,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4096,7 +4096,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -4124,8 +4124,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  169.675,
-                  198.176
+                  218.547,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4133,7 +4133,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4161,8 +4161,8 @@
                     "hash": "78eb799fcc9fbd4f",
                     "length": 18
                   },
-                  114.96,
-                  210.272
+                  184.35,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4170,7 +4170,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4198,8 +4198,8 @@
                     "hash": "570da9914ae4a6c7",
                     "length": 18
                   },
-                  114.96,
-                  220.352
+                  184.35,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4207,7 +4207,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4235,8 +4235,8 @@
                     "hash": "b8e4f58d7adea9af",
                     "length": 8
                   },
-                  114.96,
-                  230.432
+                  184.35,
+                  159.395
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4246,10 +4246,10 @@
                   {
                     "imageHref": "Images/GL.png"
                   },
-                  250.711,
-                  107.24,
-                  93.6,
-                  70.2
+                  269.194,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4257,7 +4257,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -4285,8 +4285,8 @@
                     "hash": "1f4b1697815e18b0",
                     "length": 6
                   },
-                  273.86,
-                  183.2
+                  283.662,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4294,7 +4294,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -4322,8 +4322,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  294.919,
-                  198.176
+                  296.824,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4331,7 +4331,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4359,8 +4359,8 @@
                     "hash": "afb03186a4d0c4f6",
                     "length": 19
                   },
-                  237.716,
-                  210.272
+                  261.072,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4368,7 +4368,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4396,8 +4396,8 @@
                     "hash": "f0d55ebc83fbcc69",
                     "length": 19
                   },
-                  237.716,
-                  220.352
+                  261.072,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4405,7 +4405,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4433,8 +4433,8 @@
                     "hash": "044e6431537982a6",
                     "length": 16
                   },
-                  237.716,
-                  230.432
+                  261.072,
+                  159.395
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4444,10 +4444,10 @@
                   {
                     "imageHref": "Images/LMY.png"
                   },
-                  378.444,
-                  107.24,
-                  93.6,
-                  70.2
+                  349.028,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4455,7 +4455,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -4483,8 +4483,8 @@
                     "hash": "12dc6da33246d8f4",
                     "length": 7
                   },
-                  398.137,
-                  183.2
+                  361.336,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4492,7 +4492,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -4520,8 +4520,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  422.652,
-                  198.176
+                  376.658,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4529,7 +4529,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4557,8 +4557,8 @@
                     "hash": "ae44d6cfd3804788",
                     "length": 19
                   },
-                  365.449,
-                  210.272
+                  340.906,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4566,7 +4566,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4594,8 +4594,8 @@
                     "hash": "37f1543dceca3287",
                     "length": 19
                   },
-                  365.449,
-                  220.352
+                  340.906,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4605,10 +4605,10 @@
                   {
                     "imageHref": "Images/LAE.png"
                   },
-                  120,
-                  254.912,
-                  79.2,
-                  59.4
+                  187.5,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4616,7 +4616,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4644,8 +4644,8 @@
                     "hash": "afdd7ce149c705e8",
                     "length": 3
                   },
-                  150.528,
-                  319.352
+                  206.58,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4653,7 +4653,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4681,8 +4681,8 @@
                     "hash": "c60b3f24c1acdcf1",
                     "length": 4
                   },
-                  147.504,
-                  329.432
+                  204.69,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4690,7 +4690,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -4718,8 +4718,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  157.008,
-                  342.968
+                  210.63,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4727,7 +4727,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4755,8 +4755,8 @@
                     "hash": "1584f623566275a3",
                     "length": 14
                   },
-                  114.96,
-                  355.064
+                  184.35,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4764,7 +4764,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4792,8 +4792,8 @@
                     "hash": "957c97949ce9bfcd",
                     "length": 14
                   },
-                  114.96,
-                  365.144
+                  184.35,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4801,7 +4801,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4829,8 +4829,8 @@
                     "hash": "0d1f2bc16ee83837",
                     "length": 9
                   },
-                  114.96,
-                  375.224
+                  184.35,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4840,10 +4840,10 @@
                   {
                     "imageHref": "Images/AEBT.png"
                   },
-                  213.6,
-                  254.912,
-                  79.2,
-                  59.4
+                  246,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4851,7 +4851,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4879,8 +4879,8 @@
                     "hash": "fe6255f3f8bd0be9",
                     "length": 4
                   },
-                  241.104,
-                  319.352
+                  263.19,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4888,7 +4888,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4916,8 +4916,8 @@
                     "hash": "5b8e9f78645f92b9",
                     "length": 4
                   },
-                  241.104,
-                  329.432
+                  263.19,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4925,7 +4925,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -4953,8 +4953,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  250.608,
-                  342.968
+                  269.13,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4962,7 +4962,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -4990,8 +4990,8 @@
                     "hash": "b69f1f54bc1dc74e",
                     "length": 14
                   },
-                  208.56,
-                  355.064
+                  242.85,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4999,7 +4999,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5027,8 +5027,8 @@
                     "hash": "1df4688956eedb36",
                     "length": 14
                   },
-                  208.56,
-                  365.144
+                  242.85,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5036,7 +5036,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5064,8 +5064,8 @@
                     "hash": "935ffee38707c997",
                     "length": 14
                   },
-                  208.56,
-                  375.224
+                  242.85,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5073,7 +5073,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5101,8 +5101,8 @@
                     "hash": "c5cce3b5a560acfc",
                     "length": 4
                   },
-                  208.56,
-                  385.304
+                  242.85,
+                  256.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5112,10 +5112,10 @@
                   {
                     "imageHref": "Images/ALNY.png"
                   },
-                  307.2,
-                  254.912,
-                  79.2,
-                  59.4
+                  304.5,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -5123,7 +5123,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5151,8 +5151,8 @@
                     "hash": "6d43a3439a8af440",
                     "length": 3
                   },
-                  335.928,
-                  319.352
+                  322.455,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5160,7 +5160,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5188,8 +5188,8 @@
                     "hash": "d128a52ea4958608",
                     "length": 4
                   },
-                  332.904,
-                  329.432
+                  320.565,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5197,7 +5197,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -5225,8 +5225,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  344.208,
-                  342.968
+                  327.63,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5234,7 +5234,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5262,8 +5262,8 @@
                     "hash": "4254c5f45c7a027d",
                     "length": 14
                   },
-                  302.16,
-                  355.064
+                  301.35,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5271,7 +5271,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5299,8 +5299,8 @@
                     "hash": "fc63f4840fcefa57",
                     "length": 14
                   },
-                  302.16,
-                  365.144
+                  301.35,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5308,7 +5308,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5336,8 +5336,8 @@
                     "hash": "bf7404f8f7ab1332",
                     "length": 13
                   },
-                  302.16,
-                  375.224
+                  301.35,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5347,10 +5347,10 @@
                   {
                     "imageHref": "Images/SLK.png"
                   },
-                  400.8,
-                  254.912,
-                  79.2,
-                  59.4
+                  363,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -5358,7 +5358,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5386,8 +5386,8 @@
                     "hash": "5eefd914e3515e65",
                     "length": 3
                   },
-                  431.328,
-                  319.352
+                  382.08,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5395,7 +5395,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5423,8 +5423,8 @@
                     "hash": "4089a6235c930898",
                     "length": 6
                   },
-                  422.256,
-                  329.432
+                  376.41,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5432,7 +5432,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -5460,8 +5460,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  437.808,
-                  342.968
+                  386.13,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5469,7 +5469,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5497,8 +5497,8 @@
                     "hash": "bd7ee318d3a9b014",
                     "length": 13
                   },
-                  395.76,
-                  355.064
+                  359.85,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5506,7 +5506,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5534,8 +5534,8 @@
                     "hash": "16b761f5713a88f3",
                     "length": 14
                   },
-                  395.76,
-                  365.144
+                  359.85,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5543,7 +5543,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5571,8 +5571,8 @@
                     "hash": "f3f7b5300c16ed2b",
                     "length": 14
                   },
-                  395.76,
-                  375.224
+                  359.85,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5580,7 +5580,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5608,8 +5608,8 @@
                     "hash": "2adf4a004fdb6cea",
                     "length": 5
                   },
-                  395.76,
-                  385.304
+                  359.85,
+                  256.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5617,7 +5617,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "14.4px title2"
+                "value": "9px title2"
               },
               {
                 "property": "fillStyle",
@@ -5645,8 +5645,8 @@
                     "hash": "c14f26ea55ebc798",
                     "length": 7
                   },
-                  269.76,
-                  416.984
+                  281.1,
+                  275.99
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5685,16 +5685,16 @@
               },
               {
                 "args": [
-                  113.5,
-                  438.5
+                  183.5,
+                  289.5
                 ],
                 "method": "moveTo",
                 "type": "call"
               },
               {
                 "args": [
-                  487.5,
-                  438.5
+                  417.5,
+                  289.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -5712,7 +5712,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5740,8 +5740,8 @@
                     "hash": "533ff8acdd4a7230",
                     "length": 7
                   },
-                  151.663,
-                  448.512
+                  207.29,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5749,7 +5749,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -5777,8 +5777,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  170.239,
-                  462.048
+                  218.9,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5786,7 +5786,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5814,8 +5814,8 @@
                     "hash": "7fdcd0f1af04788a",
                     "length": 19
                   },
-                  114.96,
-                  474.144
+                  184.35,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5823,7 +5823,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5851,8 +5851,8 @@
                     "hash": "10a3a9ee76fa7cfb",
                     "length": 15
                   },
-                  114.96,
-                  484.224
+                  184.35,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5860,7 +5860,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5888,8 +5888,8 @@
                     "hash": "e45f26e10eacc849",
                     "length": 5
                   },
-                  284.88,
-                  448.512
+                  290.55,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5897,7 +5897,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -5925,8 +5925,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  297.408,
-                  462.048
+                  298.38,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5934,7 +5934,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5962,8 +5962,8 @@
                     "hash": "2def6d1561f7156d",
                     "length": 19
                   },
-                  242.129,
-                  474.144
+                  263.83,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5971,7 +5971,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -5999,8 +5999,8 @@
                     "hash": "9911434acb0a35cc",
                     "length": 19
                   },
-                  242.129,
-                  484.224
+                  263.83,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6008,7 +6008,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6036,8 +6036,8 @@
                     "hash": "d7c5a28c779e239b",
                     "length": 5
                   },
-                  242.129,
-                  494.304
+                  263.83,
+                  324.69
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6045,7 +6045,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6073,8 +6073,8 @@
                     "hash": "bd74ae35310338ec",
                     "length": 7
                   },
-                  406.001,
-                  448.512
+                  366.25,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6082,7 +6082,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -6110,8 +6110,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  424.577,
-                  462.048
+                  377.86,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6119,7 +6119,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6147,8 +6147,8 @@
                     "hash": "f975061005d1a974",
                     "length": 19
                   },
-                  369.297,
-                  474.144
+                  343.311,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6156,7 +6156,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6184,8 +6184,8 @@
                     "hash": "d97f2d805e29c3a1",
                     "length": 19
                   },
-                  369.297,
-                  484.224
+                  343.311,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6193,7 +6193,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6221,8 +6221,8 @@
                     "hash": "ee1f004a56cd5a3e",
                     "length": 5
                   },
-                  369.297,
-                  494.304
+                  343.311,
+                  324.69
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6230,7 +6230,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6258,8 +6258,8 @@
                     "hash": "96c33bc3a796c994",
                     "length": 5
                   },
-                  157.711,
-                  515.76
+                  211.07,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6267,7 +6267,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -6295,8 +6295,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  170.239,
-                  529.296
+                  218.9,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6304,7 +6304,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6332,8 +6332,8 @@
                     "hash": "490a867ee29c6dd1",
                     "length": 19
                   },
-                  114.96,
-                  541.392
+                  184.35,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6341,7 +6341,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6369,8 +6369,8 @@
                     "hash": "da22b344d1bf1efe",
                     "length": 7
                   },
-                  114.96,
-                  551.472
+                  184.35,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6378,7 +6378,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6406,8 +6406,8 @@
                     "hash": "41a7c288a392df3e",
                     "length": 7
                   },
-                  278.832,
-                  515.76
+                  286.77,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6415,7 +6415,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -6443,8 +6443,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  297.408,
-                  529.296
+                  298.38,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6452,7 +6452,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6480,8 +6480,8 @@
                     "hash": "bb5ae49a51f6c903",
                     "length": 19
                   },
-                  242.129,
-                  541.392
+                  263.83,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6489,7 +6489,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6517,8 +6517,8 @@
                     "hash": "6c454e7188575e7d",
                     "length": 17
                   },
-                  242.129,
-                  551.472
+                  263.83,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6526,7 +6526,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6554,8 +6554,8 @@
                     "hash": "5df6f321d5d460f9",
                     "length": 7
                   },
-                  406.001,
-                  515.76
+                  366.25,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6563,7 +6563,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -6591,8 +6591,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  424.577,
-                  529.296
+                  377.86,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6600,7 +6600,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6628,8 +6628,8 @@
                     "hash": "13683601904ba91a",
                     "length": 19
                   },
-                  369.297,
-                  541.392
+                  343.311,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6637,7 +6637,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6665,8 +6665,8 @@
                     "hash": "fea7a121dbf2e2fe",
                     "length": 19
                   },
-                  369.297,
-                  551.472
+                  343.311,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6674,7 +6674,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -6702,8 +6702,8 @@
                     "hash": "44efa55bdd76be63",
                     "length": 5
                   },
-                  369.297,
-                  561.552
+                  343.311,
+                  366.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6743,14 +6743,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "741e1ee0e2afae1b",
+            "hash": "a8aa8b7bd87e2da3",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 462,
-            "hash": "57e40170d7e8dfcc",
+            "hash": "fb4df1b3db99e81b",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -6862,7 +6862,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "700 21.6px page"
+                "value": "700 13.5px page"
               },
               {
                 "property": "fillStyle",
@@ -6890,8 +6890,8 @@
                     "hash": "273e568544a65ab6",
                     "length": 9
                   },
-                  363.36,
-                  57.28
+                  339.6,
+                  50.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6899,7 +6899,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "14.4px title2"
+                "value": "9px title2"
               },
               {
                 "property": "fillStyle",
@@ -6927,8 +6927,8 @@
                     "hash": "1b1ef77b7732da94",
                     "length": 4
                   },
-                  282.72,
-                  76
+                  289.2,
+                  62.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6967,16 +6967,16 @@
               },
               {
                 "args": [
-                  113.5,
-                  95.5
+                  183.5,
+                  75.5
                 ],
                 "method": "moveTo",
                 "type": "call"
               },
               {
                 "args": [
-                  487.5,
-                  95.5
+                  417.5,
+                  75.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -6996,10 +6996,10 @@
                   {
                     "imageHref": "Images/XSTN.png"
                   },
-                  125.467,
-                  107.24,
-                  93.6,
-                  70.2
+                  190.917,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7007,7 +7007,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -7035,8 +7035,8 @@
                     "hash": "423e2f6c1113c459",
                     "length": 8
                   },
-                  144.619,
-                  183.2
+                  202.887,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7044,7 +7044,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -7072,8 +7072,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  169.675,
-                  198.176
+                  218.547,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7081,7 +7081,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7109,8 +7109,8 @@
                     "hash": "78eb799fcc9fbd4f",
                     "length": 18
                   },
-                  114.96,
-                  210.272
+                  184.35,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7118,7 +7118,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7146,8 +7146,8 @@
                     "hash": "570da9914ae4a6c7",
                     "length": 18
                   },
-                  114.96,
-                  220.352
+                  184.35,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7155,7 +7155,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7183,8 +7183,8 @@
                     "hash": "b8e4f58d7adea9af",
                     "length": 8
                   },
-                  114.96,
-                  230.432
+                  184.35,
+                  159.395
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7194,10 +7194,10 @@
                   {
                     "imageHref": "Images/GL.png"
                   },
-                  250.711,
-                  107.24,
-                  93.6,
-                  70.2
+                  269.194,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7205,7 +7205,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -7233,8 +7233,8 @@
                     "hash": "1f4b1697815e18b0",
                     "length": 6
                   },
-                  273.86,
-                  183.2
+                  283.662,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7242,7 +7242,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -7270,8 +7270,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  294.919,
-                  198.176
+                  296.824,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7279,7 +7279,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7307,8 +7307,8 @@
                     "hash": "afb03186a4d0c4f6",
                     "length": 19
                   },
-                  237.716,
-                  210.272
+                  261.072,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7316,7 +7316,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7344,8 +7344,8 @@
                     "hash": "f0d55ebc83fbcc69",
                     "length": 19
                   },
-                  237.716,
-                  220.352
+                  261.072,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7353,7 +7353,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7381,8 +7381,8 @@
                     "hash": "044e6431537982a6",
                     "length": 16
                   },
-                  237.716,
-                  230.432
+                  261.072,
+                  159.395
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7392,10 +7392,10 @@
                   {
                     "imageHref": "Images/LMY.png"
                   },
-                  378.444,
-                  107.24,
-                  93.6,
-                  70.2
+                  349.028,
+                  82.4,
+                  58.5,
+                  43.875
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7403,7 +7403,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "11.520000000000001px character1"
+                "value": "7.2px character1"
               },
               {
                 "property": "fillStyle",
@@ -7431,8 +7431,8 @@
                     "hash": "12dc6da33246d8f4",
                     "length": 7
                   },
-                  398.137,
-                  183.2
+                  361.336,
+                  129.875
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7440,7 +7440,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -7468,8 +7468,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  422.652,
-                  198.176
+                  376.658,
+                  139.235
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7477,7 +7477,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7505,8 +7505,8 @@
                     "hash": "ae44d6cfd3804788",
                     "length": 19
                   },
-                  365.449,
-                  210.272
+                  340.906,
+                  146.795
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7514,7 +7514,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7542,8 +7542,8 @@
                     "hash": "37f1543dceca3287",
                     "length": 19
                   },
-                  365.449,
-                  220.352
+                  340.906,
+                  153.095
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7553,10 +7553,10 @@
                   {
                     "imageHref": "Images/LAE.png"
                   },
-                  120,
-                  254.912,
-                  79.2,
-                  59.4
+                  187.5,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7564,7 +7564,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7592,8 +7592,8 @@
                     "hash": "afdd7ce149c705e8",
                     "length": 3
                   },
-                  150.528,
-                  319.352
+                  206.58,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7601,7 +7601,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7629,8 +7629,8 @@
                     "hash": "c60b3f24c1acdcf1",
                     "length": 4
                   },
-                  147.504,
-                  329.432
+                  204.69,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7638,7 +7638,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -7666,8 +7666,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  157.008,
-                  342.968
+                  210.63,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7675,7 +7675,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7703,8 +7703,8 @@
                     "hash": "1584f623566275a3",
                     "length": 14
                   },
-                  114.96,
-                  355.064
+                  184.35,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7712,7 +7712,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7740,8 +7740,8 @@
                     "hash": "957c97949ce9bfcd",
                     "length": 14
                   },
-                  114.96,
-                  365.144
+                  184.35,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7749,7 +7749,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7777,8 +7777,8 @@
                     "hash": "0d1f2bc16ee83837",
                     "length": 9
                   },
-                  114.96,
-                  375.224
+                  184.35,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7788,10 +7788,10 @@
                   {
                     "imageHref": "Images/AEBT.png"
                   },
-                  213.6,
-                  254.912,
-                  79.2,
-                  59.4
+                  246,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7799,7 +7799,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7827,8 +7827,8 @@
                     "hash": "fe6255f3f8bd0be9",
                     "length": 4
                   },
-                  241.104,
-                  319.352
+                  263.19,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7836,7 +7836,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7864,8 +7864,8 @@
                     "hash": "5b8e9f78645f92b9",
                     "length": 4
                   },
-                  241.104,
-                  329.432
+                  263.19,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7873,7 +7873,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -7901,8 +7901,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  250.608,
-                  342.968
+                  269.13,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7910,7 +7910,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7938,8 +7938,8 @@
                     "hash": "b69f1f54bc1dc74e",
                     "length": 14
                   },
-                  208.56,
-                  355.064
+                  242.85,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7947,7 +7947,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -7975,8 +7975,8 @@
                     "hash": "1df4688956eedb36",
                     "length": 14
                   },
-                  208.56,
-                  365.144
+                  242.85,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7984,7 +7984,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8012,8 +8012,8 @@
                     "hash": "935ffee38707c997",
                     "length": 14
                   },
-                  208.56,
-                  375.224
+                  242.85,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8021,7 +8021,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8049,8 +8049,8 @@
                     "hash": "c5cce3b5a560acfc",
                     "length": 4
                   },
-                  208.56,
-                  385.304
+                  242.85,
+                  256.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8060,10 +8060,10 @@
                   {
                     "imageHref": "Images/ALNY.png"
                   },
-                  307.2,
-                  254.912,
-                  79.2,
-                  59.4
+                  304.5,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -8071,7 +8071,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8099,8 +8099,8 @@
                     "hash": "6d43a3439a8af440",
                     "length": 3
                   },
-                  335.928,
-                  319.352
+                  322.455,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8108,7 +8108,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8136,8 +8136,8 @@
                     "hash": "d128a52ea4958608",
                     "length": 4
                   },
-                  332.904,
-                  329.432
+                  320.565,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8145,7 +8145,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -8173,8 +8173,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  344.208,
-                  342.968
+                  327.63,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8182,7 +8182,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8210,8 +8210,8 @@
                     "hash": "4254c5f45c7a027d",
                     "length": 14
                   },
-                  302.16,
-                  355.064
+                  301.35,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8219,7 +8219,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8247,8 +8247,8 @@
                     "hash": "fc63f4840fcefa57",
                     "length": 14
                   },
-                  302.16,
-                  365.144
+                  301.35,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8256,7 +8256,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8284,8 +8284,8 @@
                     "hash": "bf7404f8f7ab1332",
                     "length": 13
                   },
-                  302.16,
-                  375.224
+                  301.35,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8295,10 +8295,10 @@
                   {
                     "imageHref": "Images/SLK.png"
                   },
-                  400.8,
-                  254.912,
-                  79.2,
-                  59.4
+                  363,
+                  174.695,
+                  49.5,
+                  37.125
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -8306,7 +8306,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8334,8 +8334,8 @@
                     "hash": "5eefd914e3515e65",
                     "length": 3
                   },
-                  431.328,
-                  319.352
+                  382.08,
+                  214.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8343,7 +8343,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8371,8 +8371,8 @@
                     "hash": "4089a6235c930898",
                     "length": 6
                   },
-                  422.256,
-                  329.432
+                  376.41,
+                  221.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8380,7 +8380,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -8408,8 +8408,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  437.808,
-                  342.968
+                  386.13,
+                  229.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8417,7 +8417,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8445,8 +8445,8 @@
                     "hash": "bd7ee318d3a9b014",
                     "length": 13
                   },
-                  395.76,
-                  355.064
+                  359.85,
+                  237.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8454,7 +8454,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8482,8 +8482,8 @@
                     "hash": "16b761f5713a88f3",
                     "length": 14
                   },
-                  395.76,
-                  365.144
+                  359.85,
+                  243.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8491,7 +8491,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8519,8 +8519,8 @@
                     "hash": "f3f7b5300c16ed2b",
                     "length": 14
                   },
-                  395.76,
-                  375.224
+                  359.85,
+                  249.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8528,7 +8528,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8556,8 +8556,8 @@
                     "hash": "2adf4a004fdb6cea",
                     "length": 5
                   },
-                  395.76,
-                  385.304
+                  359.85,
+                  256.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8565,7 +8565,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "14.4px title2"
+                "value": "9px title2"
               },
               {
                 "property": "fillStyle",
@@ -8593,8 +8593,8 @@
                     "hash": "c14f26ea55ebc798",
                     "length": 7
                   },
-                  269.76,
-                  416.984
+                  281.1,
+                  275.99
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8633,16 +8633,16 @@
               },
               {
                 "args": [
-                  113.5,
-                  438.5
+                  183.5,
+                  289.5
                 ],
                 "method": "moveTo",
                 "type": "call"
               },
               {
                 "args": [
-                  487.5,
-                  438.5
+                  417.5,
+                  289.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -8660,7 +8660,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8688,8 +8688,8 @@
                     "hash": "533ff8acdd4a7230",
                     "length": 7
                   },
-                  151.663,
-                  448.512
+                  207.29,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8697,7 +8697,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -8725,8 +8725,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  170.239,
-                  462.048
+                  218.9,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8734,7 +8734,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8762,8 +8762,8 @@
                     "hash": "7fdcd0f1af04788a",
                     "length": 19
                   },
-                  114.96,
-                  474.144
+                  184.35,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8771,7 +8771,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8799,8 +8799,8 @@
                     "hash": "10a3a9ee76fa7cfb",
                     "length": 15
                   },
-                  114.96,
-                  484.224
+                  184.35,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8808,7 +8808,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8836,8 +8836,8 @@
                     "hash": "e45f26e10eacc849",
                     "length": 5
                   },
-                  284.88,
-                  448.512
+                  290.55,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8845,7 +8845,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -8873,8 +8873,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  297.408,
-                  462.048
+                  298.38,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8882,7 +8882,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8910,8 +8910,8 @@
                     "hash": "2def6d1561f7156d",
                     "length": 19
                   },
-                  242.129,
-                  474.144
+                  263.83,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8919,7 +8919,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8947,8 +8947,8 @@
                     "hash": "9911434acb0a35cc",
                     "length": 19
                   },
-                  242.129,
-                  484.224
+                  263.83,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8956,7 +8956,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -8984,8 +8984,8 @@
                     "hash": "d7c5a28c779e239b",
                     "length": 5
                   },
-                  242.129,
-                  494.304
+                  263.83,
+                  324.69
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8993,7 +8993,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9021,8 +9021,8 @@
                     "hash": "bd74ae35310338ec",
                     "length": 7
                   },
-                  406.001,
-                  448.512
+                  366.25,
+                  296.07
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9030,7 +9030,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -9058,8 +9058,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  424.577,
-                  462.048
+                  377.86,
+                  304.53
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9067,7 +9067,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9095,8 +9095,8 @@
                     "hash": "f975061005d1a974",
                     "length": 19
                   },
-                  369.297,
-                  474.144
+                  343.311,
+                  312.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9104,7 +9104,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9132,8 +9132,8 @@
                     "hash": "d97f2d805e29c3a1",
                     "length": 19
                   },
-                  369.297,
-                  484.224
+                  343.311,
+                  318.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9141,7 +9141,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9169,8 +9169,8 @@
                     "hash": "ee1f004a56cd5a3e",
                     "length": 5
                   },
-                  369.297,
-                  494.304
+                  343.311,
+                  324.69
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9178,7 +9178,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9206,8 +9206,8 @@
                     "hash": "96c33bc3a796c994",
                     "length": 5
                   },
-                  157.711,
-                  515.76
+                  211.07,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9215,7 +9215,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -9243,8 +9243,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  170.239,
-                  529.296
+                  218.9,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9252,7 +9252,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9280,8 +9280,8 @@
                     "hash": "490a867ee29c6dd1",
                     "length": 19
                   },
-                  114.96,
-                  541.392
+                  184.35,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9289,7 +9289,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9317,8 +9317,8 @@
                     "hash": "da22b344d1bf1efe",
                     "length": 7
                   },
-                  114.96,
-                  551.472
+                  184.35,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9326,7 +9326,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9354,8 +9354,8 @@
                     "hash": "41a7c288a392df3e",
                     "length": 7
                   },
-                  278.832,
-                  515.76
+                  286.77,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9363,7 +9363,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -9391,8 +9391,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  297.408,
-                  529.296
+                  298.38,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9400,7 +9400,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9428,8 +9428,8 @@
                     "hash": "bb5ae49a51f6c903",
                     "length": 19
                   },
-                  242.129,
-                  541.392
+                  263.83,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9437,7 +9437,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9465,8 +9465,8 @@
                     "hash": "6c454e7188575e7d",
                     "length": 17
                   },
-                  242.129,
-                  551.472
+                  263.83,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9474,7 +9474,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9502,8 +9502,8 @@
                     "hash": "5df6f321d5d460f9",
                     "length": 7
                   },
-                  406.001,
-                  515.76
+                  366.25,
+                  338.1
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9511,7 +9511,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "8.64px character1"
+                "value": "5.3999999999999995px character1"
               },
               {
                 "property": "fillStyle",
@@ -9539,8 +9539,8 @@
                     "hash": "9ad5ef8714f28e77",
                     "length": 1
                   },
-                  424.577,
-                  529.296
+                  377.86,
+                  346.56
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9548,7 +9548,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9576,8 +9576,8 @@
                     "hash": "13683601904ba91a",
                     "length": 19
                   },
-                  369.297,
-                  541.392
+                  343.311,
+                  354.12
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9585,7 +9585,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9613,8 +9613,8 @@
                     "hash": "fea7a121dbf2e2fe",
                     "length": 19
                   },
-                  369.297,
-                  551.472
+                  343.311,
+                  360.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9622,7 +9622,7 @@
               {
                 "property": "font",
                 "type": "set",
-                "value": "10.08px character1"
+                "value": "6.3px character1"
               },
               {
                 "property": "fillStyle",
@@ -9650,8 +9650,8 @@
                     "hash": "44efa55bdd76be63",
                     "length": 5
                   },
-                  369.297,
-                  561.552
+                  343.311,
+                  366.72
                 ],
                 "method": "fillText",
                 "type": "call"

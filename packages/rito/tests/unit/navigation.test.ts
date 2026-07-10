@@ -157,6 +157,27 @@ describe('findPageForTocEntry', () => {
     ).toBe(13);
   });
 
+  it('decodes URL-escaped fragments before anchor lookup', () => {
+    const spine = [spineItem('ch1')];
+    const manifest = new Map([['ch1', 'chapter.xhtml']]);
+    const chapters = new Map([['ch1', range(0, 4)]]);
+    const anchors = new Map([['part one', 3]]);
+
+    expect(
+      findPageForTocEntry(entry('chapter.xhtml#part%20one'), chapters, spine, manifest, anchors),
+    ).toBe(3);
+  });
+
+  it('ignores URL queries while matching the target chapter', () => {
+    const spine = [spineItem('ch1')];
+    const manifest = new Map([['ch1', 'chapter.xhtml']]);
+    const chapters = new Map([['ch1', range(2, 4)]]);
+
+    expect(findPageForTocEntry(entry('chapter.xhtml?edition=2'), chapters, spine, manifest)).toBe(
+      2,
+    );
+  });
+
   it('ignores anchorMap when href has no fragment', () => {
     const spine = [spineItem('ch1')];
     const manifest = new Map([['ch1', 'chapter1.xhtml']]);
@@ -205,6 +226,34 @@ describe('findPageForTocEntry', () => {
     expect(
       findPageForTocEntry(entry('chapter2.xhtml#section-1'), chapters, spine, manifest, anchors),
     ).toBe(7);
+  });
+
+  it('resolves duplicate fragment IDs through the chapter-scoped anchor map', () => {
+    const spine = [spineItem('ch1'), spineItem('ch2')];
+    const manifest = new Map([
+      ['ch1', 'chapter1.xhtml'],
+      ['ch2', 'chapter2.xhtml'],
+    ]);
+    const chapters = new Map([
+      ['ch1', range(0, 4)],
+      ['ch2', range(5, 9)],
+    ]);
+    const anchors = new Map([['section-1', 2]]);
+    const scoped = new Map([
+      ['ch1', new Map([['section-1', 2]])],
+      ['ch2', new Map([['section-1', 8]])],
+    ]);
+
+    expect(
+      findPageForTocEntry(
+        entry('chapter2.xhtml#section-1'),
+        chapters,
+        spine,
+        manifest,
+        anchors,
+        scoped,
+      ),
+    ).toBe(8);
   });
 
   // --- P2 fix: ambiguous path resolution ---

@@ -54,6 +54,19 @@ In practice:
 
 This keeps pagination and rendering decoupled and testable.
 
+## Parser Boundary
+
+EPUB structure and XHTML parsing use a strict, namespace-aware event parser and
+a parser-private compact XML tree. W3C `Document`, `Element`, and `Node` objects
+never enter the pipeline, so the same parser runs in browsers, workers, and
+Node without a DOM shim. The compact XML tree stops at `src/parser/**`; runtime
+and public APIs receive only Rito domain types such as `PackageDocument`,
+`TocEntry`, and `DocumentNode`.
+
+XHTML compatibility normalization remains a separate, explicit step for known
+real-world EPUB quirks. It does not enable HTML tag repair, DTD entity expansion,
+or external resource loading.
+
 ## Display List / Backend Boundary
 
 Rendering is split into two steps:
@@ -78,7 +91,10 @@ Current backend status:
 - `render/page/**` is only the Web Canvas facade that builds a display list and invokes the
   default Canvas backend.
 - `render/spread/**` is only the Web Canvas facade over spread display-list construction.
+- `reader/resources.ts` owns Web asset + runtime pagination orchestration; `render/**` never
+  imports runtime modules.
 - `@ritojs/core` exposes platform-neutral display-list builders and backend contracts.
+- `@ritojs/core/integration` is the narrow, stable interaction boundary consumed by `@ritojs/kit`.
 - `@ritojs/core/advanced` exposes lower-level render internals for experimental backends.
 - Flutter/Skia/native integrations should start from display lists plus platform adapters, not from
   `@ritojs/kit` or DOM controller code.

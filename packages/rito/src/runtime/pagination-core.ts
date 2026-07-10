@@ -6,15 +6,16 @@ import type { ImageDimensions, LayoutBlock, LayoutConfig, Page } from '../layout
 import type { ParagraphLayouter } from '../layout/text/paragraph-layouter';
 import type { TextMeasurer } from '../layout/text/text-measurer';
 import type { DocumentNode, ElementAttributes } from '../parser/xhtml/types';
-import { matchesSelector } from '../style/cascade/selector-matcher';
 import { resolveStyles } from '../style/cascade/resolver';
-import { DEFAULT_STYLE } from '../style/core/defaults';
 import type { ComputedStyle, CssRule, StyledNode } from '../style/core/types';
-import { parseCssDeclarations } from '../style/css/property-parser';
 import type { Viewport } from '../style/css/parse-utils';
-import { parseCssRules } from '../style/css/rule-parser';
 import { buildHrefResolver } from '../utils/resolve-href';
-import { applyBodyPresentationalAttrs } from './body-presentational-attrs';
+import { computeChapterRootStyles } from './chapter-root-style';
+import {
+  buildChapterRules,
+  buildStylesheetRuleMap,
+  buildStylesheetRules,
+} from './pagination-stylesheets';
 
 export interface PreparedPaginationContext {
   readonly contentWidth: number;
@@ -24,6 +25,8 @@ export interface PreparedPaginationContext {
   readonly imageSizes: ImageSizeMap | undefined;
   /** Per-stylesheet rules for chapter-scoped filtering. Keys match stylesheet hrefs. */
   readonly rulesByStylesheet: ReadonlyMap<string, readonly CssRule[]>;
+  /** Configured initial/root font size used for all stylesheet parsing. */
+  readonly rootFontSize: number;
 }
 
 export interface PaginatedChapterResult {
@@ -39,7 +42,7 @@ export function preparePaginationContext<T extends ImageDimensions>(
   images?: ReadonlyMap<string, T>,
   lineBreaking?: 'greedy' | 'optimal',
 ): PreparedPaginationContext {
-  const rules = buildRules(stylesheets);
+  const rules = buildStylesheetRules(stylesheets, config.rootFontSize);
 
   return {
     contentWidth: config.pageWidth - config.marginLeft - config.marginRight,
@@ -47,7 +50,8 @@ export function preparePaginationContext<T extends ImageDimensions>(
     layouter: createParagraphLayouter(measurer, lineBreaking),
     rules,
     imageSizes: images ? createImageSizeMap(images) : undefined,
-    rulesByStylesheet: buildRulesPerStylesheet(stylesheets),
+    rulesByStylesheet: buildStylesheetRuleMap(stylesheets, config.rootFontSize),
+    rootFontSize: config.rootFontSize,
   };
 }
 
@@ -58,6 +62,7 @@ export function paginateChapterNodes(
   pageIndexOffset: number,
   bodyAttributes?: ElementAttributes,
   chapterStylesheetHrefs?: readonly string[],
+  embeddedStylesheets?: readonly string[],
 ): PaginatedChapterResult {
   const { chapterBodyStyle, styled } = buildChapterStyleTree(
     nodes,
@@ -65,6 +70,7 @@ export function paginateChapterNodes(
     context,
     bodyAttributes,
     chapterStylesheetHrefs,
+    embeddedStylesheets,
   );
   const blocks = layoutBlocks(
     styled,
@@ -98,19 +104,23 @@ function buildChapterStyleTree(
   context: PreparedPaginationContext,
   bodyAttributes: ElementAttributes | undefined,
   chapterStylesheetHrefs: readonly string[] | undefined,
+  embeddedStylesheets: readonly string[] | undefined,
 ): { readonly chapterBodyStyle: ComputedStyle; readonly styled: readonly StyledNode[] } {
-  // Chapter-linked stylesheets are scoped to avoid unrelated stylesheet leakage.
-  const rules = chapterStylesheetHrefs
-    ? filterRulesByChapterHrefs(context, chapterStylesheetHrefs)
-    : context.rules;
+  const rules = buildChapterRules(
+    context.rules,
+    context.rulesByStylesheet,
+    chapterStylesheetHrefs,
+    embeddedStylesheets,
+    context.rootFontSize,
+  );
 
   const viewport: Viewport = { width: config.viewportWidth, height: config.viewportHeight };
-  const bodyStyle = computeBodyStyle(rules, viewport);
-  const resolvedBodyStyle = bodyAttributes
-    ? resolveBodyStyleWithAttrs(bodyStyle, rules, bodyAttributes, viewport)
-    : bodyStyle;
-  const chapterBodyStyle = applyTypographyOverrides(resolvedBodyStyle, config);
-  const cascaded = resolveStyles(nodes, chapterBodyStyle, rules, viewport);
+  const root = computeChapterRootStyles(rules, config.rootFontSize, bodyAttributes, viewport);
+  const chapterBodyStyle = applyTypographyOverrides(root.bodyStyle, config);
+  const cascaded = resolveStyles(nodes, chapterBodyStyle, rules, viewport, {
+    rootFontSize: root.htmlFontSize,
+    ancestors: root.ancestors,
+  });
   return { chapterBodyStyle, styled: forceTypographyOnTree(cascaded, config) };
 }
 
@@ -121,78 +131,6 @@ function createParagraphLayouter(
   return lineBreaking === 'optimal'
     ? createKnuthPlassLayouter(measurer)
     : createGreedyLayouter(measurer);
-}
-
-function buildRules(stylesheets: ReadonlyMap<string, string>): CssRule[] {
-  const rules: CssRule[] = [];
-  for (const css of stylesheets.values()) {
-    rules.push(...parseCssRules(css, DEFAULT_STYLE.fontSize));
-  }
-  return rules;
-}
-
-function buildRulesPerStylesheet(
-  stylesheets: ReadonlyMap<string, string>,
-): ReadonlyMap<string, readonly CssRule[]> {
-  const map = new Map<string, readonly CssRule[]>();
-  for (const [href, css] of stylesheets) {
-    map.set(href, parseCssRules(css, DEFAULT_STYLE.fontSize));
-  }
-  return map;
-}
-
-/**
- * Build a chapter-scoped rule set by matching `<link>` hrefs from the chapter
- * against the per-stylesheet rule map. Uses suffix matching to resolve relative
- * paths (e.g. `../Styles/Style_0002.css` matches manifest href `Styles/Style_0002.css`).
- */
-function filterRulesByChapterHrefs(
-  context: PreparedPaginationContext,
-  linkHrefs: readonly string[],
-): readonly CssRule[] {
-  const rules: CssRule[] = [];
-  const stylesheetKeys = [...context.rulesByStylesheet.keys()];
-  for (const linkHref of linkHrefs) {
-    const normalized = stripRelativePrefix(linkHref);
-    const matchingKey = stylesheetKeys.find(
-      (key) =>
-        key === normalized || key.endsWith('/' + normalized) || normalized.endsWith('/' + key),
-    );
-    if (matchingKey) {
-      rules.push(...(context.rulesByStylesheet.get(matchingKey) ?? []));
-    }
-  }
-  return rules;
-}
-
-function stripRelativePrefix(href: string): string {
-  return href.replace(/^(?:\.\.\/)+/, '');
-}
-
-function resolveBodyStyleWithAttrs(
-  baseBodyStyle: ComputedStyle,
-  rules: readonly CssRule[],
-  attrs: ElementAttributes,
-  viewport?: Viewport,
-): ComputedStyle {
-  let style = applyBodyPresentationalAttrs(baseBodyStyle, attrs);
-  const target = attrs.class ? { tag: 'body', className: attrs.class } : { tag: 'body' };
-  for (const rule of rules) {
-    if (matchesSelector(target, rule.selector)) {
-      const resolved = parseCssDeclarations(
-        rule.rawDeclarations,
-        style.fontSize,
-        style.fontSize,
-        viewport,
-      );
-      style = { ...style, ...resolved };
-    }
-  }
-  if (attrs.style) {
-    const inline = parseCssDeclarations(attrs.style, style.fontSize, style.fontSize, viewport);
-    style = { ...style, ...inline };
-  }
-  return style;
 }
 
 function forceTypographyOnTree(
@@ -238,22 +176,6 @@ function applyTypographyOverrides(style: ComputedStyle, config: LayoutConfig): C
     result = { ...result, fontFamily: config.fontFamilyOverride };
   }
   return result;
-}
-
-function computeBodyStyle(rules: readonly CssRule[], viewport?: Viewport): ComputedStyle {
-  let style: ComputedStyle = DEFAULT_STYLE;
-  for (const rule of rules) {
-    if (rule.selector === 'body' || rule.selector === 'html') {
-      const resolved = parseCssDeclarations(
-        rule.rawDeclarations,
-        style.fontSize,
-        style.fontSize,
-        viewport,
-      );
-      style = { ...style, ...resolved };
-    }
-  }
-  return style;
 }
 
 function createImageSizeMap<T extends ImageDimensions>(

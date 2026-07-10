@@ -41,6 +41,7 @@ reader.renderSpread(0);
 - platform contracts for text measurement, image resolution, and display-list backends
 - no Web-only helpers on the main `@ritojs/core` entry
 - expert entry points such as `@ritojs/core/advanced`
+- a narrow `@ritojs/core/integration` boundary for controller packages
 - focused subpaths such as `@ritojs/core/selection`, `@ritojs/core/search`, `@ritojs/core/annotations`, `@ritojs/core/position`, `@ritojs/core/a11y`, and `@ritojs/core/dom`
 
 ## Documentation

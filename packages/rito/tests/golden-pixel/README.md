@@ -54,10 +54,11 @@ text-primary profiles, and focused supplemental profile coverage:
 - `single-default-dpr2`: `greedy`.
 - `double-default`: `greedy`.
 
-Every committed run includes all manifest-declared frontmatter spreads for its
-book, plus body/tail anchor spreads. The pre-body pages are intentionally not
-sampled down because they are the representative real-world cases for covers,
-production notes, introductions, color pages, and tables of contents.
+Every committed run samples the first three spreads, the final declared
+frontmatter spread, and the start, middle, and end of the body. This keeps
+frontmatter, body, and tail coverage across every book/profile combination
+without checking hundreds of megabytes of repeated viewport variants into Git.
+Use full scope when every spread is required for a release investigation.
 
 `RITO_PIXEL_SCOPE=full` switches to every profile and every spread. Its default
 baseline root is `packages/rito/test-results/pixel-full-baselines`, not the

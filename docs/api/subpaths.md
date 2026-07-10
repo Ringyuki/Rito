@@ -164,6 +164,14 @@ Use when:
 - you want optional DOM bindings without committing to `@ritojs/kit`
 - you already have your own UI/controller layer
 
+## `@ritojs/core/integration`
+
+This narrow entry is the supported bridge used by controller packages such as
+`@ritojs/kit`. It exposes hit/link map construction, selection rectangles, and
+their shared geometry/source types without making the broad experimental
+`advanced` surface a package-to-package dependency. Most applications should
+use `@ritojs/kit`, `selection`, or the other focused subpaths instead.
+
 ## Guidance
 
 - Use these subpaths when you want focused functionality without importing `@ritojs/core/advanced`.

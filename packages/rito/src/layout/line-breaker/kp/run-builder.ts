@@ -1,10 +1,10 @@
-import type { ComputedStyle } from '../../../style/core/types';
 import { measurePaintFromStyle } from '../../../style/css/font-shorthand';
 import type { InlineAtom, TextRun } from '../../core/types';
-import type { InlineAtomSegment, StyledSegment } from '../../text/styled-segment';
+import type { StyledSegment } from '../../text/styled-segment';
 import { runPaintFromStyle } from '../../text/run-paint-from-style';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { attachRuby } from '../greedy/runs';
+import { buildAtomRun, computeVerticalAlignOffset } from './run-geometry';
 import type { KPItem } from './types';
 
 export interface RunLocation {
@@ -25,6 +25,7 @@ interface RunBuildContext {
   readonly startedSegments: Set<StyledSegment>;
   readonly trailingEdgeTracker: Map<StyledSegment, RunLocation>;
   readonly lineIdx: number;
+  readonly sourceOffsets: ReadonlyMap<StyledSegment, number>;
 }
 
 export function buildLineRuns(
@@ -38,6 +39,7 @@ export function buildLineRuns(
   startedSegments: Set<StyledSegment>,
   trailingEdgeTracker: Map<StyledSegment, RunLocation>,
   lineIdx: number,
+  sourceOffsets: ReadonlyMap<StyledSegment, number>,
 ): Run[] {
   const ctx = createRunBuildContext(
     startX,
@@ -45,6 +47,7 @@ export function buildLineRuns(
     startedSegments,
     trailingEdgeTracker,
     lineIdx,
+    sourceOffsets,
   );
   let index = skipLeadingNonContent(items, startIdx, endIdx);
   for (; index < endIdx; index++) {
@@ -62,6 +65,7 @@ function createRunBuildContext(
   startedSegments: Set<StyledSegment>,
   trailingEdgeTracker: Map<StyledSegment, RunLocation>,
   lineIdx: number,
+  sourceOffsets: ReadonlyMap<StyledSegment, number>,
 ): RunBuildContext {
   return {
     runs: [],
@@ -74,6 +78,7 @@ function createRunBuildContext(
     startedSegments,
     trailingEdgeTracker,
     lineIdx,
+    sourceOffsets,
   };
 }
 
@@ -109,11 +114,12 @@ function appendBox(
   flushRun(ctx, lineHeight, measurer);
   ctx.currentSegment = segment;
   ctx.currentText = text;
-  ctx.currentSourceOffset = 0;
+  ctx.currentSourceOffset = (segment.sourceTextOffset ?? 0) + (ctx.sourceOffsets.get(segment) ?? 0);
 }
 
 function canMergeBox(current: StyledSegment | undefined, next: StyledSegment): boolean {
   if (current === next) return true;
+  if (current?.sourceRef || next.sourceRef) return false;
   return (
     current?.style === next.style &&
     current.href === next.href &&
@@ -242,55 +248,4 @@ function trimRunBounds(run: TextRun, trimmed: string, measurer: TextMeasurer): T
     ...(run.paint.wordSpacingPx !== undefined ? { wordSpacingPx: run.paint.wordSpacingPx } : {}),
   };
   return { ...run.bounds, width: measurer.measureText(trimmed, paint).width };
-}
-
-function buildAtomRun(
-  atom: InlineAtomSegment,
-  x: number,
-  lineHeight: number,
-  baseFontSize: number,
-): InlineAtom {
-  const base: InlineAtom = {
-    type: 'inline-atom',
-    bounds: {
-      x,
-      y: computeVerticalAlignOffset(atom.style, lineHeight, baseFontSize),
-      width: atom.width,
-      height: atom.height,
-    },
-  };
-  if (atom.imageSrc !== undefined) {
-    let withSrc: InlineAtom = { ...base, imageSrc: atom.imageSrc };
-    if (atom.alt) withSrc = { ...withSrc, alt: atom.alt };
-    if (atom.href) withSrc = { ...withSrc, href: atom.href };
-    return withSrc;
-  }
-  return base;
-}
-
-const ASCENT_RATIO = 0.8;
-
-function computeVerticalAlignOffset(
-  style: ComputedStyle,
-  lineHeight: number,
-  baseFontSize: number,
-): number {
-  switch (style.verticalAlign) {
-    case 'baseline':
-      return ASCENT_RATIO * (baseFontSize - style.fontSize);
-    case 'top':
-    case 'text-top':
-      return 0;
-    case 'super':
-      return -(style.fontSize * 0.4);
-    case 'sub':
-      return style.fontSize * 0.2;
-    case 'middle':
-      return (lineHeight - style.fontSize) / 2;
-    case 'bottom':
-    case 'text-bottom':
-      return lineHeight - style.fontSize;
-    default:
-      return 0;
-  }
 }

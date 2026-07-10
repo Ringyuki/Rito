@@ -123,6 +123,22 @@ describe('extractAllFootnotes (cross-chapter)', () => {
     expect(footnotes.get('OEBPS/Text/notes.xhtml#n1')?.text).toBe('Cross-doc note');
   });
 
+  it('decodes escaped fragments and ignores queries in noteref targets', () => {
+    const ch1 = parse(`
+      <p><a epub:type="noteref" href="../Text/notes.xhtml?edition=2#note%201">*</a></p>
+    `);
+    const notes = parse(`
+      <aside epub:type="footnote" id="note 1"><p>Escaped target</p></aside>
+    `);
+    const chapters = new Map([
+      ['chapter1', ch1],
+      ['notes', notes],
+    ]);
+
+    const { footnotes } = extractAllFootnotes(chapters, hrefMap);
+    expect(footnotes.get('OEBPS/Text/notes.xhtml#note 1')?.text).toBe('Escaped target');
+  });
+
   it('text preserves inline adjacency and adds space at block boundaries', () => {
     const nodes = parse(`
       <p><a epub:type="noteref" href="#n1">1</a></p>
@@ -137,7 +153,7 @@ describe('extractAllFootnotes (cross-chapter)', () => {
     expect(entry?.text).toBe('foobarbaz Second paragraph');
   });
 
-  it('html preserves attributes (class, href, style, lang)', () => {
+  it('html preserves allowlisted structural attributes and same-document links', () => {
     const nodes = parse(`
       <p><a epub:type="noteref" href="#n1">1</a></p>
       <aside epub:type="footnote" id="n1">
@@ -149,5 +165,58 @@ describe('extractAllFootnotes (cross-chapter)', () => {
     expect(entry?.html).toContain('class="note-text"');
     expect(entry?.html).toContain('lang="ja"');
     expect(entry?.html).toContain('href="#ref1"');
+  });
+
+  it('strips event handlers, inline styles, and non-allowlisted attributes', () => {
+    const nodes = parse(`
+      <p><a epub:type="noteref" href="#n1">1</a></p>
+      <aside epub:type="footnote" id="n1">
+        <p class="note" lang="en" style="color:red" onclick="alert(1)" data-secret="x">
+          Safe <span onmouseover="alert(2)">content</span>
+        </p>
+      </aside>
+    `);
+    const html = extractChapterFootnotes(nodes, 'ch.xhtml').footnotes.get('ch.xhtml#n1')?.html;
+
+    expect(html).toContain('<p class="note" lang="en">');
+    expect(html).toContain('<span>content</span>');
+    expect(html).not.toMatch(/on(?:click|mouseover)|style=|data-secret/i);
+  });
+
+  it('removes executable and active-content URL schemes from links and images', () => {
+    const nodes = parse(`
+      <p><a epub:type="noteref" href="#n1">1</a></p>
+      <aside epub:type="footnote" id="n1">
+        <p>
+          <a href="javascript:alert(1)">script</a>
+          <a href="data:text/html,bad">data</a>
+          <a href="https://example.com/note">web</a>
+          <img src="javascript:alert(2)" alt="bad-script"/>
+          <img src="data:image/svg+xml,bad" alt="bad-data"/>
+          <img src="images/note.png" alt="safe-image" onerror="alert(3)"/>
+        </p>
+      </aside>
+    `);
+    const html = extractChapterFootnotes(nodes, 'ch.xhtml').footnotes.get('ch.xhtml#n1')?.html;
+
+    expect(html).not.toMatch(/javascript:|data:|onerror/i);
+    expect(html).toContain('<a>script</a>');
+    expect(html).toContain('<a>data</a>');
+    expect(html).toContain('href="https://example.com/note"');
+    expect(html).toContain('src="images/note.png"');
+    expect(html).toContain('alt="safe-image"');
+  });
+
+  it('unwraps non-allowlisted elements while retaining escaped text content', () => {
+    const nodes = parse(`
+      <p><a epub:type="noteref" href="#n1">1</a></p>
+      <aside epub:type="footnote" id="n1">
+        <form action="javascript:alert(1)"><custom-element>&lt;safe&gt;</custom-element></form>
+      </aside>
+    `);
+    const html = extractChapterFootnotes(nodes, 'ch.xhtml').footnotes.get('ch.xhtml#n1')?.html;
+
+    expect(html).toContain('&lt;safe&gt;');
+    expect(html).not.toMatch(/form|custom-element|action=/i);
   });
 });

@@ -16,325 +16,13 @@
         "counts": {
           "blocks": 1,
           "hrs": 0,
-          "images": 0,
-          "inlineAtoms": 0,
-          "lines": 0,
-          "ruby": 0,
-          "textRuns": 0
-        },
-        "index": 0,
-        "selectedFeatureCounts": {
-          "blockBackground": 0,
-          "blockBorder": 0,
-          "blockClip": 0,
-          "blockOpacity": 0,
-          "blockTransform": 0,
-          "horizontalRule": 0,
-          "image": 0,
-          "inlineAtom": 0,
-          "inlineBackground": 0,
-          "inlineBorder": 0,
-          "ruby": 0,
-          "text": 0,
-          "textDecoration": 0,
-          "textShadow": 0
-        },
-        "selectedFeatures": [
-          "first"
-        ]
-      },
-      "renders": [
-        {
-          "canvas": {
-            "height": 800,
-            "width": 600
-          },
-          "displayList": {
-            "commandCount": 8,
-            "commands": {
-              "clipRect": 1,
-              "paintPage": 2,
-              "popState": 2,
-              "pushState": 2,
-              "translate": 1
-            },
-            "hash": "72811b46627760c6",
-            "height": 800,
-            "width": 600
-          },
-          "pixelRatio": 1,
-          "records": {
-            "count": 15,
-            "hash": "63d537b5c32cfb0c",
-            "methods": {
-              "beginPath": 1,
-              "clip": 1,
-              "fillRect": 2,
-              "rect": 1,
-              "restore": 3,
-              "save": 3,
-              "scale": 1,
-              "translate": 1
-            },
-            "properties": {
-              "fillStyle": 2
-            },
-            "sequence": [
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0
-                ],
-                "method": "translate",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "rect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "clip",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              }
-            ]
-          }
-        },
-        {
-          "canvas": {
-            "height": 1600,
-            "width": 1200
-          },
-          "displayList": {
-            "commandCount": 8,
-            "commands": {
-              "clipRect": 1,
-              "paintPage": 2,
-              "popState": 2,
-              "pushState": 2,
-              "translate": 1
-            },
-            "hash": "72811b46627760c6",
-            "height": 800,
-            "width": 600
-          },
-          "pixelRatio": 2,
-          "records": {
-            "count": 15,
-            "hash": "a5ed564b2d947a98",
-            "methods": {
-              "beginPath": 1,
-              "clip": 1,
-              "fillRect": 2,
-              "rect": 1,
-              "restore": 3,
-              "save": 3,
-              "scale": 1,
-              "translate": 1
-            },
-            "properties": {
-              "fillStyle": 2
-            },
-            "sequence": [
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0
-                ],
-                "method": "translate",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  600,
-                  800
-                ],
-                "method": "rect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "clip",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "book-10-default.greedy-page-0002",
-      "page": {
-        "bounds": {
-          "height": 800,
-          "width": 600,
-          "x": 0,
-          "y": 0
-        },
-        "counts": {
-          "blocks": 1,
-          "hrs": 0,
           "images": 1,
           "inlineAtoms": 0,
           "lines": 0,
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 2,
+        "index": 0,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -352,6 +40,7 @@
           "textShadow": 0
         },
         "selectedFeatures": [
+          "first",
           "image"
         ]
       },
@@ -371,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "00fcfe9336604eff",
+            "hash": "c5a53bffbc2b4218",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "d01c5406b44b5300",
+            "hash": "7c794217a68ed2bd",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -478,10 +167,10 @@
               {
                 "args": [
                   {
-                    "imageHref": "OEBPS/Images/LK-logo.png"
+                    "imageHref": "cover.jpeg"
                   },
                   40,
-                  56,
+                  40,
                   520,
                   390
                 ],
@@ -521,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "00fcfe9336604eff",
+            "hash": "c5a53bffbc2b4218",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "56bb305e2c5b2d4f",
+            "hash": "f6a51db2573266da",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -628,10 +317,10 @@
               {
                 "args": [
                   {
-                    "imageHref": "OEBPS/Images/LK-logo.png"
+                    "imageHref": "cover.jpeg"
                   },
                   40,
-                  56,
+                  40,
                   520,
                   390
                 ],
@@ -659,7 +348,7 @@
       ]
     },
     {
-      "id": "book-10-default.greedy-page-0004",
+      "id": "book-10-default.greedy-page-0005",
       "page": {
         "bounds": {
           "height": 800,
@@ -676,7 +365,7 @@
           "ruby": 0,
           "textRuns": 11
         },
-        "index": 4,
+        "index": 5,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -1901,7 +1590,7 @@
       ]
     },
     {
-      "id": "book-10-default.greedy-page-0005",
+      "id": "book-10-default.greedy-page-0006",
       "page": {
         "bounds": {
           "height": 800,
@@ -1918,7 +1607,7 @@
           "ruby": 0,
           "textRuns": 11
         },
-        "index": 5,
+        "index": 6,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -4265,7 +3954,7 @@
       ]
     },
     {
-      "id": "book-10-default.greedy-page-0045",
+      "id": "book-10-default.greedy-page-0046",
       "page": {
         "bounds": {
           "height": 800,
@@ -4282,7 +3971,7 @@
           "ruby": 0,
           "textRuns": 24
         },
-        "index": 45,
+        "index": 46,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -6519,7 +6208,7 @@
       ]
     },
     {
-      "id": "book-10-default.greedy-page-0207",
+      "id": "book-10-default.greedy-page-0208",
       "page": {
         "bounds": {
           "height": 800,
@@ -6536,7 +6225,7 @@
           "ruby": 0,
           "textRuns": 33
         },
-        "index": 207,
+        "index": 208,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 3,
@@ -10262,7 +9951,7 @@
       ]
     },
     {
-      "id": "book-10-default.greedy-page-0446",
+      "id": "book-10-default.greedy-page-0447",
       "page": {
         "bounds": {
           "height": 800,
@@ -10279,7 +9968,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 446,
+        "index": 447,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -10624,36 +10313,13 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 447,
+    "pageCount": 448,
     "pixelRatios": [
       1,
       2
     ],
-    "selectedPageCount": 7,
+    "selectedPageCount": 6,
     "selectedPages": [
-      {
-        "counts": {
-          "blockBackground": 0,
-          "blockBorder": 0,
-          "blockClip": 0,
-          "blockOpacity": 0,
-          "blockTransform": 0,
-          "horizontalRule": 0,
-          "image": 0,
-          "inlineAtom": 0,
-          "inlineBackground": 0,
-          "inlineBorder": 0,
-          "ruby": 0,
-          "text": 0,
-          "textDecoration": 0,
-          "textShadow": 0
-        },
-        "features": [
-          "first"
-        ],
-        "id": "book-10-default.greedy-page-0000",
-        "pageIndex": 0
-      },
       {
         "counts": {
           "blockBackground": 0,
@@ -10672,10 +10338,11 @@
           "textShadow": 0
         },
         "features": [
+          "first",
           "image"
         ],
-        "id": "book-10-default.greedy-page-0002",
-        "pageIndex": 2
+        "id": "book-10-default.greedy-page-0000",
+        "pageIndex": 0
       },
       {
         "counts": {
@@ -10697,8 +10364,8 @@
         "features": [
           "horizontalRule"
         ],
-        "id": "book-10-default.greedy-page-0004",
-        "pageIndex": 4
+        "id": "book-10-default.greedy-page-0005",
+        "pageIndex": 5
       },
       {
         "counts": {
@@ -10720,8 +10387,8 @@
         "features": [
           "inlineBorder"
         ],
-        "id": "book-10-default.greedy-page-0005",
-        "pageIndex": 5
+        "id": "book-10-default.greedy-page-0006",
+        "pageIndex": 6
       },
       {
         "counts": {
@@ -10743,8 +10410,8 @@
         "features": [
           "textDecoration"
         ],
-        "id": "book-10-default.greedy-page-0045",
-        "pageIndex": 45
+        "id": "book-10-default.greedy-page-0046",
+        "pageIndex": 46
       },
       {
         "counts": {
@@ -10767,8 +10434,8 @@
           "text",
           "blockBorder"
         ],
-        "id": "book-10-default.greedy-page-0207",
-        "pageIndex": 207
+        "id": "book-10-default.greedy-page-0208",
+        "pageIndex": 208
       },
       {
         "counts": {
@@ -10790,8 +10457,8 @@
         "features": [
           "last"
         ],
-        "id": "book-10-default.greedy-page-0446",
-        "pageIndex": 446
+        "id": "book-10-default.greedy-page-0447",
+        "pageIndex": 447
       }
     ]
   }

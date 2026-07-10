@@ -1,4 +1,4 @@
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { relative, resolve, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
@@ -22,6 +22,7 @@ import {
   type PixelGoldenRun,
 } from '../golden-pixel/helpers/pixel-cases';
 import { COMMITTED_PIXEL_GOLDEN_ROOT } from '../golden-pixel/helpers/pixel-golden-file';
+import { pixelSpreadIndexesForSelection } from '../golden-pixel/helpers/pixel-spread-selection';
 
 const GOLDEN_CONFIGS = getAllGoldenBookConfigs();
 const GOLDEN_ROOT = resolve(LAYOUT_GOLDEN_ROOT, '..');
@@ -81,13 +82,13 @@ describe('golden inventory', () => {
     expect(runs.every((run) => renderBookIds.has(run.bookId))).toBe(true);
   });
 
-  it('keeps full frontmatter coverage in every committed pixel run', () => {
+  it('keeps representative frontmatter and body coverage in every committed pixel run', () => {
     const frontmatterCounts = new Map(
       enabledTierBooks(books, 'render').map((book) => [book.id, book.pixelFrontmatterSpreadCount]),
     );
 
     for (const run of getAllPixelGoldenRuns()) {
-      expect(run.spreadSelection.mode, run.id).toBe('curated');
+      expect(run.spreadSelection.mode, run.id).toBe('key');
       expect(run.spreadSelection.frontmatterSpreadCount, run.id).toBe(
         frontmatterCounts.get(run.bookId),
       );
@@ -126,7 +127,37 @@ describe('golden inventory', () => {
 
     expect(actual).toEqual(expected);
   });
+
+  it('stores exactly the selected primary pixel baselines for each run', () => {
+    for (const run of getAllPixelGoldenRuns()) {
+      const runDir = resolve(
+        COMMITTED_PIXEL_GOLDEN_ROOT,
+        run.bookId,
+        run.profile.id,
+        run.lineBreaking,
+      );
+      const summary = JSON.parse(readFile(resolve(runDir, 'summary.json'))) as {
+        readonly totalSpreads: number;
+      };
+      const expected = pixelSpreadIndexesForSelection(run.spreadSelection, summary.totalSpreads);
+      const actual = readdirSync(runDir)
+        .map(primaryPixelSpreadIndex)
+        .filter((index): index is number => index !== undefined)
+        .sort((a, b) => a - b);
+
+      expect(actual, run.id).toEqual(expected);
+    }
+  });
 });
+
+function readFile(path: string): string {
+  return readFileSync(path, 'utf8');
+}
+
+function primaryPixelSpreadIndex(file: string): number | undefined {
+  const match = /^spread-(\d{4})\.png$/u.exec(file);
+  return match ? Number(match[1]) : undefined;
+}
 
 function enabledTierBooks(
   books: readonly BookFixture[],

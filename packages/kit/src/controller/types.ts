@@ -1,5 +1,5 @@
 import type { FootnoteEntry, PackageMetadata, Page, Spread, TocEntry } from '@ritojs/core';
-import type { Reader } from '@ritojs/core/web';
+import type { Reader, ReaderThemeOptions } from '@ritojs/core/web';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
@@ -132,7 +132,7 @@ export interface ReaderController {
   resize(width: number, height: number, margin?: number): void;
   setSpreadMode(mode: 'single' | 'double'): void;
   setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean;
-  setTheme(options: { backgroundColor?: string; foregroundColor?: string }): void;
+  setTheme(options: ReaderThemeOptions): void;
   /**
    * Update typography overrides. For each value field:
    * `undefined` leaves it untouched, `null` clears the override (falls back to the

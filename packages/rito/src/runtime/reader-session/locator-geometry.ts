@@ -109,7 +109,10 @@ function requireSourceRangeLocation(
     input.spine,
     input.manifestHrefs,
     pagination.anchorMap,
-    { allowMissingAnchorFallback: false },
+    {
+      allowMissingAnchorFallback: false,
+      chapterAnchorMap: pagination.chapterAnchorMap,
+    },
   );
   if (location) return location;
   throw createReaderSessionError(

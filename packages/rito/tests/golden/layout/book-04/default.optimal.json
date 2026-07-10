@@ -206,102 +206,102 @@
       "textLength": 25535
     },
     {
-      "endPage": 152,
+      "endPage": 151,
       "href": "Text/Section007.xhtml",
       "idref": "Section007.xhtml",
       "linear": true,
-      "pageCount": 37,
+      "pageCount": 36,
       "startPage": 116,
       "textHash": "389f0a948e386528",
       "textLength": 37825
     },
     {
-      "endPage": 178,
+      "endPage": 176,
       "href": "Text/Section008.xhtml",
       "idref": "Section008.xhtml",
       "linear": true,
-      "pageCount": 26,
-      "startPage": 153,
+      "pageCount": 25,
+      "startPage": 152,
       "textHash": "7895b9da6c2545ed",
       "textLength": 26242
     },
     {
-      "endPage": 185,
+      "endPage": 183,
       "href": "Text/Section009.xhtml",
       "idref": "Section009.xhtml",
       "linear": true,
       "pageCount": 7,
-      "startPage": 179,
+      "startPage": 177,
       "textHash": "ae328d7422f97a6e",
       "textLength": 7478
     },
     {
-      "endPage": 193,
+      "endPage": 191,
       "href": "Text/Section010.xhtml",
       "idref": "Section010.xhtml",
       "linear": true,
       "pageCount": 8,
-      "startPage": 186,
+      "startPage": 184,
       "textHash": "f952b8d1cc6333ea",
       "textLength": 8449
     },
     {
-      "endPage": 198,
+      "endPage": 196,
       "href": "Text/Section011.xhtml",
       "idref": "Section011.xhtml",
       "linear": true,
       "pageCount": 5,
-      "startPage": 194,
+      "startPage": 192,
       "textHash": "99aae84d53962d15",
       "textLength": 4891
     },
     {
-      "endPage": 199,
+      "endPage": 197,
       "href": "Text/Section012.xhtml",
       "idref": "Section012.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 199,
+      "startPage": 197,
       "textHash": "2a865829c7e22691",
       "textLength": 1660
     },
     {
-      "endPage": 200,
+      "endPage": 198,
       "href": "Text/Section013.xhtml",
       "idref": "Section013.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 200,
+      "startPage": 198,
       "textHash": "bc7d7c53ceb88d43",
       "textLength": 616
     },
     {
-      "endPage": 202,
+      "endPage": 200,
       "href": "Text/Section013-1.xhtml",
       "idref": "Section013-1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 201,
+      "startPage": 199,
       "textHash": "bb6e0bc1a3c1f844",
       "textLength": 2012
     },
     {
-      "endPage": 203,
+      "endPage": 201,
       "href": "Text/Section014.xhtml",
       "idref": "Section014.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 203,
+      "startPage": 201,
       "textHash": "a0f204e0fa5f3aa5",
       "textLength": 616
     },
     {
-      "endPage": 204,
+      "endPage": 202,
       "href": "Text/Section015.xhtml",
       "idref": "Section015.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 204,
+      "startPage": 202,
       "textHash": "5278bf78df1c7ff4",
       "textLength": 616
     }
@@ -634,7 +634,7 @@
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "d6e8db38333669c3",
+      "detailHash": "583d69a298f5fa10",
       "firstText": "少年「啪」地弹了手指。",
       "index": 19,
       "lastText": "就能好好放松筋骨了吧。"
@@ -724,10 +724,10 @@
         "ruby": 0,
         "textRuns": 29
       },
-      "detailHash": "bc0a8e4c7ce37d1c",
+      "detailHash": "c9c27e3684a417b2",
       "firstText": "「呃～各位新生，我是D班的班导，茶柱佐枝。平时负责教日本史。这间学校，不会每个学年换班。因此毕业前这",
       "index": 25,
-      "lastText": "校方对于霸凌问题可是相当敏感。」"
+      "lastText": "当敏感。」"
     },
     {
       "counts": {
@@ -739,7 +739,7 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "dba4fac6e8fe3be4",
+      "detailHash": "1e6146b90771efd9",
       "firstText": "在充满困惑的教室内，茶柱老师环视学生们。",
       "index": 26,
       "lastText": "「各位，稍微听我说句话好吗？」"
@@ -750,11 +750,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 28,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 28
+        "textRuns": 27
       },
-      "detailHash": "34da6c5c7b16568e",
+      "detailHash": "2f58c4b68a8676da",
       "firstText": "在这之中迅速举起手的，是名身上散发出完全就是个有为青年氛围的学生。",
       "index": 27,
       "lastText": "在这种情况里，一名女生对她丢出如此一句话。"
@@ -836,7 +836,7 @@
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -844,10 +844,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "207a389c16ca5e31",
+      "detailHash": "6519df0cf41ab928",
       "firstText": "3",
       "index": 33,
-      "lastText": "吗？」"
+      "lastText": "「但是以机率来说，做自我介绍能增进人际关系的可能性比较高吧？」"
     },
     {
       "counts": {
@@ -859,10 +859,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "0c81f58767f4aa50",
-      "firstText": "「但是以机率来说，做自我介绍能增进人际关系的可能性比较高吧？」",
+      "detailHash": "6d3bd7c0467c6c6b",
+      "firstText": "「那个机率是从何推导出来的？虽然这么说，但追究这部分，最后也只会沦为无结果的争论，因此就先假设成你所",
       "index": 34,
-      "lastText": "上面写着一百五十六圆，但可惜我无法判断这算贵还是便宜。"
+      "lastText": "学校使用点数作为金额单位，但这一带的商品皆使用日币来标示。"
     },
     {
       "counts": {
@@ -874,10 +874,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c7f65c6184b4061c",
-      "firstText": "学校使用点数作为金额单位，但这一带的商品皆使用日币来标示。",
+      "detailHash": "2a07af0d00db209a",
+      "firstText": "「喂，关于商品价格妳怎么看？比较贵或者比较便宜。」",
       "index": 35,
-      "lastText": "的眼神恫吓着。"
+      "lastText": "「……像是妳看，下巴或腋下，以及下面的——什么也没有！」"
     },
     {
       "counts": {
@@ -889,10 +889,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "e4e71c14dcedb9d7",
-      "firstText": "「……像是妳看，下巴或腋下，以及下面的——什么也没有！」",
+      "detailHash": "3279476b4860f627",
+      "firstText": "我因内心受创而支支吾吾。看来对女生使用这种噱头是个大失败。",
       "index": 36,
-      "lastText": "为转移话题，我一面环顾四周一面探索店内，接着发现了一个奇怪的东西。"
+      "lastText": "部分的食品及生活用品放置在便利商店的一隅。"
     },
     {
       "counts": {
@@ -904,10 +904,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "b1056c193f52df9a",
-      "firstText": "部分的食品及生活用品放置在便利商店的一隅。",
+      "detailHash": "d86e8b4dafba6301",
+      "firstText": "乍看之下与其他东西并无不同，却有着唯一一点巨大差异。",
       "index": 37,
-      "lastText": "「……我是须藤，这边就麻烦你帮忙了。」"
+      "lastText": "「请多指教啊，须藤。」"
     },
     {
       "counts": {
@@ -919,10 +919,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "466eaf88af99787b",
-      "firstText": "「请多指教啊，须藤。」",
+      "detailHash": "82ee9ccb1c044c10",
+      "firstText": "须藤把泡面递过来，交代我要加热水便走了出去。看着这短暂对话的堀北，好像觉得不可置信地叹了口气。",
       "index": 38,
-      "lastText": "虽然这话很现实，但成功就会有所回馈，学生的干劲也会上升吧。"
+      "lastText": "然而，校方对点数的获得，却完全没有设置条件，并且将高达十万的钱发放给全体学生。"
     },
     {
       "counts": {
@@ -934,10 +934,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c37c8761d27e9f8d",
-      "firstText": "然而，校方对点数的获得，却完全没有设置条件，并且将高达十万的钱发放给全体学生。",
+      "detailHash": "6ffd707fdb76032e",
+      "firstText": "「虽然无法用命令的，但我劝你还是尽量避免乱花钱比较好。因为我想一旦习惯浪费，之后要改就很辛苦了。人类",
       "index": 39,
-      "lastText": "「我就说冷静点了。」"
+      "lastText": "我慌张地制止认真想向前揪住堀北衣领的须藤。"
     },
     {
       "counts": {
@@ -949,38 +949,38 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "54ccad603d189a5f",
-      "firstText": "我慌张地制止认真想向前揪住堀北衣领的须藤。",
+      "detailHash": "797b43a0cba5ecee",
+      "firstText": "堀北既没停下脚步，头也没回地就这样回去宿舍了。",
       "index": 40,
-      "lastText": "须藤态度激动，反观那群男生却一边贼笑地往后退。"
+      "lastText": "「今天就先把这里让给你们这些可怜的『瑕疵品』吧。我们走。」"
     },
     {
       "counts": {
         "blocks": 23,
         "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
+        "images": 1,
+        "inlineAtoms": 1,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 26
       },
-      "detailHash": "6250182fd57b421b",
-      "firstText": "「今天就先把这里让给你们这些可怜的『瑕疵品』吧。我们走。」",
+      "detailHash": "4601dd94d2b2b1a9",
+      "firstText": "「想逃吗！」",
       "index": 41,
-      "lastText": "然而，我对这般舒适日子是否真能培育出杰出的大人深感怀疑，但作为学生方，还是欣然利用目前的情况会比较"
+      "lastText": "这么大。不过，从今天起这里就是属于我的家。尽管是学校宿舍，这也是我初次独自生"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 14,
         "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 19,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 17
       },
-      "detailHash": "9d44de619c45657a",
-      "firstText": "好。",
+      "detailHash": "94b6d136749bf737",
+      "firstText": "活。毕业为止的这段期间，我将断绝所有外界连络地过日子。",
       "index": 42,
       "lastText": "而且还越来越亢奋了。"
     },
@@ -1016,7 +1016,7 @@
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1024,10 +1024,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "4f6501093f04213e",
+      "detailHash": "9587d1b189afe012",
       "firstText": "「你是绫小路同学……对吗？」",
       "index": 45,
-      "lastText": "看来栉田有好好在听我那无可救药的自我介绍。"
+      "lastText": "总觉得光是这样，我就已经非常开心了。"
     },
     {
       "counts": {
@@ -1039,10 +1039,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "5357a2d2e1002d5b",
-      "firstText": "总觉得光是这样，我就已经非常开心了。",
+      "detailHash": "636e0bfb7ebe6183",
+      "firstText": "「那就再次请你多多指教喽，绫小路同学。」",
       "index": 46,
-      "lastText": "「绫小路同学，你是痴呆了吗？还是说只是个笨蛋呢？我一开始就回答我没兴趣了。」"
+      "lastText": "「就算没兴趣，也不代表不会加入社团吧。」"
     },
     {
       "counts": {
@@ -1054,10 +1054,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c441045b528659a3",
-      "firstText": "「就算没兴趣，也不代表不会加入社团吧。」",
+      "detailHash": "a1b42d61e2d758bd",
+      "firstText": "「那叫作强词夺理，你还是好好记住会比较好。」",
       "index": 47,
-      "lastText": "「……欸，你是抱着什么企图发言的？我感受到这问题带有恶意。」"
+      "lastText": "「恶意？什么啊，那能请妳告诉我，刚才我想说的是什么吗？」"
     },
     {
       "counts": {
@@ -1069,10 +1069,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "23024811ee448ce1",
-      "firstText": "「恶意？什么啊，那能请妳告诉我，刚才我想说的是什么吗？」",
+      "detailHash": "3d235e702ffe6169",
+      "firstText": "我的侧腹突然被刺进了没什么前置动作的手刀。",
       "index": 48,
-      "lastText": "「是、是啊。我本来也没打算待太久，因为我只是在寻找交友契机。可以吗？」"
+      "lastText": "「只有一下子的话。那么，就放学后再说。」"
     },
     {
       "counts": {
@@ -1084,10 +1084,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "7a6f69788ed15875",
-      "firstText": "「只有一下子的话。那么，就放学后再说。」",
+      "detailHash": "8ec5aad440b182e6",
+      "firstText": "堀北这么说完，就继续用餐了。看来她愿意陪我去交朋友。",
       "index": 49,
-      "lastText": "锻鍊吗？我实在不认为自己能这么拚命去做。"
+      "lastText": "「对避事主义的绫小路同学你来说，锻錬应该是种无缘的存在吧？」"
     },
     {
       "counts": {
@@ -1099,14 +1099,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "d0aa164235a1bee4",
-      "firstText": "「对避事主义的绫小路同学你来说，锻錬应该是种无缘的存在吧？」",
+      "detailHash": "00316ed33add8db5",
+      "firstText": "「这跟避事主义有关系吗？」",
       "index": 50,
-      "lastText": "快乐，直到最后退社的结局——我一瞬间就能看见了。」"
+      "lastText": "「那不是你扭曲的个性才会产生的想法吗？」"
     },
     {
       "counts": {
-        "blocks": 24,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1114,10 +1114,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "3a7eacfe71998969",
-      "firstText": "「那不是你扭曲的个性才会产生的想法吗？」",
+      "detailHash": "6294ceee9a5ae79d",
+      "firstText": "「不对，绝对就是那样。体育社团就算了。」",
       "index": 51,
-      "lastText": "那个人的身高一百七十多公分，并不是那么高。在纤细的身体之上，有着清爽的黑发。透过他造形俐落的眼镜，能"
+      "lastText": "够窥视到其充满知性的眼眸。"
     },
     {
       "counts": {
@@ -1125,18 +1125,18 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 28
       },
-      "detailHash": "e6681f187cc71bfe",
-      "firstText": "够窥视到其充满知性的眼眸。",
+      "detailHash": "53289bd0f5cfed4f",
+      "firstText": "站在麦克风前的那个学生，以沉着的姿态眺望着一年级生。",
       "index": 52,
-      "lastText": "氛，也逐渐陷入他的掌控之中。"
+      "lastText": "我校的学生会，正因为被校方赋予改变规章的权利及使命，所以备受期待。我们只欢迎能理解这件事的人。」"
     },
     {
       "counts": {
-        "blocks": 24,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1144,10 +1144,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "8441e3061dd0fcca",
-      "firstText": "「接着——我们学生会，不希望有抱持天真想法参选的人。像那样的人，岂止是当选，想必还会对学校留下汙点。",
+      "detailHash": "35e7bf897cd75788",
+      "firstText": "流畅地演说完之后，他便直接下台，走出体育馆。",
       "index": 53,
-      "lastText": "原来是这么回事。看来对池而言，校园生活里最该优先去做的，就是交到女朋友。"
+      "lastText": "「是啊。一句话也没讲就让大家闭上嘴，一般来说是做不到的。」"
     },
     {
       "counts": {
@@ -1159,23 +1159,23 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "9f57c0027dadf3d2",
-      "firstText": "「话说回来，刚才的学生会长还真是好有魄力啊。有种支配全场的感觉？」",
+      "detailHash": "f7910363fd1611fe",
+      "firstText": "「啊，对了对了。其实我昨天创了一个男生专用的聊天群组。」",
       "index": 54,
-      "lastText": "看见她的样子，我不知怎的有些担心，不禁停下了操作手机的动作。"
+      "lastText": "「没有……没什么事。那么我们交换吧？」"
     },
     {
       "counts": {
-        "blocks": 5,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 3
       },
-      "detailHash": "96e7142b1abd06b0",
-      "firstText": "「怎么了——？」",
+      "detailHash": "7c57143dde9b4b66",
+      "firstText": "我重新开始操作手机，并且跟池他们交换了连络方式。",
       "index": 55,
       "lastText": "虽然在一瞬间感到挂心，但我终究还是没有追上去。"
     },
@@ -1264,10 +1264,10 @@
         "ruby": 0,
         "textRuns": 16
       },
-      "detailHash": "24eb662f66ab9d22",
+      "detailHash": "efe08b3845ed9428",
       "firstText": "长谷部似乎是名对于自己身为美女有自觉的女生。再加上，她对男生投向的好奇眼光敬而远之。就算选择见习也不",
       "index": 61,
-      "lastText": "生们，马上就将视线移开了。"
+      "lastText": "上就将视线移开了。"
     },
     {
       "counts": {
@@ -1354,7 +1354,7 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "56d1f763e4026163",
+      "detailHash": "71296aca28a8deb8",
       "firstText": "诸如此类。平田的人气状况，已经让人超越了愤怒，到达了令人傻眼的境界。",
       "index": 67,
       "lastText": "对于穿着泳装的美少女就站在旁边的这般紧急状况，我的小鹿心乱撞。"
@@ -1414,7 +1414,7 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "2230abd453ecddcf",
+      "detailHash": "1b3137094f8405f2",
       "firstText": "「我呀……很想成为堀北同学的朋友。」",
       "index": 71,
       "lastText": "该以什么标准来定义对方是否为朋友？这是我也回答不出来的困难问题。"
@@ -1474,7 +1474,7 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c05579e65dbfadc9",
+      "detailHash": "de6b62a727e01634",
       "firstText": "我对蛋糕类既不喜欢也不讨厌，不过也藉此制造了看似正当的理由。",
       "index": 75,
       "lastText": "这些发言就像是看穿了我们的作战，但也有可能只是想套话。"
@@ -1534,7 +1534,7 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "cea8023945ffa789",
+      "detailHash": "e8604a78fae0153a",
       "firstText": "○",
       "index": 79,
       "lastText": "「我就不用了。因为你们那群人很低俗。」"
@@ -1609,7 +1609,7 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "45543a7c680c1272",
+      "detailHash": "0f2abc336548f759",
       "firstText": "「我和池一起去买的。这可是PS VITA喔。学校会卖这种东西，真的是太厉害了吧。」",
       "index": 84,
       "lastText": "真不希望你在这种地方感受到友情。我将可可抛了过去，山内则用腹部接住它。"
@@ -1744,7 +1744,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "9561ce1a906f594e",
+      "detailHash": "85a398028c7ed599",
       "firstText": "要是这之中没有矛盾？假设汇入的结果是零点？",
       "index": 93,
       "lastText": "了。虽然是以最糟糕的形式。"
@@ -1759,10 +1759,10 @@
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "53c2e4e324085684",
+      "detailHash": "4a33eee3847104c0",
       "firstText": "也就是说，我们D班在一个月之内，就失去了起跑冲刺时所获得的十万巨额优势。",
       "index": 94,
-      "lastText": "至少也不会变成零分。这全都是你们自己的责任。」"
+      "lastText": "会变成零分。这全都是你们自己的责任。」"
     },
     {
       "counts": {
@@ -1774,25 +1774,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "b4aadc6d1ef22c72",
+      "detailHash": "d09476b74052e975",
       "firstText": "这言论正确且让人完全无法反驳。这种最简单的善恶道理，不论谁都很了解。",
       "index": 95,
-      "lastText": "「你们这个月在学校中度过了随心所欲的生活。对此校方并不打算予以否定。不论迟到或私下聊天，最后报应全都"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "a0890dc00b857728",
-      "firstText": "会回到你们自己身上，事情也只是这样。关于点数的使用也是如此。要如何使用得到的东西都是持有者的自由，关",
-      "index": 96,
-      "lastText": "的。」"
+      "lastText": "会回到你们自己身上，事情也只是这样。关于点数的使用也是如此。要如何使用得到的东西都是持有者的自由，关于这点校"
     },
     {
       "counts": {
@@ -1800,14 +1785,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 28
       },
-      "detailHash": "c0e299d200564121",
-      "firstText": "也许能过最低限度的生活，但这对于多数学生则连安慰都称不上。学生们在这个月里过着极度奢侈的生活。突然要",
-      "index": 97,
-      "lastText": "「看来就如Teacher所说，这个班级里真的有很多蠢货呢。」"
+      "detailHash": "048d9fbff74229b4",
+      "firstText": "方也并无加以限制。」",
+      "index": 96,
+      "lastText": "也许能过最低限度的生活，但这对于多数学生则连安慰都称不上。学生们在这个月里过着极度奢侈的生活。突然要"
     },
     {
       "counts": {
@@ -1819,14 +1804,29 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c1d6e59a38cf12a7",
-      "firstText": "高圆寺一面打磨指甲，双脚就这样跨在桌上，一副很了不起似的微笑着。",
-      "index": 98,
-      "lastText": "高圆寺没有停下打磨指甲的手。岂止如此，他看也不看幸村一眼。"
+      "detailHash": "db03e5ed11b3784a",
+      "firstText": "他们忍耐，也是件相当难受的事情。",
+      "index": 97,
+      "lastText": "高圆寺一面打磨指甲，双脚就这样跨在桌上，一副很了不起似的微笑着。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "330eaf254686c61d",
+      "firstText": "「古同圆寺你说什么！反正你也是不及格组吧！」",
+      "index": 98,
+      "lastText": "「这只是校方无法测量出我的Potential罢了。我比任何人都还要认可、尊敬、敬重自己，并自诩是个伟"
+    },
+    {
+      "counts": {
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1834,10 +1834,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "e8c8a78b6cea731c",
-      "firstText": "「这只是校方无法测量出我的Potential罢了。我比任何人都还要认可、尊敬、敬重自己，并自诩是个伟",
+      "detailHash": "bbc4772af2e97a29",
+      "firstText": "大的人。即使校方擅自做出D的评价，对我来说也不具任何意义。假如要我退学，那就随便他们。因为事后会哭着来找我",
       "index": 99,
-      "lastText": "对教室险恶的气氛感到危机的平田，为了稳定周遭情绪而站了起来。"
+      "lastText": "「什么冷静啊，被说是吊车尾，你难道不会不甘心吗！」"
     },
     {
       "counts": {
@@ -1849,14 +1849,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "ec4c420e903b5ab1",
-      "firstText": "「什么冷静啊，被说是吊车尾，你难道不会不甘心吗！」",
+      "detailHash": "91d9ec0fb58e1623",
+      "firstText": "「就算现在被这么说，不过只要同心协力把这口气争回来不就好了吗？」",
       "index": 100,
-      "lastText": "「没什么，因为妳听见A和D的差异时似乎很震惊。」"
+      "lastText": "「这种事情，在这个班上不管是谁或多或少都会吧？在入学前就说明的话那还另当别论。到这个阶段才告知可是让"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1864,14 +1864,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "669c5557b4153bce",
-      "firstText": "「这种事情，在这个班上不管是谁或多或少都会吧？在入学前就说明的话那还另当别论。到这个阶段才告知可是让",
+      "detailHash": "c06894f8eafcd158",
+      "firstText": "人无法接受。」",
       "index": 101,
-      "lastText": "「啥？为什么我们就得被你命令做这种事情啊？点数会增加的话就算了，如果不会改变也没意义吧？」"
+      "lastText": "「可是，只要继续迟到或者私下交谈，我们的点数就不会增加。那只是不会从零再降下去，但毫无疑问是扣分项目"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1879,10 +1879,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "948c51fd244fb5bb",
-      "firstText": "「可是，只要继续迟到或者私下交谈，我们的点数就不会增加。那只是不会从零再降下去，但毫无疑问是扣分项目",
+      "detailHash": "a28d176061018a0b",
+      "firstText": "吧。」",
       "index": 102,
-      "lastText": "「不好意思，但我不打算陪着你们做没意义的事情。」"
+      "lastText": "「我想这对我们D班来说是第一个试炼。所以——」"
     },
     {
       "counts": {
@@ -1894,10 +1894,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "c27ba0fd8c9bc956",
-      "firstText": "「我想这对我们D班来说是第一个试炼。所以——」",
+      "detailHash": "111cc1ea95b8c2bc",
+      "firstText": "「我应该已经拒绝了。我不会参加。」",
       "index": 103,
-      "lastText": "「唔喔！做、做什么啊。怎么了？」"
+      "lastText": "「用两万点买下这个啦～我没点数什么也买不了～」"
     },
     {
       "counts": {
@@ -1909,10 +1909,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "32749838e49d4e8c",
-      "firstText": "「用两万点买下这个啦～我没点数什么也买不了～」",
+      "detailHash": "d107a73e639d9089",
+      "firstText": "放在桌上的是山内才刚买的游戏机。坦白说我完全不想要。",
       "index": 104,
-      "lastText": "「嗯，可以啊。」"
+      "lastText": "居然答应了！虽然我在心里吐嘈，不过朋友之间的问题，也得由当事人来做决定。"
     },
     {
       "counts": {
@@ -1920,18 +1920,18 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 28
       },
-      "detailHash": "31aeaf3f0fe2536d",
-      "firstText": "居然答应了！虽然我在心里吐嘈，不过朋友之间的问题，也得由当事人来做决定。",
+      "detailHash": "fe3117792e6d3f0c",
+      "firstText": "栉田看来完全没有不情愿，就决定要帮助轻井泽了。",
       "index": 105,
-      "lastText": "「不用，我在走廊等。」"
+      "lastText": "然走来走廊。"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1939,10 +1939,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "454c694a0be62d4b",
-      "firstText": "我总觉得不是很喜欢教师办公室。由于不想到受瞩目，于是我决定在走廊等待。而年轻老师不知是想到什么，便忽",
+      "detailHash": "0581ebeb3ad72da1",
+      "firstText": "「我是B班班导，叫做星之宫知惠。我和佐枝是高中以来的挚友，而且还是称呼彼此为『小佐枝』、『小知惠』的",
       "index": 106,
-      "lastText": "「因为他说要来见小佐枝，我只是在妳还没回来的时候陪他而已嘛。」"
+      "lastText": "「不，我觉得在这里也没关系。比起这个，您说辅导室……我做了什么吗？就算我这个样子，我认为自己在校园生"
     },
     {
       "counts": {
@@ -1954,14 +1954,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "727e4ac1e1bcb54b",
-      "firstText": "「不要理他不就好了。绫小路，让你久等了。这里也不太方便，跟我到辅导室吧。」",
+      "detailHash": "4844c1c42197a386",
+      "firstText": "活里，大致上有小心别太引人注目。」",
       "index": 107,
-      "lastText": "她这么说完，就轻快地往回走，并和那名叫一之濑的美女一起前往教师办公室。"
+      "lastText": "近的辅导室。"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1969,14 +1969,14 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "f09f04047908a9c4",
-      "firstText": "茶柱老师目送星之宫老师。她搔了搔头，就朝着辅导室的方向迈出步伐。过了不久，我们就进去了在教师办公室附",
+      "detailHash": "783841d32cf101b6",
+      "firstText": "「所以……把我叫出来的理由是什么呢？」",
       "index": 108,
-      "lastText": "「我好歹也是老师。我自认对学生的个性有一定程度的了解。堀北铃音，妳的入学考试结果，就跟妳自己的判断相"
+      "lastText": "也确实没发现特别需要关切的问题。还不如说是评价非常好。」"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1984,10 +1984,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "c78542b7df8c2681",
-      "firstText": "同。妳在今年的一年级之中，获得了并列第三名的成绩。分数也和第一、第二名相差无几。考得非常好呢。就连在",
+      "detailHash": "7e07b95e27c0f526",
+      "firstText": "「谢谢您。那么——为什么？」",
       "index": 109,
-      "lastText": "「虽然很遗憾，但是妳分到D班这件事并不是我们的失误。妳就只是这种程度的学生，因此必然会被分到D班。」"
+      "lastText": "看来她并不是放弃，而是判断了跟班导谈也没用。"
     },
     {
       "counts": {
@@ -1999,14 +1999,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "de19897ec9e2ea1c",
-      "firstText": "「……这样啊。我会重新询问校方。」",
+      "detailHash": "18bdb77a38448c53",
+      "firstText": "「妳就算去跟上面的人谈，结果也一样。况且妳也不必悲观。早上我也说过班级会根据表现而上下浮动。毕业以前",
       "index": 110,
-      "lastText": "「因为我判断这件事情是必要的。那么，绫小路，我就开始说明找你到辅导室的理由吧。」"
+      "lastText": "「那我就先告辞了……」"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2014,10 +2014,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "322362a08bbfdd20",
-      "firstText": "茶柱老师将堀北的疑问随便带过，就把话题切到我身上。",
+      "detailHash": "3603345549ebc41f",
+      "firstText": "「堀北，等等。把话听到最后也对妳比较好。这说不定会是晋升到A班的提示喔。」",
       "index": 111,
-      "lastText": "「这也是很久以后的事，我到时候再想。」"
+      "lastText": "「不，我就说是偶然了。隐藏的天才什么的，我可没有这种设定喔。」"
     },
     {
       "counts": {
@@ -2029,10 +2029,10 @@
         "ruby": 1,
         "textRuns": 29
       },
-      "detailHash": "46e459c41f28df1f",
-      "firstText": "怎么样？——茶柱老师如此诉说般地看向了堀北。",
+      "detailHash": "3b2a2d757c27d4a8",
+      "firstText": "「是这样吗？堀北，搞不好他还比妳聪明喔。」",
       "index": 112,
-      "lastText": "「当事人都这么说了吧？还是妳有什么证据能说我是故意的？」"
+      "lastText": "「……难道我不能努力让升学或就业获得优势吗？」"
     },
     {
       "counts": {
@@ -2044,10 +2044,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "052616acf33214d8",
-      "firstText": "「虽然没有证据……不过，你有某些地方我搞不太懂。你说自己是避事主义，对A班似乎也不感兴趣。」",
+      "detailHash": "b85d51f47180261d",
+      "firstText": "「没什么不行，这是很自然的事。」",
       "index": 113,
-      "lastText": "体还是扣分的，那就没有用。」"
+      "lastText": "「不得不立刻改善的事情，主要有三项。迟到、私下交谈，以及期中考全班都不能不及格。」"
     },
     {
       "counts": {
@@ -2059,23 +2059,23 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "333a12dc64bec222",
-      "firstText": "「不对呢。个人虽然办不到，但正确答案是——这是每个人都必须去解决的棘手问题。如果不每个人都去做，那就",
+      "detailHash": "cc74cede52a99caf",
+      "firstText": "「前两项在某种程度上应该有些办法吧。可是，期中考就……」",
       "index": 114,
-      "lastText": "「啥？什么啊，付出劳力？」"
+      "lastText": "「虽然很遗憾，但是我想不出D班里有哪个比你还更好使唤的人才。」"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 18,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 18
+        "textRuns": 13
       },
-      "detailHash": "1367a02b6aae8ac1",
-      "firstText": "「对绫小路同学来说，点数变多也不会困扰吧？你只要遵从我的指示，我就保证会带领班级增加点数。这应该不是",
+      "detailHash": "0c71456bdec432e7",
+      "firstText": "「不不不，这简直堆积如山的多。妳看，例如说平田之类的。那家伙的话，在班上吃得很开，头脑也很好，实在很",
       "index": 115,
       "lastText": "我的想法一点也没传达给堀北。"
     },
@@ -2104,7 +2104,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "6255cd6e70898d70",
+      "detailHash": "e7c96732a0e27d17",
       "firstText": "「茶柱老师所说的考试即将来临。我想全班同学都了解，假如考不及格，就会立刻遭到退学。因此我想招募参加者",
       "index": 117,
       "lastText": "突然受到邀约的话，会令人怀疑——我想起来堀北之前这么说过。"
@@ -2134,7 +2134,7 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "265ee7271e406d4a",
+      "detailHash": "bb24b2a0a9aa6fc6",
       "firstText": "「我只不过是实话实说而已。」",
       "index": 119,
       "lastText": "「很遗憾，但这并不是『好意』，而是『别有用意』喔。」"
@@ -2164,10 +2164,25 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "6c169aa76c170e60",
+      "detailHash": "a6daf28404a694e3",
       "firstText": "放学后要不要一起念书？——如果我说出这种话，有谁会跟过来呢？",
       "index": 121,
-      "lastText": "就拚命地想交女朋友。我故意垂头丧气地回到自己的座位。这是一个倾诉「虽然努力过却还是办不到」以博取原谅"
+      "lastText": "就拚命地想交女朋友。我故意垂头丧气地回到自己的座位。这是一个倾诉「虽然努力过却还是办不到」以博取原谅的作战。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "bab0659238cfd18e",
+      "firstText": "「真没用。」",
+      "index": 122,
+      "lastText": "没办法，只好重新思考了。"
     },
     {
       "counts": {
@@ -2177,12 +2192,87 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "532776ec8ee24e4e",
+      "firstText": "这时，我注意到教室中有个特别显眼的存在。这个人物与平田不太一样，并且拥有着团结班级的可能性。她就是栉",
+      "index": 123,
+      "lastText": "当然，我也告诉了她，要教书的人是堀北。"
+    },
+    {
+      "counts": {
+        "blocks": 10,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 12,
+        "ruby": 0,
+        "textRuns": 11
+      },
+      "detailHash": "886b377d15dbdf4b",
+      "firstText": "「我想妳或许也能透过这个读书会和堀北增进关系。」",
+      "index": 124,
+      "lastText": "栉田牵起我的手，并绽放出笑容。唔哇！超级可爱的！"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "acb034c923821813",
+      "firstText": "不过现在可不是兴奋的时候。我的目标是成为一个与世无争的男人。于是我装模作样地故作冷静。",
+      "index": 125,
+      "lastText": "4"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "ca89ef1259a4302a",
-      "firstText": "的作战。",
-      "index": 122,
-      "lastText": "「我、我还想要活下去。」"
+      "detailHash": "8b23cca5eda73181",
+      "firstText": "晚上，当我在房间里发呆的时候，手机收到了一则讯息。是栉田传来的。",
+      "index": 126,
+      "lastText": "碍于自尊心作祟，才使她拉不下脸。"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "aaa655b86e7abd75",
+      "firstText": "「距离考试也没多少时间了。可以吧？」",
+      "index": 127,
+      "lastText": "那是拿来嘲笑我们D班学生的说法吧。说不定乍看之下很完美的堀北，也拥有着缺陷。藉由今天的事情，我不由得"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "cf852029766441fa",
+      "firstText": "了解到了这点。",
+      "index": 128,
+      "lastText": "「……是后者。害妳心情很不好吧，抱歉。」"
     },
     {
       "counts": {
@@ -2194,25 +2284,145 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "1ffe4d293323641f",
-      "firstText": "堀北快速地将俐落的手刀抵在我的脖子上。可恶，堀北果然绝对不可能会同意这类的奖励啊。效果明明就非常好。",
-      "index": 123,
-      "lastText": "「咦、呃——？不好意思，这是什么意思呀？」"
+      "detailHash": "e6d446d913ce31d4",
+      "firstText": "『啊哈哈哈，我想也是呢。所以我就说了，绫小路同学不用为这件事情道歉哟。你看，堀北同学不是有种难以亲近",
+      "index": 129,
+      "lastText": "即使我向她攀谈，她也始终不发一语、面无表情。简直就把我的存在当做空气。"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 27
       },
-      "detailHash": "660fc4dd386cbc82",
-      "firstText": "如此这般，我向栉田阐述为了救助须藤他们而想开读书会的缘由。",
-      "index": 124,
-      "lastText": "栉田牵起我的手，并绽放出笑容。唔哇！超级可爱的！"
+      "detailHash": "71cf8019b48a83e3",
+      "firstText": "但是当我也打算转过身无视她的时候，却会听见她拿出圆规的声音。真是太恶劣了。接着，漫长的一天结束，放学",
+      "index": 130,
+      "lastText": "「嗯～其实那应该算是碰巧的吧。不是有很多选择题吗？我大部分都是乱猜的喔。事实上相当惊险。」"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "b7d988b648a78c7f",
+      "firstText": "栉田可爱地嘿嘿笑，并用食指搔了搔脸颊。",
+      "index": 131,
+      "lastText": "校方并非只以考试成绩来判定入学合格与否。须藤应该是被评定有很优秀的体育能力吧。如此一想，如果因为考试"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "7a9ae1f89e19b7c9",
+      "firstText": "不及格而被迫退学，那他怎么忍受得了呢。",
+      "index": 132,
+      "lastText": "堀北对为徵询意见而撇向自己的栉田保持沉默。她不论是YES还是N o都没有回答。这是最令人困扰的发展。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "ed9abd113b47188a",
+      "firstText": "然而，要是长时间维持沉默，不及格组很有可能会放弃念书。于是栉田下定了决心，把自动笔拿了起来。",
+      "index": 133,
+      "lastText": "须藤一站起，就冲去抓住堀北的衣襟。"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 28
+      },
+      "detailHash": "4efdc31f7b3b3ed6",
+      "firstText": "「须藤同学！」",
+      "index": 134,
+      "lastText": "「……」"
+    },
+    {
+      "counts": {
+        "blocks": 24,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "04095c9173c8802c",
+      "firstText": "连平常油腔滑调的池，也因为堀北那带刺的说法而表情僵硬。接着，就连山内也开始将课本收拾到书包里了。冲谷",
+      "index": 135,
+      "lastText": "静。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "f2a27025e3f377c5",
+      "firstText": "「辛苦你了呢。读书会到此结束。」",
+      "index": 136,
+      "lastText": "当我小跑步在校园中漫无目的四处搜寻时，发现了一个跟栉田很像的背影走进了校舍。现在的时间已经接近六点，"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 28,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "5376bfc841dbeec5",
+      "firstText": "除了留在社团的学生，应该已经没其他人了。如果是栉田的话，那也有可能是要去见社团里的好朋友。",
+      "index": 137,
+      "lastText": "就算硬是勉强自己也要参加的意义究竟是什么？她是想接近堀北并打好关系？还是想跟某个参加者变得要好呢？"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "f80eadd4840872ae",
+      "firstText": "感觉不管是哪个都说不通。假如没有其他不惜让她累积压力也想参加读书会的理由，那就无法解释了。",
+      "index": 138,
+      "lastText": "她的话里有着不由分说的魄力。"
     },
     {
       "counts": {
@@ -2224,250 +2434,10 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "201f92602035a018",
-      "firstText": "不过现在可不是兴奋的时候。我的目标是成为一个与世无争的男人。于是我装模作样地故作冷静。",
-      "index": 125,
-      "lastText": "由堀北准备——我在心中加上这句话。"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "c111982d979813e4",
-      "firstText": "「这样呀，那得在明天之前和大家说呢。我等一下会去连络的。」",
-      "index": 126,
-      "lastText": "「那么我就去洗个澡吧。」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "72f401d72b79030b",
-      "firstText": "当我正从床上站起来的时候，堀北马上打了电话过来。",
-      "index": 127,
-      "lastText": "「妳似乎明显讨厌栉田？」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "0e9d3dc080eb093e",
-      "firstText": "『你把讨厌自己的人放在身边，难道不会不舒服吗？』",
-      "index": 128,
-      "lastText": "「呃，那个……虽然这非常难以启齿……我今天说的召集不及格组的事情，妳可以当做没发生过吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "84ee5f5f936854a9",
-      "firstText": "『………呃，这是为什么？』",
-      "index": 129,
-      "lastText": "同学的方法吗？』"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "e158ac4c04ae6322",
-      "firstText": "很遗憾，但这几乎是不可能的吧。",
-      "index": 130,
-      "lastText": "「我听小栉田说要开读书会。我也不想才刚入学就被退学呢，请多指教啊——」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "8974a5bec0777c73",
-      "firstText": "是池、山内，以及须藤这三个人。然而，却有个意想不到的访客。是一名叫做冲谷的男学生。",
-      "index": 131,
-      "lastText": "就连池都在替须藤操心了。不过，至少他还是想让须藤知道「以上」跟「未满」的差别。"
-    },
-    {
-      "counts": {
-        "blocks": 23,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "2f2305e99523eb6d",
-      "firstText": "「不管及格标准是哪个都无所谓。因为我要在座的各位都以五十分做为目标。」",
-      "index": 132,
-      "lastText": "「妳是说我们连国小生都不如……？」"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 28
-      },
-      "detailHash": "e6b2c7a6080888c2",
-      "firstText": "「不过，应该就像堀北同学所说的，我们要是在这里失败就糟糕了。小考里数学第一题的难度大约是这样，但是最",
-      "index": 133,
-      "lastText": "「我并不打算否定你们，但是你们也未免太无知、太无能了。」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 29,
-        "ruby": 0,
-        "textRuns": 29
-      },
-      "detailHash": "e3b47404d3f084e2",
-      "firstText": "保持沉默的堀北，终于开口说话了。",
-      "index": 134,
-      "lastText": "时间。再见！」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "38cef79e8d7d3c5e",
-      "firstText": "「你说得还真是可笑。读书本来就很辛苦。」",
-      "index": 135,
-      "lastText": "「我的意思是这些扯后腿的人，最好趁现在离开会比较好。」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "6ff1668734446a53",
-      "firstText": "这就是堀北得出的结论。只要没有不及格组，就不必花费心力教他们读书，而且班级的平均分数也会上升。",
-      "index": 136,
-      "lastText": "「你还真是自私呢。嘴巴上说是朋友，却对他们快被退学的事情袖手旁观。依我来看，这才是最残酷的。」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "785b52b314be6110",
-      "firstText": "这部分我确实无法否认吧。堀北说得没错。",
-      "index": 137,
-      "lastText": "续在这里一动也不动，就有可能被她的男朋友包夹。正当我在烦恼该不该折返时，栉田慢慢地将书包放到了地上。"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 28,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "4dfc272b3d87754b",
-      "firstText": "接着——",
-      "index": 138,
-      "lastText": "在短暂的沉默后，我听见了栉田冷淡的声音。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "1b8bb98214bb81ec",
-      "firstText": "「我有点迷路了啦。哎呀，抱歉抱歉。我马上就走了。」",
+      "detailHash": "a41cd6d75ec0b76d",
+      "firstText": "栉田这么说完，这次则抓住了我的左手腕，慢慢地将手掌打开。她把自己的手叠在我的手背上，接着便将我的手移",
       "index": 139,
-      "lastText": "柔软的触感，透过整个手掌传了过来"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 12,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "c35a9bccb13905c5",
-      "firstText": "「……妳在做什么啊！」",
-      "index": 140,
-      "lastText": "「……这种事与你无关。」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "b309e6da0ff36fd5",
-      "firstText": "「也是……不过，看见刚才的妳，有件事我无论如何都很在意。如果妳讨厌堀北，那也没必要去跟她打交道吧。」",
-      "index": 141,
-      "lastText": "换句话说，这等于她没有机会能知道堀北的名字。"
+      "lastText": "她提醒似的这么说完，便与我分开并保持距离。"
     },
     {
       "counts": {
@@ -2479,10 +2449,25 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "fb4852d09137121b",
-      "firstText": "「而且妳来接近我，不也是为了探听堀北的消息吗？」",
-      "index": 142,
-      "lastText": "「这——该说是因为真的很慌张吗……我瞬间陷入了恐慌……」"
+      "detailHash": "2e95d4e208c18d69",
+      "firstText": "这是我人生第一次摸到的女性胸部。然而，我却已经不记得那个触感了。",
+      "index": 140,
+      "lastText": "「这又如何。」栉田面无表情地反问。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "7fa9bc1cd9007954",
+      "firstText": "「既然如此，妳又是在哪知道堀北的名字的？那个时候，那家伙根本就还没对任何人报上姓名。要说唯一有可能知",
+      "index": 141,
+      "lastText": "办到了。"
     },
     {
       "counts": {
@@ -2494,14 +2479,14 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "808a342f34328b8f",
-      "firstText": "栉田稍微缓下僵硬的表情，并且转为焦躁。",
-      "index": 143,
-      "lastText": "『那个啊，我有件事想要商量。我们要不要明天开始就彻底无视堀北？』"
+      "detailHash": "10db746879fd5b36",
+      "firstText": "「所以我觉得你不会到处乱讲。」",
+      "index": 142,
+      "lastText": "『我今天也生气了。不过须藤那种才叫真正的生气，我还以为他差点就要揍人了。』"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2509,10 +2494,25 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "094596b1e9cba906",
-      "firstText": "『哎呀，平常被无视的不都是我们吗(笑)？』",
+      "detailHash": "3d013a86078920e9",
+      "firstText": "『我要是明天看到她，也许真的就会揍下去。我今天就是气成这样。』",
+      "index": 143,
+      "lastText": "动了窗户。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "88bb92fc3c99e656",
+      "firstText": "入学典礼那天，我和堀北相遇，而且还碰巧同班，座位也在隔壁。回过神来，我已经跟须藤以及池他们成为了朋",
       "index": 144,
-      "lastText": "问题而招致更严重的孤立。到了如今其他人热烈地讨论着霸凌她的阴暗话题。"
+      "lastText": "哥哥？虽然堀北的谈话对象，因为站在阴暗处而让我看不太清楚，不过好像是她的哥哥。"
     },
     {
       "counts": {
@@ -2522,27 +2522,12 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "c1173af7f52ffc7f",
-      "firstText": "我明明应该比谁都还更近地看着，对此却好像有种飘飘然的感觉。",
-      "index": 145,
-      "lastText": "「这——这一定是哪里弄错了。我一定会马上升上A班，这样的话——」"
-    },
-    {
-      "counts": {
-        "blocks": 25,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "b1b9064758fe9888",
-      "firstText": "「不可能，妳是到达不了A班的。岂止如此，就连班级也会崩坏吧。这所学校没有妳所想的这么简单。」",
-      "index": 146,
-      "lastText": "堀北吃力地挤出这句话。我从来没见过这种状态的堀北。"
+      "detailHash": "07e2c89b6d221b38",
+      "firstText": "「我听说妳进入了D班。真是跟三年前一样完全没任何改变呢。妳只是一直看着我的背影，到现在都还没发现自己",
+      "index": 145,
+      "lastText": "「这才是我该说的吧。」"
     },
     {
       "counts": {
@@ -2554,10 +2539,10 @@
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "1b9a49b06f9bbd6a",
-      "firstText": "于是，我不情愿地放开她哥哥的手臂。就在这个瞬间，一记速度惊人的里拳",
-      "index": 147,
-      "lastText": "堀北的哥哥一放开她，就慢慢地转过身来。"
+      "detailHash": "773bb69ab001d67b",
+      "firstText": "我和堀北的哥哥彼此互瞪。短暂的沉默笼罩着我们。",
+      "index": 146,
+      "lastText": "他终于停下攻击，并对我如此提问。"
     },
     {
       "counts": {
@@ -2569,14 +2554,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "d254f403eb77d1e1",
-      "firstText": "「我和堀北不一样。我可是很没用的。」",
-      "index": 148,
-      "lastText": "「不如说，这让我知道了原来堀北也算是一般的女孩子，真是太好——没事。」"
+      "detailHash": "1656646dd948fb8f",
+      "firstText": "「钢琴跟书法的话，我倒是有学。我国小的时候还曾经拿过全国钢琴比赛优胜喔。」",
+      "index": 147,
+      "lastText": "「成绩只是碰巧相同，而且我也是真的有学过钢琴、茶道，还有书法。」"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2584,10 +2569,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "0fc6637ccf085980",
-      "firstText": "她狠狠地瞪着我。",
-      "index": 149,
-      "lastText": "级出现退学学生吧。妳觉得校方究竟会扣我们多少分数呢？」"
+      "detailHash": "5c39e69934fb841a",
+      "firstText": "假如这里有台钢琴，我还能弹首〈给爱丽丝〉给妳听呢。",
+      "index": 148,
+      "lastText": "「……坏处？」"
     },
     {
       "counts": {
@@ -2595,18 +2580,18 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 28,
+        "lines": 29,
         "ruby": 0,
-        "textRuns": 28
+        "textRuns": 29
       },
-      "detailHash": "f3fe302ba4089d3d",
-      "firstText": "「这是————」",
-      "index": 150,
-      "lastText": "「好处……吗？所以妳是彻底以利害关系来行事啊。」"
+      "detailHash": "117b75e4e78cb26b",
+      "firstText": "「妳难道认为校方不会料到妳的想法吗？学校那些人光是我们迟到或上课打混都要扣分了。我们就随便试试看让班",
+      "index": 149,
+      "lastText": "间。」"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2614,9 +2599,9 @@
         "ruby": 0,
         "textRuns": 29
       },
-      "detailHash": "e08868cf261f32d7",
-      "firstText": "「不行吗？人多少都是会打算利害关系的生物。只要卖了商品就会得到金钱，而只要卖了人情就会得到报答。藉由",
-      "index": 151,
+      "detailHash": "a3dbe1faca76abe4",
+      "firstText": "「好处……吗？所以妳是彻底以利害关系来行事啊。」",
+      "index": 150,
       "lastText": "她逃走。"
     },
     {
@@ -2625,13 +2610,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "134bfccdebde8413",
+      "detailHash": "1e4e1f60d0c2ab67",
       "firstText": "「妳说舍弃不及格组才不会后悔，不过反之亦然。因为失去须藤他们而后侮的日子，也非常有可能会到来。」",
-      "index": 152,
+      "index": 151,
       "lastText": "然而，等我明白这是与恶魔签定的契约时，也已经是之后的事情了。"
     },
     {
@@ -2644,9 +2629,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "b7f5c4611880ac4e",
+      "detailHash": "07c3f25cafe1c374",
       "firstText": "○",
-      "index": 153,
+      "index": 152,
       "lastText": "哇，真的。上面不只写着我的名字，连印章都盖好了。"
     },
     {
@@ -2659,9 +2644,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "73770978b35cc695",
+      "detailHash": "c4dc6c69c4a85078",
       "firstText": "「妳可是会被控伪造文书罪喔！」",
-      "index": 154,
+      "index": 153,
       "lastText": "栉田的上半身软趴趴地趴在桌上。"
     },
     {
@@ -2674,9 +2659,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "cb69175a48fe919a",
+      "detailHash": "63e9d17178245d91",
       "firstText": "「我绝对会办到。」",
-      "index": 155,
+      "index": 154,
       "lastText": "「抱歉，把你们两位叫了出来。与其说是我，不如说是堀北同学有话想对你们说。」"
     },
     {
@@ -2689,9 +2674,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "e6cd03ec65cb188b",
+      "detailHash": "384c8316b2061c94",
       "firstText": "「什什什……什么事啊？我们……做了什么吗！」",
-      "index": 156,
+      "index": 155,
       "lastText": "「是啊，没错。要不是这样，你以为谁会喜欢跟你们牵扯上关系。」"
     },
     {
@@ -2704,14 +2689,14 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "d4579d20cec05503",
+      "detailHash": "66f6cff8674ba1e0",
       "firstText": "对于堀北口无遮拦的每句话，须藤很明显地逐渐变得焦躁。",
-      "index": 157,
+      "index": 156,
       "lastText": "须藤他们无法跟上课程，根本无法保证在短时间内就能把书读好。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2719,10 +2704,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "5fb9dd8f2041f9e8",
+      "detailHash": "9d91a6437b19494f",
       "firstText": "「等、等一下。总觉得脑袋有点混乱。这样子真的能顺利吗？」",
-      "index": 158,
-      "lastText": "虽然很微弱，但这毫无疑问是堀北对须藤所做出的让步。须藤对此犹豫不决。"
+      "index": 157,
+      "lastText": "然而，须藤碍于那小小的自尊心，似乎怎么样都无法说出答应。"
     },
     {
       "counts": {
@@ -2734,14 +2719,14 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "04095f87a4b82287",
-      "firstText": "然而，须藤碍于那小小的自尊心，似乎怎么样都无法说出答应。",
-      "index": 159,
-      "lastText": "堀北似乎也了解到了这点，因此刻意如此回答，自然地迎接须藤的加入。"
+      "detailHash": "1455fb2730966570",
+      "firstText": "「……我还是不参加了。要我顺从堀北，我无法接受。」",
+      "index": 158,
+      "lastText": "1"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2749,10 +2734,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "1e323c8c96edb5e5",
-      "firstText": "1",
-      "index": 160,
-      "lastText": "一旁复习，平田过来搭话的可能性也不低。堀北应该是因为讨厌这样吧。"
+      "detailHash": "f9e75ad9d3665b6b",
+      "firstText": "再次组成的读书会开始，许多事都顺利地运作着。",
+      "index": 159,
+      "lastText": "「我想想——」"
     },
     {
       "counts": {
@@ -2764,10 +2749,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "74d6516c96f7d614",
-      "firstText": "「堀北，妳午餐要吃什么？」",
-      "index": 161,
-      "lastText": "「高圆寺同学，张开嘴巴，啊——」"
+      "detailHash": "4183219b95747c35",
+      "firstText": "「绫小路同学——一起吃午餐吧？我今天把行程空出来了。」",
+      "index": 160,
+      "lastText": "他完全不畏惧对方是三年级学生，甚至还让她们贴在身上地吃饭。"
     },
     {
       "counts": {
@@ -2779,14 +2764,14 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "8c44be1048f85966",
-      "firstText": "「哈哈——！果然还是年纪大的女性比较好呢～」",
-      "index": 162,
-      "lastText": "「当然。啊，只不过，你在阴沉排行榜里也名列前茅就是了。」"
+      "detailHash": "a5265e39f2a635f6",
+      "firstText": "「那家伙真的好厉害啊……」",
+      "index": 161,
+      "lastText": "栉田把手机拿给我看。上面看起来有无数种男生排名。"
     },
     {
       "counts": {
-        "blocks": 24,
+        "blocks": 25,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2794,10 +2779,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "d0062177dbb7ff37",
-      "firstText": "「这样啊……」",
-      "index": 163,
-      "lastText": "「妳都已经对本人说讨厌他了，还说得出这种话啊？」"
+      "detailHash": "4dbb7164bc4104ab",
+      "firstText": "当中甚至还有「希望他去死的男生排名」这种危险的标题。我就当做没看见吧。",
+      "index": 162,
+      "lastText": "「其实我今天会邀你吃午餐，也是想稍微跟你确认一件事呢。虽然这是个假设。假如你要选边站，绫小路同学你会"
     },
     {
       "counts": {
@@ -2809,10 +2794,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "57502f02d51f243a",
-      "firstText": "「啊哈哈哈，也是。抱歉抱歉。不过我之前说的可是真心话喔。」",
-      "index": 164,
-      "lastText": "「嗯，对呀。我们两个一起去吃了午餐。」"
+      "detailHash": "a9fc942ba088ceff",
+      "firstText": "选择我，还是堀北同学呢？你会选择我吗？」",
+      "index": 163,
+      "lastText": "「快点。」"
     },
     {
       "counts": {
@@ -2820,14 +2805,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "216e538d869bbc94",
-      "firstText": "这种事不讲也没关系吧。果然如我所料。池他们明显露出了不满的表情，朝我瞪了过来。简直像是在看着弑亲仇",
-      "index": 165,
-      "lastText": "「法兰西斯．沙勿略！……应该是像这样的名字吧？」"
+      "detailHash": "1abdfeb84e4fbcd6",
+      "firstText": "「……好的。」",
+      "index": 164,
+      "lastText": "「我想起来了。是法兰西斯．培根！」"
     },
     {
       "counts": {
@@ -2839,10 +2824,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "7a25b0ca0f422b51",
-      "firstText": "须藤也没办法想出答案吗？有点可惜。",
-      "index": 166,
-      "lastText": "们似乎也没有点数可以扣了。换句话说，你或许会被退学？」"
+      "detailHash": "9fa04118fec61514",
+      "firstText": "「答对了。」",
+      "index": 165,
+      "lastText": "即使不愿如此，但是每当须藤在安静的图书馆里大吼，就会引来周遭的注目。"
     },
     {
       "counts": {
@@ -2854,10 +2839,10 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "1e7fcc386322ebfe",
-      "firstText": "「好极了，放马过来啊！」",
-      "index": 167,
-      "lastText": "这真的不得不阻止了。正当我这么想，并拉开椅子的时候——"
+      "detailHash": "fd11a4ddf3884aec",
+      "firstText": "假如情势再这样恶化下去，应该有可能会传到老师耳里吧。",
+      "index": 166,
+      "lastText": "这么说着的，似乎是在图书馆里念书的其中一名女学生。"
     },
     {
       "counts": {
@@ -2869,10 +2854,10 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "9205801b4561ade2",
-      "firstText": "「好了，停下来、停下来！」",
-      "index": 168,
-      "lastText": "这名少女被山脇称做一之濑。我想起来之前有见过她一次。"
+      "detailHash": "4aa8f5fe7befc498",
+      "firstText": "须藤因为意外出现的人物而停下了手。",
+      "index": 167,
+      "lastText": "「喂，走吧。在这种地方念书的话，会被传染成笨蛋。」"
     },
     {
       "counts": {
@@ -2882,27 +2867,12 @@
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 24
       },
-      "detailHash": "7b6382a4398d94df",
-      "firstText": "她是上次在和星之宫老师说话的B班学生。",
-      "index": 169,
-      "lastText": "那就代表我们度过了一整个星期的徒劳时光。"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "c01cb65368a2058b",
-      "firstText": "3",
-      "index": 170,
-      "lastText": "「可是！」"
+      "detailHash": "0863028409506343",
+      "firstText": "「也、也对。」",
+      "index": 168,
+      "lastText": "3"
     },
     {
       "counts": {
@@ -2914,10 +2884,55 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "90009738d5cc5d8a",
-      "firstText": "堀北转身走出了教师办公室。须藤他们虽然很不甘愿，但也跟着她走了出去。茶柱老师连看都没看我们一眼。她既",
+      "detailHash": "2602defe2d279b33",
+      "firstText": "距离午休结束还剩下十分钟。",
+      "index": 169,
+      "lastText": "尽管导师这次的失误可以算是某种大事，其他老师却没有任何反应。刹那间，我和坐在茶柱老师对面的星之宫老师"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "90aafc0a6afbb0d0",
+      "firstText": "对上了眼。她浅浅地微笑，并轻轻挥了挥手。",
+      "index": 170,
+      "lastText": "这次考试。他应该深切体会到了吧。接着，池以及山内看着须藤，也因此受到了刺激。"
+    },
+    {
+      "counts": {
+        "blocks": 25,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "18d40467a86f41ee",
+      "firstText": "「真是没办法，我们也要跟进。」",
       "index": 171,
-      "lastText": "「须藤，你是认真的啊？」"
+      "lastText": "午休一到，我就立刻离开座位。我为了某个目的而前往了学生餐厅。"
+    },
+    {
+      "counts": {
+        "blocks": 23,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 27,
+        "ruby": 0,
+        "textRuns": 27
+      },
+      "detailHash": "79380546b4e2dfa1",
+      "firstText": "「你要去哪里呀？」",
+      "index": 172,
+      "lastText": "「我是D班的绫小路。学长您大概也是D班的吧？」"
     },
     {
       "counts": {
@@ -2925,14 +2940,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 27,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 27
       },
-      "detailHash": "1c16671d4f2afbea",
-      "firstText": "「是啊。我现在不论是对班导，还是对C班那群人，都非常火大。」",
-      "index": 172,
-      "lastText": "教师办公室里所发生的一连串事件，便是个让人无法忽略的关键。"
+      "detailHash": "b24b75de67de85ed",
+      "firstText": "「……这跟你有什么关系？」",
+      "index": 173,
+      "lastText": "「你都已经来拜讬陌生人了，应该是相当着急吧。这间学校会毫不留情地把考不及格的学生强制退学。我的班级也"
     },
     {
       "counts": {
@@ -2942,27 +2957,12 @@
         "inlineAtoms": 0,
         "lines": 27,
         "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "fa80207b9aa8bb84",
-      "firstText": "4",
-      "index": 173,
-      "lastText": "「……咦！你谁呀？」"
-    },
-    {
-      "counts": {
-        "blocks": 24,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "f955416e51f5a27e",
-      "firstText": "这名学生缓缓抬起头，一脸不感兴趣地看着我。",
+      "detailHash": "a9c75fbfade03877",
+      "firstText": "已经有好几个人不在了。」",
       "index": 174,
-      "lastText": "「你还剩多少？」"
+      "lastText": "「暗示？」"
     },
     {
       "counts": {
@@ -2974,25 +2974,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "5b97b7b34a739442",
-      "firstText": "「……两万点。」",
+      "detailHash": "93050f2306bf6017",
+      "firstText": "「妳有没有发现简单的题目之中，混入了一部分非常困难的题目？」",
       "index": 175,
-      "lastText": "「这是为了阻止须藤他们遭受退学的保险手段。」"
-    },
-    {
-      "counts": {
-        "blocks": 22,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "16ba31d25a4075ab",
-      "firstText": "「不过，要是白忙一场的话，那就没用了呢。它毕竟还是考古题吧？我想也有可能会跟今年的考试毫无关连。」",
-      "index": 176,
-      "lastText": "「就是这么回事。」"
+      "lastText": "「欸……你是从什么时候开始想到要拿考古题的呀？」"
     },
     {
       "counts": {
@@ -3000,28 +2985,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 28,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 28
+        "textRuns": 26
       },
-      "detailHash": "62a37186c9539311",
-      "firstText": "说不定笨拙的学生无法在一天内记下所有的题目。不过，事先掌握题型不会很难。这次的考试目标也不是得满分。",
-      "index": 177,
-      "lastText": "「你不觉得彼此共享秘密会从中产生奇妙的羁绊，或是说——信任关系吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 3,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 3,
-        "ruby": 0,
-        "textRuns": 3
-      },
-      "detailHash": "a7648663b0d2262e",
-      "firstText": "「谁知道呢，如果是这样就好了啊。」",
-      "index": 178,
+      "detailHash": "3395e65be3847e9f",
+      "firstText": "「当我知道考试范围有误的时候就想这么做了。不过，其实自从知道期中考之后，我就稍微有在想考古题可能会派",
+      "index": 176,
       "lastText": "栉田只简短地说出这些话。却没有告诉我为何道谢。"
     },
     {
@@ -3034,9 +3004,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "82104ad392ba81bb",
+      "detailHash": "231eec52cdf70139",
       "firstText": "○",
-      "index": 179,
+      "index": 177,
       "lastText": "池得意忘形地大喊，不过我也赞成他的意见。没有必要特地为其他班级雪中送炭。"
     },
     {
@@ -3049,9 +3019,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "ed0f34673a8404cd",
+      "detailHash": "19fe33915b1d1285",
       "firstText": "接着过了不久，得意洋洋的同学们就开始踏上了归途。",
-      "index": 180,
+      "index": 178,
       "lastText": "都愿意帮忙喔。」"
     },
     {
@@ -3064,9 +3034,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "c896153f5e455afd",
+      "detailHash": "ebb5081d14ca8ace",
       "firstText": "栉田满脸笑容地站起身，拿了书包。",
-      "index": 181,
+      "index": 179,
       "lastText": "其他学生的表情看来也自信满满。老师在桌上咚咚地将考卷整理整齐，就把它发了下来。第一节考的是社会科。社"
     },
     {
@@ -3079,10 +3049,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "919de4c51ea20d9a",
+      "detailHash": "feb6eef94d7a0a52",
       "firstText": "会可以说是其中比较容易的科目。",
-      "index": 182,
-      "lastText": "题。在我隔壁不断默默作答的这名少女，比我想像得还要优秀。"
+      "index": 180,
+      "lastText": "隔壁不断默默作答的这名少女，比我想像得还要优秀。"
     },
     {
       "counts": {
@@ -3094,9 +3064,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "c2b32c3f5e3c1e5e",
+      "detailHash": "dc5ee579cb83d808",
       "firstText": "然后，第四节考的是数学。依难易度来看，考卷上列出的题目远比小考困难许多。不过这些内容也和考古题一模一",
-      "index": 183,
+      "index": 181,
       "lastText": "「他……他应该没问题吧？」"
     },
     {
@@ -3109,9 +3079,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d095bda78e43c481",
+      "detailHash": "576400e011cc74ad",
       "firstText": "栉田似乎觉得别打扰他比较好，而在一旁不安地注视着须藤。",
-      "index": 184,
+      "index": 182,
       "lastText": "「我们就等待结果吧。」"
     },
     {
@@ -3124,9 +3094,9 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "3d4439c033ccf473",
+      "detailHash": "9add2c833fd30268",
       "firstText": "「嗯……也是啊。」",
-      "index": 185,
+      "index": 183,
       "lastText": "「糟、糟糕……我……我好像喜欢上堀北了……」"
     },
     {
@@ -3139,9 +3109,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "41805912f85ea932",
+      "detailHash": "4291e78de209c1c0",
       "firstText": "○",
-      "index": 186,
+      "index": 184,
       "lastText": "「是啊，我承认你们真的努力了。不过——」"
     },
     {
@@ -3154,9 +3124,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "41465442292eafc9",
+      "detailHash": "262a9bc16aad4316",
       "firstText": "茶柱老师拿起了红笔。",
-      "index": 187,
+      "index": 185,
       "lastText": "做连络。」"
     },
     {
@@ -3169,10 +3139,10 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "57a06d86b76c132e",
+      "detailHash": "34bfb7953b844f34",
       "firstText": "老师淡然、若无其事地进行报告。学生看见老师这种模样，才终于开始体会到这是事实。",
-      "index": 188,
-      "lastText": "互相矛盾。」"
+      "index": 186,
+      "lastText": "盾。」"
     },
     {
       "counts": {
@@ -3184,9 +3154,9 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "77707c38d6705408",
+      "detailHash": "c6cbe9f4ceaf4c1a",
       "firstText": "「的、的确是这样。如果依照上次的规则，那期中考未满三十九分才算不及格！」",
-      "index": 189,
+      "index": 187,
       "lastText": "我慢慢地站了起来。"
     },
     {
@@ -3199,14 +3169,14 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "5463b6ca2627b873",
+      "detailHash": "39ee36c4ee6025b8",
       "firstText": "「你、你要去哪里啊，绫小路！」",
-      "index": 190,
+      "index": 188,
       "lastText": "必须退学。这也是事实。」"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3214,14 +3184,14 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "1deac7029827e613",
+      "detailHash": "b98131de7f953a46",
       "firstText": "「你要我怎么做？」",
-      "index": 191,
-      "lastText": "「哈哈哈哈哈！你说的话还真有趣啊。你果然是个奇怪的学生。没想到你会叫我卖你分数，我真是连想也没想"
+      "index": 189,
+      "lastText": "「老师，您在入学典礼那天不是说过了吗？这所学校没有点数买不到的东西。即使是期中考，它也算是校内的事物"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 24,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3229,24 +3199,24 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "cd2acca6db0d167f",
-      "firstText": "过。」",
-      "index": 192,
-      "lastText": "「有你们在的话，班级说不定真的就能晋升了呢。」"
+      "detailHash": "fed2c164e7d8f269",
+      "firstText": "之一喔。」",
+      "index": 190,
+      "lastText": "「过去D班一次也没有晋升过。那是因为你们是校方舍弃的瑕疵品。你们这样又该怎么往上爬呢？」"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "detailHash": "b9d9e0520c85c7d4",
-      "firstText": "「他就暂且不论了，我可是一定会爬到上段班的。」",
-      "index": 193,
+      "detailHash": "dcdb37c60d36dce8",
+      "firstText": "「老师，能不能听我说句话？」",
+      "index": 191,
       "lastText": "我一面这么想，一面往那名少女的身后追去。"
     },
     {
@@ -3259,9 +3229,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "aa33f86b25ca38db",
+      "detailHash": "6587b979d2930fee",
       "firstText": "○",
-      "index": 194,
+      "index": 192,
       "lastText": "「不提升也无所谓。」"
     },
     {
@@ -3274,9 +3244,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "67e8021564237c75",
+      "detailHash": "1e6ae6784f26750b",
       "firstText": "唉，虽然她的态度和平常没什么不同，但光是肯参加这次集会，应该就算是有进步了。",
-      "index": 195,
+      "index": 193,
       "lastText": "「那下个月也是零点喔……呜呜……」"
     },
     {
@@ -3289,9 +3259,9 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "71d89a6ff26d10bf",
+      "detailHash": "aef42035c109ca2d",
       "firstText": "「你就把它想成是在培养节俭的生活态度，然后放弃吧。」",
-      "index": 196,
+      "index": 194,
       "lastText": "「我也认为不只如此。不过，事实上要是没办法读书的话，接下来也一定会没戏可唱。」"
     },
     {
@@ -3304,9 +3274,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "59c42bdb0f9149e2",
+      "detailHash": "452b99b70b51ce7d",
       "firstText": "明显无法成为战力的三个人，转移了视线，并露骨地吹起口哨。",
-      "index": 197,
+      "index": 195,
       "lastText": "「……这女人真不可爱。」"
     },
     {
@@ -3319,9 +3289,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "45f8ed86f03dd424",
+      "detailHash": "341b95ab58fa9fcd",
       "firstText": "「嘴巴上虽然这么说，实际上又是怎样呢？」",
-      "index": 198,
+      "index": 196,
       "lastText": "至少……希望也能看见堀北露出笑容的模样。"
     },
     {
@@ -3330,13 +3300,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "007d4330ef6f7f34",
+      "detailHash": "6a876fd580bb9f88",
       "firstText": "后记",
-      "index": 199,
+      "index": 197,
       "lastText": "地继续努力。"
     },
     {
@@ -3349,9 +3319,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "16b31c2db98fc8a2",
+      "detailHash": "f1c3425769e99b6d",
       "firstText": "",
-      "index": 200,
+      "index": 198,
       "lastText": ""
     },
     {
@@ -3364,9 +3334,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "48423e3a7a8eddf9",
+      "detailHash": "eb5ffac30e6b4ac2",
       "firstText": "GAMERS 加笔短篇小说",
-      "index": 201,
+      "index": 199,
       "lastText": "「哎唷，听我说。总理大臣再怎么样也只是个玩笑话啦。我想当的是那个啦，像公务员之类的。」"
     },
     {
@@ -3379,9 +3349,9 @@
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "5cd7983dcb553826",
+      "detailHash": "5ceec8cd192b3dbe",
       "firstText": "「这对避事主义者来说，是条很稳健的路……不过你当得了吗？」",
-      "index": 202,
+      "index": 200,
       "lastText": "我们明明年纪相同，却不禁觉得自己像是在被老师训话。"
     },
     {
@@ -3394,9 +3364,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "0bd7a26e5bccef55",
+      "detailHash": "45124079b309269a",
       "firstText": "",
-      "index": 203,
+      "index": 201,
       "lastText": ""
     },
     {
@@ -3409,9 +3379,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "c24e324759b2e405",
+      "detailHash": "4f9302f7c2ad0750",
       "firstText": "",
-      "index": 204,
+      "index": 202,
       "lastText": ""
     }
   ],
@@ -3420,16 +3390,16 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 3,
-    "fullDetailHash": "95ee99306c50d415",
-    "pageCount": 205,
+    "fullDetailHash": "ec8de7403f17e1c8",
+    "pageCount": 203,
     "totals": {
-      "blocks": 4142,
+      "blocks": 4151,
       "hrs": 0,
       "images": 24,
       "inlineAtoms": 3,
-      "lines": 4884,
+      "lines": 4863,
       "ruby": 1,
-      "textRuns": 4849
+      "textRuns": 4828
     }
   },
   "samples": [
@@ -15041,124 +15011,6 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 19.2,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "好。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 44,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 23.2,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 4.8
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "我的房间仅有八张榻榻米",
-                  "type": "text-run"
-                },
-                {
-                  "alt": "note",
-                  "bounds": {
-                    "height": 14.4,
-                    "width": 12,
-                    "x": 137.6,
-                    "y": 0
-                  },
-                  "hasBlock": false,
-                  "href": "#n2",
-                  "imageSrc": "../Images/note.png",
-                  "type": "inline-atom"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 364.8,
-                    "x": 149.6,
-                    "y": 4.8
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "这么大。不过，从今天起这里就是属于我的家。尽管是学校宿舍，这也是我初次独自生",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 23.2
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
                     "width": 259.2,
                     "x": 0,
                     "y": 2.4
@@ -15195,7 +15047,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 77.6
+            "y": 27.2
           },
           "children": [
             {
@@ -15245,7 +15097,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 104.8
+            "y": 54.4
           },
           "children": [
             {
@@ -15295,7 +15147,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 132
+            "y": 81.6
           },
           "children": [
             {
@@ -15379,7 +15231,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 180
+            "y": 129.6
           },
           "children": [
             {
@@ -15429,7 +15281,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 207.2
+            "y": 156.8
           },
           "children": [
             {
@@ -15479,7 +15331,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 234.4
+            "y": 184
           },
           "children": [
             {
@@ -15563,7 +15415,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 282.4
+            "y": 232
           },
           "children": [
             {
@@ -15613,7 +15465,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 309.6
+            "y": 259.2
           },
           "children": [
             {
@@ -15663,7 +15515,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 336.8
+            "y": 286.4
           },
           "children": [
             {
@@ -15713,7 +15565,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 364
+            "y": 313.6
           },
           "children": [
             {
@@ -15763,7 +15615,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 391.2
+            "y": 340.8
           },
           "children": [
             {
@@ -15813,7 +15665,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 418.4
+            "y": 368
           },
           "children": [
             {
@@ -15863,7 +15715,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 445.6
+            "y": 395.2
           },
           "children": [
             {
@@ -15948,15 +15800,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 15,
+        "blocks": 14,
         "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 19,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 17,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 17
       },
-      "firstText": "好。",
+      "firstText": "活。毕业为止的这段期间，我将断绝所有外界连络地过日子。",
       "index": 42,
       "lastText": "而且还越来越亢奋了。",
       "paint": null
@@ -17216,106 +17068,6 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 76.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「怎么了——？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「没有……没什么事。那么我们交换吧？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 54.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
                     "width": 230.4,
                     "x": 32,
                     "y": 2.4
@@ -17352,7 +17104,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 81.6
+            "y": 27.2
           },
           "children": [
             {
@@ -17402,7 +17154,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 108.8
+            "y": 54.4
           },
           "children": [
             {
@@ -17453,15 +17205,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 5,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 3
       },
-      "firstText": "「怎么了——？」",
+      "firstText": "我重新开始操作手机，并且跟池他们交换了连络方式。",
       "index": 55,
       "lastText": "虽然在一瞬间感到挂心，但我终究还是没有追上去。",
       "paint": null
@@ -22640,9 +22392,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.215
                   },
-                  "text": "根粉笔飞过来。然而，该说这是放任主义吗？很不可思议的是，不论私下讲话、迟到或者打瞌睡，每个科目的老师",
+                  "text": "根粉笔飞过来。然而，该说这是放任主义吗？很不可思议的是，不论私下讲话、迟到或者打瞌睡，每个科目的老师都默许",
                   "type": "text-run"
                 }
               ],
@@ -22659,7 +22411,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 307.2,
+                    "width": 278.4,
                     "x": 0,
                     "y": 2.4
                   },
@@ -22675,7 +22427,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "都默许了。班上一开始表现得很客气的那些人，现在也都过得逍遥自在。",
+                  "text": "了。班上一开始表现得很客气的那些人，现在也都过得逍遥自在。",
                   "type": "text-run"
                 }
               ],
@@ -24387,224 +24139,6 @@
                     },
                     "letterSpacingPx": 0.163
                   },
-                  "text": "「对绫小路同学来说，点数变多也不会困扰吧？你只要遵从我的指示，我就保证会带领班级增加点数。这应该不是",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 67.2,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "什么坏事喔。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 520,
-            "x": 0,
-            "y": 48
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.367
-                  },
-                  "text": "「我是不知道妳有什么策略，可是妳还是学着去依赖除了我以外的人吧。若是要让妳交到朋友的话，我是会帮忙",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 28.8,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "啦。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 96
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 297.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「虽然很遗憾，但是我想不出D班里有哪个比你还更好使唤的人才。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 520,
-            "x": 0,
-            "y": 123.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
                   "text": "「不不不，这简直堆积如山的多。妳看，例如说平田之类的。那家伙的话，在班上吃得很开，头脑也很好，实在很",
                   "type": "text-run"
                 }
@@ -24658,7 +24192,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 171.2
+            "y": 48
           },
           "children": [
             {
@@ -24708,7 +24242,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 198.4
+            "y": 75.2
           },
           "children": [
             {
@@ -24792,7 +24326,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 246.4
+            "y": 123.2
           },
           "children": [
             {
@@ -24842,7 +24376,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 273.6
+            "y": 150.4
           },
           "children": [
             {
@@ -24892,7 +24426,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 300.8
+            "y": 177.6
           },
           "children": [
             {
@@ -24976,7 +24510,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 348.8
+            "y": 225.6
           },
           "children": [
             {
@@ -25026,7 +24560,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 376
+            "y": 252.8
           },
           "children": [
             {
@@ -25076,7 +24610,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 403.2
+            "y": 280
           },
           "children": [
             {
@@ -25126,7 +24660,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 430.4
+            "y": 307.2
           },
           "children": [
             {
@@ -25177,15 +24711,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 13,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 18,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 18
+        "textRuns": 13
       },
-      "firstText": "「对绫小路同学来说，点数变多也不会困扰吧？你只要遵从我的指示，我就保证会带领班级增加点数。这应该不是",
+      "firstText": "「不不不，这简直堆积如山的多。妳看，例如说平田之类的。那家伙的话，在班上吃得很开，头脑也很好，实在很",
       "index": 115,
       "lastText": "我的想法一点也没传达给堀北。",
       "paint": null
@@ -26611,7 +26145,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 62.4,
+            "height": 41.6,
             "width": 520,
             "x": 0,
             "y": 108.8
@@ -26643,9 +26177,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.367
+                    "letterSpacingPx": 0.163
                   },
-                  "text": "「我虽然很不甘心，不过你说的话大致上都正确。我承认你的话很有说服力，足以让我改变想法。不过，我确实",
+                  "text": "「我虽然很不甘心，不过你说的话大致上都正确。我承认你的话很有说服力，足以让我改变想法。不过，我确实还",
                   "type": "text-run"
                 }
               ],
@@ -26662,41 +26196,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 1.033
-                  },
-                  "text": "还是有地方无法理解。就是你的真正意图。对你而言，这间学校到底是什么？你是为了什么才像这样拚命地说服",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 41.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 28.8,
+                    "width": 489.6,
                     "x": 0,
                     "y": 2.4
                   },
@@ -26712,7 +26212,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "我？」",
+                  "text": "是有地方无法理解。就是你的真正意图。对你而言，这间学校到底是什么？你是为了什么才像这样拚命地说服我？」",
                   "type": "text-run"
                 }
               ],
@@ -26732,7 +26232,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 177.6
+            "y": 156.8
           },
           "children": [
             {
@@ -26782,7 +26282,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 204.8
+            "y": 184
           },
           "children": [
             {
@@ -26832,7 +26332,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 232
+            "y": 211.2
           },
           "children": [
             {
@@ -26882,7 +26382,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 259.2
+            "y": 238.4
           },
           "children": [
             {
@@ -26966,7 +26466,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 307.2
+            "y": 286.4
           },
           "children": [
             {
@@ -27016,7 +26516,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 334.4
+            "y": 313.6
           },
           "children": [
             {
@@ -27066,7 +26566,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 361.6
+            "y": 340.8
           },
           "children": [
             {
@@ -27116,7 +26616,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 388.8
+            "y": 368
           },
           "children": [
             {
@@ -27166,7 +26666,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 416
+            "y": 395.2
           },
           "children": [
             {
@@ -27216,7 +26716,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 443.2
+            "y": 422.4
           },
           "children": [
             {
@@ -27266,7 +26766,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 470.4
+            "y": 449.6
           },
           "children": [
             {
@@ -27316,7 +26816,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 497.6
+            "y": 476.8
           },
           "children": [
             {
@@ -27366,7 +26866,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 524.8
+            "y": 504
           },
           "children": [
             {
@@ -27416,7 +26916,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 552
+            "y": 531.2
           },
           "children": [
             {
@@ -27500,7 +27000,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 600
+            "y": 579.2
           },
           "children": [
             {
@@ -27550,7 +27050,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 627.2
+            "y": 606.4
           },
           "children": [
             {
@@ -27600,7 +27100,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 654.4
+            "y": 633.6
           },
           "children": [
             {
@@ -27650,7 +27150,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 681.6
+            "y": 660.8
           },
           "children": [
             {
@@ -27705,12 +27205,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
       "firstText": "「妳说舍弃不及格组才不会后悔，不过反之亦然。因为失去须藤他们而后侮的日子，也非常有可能会到来。」",
-      "index": 152,
+      "index": 151,
       "lastText": "然而，等我明白这是与恶魔签定的契约时，也已经是之后的事情了。",
       "paint": null
     },
@@ -28973,7 +28473,7 @@
         "textRuns": 26
       },
       "firstText": "○",
-      "index": 153,
+      "index": 152,
       "lastText": "哇，真的。上面不只写着我的名字，连印章都盖好了。",
       "paint": null
     },
@@ -28983,10 +28483,1064 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 41.6,
             "width": 520,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.163
+                  },
+                  "text": "「当我知道考试范围有误的时候就想这么做了。不过，其实自从知道期中考之后，我就稍微有在想考古题可能会派",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 57.6,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "得上用场。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 48
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 144,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「咦？从、从这么早就开始了？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 520,
+            "x": 0,
+            "y": 75.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.163
+                  },
+                  "text": "「在说明期中考的时候，茶柱老师的说话方式就格外特别。她身为班导，应该有掌握住须藤他们的成绩以及学习态",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 518.4,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "度。即使如此，她却很有把握地告诉我们有避免不及格，并熬过去的办法。换句话说，这表示绝对会有可靠的得救方式。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 123.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「这就是在指……这份考古题的存在？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 62.4,
+            "width": 520,
+            "x": 0,
+            "y": 150.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.163
+                  },
+                  "text": "不擅长读书的须藤他们能够考进这间学校，说不定也和这些部分有所关连。就算正面进攻无法获得分数，但是避免",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 520,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.03
+                  },
+                  "text": "退学的退路，或说手段，岂不是到处都有吗？就像这次，只要获得考古题，不管是谁都能考到将近满分。如果这么想自然就",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 48,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "能理解了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 219.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「绫小路同学，其实你非常有本事吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 246.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 441.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「我只是动了点歪脑筋。而且，我没把握自己能熬过期中考，只是在想办法找出能够轻松解决的方式。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 273.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 48,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「哦——」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 300.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 230.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "栉田的脸上浮出了别有含义的笑容，似乎在想着什么。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 520,
+            "x": 0,
+            "y": 328
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.367
+                  },
+                  "text": "「栉田，我有事想拜讬妳。这份考古题，能不能当做是妳得到的？我希望妳能说是从要好的三年级学长那里拿到",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 28.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "的。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 376
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 249.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「是可以……不过，绫小路同学，这样子你没有关系吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 520,
+            "x": 0,
+            "y": 403.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.367
+                  },
+                  "text": "「因为我是避事主义者。我不想轻易做出显眼的事情。况且，班上同学也很信任妳。这么做会比我去传达还要更",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 28.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "好。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 451.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「……我知道了。既然你都这么说了。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 478.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「真是帮了大忙。我想尽量避人耳目。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 505.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 153.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「那这就是我们之间的秘密了呢。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 532.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 115.2,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「应该就是这么回事吧。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 560
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 326.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「你不觉得彼此共享秘密会从中产生奇妙的羁绊，或是说——信任关系吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 587.2
           },
           "children": [
             {
@@ -29036,7 +29590,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 27.2
+            "y": 614.4
           },
           "children": [
             {
@@ -29086,7 +29640,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 54.4
+            "y": 641.6
           },
           "children": [
             {
@@ -29137,16 +29691,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 3,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 3
+        "textRuns": 26
       },
-      "firstText": "「谁知道呢，如果是这样就好了啊。」",
-      "index": 178,
+      "firstText": "「当我知道考试范围有误的时候就想这么做了。不过，其实自从知道期中考之后，我就稍微有在想考古题可能会派",
+      "index": 176,
       "lastText": "栉田只简短地说出这些话。却没有告诉我为何道谢。",
       "paint": null
     },
@@ -30409,7 +30963,7 @@
         "textRuns": 26
       },
       "firstText": "○",
-      "index": 179,
+      "index": 177,
       "lastText": "池得意忘形地大喊，不过我也赞成他的意见。没有必要特地为其他班级雪中送炭。",
       "paint": null
     },
@@ -31171,9 +31725,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.03
                   },
-                  "text": "发言。可是我现在很后悔。不了解篮球困难及辛苦的人，没有权利瞧不起这个梦想。须藤同学，你不要忘记在读书",
+                  "text": "发言。可是我现在很后悔。不了解篮球困难及辛苦的人，没有权利瞧不起这个梦想。须藤同学，你不要忘记在读书会里培养",
                   "type": "text-run"
                 }
               ],
@@ -31190,7 +31744,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 480,
+                    "width": 441.6,
                     "x": 0,
                     "y": 2.4
                   },
@@ -31206,7 +31760,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "会里培养出来的那份努力及坚持。只要把它应用在篮球上，说不定你就能成为职业选手了。至少我是这么想的。」",
+                  "text": "出来的那份努力及坚持。只要把它应用在篮球上，说不定你就能成为职业选手了。至少我是这么想的。」",
                   "type": "text-run"
                 }
               ],
@@ -31736,7 +32290,7 @@
         "textRuns": 28
       },
       "firstText": "「嗯……也是啊。」",
-      "index": 185,
+      "index": 183,
       "lastText": "「糟、糟糕……我……我好像喜欢上堀北了……」",
       "paint": null
     },
@@ -32951,7 +33505,7 @@
         "textRuns": 26
       },
       "firstText": "○",
-      "index": 186,
+      "index": 184,
       "lastText": "「是啊，我承认你们真的努力了。不过——」",
       "paint": null
     },
@@ -32965,106 +33519,6 @@
             "width": 520,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「他就暂且不论了，我可是一定会爬到上段班的。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 422.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「过去D班一次也没有晋升过。那是因为你们是校方舍弃的瑕疵品。你们这样又该怎么往上爬呢？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 54.4
           },
           "children": [
             {
@@ -33114,7 +33568,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 81.6
+            "y": 27.2
           },
           "children": [
             {
@@ -33164,7 +33618,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 108.8
+            "y": 54.4
           },
           "children": [
             {
@@ -33214,7 +33668,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 136
+            "y": 81.6
           },
           "children": [
             {
@@ -33264,7 +33718,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 163.2
+            "y": 108.8
           },
           "children": [
             {
@@ -33314,7 +33768,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 190.4
+            "y": 136
           },
           "children": [
             {
@@ -33364,7 +33818,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 217.6
+            "y": 163.2
           },
           "children": [
             {
@@ -33414,7 +33868,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 244.8
+            "y": 190.4
           },
           "children": [
             {
@@ -33464,7 +33918,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 272
+            "y": 217.6
           },
           "children": [
             {
@@ -33548,7 +34002,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 320
+            "y": 265.6
           },
           "children": [
             {
@@ -33598,7 +34052,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 347.2
+            "y": 292.8
           },
           "children": [
             {
@@ -33648,7 +34102,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 374.4
+            "y": 320
           },
           "children": [
             {
@@ -33698,7 +34152,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 401.6
+            "y": 347.2
           },
           "children": [
             {
@@ -33748,7 +34202,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 428.8
+            "y": 374.4
           },
           "children": [
             {
@@ -33798,7 +34252,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 456
+            "y": 401.6
           },
           "children": [
             {
@@ -33848,7 +34302,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 483.2
+            "y": 428.8
           },
           "children": [
             {
@@ -33898,7 +34352,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 510.4
+            "y": 456
           },
           "children": [
             {
@@ -33948,7 +34402,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 537.6
+            "y": 483.2
           },
           "children": [
             {
@@ -33998,7 +34452,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 564.8
+            "y": 510.4
           },
           "children": [
             {
@@ -34048,7 +34502,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 592
+            "y": 537.6
           },
           "children": [
             {
@@ -34098,7 +34552,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 619.2
+            "y": 564.8
           },
           "children": [
             {
@@ -34149,16 +34603,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 23,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "firstText": "「他就暂且不论了，我可是一定会爬到上段班的。」",
-      "index": 193,
+      "firstText": "「老师，能不能听我说句话？」",
+      "index": 191,
       "lastText": "我一面这么想，一面往那名少女的身后追去。",
       "paint": null
     },
@@ -35421,7 +35875,7 @@
         "textRuns": 26
       },
       "firstText": "○",
-      "index": 194,
+      "index": 192,
       "lastText": "「不提升也无所谓。」",
       "paint": null
     },
@@ -36328,7 +36782,7 @@
         "textRuns": 18
       },
       "firstText": "「嘴巴上虽然这么说，实际上又是怎样呢？」",
-      "index": 198,
+      "index": 196,
       "lastText": "至少……希望也能看见堀北露出笑容的模样。",
       "paint": null
     },
@@ -36919,7 +37373,7 @@
         "textRuns": 12
       },
       "firstText": "「这对避事主义者来说，是条很稳健的路……不过你当得了吗？」",
-      "index": 202,
+      "index": 200,
       "lastText": "我们明明年纪相同，却不禁觉得自己像是在被老师训话。",
       "paint": null
     },
@@ -36971,7 +37425,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 203,
+      "index": 201,
       "lastText": "",
       "paint": null
     },
@@ -37023,7 +37477,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 204,
+      "index": 202,
       "lastText": "",
       "paint": null
     }

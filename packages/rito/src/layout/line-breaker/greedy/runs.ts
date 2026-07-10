@@ -96,7 +96,7 @@ function processRange(
 
   const edges = getRangeEdges(range, globalPos, rangeEnd, globalOffset);
   const spacing = getRangeSpacing(range, edges, globalPos);
-  const sourceTextOffset = globalPos - range.start;
+  const sourceTextOffset = (range.sourceTextOffset ?? 0) + globalPos - range.start;
   const width = measurer.measureText(runText, measurePaintFromStyle(range.style)).width;
   const run = withTrailingMargin(
     buildTextRun(

@@ -339,10 +339,10 @@
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "65a714c3ddeb4a58",
+      "detailHash": "ab70ccb7f9bf41a1",
       "firstText": "简介",
       "index": 4,
-      "lastText": "生了，偏偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？"
+      "lastText": "偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？"
     },
     {
       "counts": {
@@ -639,7 +639,7 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "5c2112ecb4902028",
+      "detailHash": "06c61f6ba0f32ed3",
       "firstText": "学生会长的嗓门并不大，说起话来却是中气十足，劲贯全场。",
       "index": 24,
       "lastText": "她正是罗雷亚蒙骑士国的统治者——骑士王之女。"
@@ -2555,7 +2555,7 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 0,
-    "fullDetailHash": "9a69c610a6365145",
+    "fullDetailHash": "6ab6e47962d663f6",
     "pageCount": 152,
     "totals": {
       "blocks": 3116,
@@ -4420,9 +4420,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.03
                   },
-                  "text": "师的少年，然而他的龙伴侣却迟迟未出现，让他成为同学眼中的笑柄。在一个偶发事件当中，亚修的龙伴侣终于诞",
+                  "text": "师的少年，然而他的龙伴侣却迟迟未出现，让他成为同学眼中的笑柄。在一个偶发事件当中，亚修的龙伴侣终于诞生了，偏",
                   "type": "text-run"
                 }
               ],
@@ -4439,7 +4439,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 480,
+                    "width": 441.6,
                     "x": 0,
                     "y": 2.4
                   },
@@ -4455,7 +4455,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "生了，偏偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？",
+                  "text": "偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？",
                   "type": "text-run"
                 }
               ],
@@ -4486,7 +4486,7 @@
       },
       "firstText": "简介",
       "index": 4,
-      "lastText": "生了，偏偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？",
+      "lastText": "偏看起来不像龙族，而是一个人类的美少女……！亚修将如何跟这个力大无穷又蛮横泼辣的龙伴侣相处？",
       "paint": null
     },
     {

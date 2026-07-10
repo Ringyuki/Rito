@@ -77,6 +77,7 @@ function appendLineBox(
     state.startedSegments,
     state.trailingEdgeTracker,
     state.lines.length,
+    collectSourceOffsets(items, state.lineStart),
   );
   appendRunsAsLine(
     state,
@@ -86,6 +87,25 @@ function appendLineBox(
     shouldKeepEmptyLine(items, breakPos, lineIndex, lineCount),
   );
   state.lineStart = breakPos + 1;
+}
+
+function collectSourceOffsets(
+  items: readonly KPItem[],
+  end: number,
+): ReadonlyMap<StyledSegment, number> {
+  const offsets = new Map<StyledSegment, number>();
+  for (let index = 0; index < end; index++) {
+    const item = items[index];
+    if (item?.type === 'box' && !item.atom) {
+      offsets.set(item.segment, (offsets.get(item.segment) ?? 0) + item.text.length);
+    } else if (item?.type === 'glue' && item.segment) {
+      offsets.set(
+        item.segment,
+        (offsets.get(item.segment) ?? 0) + (item.sourceLength ?? item.text.length),
+      );
+    }
+  }
+  return offsets;
 }
 
 function appendRunsAsLine(

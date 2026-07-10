@@ -40,6 +40,10 @@
       "import": "./dist/web.mjs",
       "types": "./dist/web.d.mts"
     },
+    "./integration": {
+      "import": "./dist/integration.mjs",
+      "types": "./dist/integration.d.mts"
+    },
     "./selection": {
       "import": "./dist/selection.mjs",
       "types": "./dist/selection.d.mts"
@@ -86,6 +90,7 @@
     "test:golden:pixel": "pnpm run build && RITO_PIXEL_GOLDEN=1 playwright test -c playwright.config.ts",
     "test:golden:pixel:review": "pnpm run build && RITO_PIXEL_GOLDEN=1 RITO_PIXEL_REVIEW=1 playwright test -c playwright.config.ts",
     "test:golden:pixel:update": "pnpm run build && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c playwright.config.ts",
+    "test:dom-free:dist": "pnpm run build && node scripts/verify-dom-free-dist.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
@@ -98,7 +103,8 @@
   },
   "devDependencies": {
     "@types/node": "^25.5.0",
-    "happy-dom": "^20.8.9",
+    "happy-dom": "^20.10.6",
+    "saxes": "^6.0.0",
     "tsdown": "^0.21.7",
     "vitest": "^4.1.2"
   }

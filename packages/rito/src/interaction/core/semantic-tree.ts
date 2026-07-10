@@ -1,5 +1,11 @@
 import type { LayoutBlock, LineBox, Page, Rect } from '../../layout/core/types';
 import { offsetBounds } from './bounds';
+import {
+  createPageVisualGeometry,
+  enterBlockVisualGeometry,
+  resolveVisualRect,
+  type VisualGeometry,
+} from './visual-geometry';
 
 /** ARIA-compatible semantic roles derived from HTML tags. */
 export type SemanticRole =
@@ -24,50 +30,59 @@ export interface SemanticNode {
   readonly children: readonly SemanticNode[];
 }
 
-/** Build a semantic tree from a page's layout data. */
+/** Build a transformed and clipped semantic tree from a page's layout data. */
 export function buildSemanticTree(page: Page): readonly SemanticNode[] {
-  return page.content
-    .map((block) => blockToSemantic(block, 0, 0))
-    .filter(Boolean) as SemanticNode[];
+  const visual = createPageVisualGeometry();
+  const nodes: SemanticNode[] = [];
+  for (const block of page.content) {
+    const node = blockToSemantic(block, 0, 0, visual);
+    if (node) nodes.push(node);
+  }
+  return nodes;
 }
 
 function blockToSemantic(
   block: LayoutBlock,
   offsetX: number,
   offsetY: number,
+  parentVisual: VisualGeometry,
 ): SemanticNode | undefined {
-  const bx = offsetX + block.bounds.x;
-  const by = offsetY + block.bounds.y;
-  const bounds = offsetBounds(block.bounds, offsetX, offsetY);
-  const role = tagToRole(block.semanticTag);
-  const level = parseHeadingLevel(block.semanticTag);
+  const blockX = offsetX + block.bounds.x;
+  const blockY = offsetY + block.bounds.y;
+  const visual = enterBlockVisualGeometry(block, blockX, blockY, parentVisual);
+  const bounds = resolveVisualRect(offsetBounds(block.bounds, offsetX, offsetY), visual);
+  if (!bounds) return undefined;
 
   const children: SemanticNode[] = [];
   let text = '';
-
   for (const child of block.children) {
     if (child.type === 'line-box') {
-      const lineText = extractLineText(child);
-      const lineLinks = extractLineLinks(child, bx, by);
-      text += lineText;
-      children.push(...lineLinks);
+      text += extractLineText(child);
+      children.push(...extractLineSemantics(child, blockX, blockY, visual));
     } else if (child.type === 'image') {
-      const imgNode: SemanticNode = {
-        role: 'image',
-        bounds: offsetBounds(child.bounds, bx, by),
-        children: [],
-      };
-      children.push(child.alt ? { ...imgNode, alt: child.alt } : imgNode);
+      const image = imageNode(
+        offsetBounds(child.bounds, blockX, blockY),
+        visual,
+        child.alt,
+        child.href,
+      );
+      if (image) children.push(image);
     } else if (child.type === 'layout-block') {
-      const sub = blockToSemantic(child, bx, by);
-      if (sub) children.push(sub);
+      const nested = blockToSemantic(child, blockX, blockY, visual);
+      if (nested) children.push(nested);
     }
   }
 
-  const node: SemanticNode = { role, bounds, children };
-  if (level !== undefined) return { ...node, level, text: text.trim() };
-  if (text) return { ...node, text: text.trim() };
-  return node;
+  const role = tagToRole(block.semanticTag);
+  const level = parseHeadingLevel(block.semanticTag);
+  const trimmedText = text.trim();
+  return {
+    role,
+    bounds,
+    children,
+    ...(level !== undefined ? { level } : {}),
+    ...(trimmedText ? { text: trimmedText } : {}),
+  };
 }
 
 function extractLineText(lineBox: LineBox): string {
@@ -78,22 +93,57 @@ function extractLineText(lineBox: LineBox): string {
   return text;
 }
 
-function extractLineLinks(lineBox: LineBox, offsetX: number, offsetY: number): SemanticNode[] {
-  const links: SemanticNode[] = [];
-  const lx = offsetX + lineBox.bounds.x;
-  const ly = offsetY + lineBox.bounds.y;
-
+function extractLineSemantics(
+  lineBox: LineBox,
+  offsetX: number,
+  offsetY: number,
+  visual: VisualGeometry,
+): SemanticNode[] {
+  const nodes: SemanticNode[] = [];
+  const lineX = offsetX + lineBox.bounds.x;
+  const lineY = offsetY + lineBox.bounds.y;
   for (const run of lineBox.runs) {
-    if (run.type !== 'text-run' || !run.href) continue;
-    links.push({
-      role: 'link',
-      href: run.href,
-      text: run.text,
-      bounds: offsetBounds(run.bounds, lx, ly),
-      children: [],
-    });
+    if (run.type === 'ruby-annotation') continue;
+    const sourceBounds = offsetBounds(run.bounds, lineX, lineY);
+    if (run.type === 'text-run') {
+      const bounds = resolveVisualRect(sourceBounds, visual);
+      if (bounds) {
+        nodes.push(
+          run.href
+            ? { role: 'link', href: run.href, text: run.text, bounds, children: [] }
+            : { role: 'generic', text: run.text, bounds, children: [] },
+        );
+      }
+      continue;
+    }
+
+    if (run.imageSrc) {
+      const image = imageNode(sourceBounds, visual, run.alt, run.href);
+      if (image) nodes.push(image);
+    } else if (run.href) {
+      const bounds = resolveVisualRect(sourceBounds, visual);
+      if (bounds) nodes.push({ role: 'link', href: run.href, bounds, children: [] });
+    }
   }
-  return links;
+  return nodes;
+}
+
+function imageNode(
+  sourceBounds: Rect,
+  visual: VisualGeometry,
+  alt: string | undefined,
+  href: string | undefined,
+): SemanticNode | undefined {
+  const bounds = resolveVisualRect(sourceBounds, visual);
+  if (!bounds) return undefined;
+  const image: SemanticNode = {
+    role: 'image',
+    bounds,
+    children: [],
+    ...(alt ? { alt } : {}),
+  };
+  if (!href) return image;
+  return { role: 'link', href, bounds, children: [image] };
 }
 
 const TAG_ROLE_MAP: Record<string, SemanticRole> = {
@@ -119,6 +169,6 @@ function tagToRole(tag?: string): SemanticRole {
 
 function parseHeadingLevel(tag?: string): number | undefined {
   if (!tag || tag.length !== 2 || tag[0] !== 'h') return undefined;
-  const n = parseInt(tag[1] ?? '', 10);
-  return n >= 1 && n <= 6 ? n : undefined;
+  const level = Number.parseInt(tag[1] ?? '', 10);
+  return level >= 1 && level <= 6 ? level : undefined;
 }

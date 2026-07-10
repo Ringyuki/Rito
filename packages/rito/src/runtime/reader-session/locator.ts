@@ -99,7 +99,10 @@ function requireSourceRangeLocation(
     input.spine,
     input.manifestHrefs,
     pagination.anchorMap,
-    { allowMissingAnchorFallback: false },
+    {
+      allowMissingAnchorFallback: false,
+      chapterAnchorMap: pagination.chapterAnchorMap,
+    },
   );
   if (location) return location;
   throw createReaderSessionError(
@@ -144,7 +147,11 @@ function resolvePublicationHrefLocator(input: ResolveReaderLocatorInput): Resolv
     input.spine,
     input.manifestHrefs,
     pagination.anchorMap,
-    { allowChapterStart: false, allowMissingAnchorFallback: false },
+    {
+      allowChapterStart: false,
+      allowMissingAnchorFallback: false,
+      chapterAnchorMap: pagination.chapterAnchorMap,
+    },
   );
   if (!location) {
     throw createReaderSessionError(

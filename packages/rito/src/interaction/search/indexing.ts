@@ -53,27 +53,36 @@ export function search(
   const results: SearchResult[] = [];
 
   for (const pageText of index.pages) {
-    const haystack = caseSensitive ? pageText.text : pageText.text.toLowerCase();
-    const needle = caseSensitive ? query : query.toLowerCase();
+    const folded = caseSensitive ? identityFold(pageText.text) : foldCaseWithOffsets(pageText.text);
+    const haystack = folded.text;
+    const needle = caseSensitive ? query : foldCaseWithOffsets(query).text;
+    if (needle.length === 0) continue;
     let pos = 0;
+    let lastSourceMatch: string | undefined;
 
     while (pos <= haystack.length - needle.length) {
       const idx = haystack.indexOf(needle, pos);
       if (idx === -1) break;
 
-      if (wholeWord && !isWordBoundary(haystack, idx, needle.length)) {
+      const originalStart = folded.startOffsets[idx];
+      const originalEnd = folded.endOffsets[idx + needle.length - 1];
+      if (originalStart === undefined || originalEnd === undefined) break;
+
+      if (wholeWord && !isWordBoundary(pageText.text, originalStart, originalEnd - originalStart)) {
         pos = idx + 1;
         continue;
       }
 
-      const start = offsetToPosition(pageText.offsets, idx, 'start');
-      const end = offsetToPosition(pageText.offsets, idx + needle.length, 'end');
-      if (start && end) {
+      const start = offsetToPosition(pageText.offsets, originalStart, 'start');
+      const end = offsetToPosition(pageText.offsets, originalEnd, 'end');
+      const sourceMatch = `${String(originalStart)}:${String(originalEnd)}`;
+      if (start && end && sourceMatch !== lastSourceMatch) {
         results.push({
           pageIndex: pageText.pageIndex,
           range: { start, end },
-          context: extractContext(pageText.text, idx, needle.length),
+          context: extractContext(pageText.text, originalStart, originalEnd - originalStart),
         });
+        lastSourceMatch = sourceMatch;
       }
       pos = idx + needle.length;
     }
@@ -87,7 +96,15 @@ function extractPageText(page: Page): PageText {
   const offsets: RunOffset[] = [];
   const state = { offset: 0 };
 
+  let previousLine: { readonly blockIndex: number; readonly lineIndex: number } | undefined;
   walkPageTextRuns(page, ({ run, blockIndex, lineIndex, runIndex }) => {
+    if (
+      previousLine &&
+      (previousLine.blockIndex !== blockIndex || previousLine.lineIndex !== lineIndex)
+    ) {
+      parts.push('\n');
+      state.offset++;
+    }
     offsets.push({
       start: state.offset,
       end: state.offset + run.text.length,
@@ -97,6 +114,7 @@ function extractPageText(page: Page): PageText {
     });
     parts.push(run.text);
     state.offset += run.text.length;
+    previousLine = { blockIndex, lineIndex };
     return false;
   });
 
@@ -146,12 +164,59 @@ function extractContext(text: string, matchStart: number, matchLength: number): 
 }
 
 function isWordBoundary(text: string, start: number, length: number): boolean {
-  const before = start > 0 ? text[start - 1] : ' ';
-  const after = start + length < text.length ? text[start + length] : ' ';
+  const before = codePointBefore(text, start);
+  const after = codePointAt(text, start + length);
   return !isWordChar(before) && !isWordChar(after);
 }
 
 function isWordChar(ch: string | undefined): boolean {
   if (!ch) return false;
-  return /\w/.test(ch);
+  return /[\p{L}\p{M}\p{N}\p{Pc}]/u.test(ch);
+}
+
+interface FoldedText {
+  readonly text: string;
+  readonly startOffsets: readonly number[];
+  readonly endOffsets: readonly number[];
+}
+
+function identityFold(text: string): FoldedText {
+  return {
+    text,
+    startOffsets: Array.from({ length: text.length }, (_, index) => index),
+    endOffsets: Array.from({ length: text.length }, (_, index) => index + 1),
+  };
+}
+
+/** Preserve UTF-16 source ranges when lowercase folding expands a code point. */
+function foldCaseWithOffsets(text: string): FoldedText {
+  const parts: string[] = [];
+  const startOffsets: number[] = [];
+  const endOffsets: number[] = [];
+  let sourceOffset = 0;
+  for (const codePoint of text) {
+    // Upper-then-lower approximates Unicode default case folding with the JS
+    // casing tables, including expansions such as ß → ss and ς → σ.
+    const folded = codePoint.toUpperCase().toLowerCase();
+    parts.push(folded);
+    for (let index = 0; index < folded.length; index++) {
+      startOffsets.push(sourceOffset);
+      endOffsets.push(sourceOffset + codePoint.length);
+    }
+    sourceOffset += codePoint.length;
+  }
+  return { text: parts.join(''), startOffsets, endOffsets };
+}
+
+function codePointBefore(text: string, offset: number): string | undefined {
+  if (offset <= 0) return undefined;
+  const trailing = text.charCodeAt(offset - 1);
+  const length = trailing >= 0xdc00 && trailing <= 0xdfff ? 2 : 1;
+  return text.slice(Math.max(0, offset - length), offset);
+}
+
+function codePointAt(text: string, offset: number): string | undefined {
+  if (offset >= text.length) return undefined;
+  const value = text.codePointAt(offset);
+  return value === undefined ? undefined : String.fromCodePoint(value);
 }

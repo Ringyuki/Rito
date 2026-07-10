@@ -45,6 +45,25 @@ export function normalizeXhtmlSource(source: string): string {
   return normalizeAmpersandsOutsidePreserved(normalizeXmlDeclaration(stripIllegalXmlChars(source)));
 }
 
+/** Calculate the post-normalization size without allocating the expanded output. */
+export function estimateNormalizedXhtmlSourceLength(source: string): number {
+  const sanitizedSource = stripIllegalXmlChars(source);
+  let normalizedLength = sanitizedSource.length;
+  let lastIndex = 0;
+  for (const match of sanitizedSource.matchAll(PRESERVED_REGION_RE)) {
+    normalizedLength += normalizedAmpersandLengthDelta(
+      sanitizedSource.slice(lastIndex, match.index),
+    );
+    lastIndex = match.index + match[0].length;
+  }
+  return normalizedLength + normalizedAmpersandLengthDelta(sanitizedSource.slice(lastIndex));
+}
+
+/** Bound both hostile raw input and the normalized string it may expand into. */
+export function isXhtmlSourceWithinNormalizationBudget(source: string, limit: number): boolean {
+  return source.length <= limit && estimateNormalizedXhtmlSourceLength(source) <= limit;
+}
+
 function stripIllegalXmlChars(source: string): string {
   return source.replace(ILLEGAL_XML_CHARS_RE, '');
 }
@@ -84,23 +103,34 @@ function normalizeAmpersandsOutsidePreserved(source: string): string {
 }
 
 function normalizeAmpersands(source: string): string {
-  return source.replace(AMPERSAND_RE, (match, body: string | undefined) => {
-    // Bare `&` not followed by any entity-like token (e.g. `A & B`).
-    if (body === undefined) return '&amp;';
-    // Numeric character reference — keep it, but drop refs to illegal chars
-    // (e.g. `&#31;` / `&#x1F;`) that would otherwise abort the parse.
-    if (body.startsWith('#')) {
-      const hex = body[1] === 'x' || body[1] === 'X';
-      const codePoint = Number.parseInt(body.slice(hex ? 2 : 1, -1), hex ? 16 : 10);
-      return isValidXmlChar(codePoint) ? match : '';
-    }
-    // Named token: `name;` → strip the trailing `;` to look up.
-    const name = body.slice(0, -1);
-    if (XML_PREDEFINED.has(name)) return match;
-    const codePoint = HTML_NAMED_ENTITIES[name];
-    if (codePoint !== undefined) return `&#${String(codePoint)};`;
-    // Unknown named entity (e.g. `&foo;`): escape the `&` so the literal
-    // text survives instead of aborting the parse.
-    return `&amp;${body}`;
-  });
+  return source.replace(AMPERSAND_RE, normalizeAmpersand);
+}
+
+function normalizedAmpersandLengthDelta(source: string): number {
+  let delta = 0;
+  for (const match of source.matchAll(AMPERSAND_RE)) {
+    const replacement = normalizeAmpersand(match[0], match[1]);
+    delta += replacement.length - match[0].length;
+  }
+  return delta;
+}
+
+function normalizeAmpersand(match: string, body: string | undefined): string {
+  // Bare `&` not followed by any entity-like token (e.g. `A & B`).
+  if (body === undefined) return '&amp;';
+  // Numeric character reference — keep it, but drop refs to illegal chars
+  // (e.g. `&#31;` / `&#x1F;`) that would otherwise abort the parse.
+  if (body.startsWith('#')) {
+    const hex = body[1] === 'x' || body[1] === 'X';
+    const codePoint = Number.parseInt(body.slice(hex ? 2 : 1, -1), hex ? 16 : 10);
+    return isValidXmlChar(codePoint) ? match : '';
+  }
+  // Named token: `name;` → strip the trailing `;` to look up.
+  const name = body.slice(0, -1);
+  if (XML_PREDEFINED.has(name)) return match;
+  const codePoint = HTML_NAMED_ENTITIES[name];
+  if (codePoint !== undefined) return `&#${String(codePoint)};`;
+  // Unknown named entity (e.g. `&foo;`): escape the `&` so the literal
+  // text survives instead of aborting the parse.
+  return `&amp;${body}`;
 }

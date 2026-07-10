@@ -10,7 +10,21 @@ import { NODE_TYPES } from './types';
 import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
 import { collapseWhitespace, isWhitespaceOnly } from './text-normalizer';
-import { normalizeXhtmlSource } from './xhtml-source-normalizer';
+import {
+  isXhtmlSourceWithinNormalizationBudget,
+  normalizeXhtmlSource,
+} from './xhtml-source-normalizer';
+import {
+  findDescendants,
+  findFirstElement,
+  getAttribute,
+  getAttributeNS,
+  parseXml,
+  XML_SOURCE_CODE_UNIT_LIMIT,
+} from '../xml';
+import type { XmlElement, XmlNode, XmlText } from '../xml';
+import { extractElementAttributes } from './element-attributes';
+import { extractEmbeddedStylesheets, extractStylesheetHrefs } from './stylesheet-metadata';
 
 /** Warnings collected during parsing for unsupported elements. */
 export interface ParseResult {
@@ -20,6 +34,8 @@ export interface ParseResult {
   readonly bodyAttributes?: ElementAttributes;
   /** Relative hrefs of `<link rel="stylesheet">` tags from the chapter `<head>`. */
   readonly stylesheetHrefs?: readonly string[];
+  /** Author CSS declared by chapter-local `<style>` elements. */
+  readonly embeddedStylesheets?: readonly string[];
 }
 
 /**
@@ -27,29 +43,39 @@ export interface ParseResult {
  * Returns the nodes from the <body> element, or all root-level nodes if no body is found.
  */
 export function parseXhtml(xhtml: string): ParseResult {
-  const doc = new DOMParser().parseFromString(normalizeXhtmlSource(xhtml), 'application/xhtml+xml');
+  assertNormalizationBudget(xhtml);
+  const doc = parseXml(normalizeXhtmlSource(xhtml), (details) => {
+    return new XhtmlParseError(`Invalid XHTML: ${details}`);
+  });
 
-  const parserError = doc.querySelector('parsererror');
-  if (parserError) {
-    throw new XhtmlParseError(`Invalid XHTML: ${parserError.textContent}`);
-  }
-
-  const body = doc.getElementsByTagName('body')[0] ?? doc.documentElement;
+  const body = findFirstElement(doc.root, 'body') ?? doc.root;
   const warnings: string[] = [];
   const nodes = convertChildren(body, warnings, false, []);
-  const bodyAttributes = extractAttributes(body);
+  const bodyAttributes = extractElementAttributes(body);
   const stylesheetHrefs = extractStylesheetHrefs(doc);
+  const embeddedStylesheets = extractEmbeddedStylesheets(doc);
 
   const result: ParseResult = { nodes, warnings };
   if (bodyAttributes)
     (result as { bodyAttributes: ElementAttributes }).bodyAttributes = bodyAttributes;
   if (stylesheetHrefs.length > 0)
     (result as { stylesheetHrefs: readonly string[] }).stylesheetHrefs = stylesheetHrefs;
+  if (embeddedStylesheets.length > 0)
+    (result as { embeddedStylesheets: readonly string[] }).embeddedStylesheets =
+      embeddedStylesheets;
   return result;
 }
 
+function assertNormalizationBudget(source: string): void {
+  if (!isXhtmlSourceWithinNormalizationBudget(source, XML_SOURCE_CODE_UNIT_LIMIT)) {
+    throw new XhtmlParseError(
+      `Invalid XHTML: maximum XML source length of ${String(XML_SOURCE_CODE_UNIT_LIMIT)} exceeded`,
+    );
+  }
+}
+
 function convertChildren(
-  parent: Element,
+  parent: XmlElement,
   warnings: string[],
   preserveWhitespace: boolean,
   parentPath: readonly number[],
@@ -57,10 +83,7 @@ function convertChildren(
   const result: DocumentNode[] = [];
   let emittedIndex = 0;
 
-  for (let i = 0; i < parent.childNodes.length; i++) {
-    const child = parent.childNodes[i];
-    if (!child) continue;
-
+  for (const child of parent.children) {
     const childPath = [...parentPath, emittedIndex];
     const node = convertNode(child, warnings, preserveWhitespace, childPath);
     if (node) {
@@ -92,17 +115,17 @@ function convertChildren(
 }
 
 function convertNode(
-  domNode: Node,
+  xmlNode: XmlNode,
   warnings: string[],
   preserveWhitespace: boolean,
   nodePath: readonly number[],
 ): DocumentNode | undefined {
-  if (domNode.nodeType === Node.TEXT_NODE) {
-    return convertTextNode(domNode, preserveWhitespace, nodePath);
+  if (xmlNode.type === 'text') {
+    return convertTextNode(xmlNode, preserveWhitespace, nodePath);
   }
 
-  if (domNode.nodeType === Node.ELEMENT_NODE) {
-    return convertElement(domNode as Element, warnings, preserveWhitespace, nodePath);
+  if (xmlNode.type === 'element') {
+    return convertElement(xmlNode, warnings, preserveWhitespace, nodePath);
   }
 
   // Ignore comments, processing instructions, etc.
@@ -110,21 +133,32 @@ function convertNode(
 }
 
 function convertTextNode(
-  domNode: Node,
+  xmlNode: XmlText,
   preserveWhitespace: boolean,
   nodePath: readonly number[],
 ): TextNode | undefined {
-  const raw = domNode.textContent ?? '';
+  const raw = xmlNode.value;
   const sourceRef = { nodePath };
 
   if (!preserveWhitespace) {
     if (isWhitespaceOnly(raw)) {
       if (raw.length > 0) {
-        return { type: NODE_TYPES.Text, content: ' ', sourceRef };
+        return {
+          type: NODE_TYPES.Text,
+          content: ' ',
+          ...(raw === ' ' ? {} : { sourceText: raw }),
+          sourceRef,
+        };
       }
       return undefined;
     }
-    return { type: NODE_TYPES.Text, content: collapseWhitespace(raw), sourceRef };
+    const content = collapseWhitespace(raw);
+    return {
+      type: NODE_TYPES.Text,
+      content,
+      ...(content === raw ? {} : { sourceText: raw }),
+      sourceRef,
+    };
   }
 
   if (raw.length === 0) return undefined;
@@ -132,7 +166,7 @@ function convertTextNode(
 }
 
 function convertElement(
-  el: Element,
+  el: XmlElement,
   warnings: string[],
   preserveWhitespace: boolean,
   nodePath: readonly number[],
@@ -153,7 +187,7 @@ function convertElement(
 
   const isPreformatted = preserveWhitespace || tagName === 'pre';
   const children = convertChildren(el, warnings, isPreformatted, nodePath);
-  const attributes = extractAttributes(el);
+  const attributes = extractElementAttributes(el);
 
   if (classification === 'block') {
     const block: BlockNode = attributes
@@ -169,8 +203,8 @@ function convertElement(
 
   // Handle <img> as an image node
   if (tagName === 'img') {
-    const src = el.getAttribute('src') ?? '';
-    const alt = el.getAttribute('alt') ?? '';
+    const src = getAttribute(el, 'src') ?? '';
+    const alt = getAttribute(el, 'alt') ?? '';
     if (!src) return undefined;
     const imgNode: ImageNode = { type: 'image', src, alt, sourceRef };
     return attributes ? { ...imgNode, attributes } : imgNode;
@@ -183,15 +217,12 @@ function convertElement(
 }
 
 /** Extract an image from an SVG element (common EPUB cover/illustration pattern). */
-function extractSvgImage(svg: Element, nodePath: readonly number[]): DocumentNode | undefined {
-  const imageEls = svg.getElementsByTagName('image');
-  for (let i = 0; i < imageEls.length; i++) {
-    const img = imageEls[i];
-    if (!img) continue;
+function extractSvgImage(svg: XmlElement, nodePath: readonly number[]): DocumentNode | undefined {
+  for (const img of findDescendants(svg, 'image')) {
     const src =
-      img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ??
-      img.getAttribute('xlink:href') ??
-      img.getAttribute('href') ??
+      getAttributeNS(img, 'http://www.w3.org/1999/xlink', 'href') ||
+      getAttribute(img, 'xlink:href') ||
+      getAttribute(img, 'href') ||
       '';
     if (src && !src.startsWith('blob:')) {
       return { type: 'image', src, alt: '', sourceRef: { nodePath } };
@@ -214,76 +245,4 @@ function mergeAnchorAttrs(
     result.style = result.style ? `${anchorStyle}; ${result.style}` : anchorStyle;
   }
   return result;
-}
-
-function extractAttributes(el: Element): ElementAttributes | undefined {
-  const cls = el.getAttribute('class') ?? undefined;
-  const style = el.getAttribute('style') ?? undefined;
-  const id = el.getAttribute('id') ?? undefined;
-  const href = el.localName === 'a' ? (el.getAttribute('href') ?? undefined) : undefined;
-  const language = extractLanguage(el);
-  const { colspan, rowspan } = extractTableCellSpans(el);
-
-  // Collect all attributes for CSS attribute selector matching
-  const allAttributes = collectAllAttributes(el);
-
-  const attributes = {
-    ...(cls !== undefined ? { class: cls } : {}),
-    ...(style !== undefined ? { style } : {}),
-    ...(id !== undefined ? { id } : {}),
-    ...(href !== undefined ? { href } : {}),
-    ...(language !== undefined ? { language } : {}),
-    ...(colspan !== undefined ? { colspan } : {}),
-    ...(rowspan !== undefined ? { rowspan } : {}),
-    ...(allAttributes !== undefined ? { allAttributes } : {}),
-  } satisfies ElementAttributes;
-
-  return Object.keys(attributes).length > 0 ? attributes : undefined;
-}
-
-function extractLanguage(el: Element): string | undefined {
-  return (
-    el.getAttribute('lang') ??
-    el.getAttribute('xml:lang') ??
-    el.getAttributeNS('http://www.w3.org/XML/1998/namespace', 'lang') ??
-    undefined
-  );
-}
-
-/** Extract `<link rel="stylesheet">` hrefs from the document's `<head>`. */
-function extractStylesheetHrefs(doc: Document): string[] {
-  const hrefs: string[] = [];
-  const links = doc.querySelectorAll('link[rel="stylesheet"]');
-  for (let i = 0; i < links.length; i++) {
-    const href = links[i]?.getAttribute('href');
-    if (href) hrefs.push(href);
-  }
-  return hrefs;
-}
-
-function collectAllAttributes(el: Element): ReadonlyMap<string, string> | undefined {
-  if (el.attributes.length === 0) return undefined;
-  // Only create the map if there are attributes beyond the common ones
-  // that might be targeted by CSS attribute selectors
-  const map = new Map<string, string>();
-  for (let i = 0; i < el.attributes.length; i++) {
-    const attr = el.attributes[i];
-    if (attr) map.set(attr.name, attr.value);
-  }
-  return map.size > 0 ? map : undefined;
-}
-
-function extractTableCellSpans(el: Element): {
-  colspan: number | undefined;
-  rowspan: number | undefined;
-} {
-  if (el.localName !== 'td' && el.localName !== 'th') {
-    return { colspan: undefined, rowspan: undefined };
-  }
-  const colspanRaw = parseInt(el.getAttribute('colspan') ?? '', 10);
-  const rowspanRaw = parseInt(el.getAttribute('rowspan') ?? '', 10);
-  return {
-    colspan: !isNaN(colspanRaw) && colspanRaw > 1 ? colspanRaw : undefined,
-    rowspan: !isNaN(rowspanRaw) && rowspanRaw > 1 ? rowspanRaw : undefined,
-  };
 }

@@ -1,10 +1,10 @@
-import type { EpubDocument } from '../../runtime/types';
 import type { Logger } from '../../utils/logger';
 import {
   createLazyImageLoaderWithDecoder,
   loadFontsWithRegistry,
   loadImagesWithDecoder,
   type LazyImageLoader,
+  type EpubAssetSource,
 } from '../assets';
 import { createWebFontRegistry, createWebImageDecoder } from '../assets/web';
 
@@ -14,7 +14,10 @@ import { createWebFontRegistry, createWebImageDecoder } from '../assets/web';
  * This is the Web convenience wrapper. Platform integrations should use
  * `loadFontsWithRegistry()` with their own `FontRegistry`.
  */
-export function loadFonts(doc: EpubDocument, logger?: Logger): Promise<void> {
+export function loadFonts(
+  doc: Pick<EpubAssetSource, 'fonts' | 'stylesheets'>,
+  logger?: Logger,
+): Promise<void> {
   return loadFontsWithRegistry(doc, createWebFontRegistry(), logger);
 }
 
@@ -25,7 +28,7 @@ export function loadFonts(doc: EpubDocument, logger?: Logger): Promise<void> {
  * `ImageDecoder`.
  */
 export function loadImages(
-  doc: EpubDocument,
+  doc: Pick<EpubAssetSource, 'images'>,
   logger?: Logger,
 ): Promise<ReadonlyMap<string, ImageBitmap>> {
   return loadImagesWithDecoder(doc, createWebImageDecoder(), logger);

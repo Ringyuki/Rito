@@ -2,15 +2,11 @@ import type { Reader } from '@ritojs/core/web';
 
 import { createDisplaySurface } from '../painter/display-surface';
 import { createPageBufferPool } from '../painter/buffer-pool';
-import { mergeOverlayLayers } from './overlay/merger';
-import { buildOverlayData, buildAdjacentOverlayData } from './overlay/projection';
 import { createTransitionDriver } from '../driver/transition-driver';
-import { createFrameDriver } from '../driver/frame-driver';
 import { createEmitter } from '../utils/event-emitter';
 import { createDisposableCollection } from '../utils/disposable';
 import { createCoordinatorState } from './core/index';
 import { buildWiringDeps } from './core/wiring-deps';
-import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
 import { createNavigation } from './navigation/index';
 import { createEngines } from './engines/index';
@@ -25,20 +21,15 @@ import {
 } from './wiring/index';
 import { wireTouchGestures } from './wiring/touch';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
-import type { OverlayLayer } from '../painter/types';
 import type { RuntimeComponents } from './facade/types';
+import { createRuntimeFrameParts, type RuntimeFrameParts } from './runtime-frame';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
 type Disposables = ReturnType<typeof createDisposableCollection>;
 type TransitionDriverInstance = ReturnType<typeof createTransitionDriver>;
 type PageBufferPoolInstance = ReturnType<typeof createPageBufferPool>;
-type FrameDriverInstance = ReturnType<typeof createFrameDriver>;
-type ContentRendererFn = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void;
-
-interface RuntimeFrameParts {
-  readonly contentRenderer: ContentRendererFn;
-  readonly frameDriver: FrameDriverInstance;
-}
+type FrameDriverInstance = RuntimeFrameParts['frameDriver'];
+type ContentRendererFn = RuntimeFrameParts['contentRenderer'];
 
 export type {
   ReaderController,
@@ -58,37 +49,43 @@ export function createController(
   const disposables = createDisposableCollection();
 
   const { internals, runtime, nav } = bootstrapRuntime(reader, canvas, opts, emitter, disposables);
+  try {
+    const { keyboard: kbd, modeManager: mm } = wireIntegrations(
+      internals,
+      runtime,
+      emitter,
+      nav,
+      reader,
+      canvas,
+      disposables,
+    );
+    syncCanvasSize(internals, runtime);
 
-  const { keyboard: kbd, modeManager: mm } = wireIntegrations(
-    internals,
-    runtime,
-    emitter,
-    nav,
-    reader,
-    canvas,
-    disposables,
-  );
-  syncCanvasSize(internals, runtime);
+    runtime.pool.assignSlot('curr', 0);
+    runtime.frameDriver.scheduleComposite();
+    reader.notifyActiveSpread(0);
 
-  // Initial render via buffer pool
-  runtime.pool.assignSlot('curr', 0);
-  runtime.frameDriver.scheduleComposite();
-
-  // Notify after first frame so coordinators build hitMaps etc.
-  reader.notifyActiveSpread(0);
-
-  return buildController(
-    internals,
-    emitter,
-    disposables,
-    runtime,
-    kbd,
-    mm,
-    nav,
-    opts,
-    canvas,
-    reader,
-  );
+    return buildController(
+      internals,
+      emitter,
+      disposables,
+      runtime,
+      kbd,
+      mm,
+      nav,
+      opts,
+      canvas,
+      reader,
+    );
+  } catch (error: unknown) {
+    runtime.frameDriver.dispose();
+    try {
+      disposables.disposeAll();
+    } catch {
+      // Preserve the construction error after best-effort cleanup.
+    }
+    throw error;
+  }
 }
 
 function bootstrapRuntime(
@@ -129,33 +126,6 @@ function bootstrapRuntime(
   return { internals, runtime, nav };
 }
 
-function createRuntimeFrameParts(
-  reader: Reader,
-  internals: Internals,
-  surface: ReturnType<typeof createDisplaySurface>,
-  pool: PageBufferPoolInstance,
-  td: TransitionDriverInstance,
-): RuntimeFrameParts {
-  const contentRenderer = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D): void => {
-    reader.renderSpreadTo(spreadIndex, ctx);
-  };
-  const overlayProvider = buildOverlayProvider(
-    internals,
-    internals.engines,
-    reader,
-    internals.coordState,
-  );
-  const frameDriver = createFrameDriver({
-    surface,
-    pool,
-    transitionDriver: td,
-    contentRenderer,
-    overlayProvider,
-    getBackingRatio: () => reader.dpr * internals.renderScale,
-  });
-  return { contentRenderer, frameDriver };
-}
-
 function createRuntimeNavigation(
   internals: Internals,
   emitter: Emitter,
@@ -192,35 +162,6 @@ function wireRuntimeEvents(
   wireEngineEvents(deps, disposables);
   wirePositionTracker(deps, disposables);
   wireDomHelpers(deps, disposables);
-}
-
-function buildOverlayProvider(
-  internals: Internals,
-  engines: Internals['engines'],
-  reader: Reader,
-  coordState: Internals['coordState'],
-): (spreadIndex: number) => readonly OverlayLayer[] {
-  return (spreadIndex) => {
-    const spread = reader.spreads[spreadIndex];
-    if (!spread) return [];
-
-    const isCurrent = spreadIndex === internals.currentSpread;
-    const mapper =
-      isCurrent && coordState.mapper
-        ? coordState.mapper
-        : createCoordinateMapper(reader.getLayoutGeometry(), spread, internals.renderScale);
-
-    const data = isCurrent
-      ? buildOverlayData(spread, engines, reader, coordState, mapper)
-      : buildAdjacentOverlayData(spread, engines, reader, coordState, mapper);
-
-    return mergeOverlayLayers(
-      data.selectionRects,
-      data.searchRects,
-      data.activeSearchRects,
-      data.annotationLayers,
-    );
-  };
 }
 
 function wireSettledEvents(

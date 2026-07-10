@@ -2,12 +2,18 @@
 // Import platform-neutral contracts from `@ritojs/core`.
 
 // ── Reader ─────────────────────────────────────────────────────────
-export { createReader, type Reader, type ReaderOptions } from './reader';
+export { createReader, type Reader, type ReaderOptions, type ReaderThemeOptions } from './reader';
 
 // ── Core conveniences re-exported for browser users ────────────────
 export { loadEpub, paginate } from './runtime/index';
 export { buildSpreads, createLayoutConfig } from './layout/index';
-export type { ChapterRange, EpubDocument, LoadOptions, PaginationResult } from './runtime/index';
+export type {
+  ChapterRange,
+  EpubDocument,
+  LoadOptions,
+  PaginationResult,
+  ZipLimits,
+} from './runtime/index';
 export type {
   FontMetrics,
   FontMetricsProvider,
@@ -39,15 +45,12 @@ export type { RenderOptions } from './render';
 export {
   createLazyImageLoader,
   disposeAssets,
-  disposeResources,
   loadAssets,
   loadFonts,
   loadImages,
-  paginateWithAssets,
-  prepare,
   type LoadedAssets,
-  type Resources,
 } from './render/web';
+export { disposeResources, paginateWithAssets, prepare, type Resources } from './reader/resources';
 export {
   createWebFontRegistry,
   createWebImageAssetResolver,

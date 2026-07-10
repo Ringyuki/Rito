@@ -16,7 +16,7 @@
         "counts": {
           "blocks": 1,
           "hrs": 0,
-          "images": 0,
+          "images": 1,
           "inlineAtoms": 0,
           "lines": 0,
           "ruby": 0,
@@ -30,7 +30,7 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 0,
+          "image": 1,
           "inlineAtom": 0,
           "inlineBackground": 0,
           "inlineBorder": 0,
@@ -50,25 +50,27 @@
             "width": 600
           },
           "displayList": {
-            "commandCount": 8,
+            "commandCount": 9,
             "commands": {
               "clipRect": 1,
+              "paintImage": 1,
               "paintPage": 2,
               "popState": 2,
               "pushState": 2,
               "translate": 1
             },
-            "hash": "72811b46627760c6",
+            "hash": "ced1ac794fd88df2",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
-            "count": 15,
-            "hash": "63d537b5c32cfb0c",
+            "count": 16,
+            "hash": "1d012d6669b6af9a",
             "methods": {
               "beginPath": 1,
               "clip": 1,
+              "drawImage": 1,
               "fillRect": 2,
               "rect": 1,
               "restore": 3,
@@ -162,6 +164,19 @@
                 "type": "call"
               },
               {
+                "args": [
+                  {
+                    "imageHref": "Images/cover.jpg"
+                  },
+                  40,
+                  40,
+                  520,
+                  390
+                ],
+                "method": "drawImage",
+                "type": "call"
+              },
+              {
                 "args": [],
                 "method": "restore",
                 "type": "call"
@@ -185,25 +200,27 @@
             "width": 1200
           },
           "displayList": {
-            "commandCount": 8,
+            "commandCount": 9,
             "commands": {
               "clipRect": 1,
+              "paintImage": 1,
               "paintPage": 2,
               "popState": 2,
               "pushState": 2,
               "translate": 1
             },
-            "hash": "72811b46627760c6",
+            "hash": "ced1ac794fd88df2",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
-            "count": 15,
-            "hash": "a5ed564b2d947a98",
+            "count": 16,
+            "hash": "f69e7ddb85291e7a",
             "methods": {
               "beginPath": 1,
               "clip": 1,
+              "drawImage": 1,
               "fillRect": 2,
               "rect": 1,
               "restore": 3,
@@ -294,6 +311,19 @@
               {
                 "args": [],
                 "method": "clip",
+                "type": "call"
+              },
+              {
+                "args": [
+                  {
+                    "imageHref": "Images/cover.jpg"
+                  },
+                  40,
+                  40,
+                  520,
+                  390
+                ],
+                "method": "drawImage",
                 "type": "call"
               },
               {
@@ -7713,7 +7743,7 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 0,
+          "image": 1,
           "inlineAtom": 0,
           "inlineBackground": 0,
           "inlineBorder": 0,

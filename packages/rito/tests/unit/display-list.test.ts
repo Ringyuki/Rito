@@ -146,4 +146,47 @@ describe('display list', () => {
       paint: { color: '#333', style: 'dashed' },
     });
   });
+
+  it('keeps decorations and shadows in sync with a contrast foreground override', () => {
+    const block = textBlock('Themed');
+    const line = block.children[0];
+    if (line?.type !== 'line-box') throw new Error('Expected line box');
+    const run = line.runs[0];
+    if (run?.type !== 'text-run') throw new Error('Expected text run');
+    const themedBlock: LayoutBlock = {
+      ...block,
+      children: [
+        {
+          ...line,
+          runs: [
+            {
+              ...run,
+              paint: {
+                ...run.paint,
+                color: '#111111',
+                decoration: {
+                  kind: 'underline',
+                  y: 16,
+                  thickness: 1,
+                  color: '#111111',
+                },
+                textShadow: [{ offsetX: 1, offsetY: 1, blur: 2, color: '#222222' }],
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const command = buildPageDisplayList(makePage([themedBlock]), CONFIG, {
+      backgroundColor: '#000000',
+      foregroundColor: '#eeeeee',
+    }).commands.find((candidate) => candidate.kind === 'paintText');
+
+    expect(command?.kind).toBe('paintText');
+    if (command?.kind !== 'paintText') return;
+    expect(command.paint.color).toBe('#eeeeee');
+    expect(command.paint.decoration?.color).toBe('#eeeeee');
+    expect(command.paint.textShadow?.[0]?.color).toBe('#eeeeee');
+  });
 });

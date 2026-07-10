@@ -15,21 +15,12 @@ export function findBreakPosition(
   measurer: TextMeasurer,
   atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
   ranges?: readonly StyleRange[],
-): number {
+): BreakPosition {
   if (measureSlice(text, start, end, style, measurer, atoms, ranges) <= maxWidth) {
-    return end;
+    return { position: end, hyphenated: false };
   }
 
-  let lo = start;
-  let hi = end;
-  while (lo < hi - 1) {
-    const mid = (lo + hi) >>> 1;
-    if (measureSlice(text, start, mid, style, measurer, atoms, ranges) <= maxWidth) {
-      lo = mid;
-    } else {
-      hi = mid;
-    }
-  }
+  const fitPosition = findFitPosition(text, start, end, maxWidth, style, measurer, atoms, ranges);
 
   const options = {
     lineBreak: style.lineBreak,
@@ -38,15 +29,52 @@ export function findBreakPosition(
   };
   const measureWidth = (sliceEnd: number): number =>
     measureSlice(text, start, sliceEnd, style, measurer, atoms, ranges);
-  const wordBreak = findWordBreak(text, start, lo, options);
-  if (wordBreak === lo) {
-    const hyphenBreak = tryHyphenation(text, start, lo, maxWidth, style, measurer);
+  const wordBreak = findWordBreak(text, start, fitPosition, options);
+  if (wordBreak === fitPosition) {
+    const hyphenBreak = tryHyphenation(text, start, fitPosition, maxWidth, style, measurer);
     if (hyphenBreak > start) {
-      return adjustBreakPosition(text, start, end, hyphenBreak, maxWidth, measureWidth, options);
+      const position = adjustBreakPosition(
+        text,
+        start,
+        end,
+        hyphenBreak,
+        maxWidth,
+        measureWidth,
+        options,
+      );
+      return { position, hyphenated: position === hyphenBreak };
     }
   }
 
-  return adjustBreakPosition(text, start, end, wordBreak, maxWidth, measureWidth, options);
+  return {
+    position: adjustBreakPosition(text, start, end, wordBreak, maxWidth, measureWidth, options),
+    hyphenated: false,
+  };
+}
+
+export interface BreakPosition {
+  readonly position: number;
+  readonly hyphenated: boolean;
+}
+
+function findFitPosition(
+  text: string,
+  start: number,
+  end: number,
+  maxWidth: number,
+  style: ComputedStyle,
+  measurer: TextMeasurer,
+  atoms: ReadonlyMap<number, InlineAtomSegment>,
+  ranges?: readonly StyleRange[],
+): number {
+  let low = start;
+  let high = end;
+  while (low < high - 1) {
+    const mid = (low + high) >>> 1;
+    if (measureSlice(text, start, mid, style, measurer, atoms, ranges) <= maxWidth) low = mid;
+    else high = mid;
+  }
+  return low;
 }
 
 /**

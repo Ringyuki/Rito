@@ -138,7 +138,8 @@ describe('findHyphenationPoints', () => {
   });
 
   describe('performance', () => {
-    it('processes 1000 words under 50ms', () => {
+    const performanceIt = process.env['RITO_COVERAGE'] === '1' ? it.skip : it;
+    performanceIt('processes 1000 words under 50ms', () => {
       const words = [
         'hyphenation',
         'algorithm',

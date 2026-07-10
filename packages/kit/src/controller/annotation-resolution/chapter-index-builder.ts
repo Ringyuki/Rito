@@ -6,7 +6,7 @@
  */
 
 import type { ChapterTextIndex, ChapterTextSpan } from '@ritojs/core/annotations';
-import type { HitMap } from '@ritojs/core/advanced';
+import type { HitMap } from '@ritojs/core/integration';
 
 /**
  * Build a chapter text index from the HitMaps of pages belonging to one chapter.

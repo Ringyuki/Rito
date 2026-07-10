@@ -109,6 +109,17 @@ describe('buildSemanticTree', () => {
     expect(tree[0]?.role).toBe('generic');
   });
 
+  it('uses visual geometry for semantic bounds', () => {
+    const block: LayoutBlock = {
+      ...makeBlock([makeLine([makeRun('shifted', 0, 'target.html')], 0)], 'p'),
+      bounds: { x: 0, y: 0, width: 40, height: 20 },
+      paint: { visualOffset: { dx: 15, dy: 8 }, clipToBounds: true },
+    };
+    const tree = buildSemanticTree(makePage([block]));
+    expect(tree[0]?.bounds).toEqual({ x: 15, y: 8, width: 40, height: 20 });
+    expect(tree[0]?.children[0]?.bounds).toEqual({ x: 15, y: 8, width: 40, height: 20 });
+  });
+
   it('handles heading levels 1-6', () => {
     const levels = [1, 2, 3, 4, 5, 6];
     for (const l of levels) {

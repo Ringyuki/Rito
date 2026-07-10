@@ -363,13 +363,13 @@
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "330ebac27c8b01ab",
+      "detailHash": "c392a30c459fdf1a",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -534,7 +534,7 @@
         "ruby": 0,
         "textRuns": 3
       },
-      "detailHash": "2d49b8cfbaa38f94",
+      "detailHash": "4dc47d74154091be",
       "firstText": "败犬女主",
       "index": 11,
       "lastText": "窥视着你"
@@ -3530,12 +3530,12 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 26,
-    "fullDetailHash": "f6e7e5afeea46c4a",
+    "fullDetailHash": "15ef3ec834eeed2f",
     "pageCount": 211,
     "totals": {
       "blocks": 4552,
       "hrs": 0,
-      "images": 110,
+      "images": 111,
       "inlineAtoms": 87,
       "lines": 4749,
       "ruby": 0,
@@ -3549,16 +3549,29 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 390,
             "width": 520,
             "x": 0,
             "y": 0
           },
-          "children": [],
+          "children": [
+            {
+              "alt": null,
+              "bounds": {
+                "height": 390,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "href": null,
+              "src": "../Images/cover.jpg",
+              "type": "image"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
-          "tag": "div",
+          "tag": null,
           "type": "layout-block"
         }
       ],
@@ -3571,7 +3584,7 @@
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
@@ -7075,7 +7088,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 38.4,
+            "height": 46.4,
             "width": 176,
             "x": 154.4,
             "y": 0

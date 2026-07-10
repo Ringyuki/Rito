@@ -13,6 +13,7 @@ export interface HrefPageLocation {
 export interface ResolveHrefPageLocationOptions {
   readonly allowChapterStart?: boolean;
   readonly allowMissingAnchorFallback?: boolean;
+  readonly chapterAnchorMap?: ReadonlyMap<string, ReadonlyMap<string, number>> | undefined;
 }
 
 /**
@@ -33,9 +34,11 @@ export function findPageForTocEntry(
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
   anchorMap?: ReadonlyMap<string, number>,
+  chapterAnchorMap?: ReadonlyMap<string, ReadonlyMap<string, number>>,
 ): number | undefined {
-  return resolveHrefPageLocation(entry.href, chapterMap, spine, manifestHrefs, anchorMap)
-    ?.pageIndex;
+  return resolveHrefPageLocation(entry.href, chapterMap, spine, manifestHrefs, anchorMap, {
+    chapterAnchorMap,
+  })?.pageIndex;
 }
 
 /**
@@ -63,8 +66,9 @@ export function resolveHrefPageLocation(
   if (!chapterRange) return undefined;
 
   // Try precise anchor lookup, scoped to the target chapter's page range
-  if (fragment && anchorMap) {
-    const anchorPage = anchorMap.get(fragment);
+  if (fragment) {
+    const anchorPage =
+      options?.chapterAnchorMap?.get(spineIdref)?.get(fragment) ?? anchorMap?.get(fragment);
     if (
       anchorPage !== undefined &&
       anchorPage >= chapterRange.startPage &&
@@ -101,8 +105,16 @@ export function resolveTocEntryLocation(
   manifestHrefs: ReadonlyMap<string, string>,
   spreads: readonly Spread[],
   anchorMap?: ReadonlyMap<string, number>,
+  chapterAnchorMap?: ReadonlyMap<string, ReadonlyMap<string, number>>,
 ): { pageIndex: number; spreadIndex: number } | undefined {
-  const pageIndex = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs, anchorMap);
+  const pageIndex = findPageForTocEntry(
+    entry,
+    chapterMap,
+    spine,
+    manifestHrefs,
+    anchorMap,
+    chapterAnchorMap,
+  );
   if (pageIndex === undefined) return undefined;
   const spreadIndex = findSpreadForPage(pageIndex, spreads);
   return spreadIndex === undefined ? undefined : { pageIndex, spreadIndex };
@@ -116,13 +128,21 @@ export function findActiveTocEntryForPage(
   spine: readonly SpineItem[],
   manifestHrefs: ReadonlyMap<string, string>,
   anchorMap?: ReadonlyMap<string, number>,
+  chapterAnchorMap?: ReadonlyMap<string, ReadonlyMap<string, number>>,
 ): TocEntry | undefined {
   let bestEntry: TocEntry | undefined;
   let bestPage = -1;
 
   const visit = (entries: readonly TocEntry[]): void => {
     for (const entry of entries) {
-      const entryPage = findPageForTocEntry(entry, chapterMap, spine, manifestHrefs, anchorMap);
+      const entryPage = findPageForTocEntry(
+        entry,
+        chapterMap,
+        spine,
+        manifestHrefs,
+        anchorMap,
+        chapterAnchorMap,
+      );
       if (entryPage !== undefined && entryPage <= pageIndex && entryPage >= bestPage) {
         bestEntry = entry;
         bestPage = entryPage;
@@ -158,8 +178,18 @@ function findSpineItemForHref(
 /** Split an href into [path, fragment]. Fragment is undefined when absent. */
 function splitHrefAndFragment(href: string): [string | undefined, string | undefined] {
   const hashIdx = href.indexOf('#');
-  if (hashIdx < 0) return [href || undefined, undefined];
-  const path = href.slice(0, hashIdx) || undefined;
-  const fragment = href.slice(hashIdx + 1) || undefined;
+  const rawPath = hashIdx < 0 ? href : href.slice(0, hashIdx);
+  const queryIdx = rawPath.indexOf('?');
+  const path = rawPath.slice(0, queryIdx < 0 ? undefined : queryIdx) || undefined;
+  const rawFragment = hashIdx < 0 ? '' : href.slice(hashIdx + 1);
+  const fragment = rawFragment ? decodeHrefComponent(rawFragment) : undefined;
   return [path, fragment];
+}
+
+function decodeHrefComponent(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }

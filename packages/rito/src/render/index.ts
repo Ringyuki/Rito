@@ -22,25 +22,23 @@ export {
   loadFontsWithRegistry,
   loadImagesWithDecoder,
   type LazyImageLoader,
+  type EpubAssetSource,
   type FontRegistry,
   type FontResource,
   type ImageAssetResolver,
   type ImageDecoder,
   type ImageDimensions,
+  type ImageLoadOptions,
   type ImageObjectUrlProvider,
   type ImageResource,
 } from './assets';
 export {
   createLazyImageLoader,
   disposeAssets,
-  disposeResources,
   loadAssets,
   loadFonts,
   loadImages,
-  paginateWithAssets,
-  prepare,
   type LoadedAssets,
-  type Resources,
 } from './web';
 export {
   buildPageDisplayList,

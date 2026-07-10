@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { parseNavDocument, parseNcx } from '../../src/parser/epub/toc-parser';
 
@@ -89,6 +88,24 @@ describe('parseNavDocument', () => {
     expect(parseNavDocument(xhtml)).toEqual([]);
   });
 
+  it('recognizes the EPUB type namespace when a document uses a different prefix', () => {
+    const xhtml = `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:ops="http://www.idpf.org/2007/ops">
+<body><nav ops:type="toc"><ol><li><a href="ch.xhtml">Chapter</a></li></ol></nav></body>
+</html>`;
+
+    expect(parseNavDocument(xhtml)).toEqual([{ label: 'Chapter', href: 'ch.xhtml', children: [] }]);
+  });
+
+  it('falls back to the EPUB namespace when an unrelated epub:type is empty', () => {
+    const xhtml = `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="urn:not-epub" xmlns:ops="http://www.idpf.org/2007/ops">
+<body><nav epub:type="" ops:type="toc"><ol><li><a href="ch.xhtml">Chapter</a></li></ol></nav></body>
+</html>`;
+
+    expect(parseNavDocument(xhtml)).toEqual([{ label: 'Chapter', href: 'ch.xhtml', children: [] }]);
+  });
+
   it('skips entries with empty labels', () => {
     const xhtml = `<?xml version="1.0" encoding="UTF-8"?>
 <html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops">
@@ -104,6 +121,12 @@ describe('parseNavDocument', () => {
 
     const entries = parseNavDocument(xhtml);
     expect(entries).toEqual([{ label: 'Valid', href: 'valid.xhtml', children: [] }]);
+  });
+
+  it('rejects malformed navigation XML with a labeled EPUB error', () => {
+    expect(() => parseNavDocument('<html><nav></html>')).toThrow(
+      'Invalid EPUB navigation document',
+    );
   });
 });
 
@@ -169,5 +192,15 @@ describe('parseNcx', () => {
 <ncx xmlns="http://www.daisy.org/z3986/2005/ncx/"/>`;
 
     expect(parseNcx(xml)).toEqual([]);
+  });
+
+  it('includes CDATA in NCX labels', () => {
+    const xml = `<ncx><navMap><navPoint><navLabel><text><![CDATA[A & B]]></text></navLabel><content src="a.xhtml"/></navPoint></navMap></ncx>`;
+
+    expect(parseNcx(xml)).toEqual([{ label: 'A & B', href: 'a.xhtml', children: [] }]);
+  });
+
+  it('rejects malformed NCX with a labeled EPUB error', () => {
+    expect(() => parseNcx('<ncx><navMap></ncx>')).toThrow('Invalid NCX document');
   });
 });

@@ -4,7 +4,7 @@
  */
 import type { Spread } from '@ritojs/core';
 import type { Reader } from '@ritojs/core/web';
-import { buildHitMap, buildLinkMap } from '@ritojs/core/advanced';
+import { buildHitMap, buildLinkMap } from '@ritojs/core/integration';
 import type { PositionTracker } from '@ritojs/core/position';
 import type { DisposableCollection } from '../../utils/disposable';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';

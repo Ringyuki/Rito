@@ -631,15 +631,15 @@
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
-      "detailHash": "8c709e8350665d42",
+      "detailHash": "27cc6590e60a8e5d",
       "firstText": "第一章 与真正的伙伴进行交换！",
       "index": 18,
       "lastText": "阿库娅捂着耳朵闭上眼睛，我则是拍打桌子对她咄咄逼人。"
@@ -652,12 +652,12 @@
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 25
       },
-      "detailHash": "1c40e880de0ceb06",
+      "detailHash": "12a23353897a72a7",
       "firstText": "——这个世界，有一群被称为冒险者的人。",
       "index": 19,
-      "lastText": "我准备丢下这个欠债女神离开座位时，阿库娅哭着扒住了我。"
+      "lastText": "就在这个时候，有人对我们说："
     },
     {
       "counts": {
@@ -669,10 +669,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "72cc48c0ef287567",
-      "firstText": "就在这个时候，有人对我们说：",
+      "detailHash": "bd08fdab9af830e8",
+      "firstText": "「真是的，一大早就这样大吵大闹，大家都……没在看啊。看来公会的人也都渐渐习惯你们了啊……」",
       "index": 20,
-      "lastText": "「毁灭者就是毁灭者啊。一种很大，又会高速机动的要塞。」"
+      "lastText": "「会动来动去、蹂躏一切，莫名受到小朋友们喜爱的东西。」"
     },
     {
       "counts": {
@@ -684,10 +684,10 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "4e29d8369497afc8",
-      "firstText": "「会动来动去、蹂躏一切，莫名受到小朋友们喜爱的东西。」",
+      "detailHash": "f0db9a6326a195ab",
+      "firstText": "原来如此，我听不懂。",
       "index": 21,
-      "lastText": "远离城镇的平原地带。"
+      "lastText": "镇上明明还没开始下雪，就只有那里因为积雪而闪着一片洁白。"
     },
     {
       "counts": {
@@ -699,10 +699,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6bdfa2bdc25510d1",
-      "firstText": "镇上明明还没开始下雪，就只有那里因为积雪而闪着一片洁白。",
+      "detailHash": "891079a50039e745",
+      "firstText": "然后，那一定就是雪精了吧。",
       "index": 22,
-      "lastText": "「送修了。」"
+      "lastText": "除了阿库娅之外，就连我们小队的主坦达克妮丝身上也没有铠甲，只穿着一身便服、带着一把大剑。"
     },
     {
       "counts": {
@@ -714,10 +714,10 @@
         "ruby": 0,
         "textRuns": 9
       },
-      "detailHash": "264ec18420ac9f8b",
-      "firstText": "除了阿库娅之外，就连我们小队的主坦达克妮丝身上也没有铠甲，只穿着一身便服、带着一把大剑。",
+      "detailHash": "205451c63ac7d416",
+      "firstText": "「……之前你的铠甲才被魔王军的干部砍得千疮百孔而已嘛……不过，你穿成这样没问题吗？虽然雪精好像不会攻",
       "index": 23,
-      "lastText": "只要我们不主动靠近，雪精就只是慢慢地飘来飘去而已，但我们一发动攻击，就会突然以迅速的动作开始逃窜。"
+      "lastText": "攻击要命中这些家伙颇为困难。"
     },
     {
       "counts": {
@@ -729,10 +729,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "fde867ff82029306",
-      "firstText": "攻击要命中这些家伙颇为困难。",
+      "detailHash": "518e888d2a84585b",
+      "firstText": "不过，既然讨伐一只的报酬高达十万，这种难度或许也算是正常吧。",
       "index": 24,
-      "lastText": "四个人分的话，一个人四十万啊。"
+      "lastText": "还不到一个小时就赚了这么多钱。"
     },
     {
       "counts": {
@@ -744,10 +744,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "276e8002d0404ab4",
-      "firstText": "还不到一个小时就赚了这么多钱。",
+      "detailHash": "be39ff7f87e87b27",
+      "firstText": "什么嘛，冬天的讨伐任务很好赚嘛。",
       "index": 25,
-      "lastText": "「蠢毙了！这个混账至极的世界，无论是人还是食物还是怪物，全部都是蠢毙了！」"
+      "lastText": "那把白晃晃、看起来锐利得吓人的刀子一亮，冬将军攻了过来！"
     },
     {
       "counts": {
@@ -759,10 +759,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f903939b170ca230",
-      "firstText": "那把白晃晃、看起来锐利得吓人的刀子一亮，冬将军攻了过来！",
+      "detailHash": "bd4b3148ef1f7523",
+      "firstText": "3",
       "index": 26,
-      "lastText": "「……也就是说，从日本来到这个世界的某个笨蛋，因为说到冬天就想到冬将军，才冒出了这个家伙来吗？也太给"
+      "lastText": "老实说，我一点都不觉得能打赢眼前的怪物。"
     },
     {
       "counts": {
@@ -774,10 +774,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "2fef32bd8f75caab",
-      "firstText": "人添麻烦了吧，现在是要怎样啊，冬之精灵这种东西是该怎么对付才好啊！」",
+      "detailHash": "743e591556bc13b9",
+      "firstText": "乍看之下是人形的铠甲武士，既然是实体化的精灵，我实在就不觉得拿剑砍过去就可以对付得了他。",
       "index": 27,
-      "lastText": "呼……啊啊、雪好冰啊……！」"
+      "lastText": "维持着这个姿势，我稍微偷瞄了冬将军一眼，只见冬将军已经把刀收起来了。"
     },
     {
       "counts": {
@@ -789,10 +789,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "b089c5f204e794dc",
-      "firstText": "我压着这个红着脸、只是形式上抗拒一下的变态的头，自己也低下头来。",
+      "detailHash": "57b3546f96f1dd16",
+      "firstText": "我松了口气，继续保持磕头的姿势——",
       "index": 28,
-      "lastText": "「啊……不好意思，我一时乱了分寸，让你见笑了。」"
+      "lastText": "但是，自称艾莉丝的那位女神，只是以略带忧伤的表情摇了摇头。"
     },
     {
       "counts": {
@@ -804,10 +804,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bbdefa7d6ed62b44",
-      "firstText": "在雪白的神殿当中，我因为在女神面前丑态百出地哭泣而感到羞耻，并别开了视线。",
+      "detailHash": "a85bf7360f47b57b",
+      "firstText": "「不需要感到不好意思，您失去的可是宝贵的生命呢……」",
       "index": 29,
-      "lastText": "『快点回来吧，和真！干嘛在这种地方那么简单就被杀掉了啊！你想死还早得很呢！』"
+      "lastText": "在只有我和艾莉丝的这个空间当中，她的声音伴随着都卜勒效应大声回响。"
     },
     {
       "counts": {
@@ -819,23 +819,23 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "7a88c63030a0d739",
-      "firstText": "突然传来了阿库娅的声音。",
+      "detailHash": "fa14845fbce41563",
+      "firstText": "「等等、这、这是怎样！」",
       "index": 30,
-      "lastText": "喂，干嘛说成这样。"
+      "lastText": "「呃，是一位叫做艾莉丝的女神大人……」"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 18
       },
-      "detailHash": "0bdba98b2802cb82",
-      "firstText": "我眼前这个负责穷乡僻壤的女神大人，表情变得超僵硬的好吗。",
+      "detailHash": "5f49417174865d52",
+      "firstText": "我诚惶诚恐地对阿库娅这么说。",
       "index": 31,
       "lastText": "「这件事要保密喔。」"
     },
@@ -879,10 +879,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f90aca2106552c05",
+      "detailHash": "d1d440c58d2e9e0f",
       "firstText": "「……状况还好吗？有没有哪里不对劲？」",
       "index": 34,
-      "lastText": "么具备攻击性的怪物，赏金却高达两亿。如此破格的高额悬赏，也说明了冬将军有多么强大。」"
+      "lastText": "击性的怪物，赏金却高达两亿。如此破格的高额悬赏，也说明了冬将军有多么强大。」"
     },
     {
       "counts": {
@@ -894,7 +894,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "bcf204440107545a",
+      "detailHash": "16bf2aafdedefaf5",
       "firstText": "听了惠惠的说明，我不禁陷入了沉默。",
       "index": 35,
       "lastText": "不过……以日薪来算是很好赚，但是对于高额的债款而言还是杯水车薪。"
@@ -931,7 +931,7 @@
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -939,10 +939,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "9232a5f1259fd72f",
+      "detailHash": "5f7aafe44aa3611a",
       "firstText": "没错，眼前的男人是漫画当中经常出现的，典型的小混混。",
       "index": 38,
-      "lastText": "暴怒的我抓着男子的领口时，背后有人战战兢兢地向我搭话说："
+      "lastText": "「和……和真……」"
     },
     {
       "counts": {
@@ -954,10 +954,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ce2b8221b9ddb356",
-      "firstText": "「和……和真……」",
+      "detailHash": "5d171ec1d92d5950",
+      "firstText": "是看起来代表了她们三人的阿库娅。她提心吊胆地举起右手，以微弱的声音叫了我。",
       "index": 39,
-      "lastText": "了。」"
+      "lastText": "听我这么说，泰勒露出惊讶的表情。"
     },
     {
       "counts": {
@@ -969,10 +969,10 @@
         "ruby": 0,
         "textRuns": 10
       },
-      "detailHash": "7e0194594cae913b",
-      "firstText": "听我这么说，泰勒露出惊讶的表情。",
+      "detailHash": "6e78e6cfb6ab3340",
+      "firstText": "「什么？你是说你们那个全是上级职业的小队，是冒险者当队长吗？」",
       "index": 40,
-      "lastText": "「我是奇斯，是个『弓手』。对于狙击还有点信心，请多指教啰。」"
+      "lastText": "说着，那个背着弓，看起来很轻浮的男子对我笑了一下。"
     },
     {
       "counts": {
@@ -982,10 +982,10 @@
         "inlineAtoms": 0,
         "lines": 26,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 24
       },
-      "detailHash": "4df7baab8d1dffb5",
-      "firstText": "说着，那个背着弓，看起来很轻浮的男子对我笑了一下。",
+      "detailHash": "c1846ff665a20ac0",
+      "firstText": "「那么，我也正式请大家多多指教。我是和真，职业是冒险者……那个，我是不是也该说一下有什么专长比较好",
       "index": 41,
       "lastText": "9"
     },
@@ -997,12 +997,12 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 24
       },
-      "detailHash": "44efa09ac655f052",
+      "detailHash": "9032044f53f18b7d",
       "firstText": "哥布林。",
       "index": 42,
-      "lastText": "对于泰勒的这番指示，我甚至觉得有点感动。"
+      "lastText": "就是这样，有这种对话才叫作冒险者啊。"
     },
     {
       "counts": {
@@ -1014,10 +1014,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f082ee7312c7f2a8",
-      "firstText": "就是这样，有这种对话才叫作冒险者啊。",
+      "detailHash": "9ae8db6af8e31ccd",
+      "firstText": "什么想冲进敌阵的正中央、总觉得想咏唱爆裂魔法、好想早点回去喝酒，有这种对话才奇怪吧。",
       "index": 43,
-      "lastText": "体型甚至超越老虎和狮子的那个家伙，全身长满了黑色的体毛，嘴里伸出像剑齿虎般的两根长牙。"
+      "lastText": "那个家伙在山路上，贴着地面神经质地不断嗅着我们刚才待过的地方。"
     },
     {
       "counts": {
@@ -1029,10 +1029,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "94c1d4c8e43be64a",
-      "firstText": "那个家伙在山路上，贴着地面神经质地不断嗅着我们刚才待过的地方。",
+      "detailHash": "4e24ab7ccfb6023e",
+      "firstText": "琳恩看见那副模样，连忙伸手捂住自己的嘴。",
       "index": 44,
-      "lastText": "知道会不会回来的初学者杀手等到天荒地老，不如先往目的地前进吧。」"
+      "lastText": "泰勒如此提议，于是我们走出树丛。"
     },
     {
       "counts": {
@@ -1044,10 +1044,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b65ed920fac68dd5",
-      "firstText": "泰勒如此提议，于是我们走出树丛。",
+      "detailHash": "505bd664738b686b",
+      "firstText": "……这时，琳恩从我背上拿走了一些行李。",
       "index": 45,
-      "lastText": "可是数量多到让我有点数不清喔。」"
+      "lastText": "我略感不安地这么问。"
     },
     {
       "counts": {
@@ -1059,10 +1059,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "5d67305f25b4e353",
-      "firstText": "我略感不安地这么问。",
+      "detailHash": "af5a7a157af43b07",
+      "firstText": "看见我的反应，琳恩似乎也不安了起来。",
       "index": 46,
-      "lastText": "「好痛！可恶，我中箭了！喂！有拿弓的哥布林！琳恩，快用风系的防御魔法！」"
+      "lastText": "「琳恩正在咏唱不过应该赶不上！所有人自己想办法闪躲！」"
     },
     {
       "counts": {
@@ -1074,10 +1074,10 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "2cddbeed0f93c899",
-      "firstText": "「琳恩正在咏唱不过应该赶不上！所有人自己想办法闪躲！」",
+      "detailHash": "d7e20a257cb52a44",
+      "firstText": "就在泰勒和奇斯如此吼叫时。",
       "index": 47,
-      "lastText": "他们。"
+      "lastText": "在这种状况下应该不至于受伤才对吧！"
     },
     {
       "counts": {
@@ -1089,10 +1089,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "56fae4067bf426a6",
-      "firstText": "在这种状况下应该不至于受伤才对吧！",
+      "detailHash": "d79e751b95d84d1c",
+      "firstText": "我也拔出剑，站到泰勒身旁……！",
       "index": 48,
-      "lastText": "「对、对不起喔，和真！应该说，为什么人称最弱职业的冒险者，却是表现得最突出的一个人啊！太奇怪了吧！」"
+      "lastText": "「喂，和真，把你的行李拿来！你是今天的MVP，我来帮你背行李！」"
     },
     {
       "counts": {
@@ -1104,10 +1104,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "199eef587bb66c3b",
-      "firstText": "「喂，和真，把你的行李拿来！你是今天的MVP，我来帮你背行李！」",
+      "detailHash": "17c763963a1120d4",
+      "firstText": "结果马上害他们慌张了起来，害我忍不住喷笑。",
       "index": 49,
-      "lastText": "不愧是弓手，视力出奇地好。"
+      "lastText": "接着，我的感应敌人也察觉到了那个家伙。"
     },
     {
       "counts": {
@@ -1119,10 +1119,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f5a58abaa4bb84a8",
-      "firstText": "接着，我的感应敌人也察觉到了那个家伙。",
+      "detailHash": "c894f72bde9eae2b",
+      "firstText": "那只黑色的野兽，朝着走在黄昏时分的草原地带正中央的我们冲了过来。",
       "index": 50,
-      "lastText": "他锁定的目标是挡在前方的泰勒。"
+      "lastText": "「等、等一下，和真！你不逃吗？」"
     },
     {
       "counts": {
@@ -1134,10 +1134,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "dd1764888f2899da",
-      "firstText": "「等、等一下，和真！你不逃吗？」",
+      "detailHash": "78b15cf1dee77ad5",
+      "firstText": "琳恩放开抓住我的手，对于我一动也不动而感到困惑。而我听着她慌张的声音，为了避免初学者杀手听见，轻声喊",
       "index": 51,
-      "lastText": "「甩、甩掉了吗？」"
+      "lastText": "泰勒气喘吁吁地说着。"
     },
     {
       "counts": {
@@ -1149,14 +1149,14 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "caea93abfa187de6",
-      "firstText": "泰勒气喘吁吁地说着。",
+      "detailHash": "184bfecf08ce73f7",
+      "firstText": "「呼……呼……好、好像甩掉了？」",
       "index": 52,
-      "lastText": "不，我觉得肯定跟幸运无关吧。"
+      "lastText": "柜台小姐也说，对于冒险者这个工作，幸运值是没什么必要的参数。"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1164,10 +1164,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bc05ad33630f1643",
-      "firstText": "柜台小姐也说，对于冒险者这个工作，幸运值是没什么必要的参数。",
+      "detailHash": "7cc9d639521fcaa2",
+      "firstText": "而且，如果我的运气真有那么好的话，一开始就不会找到那些家伙来当队友了，嗯。",
       "index": 53,
-      "lastText": "「听一下啦！听一下好吗！我知道是我不对，拜托你听一下啦！是这样的，离开镇上之后，我先问她们各自会用怎"
+      "lastText": "样的技能。于是，这个女生说她会用爆裂魔法，所以我就夸奖她很厉害，结果她就说什么让你见识一下吾的力量，突然就对"
     },
     {
       "counts": {
@@ -1175,12 +1175,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 11,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 11
       },
-      "detailHash": "f01f18e2e3f7202f",
-      "firstText": "样的技能。于是，这个女生说她会用爆裂魔法，所以我就夸奖她很厉害，结果她就说什么让你见识一下吾的力量，",
+      "detailHash": "c7f0a906da9f5265",
+      "firstText": "着空无一物的草原，毫无意义地轰出她用尽所有魔力的爆裂魔法……」",
       "index": 54,
       "lastText": "「都是我不好！我为今天早上的事情道歉，请原谅我吧！」"
     },
@@ -1224,7 +1224,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "630a72b4abe879d6",
+      "detailHash": "bb8357d071fede38",
       "firstText": "出现在公会里耶。」",
       "index": 57,
       "lastText": "「为了避免你们两个误会，我先说了。要进地下城的只有我一个人，你们要做的事，就是希望能在前往地下城的路"
@@ -1246,7 +1246,7 @@
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1254,10 +1254,40 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "4ea273302dca397c",
+      "detailHash": "d0df91d7b6be3d8e",
       "firstText": "我想回报你的功绩。可以为你实现一个心愿，任何事情都行。",
       "index": 59,
-      "lastText": "「……不，你不用跟来。应该说，我自己一个人进去还比较方便。」"
+      "lastText": "我又对阿库娅说明了一次来这里的路上时所说过的事情。"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "f035e4d5243b950b",
+      "firstText": "「奇斯教了我一个弓手的技能，『千里眼』。有了这招，就可以有夜视能力了。我之前已经试过，即使在毫无光",
+      "index": 60,
+      "lastText": "不知道这种药水能产生多大的作用，但总比完全没使用好吧。"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "2a3ac73adc3dc811",
+      "firstText": "而且，之前遇见初学者杀手、使用潜伏技能的时候，他虽然很在意我们的味道，但最后还是离开了。",
+      "index": 61,
+      "lastText": "是办得到啊！」"
     },
     {
       "counts": {
@@ -1267,12 +1297,12 @@
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 22
       },
-      "detailHash": "99b291949e16631a",
-      "firstText": "我又对阿库娅说明了一次来这里的路上时所说过的事情。",
-      "index": 60,
-      "lastText": "我是有点想见艾莉丝女神，但是再怎么样也不想死那么多次。"
+      "detailHash": "29a9045cbfb22a70",
+      "firstText": "见阿库娅挺起胸膛这么说，让我变得越来越不安。",
+      "index": 62,
+      "lastText": "很清楚，所以别想趁乱摸我的屁股。」"
     },
     {
       "counts": {
@@ -1284,40 +1314,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "6bf7bf6904bf2b7f",
-      "firstText": "我将消臭药水撒在自己身上。",
-      "index": 61,
-      "lastText": "老实说是什么神都无所谓啦，这个家伙到底想说什么啊。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6c497078ae5ad911",
-      "firstText": "「我再怎么说也是女神耶，神的双眼具有能够看透一切的力量。和真要来这个世界的时候，我也看穿了你的死因不",
-      "index": 62,
-      "lastText": "不要脚一滑就滚下阶梯了喔。」"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "e2d2255219b1b782",
-      "firstText": "听我这么回她，阿库娅一脸放心的样子，微笑着说：",
+      "detailHash": "981c749137bff2d8",
+      "firstText": "「放心吧，什么摸你的屁股，我完全没有在想那种蠢事。不然直接告诉你我现在在想什么好了。我很认真地在想，",
       "index": 63,
-      "lastText": "「……快要变成不死者了。和真，先等我一下喔。」"
+      "lastText": "如果平常就像这样好好表现的话，她的信徒应该也会稍微变多才对。"
     },
     {
       "counts": {
@@ -1329,10 +1329,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "d7c9ad8727c5bd0e",
-      "firstText": "说着，阿库娅开始喃喃念起祷词，那具尸骸便让一阵微光给包围起来了。",
+      "detailHash": "ca4915193780a45a",
+      "firstText": "话说回来，才刚下楼梯就突然看见尸体，害得我干劲全消。",
       "index": 64,
-      "lastText": "原来如此，公会的人告诉我的这个地下城的怪物情报当中，确实有这个名称的怪物。"
+      "lastText": "对于我的疑问，阿库娅她……"
     },
     {
       "counts": {
@@ -1344,10 +1344,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "3f88702a84228117",
-      "firstText": "……忽然，我察觉到一件事情。",
+      "detailHash": "ed5da997db142149",
+      "firstText": "「看得一清二楚啊，和白天没什么两样喔，怎么了吗？」",
       "index": 65,
-      "lastText": "但是，正如阿库娅所说，对于长期待在阴暗冰冷的地下城当中受苦的不死者而言，活人看起来应该是格外耀眼吧。"
+      "lastText": "原来地下城是个会遇见这么多不死怪物的地方，我都不知道。"
     },
     {
       "counts": {
@@ -1359,10 +1359,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "9c75f275351db371",
-      "firstText": "从刚才开始，我们已经净化了相当多不死者。",
+      "detailHash": "8a1711a0608718a8",
+      "firstText": "我深深反省着自己想得太天真了。",
       "index": 66,
-      "lastText": "「……？和真，你看那边。那里好像有什么东西。」"
+      "lastText": "「你看，宝物、是宝物啦，有宝箱耶！太棒了和真，这次地下城探索有收获了！」"
     },
     {
       "counts": {
@@ -1372,12 +1372,12 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "detailHash": "5fce48f015451b51",
-      "firstText": "阿库娅好像在房间的角落找到什么东西的样子。",
+      "detailHash": "5d688d90568c890b",
+      "firstText": "阿库娅兴冲冲地走向宝箱，我连忙制止了她。",
       "index": 67,
-      "lastText": "想在这个世界混下去还真的很不容易。"
+      "lastText": "5"
     },
     {
       "counts": {
@@ -1387,12 +1387,12 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 23
       },
-      "detailHash": "b66af7bb61826de6",
-      "firstText": "5",
+      "detailHash": "e78fb6e8ae887a99",
+      "firstText": "「『Turn Undead』！」",
       "index": 68,
-      "lastText": "但是，既然状况绝佳的阿库娅都这么说了，前方或许真的有东西也说不定。"
+      "lastText": "就在这个时候，通道底端的墙壁，突然有一部分横向旋转，并打了开来。"
     },
     {
       "counts": {
@@ -1404,10 +1404,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "138783274255e672",
-      "firstText": "我和阿库娅开始动手摸索，调查通道底端的墙壁。",
+      "detailHash": "e7fbd92f13de8136",
+      "firstText": "我们什么也没做，是从墙壁的另外一端打开。",
       "index": 69,
-      "lastText": "基尔毫不吝惜于使用自己所会的魔法，为国家多有贡献。"
+      "lastText": "基尔说了。"
     },
     {
       "counts": {
@@ -1417,27 +1417,27 @@
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 21
       },
-      "detailHash": "857a6bf2373847c1",
-      "firstText": "最后，人们纷纷赞扬基尔，王城也为了赞赏他的功绩而举行了宴会。",
+      "detailHash": "3220ca83a6bec90a",
+      "firstText": "这个世上只有一个，无论如何我都无法实现的心愿。",
       "index": 70,
-      "lastText": "「能不能净化我呢？她应该是足以办得到这件事的祭司吧。」"
+      "lastText": "7"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 22,
         "ruby": 1,
         "textRuns": 24
       },
-      "detailHash": "f08086c9f7f7359c",
-      "firstText": "7",
+      "detailHash": "f1d420b48d9b7fe0",
+      "firstText": "阿库娅像是咀嚼着一字一句，咏唱着魔法。",
       "index": 71,
-      "lastText": "前应该会有个胸部呈现出不自然的隆起，名为艾莉丝的女神才对。如果你不介意年龄的差距，即使不是男女关系"
+      "lastText": "无论是以任何形式都愿意的话……就向她祈愿，让你再见那位千金小姐一面吧。她一定会实现你的心愿。」"
     },
     {
       "counts": {
@@ -1445,12 +1445,12 @@
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 10,
         "ruby": 0,
-        "textRuns": 10
+        "textRuns": 8
       },
-      "detailHash": "72b017494ae81771",
-      "firstText": "也无所谓，无论是以任何形式都愿意的话……就向她祈愿，让你再见那位千金小姐一面吧。她一定会实现你的心",
+      "detailHash": "e900a943abc81011",
+      "firstText": "我说真的，这到底是谁啊。",
       "index": 72,
       "lastText": "「……回去吧。」"
     },
@@ -1462,16 +1462,16 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "3a1d0e17bfaf7b36",
+      "detailHash": "0d929942f168dd67",
       "firstText": "8",
       "index": 73,
-      "lastText": "「怎、怎怎怎、怎么会呢——才没有这回事呢……应该啦……」"
+      "lastText": "然后做出如此暧昧不明的回答。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1479,23 +1479,23 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c960e2502348effe",
-      "firstText": "然后做出如此暧昧不明的回答。",
+      "detailHash": "ef14e910dfc910be",
+      "firstText": "「…………这么说来，之前无头骑士攻过来的时候，无头骑士带来的那些不死骑士，也都特别爱聚集到你身边去",
       "index": 74,
-      "lastText": "9"
+      "lastText": "在小木屋等我们的惠惠，劈头就这么问。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 20
       },
-      "detailHash": "458873dc8d00f1f5",
-      "firstText": "「……我大概猜想得到会变成这样，不过可以问一下是发生了什么事吗？」",
+      "detailHash": "2c13be303111037b",
+      "firstText": "「呜、呜啊啊啊啊啊啊啊！和真啦——！和真他————————！」",
       "index": 75,
       "lastText": "达克妮丝做出如此耐人寻味的发言，面露了稍微有些落寞的笑容。"
     },
@@ -1569,7 +1569,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "0806cd4c22e46d2f",
+      "detailHash": "e775b06808831496",
       "firstText": "「碰到水就会爆炸。」",
       "index": 80,
       "lastText": "「『身为女神』……？请问，之前之所以能够以『Turn Undead』就那么轻而易举地差点消除掉我……"
@@ -1614,7 +1614,7 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "f39afb1e56692cb0",
+      "detailHash": "84e69624320cf284",
       "firstText": "我伸手制止了开始咏唱魔法的阿库娅，说道：",
       "index": 83,
       "lastText": "对于我的疑问，维兹稍微烦恼了一下。"
@@ -1704,7 +1704,7 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "6e6e8798eeda73e8",
+      "detailHash": "6cf3d7bc19a1ad28",
       "firstText": "惠惠做出如此令人不安的发言。",
       "index": 89,
       "lastText": "自己的家里有恶灵在胡搞瞎搞，她可不会坐视不管。"
@@ -1846,21 +1846,6 @@
     },
     {
       "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "4337422f8f5a0161",
-      "firstText": "的达克妮丝。",
-      "index": 99,
-      "lastText": "这么说来，持有者打倒的怪物情报和数量都会纪录在冒险者卡片里呢。"
-    },
-    {
-      "counts": {
         "blocks": 21,
         "hrs": 0,
         "images": 0,
@@ -1869,8 +1854,23 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "84b569e3276aa656",
-      "firstText": "「关于这个案件，因为恶灵在镇上到处泛滥，确实有很多地方都来找公会商量。既然各位解决了出现在镇上的怪",
+      "detailHash": "5f5156ac502809c8",
+      "firstText": "的达克妮丝。",
+      "index": 99,
+      "lastText": "「关于这个案件，因为恶灵在镇上到处泛滥，确实有很多地方都来找公会商量。既然各位解决了出现在镇上的怪"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "8ae4adfb7f708128",
+      "firstText": "物，虽然不多，但公会将发出临时报酬，各位辛苦了。」",
       "index": 100,
       "lastText": "我和阿库娅离开了公会，准备去找房仲……"
     },
@@ -1884,7 +1884,7 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "2ad40a35ed973462",
+      "detailHash": "a9d6741a0cfe093d",
       "firstText": "不过在那之前，我们决定先回豪宅向达克妮丝和惠惠报告，结果昨天那位房仲也在场。",
       "index": 101,
       "lastText": "然后，另外一个条件是——"
@@ -1951,15 +1951,15 @@
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 26
+        "textRuns": 24
       },
-      "detailHash": "500af280f7b42ab1",
+      "detailHash": "96c43def472fd1bb",
       "firstText": "我伸手对捂着脖子在绒布地毯上发着抖的阿库娅挥了挥手赶她走。",
       "index": 106,
       "lastText": "看见我的反应，阿库娅得意洋洋地露出笑容，但我没空理她。"
@@ -1972,12 +1972,12 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 21
       },
-      "detailHash": "5121c0eeb51c0435",
+      "detailHash": "26f48e192c6cec2d",
       "firstText": "——也就是说无论这个家伙再怎么升等，智力也不会再变高了。",
       "index": 107,
-      "lastText": "但，我当然没用潜伏技能就是了。"
+      "lastText": "「嗨。怎么了？你今天没跟她们三个人在一起啊？」"
     },
     {
       "counts": {
@@ -1989,10 +1989,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "688b384883a56003",
-      "firstText": "「嗨。怎么了？你今天没跟她们三个人在一起啊？」",
+      "detailHash": "2f84f8041845bc54",
+      "firstText": "达斯特好奇地往我身边看了几眼。",
       "index": 108,
-      "lastText": "——年幼的我当时在心中发誓绝对不喝酒这种东西，但现在的我来到了异世界，却像这样大白天就开始喝起酒来。"
+      "lastText": "虽然心里觉得自己这样不应该，但异世界的法律不同，常识也不一样。"
     },
     {
       "counts": {
@@ -2004,10 +2004,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d8c2746ee9ddfb4e",
-      "firstText": "虽然心里觉得自己这样不应该，但异世界的法律不同，常识也不一样。",
+      "detailHash": "162c278934601d69",
+      "firstText": "这个世界的法律并没有规定未成年不得饮酒，即使引发了什么问题，也只会严厉要求当事人自己负责而已。",
       "index": 109,
-      "lastText": "接着，在喧哗声中，达斯特为了不让周围的其他人听见，压低了音量说："
+      "lastText": "「和真，这个镇上有间梦魔们偷偷经营的店，专门让人做美梦，你知道吗？」"
     },
     {
       "counts": {
@@ -2019,10 +2019,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "528c6d59e48377c8",
-      "firstText": "「和真，这个镇上有间梦魔们偷偷经营的店，专门让人做美梦，你知道吗？」",
+      "detailHash": "fed293df7421821f",
+      "firstText": "「愿闻其详。」",
       "index": 110,
-      "lastText": "听了达斯特这番话，我点头如捣蒜。"
+      "lastText": "太美好了，简直美好过了头！"
     },
     {
       "counts": {
@@ -2032,10 +2032,10 @@
         "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
-      "detailHash": "cd4c00de6eb54b5d",
-      "firstText": "太美好了，简直美好过了头！",
+      "detailHash": "503f6aa205eb2424",
+      "firstText": "这样梦魔们就没有理由袭击人类，马厩里的冒险者们也不会无处发泄。",
       "index": 111,
       "lastText": "乍看之下，似乎只是非常普通的餐饮店，但是……"
     },
@@ -2047,12 +2047,12 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 24
       },
-      "detailHash": "60f33f20472ad789",
+      "detailHash": "61527911ee7e6e18",
       "firstText": "「欢迎光临——！」",
       "index": 112,
-      "lastText": "生是什么感觉；也有一些客人想变成未成熟的少年，被强硬的女冒险者推倒。」"
+      "lastText": "这个镇上的冒险者有没有问题啊。"
     },
     {
       "counts": {
@@ -2064,10 +2064,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "de441a863635696e",
-      "firstText": "这个镇上的冒险者有没有问题啊。",
+      "detailHash": "9b058fd031aed201",
+      "firstText": "不过，连这些部分都可以设定啊。",
       "index": 113,
-      "lastText": "「我想也是。」"
+      "lastText": "既然是做梦就没有任何问题。"
     },
     {
       "counts": {
@@ -2079,10 +2079,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "554f3afcbce4c50a",
-      "firstText": "既然是做梦就没有任何问题。",
+      "detailHash": "a7dba3ded907dac7",
+      "firstText": "竟有此事，梦魔的春梦服务根本就无敌了啊。",
       "index": 114,
-      "lastText": "「那、那就这样，改天见。」"
+      "lastText": "「喔，好！」"
     },
     {
       "counts": {
@@ -2094,10 +2094,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b792d88cbcf85ed8",
-      "firstText": "「喔，好！」",
+      "detailHash": "15b2770432daf16c",
+      "firstText": "「改、改天见！」",
       "index": 115,
-      "lastText": "阿库娅兴高采烈地拿了四个酒杯过来。"
+      "lastText": "所有人都在餐桌旁就位后，我们立刻拿起霜降红蟹……"
     },
     {
       "counts": {
@@ -2109,10 +2109,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "d65d095bc8cd0e80",
-      "firstText": "所有人都在餐桌旁就位后，我们立刻拿起霜降红蟹……",
+      "detailHash": "4dc87dfcd1ea2517",
+      "firstText": "并「啪」地一声折断蟹脚，取出白色与粉红色相间的蟹肉，沾了点醋，然后就直接送进了嘴里。",
       "index": 116,
-      "lastText": "冷静点啊我，我是个很能忍耐的男人。"
+      "lastText": "我是个拥有钢铁般的意志力，能够承受诱惑的男人。"
     },
     {
       "counts": {
@@ -2124,23 +2124,23 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "b313348541346455",
-      "firstText": "我是个拥有钢铁般的意志力，能够承受诱惑的男人。",
+      "detailHash": "2d9910f66bcf6290",
+      "firstText": "「！这个好，真的好好喝！」",
       "index": 117,
-      "lastText": "达克妮丝再次对这样的我笑了笑。"
+      "lastText": "「……嗯，这样啊。既然如此，你就多吃点螃蟹吧，算是答谢你平常的照顾。」"
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 13,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 13,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 12
       },
-      "detailHash": "5fead4b7f2f0d695",
-      "firstText": "「……嗯，这样啊。既然如此，你就多吃点螃蟹吧，算是答谢你平常的照顾。」",
+      "detailHash": "1bd21fbd2e9eba7a",
+      "firstText": "听她这么说，让我觉得自己好像做了什么很对不起她的事情般，胸口一痛。",
       "index": 118,
       "lastText": "「那么，虽然还有点早，不过我要先睡了。达克妮丝，多谢款待。大家晚安！」"
     },
@@ -2259,7 +2259,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "298f3b7b3568170d",
+      "detailHash": "155a89e94f62a139",
       "firstText": "应该说，冒出梦魔来也太奇怪了。",
       "index": 126,
       "lastText": "「客、客人？」"
@@ -2274,7 +2274,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "5e20a1e8c108c09e",
+      "detailHash": "ee3df98739bc9ca8",
       "firstText": "就在梦魔轻声尖叫时。",
       "index": 127,
       "lastText": "我紧紧握住拳头。"
@@ -2364,7 +2364,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "41502da0f7f48cfb",
+      "detailHash": "a83984d124705687",
       "firstText": "「惠惠的爆裂魔法对付不了那个东西吗？名字听起来感觉好像很大，远远看就知道在哪里了吧。用魔法一举轰掉不",
       "index": 133,
       "lastText": "「……我动作太慢了！……嗯？怎么了，和真，快点去准备啊。以你的个性，一定也会去公会对吧？」"
@@ -2394,7 +2394,7 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "589a585806b735ae",
+      "detailHash": "dd7d69c94c3940f3",
       "firstText": "远方还可以看见和我一样来自地球的魔剑士御剑的身影。",
       "index": 135,
       "lastText": "看来毁灭者真的相当知名，几乎所有冒险者都是一副早就知道的样子，频频点头。"
@@ -2405,11 +2405,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 26
       },
-      "detailHash": "7e70eb7664ceda14",
+      "detailHash": "2bafdad1ce865dcc",
       "firstText": "「特别值得一提的，就是那巨大的躯体和进攻速度。要是被那速度惊人的八只脚踩中的话，就连大型怪物也会变成",
       "index": 136,
       "lastText": "「对付那种东西，在城镇周围挖个巨大的陷阱之类……」"
@@ -2424,7 +2424,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "5e1818e4721247a3",
+      "detailHash": "074e27d5df0279df",
       "firstText": "「试过了。曾经有地方聚集了多位『元素大师』，驱使地之精灵，临时挖了一个巨大的地洞，成功让毁灭者掉了进",
       "index": 137,
       "lastText": "「喂，和真，你的脑袋那么灵光，有没有什么好主意啊？」"
@@ -2461,7 +2461,7 @@
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2469,14 +2469,14 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "0095c128276ae8dd",
+      "detailHash": "ce69ed637238bf3c",
       "firstText": "而看见维兹的冒险者们……",
       "index": 140,
-      "lastText": "职员也呼应了大家的期待，并说："
+      "lastText": "「那么，既然店老板也莅临现场了，我们继续拟定作战吧！那个，因为店老板才刚到，我先整理一下目前的状"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2484,10 +2484,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "180a191c52063c54",
-      "firstText": "「那么，既然店老板也莅临现场了，我们继续拟定作战吧！那个，因为店老板才刚到，我先整理一下目前的状",
+      "detailHash": "472b6afda49d0dcf",
+      "firstText": "况……首先，由大祭司阿库娅小姐解除毁灭者的结界。然后，由脑袋有……由惠惠小姐对失去结界的毁灭者施展爆裂魔法，",
       "index": 141,
-      "lastText": "城镇前方，不只冒险者们，连镇上的居民也聚集到这里，马不停蹄地搭建临时的路障。"
+      "lastText": "我和阿库娅刚来到这个城镇的时候，很照顾我们的土木公司的工头，也在进行工程的群众之中。"
     },
     {
       "counts": {
@@ -2499,10 +2499,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c321e50da143b8eb",
-      "firstText": "我和阿库娅刚来到这个城镇的时候，很照顾我们的土木公司的工头，也在进行工程的群众之中。",
+      "detailHash": "30be7e49a68632ef",
+      "firstText": "迎击毁灭者的预定地，是城镇正门前的平原。",
       "index": 142,
-      "lastText": "倒是不讨厌。」"
+      "lastText": "听我随口这么说。"
     },
     {
       "counts": {
@@ -2512,10 +2512,10 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 18
       },
-      "detailHash": "7fc63f16ffa627e9",
-      "firstText": "听我随口这么说。",
+      "detailHash": "dbbfd0870b724191",
+      "firstText": "「……这样啊。」",
       "index": 143,
       "lastText": "么，各位冒险者，请准备战斗！』"
     },
@@ -2527,16 +2527,16 @@
         "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 22
       },
-      "detailHash": "06caf37cb557f193",
+      "detailHash": "2c3cb19f9429aacb",
       "firstText": "——机动要塞毁灭者。",
       "index": 144,
-      "lastText": "「好大！而且好快！比想象中的还可怕！」"
+      "lastText": "面对逼近而至的巨大物体，冒险者们陷入一阵恐慌。"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2544,10 +2544,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "fec1f3926c60de61",
-      "firstText": "面对逼近而至的巨大物体，冒险者们陷入一阵恐慌。",
+      "detailHash": "703e67bc0a3e81f3",
+      "firstText": "「来了——！所有人把头压低！绝对不可以跑到毁灭者的前方去，小心被踩扁！」",
       "index": 145,
-      "lastText": "要不是他们把指挥现场的工作交给了我，要不是达克妮丝坚持不肯离开的话，我现在或许已经弃守逃跑了也说不"
+      "lastText": "定。"
     },
     {
       "counts": {
@@ -2559,10 +2559,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "0898fac5857fa3a9",
-      "firstText": "定。",
+      "detailHash": "931eda19fb30df14",
+      "firstText": "上面的部分像航空母舰的甲板一样平坦，平坦处的上方又像寄居蟹一样托着看似要塞的建筑物，此外甲板部分到处",
       "index": 146,
-      "lastText": "唱……！"
+      "lastText": "在毁灭者随着巨响，从我们待命的地点前面经过之际。"
     },
     {
       "counts": {
@@ -2574,10 +2574,10 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "218d9c7c6eda19b4",
-      "firstText": "在毁灭者随着巨响，从我们待命的地点前面经过之际。",
+      "detailHash": "0f3c059d27294ff6",
+      "firstText": "过去，号称超强大法师，目前则是因生意清淡所苦的小魔道具店老板的巫妖。",
       "index": 147,
-      "lastText": "看，我们的目的已经达成了，辛苦你了。」"
+      "lastText": "我原本打算带她到树下躺着休息，但一脸苍白的惠惠硬是扒着我不放。"
     },
     {
       "counts": {
@@ -2589,10 +2589,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c6b14a463721e976",
-      "firstText": "我原本打算带她到树下躺着休息，但一脸苍白的惠惠硬是扒着我不放。",
+      "detailHash": "2894c74fcc560e38",
+      "firstText": "「再一次……！再给我一次机会！我一定要证明，我的爆裂魔法才是最强……！」",
       "index": 148,
-      "lastText": "已经……』"
+      "lastText": "机动要塞内部传出的这段机械式语音，重复了一次又一次。"
     },
     {
       "counts": {
@@ -2604,10 +2604,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3f7ea22e40a6f978",
-      "firstText": "机动要塞内部传出的这段机械式语音，重复了一次又一次。",
+      "detailHash": "d35ee09d8b43c8a3",
+      "firstText": "「你看啦！你这家伙，每次成了一件事，就一定得败一件事来扯后腿才甘心吗！」",
       "index": 149,
-      "lastText": "已经……』"
+      "lastText": "在广播声一次又一次响起之际，有人喃喃地说了："
     },
     {
       "counts": {
@@ -2615,14 +2615,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 21
       },
-      "detailHash": "17fab784b3b7c654",
-      "firstText": "在广播声一次又一次响起之际，有人喃喃地说了：",
+      "detailHash": "f79a65cfd84b9252",
+      "firstText": "「……我要上。」",
       "index": 150,
-      "lastText": "冒险者们一个接一个抓住了绷紧的绳索，沿着绳索往上爬。"
+      "lastText": "是不识趣而已吧。"
     },
     {
       "counts": {
@@ -2630,26 +2630,26 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 25,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 23
       },
-      "detailHash": "f7f96d22bfdce939",
-      "firstText": "我想，对现在的他们说着，干嘛穿着铠甲攀绳索、举止根本超乎人类所能，或是哪来那种体力之类的话，应该也只",
+      "detailHash": "23306948aa7090e1",
+      "firstText": "终于，第一个抓住绳索的冒险者，抢先登上了甲板。",
       "index": 151,
       "lastText": "这个镇上的冒险者们应该多半都是菜鸟才对，却已经有许多小型魔像和战斗用魔像遭到他们的破坏了。"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 23,
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3c8b74f8b1b85089",
+      "detailHash": "b005f551dcbf8fc3",
       "firstText": "「混账！你在里面对吧！开门！小心我拿锤子敲坏这扇门！」",
       "index": 152,
       "lastText": "但我伸出去的手，已经成功夺取到魔像巨大的头了。"
@@ -2694,14 +2694,14 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "85533f93336aa889",
+      "detailHash": "b42552da4985c0e4",
       "firstText": "是埋在桌上杂乱的文件当中的一本手札。",
       "index": 155,
-      "lastText": "样？我会怎样啊？咦，死刑？这下要是不会动的话我会被判死刑吧？你可要动起来啊，算我求你。」"
+      "lastText": "样啊？咦，死刑？这下要是不会动的话我会被判死刑吧？你可要动起来啊，算我求你。」"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2709,10 +2709,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "148d7cd4fd2c065c",
+      "detailHash": "d2da7640f941b799",
       "firstText": "或许是因为我们的视线让她不太自在……",
       "index": 156,
-      "lastText": "8"
+      "lastText": "「这就是日冕矿石啊。应该说，要怎样才能把这个东西拿出来啊？」"
     },
     {
       "counts": {
@@ -2724,23 +2724,23 @@
         "ruby": 0,
         "textRuns": 28
       },
-      "detailHash": "700245260d6c3e02",
-      "firstText": "「这就是日冕矿石啊。应该说，要怎样才能把这个东西拿出来啊？」",
+      "detailHash": "145acd219ec0cb2b",
+      "firstText": "这里是机动要塞的中枢部分。",
       "index": 157,
-      "lastText": "「情况不妙，没时间了，看起来就快要爆炸了。该怎么处理这个东西呢……」"
+      "lastText": "在维兹烦恼时，掉在她脚边的日冕矿石发出的光芒变得越来越亮。"
     },
     {
       "counts": {
-        "blocks": 23,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "10f5a760c8db7e97",
-      "firstText": "在维兹烦恼时，掉在她脚边的日冕矿石发出的光芒变得越来越亮。",
+      "detailHash": "075c72e424d904f6",
+      "firstText": "不知不觉间，那个机械式的警告语音也已经停了。",
       "index": 158,
       "lastText": "维兹润泽的双唇映入我的眼中，我不想注意到都不行。"
     },
@@ -2761,7 +2761,7 @@
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2769,14 +2769,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "081559a8c183d051",
+      "detailHash": "ca91588d82fb4212",
       "firstText": "「这样的话，传送到地下城去不就好了？」",
       "index": 160,
-      "lastText": "大概是想把他安葬在镇上的公墓里面吧。"
+      "lastText": "我们也回到地上，前往达克妮丝和惠惠身边。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2784,10 +2784,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "fc433e5acf4c50f6",
-      "firstText": "我们也回到地上，前往达克妮丝和惠惠身边。",
+      "detailHash": "e7b5ac8e20b82441",
+      "firstText": "我背起在树荫下休息的惠惠之后，穿过已经完全沉浸在胜利的气氛当中、欢欣鼓舞的冒险者们，来到依然在城镇前",
       "index": 161,
-      "lastText": "的话怎么办！身为人类的我，使用巫妖的技能还可以放心给他们调查，要是他们想调查维兹是不是人类的话，岂不"
+      "lastText": "完蛋了吗！」"
     },
     {
       "counts": {
@@ -2797,10 +2797,10 @@
         "inlineAtoms": 0,
         "lines": 24,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "6cee065248d3e3c4",
-      "firstText": "是马上就完蛋了吗！」",
+      "detailHash": "c583204599e37bd5",
+      "firstText": "「可、可是，只有能够吸取魔力的我，才有办法阻止那个爆炸……！」",
       "index": 162,
       "lastText": "「主角上场。」"
     },
@@ -2812,25 +2812,25 @@
         "inlineAtoms": 0,
         "lines": 25,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "03112297cb178d18",
+      "detailHash": "7cde8fcd3861e2e4",
       "firstText": "惠惠离开我的背，站到地上。",
       "index": 163,
-      "lastText": "「各位，已经没时间了！」"
+      "lastText": "维兹如此大声哭喊。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 15
       },
-      "detailHash": "bb1a4d89201ab23c",
-      "firstText": "维兹如此大声哭喊。",
+      "detailHash": "67e544c51e42e329",
+      "firstText": "最后折衷了一下，我抓着惠惠和阿库娅的脖子根部。",
       "index": 164,
       "lastText": "「『Explosion』————！」"
     },
@@ -2994,7 +2994,7 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c41593895f336991",
+      "detailHash": "ed2d9d96b260b6a7",
       "firstText": "「好耶！我等很久啦，将军抽车————！」",
       "index": 175,
       "lastText": "「午安！达克妮丝在吗？……你们两个怎么了？怎么一个高兴成那样，一个趴在地板上啊？」"
@@ -3020,16 +3020,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 0,
-    "fullDetailHash": "03863127ab224926",
+    "fullDetailHash": "1a5564b3460bd1e6",
     "pageCount": 177,
     "totals": {
-      "blocks": 3136,
+      "blocks": 3134,
       "hrs": 0,
       "images": 30,
       "inlineAtoms": 1,
-      "lines": 3517,
+      "lines": 3503,
       "ruby": 2,
-      "textRuns": 3337
+      "textRuns": 3323
     }
   },
   "samples": [
@@ -10079,7 +10079,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 83.2,
+            "height": 62.4,
             "width": 520,
             "x": 0,
             "y": 579.2
@@ -10145,9 +10145,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.215
                   },
-                  "text": "快到了！像今天早上，我在马厩的稻草堆里醒来的时候，连睫毛都结冰了！其他冒险者都已经到旅店租借房间睡在",
+                  "text": "快到了！像今天早上，我在马厩的稻草堆里醒来的时候，连睫毛都结冰了！其他冒险者都已经到旅店租借房间睡在室内了",
                   "type": "text-run"
                 }
               ],
@@ -10164,41 +10164,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.816
-                  },
-                  "text": "室内了耶！要是正式入冬了我们该怎么办，睡在马厩里肯定会冻死！讲白一点，现在根本不是想什么打倒魔王回日",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 62.4
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
+                    "width": 508.8,
                     "x": 0,
                     "y": 0
                   },
@@ -10214,7 +10180,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "本的时候！」",
+                  "text": "耶！要是正式入冬了我们该怎么办，睡在马厩里肯定会冻死！讲白一点，现在根本不是想什么打倒魔王回日本的时候！」",
                   "type": "text-run"
                 }
               ],
@@ -10234,7 +10200,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 672
+            "y": 651.2
           },
           "children": [
             {
@@ -10276,6 +10242,33 @@
           "paint": null,
           "tag": "p",
           "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 681.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
         }
       ],
       "bounds": {
@@ -10285,13 +10278,13 @@
         "y": 0
       },
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 20
       },
       "firstText": "第一章 与真正的伙伴进行交换！",
       "index": 18,
@@ -10304,7 +10297,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 0
@@ -10321,41 +10314,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.816
-                  },
-                  "text": "样的技能。于是，这个女生说她会用爆裂魔法，所以我就夸奖她很厉害，结果她就说什么让你见识一下吾的力量，",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 336,
+                    "width": 297.6,
                     "x": 0,
                     "y": 0
                   },
@@ -10371,7 +10330,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "突然就对着空无一物的草原，毫无意义地轰出她用尽所有魔力的爆裂魔法……」",
+                  "text": "着空无一物的草原，毫无意义地轰出她用尽所有魔力的爆裂魔法……」",
                   "type": "text-run"
                 }
               ],
@@ -10391,7 +10350,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 51.2
+            "y": 30.4
           },
           "children": [
             {
@@ -10441,7 +10400,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 81.6
+            "y": 60.8
           },
           "children": [
             {
@@ -10525,7 +10484,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 132.8
+            "y": 112
           },
           "children": [
             {
@@ -10575,7 +10534,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 163.2
+            "y": 142.4
           },
           "children": [
             {
@@ -10625,7 +10584,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 193.6
+            "y": 172.8
           },
           "children": [
             {
@@ -10675,7 +10634,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 224
+            "y": 203.2
           },
           "children": [
             {
@@ -10725,7 +10684,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 254.4
+            "y": 233.6
           },
           "children": [
             {
@@ -10775,7 +10734,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 284.8
+            "y": 264
           },
           "children": [
             {
@@ -10825,7 +10784,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 315.2
+            "y": 294.4
           },
           "children": [
             {
@@ -10880,11 +10839,11 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 11,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 11
       },
-      "firstText": "样的技能。于是，这个女生说她会用爆裂魔法，所以我就夸奖她很厉害，结果她就说什么让你见识一下吾的力量，",
+      "firstText": "着空无一物的草原，毫无意义地轰出她用尽所有魔力的爆裂魔法……」",
       "index": 54,
       "lastText": "「都是我不好！我为今天早上的事情道歉，请原谅我吧！」",
       "paint": null
@@ -12051,106 +12010,6 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 316.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「……我大概猜想得到会变成这样，不过可以问一下是发生了什么事吗？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 172.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "在小木屋等我们的惠惠，劈头就这么问。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 60.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
                     "width": 297.6,
                     "x": 32,
                     "y": 0
@@ -12187,7 +12046,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 91.2
+            "y": 30.4
           },
           "children": [
             {
@@ -12237,7 +12096,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 121.6
+            "y": 60.8
           },
           "children": [
             {
@@ -12321,7 +12180,7 @@
             "height": 62.4,
             "width": 520,
             "x": 0,
-            "y": 172.8
+            "y": 112
           },
           "children": [
             {
@@ -12384,9 +12243,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.215
                   },
-                  "text": "到你那种茧居尼特的水平吗！要是我这么做的话，分散在世界各地的那些虔诚的阿库西斯教徒们，不知道会有多么",
+                  "text": "到你那种茧居尼特的水平吗！要是我这么做的话，分散在世界各地的那些虔诚的阿库西斯教徒们，不知道会有多么感叹痛",
                   "type": "text-run"
                 }
               ],
@@ -12403,7 +12262,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 76.8,
+                    "width": 48,
                     "x": 0,
                     "y": 0
                   },
@@ -12419,7 +12278,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "感叹痛心……！」",
+                  "text": "心……！」",
                   "type": "text-run"
                 }
               ],
@@ -12439,7 +12298,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 244.8
+            "y": 184
           },
           "children": [
             {
@@ -12523,7 +12382,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 296
+            "y": 235.2
           },
           "children": [
             {
@@ -12573,7 +12432,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 326.4
+            "y": 265.6
           },
           "children": [
             {
@@ -12623,7 +12482,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 356.8
+            "y": 296
           },
           "children": [
             {
@@ -12673,7 +12532,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 387.2
+            "y": 326.4
           },
           "children": [
             {
@@ -12723,7 +12582,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 417.6
+            "y": 356.8
           },
           "children": [
             {
@@ -12773,7 +12632,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 448
+            "y": 387.2
           },
           "children": [
             {
@@ -12857,7 +12716,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 499.2
+            "y": 438.4
           },
           "children": [
             {
@@ -12907,7 +12766,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 529.6
+            "y": 468.8
           },
           "children": [
             {
@@ -12991,7 +12850,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 580.8
+            "y": 520
           },
           "children": [
             {
@@ -13042,15 +12901,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 16,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 20,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 20
       },
-      "firstText": "「……我大概猜想得到会变成这样，不过可以问一下是发生了什么事吗？」",
+      "firstText": "「呜、呜啊啊啊啊啊啊啊！和真啦——！和真他————————！」",
       "index": 75,
       "lastText": "达克妮丝做出如此耐人寻味的发言，面露了稍微有些落寞的笑容。",
       "paint": null
@@ -17426,56 +17285,6 @@
                 "x": 0,
                 "y": 0
               },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 86.4,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "维兹如此大声哭喊。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
               "runs": [],
               "type": "line-box"
             }
@@ -17493,7 +17302,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 60.8
+            "y": 30.4
           },
           "children": [
             {
@@ -17543,7 +17352,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 91.2
+            "y": 60.8
           },
           "children": [
             {
@@ -17593,7 +17402,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 121.6
+            "y": 91.2
           },
           "children": [
             {
@@ -17643,7 +17452,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 152
+            "y": 121.6
           },
           "children": [
             {
@@ -17693,7 +17502,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 182.4
+            "y": 152
           },
           "children": [
             {
@@ -17743,7 +17552,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 212.8
+            "y": 182.4
           },
           "children": [
             {
@@ -17793,7 +17602,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 243.2
+            "y": 212.8
           },
           "children": [
             {
@@ -17843,7 +17652,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 273.6
+            "y": 243.2
           },
           "children": [
             {
@@ -17893,7 +17702,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 304
+            "y": 273.6
           },
           "children": [
             {
@@ -17943,7 +17752,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 334.4
+            "y": 304
           },
           "children": [
             {
@@ -17993,7 +17802,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 364.8
+            "y": 334.4
           },
           "children": [
             {
@@ -18043,7 +17852,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 395.2
+            "y": 364.8
           },
           "children": [
             {
@@ -18093,7 +17902,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 425.6
+            "y": 395.2
           },
           "children": [
             {
@@ -18143,7 +17952,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 456
+            "y": 425.6
           },
           "children": [
             {
@@ -18170,7 +17979,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 486.4
+            "y": 456
           },
           "children": [
             {
@@ -18220,7 +18029,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 516.8
+            "y": 486.4
           },
           "children": [
             {
@@ -18247,7 +18056,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 547.2
+            "y": 516.8
           },
           "children": [
             {
@@ -18298,15 +18107,15 @@
         "y": 0
       },
       "counts": {
-        "blocks": 19,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 19,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 15
       },
-      "firstText": "维兹如此大声哭喊。",
+      "firstText": "最后折衷了一下，我抓着惠惠和阿库娅的脖子根部。",
       "index": 164,
       "lastText": "「『Explosion』————！」",
       "paint": null
@@ -23026,9 +22835,9 @@
                       "style": "normal",
                       "weight": 400
                     },
-                    "letterSpacingPx": 0.816
+                    "letterSpacingPx": 0.03
                   },
-                  "text": "多！再者，会来这间豪宅的人，顶多就是报社的业务或邮差罢了。然后从事这两种工作的人全都是男生！没错，来",
+                  "text": "多！再者，会来这间豪宅的人，顶多就是报社的业务或邮差罢了。然后从事这两种工作的人全都是男生！没错，来者肯定是",
                   "type": "text-run"
                 }
               ],
@@ -23045,7 +22854,7 @@
                 {
                   "bounds": {
                     "height": 20.8,
-                    "width": 76.8,
+                    "width": 38.4,
                     "x": 0,
                     "y": 0
                   },
@@ -23061,7 +22870,7 @@
                       "weight": 400
                     }
                   },
-                  "text": "者肯定是男的！」",
+                  "text": "男的！」",
                   "type": "text-run"
                 }
               ],

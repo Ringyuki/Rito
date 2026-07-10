@@ -1,10 +1,11 @@
 import { buildSpreads } from '../../layout/spread';
-import { loadAssets, paginateWithAssets, type Resources } from '../../render/web';
+import { disposeAssets, loadAssets } from '../../render/web';
 import type { ReaderOptions } from '../../reader';
 import type { EpubDocument } from '../../runtime/types';
 import { createLogger } from '../../utils/logger';
 import { getChapterStartPages, makeLayoutConfig } from './layout-utils';
 import type { ReaderState } from './types';
+import { paginateWithAssets, type Resources } from '../resources';
 
 export async function initReaderState(
   doc: EpubDocument,
@@ -26,8 +27,14 @@ export async function initReaderState(
     options.fontFamilyForce,
   );
   const assets = await loadAssets(doc, canvas, logger);
-  const paginationResult = paginateWithAssets(doc, config, assets, lineBreaking, logger);
-  const resources: Resources = { ...paginationResult, images: assets.images };
+  let resources: Resources;
+  try {
+    const paginationResult = paginateWithAssets(doc, config, assets, lineBreaking, logger);
+    resources = { ...paginationResult, images: assets.images };
+  } catch (error: unknown) {
+    disposeAssets(assets);
+    throw error;
+  }
 
   logger.info('Reader created: %dx%d, spread=%s', options.width, options.height, spreadMode);
   return {
@@ -35,7 +42,7 @@ export async function initReaderState(
     spreadMode,
     lineBreaking,
     bgColor: options.backgroundColor ?? '#ffffff',
-    fgColor: options.foregroundColor,
+    fgColor: options.foregroundColor ?? undefined,
     dpr,
     config,
     assets,

@@ -1,5 +1,5 @@
 import { buildSpreads } from '../../layout/spread';
-import { paginateWithAssets, type Resources } from '../../render/web';
+import { paginateWithAssets, type Resources } from '../resources';
 import type { ReaderOptions } from '../../reader';
 import type { EpubDocument } from '../../runtime/types';
 import { getChapterStartPages, layoutConfigEqual, makeLayoutConfig } from './layout-utils';

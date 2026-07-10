@@ -1,7 +1,10 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { normalizeXhtmlSource } from '../../src/parser/xhtml/xhtml-source-normalizer';
+import {
+  estimateNormalizedXhtmlSourceLength,
+  isXhtmlSourceWithinNormalizationBudget,
+  normalizeXhtmlSource,
+} from '../../src/parser/xhtml/xhtml-source-normalizer';
 import { XhtmlParseError } from '../../src/parser/xhtml/errors';
 import type { BlockNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
 
@@ -43,6 +46,33 @@ describe('parseXhtml', () => {
       expect(div.tag).toBe('div');
       expect(div.children).toHaveLength(1);
       expect((div.children[0] as BlockNode).tag).toBe('p');
+    });
+
+    it('ignores comments, processing instructions, and body CDATA without shifting paths', () => {
+      const { nodes } = parseXhtml(
+        xhtml(
+          '<!-- before --><?reader test?><p>A<!-- middle -->B<?reader middle?>C<![CDATA[ignored]]>D</p>',
+        ),
+      );
+
+      const paragraph = nodes[0] as BlockNode;
+      expect(paragraph.sourceRef?.nodePath).toEqual([0]);
+      expect(paragraph.children).toMatchObject([
+        { type: 'text', content: 'A', sourceRef: { nodePath: [0, 0] } },
+        { type: 'text', content: 'B', sourceRef: { nodePath: [0, 1] } },
+        { type: 'text', content: 'C', sourceRef: { nodePath: [0, 2] } },
+        { type: 'text', content: 'D', sourceRef: { nodePath: [0, 3] } },
+      ]);
+    });
+
+    it('extracts embedded styles from CDATA sections', () => {
+      const source = `<?xml version="1.0"?>
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head><style><![CDATA[p { color: red; }]]></style></head>
+  <body><p>Text</p></body>
+</html>`;
+
+      expect(parseXhtml(source).embeddedStylesheets).toEqual(['p { color: red; }']);
     });
   });
 
@@ -109,9 +139,26 @@ describe('parseXhtml', () => {
   });
 
   // Source normalization is a pure string transform applied before XML parsing.
-  // CDATA/comment preservation is asserted here rather than through parseXhtml
-  // because happy-dom's XML parser (unlike real browsers / libxml2) rejects CDATA.
   describe('source normalization', () => {
+    it('estimates the exact normalized length without expanding preserved ampersands', () => {
+      const source = '<p>&amp; &copy; &unknown; & <![CDATA[&&&&]]><!-- && --></p>';
+
+      expect(estimateNormalizedXhtmlSourceLength(source)).toBe(normalizeXhtmlSource(source).length);
+    });
+
+    it('bounds raw input even when normalization would discard most of it', () => {
+      const source = `<p/>${'\u0000'.repeat(10)}`;
+
+      expect(estimateNormalizedXhtmlSourceLength(source)).toBe(4);
+      expect(isXhtmlSourceWithinNormalizationBudget(source, 5)).toBe(false);
+    });
+
+    it('does not charge preserved CDATA ampersands as expansions', () => {
+      const source = '<![CDATA[&&&&]]>';
+
+      expect(isXhtmlSourceWithinNormalizationBudget(source, source.length)).toBe(true);
+    });
+
     it('escapes a raw ampersand to a valid entity', () => {
       expect(normalizeXhtmlSource('<p>a & b</p>')).toBe('<p>a &amp; b</p>');
     });
@@ -259,6 +306,26 @@ describe('parseXhtml', () => {
       );
       expect(warnings).toHaveLength(2);
     });
+
+    it('resolves SVG image hrefs through an alternate namespace prefix', () => {
+      const { nodes } = parseXhtml(
+        xhtml(
+          '<svg xmlns:media="http://www.w3.org/1999/xlink"><image media:href="cover.png"/></svg>',
+        ),
+      );
+
+      expect(nodes[0]).toMatchObject({ type: 'image', src: 'cover.png' });
+    });
+
+    it('falls back from an empty namespaced SVG href to a plain href', () => {
+      const { nodes } = parseXhtml(
+        xhtml(
+          '<svg xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="" href="fallback.png"/></svg>',
+        ),
+      );
+
+      expect(nodes[0]).toMatchObject({ type: 'image', src: 'fallback.png' });
+    });
   });
 
   describe('attribute extraction', () => {
@@ -307,6 +374,17 @@ describe('parseXhtml', () => {
       const { nodes } = parseXhtml(xhtml('<p>Plain</p>'));
       const p = nodes[0] as BlockNode;
       expect(p.attributes).toBeUndefined();
+    });
+
+    it('preserves qualified namespace declarations and empty attributes', () => {
+      const { nodes } = parseXhtml(
+        xhtml('<p xmlns:ops="urn:example" ops:type="note" data-empty="">Text</p>'),
+      );
+      const attributes = (nodes[0] as BlockNode).attributes?.allAttributes;
+
+      expect(attributes?.get('xmlns:ops')).toBe('urn:example');
+      expect(attributes?.get('ops:type')).toBe('note');
+      expect(attributes?.get('data-empty')).toBe('');
     });
   });
 

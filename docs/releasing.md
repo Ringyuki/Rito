@@ -60,7 +60,7 @@ If you make additional release-prep changes after a version has already been cut
 
 Package changelogs under `packages/*/CHANGELOG.md` are written by Changesets when `pnpm version-packages` runs. The root [`CHANGELOG.md`](../CHANGELOG.md) is a repository-level summary and remains manual unless you decide to update it yourself.
 
-The repository also includes an automated release workflow at [release.yml](../.github/workflows/release.yml). It uses `changesets/action` to open or update the version PR and, after that PR is merged, publish the packages with `pnpm release:ci`.
+The repository also includes an automated release workflow at [release.yml](../.github/workflows/release.yml). It starts only after the complete `CI` workflow succeeds, then uses `changesets/action` to open or update the version PR and, after that PR is merged, publish the packages with `pnpm release:ci`.
 
 If you enable npm trusted publishing, configure each public package to trust the exact workflow filename `release.yml`. npm treats that filename as case-sensitive and exact-match.
 
@@ -79,8 +79,9 @@ Use these rules while the project remains pre-1.0:
 4. update package READMEs if install names, imports, or usage guidance changed
 5. update [`CHANGELOG.md`](../CHANGELOG.md) if needed
 6. run `pnpm run check`
-7. run `pnpm release:pack-check`
-8. verify package metadata:
+7. run `pnpm test:coverage`, `pnpm test:e2e`, and `pnpm test:golden:pixel`
+8. run `pnpm release:pack-check`
+9. verify package metadata:
    - `name`
    - `description`
    - `license`
@@ -90,7 +91,7 @@ Use these rules while the project remains pre-1.0:
    - `keywords`
    - `workspace:^` in source manifests for internal runtime deps
    - rewritten semver ranges in packed tarballs
-9. confirm npm auth and 2FA/token setup before publish
+10. confirm npm auth and 2FA/token setup before publish
 
 ## Compatibility Rule
 

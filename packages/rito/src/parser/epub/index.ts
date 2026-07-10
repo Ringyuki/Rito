@@ -4,6 +4,7 @@ export {
   type PackageMetadata,
   type SpineItem,
   type TocEntry,
+  type ZipLimits,
 } from './types';
 export { parseNavDocument, parseNcx } from './toc-parser';
 export { EpubParseError } from './errors';

@@ -363,13 +363,13 @@
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6bafdc32584096be",
+      "detailHash": "1c787055fffe1352",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -549,7 +549,7 @@
         "ruby": 0,
         "textRuns": 14
       },
-      "detailHash": "a24117312e1194c5",
+      "detailHash": "adf0340bf95f17a5",
       "firstText": "在开战前",
       "index": 12,
       "lastText": "窥视着你"
@@ -4655,12 +4655,12 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 26,
-    "fullDetailHash": "56a6f5710b3183fe",
+    "fullDetailHash": "26b2dde364b470e8",
     "pageCount": 286,
     "totals": {
       "blocks": 4588,
       "hrs": 0,
-      "images": 110,
+      "images": 111,
       "inlineAtoms": 87,
       "lines": 5784,
       "ruby": 0,
@@ -4674,16 +4674,29 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 0,
+            "height": 228,
             "width": 304,
             "x": 0,
             "y": 0
           },
-          "children": [],
+          "children": [
+            {
+              "alt": null,
+              "bounds": {
+                "height": 228,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "href": null,
+              "src": "../Images/cover.jpg",
+              "type": "image"
+            }
+          ],
           "pageBreakAfter": false,
           "pageBreakBefore": false,
           "paint": null,
-          "tag": "div",
+          "tag": null,
           "type": "layout-block"
         }
       ],
@@ -4696,7 +4709,7 @@
       "counts": {
         "blocks": 1,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
         "lines": 0,
         "ruby": 0,
@@ -7862,7 +7875,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 57.6,
+            "height": 65.6,
             "width": 176,
             "x": 128,
             "y": 0
@@ -8013,7 +8026,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 57.6
+            "y": 65.6
           },
           "children": [],
           "pageBreakAfter": false,
@@ -8029,7 +8042,7 @@
             "height": 120,
             "width": 72,
             "x": 232,
-            "y": 73.6
+            "y": 81.6
           },
           "children": [
             {
@@ -8075,7 +8088,7 @@
             "height": 73.6,
             "width": 144,
             "x": 88,
-            "y": 89.6
+            "y": 97.6
           },
           "children": [
             {
@@ -8202,7 +8215,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 193.6
+            "y": 201.6
           },
           "children": [],
           "pageBreakAfter": false,
@@ -8218,7 +8231,7 @@
             "height": 120,
             "width": 72,
             "x": 0,
-            "y": 81.6
+            "y": 89.6
           },
           "children": [
             {
@@ -8264,7 +8277,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 201.6
+            "y": 209.6
           },
           "children": [],
           "pageBreakAfter": false,
@@ -8280,7 +8293,7 @@
             "height": 92.8,
             "width": 176,
             "x": 60.8,
-            "y": 198.56
+            "y": 206.56
           },
           "children": [
             {

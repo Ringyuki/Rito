@@ -1,15 +1,20 @@
-import type { DocumentNode, ElementAttributes } from '../../parser/xhtml/types';
+import type { BlockNode, DocumentNode, InlineNode } from '../../parser/xhtml/types';
 import { DEFAULT_STYLE, inheritableStyle } from '../core/defaults';
 import type { ComputedStyle, CssRule, StyledNode } from '../core/types';
 import { DISPLAY_VALUES } from '../core/types';
-import { fontShorthandFromStyle } from '../css/font-shorthand';
 import type { Viewport } from '../css/parse-utils';
 import { withDefaultUaRules } from '../ua/default-rules';
-import { type RuleIndex, buildRuleIndex } from './rule-index';
-import type { SelectorTarget } from './selector-matcher';
+import {
+  buildSelectorTarget,
+  resolveElement,
+  resolveImageNode,
+  resolveTextNode,
+  type SiblingInfo,
+  type TreeResolutionContext,
+} from './node-resolution';
 import { injectPseudoElements } from './pseudo-elements';
-import { applyRuntimeElementDefaults } from './runtime-element-defaults';
-import { applyUnifiedRules } from './unified-rules';
+import { buildRuleIndex } from './rule-index';
+import type { SelectorTarget } from './selector-matcher';
 
 /**
  * Resolve styles for a document node tree.
@@ -26,257 +31,174 @@ export function resolveStyles(
   parentStyle?: ComputedStyle,
   rules?: readonly CssRule[],
   viewport?: Viewport,
+  context?: StyleResolutionContext,
 ): readonly StyledNode[] {
-  // Apply inheritableStyle to strip non-inherited properties (margin, padding, etc.)
-  // from the body/parent style. Only inherited properties (font, color, text-align)
-  // should cascade to top-level elements.
   const base = parentStyle ? inheritableStyle(parentStyle) : DEFAULT_STYLE;
   const cascadeRules = withDefaultUaRules(rules);
-  const index = buildRuleIndex(cascadeRules);
-  return resolveNodesWithSiblings(nodes, base, cascadeRules, index, [], viewport);
+  const rootFontSize = context?.rootFontSize ?? parentStyle?.fontSize ?? DEFAULT_STYLE.fontSize;
+  return resolveNodesWithSiblings(nodes, {
+    parentStyle: base,
+    rules: cascadeRules,
+    index: buildRuleIndex(cascadeRules),
+    ancestors: context?.ancestors ?? [],
+    rootFontSize,
+    viewport,
+  });
 }
 
-/** Resolve nodes with sibling tracking for +, :first-child, :last-child. */
+/** Extra cascade context for parsed fragments whose html/body wrappers are external. */
+export interface StyleResolutionContext {
+  /** Computed font size of the document root, used exclusively as the `rem` basis. */
+  readonly rootFontSize?: number;
+  /** Existing selector ancestors, ordered from immediate parent to root. */
+  readonly ancestors?: readonly SelectorTarget[];
+}
+
+type ElementNode = BlockNode | InlineNode | Extract<DocumentNode, { type: 'image' }>;
+
+/** Resolve nodes while tracking element-only sibling positions for selectors. */
 function resolveNodesWithSiblings(
   nodes: readonly DocumentNode[],
-  parentStyle: ComputedStyle,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
-  viewport?: Viewport,
+  context: TreeResolutionContext,
 ): StyledNode[] {
-  const elementNodes = nodes.filter(isElementNode);
-  const siblingCount = elementNodes.length;
+  const siblingCount = nodes.filter(isElementNode).length;
+  const result: StyledNode[] = [];
   let elementIndex = 0;
-  let prevTarget: SelectorTarget | undefined;
+  let previousSibling: SelectorTarget | undefined;
 
-  return nodes
-    .map((c) => {
-      const isElem = isElementNode(c);
-      const siblingInfo: SiblingInfo | undefined = isElem
-        ? {
-            siblingIndex: elementIndex,
-            siblingCount,
-            ...(prevTarget ? { previousSibling: prevTarget } : {}),
-          }
-        : undefined;
-      const result = resolveNode(c, parentStyle, rules, index, ancestors, siblingInfo, viewport);
-      if (isElem && siblingInfo) {
-        const tag = c.type === 'image' ? 'img' : (c as DocumentNode & { tag: string }).tag;
-        const attrs = (c as DocumentNode & { attributes?: ElementAttributes }).attributes;
-        const { target } = extractNodeMeta(tag, attrs);
-        prevTarget = mergeSiblingInfo(target, siblingInfo);
-        elementIndex++;
-      }
-      return result;
-    })
-    .filter((n) => n.style.display !== DISPLAY_VALUES.None);
+  for (const node of nodes) {
+    const siblingInfo = isElementNode(node)
+      ? createSiblingInfo(elementIndex, siblingCount, previousSibling)
+      : undefined;
+    const styled = resolveNode(node, context, siblingInfo);
+    if (styled.style.display !== DISPLAY_VALUES.None) result.push(styled);
+    if (!siblingInfo || !isElementNode(node)) continue;
+    previousSibling = buildElementTarget(node, siblingInfo);
+    elementIndex++;
+  }
+  return result;
 }
 
-function isElementNode(node: DocumentNode): boolean {
+function createSiblingInfo(
+  siblingIndex: number,
+  siblingCount: number,
+  previousSibling: SelectorTarget | undefined,
+): SiblingInfo {
+  return {
+    siblingIndex,
+    siblingCount,
+    ...(previousSibling ? { previousSibling } : {}),
+  };
+}
+
+function isElementNode(node: DocumentNode): node is ElementNode {
   return node.type === 'block' || node.type === 'inline' || node.type === 'image';
+}
+
+function buildElementTarget(node: ElementNode, siblingInfo: SiblingInfo): SelectorTarget {
+  const tag = node.type === 'image' ? 'img' : node.tag;
+  return buildSelectorTarget(tag, node.attributes, siblingInfo);
 }
 
 function resolveNode(
   node: DocumentNode,
-  parentStyle: ComputedStyle,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
+  context: TreeResolutionContext,
   siblingInfo?: SiblingInfo,
-  viewport?: Viewport,
 ): StyledNode {
   switch (node.type) {
     case 'text':
-      return {
-        type: 'text',
-        content: node.content,
-        style: parentStyle,
-        children: [],
-        ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
-      };
+      return resolveTextNode(node, context.parentStyle);
     case 'block':
-      return resolveBlockNode(node, parentStyle, rules, index, ancestors, siblingInfo, viewport);
+      return resolveBlockNode(node, context, siblingInfo);
     case 'inline':
-      return resolveInlineNode(node, parentStyle, rules, index, ancestors, siblingInfo, viewport);
-    case 'image': {
-      const { target: baseTarget, inlineCss } = extractNodeMeta('img', node.attributes);
-      const imgTarget = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-      const imgStyle = applyCascade(
-        parentStyle,
-        imgTarget,
-        inlineCss,
-        rules,
-        index,
-        ancestors,
-        viewport,
-      );
-      const style = applyLanguage(imgStyle, node.attributes);
-      return {
-        type: 'image',
-        src: node.src,
-        alt: node.alt,
-        style,
-        children: [],
-        ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
-      };
-    }
+      return resolveInlineNode(node, context, siblingInfo);
+    case 'image':
+      return resolveImageNode(node, context, siblingInfo);
   }
 }
 
 function resolveBlockNode(
-  node: DocumentNode & { type: 'block' },
-  parentStyle: ComputedStyle,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
+  node: BlockNode,
+  context: TreeResolutionContext,
   siblingInfo?: SiblingInfo,
-  viewport?: Viewport,
 ): StyledNode {
-  const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-  const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyLanguage(
-    applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport),
-    node.attributes,
-  );
+  const { target, style } = resolveElement(node.tag, node.attributes, context, siblingInfo);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'block', tag: node.tag, style, children: [] };
   }
-  const resolved = resolveChildren(
+  const rootFontSize = node.tag === 'html' ? style.fontSize : context.rootFontSize;
+  const resolved = resolveNodesWithSiblings(
     node.children,
-    style,
-    rules,
-    index,
-    [target, ...ancestors],
-    viewport,
+    createChildContext(context, style, target, rootFontSize),
   );
-  const children = injectPseudoElements(resolved, style, target, rules, index, ancestors);
-  let result: StyledNode = { type: 'block', tag: node.tag, style, children };
-  if (node.attributes?.id) result = { ...result, id: node.attributes.id };
-  if (node.attributes?.href) result = { ...result, href: node.attributes.href };
-  if (node.attributes?.colspan) result = { ...result, colspan: node.attributes.colspan };
-  if (node.attributes?.rowspan) result = { ...result, rowspan: node.attributes.rowspan };
-  if (node.sourceRef) result = { ...result, sourceRef: node.sourceRef };
-  return result;
+  const children = injectPseudoElements(
+    resolved,
+    style,
+    target,
+    context.rules,
+    context.index,
+    context.ancestors,
+    rootFontSize,
+  );
+  return attachBlockMetadata({ type: 'block', tag: node.tag, style, children }, node);
 }
 
 function resolveInlineNode(
-  node: DocumentNode & { type: 'inline' },
-  parentStyle: ComputedStyle,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
+  node: InlineNode,
+  context: TreeResolutionContext,
   siblingInfo?: SiblingInfo,
-  viewport?: Viewport,
 ): StyledNode {
-  const { target: baseTarget, inlineCss } = extractNodeMeta(node.tag, node.attributes);
-  const target = siblingInfo ? mergeSiblingInfo(baseTarget, siblingInfo) : baseTarget;
-  const style = applyLanguage(
-    applyCascade(parentStyle, target, inlineCss, rules, index, ancestors, viewport),
-    node.attributes,
-  );
+  const { target, style } = resolveElement(node.tag, node.attributes, context, siblingInfo);
   if (style.display === DISPLAY_VALUES.None) {
     return { type: 'inline', tag: node.tag, style, children: [] };
   }
-  const resolved = resolveChildren(
+  const resolved = resolveNodesWithSiblings(
     node.children,
-    style,
-    rules,
-    index,
-    [target, ...ancestors],
-    viewport,
+    createChildContext(context, style, target, context.rootFontSize),
   );
-  const children = injectPseudoElements(resolved, style, target, rules, index, ancestors, true);
-  let result: StyledNode = { type: 'inline', tag: node.tag, style, children };
-  if (node.attributes?.id) result = { ...result, id: node.attributes.id };
-  if (node.attributes?.href) result = { ...result, href: node.attributes.href };
-  if (node.sourceRef) result = { ...result, sourceRef: node.sourceRef };
-  return result;
-}
-
-function resolveChildren(
-  nodes: readonly DocumentNode[],
-  parentStyle: ComputedStyle,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
-  viewport?: Viewport,
-): StyledNode[] {
-  return resolveNodesWithSiblings(
-    nodes,
-    inheritableStyle(parentStyle),
-    rules,
-    index,
-    ancestors,
-    viewport,
-  );
-}
-
-interface SiblingInfo {
-  siblingIndex: number;
-  siblingCount: number;
-  previousSibling?: SelectorTarget;
-}
-
-function mergeSiblingInfo(target: SelectorTarget, info: SiblingInfo): SelectorTarget {
-  const result: SelectorTarget = {
-    ...target,
-    siblingIndex: info.siblingIndex,
-    siblingCount: info.siblingCount,
-  };
-  if (info.previousSibling) {
-    return { ...result, previousSibling: info.previousSibling };
-  }
-  return result;
-}
-
-function extractNodeMeta(
-  tag: string,
-  attributes: ElementAttributes | undefined,
-): { target: SelectorTarget; inlineCss: string | undefined } {
-  const target: SelectorTarget & {
-    className?: string;
-    id?: string;
-    attributes?: ReadonlyMap<string, string>;
-  } = { tag };
-  if (attributes?.class) target.className = attributes.class;
-  if (attributes?.id) target.id = attributes.id;
-  if (attributes?.allAttributes) target.attributes = attributes.allAttributes;
-  return { target, inlineCss: attributes?.style };
-}
-
-function applyCascade(
-  parentStyle: ComputedStyle,
-  target: SelectorTarget,
-  inlineCss: string | undefined,
-  rules: readonly CssRule[] | undefined,
-  index: RuleIndex | undefined,
-  ancestors: readonly SelectorTarget[],
-  viewport?: Viewport,
-): ComputedStyle {
-  let style = applyRuntimeElementDefaults(parentStyle, target.tag);
-  style = applyUnifiedRules(
+  const children = injectPseudoElements(
+    resolved,
     style,
     target,
-    parentStyle.fontSize,
-    rules,
-    index,
-    ancestors,
-    inlineCss,
-    viewport,
+    context.rules,
+    context.index,
+    context.ancestors,
+    context.rootFontSize,
+    true,
   );
-  return finalizeStyle(style);
+  return attachInlineMetadata({ type: 'inline', tag: node.tag, style, children }, node);
 }
 
-function applyLanguage(
-  style: ComputedStyle,
-  attributes: ElementAttributes | undefined,
-): ComputedStyle {
-  return attributes?.language ? { ...style, language: attributes.language.toLowerCase() } : style;
+function createChildContext(
+  context: TreeResolutionContext,
+  parentStyle: ComputedStyle,
+  parentTarget: SelectorTarget,
+  rootFontSize: number,
+): TreeResolutionContext {
+  return {
+    ...context,
+    parentStyle: inheritableStyle(parentStyle),
+    ancestors: [parentTarget, ...context.ancestors],
+    rootFontSize,
+  };
 }
 
-/** Assemble pre-computed paint-ready fields (font shorthand, ...) once all
- *  cascade sources have been merged. */
-function finalizeStyle(style: ComputedStyle): ComputedStyle {
-  return { ...style, font: fontShorthandFromStyle(style) };
+function attachBlockMetadata(result: StyledNode, node: BlockNode): StyledNode {
+  return {
+    ...result,
+    ...(node.attributes?.id ? { id: node.attributes.id } : {}),
+    ...(node.attributes?.href ? { href: node.attributes.href } : {}),
+    ...(node.attributes?.colspan ? { colspan: node.attributes.colspan } : {}),
+    ...(node.attributes?.rowspan ? { rowspan: node.attributes.rowspan } : {}),
+    ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
+  };
+}
+
+function attachInlineMetadata(result: StyledNode, node: InlineNode): StyledNode {
+  return {
+    ...result,
+    ...(node.attributes?.id ? { id: node.attributes.id } : {}),
+    ...(node.attributes?.href ? { href: node.attributes.href } : {}),
+    ...(node.sourceRef ? { sourceRef: node.sourceRef } : {}),
+  };
 }

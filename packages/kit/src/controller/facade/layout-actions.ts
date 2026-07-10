@@ -1,4 +1,5 @@
 import type { ReadingPosition } from '@ritojs/core/position';
+import type { ReaderThemeOptions } from '@ritojs/core/web';
 import { syncCanvasSize } from './lifecycle';
 import type { Internals, Emitter, RuntimeComponents, LayoutActionsSlice } from './types';
 
@@ -23,7 +24,7 @@ export function buildLayoutActions(
       const changed = internals.reader.setLineBreaking(lineBreaking);
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
-    setTheme(opts: { backgroundColor?: string; foregroundColor?: string }): void {
+    setTheme(opts: ReaderThemeOptions): void {
       internals.reader.setTheme(opts);
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();

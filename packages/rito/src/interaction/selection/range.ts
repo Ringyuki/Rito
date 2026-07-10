@@ -1,6 +1,7 @@
 import type { Page, Rect } from '../../layout/core/types';
 import type { TextMeasurer } from '../../layout/text/text-measurer';
 import type { MeasurePaint } from '../../style/core/paint-types';
+import { resolveHitEntrySliceBounds } from '../core/hit-map';
 import type { HitEntry, HitMap, TextPosition, TextRange } from '../core/types';
 import { isSameTextRun, normalizeTextRange, walkPageTextRuns } from '../core/text-traversal';
 
@@ -27,16 +28,16 @@ export function getSelectionRects(
     const isEnd = sameRun(pos, end);
 
     if (isStart && isEnd) {
-      rects.push(sliceRunRect(entry, start.charIndex, end.charIndex, measurer));
+      pushRect(rects, sliceRunRect(entry, start.charIndex, end.charIndex, measurer));
       break;
     }
     if (isStart) {
       inRange = true;
-      rects.push(sliceRunRect(entry, start.charIndex, entry.text.length, measurer));
+      pushRect(rects, sliceRunRect(entry, start.charIndex, entry.text.length, measurer));
       continue;
     }
     if (isEnd) {
-      rects.push(sliceRunRect(entry, 0, end.charIndex, measurer));
+      pushRect(rects, sliceRunRect(entry, 0, end.charIndex, measurer));
       break;
     }
     if (inRange) {
@@ -84,19 +85,23 @@ function sameRun(
   return isSameTextRun(pos, target);
 }
 
-function sliceRunRect(entry: HitEntry, from: number, to: number, measurer: TextMeasurer): Rect {
+function sliceRunRect(
+  entry: HitEntry,
+  from: number,
+  to: number,
+  measurer: TextMeasurer,
+): Rect | undefined {
   if (from === 0 && to >= entry.text.length) return entry.bounds;
   if (!entry.measure) return entry.bounds;
 
   const paint: MeasurePaint = entry.measure;
   const startX = from > 0 ? measurer.measureText(entry.text.slice(0, from), paint).width : 0;
   const endX = measurer.measureText(entry.text.slice(0, to), paint).width;
-  return {
-    x: entry.bounds.x + startX,
-    y: entry.bounds.y,
-    width: endX - startX,
-    height: entry.bounds.height,
-  };
+  return resolveHitEntrySliceBounds(entry, startX, endX);
+}
+
+function pushRect(rects: Rect[], rect: Rect | undefined): void {
+  if (rect) rects.push(rect);
 }
 
 /** Merge adjacent rects on the same y into wider rects (one per line). */

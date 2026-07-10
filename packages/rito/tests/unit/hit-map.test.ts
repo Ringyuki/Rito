@@ -91,6 +91,26 @@ describe('buildHitMap', () => {
     expect(hitMap.entries[1]?.lineIndex).toBe(1);
     expect(hitMap.entries[1]?.bounds.y).toBe(25);
   });
+
+  it('applies visual offsets, transforms, and ancestor clipping to hit bounds', () => {
+    const block: LayoutBlock = {
+      ...makeBlock([makeLine([makeRun('clipped', 0, 50)], 0)]),
+      bounds: { x: 0, y: 0, width: 30, height: 20 },
+      paint: {
+        visualOffset: { dx: 20, dy: 10 },
+        transform: [
+          {
+            kind: 'translate',
+            x: { unit: 'px', value: 5 },
+            y: { unit: 'px', value: 0 },
+          },
+        ],
+        clipToBounds: true,
+      },
+    };
+    const [entry] = buildHitMap(makePage([block])).entries;
+    expect(entry?.bounds).toEqual({ x: 25, y: 10, width: 30, height: 20 });
+  });
 });
 
 describe('hitTest', () => {
@@ -162,6 +182,27 @@ describe('buildLinkMap', () => {
     ]);
     const links = buildLinkMap(page);
     expect(links).toHaveLength(2);
+  });
+
+  it('does not merge separated runs merely because their href and y match', () => {
+    const page = makePage([
+      makeBlock([
+        makeLine([makeRun('a', 0, 20, 'same.html'), makeRun('b', 40, 20, 'same.html')], 0),
+      ]),
+    ]);
+    expect(buildLinkMap(page)).toHaveLength(2);
+  });
+
+  it('uses transformed and clipped geometry for link hit testing', () => {
+    const block: LayoutBlock = {
+      ...makeBlock([makeLine([makeRun('link', 0, 50, 'target.html')], 0)]),
+      bounds: { x: 0, y: 0, width: 30, height: 20 },
+      paint: { visualOffset: { dx: 20, dy: 10 }, clipToBounds: true },
+    };
+    const links = buildLinkMap(makePage([block]));
+    expect(links[0]?.bounds).toEqual({ x: 20, y: 10, width: 30, height: 20 });
+    expect(hitTestLink(links, 49, 15)?.href).toBe('target.html');
+    expect(hitTestLink(links, 55, 15)).toBeUndefined();
   });
 
   it('returns empty for pages with no links', () => {
