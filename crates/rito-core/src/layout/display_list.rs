@@ -762,6 +762,7 @@ mod tests {
                         "repeat": "no-repeat",
                     },
                     "radius": { "px": 8 },
+                    "visualOffset": { "dx": 5, "dy": -2 },
                     "transform": [{ "kind": "scale", "sx": 1.2, "sy": 1.2 }],
                     "opacity": 0.5,
                     "clipToBounds": true,
@@ -789,6 +790,7 @@ mod tests {
 
         let counts = count_display_commands(&commands);
         assert_eq!(counts.get("transform"), Some(&1));
+        assert_eq!(counts.get("translate"), Some(&2));
         assert_eq!(counts.get("opacity"), Some(&1));
         assert_eq!(counts.get("paintBlock"), Some(&1));
         assert_eq!(counts.get("clipRect"), Some(&2));
@@ -800,6 +802,16 @@ mod tests {
             .expect("block transform command is emitted");
         assert_eq!(transform["origin"], json!({ "x": 76, "y": 61 }));
         assert_eq!(transform["box"], json!({ "width": 100, "height": 50 }));
+
+        let visual_offset = values
+            .iter()
+            .find(|value| {
+                value["kind"] == json!("translate")
+                    && value["dx"] == json!(5)
+                    && value["dy"] == json!(-2)
+            })
+            .expect("relative visual offset command is emitted");
+        assert_eq!(visual_offset["kind"], json!("translate"));
 
         let block = values
             .iter()

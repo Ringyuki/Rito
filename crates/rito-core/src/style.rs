@@ -1266,6 +1266,11 @@ fn default_style() -> Map<String, Value> {
     insert_number(&mut style, "paddingLeft", 0.0);
     insert_number(&mut style, "paddingRight", 0.0);
     insert_number(&mut style, "paddingTop", 0.0);
+    insert_string(&mut style, "position", "static");
+    insert_number(&mut style, "top", 0.0);
+    insert_number(&mut style, "right", 0.0);
+    insert_number(&mut style, "bottom", 0.0);
+    insert_number(&mut style, "left", 0.0);
     insert_string(&mut style, "textAlign", "left");
     insert_string(&mut style, "textDecoration", "none");
     insert_number(&mut style, "textIndent", 0.0);
@@ -1334,6 +1339,10 @@ fn non_inherited_defaults() -> Map<String, Value> {
     insert_number(&mut defaults, "paddingRight", 0.0);
     insert_number(&mut defaults, "paddingTop", 0.0);
     insert_string(&mut defaults, "position", "static");
+    insert_number(&mut defaults, "top", 0.0);
+    insert_number(&mut defaults, "right", 0.0);
+    insert_number(&mut defaults, "bottom", 0.0);
+    insert_number(&mut defaults, "left", 0.0);
     insert_string(&mut defaults, "pageBreakAfter", "auto");
     insert_string(&mut defaults, "pageBreakBefore", "auto");
     insert_array(&mut defaults, "boxShadow", Vec::new());
@@ -1619,6 +1628,11 @@ mod tests {
         style.insert("wordBreak".to_owned(), json!("keep-all"));
         style.insert("marginTopPct".to_owned(), json!(20));
         style.insert("widthPct".to_owned(), json!(100));
+        style.insert("position".to_owned(), json!("relative"));
+        style.insert("top".to_owned(), json!(10));
+        style.insert("right".to_owned(), json!(20));
+        style.insert("bottom".to_owned(), json!(30));
+        style.insert("left".to_owned(), json!(40));
         style.insert(
             "transform".to_owned(),
             Value::Array(vec![json!({ "kind": "rotate", "angle": 5 })]),
@@ -1631,6 +1645,37 @@ mod tests {
         assert_eq!(inherited.get("marginTop"), Some(&json!(0)));
         assert_eq!(inherited.get("transform"), Some(&Value::Array(Vec::new())));
         assert_eq!(inherited.get("wordBreak"), Some(&json!("keep-all")));
+        assert_eq!(inherited.get("position"), Some(&json!("static")));
+        assert_eq!(inherited.get("top"), Some(&json!(0)));
+        assert_eq!(inherited.get("right"), Some(&json!(0)));
+        assert_eq!(inherited.get("bottom"), Some(&json!(0)));
+        assert_eq!(inherited.get("left"), Some(&json!(0)));
+    }
+
+    #[test]
+    fn relative_insets_do_not_inherit_from_parent_elements() {
+        let parsed = parse_xhtml(
+            r#"<html><body><div style="position: relative; top: 10px; right: 20px; bottom: 30px; left: 40px"><p style="position: relative; right: 6px; bottom: 5px">Child</p></div></body></html>"#,
+        )
+        .expect("xhtml parses");
+        let styled = resolve_style_nodes(&parsed.nodes, &[]);
+        let parent = styled
+            .iter()
+            .find(|node| node.tag.as_deref() == Some("div"))
+            .expect("parent is styled");
+        let child = parent
+            .children
+            .iter()
+            .find(|node| node.tag.as_deref() == Some("p"))
+            .expect("child is styled");
+
+        assert_eq!(parent.style.get("top"), Some(&json!(10)));
+        assert_eq!(parent.style.get("left"), Some(&json!(40)));
+        assert_eq!(child.style.get("position"), Some(&json!("relative")));
+        assert_eq!(child.style.get("top"), Some(&json!(0)));
+        assert_eq!(child.style.get("right"), Some(&json!(6)));
+        assert_eq!(child.style.get("bottom"), Some(&json!(5)));
+        assert_eq!(child.style.get("left"), Some(&json!(0)));
     }
 
     #[test]

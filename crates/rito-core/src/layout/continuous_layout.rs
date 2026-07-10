@@ -528,6 +528,7 @@ fn layout_continuous_leaf_block(
     if let Some(id) = &node.id {
         block.anchor_id = Some(id.clone());
     }
+    apply_relative_visual_offset(&mut block, &node.style);
     apply_continuous_page_breaks(&mut block, &node.style);
 
     state.y += block.height;
@@ -583,6 +584,36 @@ fn layout_continuous_text_block(
         widows: non_default_line_constraint(&node.style, "widows"),
         children,
     }
+}
+
+fn apply_relative_visual_offset(block: &mut ContinuousBlock, style: &Map<String, Value>) {
+    let Some((dx, dy)) = relative_visual_offset(style) else {
+        return;
+    };
+    let paint = block.paint.get_or_insert_with(|| Value::Object(Map::new()));
+    let Some(paint) = paint.as_object_mut() else {
+        return;
+    };
+    paint.insert(
+        "visualOffset".to_owned(),
+        Value::Object(Map::from_iter([
+            ("dx".to_owned(), number_value(dx)),
+            ("dy".to_owned(), number_value(dy)),
+        ])),
+    );
+}
+
+fn relative_visual_offset(style: &Map<String, Value>) -> Option<(f64, f64)> {
+    if string_or_default(style, "position", "static") != "relative" {
+        return None;
+    }
+    let top = number_style(style, "top").unwrap_or(0.0);
+    let bottom = number_style(style, "bottom").unwrap_or(0.0);
+    let left = number_style(style, "left").unwrap_or(0.0);
+    let right = number_style(style, "right").unwrap_or(0.0);
+    let dy = if top != 0.0 { top } else { -bottom };
+    let dx = if left != 0.0 { left } else { -right };
+    (dx != 0.0 || dy != 0.0).then_some((dx, dy))
 }
 
 fn non_default_line_constraint(style: &Map<String, Value>, key: &str) -> Option<usize> {
@@ -750,6 +781,7 @@ fn layout_continuous_floated_leaf(
         fonts,
     );
     add_continuous_list_marker(&mut block, node, list_ctx);
+    apply_relative_visual_offset(&mut block, &node.style);
     if !has_explicit_width(&node.style) {
         let fit_width = shrink_to_fit_width(
             &block.children,
@@ -1553,94 +1585,4 @@ pub(crate) fn summarize_pagination_flow_for_chapter(
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::{json, Map};
-
-    use super::{
-        layout_continuous_text_block, wrap_anonymous_inline_runs, ImageSizeIndex, LineBreaking,
-        TextMeasurementFonts,
-    };
-    use crate::style::{StyledNode, StyledNodeKind};
-
-    #[test]
-    fn wraps_inline_siblings_between_blocks_in_anonymous_blocks() {
-        let nodes = vec![
-            node(StyledNodeKind::Block, vec![]),
-            node(
-                StyledNodeKind::Inline,
-                vec![text_node("anonymous inline text")],
-            ),
-            node(StyledNodeKind::Block, vec![]),
-        ];
-
-        let wrapped = wrap_anonymous_inline_runs(&nodes);
-
-        assert_eq!(wrapped.len(), 3);
-        assert_eq!(wrapped[1].node_type, StyledNodeKind::Block);
-        assert_eq!(wrapped[1].children, vec![nodes[1].clone()]);
-        assert_eq!(wrapped[1].style["fontSize"], json!(16));
-        assert_eq!(wrapped[1].style["marginTop"], json!(0));
-    }
-
-    #[test]
-    fn text_blocks_store_only_non_default_widow_and_orphan_constraints() {
-        let images = ImageSizeIndex::new(&[]);
-        let fonts = TextMeasurementFonts::empty();
-        let mut styled = node(StyledNodeKind::Block, vec![text_node("A short paragraph")]);
-        styled.style.insert("orphans".to_owned(), json!(4));
-        styled.style.insert("widows".to_owned(), json!(2));
-
-        let block = layout_continuous_text_block(
-            &styled,
-            320.0,
-            0.0,
-            &images,
-            LineBreaking::Greedy,
-            &fonts,
-        );
-
-        assert_eq!(block.orphans, Some(4));
-        assert_eq!(block.widows, None);
-
-        styled.style.insert("orphans".to_owned(), json!(2));
-        styled.style.insert("widows".to_owned(), json!(5));
-        let block = layout_continuous_text_block(
-            &styled,
-            320.0,
-            0.0,
-            &images,
-            LineBreaking::Greedy,
-            &fonts,
-        );
-
-        assert_eq!(block.orphans, None);
-        assert_eq!(block.widows, Some(5));
-    }
-
-    fn text_node(content: &str) -> StyledNode {
-        let mut text = node(StyledNodeKind::Text, vec![]);
-        text.content = Some(content.to_owned());
-        text
-    }
-
-    fn node(node_type: StyledNodeKind, children: Vec<StyledNode>) -> StyledNode {
-        StyledNode {
-            node_type,
-            tag: None,
-            content: None,
-            source_text: None,
-            src: None,
-            alt: None,
-            id: None,
-            href: None,
-            colspan: None,
-            rowspan: None,
-            style: Map::from_iter([
-                ("fontSize".to_owned(), json!(16)),
-                ("marginTop".to_owned(), json!(12)),
-            ]),
-            children,
-            source_ref: None,
-        }
-    }
-}
+mod tests;

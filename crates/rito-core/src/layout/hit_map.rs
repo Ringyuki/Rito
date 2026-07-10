@@ -456,7 +456,7 @@ mod tests {
                 height: 100.0,
                 semantic_tag: None,
                 anchor_id: None,
-                paint: None,
+                paint: Some(json!({ "visualOffset": { "dx": 5, "dy": -2 } })),
                 border_box: None,
                 page_break_before: false,
                 page_break_after: false,
@@ -511,6 +511,9 @@ mod tests {
             }
         );
         assert_eq!(summary.samples.len(), 1);
-        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["x"], json!(14));
+        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["x"], json!(19));
+        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["y"], json!(24));
+        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["x"], json!(20));
+        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["y"], json!(58));
     }
 }
