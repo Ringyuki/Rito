@@ -449,26 +449,16 @@ fn try_split_pagination_block(
         }
     }
 
-    build_pagination_split_result(block, &line_boxes, split_index)
+    build_pagination_split_result(block, &line_boxes, split_index, available_height)
 }
 
 fn force_split_pagination_block(
     block: &PaginationBlock,
     available_height: f64,
 ) -> Option<PaginationSplitResult> {
-    let line_boxes = block
-        .children
-        .iter()
-        .filter_map(|child| match child {
-            PaginationChild::Line(line) => Some(line.clone()),
-            PaginationChild::Block(_) | PaginationChild::Image(_) | PaginationChild::Hr(_) => None,
-        })
-        .collect::<Vec<_>>();
-    if line_boxes.is_empty() {
-        return None;
-    }
+    let line_boxes = direct_line_children(block)?;
     let split_index = find_pagination_split_index(&line_boxes, available_height);
-    build_pagination_split_result(block, &line_boxes, split_index)
+    build_pagination_split_result(block, &line_boxes, split_index, available_height)
 }
 
 fn direct_line_children(block: &PaginationBlock) -> Option<Vec<LineBox>> {
@@ -497,56 +487,83 @@ fn build_pagination_split_result(
     block: &PaginationBlock,
     lines: &[LineBox],
     split_index: usize,
+    available_height: f64,
 ) -> Option<PaginationSplitResult> {
     if split_index == 0 || split_index >= lines.len() {
         return None;
     }
 
+    let head_content_bottom = compute_pagination_lines_height(&lines[..split_index]);
+    let next_line_y = lines
+        .get(split_index)
+        .map(|line| line.y)
+        .unwrap_or(head_content_bottom);
+    let split_offset = if head_content_bottom > available_height {
+        head_content_bottom
+    } else {
+        available_height.min(next_line_y)
+    };
+    let head_height = split_offset.min(block.height).max(0.0);
+    let tail_height = (block.height - head_height).max(0.0);
     let head_lines = lines[..split_index]
         .iter()
         .cloned()
         .map(PaginationChild::Line)
         .collect::<Vec<_>>();
-    let tail_lines = reposition_pagination_lines(&lines[split_index..])
+    let tail_lines = reposition_pagination_lines(&lines[split_index..], split_offset)
         .into_iter()
         .map(PaginationChild::Line)
         .collect::<Vec<_>>();
     let mut head = block.clone();
-    head.height = compute_pagination_lines_height(&lines[..split_index]);
+    head.height = head_height;
+    head.paint = slice_pagination_paint(block.paint.as_ref(), true);
+    head.border_box = slice_pagination_border_box(block.border_box.as_ref(), true);
+    head.page_break_after = false;
     head.children = head_lines;
     let mut tail = block.clone();
     tail.y = 0.0;
-    tail.height = compute_pagination_child_lines_height(&tail_lines);
+    tail.height = tail_height;
     tail.anchor_id = None;
+    tail.paint = slice_pagination_paint(block.paint.as_ref(), false);
+    tail.border_box = slice_pagination_border_box(block.border_box.as_ref(), false);
+    tail.page_break_before = false;
     tail.children = tail_lines;
 
     Some(PaginationSplitResult { head, tail })
 }
 
-fn reposition_pagination_lines(lines: &[LineBox]) -> Vec<LineBox> {
-    let first_y = lines.first().map(|line| line.y).unwrap_or(0.0);
+fn reposition_pagination_lines(lines: &[LineBox], split_offset: f64) -> Vec<LineBox> {
     lines
         .iter()
         .cloned()
         .map(|mut line| {
-            line.y -= first_y;
+            line.y -= split_offset;
             line
         })
         .collect()
 }
 
-fn compute_pagination_lines_height(lines: &[LineBox]) -> f64 {
-    lines.last().map(|line| line.y + line.height).unwrap_or(0.0)
+fn slice_pagination_paint(paint: Option<&Value>, head: bool) -> Option<Value> {
+    let mut paint = paint?.clone();
+    if let Some(border) = paint.get_mut("border").and_then(Value::as_object_mut) {
+        border.remove(if head { "bottom" } else { "top" });
+    }
+    Some(paint)
 }
 
-fn compute_pagination_child_lines_height(children: &[PaginationChild]) -> f64 {
-    children
-        .iter()
-        .filter_map(|child| match child {
-            PaginationChild::Line(line) => Some(line.y + line.height),
-            PaginationChild::Block(_) | PaginationChild::Image(_) | PaginationChild::Hr(_) => None,
-        })
-        .fold(0.0_f64, f64::max)
+fn slice_pagination_border_box(border_box: Option<&Value>, head: bool) -> Option<Value> {
+    let mut border_box = border_box?.clone();
+    if let Some(edges) = border_box.as_object_mut() {
+        edges.insert(
+            if head { "bottomWidth" } else { "topWidth" }.to_owned(),
+            number_value(0.0),
+        );
+    }
+    Some(border_box)
+}
+
+fn compute_pagination_lines_height(lines: &[LineBox]) -> f64 {
+    lines.last().map(|line| line.y + line.height).unwrap_or(0.0)
 }
 
 fn reposition_pagination_block(block: &PaginationBlock, new_y: f64) -> PaginationBlock {
@@ -937,9 +954,12 @@ fn remove_null_object_fields(value: Value) -> Value {
 mod tests {
     use serde_json::json;
 
-    use super::{build_pagination_flow, paginate_continuous_blocks, PaginationFlowChapter};
+    use super::{
+        build_pagination_flow, force_split_pagination_block, paginate_continuous_blocks,
+        try_split_pagination_block, PaginationFlowChapter,
+    };
     use crate::layout::{
-        content::{RuntimeBlock, RuntimeChild},
+        content::{RuntimeBlock, RuntimeChild, RuntimeImage},
         create_layout_config,
         line::{LineBox, LineRun, TextRunBox},
         LayoutConfigInput, MarginInput, SpreadMode,
@@ -947,21 +967,7 @@ mod tests {
 
     #[test]
     fn paginates_blocks_and_summarizes_flow() {
-        let layout = create_layout_config(LayoutConfigInput {
-            width: 320.0,
-            height: 120.0,
-            margin: MarginInput::All(10.0),
-            spread: SpreadMode::Single,
-            first_page_alone: false,
-            spread_gap: 20.0,
-            root_font_size: 16.0,
-            line_height_override: None,
-            line_height_force: None,
-            font_family_override: None,
-            font_family_force: None,
-            pagination_policy: None,
-            text_measurement: None,
-        });
+        let layout = test_layout();
         let blocks = vec![
             block_with_line("First", 0.0, 30.0),
             block_with_line("Second", 35.0, 90.0),
@@ -984,6 +990,99 @@ mod tests {
         assert_eq!(summary.samples[0]["bounds"]["width"], json!(320));
     }
 
+    #[test]
+    fn split_line_block_preserves_fragment_box_model_and_edge_semantics() {
+        let mut block = block_with_line("First", 7.0, 100.0);
+        block.anchor_id = Some("chapter".to_owned());
+        block.page_break_before = true;
+        block.page_break_after = true;
+        block.paint = Some(json!({
+            "background": { "color": "#fff" },
+            "border": { "top": 1, "right": 2, "bottom": 3, "left": 4 },
+        }));
+        block.border_box = Some(json!({
+            "topWidth": 1, "rightWidth": 2, "bottomWidth": 3, "leftWidth": 4,
+        }));
+        block.children = [8.0, 28.0, 48.0, 68.0]
+            .into_iter()
+            .enumerate()
+            .map(|(index, y)| RuntimeChild::Line(line_box(&index.to_string(), y)))
+            .collect();
+
+        let split = try_split_pagination_block(&block, 50.0, &test_layout())
+            .expect("line block splits after two lines");
+
+        assert_eq!((split.head.y, split.head.height), (7.0, 48.0));
+        assert_eq!((split.tail.y, split.tail.height), (0.0, 52.0));
+        assert_eq!(line_y(&split.tail.children[0]), 0.0);
+        assert_eq!(line_y(&split.tail.children[1]), 20.0);
+        assert_eq!(split.head.anchor_id.as_deref(), Some("chapter"));
+        assert_eq!(split.tail.anchor_id, None);
+        assert!(split.head.page_break_before);
+        assert!(!split.head.page_break_after);
+        assert!(!split.tail.page_break_before);
+        assert!(split.tail.page_break_after);
+        assert_eq!(
+            split.head.paint.as_ref().unwrap()["border"].get("bottom"),
+            None
+        );
+        assert_eq!(
+            split.tail.paint.as_ref().unwrap()["border"].get("top"),
+            None
+        );
+        assert_eq!(split.head.border_box.as_ref().unwrap()["bottomWidth"], 0);
+        assert_eq!(split.tail.border_box.as_ref().unwrap()["topWidth"], 0);
+    }
+
+    #[test]
+    fn split_line_block_preserves_gap_at_fragment_boundary() {
+        let mut block = block_with_line("First", 0.0, 100.0);
+        block.children = vec![
+            RuntimeChild::Line(line_box("First", 0.0)),
+            RuntimeChild::Line(line_box("Second", 50.0)),
+        ];
+
+        let split = try_split_pagination_block(&block, 30.0, &test_layout())
+            .expect("line block splits inside the inter-line gap");
+
+        assert_eq!((split.head.height, split.tail.height), (30.0, 70.0));
+        assert_eq!(line_y(&split.tail.children[0]), 20.0);
+    }
+
+    #[test]
+    fn forced_split_rejects_mixed_children_without_dropping_content() {
+        let mut block = block_with_line("First", 0.0, 100.0);
+        block.children.push(RuntimeChild::Image(RuntimeImage {
+            x: 0.0,
+            y: 30.0,
+            width: 20.0,
+            height: 20.0,
+            src: "image.png".to_owned(),
+            alt: None,
+            href: None,
+        }));
+
+        assert!(force_split_pagination_block(&block, 25.0).is_none());
+    }
+
+    fn test_layout() -> crate::layout::LayoutConfig {
+        create_layout_config(LayoutConfigInput {
+            width: 320.0,
+            height: 120.0,
+            margin: MarginInput::All(10.0),
+            spread: SpreadMode::Single,
+            first_page_alone: false,
+            spread_gap: 20.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            line_height_force: None,
+            font_family_override: None,
+            font_family_force: None,
+            pagination_policy: None,
+            text_measurement: None,
+        })
+    }
+
     fn block_with_line(text: &str, y: f64, height: f64) -> RuntimeBlock<LineBox> {
         RuntimeBlock {
             x: 0.0,
@@ -996,28 +1095,39 @@ mod tests {
             border_box: None,
             page_break_before: false,
             page_break_after: false,
-            children: vec![RuntimeChild::Line(LineBox {
+            children: vec![RuntimeChild::Line(line_box(text, 0.0))],
+        }
+    }
+
+    fn line_box(text: &str, y: f64) -> LineBox {
+        LineBox {
+            x: 0.0,
+            y,
+            width: 240.0,
+            height: 20.0,
+            runs: vec![LineRun::Text(TextRunBox {
+                text: text.to_owned(),
                 x: 0.0,
                 y: 0.0,
-                width: 240.0,
-                height: 20.0,
-                runs: vec![LineRun::Text(TextRunBox {
-                    text: text.to_owned(),
-                    x: 0.0,
-                    y: 0.0,
-                    width: 40.0,
-                    height: 12.0,
-                    font_size: 12.0,
-                    paint: json!({}),
-                    line_height_px: None,
-                    href: None,
-                    source_path: None,
-                    source_text: None,
-                    source_text_offset: None,
-                    inline_margin_right: None,
-                    ruby_annotation: None,
-                })],
+                width: 40.0,
+                height: 12.0,
+                font_size: 12.0,
+                paint: json!({}),
+                line_height_px: None,
+                href: None,
+                source_path: None,
+                source_text: None,
+                source_text_offset: None,
+                inline_margin_right: None,
+                ruby_annotation: None,
             })],
+        }
+    }
+
+    fn line_y(child: &RuntimeChild<LineBox>) -> f64 {
+        match child {
+            RuntimeChild::Line(line) => line.y,
+            _ => panic!("line child expected"),
         }
     }
 }
