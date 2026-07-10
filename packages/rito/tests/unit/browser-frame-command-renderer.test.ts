@@ -10,13 +10,11 @@ import {
   canvasDisplayListRenderer,
   drawRubyFragment,
   drawTextFragment,
-  renderBlockDecoration,
 } from '../../src/reference/ts-core/render/backends/canvas';
 import type { DisplayList } from '../../src/reference/ts-core/render/display-list';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 const REFERENCE_PAINT_HOOKS: FrameCommandPaintHooks = {
-  renderBlockDecoration,
   drawTextFragment,
   drawRubyFragment,
 };
@@ -90,6 +88,32 @@ describe('browser frame-command Canvas renderer', () => {
     }).toThrow('paint failed');
     expect(mock.getCalls('save')).toHaveLength(3);
     expect(mock.getCalls('restore')).toHaveLength(3);
+  });
+
+  it('restores block-local and executor-owned Canvas state when image paint throws', () => {
+    const mock = createMockCanvasContext();
+    const ctx = contextThrowingOnDrawImage(mock.ctx);
+    const bitmap = { width: 20, height: 30 } as ImageBitmap;
+    const commands: readonly RitoCoreWasmFrameCommand[] = [
+      { kind: 'pushState' },
+      { kind: 'pushState' },
+      {
+        kind: 'paintBlock',
+        rect: { x: 0, y: 0, width: 10, height: 10 },
+        paint: {
+          background: { image: 'Images/pattern.png', repeat: 'no-repeat' },
+        },
+      },
+    ];
+
+    expect(() => {
+      renderFrameCommandsToCanvas(commands, ctx, {
+        hooks: REFERENCE_PAINT_HOOKS,
+        resolveImage: () => bitmap,
+      });
+    }).toThrow('paint failed');
+    expect(mock.getCalls('save')).toHaveLength(4);
+    expect(mock.getCalls('restore')).toHaveLength(4);
   });
 
   it.each([
@@ -256,4 +280,17 @@ function representativeCommands(): readonly RitoCoreWasmFrameCommand[] {
     },
     { kind: 'popState' },
   ];
+}
+
+function contextThrowingOnDrawImage(ctx: CanvasRenderingContext2D): CanvasRenderingContext2D {
+  return new Proxy(ctx, {
+    get(target, property, receiver) {
+      const value = Reflect.get(target, property, receiver) as unknown;
+      if (property !== 'drawImage' || typeof value !== 'function') return value;
+      return (...args: readonly unknown[]) => {
+        Reflect.apply(value, target, args);
+        throw new Error('paint failed');
+      };
+    },
+  });
 }

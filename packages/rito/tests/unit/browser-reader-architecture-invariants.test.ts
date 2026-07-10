@@ -11,6 +11,7 @@ const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
 const BROWSER_CANVAS_PATH = join(SRC, 'bindings/browser/canvas-path.ts');
+const BROWSER_CANVAS_BLOCK = join(SRC, 'bindings/browser/canvas-block');
 const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
 const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
@@ -156,7 +157,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the Canvas renderer adapter limited to reference paint hooks', () => {
+  it('keeps the Canvas renderer adapter limited to reference text paint hooks', () => {
     const source = read(BROWSER_RENDERING);
     const imports = [...source.matchAll(/from\s+['"]([^'"]*reference\/ts-core[^'"]*)['"]/g)]
       .map((match) => match[1])
@@ -170,7 +171,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       .map((name) => name.trim())
       .filter(Boolean)
       .sort();
-    expect(hookNames).toEqual(['drawRubyFragment', 'drawTextFragment', 'renderBlockDecoration']);
+    expect(hookNames).toEqual(['drawRubyFragment', 'drawTextFragment']);
     expect(source).toContain("from './image-href-resolver'");
     expect(source).toContain('renderFrameCommandsToCanvas');
     expect(source).not.toContain('canvasDisplayListRenderer');
@@ -182,9 +183,11 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       BROWSER_FRAME_COMMAND_RENDERER,
       BROWSER_CANVAS_PATH,
       BROWSER_IMAGE_HREF_RESOLVER,
+      ...walkTs(BROWSER_CANVAS_BLOCK),
     ];
     expect(scan(helpers, /reference\/ts-core/g)).toEqual([]);
     expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-path'");
+    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-block/renderer'");
   });
 
   it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {

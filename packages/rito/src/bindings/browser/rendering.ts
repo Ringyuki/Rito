@@ -1,8 +1,4 @@
-import {
-  drawRubyFragment,
-  drawTextFragment,
-  renderBlockDecoration,
-} from '../../reference/ts-core/render/backends/canvas';
+import { drawRubyFragment, drawTextFragment } from '../../reference/ts-core/render/backends/canvas';
 import {
   renderFrameCommandsToCanvas,
   type CanvasRenderingTarget,
@@ -17,7 +13,6 @@ import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 export type { CanvasRenderingTarget } from './frame-command-renderer';
 
 const FRAME_COMMAND_PAINT_HOOKS: FrameCommandPaintHooks = {
-  renderBlockDecoration,
   drawTextFragment,
   drawRubyFragment,
 };

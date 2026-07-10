@@ -1,4 +1,5 @@
 import type { CoreFrameCommand } from './core-contracts';
+import { renderCanvasBlockDecoration } from './canvas-block/renderer';
 import { traceRoundedRect } from './canvas-path';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
@@ -15,15 +16,6 @@ type TranslateTransform = Extract<
 >;
 type ClipCommand = Extract<CoreFrameCommand, { readonly kind: 'clipRect' }>;
 type FrameCommandImageResolver = (src: string) => ImageBitmap | undefined;
-interface FrameCommandResolvedRadius {
-  readonly rx: number;
-  readonly ry: number;
-}
-interface FrameCommandBlockBox {
-  readonly rect: BlockCommand['rect'];
-  readonly paint?: BlockCommand['paint'];
-  readonly borderBox?: NonNullable<BlockCommand['borderBox']>;
-}
 interface FrameCommandTextFragment {
   readonly text: string;
   readonly rect: TextCommand['rect'];
@@ -39,12 +31,6 @@ interface FrameCommandColorOverride {
   readonly backgroundColor: string;
 }
 export interface FrameCommandPaintHooks {
-  readonly renderBlockDecoration: (
-    ctx: CanvasRenderingContext2D,
-    box: FrameCommandBlockBox,
-    radius: FrameCommandResolvedRadius,
-    imageResolver?: FrameCommandImageResolver,
-  ) => void;
   readonly drawTextFragment: (
     ctx: CanvasRenderingContext2D,
     fragment: FrameCommandTextFragment,
@@ -181,25 +167,7 @@ function paintBlock(
   command: BlockCommand,
   state: RenderState,
 ): void {
-  const radius = resolveBlockRadius(command);
-  state.hooks.renderBlockDecoration(
-    ctx,
-    {
-      rect: command.rect,
-      paint: command.paint,
-      ...(command.borderBox ? { borderBox: command.borderBox } : {}),
-    },
-    radius,
-    state.resolveImage,
-  );
-}
-
-function resolveBlockRadius(command: BlockCommand): FrameCommandResolvedRadius {
-  const radius = command.paint.radius;
-  return {
-    rx: radius?.pct !== undefined ? (radius.pct / 100) * command.rect.width : (radius?.px ?? 0),
-    ry: radius?.pct !== undefined ? (radius.pct / 100) * command.rect.height : (radius?.px ?? 0),
-  };
+  renderCanvasBlockDecoration(ctx, command, state.resolveImage);
 }
 
 function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: RenderState): void {
