@@ -75,6 +75,30 @@ fn caches_image_bytes_loaded_for_dimension_detection() {
 }
 
 #[test]
+fn opens_percent_encoded_manifest_hrefs_against_literal_zip_names() {
+    let bytes = percent_encoded_fixture_epub();
+
+    let document = open_document(&bytes).expect("encoded manifest hrefs open eagerly");
+    assert!(document
+        .read_chapter("chapter")
+        .is_some_and(|chapter| chapter.contains("Encoded chapter")));
+    assert_eq!(
+        document.image("Images/Cover%20One.png"),
+        Some(minimal_png().as_slice())
+    );
+
+    let mut runtime = open_runtime_document_owned(bytes).expect("encoded hrefs index lazily");
+    assert_eq!(runtime.images[0].byte_length, minimal_png().len());
+    assert!(runtime.images[0].bytes.is_empty());
+    assert_eq!(
+        runtime
+            .read_image_bytes("Images/Cover%20One.png")
+            .expect("encoded image href reads lazily"),
+        Some(minimal_png())
+    );
+}
+
+#[test]
 fn skips_missing_optional_manifest_resources() {
     let bytes = fixture_epub_with_entries(true, false);
 
@@ -163,6 +187,47 @@ fn fixture_epub_with_entries(include_chapter: bool, include_optional_resources: 
             &minimal_png(),
         );
     }
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
+fn percent_encoded_fixture_epub() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<container><rootfiles><rootfile full-path="OEBPS/content.opf"/></rootfiles></container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OEBPS/content.opf",
+        br#"<package xmlns:dc="http://purl.org/dc/elements/1.1/">
+          <metadata>
+            <dc:title>Encoded fixture</dc:title>
+            <dc:language>en</dc:language>
+            <dc:identifier>encoded-id</dc:identifier>
+          </metadata>
+          <manifest>
+            <item id="chapter" href="Text/Chapter%20One.xhtml" media-type="application/xhtml+xml"/>
+            <item id="cover" href="Images/Cover%20One.png" media-type="image/png"/>
+          </manifest>
+          <spine><itemref idref="chapter"/></spine>
+        </package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OEBPS/Text/Chapter One.xhtml",
+        br#"<html><body><p>Encoded chapter</p></body></html>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OEBPS/Images/Cover One.png",
+        &minimal_png(),
+    );
     writer.finish().expect("zip finalizes").into_inner()
 }
 
