@@ -73,7 +73,7 @@ export async function runWireSession(
     baseURL,
     viewport: { width: 1280, height: 720 },
   });
-  await installReaderWireProbe(context, wire);
+  await installReaderWireProbe(context, wire, true);
   const page = await context.newPage();
   const errors = capturePageErrors(page);
   try {

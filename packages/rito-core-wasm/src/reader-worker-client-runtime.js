@@ -122,13 +122,52 @@ function readerRuntimeWire() {
 }
 
 async function handleWorkerMessage(scope, deps, state, message) {
+  const workerStartedAt = wireMetricsRequest(message) ? monotonicNow() : undefined;
   if (!isRequest(message)) return;
   try {
-    const payload = await handleWorkerRequest(deps, state, message);
-    scope.postMessage({ id: message.id, ok: true, payload }, responseTransfer(payload));
+    const internalPayload = await handleWorkerRequest(deps, state, message);
+    const prepared = prepareWorkerPayload(internalPayload);
+    const transfer = responseTransfer(prepared.payload);
+    const response = { id: message.id, ok: true, payload: prepared.payload };
+    if (workerStartedAt !== undefined) {
+      response.__ritoWireMetrics = completeWorkerWireMetrics(prepared.metrics, workerStartedAt);
+    }
+    scope.postMessage(response, transfer);
   } catch (error) {
     scope.postMessage({ id: message.id, ok: false, error: toWorkerError(deps, error) });
   }
+}
+
+function wireMetricsRequest(value) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return value.kind === 'createViewRevision' && value.__ritoCollectWireMetrics === true;
+}
+
+function prepareWorkerPayload(payload) {
+  if (!Object.hasOwn(payload, '__ritoWireMetrics')) {
+    return { payload, metrics: undefined };
+  }
+  const { __ritoWireMetrics: metrics, ...publicPayload } = payload;
+  return { payload: publicPayload, metrics };
+}
+
+function completeWorkerWireMetrics(metrics, workerStartedAt) {
+  if (metrics === null || typeof metrics !== 'object' || Array.isArray(metrics)) {
+    throw new Error('Rito reader worker did not receive view-revision wire metrics');
+  }
+  return {
+    ...metrics,
+    workerProcessingMs: elapsedMilliseconds(workerStartedAt),
+  };
+}
+
+function monotonicNow() {
+  return globalThis.performance.now();
+}
+
+function elapsedMilliseconds(startedAt) {
+  const elapsed = monotonicNow() - startedAt;
+  return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
 }
 
 async function handleWorkerRequest(deps, state, request) {

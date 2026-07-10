@@ -206,7 +206,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
 function readerWorkerPayload(document, request) {
   switch (request.kind) {
     case 'createViewRevision':
-      return createReaderViewRevision(document, request.request, request.wire);
+      return createReaderViewRevision(
+        document,
+        request.request,
+        request.wire,
+        request.__ritoCollectWireMetrics === true,
+      );
     case 'readResource':
       return readReaderResource(document, request.revisionId, request.resourceKind, request.href);
     case 'warmFrameWindow':
@@ -226,13 +231,14 @@ function readerWorkerPayload(document, request) {
   }
 }
 
-function createReaderViewRevision(document, request, wire) {
-  const view =
-    wire === 'ritorb1'
-      ? document.createViewRevisionBundleBytes(request)
-      : document.createViewRevisionBundle(request);
+function createReaderViewRevision(document, request, wire, collectWireMetrics) {
+  const measured = collectWireMetrics
+    ? createMeasuredReaderViewRevisionBundle(document, request, wire)
+    : undefined;
+  const view = measured?.view ?? createUnmeasuredViewRevisionBundle(document, request, wire);
   return {
     kind: 'createViewRevision',
+    ...(measured !== undefined ? { __ritoWireMetrics: measured.metrics } : {}),
     result: {
       kind: view.kind,
       display: view.display,
@@ -240,6 +246,107 @@ function createReaderViewRevision(document, request, wire) {
       result: revisionResult(document, view.result),
     },
   };
+}
+
+function createMeasuredReaderViewRevisionBundle(document, request, wire) {
+  const selectedWire = wire === 'ritorb1' ? 'ritorb1' : 'json';
+  const operation =
+    selectedWire === 'ritorb1' ? 'createViewRevisionBundleBytes' : 'createViewRevisionBundle';
+  return callRitoCoreWasm(operation, () =>
+    createMeasuredViewRevisionBundle(document._inner, request, selectedWire, operation),
+  );
+}
+
+function createUnmeasuredViewRevisionBundle(document, request, wire) {
+  return wire === 'ritorb1'
+    ? document.createViewRevisionBundleBytes(request)
+    : document.createViewRevisionBundle(request);
+}
+
+function createMeasuredViewRevisionBundle(inner, request, wire, operation) {
+  const requestJson = encodeJson(request, operation);
+  requireWireMetricsMethods(inner);
+  inner.measureNextViewRevisionWire();
+  const wasmStartedAt = monotonicNow();
+  const rawPayload =
+    wire === 'ritorb1'
+      ? inner.createViewRevisionBundleBytes(requestJson)
+      : inner.createViewRevisionBundleJson(requestJson);
+  const wasmMethodMs = elapsedMilliseconds(wasmStartedAt);
+  const rustMetrics = takeViewRevisionWireMetrics(inner, wire);
+  const decoded = decodeMeasuredViewRevision(rawPayload, wire, operation);
+  return {
+    view: decoded.view,
+    metrics: {
+      ...rustMetrics,
+      wasmMethodMs,
+      jsDecodeMs: decoded.jsDecodeMs,
+    },
+  };
+}
+
+function requireWireMetricsMethods(inner) {
+  if (
+    typeof inner.measureNextViewRevisionWire !== 'function' ||
+    typeof inner.takeViewRevisionWireMetricsJson !== 'function'
+  ) {
+    throw new Error('Rito core WASM binding does not support view-revision wire metrics');
+  }
+}
+
+function takeViewRevisionWireMetrics(inner, expectedWire) {
+  const value = parseJsonPayload(
+    inner.takeViewRevisionWireMetricsJson(),
+    'takeViewRevisionWireMetrics',
+  );
+  if (value === null) {
+    throw new Error('View-revision wire metrics were not recorded after measurement was armed');
+  }
+  const metrics = requireObjectPayload(value, 'takeViewRevisionWireMetrics');
+  if (metrics.wire !== expectedWire) {
+    throw new Error(`View-revision wire metrics reported unexpected wire: ${String(metrics.wire)}`);
+  }
+  requireNonNegativeInteger(metrics.rawWireBytes, 'rawWireBytes');
+  requireNonNegativeNumber(metrics.rustEncodeMs, 'rustEncodeMs');
+  return {
+    wire: metrics.wire,
+    rawWireBytes: metrics.rawWireBytes,
+    rustEncodeMs: metrics.rustEncodeMs,
+  };
+}
+
+function decodeMeasuredViewRevision(rawPayload, wire, operation) {
+  const decodeStartedAt = monotonicNow();
+  const value =
+    wire === 'ritorb1'
+      ? decodeRitoRuntimeBundle(rawPayload).payload
+      : parseJsonPayload(rawPayload, operation);
+  const jsDecodeMs = elapsedMilliseconds(decodeStartedAt);
+  return {
+    view: requireObjectPayload(value, operation),
+    jsDecodeMs,
+  };
+}
+
+function requireNonNegativeInteger(value, field) {
+  if (!Number.isSafeInteger(value) || value < 0) {
+    throw new Error(`View-revision wire metrics ${field} must be a non-negative integer`);
+  }
+}
+
+function requireNonNegativeNumber(value, field) {
+  if (!Number.isFinite(value) || value < 0) {
+    throw new Error(`View-revision wire metrics ${field} must be a non-negative finite number`);
+  }
+}
+
+function monotonicNow() {
+  return globalThis.performance.now();
+}
+
+function elapsedMilliseconds(startedAt) {
+  const elapsed = monotonicNow() - startedAt;
+  return Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : 0;
 }
 
 function revisionResult(document, result) {
@@ -366,6 +473,10 @@ function encodeJson(value, operation) {
 }
 
 function parseObjectPayload(payload, operation) {
+  return requireObjectPayload(parseJsonPayload(payload, operation), operation);
+}
+
+function parseJsonPayload(payload, operation) {
   let value;
   try {
     value = JSON.parse(payload);
@@ -375,6 +486,10 @@ function parseObjectPayload(payload, operation) {
       { cause: error },
     );
   }
+  return value;
+}
+
+function requireObjectPayload(value, operation) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${operation} returned a non-object JSON payload`);
   }

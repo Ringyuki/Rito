@@ -6,11 +6,12 @@ use rito_core::{
     },
 };
 
-use crate::{wire::serialize_json, WasmRuntimeError};
+use crate::{wire::serialize_json, wire_metrics::ViewRevisionWireMeasurement, WasmRuntimeError};
 
 pub struct WasmRuntimeDocument {
     pub(crate) document: RuntimeDocument,
     pub(crate) transfers: RuntimeResourceTransferStore,
+    pub(crate) view_revision_wire_measurement: ViewRevisionWireMeasurement,
 }
 
 impl WasmRuntimeDocument {
@@ -55,6 +56,7 @@ impl WasmRuntimeDocument {
         Self {
             document,
             transfers: RuntimeResourceTransferStore::new(),
+            view_revision_wire_measurement: ViewRevisionWireMeasurement::default(),
         }
     }
 }

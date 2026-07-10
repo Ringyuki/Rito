@@ -81,12 +81,12 @@ Frame display command bytes stay outside this bundle and continue to use
 - Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
   `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
   revision round trips, committed spread counts, page-turn readiness, rAF
-  gaps, long tasks, and browser errors.
-- Two local ABBA runs, including one after primitive reuse, matched
-  preview/full/reflow results and showed no page-turn regression. The
-  post-change run kept both wires at a 17.7 ms page-turn rAF p95 with no
-  per-turn long tasks. JSON remains the default while the result and the new
-  smaller payload are repeated on representative machines and books.
+  gaps, long tasks, browser errors, raw wire bytes, Rust encode time, complete
+  WASM method time, JavaScript decode time, and worker processing time.
+- Local ABBA runs matched preview/full/reflow results and showed no page-turn
+  regression. The instrumented report now exposes the cost at each wire
+  boundary, but JSON remains the default while the result and the smaller
+  payload are repeated on representative machines and books.
 
 ## Required Compatibility During Migration
 
@@ -125,8 +125,9 @@ the first local run did not reproduce the old page-turn regression. Ordinary
 turns still use JSON frame-window metadata plus `RITOFCB2`, so turn metrics are a
 no-regression probe rather than a claim that turns themselves use `RITORB1`.
 
-Do not make the binary path default or move another payload solely from one
-local run. Repeat the report on representative machines/books and measure raw
-wire, encode/decode, and worker round-trip costs separately before changing the
-default. `RITOFCB2` command bytes, transfer bytes, and JSON fixture/debug output
-remain available throughout that work.
+Do not make the binary path default or move another payload solely from local
+runs. The report now separates raw wire bytes, Rust encode, complete WASM method,
+JavaScript decode, worker processing, and worker round-trip costs. Repeat those
+measurements on representative machines/books before changing the default.
+`RITOFCB2` command bytes, transfer bytes, and JSON fixture/debug output remain
+available throughout that work.

@@ -411,6 +411,94 @@ fn create_view_revision_ritorb1_matches_json_with_resource_metadata() {
         .any(|payload| payload["href"] == "Images/cover.png"));
 }
 
+#[test]
+fn measures_json_view_revision_wire_once() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let request = full_view_revision_request();
+
+    document.measure_next_view_revision_wire();
+    let payload = document
+        .create_view_revision_bundle_json(&request)
+        .expect("JSON view bundle is returned");
+    document
+        .create_view_revision_bundle_bytes(&request)
+        .expect("unarmed RITORB1 view bundle is returned");
+
+    assert_view_revision_wire_metrics(&mut document, "json", payload.len());
+    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
+}
+
+#[test]
+fn measures_ritorb1_view_revision_wire_bytes() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    document.measure_next_view_revision_wire();
+    let payload = document
+        .create_view_revision_bundle_bytes(&full_view_revision_request())
+        .expect("RITORB1 view bundle is returned");
+
+    assert_view_revision_wire_metrics(&mut document, "ritorb1", payload.len());
+}
+
+#[test]
+fn leaves_view_revision_wire_metrics_empty_when_unarmed() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    document
+        .create_view_revision_bundle_json(&full_view_revision_request())
+        .expect("JSON view bundle is returned");
+
+    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
+}
+
+#[test]
+fn clears_view_revision_wire_metrics_when_an_armed_request_fails() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    document.measure_next_view_revision_wire();
+    document
+        .create_view_revision_bundle_json(&full_view_revision_request())
+        .expect("JSON view bundle is returned");
+
+    document.measure_next_view_revision_wire();
+    assert!(document
+        .create_view_revision_bundle_json("not JSON")
+        .is_err());
+
+    assert_eq!(take_view_revision_wire_metrics(&mut document), Value::Null);
+}
+
+fn full_view_revision_request() -> String {
+    serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "mode": "full"
+    })
+    .to_string()
+}
+
+fn assert_view_revision_wire_metrics(
+    document: &mut WasmRuntimeDocument,
+    expected_wire: &str,
+    expected_bytes: usize,
+) {
+    let metrics = take_view_revision_wire_metrics(document);
+    assert_eq!(metrics["wire"], expected_wire);
+    assert_eq!(metrics["rawWireBytes"], expected_bytes);
+    let rust_encode_ms = metrics["rustEncodeMs"]
+        .as_f64()
+        .expect("Rust encode duration is a number");
+    assert!(rust_encode_ms.is_finite());
+    assert!(rust_encode_ms >= 0.0);
+}
+
+fn take_view_revision_wire_metrics(document: &mut WasmRuntimeDocument) -> Value {
+    let json = document
+        .take_view_revision_wire_metrics_json()
+        .expect("wire metrics JSON is returned");
+    serde_json::from_str(&json).expect("wire metrics JSON parses")
+}
+
 fn assert_view_revision_wire_agreement(
     json_document: &mut WasmRuntimeDocument,
     binary_document: &mut WasmRuntimeDocument,

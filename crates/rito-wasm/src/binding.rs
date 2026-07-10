@@ -83,6 +83,18 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = measureNextViewRevisionWire)]
+    pub fn measure_next_view_revision_wire(&mut self) {
+        self.inner.measure_next_view_revision_wire();
+    }
+
+    #[wasm_bindgen(js_name = takeViewRevisionWireMetricsJson)]
+    pub fn take_view_revision_wire_metrics_json(&mut self) -> Result<String, JsValue> {
+        self.inner
+            .take_view_revision_wire_metrics_json()
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = getFrameJson)]
     pub fn get_frame_json(
         &mut self,

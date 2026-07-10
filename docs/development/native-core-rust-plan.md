@@ -333,8 +333,10 @@ in place:
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
   WebWorker smoke, an opt-in ABBA reader-session harness, and wire-compatible
   primitive value reuse. Representative full revisions are now about 79% to
-  81% of their JSON byte lengths; JSON remains the default while repeated
-  performance trends and separate boundary timings are evaluated.
+  81% of their JSON byte lengths. The A/B report now separates raw bytes, Rust
+  encode, complete WASM method, JavaScript decode, worker processing, and worker
+  round-trip time; JSON remains the default while representative trends are
+  evaluated.
 - Generated browser binding smoke path that opens a fixture book, creates a
   revision, reads a frame, queries targets/search, and reads/releases a resource
   transfer.
@@ -408,10 +410,11 @@ These are the real gaps against this plan:
      invalidate one another.
    - Keep JSON frame output and packed frame output sourced from the same
      commands.
-   - Keep `RITORB1` opt-in while repeating the ABBA reader-session report and
-     measuring raw-wire, encode/decode, and worker round-trip costs separately.
-     Do not extend the wire to search/geometry until the view-revision slice
-     earns a default decision.
+   - Keep `RITORB1` opt-in while repeating the instrumented ABBA reader-session
+     report across representative books and machines. Raw-wire, Rust-encode,
+     complete-WASM-call, JavaScript-decode, worker-processing, and round-trip
+     costs are now separated; do not extend the wire to search/geometry until
+     the view-revision slice earns a default decision.
 4. **Binary render path**
    - Current packed buffers are a V2 ABI, not the final renderer-ready contract.
    - V3 should reduce per-command object allocation and make renderers consume

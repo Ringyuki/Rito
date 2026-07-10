@@ -19,6 +19,14 @@ export interface FrameGapSummary {
   readonly over50Ms: number;
 }
 
+export interface ScalarSummary {
+  readonly sampleCount: number;
+  readonly min: number;
+  readonly median: number;
+  readonly p95: number;
+  readonly max: number;
+}
+
 export interface LongTaskSummary {
   readonly count: number;
   readonly totalMs: number;
@@ -122,6 +130,17 @@ export function summarizeNumbers(values: readonly number[]): FrameGapSummary {
     maxMs: rounded(sorted.at(-1) ?? 0),
     over32Ms: sorted.filter((value) => value > 32).length,
     over50Ms: sorted.filter((value) => value > 50).length,
+  };
+}
+
+export function summarizeScalars(values: readonly number[]): ScalarSummary {
+  const sorted = [...values].sort((left, right) => left - right);
+  return {
+    sampleCount: sorted.length,
+    min: rounded(sorted[0] ?? 0),
+    median: rounded(percentile(sorted, 0.5)),
+    p95: rounded(percentile(sorted, 0.95)),
+    max: rounded(sorted.at(-1) ?? 0),
   };
 }
 

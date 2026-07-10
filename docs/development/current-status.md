@@ -107,14 +107,15 @@ Those names now belong to the old TS reference tree only.
 - The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
   `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
   initial preview, deferred full layout, settings reflow, and real page turns.
-  Two local runs, including one after primitive reuse, matched all
-  revision/spread results with no console or page errors. The post-change run
-  had no per-turn long tasks and the same 17.7 ms page-turn rAF p95 for both
-  wires.
-- JSON remains the production default. The first A/B run is evidence that the
+  The opt-in report now separates raw wire bytes, Rust encode time, the complete
+  WASM method call, JavaScript decode time, worker processing, and worker round
+  trip. Local runs have matched all revision/spread results with no console or
+  page errors.
+- JSON remains the production default. Local A/B runs are evidence that the
   opt-in path does not reproduce the old page-turn regression, not enough data
   to claim a general speedup. The initial payload-size blocker is addressed,
-  but encode/decode and worker timing still need repeated measurements.
+  and the timing instrumentation now exists; representative books and machines
+  still need repeated measurements before a default decision.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -133,9 +134,10 @@ Those names now belong to the old TS reference tree only.
      view-revision response, including the bundled initial frame-window and
      resource payload metadata already present in `WasmViewRevisionResponse`.
    - The binary reader path is still opt-in only. The A/B harness and always-on
-     browser smoke now exist; the next milestone is repeated trend data and
-     separate raw-wire/encode/decode timing before deciding whether to make it
-     default.
+     browser smoke now exist, and the A/B report separates raw-wire,
+     Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
+     round-trip measurements. The next milestone is repeated representative
+     trend data before deciding whether to make it default.
    - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
      currently moved through JSON.
 3. **Generated boundary types**
@@ -205,8 +207,9 @@ Pick one of these, in order:
    - keep the production reader on JSON while repeating the opt-in `RITORB1`
      ABBA session across representative machines and larger/resource-heavy
      books;
-   - use the existing private reader switch and `test:e2e:wire-ab` report to
-     add raw-wire/encode/decode timing before making binary metadata default;
+   - use the existing private reader switch and instrumented
+     `test:e2e:wire-ab` report to compare raw-wire, encode/decode, worker, and
+     round-trip trends before making binary metadata default;
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.
@@ -267,7 +270,9 @@ display details.
    - Keep debug JSON methods available for fixtures and diagnostics.
    - A real WebWorker smoke is part of normal E2E, and the opt-in ABBA harness
      records revision round trips, committed spread counts, turn readiness,
-     rAF gaps, long tasks, and browser errors.
+     rAF gaps, long tasks, browser errors, raw wire bytes, Rust encode time,
+     complete WASM method time, JavaScript decode time, and worker processing
+     time.
 6. **Only then expand**
    - Do not move search/geometry/page targets until the binary
      revision/frame/resource path is proven behind an opt-in switch.
@@ -279,6 +284,7 @@ display details.
 
 The local ABBA runs met the semantic and page-turn no-regression criterion for
 the demo book. Keep the binary path opt-in until trend runs on representative
-machines/books and separate boundary timing justify a default switch; do not
-expand into search or geometry merely because these sessions passed or the
+machines/books justify a default switch; the separate boundary instrumentation
+is available, but one local measurement is not a stable performance trend. Do
+not expand into search or geometry merely because these sessions passed or the
 payload is now smaller.
