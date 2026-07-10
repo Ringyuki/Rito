@@ -8,8 +8,7 @@ and builds paint-ready display lists. The Web preset renders those pages or spre
 
 If you want a ready-to-use rendering surface with transitions and overlays, use:
 
-- `@ritojs/core` for platform-neutral EPUB parsing, pagination, and display-list construction
-- `@ritojs/core/web` for the default browser Canvas preset
+- `@ritojs/core` for the app-facing reader and core EPUB runtime
 - `@ritojs/kit` for a controller layer
 - `@ritojs/react` for React apps
 
@@ -35,7 +34,7 @@ pnpm run build
 ## Smallest Web Canvas Example
 
 ```ts
-import { createReader } from '@ritojs/core/web';
+import { createReader } from '@ritojs/core';
 
 const response = await fetch('/book.epub');
 const canvas = document.querySelector('canvas');
@@ -88,21 +87,19 @@ reader.dispose();
 
 ## When To Use Which Entry
 
-- Use `createReader()` from `@ritojs/core/web` if you want the standard browser-side flow.
-- Use the stable primitives from `@ritojs/core` if you want your own load/paginate/display-list pipeline.
-- Use `@ritojs/core/web` primitives if you want the default Web Canvas preparation and rendering helpers.
-- Use `@ritojs/core/advanced` only when you need lower-level parser, style, layout, or render internals.
+- Use `createReader()` from `@ritojs/core` if you want the standard reader flow.
+- Use the source-only TypeScript reference implementation inside this repository
+  only for diagnostics, parity work, or custom migration tools.
 - Use `@ritojs/kit` when you want transitions, overlays, pointer/keyboard wiring, and controller state.
 - Use `@ritojs/react` when you want React hooks and a mount component.
 
-For Flutter, Skia, native, server-side, or other non-Web runtimes, start from
-`@ritojs/core` and inject platform adapters for text measurement, resource
-loading, and display-list execution. Do not import `@ritojs/core/web` unless
-the runtime provides the browser APIs used by the Web Canvas preset.
+For Flutter, Skia, native, server-side, or other non-Web runtimes, the target
+is the Rust runtime contract behind `@ritojs/core`, not the historical
+TypeScript Canvas reference.
 
 ## Next Steps
 
 - [Reader API](./api/reader.md)
-- [Stable Primitives](./api/primitives.md)
+- [Reference Primitives](./api/primitives.md)
 - [Capabilities](./capabilities.md)
 - [Limitations](./limitations.md)

@@ -1,10 +1,9 @@
 # Golden Pixel Fixtures
 
 This directory contains the Playwright-based pixel regression tests. The suite
-renders curated real-book spreads through the `@ritojs/core/web`
-`createReader` API and compares the final Canvas PNG output with checked-in
-image goldens. A full-book matrix is still available as an opt-in
-external-baseline mode.
+renders curated real-book spreads through the source-only TypeScript reference
+reader and compares the final Canvas PNG output with checked-in image goldens.
+A full-book matrix is still available as an opt-in external-baseline mode.
 
 ## Fixture Layout
 

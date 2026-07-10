@@ -52,7 +52,7 @@ RITO_DIAG_CASE=<case-id> pnpm diagnose:render
 ```
 
 The command renders the requested Rito spread through the same browser-side
-`@ritojs/core/web` `createReader` path used by pixel goldens. If `case.json` contains
+source reference reader path used by pixel goldens. If `case.json` contains
 `location.chapterHref`, it also extracts the EPUB, opens that XHTML chapter in
 Chromium, and captures browser reference facts.
 
@@ -89,22 +89,42 @@ packages/rito/test-results/render-diagnostics/cases/<case-id>/artifacts/
     reference.png
     computed-style.json
     dom-rects.json
-    text-metrics.json
+  text-metrics.json
+  production/
+    actual.png
+    diagnostics.json
+    frame-summary.json
+    page-detail.json
+    summary.json
+  reference/
+    actual.png
+    diagnostics.json
+    frame-summary.json
+    page-detail.json
+    summary.json
   comparison/
     diff.png
+    report.md
+  parity/
+    diff.png
+    frame-summary.json
     report.md
 ```
 
 `report.json` is the top-level index written by `pnpm diagnose:render`. It
-links the Rito screenshot and JSON facts, plus the browser reference facts when
-`case.json` provides `location.chapterHref`, and the comparison artifacts.
+links the engine screenshots and JSON facts, plus the browser reference facts
+when `case.json` provides `location.chapterHref`, and the comparison artifacts.
 
-`rito/` contains the output from the Web `createReader` diagnostic path:
+`production/` contains the output from the root `@ritojs/core` reader path.
+`reference/` contains the output from the TypeScript reference reader path. Each
+engine directory contains:
 
-- `actual.png`: captured Rito spread image
+- `actual.png`: captured spread image
 - `diagnostics.json`: browser console and page errors observed during capture
 - `page-detail.json`: page-level detail returned by the render harness
 - `summary.json`: case, profile, spread, chapter map, manifest map, and spread summary
+- `frame-summary.json`: compact parity facts including canvas size, spread/page
+  summary, metadata hashes, and PNG hash
 
 `browser/` contains the extracted EPUB package and, when a chapter reference is
 available, Chromium XHTML reference facts:
@@ -118,12 +138,17 @@ available, Chromium XHTML reference facts:
 `comparison/` contains the derived diagnostic comparison:
 
 - `report.md`: human-readable case summary and comparison outcome
-- `diff.png`: pixel diff between `browser/reference.png` and `rito/actual.png`
+- `diff.png`: pixel diff between `browser/reference.png` and the primary engine output
 
-`report.md` is always produced. `diff.png` is produced when a browser reference
-exists and has the same pixel dimensions as the Rito capture. If the case has
-no `location.chapterHref`, or if the screenshots have different dimensions, the
-report explains why no diff image was written.
+`parity/` is produced by `RITO_DIAG_ENGINE=both` or `pnpm diagnose:reader-parity`.
+It compares `reference/actual.png` against `production/actual.png`, and writes a
+machine-readable `frame-summary.json` so layout/resource drift can be inspected
+without relying only on pixels.
+
+`report.md` files are always produced. `diff.png` is produced when both images
+exist and have the same pixel dimensions. If the case has no
+`location.chapterHref`, or if screenshots have different dimensions, the report
+explains why no browser diff image was written.
 
 ## Standard Workflow
 
@@ -280,6 +305,12 @@ Current command:
 RITO_DIAG_CASE=<case-id> pnpm diagnose:render
 ```
 
+Reader parity command:
+
+```bash
+RITO_DIAG_CASE=<case-id> pnpm diagnose:reader-parity
+```
+
 Optional overrides:
 
 ```bash
@@ -288,6 +319,7 @@ RITO_DIAG_PROFILE=single-default|single-narrow|single-wide|double-default
 RITO_DIAG_LINE_BREAKING=greedy|optimal
 RITO_DIAG_SPREAD=0
 RITO_DIAG_DPR=1
+RITO_DIAG_ENGINE=production|reference|both
 PLAYWRIGHT_BROWSER_CHANNEL=msedge
 ```
 

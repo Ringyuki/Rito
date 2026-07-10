@@ -5,6 +5,12 @@ plan for the Flutter native reader. It complements
 [`native-reader-architecture.md`](./native-reader-architecture.md), which owns
 the runtime/session/frame contract.
 
+Status: this is currently a historical UI/product plan. The Flutter spike and
+TypeScript reader-session bridge are no longer the active development path. The
+immersion principles remain useful, but native reader UI work should restart on
+top of the Rust engine plan in
+[`native-core-rust-plan.md`](./native-core-rust-plan.md).
+
 The reader UI goal is immersion: the EPUB content is the app. Product chrome,
 menus, panels, and animation must support reading without shrinking the render
 surface into a dashboard.

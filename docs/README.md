@@ -1,31 +1,22 @@
 # Documentation
 
-Rito is split into a platform-neutral core, a Web Canvas preset, and optional
-integration layers:
+Rito is split into a core reader package and optional integration layers:
 
-- [`@ritojs/core`](../packages/rito/README.md) — platform-neutral EPUB parser, layout, pagination, display-list, and adapter contracts
-- `@ritojs/core/web` — browser Canvas preset inside `@ritojs/core`, including `createReader()`
+- [`@ritojs/core`](../packages/rito/README.md) — app-facing Rust-backed reader contract
 - [`@ritojs/kit`](./integrations/kit.md) — framework-agnostic controller, transitions, overlays, keyboard, and storage helpers
-- [`@ritojs/react`](./integrations/react.md) — React hooks and mount component built on top of the Web reader and `@ritojs/kit`
+- [`@ritojs/react`](./integrations/react.md) — React hooks and mount component built on top of `@ritojs/core` and `@ritojs/kit`
 
 ## Start Here
 
 - [Getting Started](./getting-started.md) — install, first render, common reader operations
 - [Capabilities](./capabilities.md) — what Rito supports today
 - [Limitations](./limitations.md) — deliberate non-goals and current gaps
-- [Architecture](./architecture.md) — parser/style/layout/render/runtime boundaries and package layering
-- [Native Reader Architecture](./native-reader-architecture.md) — production Flutter/native reader runtime design and development plan
-- [Native Reader UI Plan](./native-reader-ui-plan.md) — immersive Flutter reader shell, design language, interaction, motion, and UI roadmap
-- [Testing Pipeline](./testing-pipeline.md) — unit, integration, structured golden, render golden, and e2e strategy
-- [Rendering Diagnostics](./rendering-diagnostics.md) — standard workflow for Rito vs browser XHTML mismatches
-- [Release & Versioning](./releasing.md) — package publishing, changelog, and versioning policy
 
 ## API
 
-- [Reader API](./api/reader.md) — Web Canvas `createReader()`, `ReaderOptions`, `Reader`
-- [Stable Primitives](./api/primitives.md) — `loadEpub`, `paginate`, `buildSpreads`, display-list builders, and adapter contracts
-- [Advanced Entry](./api/advanced.md) — `@ritojs/core/advanced` exports for expert use
-- [Specialized Subpaths](./api/subpaths.md) — `@ritojs/core/web`, `integration`, `selection`, `search`, `annotations`, `position`, `a11y`, `dom`
+- [Reader API](./api/reader.md) — root `createReader()`, `ReaderOptions`, `Reader`
+- [Reference Primitives](./api/primitives.md) — source-only TS parser/layout/render primitives for diagnostics and migration
+- [Specialized Subpaths](./api/subpaths.md) — current public subpath policy
 
 ## Integrations
 
@@ -35,7 +26,14 @@ integration layers:
 ## Recommended Reading Order
 
 1. [Getting Started](./getting-started.md)
-2. [Reader API](./api/reader.md) for browser Canvas apps, or [Stable Primitives](./api/primitives.md) for custom runtimes
+2. [Reader API](./api/reader.md) for browser Canvas apps, or [Reference Primitives](./api/primitives.md) for diagnostics and migration work
 3. [Capabilities](./capabilities.md)
-4. [Architecture](./architecture.md)
-5. Integration docs if you are building UI on top of the core
+4. Integration docs if you are building UI on top of the core
+
+## Development Docs
+
+Contributor, architecture, migration, diagnostic, testing, and release notes live under
+[`development/`](./development/README.md). If you are continuing implementation work,
+start with the development [current status handoff](./development/current-status.md).
+Development docs are source-level project documentation, not stable user-facing API
+documentation.

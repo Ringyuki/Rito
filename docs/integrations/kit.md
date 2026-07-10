@@ -1,10 +1,9 @@
 # `@ritojs/kit`
 
 `@ritojs/kit` is the framework-agnostic orchestration layer built on top of the
-Web reader from `@ritojs/core/web` and the platform-neutral interaction
-primitives from `@ritojs/core`.
+root reader and interaction primitives from `@ritojs/core`.
 
-Use it when the Web `Reader` is too low-level and you want a production-oriented reading surface:
+Use it when the core `Reader` is too low-level and you want a production-oriented reading surface:
 
 - page transitions
 - overlay composition
@@ -45,7 +44,7 @@ Supporting exports:
 ## Typical Use
 
 ```ts
-import { createReader } from '@ritojs/core/web';
+import { createReader } from '@ritojs/core';
 import { createController } from '@ritojs/kit';
 
 const container = document.getElementById('reader');
@@ -84,7 +83,8 @@ overlay canvas, and interaction bindings are attached under that container.
 
 Skip `@ritojs/kit` when:
 
-- you only need page rendering into a canvas through `@ritojs/core/web`
+- you only need the core reader without controller orchestration
+- you are doing source-level diagnostics against the old TypeScript reference implementation
 - you already have a controller/orchestration layer
 - you want a very custom interaction model and only need core primitives
 

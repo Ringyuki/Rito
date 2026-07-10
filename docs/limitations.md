@@ -27,17 +27,25 @@ Rito is intentionally focused on EPUB rendering, not browser-equivalent web layo
 
 ## Loading Model
 
-- ZIP inflation is eager, but archive, entry, total-output, entry-count, and compression-ratio budgets are enforced before/during inflation
-- each XML/XHTML resource is limited to 32 MiB before and after normalization, depth 256, 50,000 retained tree nodes, 100,000 parser events, and 50,000 attributes
-- `createReader()` and `prepare()` from `@ritojs/core/web` paginate the full spine up front
-- Web resource preparation is eager for fonts/images used by the current pipeline; image decoding is concurrency-limited and measurement caches are bounded
+- the root `createReader()` path is Rust-backed and keeps EPUB parsing,
+  pagination, frame cache, and resource scheduling behind the native runtime
+- the older TypeScript reference pipeline is source-only and may paginate the
+  full spine up front when used by diagnostics or golden tooling
+- the Rust-backed path keeps the archive in memory, loads the first chapter
+  eagerly, and loads later chapters and binary resources as they are needed
+- configurable ZIP, inflation, and XML resource budgets from the TypeScript
+  reference have not yet been mirrored by the Rust production path; do not
+  treat arbitrary untrusted EPUB input as unbounded data
+- browser resource preparation is still browser-bound for fonts and images
+  used by the current Canvas presentation layer
 
 ## Platform Assumptions
 
-- the main `@ritojs/core` entry is platform-neutral at the render/backend boundary
-- core EPUB/XML parsing is DOM-free and uses no browser or emulated DOM APIs
-- `@ritojs/core/web` depends on browser APIs such as `FontFace`, `createImageBitmap`, Canvas, and optional `OffscreenCanvas`
-- `OffscreenCanvas` is supported by the Web preset but not required for the basic `Reader` path
+- the main `@ritojs/core` entry is the app-facing browser reader facade backed by
+  the native core
+- the browser facade depends on browser APIs such as `FontFace`,
+  `createImageBitmap`, Canvas, and optional `OffscreenCanvas`
+- `OffscreenCanvas` is supported by the browser facade but not required for the basic `Reader` path
 - `@ritojs/kit` assumes `OffscreenCanvas` support for its compositing architecture
 
 ## Format Scope

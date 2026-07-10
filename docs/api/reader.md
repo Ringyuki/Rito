@@ -1,27 +1,31 @@
 # Reader API
 
-The `Reader` facade is part of the Web Canvas preset. Import it from
-`@ritojs/core/web`, not from the main `@ritojs/core` entry.
+The app-facing `Reader` facade is exported from the root `@ritojs/core`
+package.
 
 ## `createReader(data, canvas, options)`
 
 ```ts
-import { createReader } from '@ritojs/core/web';
+import { createReader } from '@ritojs/core';
 ```
 
 Creates a ready-to-render browser `Reader` from an EPUB `ArrayBuffer`.
 
-It performs the standard browser-side pipeline:
+It performs the standard reader pipeline:
 
 1. parse the EPUB archive
-2. load fonts and decode images
-3. paginate the spine
-4. build spreads
+2. open a long-lived document runtime
+3. create an initial layout revision
+4. build spread frames and resource schedules
 5. bind rendering to the provided Canvas target
 
 Use this when you want the normal app-facing API instead of assembling the pipeline manually.
-For non-Web runtimes, use the stable primitives and provide your own text,
-resource, and rendering adapters.
+For non-Web runtimes, target the Rust runtime contract behind the root package
+instead of the legacy TypeScript Canvas helper path.
+
+The older TypeScript Canvas reader is retained only as source reference code
+inside this repository. New app-facing reader code should depend on the root
+package entry.
 
 ## `ReaderOptions`
 
@@ -123,11 +127,11 @@ when switching from a dark theme back to a book-authored light theme.
 - you want one object that handles loading, pagination, and rendering
 - you do not need custom orchestration between parse/layout/render stages
 
-### Prefer the stable primitives when
+### Prefer source-only reference tooling when
 
-- you need a custom pipeline
-- you want to paginate once and render to multiple contexts
-- you want tighter control over resource loading and lifecycle
+- you are doing diagnostics, parity work, or migration tooling
+- you intentionally need the legacy TypeScript parser/layout/render primitives
+- you understand that this is not the production reader path
 
 ### Prefer `@ritojs/kit` / `@ritojs/react` when
 
@@ -136,6 +140,6 @@ when switching from a dark theme back to a book-authored light theme.
 
 ## Related Docs
 
-- [Stable Primitives](./primitives.md)
-- [Advanced Entry](./advanced.md)
+- [Reference Primitives](./primitives.md)
+- [Advanced Internals](./advanced.md)
 - [Specialized Subpaths](./subpaths.md)

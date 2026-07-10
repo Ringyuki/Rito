@@ -1,179 +1,24 @@
-# Specialized Subpaths
+# Public Subpaths
 
-Rito exposes a Web Canvas preset plus focused subpath entries for interaction
-and integration helpers.
-
-## `@ritojs/core/web`
+`@ritojs/core` currently exposes only the root reader entry and
+`./package.json`.
 
 ```ts
-import { createReader, prepare, render } from '@ritojs/core/web';
+import { createReader, preloadReaderRuntime } from '@ritojs/core';
 ```
 
-Exports the default browser Canvas preset:
+Legacy TypeScript helper entries such as `web`, `advanced`, `selection`,
+`search`, `annotations`, `position`, `a11y`, and `dom` are no longer public
+package subpaths. That code remains in the repository as a source-only
+reference implementation for golden tests, diagnostics, and Rust parity work.
 
-- `createReader`
-- `prepare`
-- `render`
-- `renderPage`
-- `getSpreadDimensions`
-- `createTextMeasurer`
-- Web font/image resource adapters
-- Canvas display-list and text-measurement backends
+App integrations should use:
 
-Use when:
+- `@ritojs/core` for the Rust-backed reader facade.
+- `@ritojs/kit` for controller, selection/search/annotation orchestration,
+  transitions, overlays, keyboard, and storage helpers.
+- `@ritojs/react` for React hooks and components.
 
-- you are building a browser reader
-- you want Rito's default Canvas renderer
-- you want Web resource loading through `FontFace`, `createImageBitmap`, and blob URLs
-
-Do not use this subpath for non-Web runtimes unless you intentionally provide
-compatible browser APIs. Custom runtimes should start from `@ritojs/core` and
-inject their own adapters.
-
-## `@ritojs/core/selection`
-
-```ts
-import { createSelectionEngine } from '@ritojs/core/selection';
-```
-
-Exports:
-
-- `createSelectionEngine`
-- `SelectionEngine`
-- `SelectionState`
-- `SelectionSnapshot`
-- `PagedPosition`
-- `PointerInput`
-- `TextPosition`
-- `TextRange`
-
-Use when:
-
-- you want stateful text selection behavior without `@ritojs/kit`
-- you are wiring your own pointer model around page content
-
-## `@ritojs/core/search`
-
-```ts
-import { createSearchEngine } from '@ritojs/core/search';
-```
-
-Exports:
-
-- `createSearchEngine`
-- `SearchEngine`
-- `SearchIndex`
-- `SearchResult`
-- `SearchOptions`
-
-Use when:
-
-- you want full-text search as a focused module
-- you are building your own search UI and navigation
-
-## `@ritojs/core/annotations`
-
-```ts
-import { createAnnotationStore, resolveAnnotations } from '@ritojs/core/annotations';
-```
-
-Exports:
-
-- annotation store:
-  - `createAnnotationStore`
-  - `AnnotationStore`
-  - `RecordStorageAdapter`
-- record model:
-  - `AnnotationRecord`
-  - `AnnotationDraft`
-  - `AnnotationRecordPatch`
-- resolution:
-  - `resolveAnnotations`
-  - `resolveSourceRangeToSegments`
-  - `ResolvedAnnotation`
-  - `ResolvedAnnotationSegment`
-  - `ResolutionContext`
-  - `ResolutionStatus`
-- anchor helpers:
-  - `createAnnotationTarget`
-  - `CreateTargetFromOffsetsInput`
-  - `sourcePointToOffset`
-  - `offsetToSourcePoint`
-  - `buildChapterTextIndex`
-  - `ChapterTextIndex`
-  - `ChapterTextSpan`
-  - `AnnotationTarget`
-  - `AnnotationSelectors`
-  - `SourcePoint`
-  - `SourceRangeSelector`
-
-Use when:
-
-- you want source-anchored highlights, underlines, or notes
-- you need annotation data to survive repagination and viewport changes
-
-## `@ritojs/core/position`
-
-```ts
-import { createPositionTracker } from '@ritojs/core/position';
-```
-
-Exports:
-
-- `createPositionTracker`
-- `PositionTracker`
-- `ReadingPosition`
-
-Use when:
-
-- you need resumable reading position tracking
-- you want a focused reading-progress module
-
-## `@ritojs/core/a11y`
-
-```ts
-import { createA11yMirror, buildSemanticTree } from '@ritojs/core/a11y';
-```
-
-Exports:
-
-- `createA11yMirror`
-- `A11yMirror`
-- `buildSemanticTree`
-- `SemanticNode`
-- `SemanticRole`
-
-Use when:
-
-- you need an accessibility mirror or semantic structure derived from paginated content
-
-## `@ritojs/core/dom`
-
-```ts
-import { bindPointerEvents, bindClipboard, bindLinkCursor } from '@ritojs/core/dom';
-```
-
-Exports:
-
-- `bindPointerEvents`
-- `bindClipboard`
-- `bindLinkCursor`
-
-Use when:
-
-- you want optional DOM bindings without committing to `@ritojs/kit`
-- you already have your own UI/controller layer
-
-## `@ritojs/core/integration`
-
-This narrow entry is the supported bridge used by controller packages such as
-`@ritojs/kit`. It exposes hit/link map construction, selection rectangles, and
-their shared geometry/source types without making the broad experimental
-`advanced` surface a package-to-package dependency. Most applications should
-use `@ritojs/kit`, `selection`, or the other focused subpaths instead.
-
-## Guidance
-
-- Use these subpaths when you want focused functionality without importing `@ritojs/core/advanced`.
-- If you want the full reading-surface controller layer, prefer [`@ritojs/kit`](../integrations/kit.md).
-- If you want React integration, prefer [`@ritojs/react`](../integrations/react.md).
+Development tooling that needs the old TypeScript implementation should import
+the source reference from inside this repository, not from a published package
+subpath.

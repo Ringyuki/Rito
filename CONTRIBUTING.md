@@ -8,10 +8,17 @@ The project is organized as a small set of public packages with strict architect
 
 This monorepo contains:
 
-- `packages/rito` — `@ritojs/core`, the parser/layout/rendering engine
+- `crates/rito-core` — the production EPUB, style, layout, render-payload, and reader runtime engine
+- `crates/rito-wasm` — the browser-target WASM binding
+- `packages/rito` — `@ritojs/core`, the public reader facade and browser binding shell
+- `packages/rito-core-wasm` — private WASM build/decoder workspace whose output is bundled into `@ritojs/core`
 - `packages/kit` — `@ritojs/kit`, the framework-agnostic controller layer
 - `packages/react` — `@ritojs/react`, the React integration layer
 - `apps/reader` — `@ritojs/reader`, a demo app that is not published to npm
+
+The previous TypeScript engine is kept under
+`packages/rito/src/reference/ts-core` for parity, goldens, and diagnostics. It
+is not a production package entry or fallback implementation.
 
 Public releases are lockstep-versioned across:
 
@@ -27,6 +34,9 @@ Requirements:
 
 - Node.js 24
 - pnpm 10.22.0 (pinned by the root `packageManager` field)
+- a Rust toolchain compatible with the workspace `rust-version`
+- the `wasm32-unknown-unknown` target and a `wasm-bindgen` CLI version matching
+  the Rust dependency when building the real browser artifact
 
 Install dependencies:
 
@@ -47,6 +57,8 @@ pnpm run lint
 pnpm run typecheck
 pnpm run test
 pnpm run build
+pnpm run rust:check
+pnpm run rust:wasm:verify
 pnpm --filter @ritojs/reader dev
 ```
 
@@ -141,17 +153,22 @@ Core priorities:
 
 Key rules:
 
-- keep parser, layout, render, and runtime separated
-- layout code must not depend on Canvas APIs
-- render code may depend on Canvas APIs
-- all public exports must go through `src/index.ts`
+- keep EPUB, style, layout, render-payload, and runtime modules separated in Rust
+- layout code must not depend on Canvas or browser APIs
+- keep WASM bindings thin; reader policy belongs in `rito-core`
+- keep browser APIs inside `packages/rito/src/bindings/browser`
+- all public TypeScript exports must go through `packages/rito/src/index.ts`
 - do not expose unstable internals
+- do not import the TypeScript reference tree from production entries
 
-### Layout / Render Boundary
+### Engine / Presentation Boundary
 
-The most important invariant is the layout/render boundary in `packages/rito`.
+The production Rust engine emits typed, paint-ready frame commands. The
+TypeScript browser shell transfers and executes them; it must not reconstruct
+layout or parse CSS values.
 
-Layout and render communicate through explicit paint-ready types. In practice:
+The TypeScript reference engine preserves its own layout/render boundary for
+parity work. In practice:
 
 - `render/**` must not import `ComputedStyle`
 - `render/**` must not parse CSS strings
@@ -168,7 +185,8 @@ If a change seems to require bypassing one of these rules, extend the paint type
 
 Please match the repository conventions:
 
-- use TypeScript with strict typing
+- use strict, warning-free Rust in the engine crates
+- use TypeScript with strict typing in package and application code
 - do not use `any` in `src`
 - do not use default exports in `src`
 - do not use `enum`
@@ -186,12 +204,20 @@ Before opening a PR, run the relevant checks locally. Before considering a chang
 - lint passes
 - typecheck passes
 - tests pass
+- Rust formatting, Clippy, and tests pass for native-core changes
 - the project still builds
 
 The standard command is:
 
 ```bash
 pnpm run check
+```
+
+Native-core changes must additionally run:
+
+```bash
+pnpm run rust:check
+pnpm run rust:wasm:verify
 ```
 
 If your change is localized, it is fine to use narrower package-level commands while iterating. The final state should still satisfy the full workspace checks.
@@ -209,8 +235,8 @@ Update documentation when needed, especially if your PR changes:
 Useful references:
 
 - `README.md`
-- `docs/architecture.md`
-- `docs/releasing.md`
+- `docs/development/architecture.md`
+- `docs/development/releasing.md`
 - `docs/integrations/kit.md`
 - `docs/integrations/react.md`
 
@@ -231,4 +257,4 @@ Maintainers should treat matching versions of `@ritojs/core`, `@ritojs/kit`, and
 
 If you are preparing a release manually, see:
 
-- `docs/releasing.md`
+- `docs/development/releasing.md`
