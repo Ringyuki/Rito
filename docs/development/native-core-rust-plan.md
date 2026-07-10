@@ -336,9 +336,11 @@ in place:
   81% of their JSON byte lengths. The A/B report now separates raw bytes, Rust
   encode, complete WASM method, JavaScript decode, worker processing, and worker
   round-trip time. The JavaScript decoder now computes the unchanged FNV-1a
-  checksum with exact u32 lanes and avoids descriptors for ordinary object keys,
-  removing its identified large-payload hotspots. JSON remains the default
-  while representative trends are evaluated.
+  checksum with exact u32 lanes and avoids descriptors for ordinary object keys.
+  The repeated local evidence matrix found stable size savings but materially
+  higher eager encode/decode elapsed cost, so JSON remains the default and the
+  current decision is no-go pending materialization optimization and a second
+  machine class.
 - Generated browser binding smoke path that opens a fixture book, creates a
   revision, reads a frame, queries targets/search, and reads/releases a resource
   transfer.
@@ -412,10 +414,10 @@ These are the real gaps against this plan:
      invalidate one another.
    - Keep JSON frame output and packed frame output sourced from the same
      commands.
-   - Keep `RITORB1` opt-in while repeating the instrumented ABBA reader-session
-     report across representative books and machines. Raw-wire, Rust-encode,
-     complete-WASM-call, JavaScript-decode, worker-processing, and round-trip
-     costs are now separated; do not extend the wire to search/geometry until
+   - Keep `RITORB1` opt-in. The local decode/ABBA evidence is an explicit no-go
+     for a default switch: bytes are smaller, but eager encode/decode costs are
+     materially higher. Optimize materialization, repeat the same matrix, and
+     add another machine class; do not extend the wire to search/geometry until
      the view-revision slice earns a default decision.
 4. **Binary render path**
    - Current packed buffers are a V2 ABI, not the final renderer-ready contract.

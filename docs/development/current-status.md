@@ -116,14 +116,13 @@ Those names now belong to the old TS reference tree only.
   trip, grouped independently for initial preview/full and reflow preview/full
   revisions. Local runs have matched all revision/spread results with no console
   or page errors.
-- JSON remains the production default. Local A/B runs are evidence that the
-  opt-in path does not reproduce the old page-turn regression, not enough data
-  to claim a general speedup. The initial payload-size blocker is addressed,
-  the timing instrumentation now exists, and a fixed-payload microbenchmark on
-  a real fixture isolates eager JSON/RITORB1 decode from layout and encoding.
-  Current local samples still show a CPU cost for eager binary decoding;
-  representative books and machines need repeated measurements before a default
-  decision.
+- JSON remains the production default. The local evidence matrix now includes
+  15 fresh-process decode runs across `book-01`, `book-06`, and `book-10`, plus
+  three full WebWorker ABBA runs for `book-01`. Binary payloads are consistently
+  about 79%–81% of JSON, but eager binary encode/decode is several times more
+  expensive. The recorded decision is no-go for a default switch; see
+  [`binary-wire-v2-evidence.md`](./binary-wire-v2-evidence.md). Cross-machine
+  evidence is still required after decoder/materialization optimization.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -144,8 +143,9 @@ Those names now belong to the old TS reference tree only.
    - The binary reader path is still opt-in only. The A/B harness and always-on
      browser smoke now exist, and the A/B report separates raw-wire,
      Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
-     round-trip measurements. The next milestone is repeated representative
-     trend data before deciding whether to make it default.
+     round-trip measurements. The repeated local matrix produced a no-go
+     decision; the next milestone is materialization optimization followed by
+     the same matrix on another machine class.
    - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
      currently moved through JSON.
 3. **Generated boundary types**
@@ -212,9 +212,12 @@ runtime render-command matrix.
 Pick one of these, in order:
 
 1. Continue Binary Wire V2 implementation:
-   - keep the production reader on JSON while repeating the opt-in `RITORB1`
-     ABBA session across representative machines and larger/resource-heavy
-     books;
+   - keep the production reader on JSON; the current single-machine evidence is
+     an explicit no-go for switching the default;
+   - reduce eager value-table materialization and encode/decode elapsed cost
+     without changing V1 bytes or the public object-shaped facade;
+   - repeat the same decode/ABBA matrix after optimization and add another
+     machine class before reconsidering the default;
    - use the existing private reader switch and instrumented
      `test:e2e:wire-ab` report to compare raw-wire, encode/decode, worker, and
      round-trip trends before making binary metadata default;
@@ -295,9 +298,9 @@ display details.
      and type direction evolves; its generated output is already bundled into
      the public core artifact.
 
-The local ABBA runs met the semantic and page-turn no-regression criterion for
-the demo book. Keep the binary path opt-in until trend runs on representative
-machines/books justify a default switch; the separate boundary instrumentation
-is available, but one local measurement is not a stable performance trend. Do
-not expand into search or geometry merely because these sessions passed or the
-payload is now smaller.
+The repeated local decode/ABBA matrix met semantic and page-turn no-regression
+criteria but produced a no-go default decision because eager binary
+encode/decode remains materially more expensive. Keep the binary path opt-in,
+optimize materialization, and repeat the matrix on another machine class before
+reconsidering the default. Do not expand into search or geometry merely because
+the payload is smaller.

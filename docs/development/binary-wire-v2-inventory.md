@@ -137,14 +137,16 @@ decoder cannot validate those business relationships by itself.
 
 ## Exit Criterion For The First Slice
 
-The opt-in reader path, always-on browser smoke, and ABBA harness now exist, and
-the first local run did not reproduce the old page-turn regression. Ordinary
-turns still use JSON frame-window metadata plus `RITOFCB2`, so turn metrics are a
-no-regression probe rather than a claim that turns themselves use `RITORB1`.
+The opt-in reader path, always-on browser smoke, and ABBA harness now exist.
+Fifteen fresh-process decode runs and three complete `book-01` ABBA runs are
+recorded in [`binary-wire-v2-evidence.md`](./binary-wire-v2-evidence.md).
+Ordinary turns still use JSON frame-window metadata plus `RITOFCB2`, so turn
+metrics are a no-regression probe rather than a claim that turns themselves use
+`RITORB1`.
 
-Do not make the binary path default or move another payload solely from local
-runs. The report now separates raw wire bytes, Rust encode, complete WASM method,
-JavaScript decode, worker processing, and worker round-trip costs. Repeat those
-measurements on representative machines/books before changing the default.
-`RITOFCB2` command bytes, transfer bytes, and JSON fixture/debug output remain
-available throughout that work.
+The local result is an explicit no-go for making the binary path default:
+payloads are smaller, but eager encode/decode costs are materially higher. Do
+not move another payload yet. Optimize value-table materialization without
+changing V1 bytes, repeat the same report, and add another machine class before
+changing the default. `RITOFCB2` command bytes, transfer bytes, and JSON
+fixture/debug output remain available throughout that work.
