@@ -19,7 +19,7 @@ export default defineConfig({
   clean: true,
   tsconfig: 'tsconfig.build.json',
   deps: {
-    alwaysBundle: ['@xmldom/xmldom'],
-    onlyBundle: ['@xmldom/xmldom'],
+    alwaysBundle: ['saxes', 'xmlchars'],
+    onlyBundle: ['saxes', 'xmlchars'],
   },
 });

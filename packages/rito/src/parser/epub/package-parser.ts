@@ -1,13 +1,22 @@
 import type { ManifestItem, PackageDocument, PackageMetadata, SpineItem } from './types';
 import { EpubParseError } from './errors';
 import type { Logger } from '../../utils/logger';
-import { childElements, parseEpubXmlDocument } from './xml-dom';
+import {
+  childElements,
+  findDescendants,
+  findElements,
+  findFirstElement,
+  getAttribute,
+  textContent,
+} from '../xml';
+import type { XmlDocument, XmlElement } from '../xml';
+import { parseEpubXml } from './xml';
 
 /**
  * Parse an OPF package document XML string into a PackageDocument.
  */
 export function parsePackageDocument(opfXml: string, logger?: Logger): PackageDocument {
-  const doc = parseEpubXmlDocument(opfXml, 'application/xml', 'OPF package document');
+  const doc = parseEpubXml(opfXml, 'OPF package document');
 
   const metadata = parseMetadata(doc, logger);
   const manifest = parseManifest(doc);
@@ -23,7 +32,7 @@ export function parsePackageDocument(opfXml: string, logger?: Logger): PackageDo
  * refusing to open such books, missing fields fall back to an empty string and
  * a warning — the structural `<manifest>`/`<spine>` checks below stay strict.
  */
-function parseMetadata(doc: Document, logger?: Logger): PackageMetadata {
+function parseMetadata(doc: XmlDocument, logger?: Logger): PackageMetadata {
   const title = getMetadataText(doc, 'title');
   const language = getMetadataText(doc, 'language');
   const identifier = getMetadataText(doc, 'identifier');
@@ -48,27 +57,23 @@ function parseMetadata(doc: Document, logger?: Logger): PackageMetadata {
   return result;
 }
 
-function parseManifest(doc: Document): ManifestItem[] {
+function parseManifest(doc: XmlDocument): ManifestItem[] {
   const items: ManifestItem[] = [];
-  const manifestEl = doc.getElementsByTagName('manifest')[0];
+  const manifestEl = findFirstElement(doc.root, 'manifest');
   if (!manifestEl) {
     throw new EpubParseError('Missing <manifest> element in package document');
   }
 
-  const itemEls = manifestEl.getElementsByTagName('item');
-  for (let i = 0; i < itemEls.length; i++) {
-    const el = itemEls[i];
-    if (!el) continue;
-
-    const id = el.getAttribute('id');
-    const href = el.getAttribute('href');
-    const mediaType = el.getAttribute('media-type');
+  for (const el of findDescendants(manifestEl, 'item')) {
+    const id = getAttribute(el, 'id');
+    const href = getAttribute(el, 'href');
+    const mediaType = getAttribute(el, 'media-type');
 
     if (!id || !href || !mediaType) {
       continue;
     }
 
-    const propertiesAttr = el.getAttribute('properties');
+    const propertiesAttr = getAttribute(el, 'properties');
     const item: ManifestItem = { id, href, mediaType };
 
     if (propertiesAttr) {
@@ -81,45 +86,39 @@ function parseManifest(doc: Document): ManifestItem[] {
   return items;
 }
 
-function parseSpine(doc: Document): SpineItem[] {
+function parseSpine(doc: XmlDocument): SpineItem[] {
   const items: SpineItem[] = [];
-  const spineEl = doc.getElementsByTagName('spine')[0];
+  const spineEl = findFirstElement(doc.root, 'spine');
   if (!spineEl) {
     throw new EpubParseError('Missing <spine> element in package document');
   }
 
-  const itemrefEls = spineEl.getElementsByTagName('itemref');
-  for (let i = 0; i < itemrefEls.length; i++) {
-    const el = itemrefEls[i];
-    if (!el) continue;
-
-    const idref = el.getAttribute('idref');
+  for (const el of findDescendants(spineEl, 'itemref')) {
+    const idref = getAttribute(el, 'idref');
     if (!idref) {
       continue;
     }
 
-    const linear = el.getAttribute('linear') !== 'no';
+    const linear = getAttribute(el, 'linear') !== 'no';
     items.push({ idref, linear });
   }
 
   return items;
 }
 
-function getMetadataText(doc: Document, localName: string): string | undefined {
+function getMetadataText(doc: XmlDocument, localName: string): string | undefined {
   const el = findMetadataElement(doc, localName);
-  const text = el?.textContent.trim();
+  const text = el ? textContent(el).trim() : '';
   return text || undefined;
 }
 
-function findMetadataElement(doc: Document, localName: string): Element | undefined {
+function findMetadataElement(doc: XmlDocument, localName: string): XmlElement | undefined {
   // Try with dc: namespace prefix first, then without
-  const dcElements = doc.getElementsByTagName(`dc:${localName}`);
-  if (dcElements.length > 0) {
-    return dcElements[0];
-  }
+  const dcElement = findElements(doc.root, `dc:${localName}`)[0];
+  if (dcElement) return dcElement;
 
   // Fallback: search by local name within metadata element
-  const metadataEl = doc.getElementsByTagName('metadata')[0];
+  const metadataEl = findFirstElement(doc.root, 'metadata');
   if (!metadataEl) {
     return undefined;
   }

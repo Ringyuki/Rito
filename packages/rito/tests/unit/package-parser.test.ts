@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { parsePackageDocument } from '../../src/parser/epub/package-parser';
 
@@ -36,6 +35,23 @@ describe('parsePackageDocument', () => {
     it('extracts optional creator', () => {
       const pkg = parsePackageDocument(VALID_OPF);
       expect(pkg.metadata.creator).toBe('Test Author');
+    });
+
+    it('accepts an alternate Dublin Core prefix and nested text', () => {
+      const opf = VALID_OPF.replaceAll('dc:', 'terms:')
+        .replace(
+          'xmlns:dc="http://purl.org/dc/elements/1.1/"',
+          'xmlns:terms="http://purl.org/dc/elements/1.1/"',
+        )
+        .replace('Test Book', 'Test <b>Book</b>');
+
+      expect(parsePackageDocument(opf).metadata.title).toBe('Test Book');
+    });
+
+    it('includes CDATA when reading metadata text', () => {
+      const opf = VALID_OPF.replace('Test Book', '<![CDATA[Test & Book]]>');
+
+      expect(parsePackageDocument(opf).metadata.title).toBe('Test & Book');
     });
 
     it('omits creator when not present', () => {
@@ -93,6 +109,12 @@ describe('parsePackageDocument', () => {
     it('omits properties when not present', () => {
       const pkg = parsePackageDocument(VALID_OPF);
       expect(pkg.manifest[0]).not.toHaveProperty('properties');
+    });
+
+    it('decodes entities in manifest attributes', () => {
+      const opf = VALID_OPF.replace('chapter1.xhtml', 'chapter1.xhtml?a=1&amp;b=2');
+
+      expect(parsePackageDocument(opf).manifest[0]?.href).toBe('chapter1.xhtml?a=1&b=2');
     });
 
     it('throws on missing manifest element', () => {

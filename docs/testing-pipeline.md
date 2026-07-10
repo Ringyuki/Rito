@@ -9,16 +9,17 @@ protect browser-rendered output.
 
 ## Layers
 
-| Layer             | Command                   | Purpose                                                                                              |
-| ----------------- | ------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Unit              | `pnpm test:unit`          | Module-level parser, style, layout, render helper, kit, and React tests.                             |
-| Integration       | `pnpm test:integration`   | Small end-to-end core flows and focused rare-feature render chains.                                  |
-| Structured golden | `pnpm test:golden:books`  | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                  |
-| Render golden     | `pnpm test:golden:render` | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens. |
-| Pixel golden      | `pnpm test:golden:pixel`  | Browser Canvas PNG output compared against checked-in image goldens.                                 |
-| Reader e2e        | `pnpm test:e2e`           | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                           |
-| Coverage          | `pnpm test:coverage`      | V8 coverage for all published packages, checked against package baselines.                           |
-| Dependency audit  | `pnpm audit:dependencies` | Fails on high-severity advisories in the resolved workspace dependency graph.                        |
+| Layer             | Command                                         | Purpose                                                                                                |
+| ----------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Unit              | `pnpm test:unit`                                | Module-level parser, style, layout, render helper, kit, and React tests.                               |
+| Integration       | `pnpm test:integration`                         | Small end-to-end core flows and focused rare-feature render chains.                                    |
+| Structured golden | `pnpm test:golden:books`                        | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                    |
+| Render golden     | `pnpm test:golden:render`                       | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.   |
+| Pixel golden      | `pnpm test:golden:pixel`                        | Browser Canvas PNG output compared against checked-in image goldens.                                   |
+| DOM-free dist     | `pnpm --filter @ritojs/core test:dom-free:dist` | Built core package parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
+| Reader e2e        | `pnpm test:e2e`                                 | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                             |
+| Coverage          | `pnpm test:coverage`                            | V8 coverage for all published packages, checked against package baselines.                             |
+| Dependency audit  | `pnpm audit:dependencies`                       | Fails on high-severity advisories in the resolved workspace dependency graph.                          |
 
 ## Current Gates
 
@@ -51,6 +52,7 @@ This includes:
 - structured full-book golden tests
 - render command golden tests
 - build
+- DOM-free distribution verification in a real Node worker
 
 CI also audits the exact frozen dependency graph and rejects high-severity
 advisories with `pnpm run audit:dependencies`.

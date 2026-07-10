@@ -10,8 +10,19 @@ import { NODE_TYPES } from './types';
 import { XhtmlParseError } from './errors';
 import { classifyTag } from './tag-classifier';
 import { collapseWhitespace, isWhitespaceOnly } from './text-normalizer';
-import { normalizeXhtmlSource } from './xhtml-source-normalizer';
-import { parseXmlDocument } from '../xml-dom';
+import {
+  isXhtmlSourceWithinNormalizationBudget,
+  normalizeXhtmlSource,
+} from './xhtml-source-normalizer';
+import {
+  findDescendants,
+  findFirstElement,
+  getAttribute,
+  getAttributeNS,
+  parseXml,
+  XML_SOURCE_CODE_UNIT_LIMIT,
+} from '../xml';
+import type { XmlElement, XmlNode, XmlText } from '../xml';
 import { extractElementAttributes } from './element-attributes';
 import { extractEmbeddedStylesheets, extractStylesheetHrefs } from './stylesheet-metadata';
 
@@ -32,13 +43,12 @@ export interface ParseResult {
  * Returns the nodes from the <body> element, or all root-level nodes if no body is found.
  */
 export function parseXhtml(xhtml: string): ParseResult {
-  const doc = parseXmlDocument(
-    normalizeXhtmlSource(xhtml),
-    'application/xhtml+xml',
-    (details) => new XhtmlParseError(`Invalid XHTML: ${details}`),
-  );
+  assertNormalizationBudget(xhtml);
+  const doc = parseXml(normalizeXhtmlSource(xhtml), (details) => {
+    return new XhtmlParseError(`Invalid XHTML: ${details}`);
+  });
 
-  const body = doc.getElementsByTagName('body')[0] ?? doc.documentElement;
+  const body = findFirstElement(doc.root, 'body') ?? doc.root;
   const warnings: string[] = [];
   const nodes = convertChildren(body, warnings, false, []);
   const bodyAttributes = extractElementAttributes(body);
@@ -56,8 +66,16 @@ export function parseXhtml(xhtml: string): ParseResult {
   return result;
 }
 
+function assertNormalizationBudget(source: string): void {
+  if (!isXhtmlSourceWithinNormalizationBudget(source, XML_SOURCE_CODE_UNIT_LIMIT)) {
+    throw new XhtmlParseError(
+      `Invalid XHTML: maximum XML source length of ${String(XML_SOURCE_CODE_UNIT_LIMIT)} exceeded`,
+    );
+  }
+}
+
 function convertChildren(
-  parent: Element,
+  parent: XmlElement,
   warnings: string[],
   preserveWhitespace: boolean,
   parentPath: readonly number[],
@@ -65,10 +83,7 @@ function convertChildren(
   const result: DocumentNode[] = [];
   let emittedIndex = 0;
 
-  for (let i = 0; i < parent.childNodes.length; i++) {
-    const child = parent.childNodes[i];
-    if (!child) continue;
-
+  for (const child of parent.children) {
     const childPath = [...parentPath, emittedIndex];
     const node = convertNode(child, warnings, preserveWhitespace, childPath);
     if (node) {
@@ -100,17 +115,17 @@ function convertChildren(
 }
 
 function convertNode(
-  domNode: Node,
+  xmlNode: XmlNode,
   warnings: string[],
   preserveWhitespace: boolean,
   nodePath: readonly number[],
 ): DocumentNode | undefined {
-  if (domNode.nodeType === 3) {
-    return convertTextNode(domNode, preserveWhitespace, nodePath);
+  if (xmlNode.type === 'text') {
+    return convertTextNode(xmlNode, preserveWhitespace, nodePath);
   }
 
-  if (domNode.nodeType === 1) {
-    return convertElement(domNode as Element, warnings, preserveWhitespace, nodePath);
+  if (xmlNode.type === 'element') {
+    return convertElement(xmlNode, warnings, preserveWhitespace, nodePath);
   }
 
   // Ignore comments, processing instructions, etc.
@@ -118,11 +133,11 @@ function convertNode(
 }
 
 function convertTextNode(
-  domNode: Node,
+  xmlNode: XmlText,
   preserveWhitespace: boolean,
   nodePath: readonly number[],
 ): TextNode | undefined {
-  const raw = domNode.textContent ?? '';
+  const raw = xmlNode.value;
   const sourceRef = { nodePath };
 
   if (!preserveWhitespace) {
@@ -151,7 +166,7 @@ function convertTextNode(
 }
 
 function convertElement(
-  el: Element,
+  el: XmlElement,
   warnings: string[],
   preserveWhitespace: boolean,
   nodePath: readonly number[],
@@ -188,8 +203,8 @@ function convertElement(
 
   // Handle <img> as an image node
   if (tagName === 'img') {
-    const src = el.getAttribute('src') ?? '';
-    const alt = el.getAttribute('alt') ?? '';
+    const src = getAttribute(el, 'src') ?? '';
+    const alt = getAttribute(el, 'alt') ?? '';
     if (!src) return undefined;
     const imgNode: ImageNode = { type: 'image', src, alt, sourceRef };
     return attributes ? { ...imgNode, attributes } : imgNode;
@@ -202,15 +217,12 @@ function convertElement(
 }
 
 /** Extract an image from an SVG element (common EPUB cover/illustration pattern). */
-function extractSvgImage(svg: Element, nodePath: readonly number[]): DocumentNode | undefined {
-  const imageEls = svg.getElementsByTagName('image');
-  for (let i = 0; i < imageEls.length; i++) {
-    const img = imageEls[i];
-    if (!img) continue;
+function extractSvgImage(svg: XmlElement, nodePath: readonly number[]): DocumentNode | undefined {
+  for (const img of findDescendants(svg, 'image')) {
     const src =
-      img.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ||
-      img.getAttribute('xlink:href') ||
-      img.getAttribute('href') ||
+      getAttributeNS(img, 'http://www.w3.org/1999/xlink', 'href') ||
+      getAttribute(img, 'xlink:href') ||
+      getAttribute(img, 'href') ||
       '';
     if (src && !src.startsWith('blob:')) {
       return { type: 'image', src, alt: '', sourceRef: { nodePath } };

@@ -42,8 +42,9 @@ Commonly used types include `TextMeasurer`, `TextMetrics`, `FontMetricsProvider`
 `DisplayListRenderer`, `TextMeasurementBackend`, `ImageAssetResolver`, `ImageDecoder`, and
 `ImageDimensions`.
 
-`loadEpub()` is safe to use in Node and worker runtimes; XML parsing does not
-depend on a browser-global `DOMParser`. ZIP resource budgets are enabled by
+`loadEpub()` is safe to use in Node and worker runtimes. XML and XHTML are
+parsed through a strict event-based reader into Rito's private compact tree;
+no browser or emulated DOM is created. ZIP resource budgets are enabled by
 default and can be tightened for a host application:
 
 ```ts

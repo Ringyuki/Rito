@@ -1,4 +1,3 @@
-// @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { CONTAINER_PATH, parseContainer } from '../../src/parser/epub/container-parser';
 

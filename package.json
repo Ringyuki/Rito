@@ -46,7 +46,7 @@
     "test:golden:pixel:update": "pnpm --filter @ritojs/core build && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c packages/rito/playwright.config.ts",
     "test:e2e": "pnpm --filter @ritojs/reader test:e2e",
     "test:coverage": "pnpm -r --if-present run test:coverage",
-    "test:ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build",
+    "test:ci": "pnpm run typecheck && pnpm run lint && pnpm run format:check && pnpm run test:unit && pnpm run test:integration && pnpm run test:golden:books && pnpm run test:golden:render && pnpm run build && pnpm --filter @ritojs/core exec node scripts/verify-dom-free-dist.mjs",
     "check": "pnpm run test:ci",
     "prepare": "husky"
   },

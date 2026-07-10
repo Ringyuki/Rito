@@ -31,6 +31,7 @@ const WEB_WORKER_ENDPOINT = join(SRC, 'web/reader-runtime-worker-endpoint.ts');
 const WEB_WORKER_ENTRYPOINT = join(SRC, 'web/reader-runtime-worker-entry.ts');
 const WEB_WORKER_DISPATCHER = join(SRC, 'web/reader-runtime-worker-dispatcher.ts');
 const LAYOUT = join(SRC, 'layout');
+const PARSER = join(SRC, 'parser');
 const RENDER = join(SRC, 'render');
 const RUNTIME = join(SRC, 'runtime');
 const READER_SESSION = join(RUNTIME, 'reader-session');
@@ -224,6 +225,7 @@ const READER_SESSION_PROTOCOL_FILES = READER_SESSION_FILES.filter(
   (file) => file !== READER_SESSION_FRAME,
 );
 const LAYOUT_FILES = walkTs(LAYOUT);
+const PARSER_FILES = walkTs(PARSER);
 const RENDER_BACKEND_FILES = existsSync(RENDER_BACKENDS) ? walkTs(RENDER_BACKENDS) : [];
 const DISPLAY_LIST_FILES = existsSync(DISPLAY_LIST) ? walkTs(DISPLAY_LIST) : [];
 const RENDER_PAGE_FILES = existsSync(RENDER_PAGE) ? walkTs(RENDER_PAGE) : [];
@@ -243,6 +245,20 @@ describe('Architecture invariant: render/ does not import ComputedStyle', () => 
   it('no file in render/ imports the ComputedStyle type', () => {
     const hits = scan(RENDER_FILES, /import[^;]*\bComputedStyle\b[^;]*;/g);
     expect(hits, `ComputedStyle import found in:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+});
+
+describe('Architecture invariant: parser is DOM-free', () => {
+  it('does not use browser or W3C DOM parser types', () => {
+    const domRuntimeOrType =
+      /\b(?:DOMParser|XMLSerializer|Document|XMLDocument|DocumentFragment|Element|HTMLElement|Node|NodeList|NamedNodeMap|Attr|CDATASection|DocumentType|ProcessingInstruction)\b|@xmldom|linkedom|jsdom|happy-dom/g;
+    const hits = scan(PARSER_FILES, domRuntimeOrType);
+    expect(hits, `DOM dependency found in parser:\n${JSON.stringify(hits, null, 2)}`).toEqual([]);
+  });
+
+  it('does not package or bundle xmldom', () => {
+    expect(read(PACKAGE_JSON)).not.toContain('@xmldom');
+    expect(read(TSDOWN_CONFIG)).not.toContain('@xmldom');
   });
 });
 

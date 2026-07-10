@@ -1,5 +1,15 @@
 import type { TocEntry } from './types';
-import { childElements, parseEpubXmlDocument } from './xml-dom';
+import {
+  childElements,
+  findElements,
+  findFirstDescendant,
+  findFirstElement,
+  getAttribute,
+  getAttributeNS,
+  textContent,
+} from '../xml';
+import type { XmlElement } from '../xml';
+import { parseEpubXml } from './xml';
 
 /**
  * Parse an EPUB 3 navigation document (XHTML with `<nav epub:type="toc">`).
@@ -8,16 +18,13 @@ import { childElements, parseEpubXmlDocument } from './xml-dom';
  * @returns Parsed table of contents entries, or an empty array if none found.
  */
 export function parseNavDocument(xhtml: string): readonly TocEntry[] {
-  const doc = parseEpubXmlDocument(xhtml, 'application/xhtml+xml', 'EPUB navigation document');
+  const doc = parseEpubXml(xhtml, 'EPUB navigation document');
 
   // Find the <nav> element with epub:type="toc"
-  const navElements = doc.getElementsByTagName('nav');
-  let tocNav: Element | undefined;
-  for (let i = 0; i < navElements.length; i++) {
-    const nav = navElements[i];
-    if (!nav) continue;
+  let tocNav: XmlElement | undefined;
+  for (const nav of findElements(doc.root, 'nav')) {
     const epubType =
-      nav.getAttribute('epub:type') || nav.getAttributeNS('http://www.idpf.org/2007/ops', 'type');
+      getAttribute(nav, 'epub:type') || getAttributeNS(nav, 'http://www.idpf.org/2007/ops', 'type');
     if (epubType === 'toc') {
       tocNav = nav;
       break;
@@ -27,7 +34,7 @@ export function parseNavDocument(xhtml: string): readonly TocEntry[] {
   if (!tocNav) return [];
 
   // The TOC is structured as nested <ol> / <li> / <a>
-  const ol = tocNav.getElementsByTagName('ol')[0];
+  const ol = findFirstDescendant(tocNav, 'ol');
   if (!ol) return [];
 
   return parseOlEntries(ol);
@@ -40,25 +47,25 @@ export function parseNavDocument(xhtml: string): readonly TocEntry[] {
  * @returns Parsed table of contents entries, or an empty array if none found.
  */
 export function parseNcx(ncxXml: string): readonly TocEntry[] {
-  const doc = parseEpubXmlDocument(ncxXml, 'application/xml', 'NCX document');
+  const doc = parseEpubXml(ncxXml, 'NCX document');
 
-  const navMap = doc.getElementsByTagName('navMap')[0];
+  const navMap = findFirstElement(doc.root, 'navMap');
   if (!navMap) return [];
 
   return parseNavPoints(navMap);
 }
 
 /** Recursively parse <li> children of an <ol> element. */
-function parseOlEntries(ol: Element): TocEntry[] {
+function parseOlEntries(ol: XmlElement): TocEntry[] {
   const entries: TocEntry[] = [];
   for (const li of childElements(ol)) {
-    if (li.tagName.toLowerCase() !== 'li') continue;
+    if (li.qualifiedName.toLowerCase() !== 'li') continue;
 
-    const anchor = li.getElementsByTagName('a')[0];
+    const anchor = findFirstDescendant(li, 'a');
     if (!anchor) continue;
 
-    const label = anchor.textContent.trim();
-    const href = anchor.getAttribute('href') ?? '';
+    const label = textContent(anchor).trim();
+    const href = getAttribute(anchor, 'href') ?? '';
     if (!label) continue;
 
     // Check for nested <ol> for sub-entries
@@ -71,25 +78,25 @@ function parseOlEntries(ol: Element): TocEntry[] {
 }
 
 /** Find a direct child <ol> of an element (not nested deeper). */
-function findDirectChildOl(el: Element): Element | undefined {
+function findDirectChildOl(el: XmlElement): XmlElement | undefined {
   for (const child of childElements(el)) {
-    if (child.tagName.toLowerCase() === 'ol') return child;
+    if (child.qualifiedName.toLowerCase() === 'ol') return child;
   }
   return undefined;
 }
 
 /** Recursively parse <navPoint> children of a parent element. */
-function parseNavPoints(parent: Element): TocEntry[] {
+function parseNavPoints(parent: XmlElement): TocEntry[] {
   const entries: TocEntry[] = [];
   for (const np of childElements(parent)) {
-    if (np.tagName !== 'navPoint') continue;
+    if (np.qualifiedName !== 'navPoint') continue;
 
-    const navLabel = np.getElementsByTagName('navLabel')[0];
-    const textEl = navLabel?.getElementsByTagName('text')[0];
-    const label = (textEl?.textContent ?? '').trim();
+    const navLabel = findFirstDescendant(np, 'navLabel');
+    const textEl = navLabel ? findFirstDescendant(navLabel, 'text') : undefined;
+    const label = textEl ? textContent(textEl).trim() : '';
 
-    const contentEl = np.getElementsByTagName('content')[0];
-    const href = contentEl?.getAttribute('src') ?? '';
+    const contentEl = findFirstDescendant(np, 'content');
+    const href = contentEl ? (getAttribute(contentEl, 'src') ?? '') : '';
 
     if (!label) continue;
 

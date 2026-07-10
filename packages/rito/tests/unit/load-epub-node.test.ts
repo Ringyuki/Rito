@@ -3,7 +3,7 @@ import { loadEpub } from '../../src/runtime/load-epub';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 
 describe('loadEpub in a DOM-less runtime', () => {
-  it('loads container, OPF, and NAV XML without a browser-global DOMParser', () => {
+  it('loads container, OPF, and NAV XML without creating a DOM', () => {
     expect(typeof globalThis.DOMParser).toBe('undefined');
     const epub = buildMinimalEpub({
       title: 'Node EPUB',

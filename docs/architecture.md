@@ -54,6 +54,19 @@ In practice:
 
 This keeps pagination and rendering decoupled and testable.
 
+## Parser Boundary
+
+EPUB structure and XHTML parsing use a strict, namespace-aware event parser and
+a parser-private compact XML tree. W3C `Document`, `Element`, and `Node` objects
+never enter the pipeline, so the same parser runs in browsers, workers, and
+Node without a DOM shim. The compact XML tree stops at `src/parser/**`; runtime
+and public APIs receive only Rito domain types such as `PackageDocument`,
+`TocEntry`, and `DocumentNode`.
+
+XHTML compatibility normalization remains a separate, explicit step for known
+real-world EPUB quirks. It does not enable HTML tag repair, DTD entity expansion,
+or external resource loading.
+
 ## Display List / Backend Boundary
 
 Rendering is split into two steps:
