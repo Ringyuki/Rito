@@ -13,6 +13,7 @@ interface LineBuildState {
   y: number;
   readonly startedSegments: Set<StyledSegment>;
   readonly trailingEdgeTracker: Map<StyledSegment, RunLocation>;
+  readonly sourceOffsets: Map<StyledSegment, number>;
 }
 
 export function buildLineBoxes(
@@ -48,6 +49,7 @@ function createLineBuildState(startY: number): LineBuildState {
     y: startY,
     startedSegments: new Set<StyledSegment>(),
     trailingEdgeTracker: new Map<StyledSegment, RunLocation>(),
+    sourceOffsets: new Map<StyledSegment, number>(),
   };
 }
 
@@ -77,7 +79,7 @@ function appendLineBox(
     state.startedSegments,
     state.trailingEdgeTracker,
     state.lines.length,
-    collectSourceOffsets(items, state.lineStart),
+    state.sourceOffsets,
   );
   appendRunsAsLine(
     state,
@@ -86,26 +88,32 @@ function appendLineBox(
     isLastLineForTextAlign(items, breakPos, lineIndex, lineCount),
     shouldKeepEmptyLine(items, breakPos, lineIndex, lineCount),
   );
+  advanceSourceOffsets(state.sourceOffsets, items, state.lineStart, breakPos + 1);
   state.lineStart = breakPos + 1;
 }
 
-function collectSourceOffsets(
+function advanceSourceOffsets(
+  offsets: Map<StyledSegment, number>,
   items: readonly KPItem[],
+  start: number,
   end: number,
-): ReadonlyMap<StyledSegment, number> {
-  const offsets = new Map<StyledSegment, number>();
-  for (let index = 0; index < end; index++) {
+): void {
+  for (let index = start; index < end; index++) {
     const item = items[index];
     if (item?.type === 'box' && !item.atom) {
-      offsets.set(item.segment, (offsets.get(item.segment) ?? 0) + item.text.length);
+      addSourceOffset(offsets, item.segment, item.text.length);
     } else if (item?.type === 'glue' && item.segment) {
-      offsets.set(
-        item.segment,
-        (offsets.get(item.segment) ?? 0) + (item.sourceLength ?? item.text.length),
-      );
+      addSourceOffset(offsets, item.segment, item.sourceLength ?? item.text.length);
     }
   }
-  return offsets;
+}
+
+function addSourceOffset(
+  offsets: Map<StyledSegment, number>,
+  segment: StyledSegment,
+  length: number,
+): void {
+  offsets.set(segment, (offsets.get(segment) ?? 0) + length);
 }
 
 function appendRunsAsLine(

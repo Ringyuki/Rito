@@ -93,9 +93,10 @@ export function adjustBreakPosition(
   maxWidth: number,
   measureWidth: (end: number) => number,
   options?: LineBreakOptions,
+  breakOffsets?: ReadonlySet<number>,
 ): number {
   if (candidate <= start || candidate >= end) return candidate;
-  const offsets = getLineBreakOffsets(text, options);
+  const offsets = breakOffsets ?? getLineBreakOffsets(text, options);
   if (offsets.has(candidate)) return candidate;
 
   const backward = findBackwardBreak(start, candidate, offsets);

@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { buildKPItems } from '../../src/layout/line-breaker/kp/builder';
 import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
+import { buildLineBoxes } from '../../src/layout/line-breaker/kp/line-boxes';
 import { emergencyBreaks, solveKP } from '../../src/layout/line-breaker/kp/solver';
+import type { KPItem } from '../../src/layout/line-breaker/kp/types';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
-import type { InlineSegment } from '../../src/layout/text/styled-segment';
+import type { InlineSegment, StyledSegment } from '../../src/layout/text/styled-segment';
 import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
 
@@ -118,6 +120,57 @@ describe('KP Item Building', () => {
     if (lastItem?.type === 'penalty') {
       expect(lastItem.penalty).toBe(-Infinity);
     }
+  });
+});
+
+describe('KP Line Boxes', () => {
+  it('advances source offsets without rescanning prior items', () => {
+    const lineCount = 1_024;
+    const source = Array.from({ length: lineCount }, () => 'a\n').join('');
+    const segment: StyledSegment = {
+      text: source,
+      style: DEFAULT_STYLE,
+      sourceRef: { nodePath: [0] },
+      sourceText: source,
+    };
+    const rawItems: KPItem[] = [];
+    const breakPositions: number[] = [];
+    for (let index = 0; index < lineCount; index++) {
+      rawItems.push({ type: 'box', width: 9.6, text: 'a', segment });
+      rawItems.push({
+        type: 'glue',
+        width: 0,
+        stretch: 1e6,
+        shrink: 0,
+        text: '',
+        segment,
+        sourceLength: 1,
+      });
+      rawItems.push({ type: 'penalty', width: 0, penalty: -Infinity, flagged: false });
+      breakPositions.push(rawItems.length - 1);
+    }
+
+    let indexedReads = 0;
+    const items = new Proxy<readonly KPItem[]>(rawItems, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && Number.isInteger(Number(property))) indexedReads++;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+    const lines = buildLineBoxes(
+      items,
+      breakPositions,
+      100,
+      0,
+      0,
+      DEFAULT_STYLE.lineHeight * DEFAULT_STYLE.fontSize,
+      DEFAULT_STYLE,
+      measurer,
+    );
+    const finalRun = lines.at(-1)?.runs[0];
+
+    expect(finalRun?.type === 'text-run' ? finalRun.sourceTextOffset : undefined).toBe(2_046);
+    expect(indexedReads).toBeLessThan(lineCount * 20);
   });
 });
 
