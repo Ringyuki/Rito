@@ -19,12 +19,20 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --component clippy,rustfmt --target wasm32-unknown-unknown
+      - name: Install matching wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Audit Dependencies
         run: pnpm run audit:dependencies
       - name: Install Playwright Browser
         run: pnpm exec playwright install --with-deps chromium
+      - name: Verify Rust workspace
+        run: pnpm run rust:check
+      - name: Verify WASM target and bindings
+        run: pnpm run rust:wasm:check && pnpm --filter @ritojs/core-wasm run test
       - name: Run PR Test Pipeline
         run: pnpm run test:ci
       - name: Run Reader E2E
@@ -54,6 +62,10 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --component clippy,rustfmt --target wasm32-unknown-unknown
+      - name: Install matching wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Install Playwright Browser

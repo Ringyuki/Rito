@@ -39,6 +39,10 @@ jobs:
           node-version: 24
           cache: pnpm
           registry-url: https://registry.npmjs.org
+      - name: Install Rust toolchain
+        run: rustup toolchain install 1.95.0 --profile minimal --component clippy,rustfmt --target wasm32-unknown-unknown
+      - name: Install matching wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.120 --locked
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
       - name: Create Release PR Or Publish
