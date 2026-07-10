@@ -1,5 +1,22 @@
 # @ritojs/kit
 
+## 0.13.0
+
+### Minor Changes
+
+- d4d14e6: Harden EPUB loading and footnote HTML, fix pagination/typography/render/interaction correctness, bound resource caches and ZIP/image work, add strict DOM-free XML parsing and the stable core integration boundary, and make theme/lifecycle cleanup reliable across Core, Kit, and React.
+
+### Patch Changes
+
+- 58950f2: Accept legacy HTML-style void elements such as `<br>` and `<img>` in EPUB XHTML
+  while preserving strict XML failures for other malformed markup.
+- 9af6efe: Avoid quadratic line-breaking work when EPUB chapters contain very large flat text blocks or
+  thousands of forced line breaks.
+- Updated dependencies [d4d14e6]
+- Updated dependencies [58950f2]
+- Updated dependencies [9af6efe]
+  - @ritojs/core@0.13.0
+
 ## 0.12.1
 
 ### Patch Changes
