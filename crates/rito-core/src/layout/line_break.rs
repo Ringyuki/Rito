@@ -396,6 +396,11 @@ fn is_allowed_line_break(
 ) -> bool {
     match options.word_break {
         WordBreakSetting::BreakAll | WordBreakSetting::BreakWord => {
+            // `css-line-break` permits this boundary after ASCII spaces and
+            // line breaks, but not after tabs or other content.
+            if is_blocked_aggressive_break_before_ascii_hyphen(previous, next) {
+                return false;
+            }
             return is_break_all_boundary(previous, next, line_break);
         }
         WordBreakSetting::KeepAll if is_keep_all_blocked(previous, next) => {
@@ -454,6 +459,13 @@ fn is_break_after(character: Option<char>) -> bool {
         character,
         Some(' ' | '\t' | '\n' | '\r' | '、' | '。' | '，' | '．' | '」' | '』' | '”' | '’',)
     )
+}
+
+fn is_blocked_aggressive_break_before_ascii_hyphen(
+    previous: Option<char>,
+    next: Option<char>,
+) -> bool {
+    next == Some('-') && !matches!(previous, Some(' ' | '\n' | '\r'))
 }
 
 fn is_consecutive_dash_run_break(previous: Option<char>, next: Option<char>) -> bool {
@@ -979,6 +991,31 @@ mod tests {
             find_word_break(&text, 0, 4, &options(None, Some("break-all"), None)),
             4
         );
+    }
+
+    #[test]
+    fn aggressive_word_break_modes_match_ts_dash_run_boundaries() {
+        for word_break in ["break-all", "break-word"] {
+            let hyphens =
+                split_line_break_segments(&"-".repeat(27), &options(None, Some(word_break), None));
+            let embedded =
+                split_line_break_segments("a--b", &options(None, Some(word_break), None));
+            let surrounded =
+                split_line_break_segments("--a--", &options(None, Some(word_break), None));
+            let leading_space =
+                split_line_break_segments(" ---", &options(None, Some(word_break), None));
+            let leading_tab =
+                split_line_break_segments("\t---", &options(None, Some(word_break), None));
+            let box_drawing =
+                split_line_break_segments(&"─".repeat(27), &options(None, Some(word_break), None));
+
+            assert_eq!(hyphens, ["-".repeat(27)], "word-break: {word_break}");
+            assert_eq!(embedded, ["a--", "b"], "word-break: {word_break}");
+            assert_eq!(surrounded, ["--", "a--"], "word-break: {word_break}");
+            assert_eq!(leading_space, [" ", "---"], "word-break: {word_break}");
+            assert_eq!(leading_tab, ["\t---"], "word-break: {word_break}");
+            assert_eq!(box_drawing, ["─"; 27], "word-break: {word_break}");
+        }
     }
 
     #[test]

@@ -1883,6 +1883,56 @@ mod tests {
     }
 
     #[test]
+    fn optimal_line_rebuild_matches_ts_break_all_for_consecutive_dash_runs() {
+        let mut segments = vec![
+            sourced_segment(" ", vec![1, 0]),
+            sourced_segment(&"-".repeat(44), vec![1, 8, 0]),
+            sourced_segment(" ", vec![1, 9]),
+            sourced_segment(&"-".repeat(27), vec![1, 35, 0]),
+            sourced_segment(" ", vec![1, 36]),
+        ];
+        for segment in &mut segments {
+            let InlineSegment::Text(text) = segment else {
+                continue;
+            };
+            text.style.insert("fontSize".to_owned(), json!(16));
+            text.style.insert("lineHeight".to_owned(), json!(1.2));
+            text.style.insert("textIndent".to_owned(), json!(24));
+            text.style.insert("textAlign".to_owned(), json!("justify"));
+        }
+        for index in [1, 3] {
+            let Some(InlineSegment::Text(text)) = segments.get_mut(index) else {
+                continue;
+            };
+            text.style
+                .insert("wordBreak".to_owned(), json!("break-all"));
+        }
+
+        let lines = layout_optimal_lines(&segments, 520.0);
+
+        assert_eq!(lines.len(), 2);
+        let first_runs = text_runs(&lines[0]);
+        let second_runs = text_runs(&lines[1]);
+        assert_eq!(first_runs.len(), 1);
+        assert_eq!(second_runs.len(), 1);
+        assert_eq!(line_text(&lines[0]), "-".repeat(44));
+        assert_eq!(line_text(&lines[1]), "-".repeat(27));
+        assert!((first_runs[0].x - 24.0).abs() < f64::EPSILON);
+        assert!((first_runs[0].width - 422.4).abs() < 1e-9);
+        assert!(second_runs[0].x.abs() < f64::EPSILON);
+        assert!((second_runs[0].width - 259.2).abs() < 1e-9);
+        assert_eq!(
+            first_text_run(&lines[0]).and_then(|run| run.source_path.as_deref()),
+            Some([1, 8, 0].as_slice())
+        );
+        assert_eq!(
+            first_text_run(&lines[1]).and_then(|run| run.source_path.as_deref()),
+            Some([1, 35, 0].as_slice())
+        );
+        assert_eq!(first_text_run_source_offset(&lines[1]), Some(0));
+    }
+
+    #[test]
     fn optimal_line_rebuild_matches_ts_cjk_breaks_under_text_indent() {
         let mut segment = source_text_segment("当年，我以三男的身分出生于一个还算富裕的家庭。有两个哥哥一个姐姐和一个弟弟，是五兄弟里的老四。小学时期，是在「小小年纪却如此聪明」的称赞声中成长。虽然对念书并不在行，不过是个很会玩游戏也擅长运动，容易得意忘形的家伙。同时还是班上的中心人物。");
         let InlineSegment::Text(text_segment) = &mut segment else {
@@ -2136,6 +2186,22 @@ mod tests {
         })
     }
 
+    fn sourced_segment(text: &str, source_path: Vec<usize>) -> InlineSegment {
+        InlineSegment::Text(TextSegment {
+            text: text.to_owned(),
+            style: style(),
+            href: None,
+            source_path: Some(source_path),
+            source_text: Some(text.to_owned()),
+            source_text_offset: Some(0),
+            ruby_annotation: None,
+            inline_margin_left: None,
+            inline_margin_right: None,
+            border_start: false,
+            border_end: false,
+        })
+    }
+
     fn inline_end_text_segment(text: &str) -> InlineSegment {
         let mut segment = source_text_segment(text);
         let InlineSegment::Text(text_segment) = &mut segment else {
@@ -2212,6 +2278,18 @@ mod tests {
             .iter()
             .filter_map(|run| match run {
                 crate::layout::line::LineRun::Text(run) => Some(run.text.as_str()),
+                crate::layout::line::LineRun::Atom(_) | crate::layout::line::LineRun::Ruby(_) => {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    fn text_runs(line: &crate::layout::line::LineBox) -> Vec<&crate::layout::line::TextRunBox> {
+        line.runs
+            .iter()
+            .filter_map(|run| match run {
+                crate::layout::line::LineRun::Text(run) => Some(run),
                 crate::layout::line::LineRun::Atom(_) | crate::layout::line::LineRun::Ruby(_) => {
                     None
                 }
