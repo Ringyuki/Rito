@@ -3,8 +3,8 @@ mod fixture;
 
 use command_hash::{hash_json_value, normalize_runtime_commands_for_render_hash};
 use fixture::{
-    double_layout, fixture_epub, fixture_stylesheet, layout, many_chapter_fixture_epub,
-    minimal_png, multi_chapter_fixture_epub,
+    double_layout, fixture_epub, fixture_stylesheet, layout, malformed_chapter_fixture_epub,
+    many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
 };
 use serde_json::Value;
 
@@ -51,6 +51,24 @@ fn creates_revisions_and_caches_frames() {
     }));
     assert_eq!(frame, cached_again);
     assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
+}
+
+#[test]
+fn creates_revision_when_chapter_xhtml_is_malformed() {
+    let bytes = malformed_chapter_fixture_epub();
+    let publication = crate::epub::load_publication_with_layout(&bytes, &layout())
+        .expect("formal parsing preserves malformed XHTML as a warning");
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+
+    let revision = document
+        .create_revision(&layout())
+        .expect("image preloading does not bypass XHTML recovery");
+
+    assert_eq!(publication.xhtml.chapters[0].warning_count, 1);
+    assert_eq!(publication.xhtml.chapters[0].top_level_count, 0);
+    assert!(publication.xhtml.chapters[0].image_sources.is_empty());
+    assert_eq!(revision.revision_id, "rev-1");
+    assert!(document.has_revision(&revision.revision_id));
 }
 
 #[test]

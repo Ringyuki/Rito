@@ -132,7 +132,7 @@ impl LoadedEpubDocument {
         start: usize,
         count: usize,
     ) -> EpubResult<()> {
-        let refs = self.collect_chapter_image_refs(start, count)?;
+        let refs = self.collect_chapter_image_refs(start, count);
         self.ensure_image_dimensions_loaded_for_refs(&refs)?;
         Ok(())
     }
@@ -216,22 +216,18 @@ impl LoadedEpubDocument {
         Ok(())
     }
 
-    fn collect_chapter_image_refs(
-        &mut self,
-        start: usize,
-        count: usize,
-    ) -> EpubResult<Vec<String>> {
+    fn collect_chapter_image_refs(&mut self, start: usize, count: usize) -> Vec<String> {
         if start >= self.chapters.len() {
-            return Ok(Vec::new());
+            return Vec::new();
         }
         let end = start.saturating_add(count).min(self.chapters.len());
         let mut refs = BTreeSet::new();
         for chapter in &mut self.chapters[start..end] {
-            for href in cached_chapter_image_refs(chapter)? {
+            for href in cached_chapter_image_refs(chapter) {
                 refs.insert(href.clone());
             }
         }
-        Ok(refs.into_iter().collect())
+        refs.into_iter().collect()
     }
 
     fn ensure_image_dimensions_loaded_for_refs(&mut self, refs: &[String]) -> EpubResult<()> {
@@ -302,23 +298,27 @@ impl LoadedArchiveSource {
     }
 }
 
-fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> EpubResult<&[String]> {
+fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> &[String] {
     if chapter.image_refs.is_none() {
-        chapter.image_refs = Some(collect_chapter_image_refs(chapter)?);
+        chapter.image_refs = Some(collect_chapter_image_refs(chapter));
     }
-    Ok(chapter.image_refs.as_deref().unwrap_or(&[]))
+    chapter.image_refs.as_deref().unwrap_or(&[])
 }
 
-fn collect_chapter_image_refs(chapter: &LoadedChapter) -> EpubResult<Vec<String>> {
+fn collect_chapter_image_refs(chapter: &LoadedChapter) -> Vec<String> {
     if chapter.xhtml_source.is_empty() {
-        return Ok(Vec::new());
+        return Vec::new();
     }
-    let parsed = parse_xhtml(&chapter.xhtml_source).map_err(EpubError::new)?;
+    // This is a speculative preload pass. The formal prepare pass owns XHTML
+    // diagnostics and preserves malformed chapters as warnings with empty nodes.
+    let Ok(parsed) = parse_xhtml(&chapter.xhtml_source) else {
+        return Vec::new();
+    };
     let mut refs = BTreeSet::new();
     for node in &parsed.nodes {
         collect_image_refs(node, &mut refs);
     }
-    Ok(refs.into_iter().collect())
+    refs.into_iter().collect()
 }
 
 fn ensure_image_dimensions_loaded_with_archive(
