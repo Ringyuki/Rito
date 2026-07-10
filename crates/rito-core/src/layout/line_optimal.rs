@@ -478,6 +478,9 @@ fn can_merge_text_box(
     ) else {
         return false;
     };
+    if current.source_path.is_some() || next.source_path.is_some() {
+        return false;
+    }
     current.style == next.style
         && current.href == next.href
         && current.ruby_annotation == next.ruby_annotation
@@ -2050,6 +2053,55 @@ mod tests {
 
         assert_eq!(lines.len(), 1);
         assert!(lines[0].runs.iter().any(|run| matches!(run, crate::layout::line::LineRun::Atom(atom) if atom.image_src.as_deref() == Some("Images/pic.png"))));
+    }
+
+    #[test]
+    fn optimal_line_rebuild_keeps_source_provenance_across_inline_atom() {
+        let mut left = source_text_segment("left");
+        let InlineSegment::Text(left_segment) = &mut left else {
+            unreachable!();
+        };
+        left_segment.source_path = Some(vec![1, 0]);
+        left_segment.source_text = Some(" left".to_owned());
+        left_segment.source_text_offset = Some(1);
+
+        let atom = InlineSegment::Atom(AtomSegment {
+            width: 12.0,
+            height: 8.0,
+            style: style(),
+            image_src: Some("Images/pic.png".to_owned()),
+            alt: None,
+            href: None,
+            source_path: Some(vec![1, 1]),
+        });
+
+        let mut right = source_text_segment("right");
+        let InlineSegment::Text(right_segment) = &mut right else {
+            unreachable!();
+        };
+        right_segment.source_path = Some(vec![1, 2]);
+        right_segment.source_text = Some("  right".to_owned());
+        right_segment.source_text_offset = Some(2);
+
+        let lines = layout_optimal_lines(&[left, atom, right], 200.0);
+        let text_runs = lines[0]
+            .runs
+            .iter()
+            .filter_map(|run| match run {
+                crate::layout::line::LineRun::Text(run) => Some(run),
+                crate::layout::line::LineRun::Atom(_) | crate::layout::line::LineRun::Ruby(_) => {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        assert_eq!(text_runs.len(), 2);
+        assert_eq!(text_runs[0].text, "left");
+        assert_eq!(text_runs[0].source_path.as_deref(), Some([1, 0].as_slice()));
+        assert_eq!(text_runs[0].source_text_offset, Some(1));
+        assert_eq!(text_runs[1].text, "right");
+        assert_eq!(text_runs[1].source_path.as_deref(), Some([1, 2].as_slice()));
+        assert_eq!(text_runs[1].source_text_offset, Some(2));
     }
 
     fn text_segment(text: &str) -> InlineSegment {
