@@ -2,6 +2,7 @@ export const FRAME_COMMAND_BUFFER_MAGIC = 'RITOFCB2';
 export const FRAME_COMMAND_BUFFER_VERSION = 2;
 export const FRAME_COMMAND_HEADER_BYTES = 16;
 export const FRAME_COMMAND_RECORD_BYTES = 32;
+export const FRAME_COMMAND_RECORD_FLAG_MASK = 0x1f;
 export const NO_STRING_INDEX = 0xffffffff;
 
 export const COMMAND_KINDS = {

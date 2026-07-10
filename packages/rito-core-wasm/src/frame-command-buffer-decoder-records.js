@@ -1,4 +1,8 @@
-import { COMMAND_KINDS, NO_STRING_INDEX } from './frame-command-buffer-decoder-constants.js';
+import {
+  COMMAND_KINDS,
+  FRAME_COMMAND_RECORD_FLAG_MASK,
+  NO_STRING_INDEX,
+} from './frame-command-buffer-decoder-constants.js';
 
 export function countDecodedRecords(records) {
   const counts = {};
@@ -29,6 +33,16 @@ export function countDecodedRecordStats(records) {
 export function readFrameCommandRecord(metadata, view, offset) {
   const opcode = view.getUint16(offset, true);
   const flags = view.getUint16(offset + 2, true);
+  const kind = COMMAND_KINDS[opcode];
+  if (kind === undefined) {
+    throw new Error(`Unsupported Rito frame command buffer opcode: ${String(opcode)}`);
+  }
+  const unsupportedFlags = flags & ~FRAME_COMMAND_RECORD_FLAG_MASK;
+  if (unsupportedFlags !== 0) {
+    throw new Error(
+      `Unsupported Rito frame command buffer record flags: 0x${unsupportedFlags.toString(16)}`,
+    );
+  }
   const primaryIndex = view.getUint32(offset + 20, true);
   const secondaryIndex = view.getUint32(offset + 24, true);
   const payloadIndex = view.getUint32(offset + 28, true);
@@ -40,7 +54,7 @@ export function readFrameCommandRecord(metadata, view, offset) {
   validateTableFlag(hasPayload, payloadIndex, 'payload');
   return {
     opcode,
-    kind: COMMAND_KINDS[opcode] ?? 'unknown',
+    kind,
     flags,
     hasGeometry: hasFlag(flags, 0),
     hasPrimaryString,

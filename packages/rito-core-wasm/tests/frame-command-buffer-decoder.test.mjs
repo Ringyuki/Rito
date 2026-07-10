@@ -759,6 +759,37 @@ test('decodeRitoFrameCommandBuffer rejects malformed metadata and headers', () =
       message: /record length mismatch/,
     },
   );
+
+  const fullRecord = commandBufferBytes([{ opcode: 1, flags: 0 }]);
+  const truncatedRecord = fullRecord.subarray(0, fullRecord.length - 1);
+  assert.throws(
+    () =>
+      decodeRitoFrameCommandBuffer(
+        metadata(truncatedRecord, {
+          commandCount: 1,
+          commandCounts: { pushState: 1 },
+        }),
+        truncatedRecord,
+      ),
+    {
+      message: /record length mismatch/,
+    },
+  );
+
+  const trailingByte = new Uint8Array(fullRecord.length + 1);
+  trailingByte.set(fullRecord);
+  assert.throws(
+    () =>
+      decodeRitoFrameCommandBuffer(
+        metadata(trailingByte, {
+          commandCount: 1,
+        }),
+        trailingByte,
+      ),
+    {
+      message: /record length mismatch/,
+    },
+  );
 });
 
 test('decodeRitoFrameCommandBuffer rejects record table mismatches', () => {
@@ -904,6 +935,33 @@ test('decodeRitoFrameCommandBuffer rejects record table mismatches', () => {
       message: /record stats do not match decoded records/,
     },
   );
+});
+
+test('decodeRitoFrameCommandBuffer rejects unsupported record fields', () => {
+  const unknownOpcode = commandBufferBytes([
+    {
+      opcode: 99,
+      flags: flags({ payload: true }),
+      payloadIndex: 0,
+    },
+  ]);
+  assert.throws(
+    () =>
+      decodeRitoFrameCommandBuffer(
+        metadata(unknownOpcode, {
+          payloadTable: ['{"kind":"unknown"}'],
+        }),
+        unknownOpcode,
+      ),
+    {
+      message: /Unsupported Rito frame command buffer opcode: 99/,
+    },
+  );
+
+  const reservedFlags = commandBufferBytes([{ opcode: 1, flags: 1 << 5 }]);
+  assert.throws(() => decodeRitoFrameCommandBuffer(metadata(reservedFlags), reservedFlags), {
+    message: /Unsupported Rito frame command buffer record flags: 0x20/,
+  });
 });
 
 function commandBufferBytes(records) {
