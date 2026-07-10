@@ -5,6 +5,7 @@ const runtimeSources = [
   'core-wasm-error-runtime.js',
   'reader-compat-runtime.js',
   'reader-worker-client-runtime.js',
+  'reader-worker-session-runtime.js',
   'runtime-bundle-decoder-runtime.js',
   'frame-command-buffer-decoder-constants.js',
   'frame-command-buffer-decoder-records.js',

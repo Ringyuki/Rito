@@ -13,6 +13,7 @@ import type {
 } from './revision';
 
 export interface RitoCoreWasmReaderWorkerClient {
+  /** Opens this client's sole publication session. Failed opens may be retried. */
   open(data: ArrayBuffer): Promise<RitoCoreWasmReaderOpenResult>;
   createViewRevision(
     request: RitoCoreWasmViewRevisionRequest,

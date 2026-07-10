@@ -1,10 +1,28 @@
+import {
+  createReaderSessionState,
+  disposeReaderSession,
+  openReaderSessionDocument,
+} from './reader-worker-session-runtime.js';
+
 export function createRitoCoreWasmWorkerReaderClient(worker) {
   const pending = new Map();
   let nextId = 1;
   let disposed = false;
+  let terminalError;
+  let terminated = false;
   const rejectAll = (error) => {
     for (const entry of pending.values()) entry.reject(error);
     pending.clear();
+  };
+  const terminate = () => {
+    if (terminated) return;
+    terminated = true;
+    worker.terminate();
+  };
+  const fail = (error) => {
+    terminalError ??= error;
+    rejectAll(terminalError);
+    terminate();
   };
   worker.addEventListener('message', (event) => {
     if (!isResponse(event.data)) return;
@@ -15,14 +33,15 @@ export function createRitoCoreWasmWorkerReaderClient(worker) {
     else entry.reject(workerError(event.data.error));
   });
   worker.addEventListener('error', (event) => {
-    rejectAll(new Error(event.message || 'Rito reader worker failed'));
+    fail(new Error(event.message || 'Rito reader worker failed'));
   });
   worker.addEventListener('messageerror', () => {
-    rejectAll(new Error('Rito reader worker sent an unreadable message'));
+    fail(new Error('Rito reader worker sent an unreadable message'));
   });
   return createRitoCoreWasmReaderClient(
     async (input, transfer = []) => {
       if (disposed) throw new Error('Rito reader worker client is disposed');
+      if (terminalError) throw terminalError;
       const id = nextId;
       nextId += 1;
       const promise = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
@@ -38,55 +57,74 @@ export function createRitoCoreWasmWorkerReaderClient(worker) {
       if (disposed) return;
       disposed = true;
       rejectAll(new Error('Rito reader worker client disposed'));
-      worker.postMessage({ id: nextId, kind: 'dispose' });
-      worker.terminate();
+      try {
+        if (!terminated) worker.postMessage({ id: nextId, kind: 'dispose' });
+      } catch {
+        // Disposal is best effort; termination still owns the final cleanup.
+      } finally {
+        terminate();
+      }
     },
   );
 }
 
 export function createRitoCoreWasmInProcessReaderClient(module) {
-  let corePromise;
-  let document;
-  let disposed = false;
+  const state = createReaderSessionState();
   return createRitoCoreWasmReaderClient(
     async (input) => {
-      if (disposed) throw new Error('Rito reader in-process client is disposed');
       if (input.kind === 'open') {
-        document?.free();
-        corePromise ??=
-          module.initRitoCoreWasmEngine?.() ??
-          Promise.reject(new Error('Rito in-process reader requires the full core module'));
-        const core = await corePromise;
-        document = core.openDocument(new Uint8Array(input.data));
-        return { kind: 'open', result: { publication: document.publication() } };
+        return openReaderSessionDocument(
+          state,
+          () =>
+            module.initRitoCoreWasmEngine?.() ??
+            Promise.reject(new Error('Rito in-process reader requires the full core module')),
+          input.data,
+          'Rito in-process reader',
+        );
       }
       if (input.kind === 'dispose') {
-        document?.free();
-        document = undefined;
+        disposeReaderSession(state);
         return { kind: 'dispose' };
       }
-      if (!document) throw new Error('Rito in-process reader document is not open');
-      return document.readerWorkerPayload({ ...input, id: 0 });
+      if (state.phase === 'disposed') {
+        throw new Error('Rito reader in-process client is disposed');
+      }
+      if (!state.document) throw new Error('Rito in-process reader document is not open');
+      return state.document.readerWorkerPayload({ ...input, id: 0 });
     },
-    () => {
-      if (disposed) return;
-      disposed = true;
-      document?.free();
-      document = undefined;
-    },
+    () => disposeReaderSession(state),
   );
 }
 
 export function createRitoCoreWasmReaderWorkerHandler(scope, deps) {
-  const state = { corePromise: undefined, document: undefined };
+  const state = createReaderSessionState();
   scope.addEventListener('message', (event) => {
     void handleWorkerMessage(scope, deps, state, event.data);
   });
 }
 
 function createRitoCoreWasmReaderClient(request, dispose) {
+  let phase = 'idle';
+  const open = async (data) => {
+    if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
+    phase = 'opening';
+    try {
+      const openResult = await result(request, { kind: 'open', data }, 'open', [data]);
+      if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
+      phase = 'open';
+      return openResult;
+    } catch (error) {
+      if (phase === 'opening') phase = 'idle';
+      throw error;
+    }
+  };
+  const disposeClient = () => {
+    if (phase === 'disposed') return;
+    phase = 'disposed';
+    dispose();
+  };
   return {
-    open: (data) => result(request, { kind: 'open', data }, 'open', [data]),
+    open,
     createViewRevision: (viewRequest) =>
       result(
         request,
@@ -113,7 +151,7 @@ function createRitoCoreWasmReaderClient(request, dispose) {
         throw new Error(`Rito reader worker returned ${payload.kind} for releaseRevision`);
       }
     },
-    dispose,
+    dispose: disposeClient,
   };
 }
 
@@ -171,26 +209,21 @@ function elapsedMilliseconds(startedAt) {
 }
 
 async function handleWorkerRequest(deps, state, request) {
-  if (request.kind === 'open') return openWorkerDocument(deps, state, request.data);
+  if (request.kind === 'open') {
+    return openReaderSessionDocument(
+      state,
+      deps.initRitoCoreWasmEngine,
+      request.data,
+      'Rito reader worker',
+    );
+  }
   if (request.kind === 'dispose') {
-    disposeWorkerDocument(state);
+    disposeReaderSession(state);
     return { kind: 'dispose' };
   }
+  if (state.phase === 'disposed') throw new Error('Rito reader worker is disposed');
   if (!state.document) throw new Error('Rito reader worker document is not open');
   return state.document.readerWorkerPayload(request);
-}
-
-async function openWorkerDocument(deps, state, data) {
-  disposeWorkerDocument(state);
-  state.corePromise ??= deps.initRitoCoreWasmEngine();
-  const core = await state.corePromise;
-  state.document = core.openDocument(new Uint8Array(data));
-  return { kind: 'open', result: { publication: state.document.publication() } };
-}
-
-function disposeWorkerDocument(state) {
-  state.document?.free();
-  state.document = undefined;
 }
 
 async function result(request, input, kind, transfer) {
