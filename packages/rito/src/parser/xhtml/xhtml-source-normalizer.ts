@@ -1,4 +1,8 @@
 import { HTML_NAMED_ENTITIES } from './xhtml-named-entities';
+import {
+  countLegacyVoidElementInsertions,
+  normalizeLegacyVoidElements,
+} from './xhtml-void-normalizer';
 
 const XML_DECLARATION_RE = /^(\uFEFF?)<\?xml\s+([^?]*?)\?>/;
 const SINGLE_QUOTED_XML_DECLARATION_ATTRIBUTE_RE = /\b(version|encoding|standalone)='([^']*)'/g;
@@ -42,13 +46,15 @@ const ILLEGAL_XML_CHARS_RE =
  * literal there.
  */
 export function normalizeXhtmlSource(source: string): string {
-  return normalizeAmpersandsOutsidePreserved(normalizeXmlDeclaration(stripIllegalXmlChars(source)));
+  const sanitizedSource = stripIllegalXmlChars(source);
+  const structuralSource = normalizeLegacyVoidElements(normalizeXmlDeclaration(sanitizedSource));
+  return normalizeAmpersandsOutsidePreserved(structuralSource);
 }
 
 /** Calculate the post-normalization size without allocating the expanded output. */
 export function estimateNormalizedXhtmlSourceLength(source: string): number {
   const sanitizedSource = stripIllegalXmlChars(source);
-  let normalizedLength = sanitizedSource.length;
+  let normalizedLength = sanitizedSource.length + countLegacyVoidElementInsertions(sanitizedSource);
   let lastIndex = 0;
   for (const match of sanitizedSource.matchAll(PRESERVED_REGION_RE)) {
     normalizedLength += normalizedAmpersandLengthDelta(

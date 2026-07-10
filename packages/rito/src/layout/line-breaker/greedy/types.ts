@@ -28,4 +28,5 @@ export interface LineContext {
   readonly preserveWs: boolean;
   readonly allowWrap: boolean;
   readonly atoms: ReadonlyMap<number, InlineAtomSegment>;
+  readonly getBreakOffsets: () => ReadonlySet<number>;
 }

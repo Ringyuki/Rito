@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { findStyleRangeAt } from '../../src/layout/line-breaker/greedy/context';
+import type { StyleRange } from '../../src/layout/line-breaker/greedy/types';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { DEFAULT_STYLE } from '../../src/style/core/defaults';
 import type { ComputedStyle } from '../../src/style/core/types';
@@ -19,6 +21,8 @@ function seg(text: string, style?: Partial<ComputedStyle>): InlineSegment {
 }
 
 describe('GreedyParagraphLayouter', () => {
+  const performanceIt = process.env['RITO_COVERAGE'] === '1' ? it.skip : it;
+
   function lineTexts(text: string, width: number): string[] {
     return layouter
       .layoutParagraph([seg(text)], width, 0)
@@ -114,6 +118,36 @@ describe('GreedyParagraphLayouter', () => {
       expect(lines[1]?.runs).toHaveLength(0);
       expect(textOf(lines[2]?.runs[0])).toBe('b');
     });
+
+    performanceIt('classifies line breaks once for a paragraph with many forced lines', () => {
+      const longLine =
+        '这是一段需要自动折行的中文文本，用来验证断点分类不会反复扫描整段内容。'.repeat(2);
+      const text = Array.from({ length: 100 }, () => longLine).join('\n');
+      const startedAt = performance.now();
+      const lines = layouter.layoutParagraph([seg(text)], 160, 0);
+      const elapsedMs = performance.now() - startedAt;
+
+      expect(lines.length).toBeGreaterThan(100);
+      expect(elapsedMs).toBeLessThan(500);
+    });
+  });
+
+  it('locates late style ranges with logarithmic lookups', () => {
+    const ranges: readonly StyleRange[] = Array.from({ length: 8_192 }, (_, index) => ({
+      start: index * 2,
+      end: index * 2 + 2,
+      style: DEFAULT_STYLE,
+    }));
+    let indexedReads = 0;
+    const trackedRanges = new Proxy(ranges, {
+      get(target, property, receiver) {
+        if (typeof property === 'string' && Number.isInteger(Number(property))) indexedReads++;
+        return Reflect.get(target, property, receiver) as unknown;
+      },
+    });
+
+    expect(findStyleRangeAt(trackedRanges, 16_383)).toBe(ranges.at(-1));
+    expect(indexedReads).toBeLessThanOrEqual(14);
   });
 
   describe('text-indent', () => {

@@ -4,6 +4,7 @@ import { findHyphenationPoints } from '../../text/hyphenation';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { adjustBreakPosition, getLineBreakOffsets } from '../break-classifier';
+import { findStyleRangeAt } from './context';
 import type { StyleRange } from './types';
 
 export function findBreakPosition(
@@ -15,6 +16,7 @@ export function findBreakPosition(
   measurer: TextMeasurer,
   atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
   ranges?: readonly StyleRange[],
+  getBreakOffsets?: () => ReadonlySet<number>,
 ): BreakPosition {
   if (measureSlice(text, start, end, style, measurer, atoms, ranges) <= maxWidth) {
     return { position: end, hyphenated: false };
@@ -27,27 +29,22 @@ export function findBreakPosition(
     wordBreak: style.wordBreak,
     language: style.language,
   };
+  const breakOffsets = getBreakOffsets?.() ?? getLineBreakOffsets(text, options);
   const measureWidth = (sliceEnd: number): number =>
     measureSlice(text, start, sliceEnd, style, measurer, atoms, ranges);
-  const wordBreak = findWordBreak(text, start, fitPosition, options);
+  const adjustPosition = (candidate: number): number =>
+    adjustBreakPosition(text, start, end, candidate, maxWidth, measureWidth, options, breakOffsets);
+  const wordBreak = findWordBreak(start, fitPosition, breakOffsets);
   if (wordBreak === fitPosition) {
     const hyphenBreak = tryHyphenation(text, start, fitPosition, maxWidth, style, measurer);
     if (hyphenBreak > start) {
-      const position = adjustBreakPosition(
-        text,
-        start,
-        end,
-        hyphenBreak,
-        maxWidth,
-        measureWidth,
-        options,
-      );
+      const position = adjustPosition(hyphenBreak);
       return { position, hyphenated: position === hyphenBreak };
     }
   }
 
   return {
-    position: adjustBreakPosition(text, start, end, wordBreak, maxWidth, measureWidth, options),
+    position: adjustPosition(wordBreak),
     hyphenated: false,
   };
 }
@@ -118,7 +115,7 @@ function measureSliceRanged(
       continue;
     }
 
-    const range = findRangeAt(ranges, pos);
+    const range = findStyleRangeAt(ranges, pos);
     const rangeStyle = range?.style ?? fallbackStyle;
     const rangeEnd = range ? Math.min(range.end, end) : end;
     const sliceEnd = findTextSliceEnd(pos, rangeEnd, atoms);
@@ -177,13 +174,6 @@ function getRangeEndInset(
   return width;
 }
 
-function findRangeAt(ranges: readonly StyleRange[], pos: number): StyleRange | undefined {
-  for (const range of ranges) {
-    if (pos >= range.start && pos < range.end) return range;
-  }
-  return undefined;
-}
-
 /** Original simple measurement using a single style (for backward compatibility). */
 function measureSliceSimple(
   text: string,
@@ -211,13 +201,7 @@ function measureSliceSimple(
   return width;
 }
 
-function findWordBreak(
-  text: string,
-  start: number,
-  fitPos: number,
-  options: Parameters<typeof getLineBreakOffsets>[1],
-): number {
-  const offsets = getLineBreakOffsets(text, options);
+function findWordBreak(start: number, fitPos: number, offsets: ReadonlySet<number>): number {
   for (let index = fitPos; index > start; index--) {
     if (offsets.has(index)) return index;
   }

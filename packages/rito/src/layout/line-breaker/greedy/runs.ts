@@ -5,6 +5,7 @@ import type { InlineAtom, TextRun } from '../../core/types';
 import type { InlineAtomSegment } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
 import { runPaintFromStyle } from '../../text/run-paint-from-style';
+import { findStyleRangeAt } from './context';
 import type { StyleRange } from './types';
 
 /** Object Replacement Character used as placeholder for inline atoms. */
@@ -87,7 +88,7 @@ function processRange(
   measurer: TextMeasurer,
   baseFontSize?: number,
 ): ProcessRangeResult | undefined {
-  const range = findRange(ranges, globalPos);
+  const range = findStyleRangeAt(ranges, globalPos);
   if (!range) return undefined;
 
   const rangeEnd = Math.min(range.end - globalOffset, lineText.length);
@@ -242,13 +243,6 @@ function buildInlineAtom(
 
 function stripORC(text: string): string {
   return text.includes(ORC) ? text.replaceAll(ORC, '') : text;
-}
-
-function findRange(ranges: readonly StyleRange[], globalPos: number): StyleRange | undefined {
-  for (const range of ranges) {
-    if (globalPos >= range.start && globalPos < range.end) return range;
-  }
-  return undefined;
 }
 
 const ASCENT_RATIO = 0.8;

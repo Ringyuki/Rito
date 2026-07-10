@@ -2,6 +2,7 @@ import type { ComputedStyle } from '../../../style/core/types';
 import type { InlineAtomSegment, InlineSegment } from '../../text/styled-segment';
 import { isInlineAtom } from '../../text/styled-segment';
 import type { TextMeasurer } from '../../text/text-measurer';
+import { getLineBreakOffsets } from '../break-classifier';
 import type { LineContext, StyleRange } from './types';
 
 /** Object Replacement Character used as placeholder for inline atoms. */
@@ -60,6 +61,7 @@ export function buildLineContext(
   measurer: TextMeasurer,
   atoms: ReadonlyMap<number, InlineAtomSegment> = new Map(),
 ): LineContext {
+  let breakOffsets: ReadonlySet<number> | undefined;
   return {
     text,
     baseStyle,
@@ -70,7 +72,35 @@ export function buildLineContext(
     preserveWs: baseStyle.whiteSpace === 'pre' || baseStyle.whiteSpace === 'pre-wrap',
     allowWrap: baseStyle.whiteSpace !== 'pre' && baseStyle.whiteSpace !== 'nowrap',
     atoms,
+    getBreakOffsets: () => {
+      breakOffsets ??= getLineBreakOffsets(text, {
+        lineBreak: baseStyle.lineBreak,
+        wordBreak: baseStyle.wordBreak,
+        language: baseStyle.language,
+      });
+      return breakOffsets;
+    },
   };
+}
+
+/** Locate a position in the sorted, non-overlapping ranges built above. */
+export function findStyleRangeAt(
+  ranges: readonly StyleRange[],
+  position: number,
+): StyleRange | undefined {
+  let low = 0;
+  let high = ranges.length - 1;
+
+  while (low <= high) {
+    const middle = (low + high) >>> 1;
+    const range = ranges[middle];
+    if (!range) return undefined;
+    if (position < range.start) high = middle - 1;
+    else if (position >= range.end) low = middle + 1;
+    else return range;
+  }
+
+  return undefined;
 }
 
 export function consumeNewlines(text: string, pos: number, _preserveWs: boolean): number {

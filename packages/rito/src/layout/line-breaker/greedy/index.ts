@@ -93,7 +93,17 @@ function layoutSingleLine(
   const newlineIndex = text.indexOf('\n', pos);
   const lineEnd = newlineIndex >= 0 ? newlineIndex : text.length;
   const breakResult = allowWrap
-    ? findBreakPosition(text, pos, lineEnd, effectiveMax, baseStyle, measurer, atoms, ranges)
+    ? findBreakPosition(
+        text,
+        pos,
+        lineEnd,
+        effectiveMax,
+        baseStyle,
+        measurer,
+        atoms,
+        ranges,
+        ctx.getBreakOffsets,
+      )
     : { position: lineEnd, hyphenated: false };
   const breakPos = breakResult.position;
   const lineTextEnd = breakPos <= pos ? pos + 1 : breakPos;
