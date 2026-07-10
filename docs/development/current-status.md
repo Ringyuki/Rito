@@ -104,6 +104,10 @@ Those names now belong to the old TS reference tree only.
   the V1 wire or either decoder. Full-revision calibrations for `book-01`,
   `book-06`, and `book-10` now produce binary payloads between 78.6% and 81.2%
   of their JSON byte lengths, instead of 111.4% to 117.9% before reuse.
+- The JavaScript `RITORB1` decoder keeps the same FNV-1a checksum and object
+  semantics while avoiding per-byte `BigInt` work and unnecessary property
+  descriptors. Cross-language goldens and malformed-checksum rejection remain
+  unchanged, and the dominant browser decode hotspots are removed.
 - The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
   `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
   initial preview, deferred full layout, settings reflow, and real page turns.

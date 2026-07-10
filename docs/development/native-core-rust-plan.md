@@ -335,8 +335,10 @@ in place:
   primitive value reuse. Representative full revisions are now about 79% to
   81% of their JSON byte lengths. The A/B report now separates raw bytes, Rust
   encode, complete WASM method, JavaScript decode, worker processing, and worker
-  round-trip time; JSON remains the default while representative trends are
-  evaluated.
+  round-trip time. The JavaScript decoder now computes the unchanged FNV-1a
+  checksum with exact u32 lanes and avoids descriptors for ordinary object keys,
+  removing its identified large-payload hotspots. JSON remains the default
+  while representative trends are evaluated.
 - Generated browser binding smoke path that opens a fixture book, creates a
   revision, reads a frame, queries targets/search, and reads/releases a resource
   transfer.

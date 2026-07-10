@@ -344,6 +344,36 @@ test('decodeRitoRuntimeBundle preserves __proto__ as an own data property', () =
   assert.equal(payload.__proto__, true);
 });
 
+test('decodeRitoRuntimeBundle does not invoke inherited property setters', () => {
+  const inheritedKey = '__ritoRuntimeBundleInheritedSetter__';
+  const bytes = runtimeBundleBytes({
+    strings: [inheritedKey],
+    values: [runtimeTrueRecord(), runtimeObjectRecord([[0, 0]])],
+    rootIndex: 1,
+  });
+  let setterCalls = 0;
+  Object.defineProperty(Object.prototype, inheritedKey, {
+    configurable: true,
+    set: () => {
+      setterCalls += 1;
+    },
+  });
+
+  try {
+    const payload = decodeRitoRuntimeBundle(bytes).payload;
+
+    assert.equal(setterCalls, 0);
+    assert.deepEqual(Object.getOwnPropertyDescriptor(payload, inheritedKey), {
+      configurable: true,
+      enumerable: true,
+      value: true,
+      writable: true,
+    });
+  } finally {
+    Reflect.deleteProperty(Object.prototype, inheritedKey);
+  }
+});
+
 test('decodeRitoRuntimeBundle matches the shared Rust golden vector', async () => {
   const [jsonSource, hexSource] = await Promise.all([
     readFile(new URL('ritorb1-v1.json', RUNTIME_BUNDLE_GOLDEN_ROOT), 'utf8'),

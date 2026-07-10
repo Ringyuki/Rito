@@ -1,7 +1,11 @@
 const RUNTIME_BUNDLE_MAGIC = 'RITORB1';
 const RUNTIME_BUNDLE_VERSION = 1;
 const RUNTIME_BUNDLE_HEADER_BYTES = 56;
-const U64_MASK = 0xffffffffffffffffn;
+const FNV64_OFFSET_LOW = 0x84222325;
+const FNV64_OFFSET_HIGH = 0xcbf29ce4;
+const FNV64_PRIME_LOW = 0x1b3;
+const FNV64_PRIME_HIGH = 0x100;
+const U32_RANGE = 0x1_0000_0000;
 
 const TAG_NULL = 0;
 const TAG_FALSE = 1;
@@ -181,12 +185,17 @@ function readObject(values, strings, readUint32, count) {
   const result = {};
   for (let index = 0; index < count; index += 1) {
     const key = readString(strings, readUint32('RITORB1 object key index'));
-    Object.defineProperty(result, key, {
-      configurable: true,
-      enumerable: true,
-      value: readValue(values, readUint32('RITORB1 object value index')),
-      writable: true,
-    });
+    const value = readValue(values, readUint32('RITORB1 object value index'));
+    if (key in result) {
+      Object.defineProperty(result, key, {
+        configurable: true,
+        enumerable: true,
+        value,
+        writable: true,
+      });
+    } else {
+      result[key] = value;
+    }
   }
   return result;
 }
@@ -240,12 +249,18 @@ function checkedEnd(offset, length, limit, label) {
 }
 
 function runtimeBundleChecksum(bytes) {
-  let hash = 0xcbf29ce484222325n;
-  for (const byte of bytes) {
-    hash ^= BigInt(byte);
-    hash = (hash * 0x100000001b3n) & U64_MASK;
+  // FNV-1a's prime is 0x00000100_000001b3. Two u32 lanes avoid a temporary
+  // BigInt per byte; mixedLow * 0x1b3 stays below 2^41 and remains exact.
+  let low = FNV64_OFFSET_LOW;
+  let high = FNV64_OFFSET_HIGH;
+  for (let index = 0; index < bytes.length; index += 1) {
+    const mixedLow = (low ^ bytes[index]) >>> 0;
+    const lowProduct = mixedLow * FNV64_PRIME_LOW;
+    const carry = Math.floor(lowProduct / U32_RANGE);
+    high = (Math.imul(high, FNV64_PRIME_LOW) + Math.imul(mixedLow, FNV64_PRIME_HIGH) + carry) >>> 0;
+    low = lowProduct >>> 0;
   }
-  return hash;
+  return (BigInt(high) << 32n) | BigInt(low);
 }
 
 function readAscii(view, offset, length) {

@@ -78,6 +78,11 @@ Frame display command bytes stay outside this bundle and continue to use
   values. In a 420 x 640 single-page full-revision calibration, `RITORB1` is
   78.6% to 81.2% of JSON across `book-01`, `book-06`, and `book-10`; before
   primitive reuse those same payloads were 111.4% to 117.9% of JSON.
+- The JavaScript decoder preserves the V1 FNV-1a checksum and normal object
+  semantics while computing the checksum with exact u32 lanes instead of a
+  `BigInt` allocation per byte. Ordinary keys use fast assignment; inherited
+  keys still use own data-property descriptors, preserving `__proto__` and
+  polluted-prototype safety without paying that cost for every field.
 - Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
   `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
   revision round trips, committed spread counts, page-turn readiness, rAF
