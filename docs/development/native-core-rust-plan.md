@@ -341,6 +341,12 @@ in place:
   higher eager encode/decode elapsed cost, so JSON remains the default and the
   current decision is no-go pending materialization optimization and a second
   machine class.
+- Reader-private full chapter-text transport deduplication on both JSON and
+  `RITORB1`. Each Reader/publication inlines the document-stable entries once,
+  shares them across its foreground/full-reflow clients, and sends a scoped
+  reference on later full revisions. Preview responses remain inline, the
+  facade returns a fresh copy of the original revision-scoped shape, and the
+  generic V1 wire/golden remains unchanged.
 - Generated browser binding smoke path that opens a fixture book, creates a
   revision, reads a frame, queries targets/search, and reads/releases a resource
   transfer.
@@ -414,6 +420,11 @@ These are the real gaps against this plan:
      invalidate one another.
    - Keep JSON frame output and packed frame output sourced from the same
      commands.
+   - The reader cache currently removes repeated serialization and cross-worker
+     delivery of full chapter-text entries, but Rust still constructs and
+     clones revision-owned indices before the private projection sees a cache
+     hit. Move stable full-document data toward document-owned shared storage
+     or an internal handle without weakening revision-scoped API semantics.
    - Keep `RITORB1` opt-in. The local decode/ABBA evidence is an explicit no-go
      for a default switch: bytes are smaller, but eager encode/decode costs are
      materially higher. Optimize materialization, repeat the same matrix, and
@@ -615,6 +626,11 @@ and replacing the remaining guarded reference Canvas adapter when practical.
    - Preview/window revision bundles must not force full-document preparation.
      Footnotes and chapter text indices are stored on the revision record at
      creation time and read back from that record.
+   - Full reader revisions use a publication-scoped private transport cache for
+     document-stable chapter text indices. Cache identity is committed only
+     after document open succeeds; scope/reference validation failures release
+     the newly created revision, and public callers always receive fresh
+     hydrated entries rather than the mutable cached object.
    - Active resize preview is now a single worker/core operation from the
      browser binding's perspective. The binding passes the canonical layout,
      previous revision, and active spread; the worker asks Rust for the active

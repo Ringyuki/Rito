@@ -233,17 +233,25 @@ find packages/rito/src/reader -type f -name '*.ts' -print | sort | xargs wc -l
 
 ## Status Ledger
 
-| Date       | Round     | Browser Files | Browser Lines | Reader Files | Reader Lines | Status      |
-| ---------- | --------- | ------------: | ------------: | -----------: | -----------: | ----------- |
-| 2026-05-07 | Baseline  |            46 |          3314 |            6 |          353 | In progress |
-| 2026-05-07 | Round 1   |            38 |          2944 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 2   |            31 |          2563 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 3   |            15 |          2186 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 4   |            15 |          1846 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 5a  |            15 |          1781 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 5b  |            12 |          1449 |            6 |          353 | Complete    |
-| 2026-05-07 | Round 5c  |            11 |          1479 |            6 |          353 | Complete    |
-| 2026-07-10 | Hardening |            11 |          1512 |            6 |          354 | Complete    |
+| Date       | Round         | Browser Files | Browser Lines | Reader Files | Reader Lines | Status      |
+| ---------- | ------------- | ------------: | ------------: | -----------: | -----------: | ----------- |
+| 2026-05-07 | Baseline      |            46 |          3314 |            6 |          353 | In progress |
+| 2026-05-07 | Round 1       |            38 |          2944 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 2       |            31 |          2563 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 3       |            15 |          2186 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 4       |            15 |          1846 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 5a      |            15 |          1781 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 5b      |            12 |          1449 |            6 |          353 | Complete    |
+| 2026-05-07 | Round 5c      |            11 |          1479 |            6 |          353 | Complete    |
+| 2026-07-10 | Hardening     |            11 |          1512 |            6 |          354 | Complete    |
+| 2026-07-11 | Session cache |            12 |          1537 |            6 |          354 | Complete    |
+
+The session-cache increment keeps one Reader-scoped cache/factory in the
+browser shell while the cache implementation and protocol validation remain in
+the private core-wasm workspace. The architecture invariant's split-line count
+is now 1549/1550 for the browser binding (and 360/360 for `src/reader/**`), so
+the next browser-shell change must include a small cleanup or move policy back
+behind the core boundary.
 
 Round 2 completed the intended boundary change: browser `worker-main/` is now
 140 lines and delegates operation payload construction to the private

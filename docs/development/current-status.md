@@ -81,8 +81,8 @@ Those names now belong to the old TS reference tree only.
   surface instead of legacy core subpaths.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
 - The counted browser reader shell target has been hit:
-  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1524
-    lines by `wc -l` (1536 under the architecture invariant's split-line count;
+  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1537
+    lines by `wc -l` (1549 under the architecture invariant's split-line count;
     hard ceiling 1550), plus a 3-line static `.mjs` worker-entry facade
   - `packages/rito/src/reader/**`: 6 files / 354 lines
   - the hardening increment is explicit revision release, a bounded 12-frame
@@ -108,6 +108,12 @@ Those names now belong to the old TS reference tree only.
   semantics while avoiding per-byte `BigInt` work and unnecessary property
   descriptors. Cross-language goldens and malformed-checksum rejection remain
   unchanged, and the dominant browser decode hotspots are removed.
+- Full reader revisions now inline document-stable `chapterTextIndices.entries`
+  once per Reader/publication. That Reader's foreground and full-reflow clients
+  share a private cache, so later full revisions carry a validated scope
+  reference on either JSON or `RITORB1`; previews remain inline. The facade
+  hydrates a fresh snapshot into the unchanged public revision shape and does
+  not expose the private scope key.
 - The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
   `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
   initial preview, deferred full layout, settings reflow, and real page turns.
@@ -140,6 +146,11 @@ Those names now belong to the old TS reference tree only.
    - `RITORB1` now has a private first slice for the normal reader
      view-revision response, including the bundled initial frame-window and
      resource payload metadata already present in `WasmViewRevisionResponse`.
+   - Repeated full revisions now omit cached chapter-text entries on both wire
+     choices, reducing repeated metadata transport without changing the public
+     facade or generic V1 payload. Rust still prepares revision-owned entries
+     before the reader-private projection can omit them; removing that
+     construction is the next ownership/materialization target.
    - The binary reader path is still opt-in only. The A/B harness and always-on
      browser smoke now exist, and the A/B report separates raw-wire,
      Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
@@ -216,6 +227,9 @@ Pick one of these, in order:
      an explicit no-go for switching the default;
    - reduce eager value-table materialization and encode/decode elapsed cost
      without changing V1 bytes or the public object-shaped facade;
+   - stop rebuilding or deeply cloning full chapter-text indices before a
+     reader cache-hit projection; prefer document-owned shared data or an
+     internal handle while preserving revision-scoped public semantics;
    - repeat the same decode/ABBA matrix after optimization and add another
      machine class before reconsidering the default;
    - use the existing private reader switch and instrumented
@@ -303,4 +317,6 @@ criteria but produced a no-go default decision because eager binary
 encode/decode remains materially more expensive. Keep the binary path opt-in,
 optimize materialization, and repeat the matrix on another machine class before
 reconsidering the default. Do not expand into search or geometry merely because
-the payload is smaller.
+the payload is smaller. A later reader-private cache reduced repeated full
+chapter-text transport to roughly 3% of its inline size for both wires, but it
+does not remove the first inline payload or establish a binary speed advantage.

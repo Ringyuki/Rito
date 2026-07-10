@@ -9,21 +9,21 @@ JSON strings.
 
 Normal reader open and reflow use these JSON paths today:
 
-| Method                                     | Current caller                                               | Classification                      | RITORB1 action                                                                                                                                 |
-| ------------------------------------------ | ------------------------------------------------------------ | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `publicationJson()`                        | `openDocument()` reader setup                                | cold public metadata                | Leave JSON for now, or fold into a later publication bundle. Not first migration target.                                                       |
-| `createViewRevisionBundleJson()`           | normal initial preview, resize preview, deferred full reflow | hot runtime payload                 | First future target, but only behind an opt-in A/B path until page-turn smoothness is proven.                                                  |
-| `getFrameCommandBufferMetadataJson()`      | direct metadata reads, diagnostics                           | debug/cold direct metadata          | Keep JSON on the production reader path for now; frame-window metadata can join the opt-in bundle after revision parity is stable.             |
-| `prefetchPlannedFrameResourcesJson()`      | direct/debug planned resource inspection                     | debug/cold direct metadata          | Keep JSON on the production reader path for now; resource planning can join the opt-in bundle after revision parity is stable.                 |
-| `getResourcePayloadJson()`                 | explicit resource reads, diagnostics                         | warm runtime payload                | Keep JSON on the production reader path for now; transfer bytes still use `readResourceTransfer()` and metadata migration should be opt-in.    |
-| `searchJson()`                             | reader search                                                | warm interaction                    | Defer until revision/frame path is proven.                                                                                                     |
-| `resolveLocatorJson()`                     | TOC/link navigation                                          | warm interaction                    | Defer until revision/frame path is proven.                                                                                                     |
-| `getPageTargetsJson()`                     | page target lookups                                          | warm interaction                    | Defer; may share target/geometry tables with later interaction bundle.                                                                         |
-| `getPageTextPositionsJson()`               | text position lookup                                         | warm interaction                    | Defer; large text payloads need a dedicated table strategy.                                                                                    |
-| `getTextRangeGeometryJson()`               | selection/search geometry                                    | warm interaction                    | Defer; likely same later geometry table as page text positions.                                                                                |
-| `getFootnoteJson()` / `getFootnotesJson()` | footnote UI and revision bundle content                      | warm interaction / bundled metadata | Individual lookups can remain JSON initially; revision-bundle footnote maps should be represented by `RITORB1` when they are part of revision. |
-| `getChapterTextIndicesJson()`              | anchor/search compatibility data                             | warm interaction / bundled metadata | Same as footnotes: individual method can wait, revision-bundle content belongs in `RITORB1`.                                                   |
-| `getFrameJson()`                           | tests, diagnostics, fixture/debug paths                      | debug-only                          | Keep JSON for fixture and parity inspection. Do not use in normal reader runtime.                                                              |
+| Method                                       | Current caller                                               | Classification                      | RITORB1 action                                                                                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `publicationJson()`                          | `openDocument()` reader setup                                | cold public metadata                | Leave JSON for now, or fold into a later publication bundle. Not first migration target.                                                                 |
+| `createReaderViewRevisionBundleJson/Bytes()` | normal initial preview, resize preview, deferred full reflow | hot runtime payload                 | Reader-private projection for both wire choices; generic `createViewRevisionBundleJson/Bytes()` keeps the original shape for direct/debug/benchmark use. |
+| `getFrameCommandBufferMetadataJson()`        | direct metadata reads, diagnostics                           | debug/cold direct metadata          | Keep JSON on the production reader path for now; frame-window metadata can join the opt-in bundle after revision parity is stable.                       |
+| `prefetchPlannedFrameResourcesJson()`        | direct/debug planned resource inspection                     | debug/cold direct metadata          | Keep JSON on the production reader path for now; resource planning can join the opt-in bundle after revision parity is stable.                           |
+| `getResourcePayloadJson()`                   | explicit resource reads, diagnostics                         | warm runtime payload                | Keep JSON on the production reader path for now; transfer bytes still use `readResourceTransfer()` and metadata migration should be opt-in.              |
+| `searchJson()`                               | reader search                                                | warm interaction                    | Defer until revision/frame path is proven.                                                                                                               |
+| `resolveLocatorJson()`                       | TOC/link navigation                                          | warm interaction                    | Defer until revision/frame path is proven.                                                                                                               |
+| `getPageTargetsJson()`                       | page target lookups                                          | warm interaction                    | Defer; may share target/geometry tables with later interaction bundle.                                                                                   |
+| `getPageTextPositionsJson()`                 | text position lookup                                         | warm interaction                    | Defer; large text payloads need a dedicated table strategy.                                                                                              |
+| `getTextRangeGeometryJson()`                 | selection/search geometry                                    | warm interaction                    | Defer; likely same later geometry table as page text positions.                                                                                          |
+| `getFootnoteJson()` / `getFootnotesJson()`   | footnote UI and revision bundle content                      | warm interaction / bundled metadata | Individual lookups can remain JSON initially; revision-bundle footnote maps should be represented by `RITORB1` when they are part of revision.           |
+| `getChapterTextIndicesJson()`                | anchor/search compatibility data                             | warm interaction / bundled metadata | Same as footnotes: individual method can wait, revision-bundle content belongs in `RITORB1`.                                                             |
+| `getFrameJson()`                             | tests, diagnostics, fixture/debug paths                      | debug-only                          | Keep JSON for fixture and parity inspection. Do not use in normal reader runtime.                                                                        |
 
 JSON request inputs are also present for reflow/search/locator/resource/geometry
 requests. They are less urgent than response payloads because the largest
@@ -85,6 +85,12 @@ Frame display command bytes stay outside this bundle and continue to use
   `BigInt` allocation per byte. Ordinary keys use fast assignment; inherited
   keys still use own data-property descriptors, preserving `__proto__` and
   polluted-prototype safety without paying that cost for every field.
+- The reader-private projection deduplicates document-stable full
+  `chapterTextIndices.entries` on both JSON and `RITORB1`. The first full cache
+  miss inlines entries with scope `chapter-text-v1:full`; later full cache hits
+  send only revision id plus scope. Preview revisions stay inline. This does
+  not change the generic `createViewRevisionBundleJson/Bytes()` shape,
+  `RITORB1` V1 bytes/golden, or the public object returned by `@ritojs/core`.
 - Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
   `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
   revision round trips, committed spread counts, page-turn readiness, rAF
@@ -146,7 +152,8 @@ metrics are a no-regression probe rather than a claim that turns themselves use
 
 The local result is an explicit no-go for making the binary path default:
 payloads are smaller, but eager encode/decode costs are materially higher. Do
-not move another payload yet. Optimize value-table materialization without
-changing V1 bytes, repeat the same report, and add another machine class before
-changing the default. `RITOFCB2` command bytes, transfer bytes, and JSON
-fixture/debug output remain available throughout that work.
+not move another payload yet. Optimize value-table materialization and avoid
+constructing stable full chapter-text entries before a reader cache-hit
+projection without changing V1 bytes, repeat the same report, and add another
+machine class before changing the default. `RITOFCB2` command bytes, transfer
+bytes, and JSON fixture/debug output remain available throughout that work.

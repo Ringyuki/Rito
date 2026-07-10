@@ -92,6 +92,53 @@ Functional acceptance passed in all twelve sessions:
 - the first run had one isolated long task on each wire, and the next two runs
   had none.
 
+## Post-Baseline Follow-Up
+
+The measurements below were collected after the fixed decision matrix above.
+They are implementation checkpoints, not replacements for the recorded
+`3f1401e` baseline or evidence for changing the default wire.
+
+- `ea15e7c67ffbf94b5010e8d9f9182751c4c503cb` changed only the JavaScript
+  implementation of the existing V1
+  FNV-1a checksum. A fresh-process `book-01` calibration reduced median
+  `RITORB1` decode from the baseline 11.613 ms to 4.91-4.93 ms, or roughly
+  2.20-2.21x JSON. The V1 bytes, checked golden, and rejection behavior stayed
+  unchanged. This single-fixture follow-up is not the full repeatability
+  matrix.
+- `27fc8342fdd84f49f588ef129646a42847c49141` added a reader-private publication
+  cache for document-stable full
+  `chapterTextIndices`. The first full revision still carries inline entries;
+  later full revisions from either reader worker carry a scoped reference that
+  the facade hydrates back to the unchanged public object shape. Preview
+  revisions, public JSON/debug methods, and generic `RITORB1` V1 payloads stay
+  unchanged.
+
+A real-WASM `book-01` calibration measured the full revision transport before
+and after the scoped-reference projection:
+
+| Wire      | Inline bytes | Reference bytes | Ref / inline | Inline Rust encode | Ref Rust encode |
+| --------- | -----------: | --------------: | -----------: | -----------------: | --------------: |
+| JSON      |    1,224,840 |          35,456 |        2.90% |           2.165 ms |        0.063 ms |
+| `RITORB1` |      972,393 |          32,397 |        3.33% |          11.190 ms |        0.378 ms |
+
+The dedicated browser ABBA smoke also passed after the change. In that run,
+initial full payloads were 961,910 bytes for JSON and 789,703 bytes for
+`RITORB1`; cached settings-reflow full payloads fell to 22,082 and 19,491 bytes
+respectively. All sessions remained non-blank and error-free, and preview/full
+revision counts and page-turn readiness checks passed.
+
+The cache is scoped to one reader publication and shared only by that reader's
+foreground/full worker clients. Publication identity is committed only after a
+successful open, cached entries are hydrated from an immutable snapshot, and
+invalid references or failed hydration release the newly created revision.
+The remaining Rust path still prepares revision-owned interaction data before
+the private projection can omit it; avoiding that redundant construction is a
+separate follow-up.
+
+These changes remove repeated transport work but do not reverse the no-go:
+the first full payload remains inline, the binary reference still costs more
+to encode/decode than JSON, and a second machine class has not been measured.
+
 ## Decision And Next Gate
 
 The first slice is semantically sound and smaller on the wire, but the current
@@ -100,9 +147,10 @@ eager encoder/decoder does not earn a default switch:
 1. JSON remains the production reader default.
 2. `RITORB1` remains private and opt-in for agreement and performance work.
 3. Do not move search, locator, geometry, or other payloads yet.
-4. The next binary-wire implementation target is reducing eager value-table
-   materialization and encode/decode elapsed cost without changing V1 bytes or
-   the public object-shaped facade.
+4. Continue reducing eager value-table materialization and avoid constructing
+   document-stable metadata when the reader-private transport will emit a
+   cache reference, without changing V1 bytes or the public object-shaped
+   facade.
 5. Re-run this matrix after that optimization, then add at least one second
    machine class before reconsidering the default.
 
