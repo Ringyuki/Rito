@@ -41,7 +41,8 @@ crates/rito-wasm
 
 packages/rito
   @ritojs/core public npm package
-  thin reader facade, browser loader, worker adapter, resource adapter
+  thin reader facade, browser loader/worker/resource adapters,
+  production Canvas frame-command executor
 
 packages/kit
   controller, interaction helpers, overlays, storage, transitions
@@ -165,11 +166,19 @@ Those names now belong to the old TS reference tree only.
      `packages/rito-core-wasm/src/types/**` are still hand-written.
    - Long term, Rust/schema should generate TypeScript DTO declarations.
 4. **Browser presentation adapter**
-   - `packages/rito/src/bindings/browser/rendering.ts` is the remaining guarded
-     production adapter that delegates Canvas rendering to the TS reference
-     display-list renderer.
-   - This dependency is visible and intentional for parity, but it is not the
-     final renderer-ready boundary.
+   - `packages/rito/src/bindings/browser/frame-command-renderer.ts` now owns
+     dispatch and Canvas state for all 12 decoded Rust frame-command kinds,
+     including transforms, clipping, page/image/HR painting, color overrides,
+     and pixel-ratio scaling.
+   - `packages/rito/src/bindings/browser/rendering.ts` retains one guarded
+     reference edge for four paint-leaf hooks (block, text, ruby, and rounded
+     paths) plus the image href resolver: `renderBlockDecoration`,
+     `drawTextFragment`, `drawRubyFragment`, `traceRoundedRect`, and
+     `createCanvasImageResolver`. The old TS display-list dispatcher is no
+     longer in the production bundle, and the production executor must remain
+     reference-free.
+   - This smaller dependency is visible and intentional for parity, but the
+     paint leaves are not the final renderer-ready boundary.
 
 ## Do Not Do
 

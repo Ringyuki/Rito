@@ -329,6 +329,12 @@ in place:
   covering 189 cases and 378 render summaries.
 - Packed frame command buffer with a stable V2 manifest, command metadata,
   resource metadata, payload tables, and JavaScript decoder tests.
+- The production browser Canvas path owns dispatch and state execution for all
+  12 validated frame-command kinds in
+  `src/bindings/browser/frame-command-renderer.ts`. The historical
+  `canvasDisplayListRenderer` is no longer present in the production bundle;
+  `rendering.ts` injects only four reference paint/path hooks and one image
+  resolver.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
   WebWorker smoke, an opt-in ABBA reader-session harness, and wire-compatible
@@ -355,7 +361,8 @@ This is the production core baseline, though display parity and runtime/wire
 hardening remain active work. The old TypeScript implementation is physically
 quarantined under `src/reference/ts-core`, and the public package artifact no
 longer has a runtime dependency on the private WASM workspace. The remaining
-intentional reference edge is the guarded Canvas display-list renderer adapter.
+intentional reference edge is a guarded set of Canvas paint-leaf hooks and the
+image href resolver; frame-command execution itself is production-owned.
 
 Current source ownership is:
 
@@ -367,14 +374,15 @@ Current source ownership is:
   single worker boundary call; the browser shell only decodes/caches browser
   frames and image resources.
 - Direct browser-binding imports of old TypeScript parser/layout/render/runtime
-  contracts are now reduced to a single Canvas display-list renderer adapter:
+  contracts are now reduced to five Canvas paint-leaf/resolver imports in
   `src/bindings/browser/rendering.ts`. Other browser-binding files must not
-  import the TypeScript reference tree, so the remaining TS renderer dependency
-  surface is visible and replaceable.
+  import the TypeScript reference tree, so the remaining TS paint dependency is
+  visible and replaceable. The 12-kind command dispatcher and Canvas state
+  machine live in the production `frame-command-renderer.ts` adapter.
 - `src/reader/types.ts` owns the root reader's structural public types. The
   browser binding no longer imports Reader API shapes from the TypeScript
-  reference tree; the dedicated Canvas renderer adapter is the only remaining
-  production browser-binding bridge to the TS reference display-list renderer.
+  reference tree; the guarded Canvas paint leaves are the only remaining
+  production browser-binding bridge to TS reference render code.
 - `src/reader/layout-config.ts` owns the lightweight root `createLayoutConfig`
   helper used by kit. The root package no longer needs the legacy TS layout
   config factory for this public reader contract.
@@ -401,9 +409,11 @@ These are the real gaps against this plan:
      comparison, and diagnostics through `src/reference/index.ts`.
    - Keep compatibility source files for diagnostics only; do not publish them
      as package subpaths.
-   - Replace the remaining browser Canvas renderer adapter import of
-     `src/reference/ts-core/render/**` once the production browser display-list
-     renderer no longer depends on TS reference render code.
+   - Replace the remaining `renderBlockDecoration`, `drawTextFragment`,
+     `drawRubyFragment`, `traceRoundedRect`, and `createCanvasImageResolver`
+     imports from `src/reference/ts-core/render/**`. Command dispatch, Canvas
+     state, transforms, clipping, page/image/HR painting, and pixel-ratio
+     scaling are already production-owned.
 2. **Core parity hardening**
    - Continue tightening the CSS subset already supported by the TS core.
    - Continue line-breaking and typography policy hardening.
@@ -509,8 +519,10 @@ Compatibility rules:
   lightweight reader-facing structural helpers only.
 - `src/compatibility/**` may re-export old TS primitives for source-level
   diagnostics, but it must not become a package export.
-- `src/bindings/**` must not import `src/reference/**` except for the single
-  guarded browser Canvas display-list renderer adapter.
+- `src/bindings/**` must not import `src/reference/**` except for the exact
+  guarded Canvas paint-leaf/resolver imports in
+  `src/bindings/browser/rendering.ts`.
+  `src/bindings/browser/frame-command-renderer.ts` must remain reference-free.
 - `@ritojs/kit`, `@ritojs/react`, and apps must not import `src/reference/**` or
   removed legacy core subpaths for the main reader API.
 - Golden, fixture, diagnostic, and parity tools should import the reference
@@ -562,13 +574,15 @@ tests exercise the Rust-backed `@ritojs/core` path in the reader stack.
 The React reader now runs through Rust-backed root `@ritojs/core`, and the
 source-layout reset is complete. Current work should preserve that baseline
 while closing display parity gaps, validating the opt-in binary metadata wire,
-and replacing the remaining guarded reference Canvas adapter when practical.
+and replacing the remaining guarded reference Canvas paint leaves when
+practical.
 
 1. **Quarantine the old TypeScript core - done, still reducing shims**
    - Browser binding guardrails are in place: only
-     `src/bindings/browser/rendering.ts` may import the old
-     TS display-list renderer directly. This prevents new scattered dependencies
-     while the physical move is staged.
+     `src/bindings/browser/rendering.ts` may import the exact old TS Canvas
+     paint-leaf/resolver helpers. This prevents new scattered dependencies while
+     the remaining paint leaves are migrated. Production command execution
+     lives in `frame-command-renderer.ts`, which must remain reference-free.
    - The old TS implementation now lives under `src/reference/ts-core/**`:
      parser, style, layout, render, runtime, interaction, dom/web helpers, and
      supporting utilities/models.
@@ -579,9 +593,9 @@ and replacing the remaining guarded reference Canvas adapter when practical.
    - Root old-core directories are no longer kept as generated shims; test and
      diagnostic imports were retargeted to `src/reference/ts-core/**`.
    - Do not let reference imports leak through production package entries. The
-     only current exception is the guarded browser display-list renderer adapter
-     while Canvas presentation still consumes the historical display-list
-     renderer.
+     only current exception is the guarded block/text/ruby/rounded-path paint
+     hooks and image href resolver. The historical display-list dispatcher is
+     no longer consumed by production Canvas presentation.
 2. **Tighten public and compatibility entries**
    - Keep root `@ritojs/core` focused on the Rust-backed reader and the small
      public capability surface.
@@ -599,9 +613,10 @@ and replacing the remaining guarded reference Canvas adapter when practical.
      WASM loading, worker setup, request correlation, Canvas presentation,
      ImageBitmap/object URL/FontFace lifecycle, and conversion to the existing
      `Reader` contract.
-   - Browser binding files must consume the old TS display-list renderer only
-     through `src/bindings/browser/rendering.ts` until the browser presentation layer no
-     longer depends on TS reference render code.
+   - Browser binding files may consume the old TS Canvas paint-leaf/resolver
+     helpers only through `src/bindings/browser/rendering.ts` until the browser
+     presentation layer no longer depends on TS reference render code.
+     They must not consume the historical TS display-list renderer.
    - It should not grow new core policy. Preview/full revision scheduling,
      active frame policy, frame-cache policy, and resource warm decisions should
      continue moving into Rust runtime APIs.
@@ -684,7 +699,9 @@ and replacing the remaining guarded reference Canvas adapter when practical.
 5. **Minimum render path - done, still hardening**
    - EPUB bytes open through Rust.
    - Layout revisions are created from existing `ReaderOptions`.
-   - Canvas rendering consumes Rust display-list frames.
+   - Validated Rust frame-command buffers are executed by the production-owned
+     browser Canvas command executor; reference code supplies only the guarded
+     paint/path/image-resolution leaves.
    - Image resources use Rust transfer leases and are prewarmed best-effort.
    - Browser font registration uses Rust `@font-face` summaries.
 
@@ -808,7 +825,8 @@ Required cleanup:
      comparison, and diagnostics.
    - Add invariants that prohibit `src/reader/**`, `@ritojs/kit`,
      `@ritojs/react`, apps, and browser binding files other than the guarded
-     Canvas display-list renderer adapter from importing `src/reference/**`.
+     `rendering.ts` paint-leaf/resolver adapter from importing
+     `src/reference/**`; keep `frame-command-renderer.ts` reference-free.
    - Add invariants that force any stable package entry using the old TS core to
      go through `src/compatibility/**`, so compatibility debt is visible and
      removable.
@@ -822,8 +840,8 @@ Required cleanup:
      compatibility code and parity tests, not the production reader contract.
    - Reader API structural types used by the browser binding come from
      `src/reader/types.ts`, not from the old TS reference tree. This keeps the
-     remaining reference import limited to the temporary Canvas display-list
-     renderer adapter.
+     remaining reference import limited to the temporary Canvas paint-leaf and
+     image-resolver boundary.
    - Root `@ritojs/core` exports the reader-facing structural types and
      `createLayoutConfig` from `src/reader/**`. Kit may still call legacy
      interaction helpers from compatibility subpaths, but those casts must stay
@@ -883,8 +901,8 @@ Required cleanup:
    - The old TypeScript reader and old TypeScript core should be reachable
      through `src/reference/index.ts` for parity and diagnostic use. Production
      reader binding files and app-facing packages must not import it, except for
-     the guarded browser Canvas display-list renderer adapter while that adapter
-     still delegates painting to the TS reference renderer.
+     the guarded browser Canvas paint-leaf/resolver imports while those leaves
+     still delegate part of painting to TS reference render code.
 4. **Runtime state machine**
    - Keep preview reflow, full revision commit, frame cache, and resource warm
      as explicit pipeline stages.
