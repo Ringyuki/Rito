@@ -4,8 +4,8 @@
  * not from layout output — so they are document-stable.
  */
 
-import type { Reader } from '@ritojs/core/web';
-import type { ChapterTextIndex } from '@ritojs/core/annotations';
+import type { Reader } from '@ritojs/core';
+import type { ChapterTextIndex } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
 
 export function syncChapterIndices(state: CoordinatorState, reader: Reader): void {

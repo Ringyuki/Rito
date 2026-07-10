@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
@@ -26,6 +26,10 @@ export interface WiringDeps {
    * the persisted position with the controller's own initial spread-0 event.
    */
   hasRestored: () => boolean;
+  /** Continue a deferred navigation once an async content slot is ready. */
+  notifyNavigationContentReady: (index: number) => void;
+  /** Sync viewport-sized buffers before painting a current-spread visual refresh. */
+  syncViewport?: () => void;
 }
 
 /** Build a WiringDeps object from internals + runtime components. */
@@ -35,8 +39,9 @@ export function buildWiringDeps(
   frameDriver: FrameDriver,
   canvas: HTMLCanvasElement,
   nav: NavigationActions,
+  syncViewport?: () => void,
 ): WiringDeps {
-  return {
+  const deps: WiringDeps = {
     reader: internals.reader,
     engines: internals.engines,
     emitter,
@@ -53,7 +58,12 @@ export function buildWiringDeps(
       nav.goToSpread(i);
     },
     hasRestored: () => internals.restoreCompleted,
+    notifyNavigationContentReady: (i) => {
+      nav.notifyContentReady(i);
+    },
   };
+  if (syncViewport) return { ...deps, syncViewport };
+  return deps;
 }
 
 /** Convert a PointerEvent to spread-content coordinates via the mapper. */

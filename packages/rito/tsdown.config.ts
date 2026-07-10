@@ -1,25 +1,17 @@
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: [
-    'src/index.ts',
-    'src/advanced.ts',
-    'src/web.ts',
-    'src/integration.ts',
-    'src/selection.ts',
-    'src/search.ts',
-    'src/annotations.ts',
-    'src/position.ts',
-    'src/a11y.ts',
-    'src/dom.ts',
-  ],
+  entry: {
+    index: 'src/index.ts',
+    'worker-entry': 'src/bindings/browser/reader/worker-main.ts',
+  },
   format: 'esm',
   dts: true,
   sourcemap: true,
   clean: true,
   tsconfig: 'tsconfig.build.json',
   deps: {
-    alwaysBundle: ['saxes', 'xmlchars'],
-    onlyBundle: ['saxes', 'xmlchars'],
+    alwaysBundle: [/^@ritojs\/core-wasm(?:\/.*)?$/, 'saxes', 'xmlchars'],
+    onlyBundle: false,
   },
 });

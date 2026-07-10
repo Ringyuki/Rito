@@ -11,7 +11,10 @@ export type OverlayProvider = (spreadIndex: number) => readonly OverlayLayer[];
  * Callback to render a spread's content into a context.
  * Matches `reader.renderSpreadTo(index, ctx)`.
  */
-export type ContentRenderer = (spreadIndex: number, ctx: OffscreenCanvasRenderingContext2D) => void;
+export type ContentRenderer = (
+  spreadIndex: number,
+  ctx: OffscreenCanvasRenderingContext2D,
+) => boolean;
 
 /** Three-slot ring buffer for page content + overlay sub-buffers. */
 export interface PageBufferPool {
@@ -26,8 +29,8 @@ export interface PageBufferPool {
   /** Assign a spread index to a named slot position. Marks content + overlay dirty. */
   assignSlot(position: SlotPosition, spreadIndex: number): void;
 
-  /** Ensure a slot's content is up to date. Calls renderer if dirty. */
-  ensureContent(position: SlotPosition, renderer: ContentRenderer): void;
+  /** Ensure a slot's content is up to date. Returns false when renderer deferred painting. */
+  ensureContent(position: SlotPosition, renderer: ContentRenderer): boolean;
 
   /** Ensure a slot's overlay is up to date. Creates overlay buffer lazily. */
   ensureOverlay(position: SlotPosition, provider: OverlayProvider, backingRatio: number): void;
@@ -43,6 +46,9 @@ export interface PageBufferPool {
 
   /** Mark all content slots as dirty (e.g. after resize or theme change). */
   invalidateAllContent(): void;
+
+  /** Mark content dirty for a specific spread index (if it's in the pool). */
+  invalidateContentForSpread(spreadIndex: number): void;
 
   /** Mark overlay dirty for a specific spread index (if it's in the pool). */
   invalidateOverlayForSpread(spreadIndex: number): void;
@@ -88,6 +94,8 @@ function clearSlot(slot: PageBufferSlot): void {
 interface PageBufferPoolState {
   readonly slots: [PageBufferSlot, PageBufferSlot, PageBufferSlot];
   indices: [number, number, number];
+  width: number;
+  height: number;
 }
 
 export function createPageBufferPool(): PageBufferPool {
@@ -106,6 +114,8 @@ function createPoolState(): PageBufferPoolState {
   return {
     slots: [createSlot(1, 1), createSlot(1, 1), createSlot(1, 1)],
     indices: [0, 1, 2],
+    width: 1,
+    height: 1,
   };
 }
 
@@ -139,13 +149,16 @@ function createRenderMethods(
     resize(cssWidth, cssHeight, dpr): void {
       const w = Math.round(cssWidth * dpr);
       const h = Math.round(cssHeight * dpr);
+      if (state.width === w && state.height === h) return;
+      state.width = w;
+      state.height = h;
       for (const slot of state.slots) resizeSlot(slot, w, h);
     },
     assignSlot(position, spreadIndex): void {
       assignSlot(state, position, spreadIndex);
     },
-    ensureContent(position, renderer): void {
-      ensureContent(state, position, renderer);
+    ensureContent(position, renderer): boolean {
+      return ensureContent(state, position, renderer);
     },
     ensureOverlay(position, provider, backingRatio): void {
       ensureOverlay(state, position, provider, backingRatio);
@@ -165,13 +178,16 @@ function ensureContent(
   state: PageBufferPoolState,
   position: SlotPosition,
   renderer: ContentRenderer,
-): void {
+): boolean {
   const slot = getSlot(state, position);
-  if (!slot.contentDirty || slot.spreadIndex === null) return;
+  if (slot.spreadIndex === null) return false;
+  if (!slot.contentDirty) return true;
   const ctx = slot.content.getContext('2d');
-  if (!ctx) return;
-  renderer(slot.spreadIndex, ctx);
+  if (!ctx) return false;
+  const rendered = renderer(slot.spreadIndex, ctx);
+  if (!rendered) return false;
   slot.contentDirty = false;
+  return true;
 }
 
 function ensureOverlay(
@@ -231,11 +247,22 @@ function createInvalidationMethods(
   state: PageBufferPoolState,
 ): Pick<
   PageBufferPool,
-  'invalidateAllContent' | 'invalidateOverlayForSpread' | 'invalidateAllOverlays' | 'getSlotFor'
+  | 'invalidateAllContent'
+  | 'invalidateContentForSpread'
+  | 'invalidateOverlayForSpread'
+  | 'invalidateAllOverlays'
+  | 'getSlotFor'
 > {
   return {
     invalidateAllContent(): void {
       for (const slot of state.slots) {
+        slot.contentDirty = true;
+        slot.overlayDirty = true;
+      }
+    },
+    invalidateContentForSpread(spreadIndex): void {
+      for (const slot of state.slots) {
+        if (slot.spreadIndex !== spreadIndex) continue;
         slot.contentDirty = true;
         slot.overlayDirty = true;
       }

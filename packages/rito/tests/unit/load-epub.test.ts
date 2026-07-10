@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
 import { zipSync, strToU8 } from 'fflate';
-import { loadEpub } from '../../src/runtime/load-epub';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { buildHrefResolver } from '../../src/utils/resolve-href';
-import { createLogger } from '../../src/utils/logger';
+import { buildHrefResolver } from '../../src/reference/ts-core/utils/resolve-href';
+import { createLogger } from '../../src/reference/ts-core/utils/logger';
 
 function buildCustomEpub(options: {
   readonly opf: string;

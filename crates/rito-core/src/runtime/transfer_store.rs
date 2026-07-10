@@ -1,0 +1,151 @@
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+
+use super::{RuntimeResource, RuntimeResourceKind};
+use crate::epub::{EpubError, EpubResult};
+
+#[derive(Debug, Default)]
+pub struct RuntimeResourceTransferStore {
+    next_transfer_index: usize,
+    transfers: BTreeMap<String, RuntimeResourceTransfer>,
+}
+
+impl RuntimeResourceTransferStore {
+    pub fn new() -> Self {
+        Self {
+            next_transfer_index: 1,
+            transfers: BTreeMap::new(),
+        }
+    }
+
+    pub fn store(&mut self, resource: RuntimeResource) -> RuntimeResourceTransferPayload {
+        let transfer_id = self.create_transfer_id();
+        let payload = RuntimeResourceTransferPayload::from_resource(&transfer_id, &resource);
+        self.transfers.insert(
+            transfer_id,
+            RuntimeResourceTransfer {
+                payload: payload.clone(),
+                bytes: resource.bytes,
+            },
+        );
+        payload
+    }
+
+    pub fn read(&self, transfer_id: &str) -> EpubResult<&[u8]> {
+        self.transfers
+            .get(transfer_id)
+            .map(|transfer| transfer.bytes.as_slice())
+            .ok_or_else(|| EpubError::new(format!("unknown resource transfer: {transfer_id}")))
+    }
+
+    pub fn release(&mut self, transfer_id: &str) -> bool {
+        self.transfers.remove(transfer_id).is_some()
+    }
+
+    pub fn release_revision(&mut self, revision_id: &str) -> usize {
+        let before = self.transfers.len();
+        self.transfers
+            .retain(|_, transfer| transfer.payload.revision_id != revision_id);
+        before - self.transfers.len()
+    }
+
+    pub fn len(&self) -> usize {
+        self.transfers.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.transfers.is_empty()
+    }
+
+    fn create_transfer_id(&mut self) -> String {
+        let transfer_id = format!("transfer-{}", self.next_transfer_index);
+        self.next_transfer_index += 1;
+        transfer_id
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeResourceTransferPayload {
+    pub revision_id: String,
+    pub transfer_id: String,
+    pub kind: RuntimeResourceKind,
+    pub href: String,
+    pub media_type: String,
+    pub byte_length: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub width: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub height: Option<u32>,
+}
+
+impl RuntimeResourceTransferPayload {
+    fn from_resource(transfer_id: &str, resource: &RuntimeResource) -> Self {
+        Self {
+            revision_id: resource.revision_id.clone(),
+            transfer_id: transfer_id.to_owned(),
+            kind: resource.kind,
+            href: resource.href.clone(),
+            media_type: resource.media_type.clone(),
+            byte_length: resource.byte_length(),
+            width: resource.width,
+            height: resource.height,
+        }
+    }
+}
+
+#[derive(Debug)]
+struct RuntimeResourceTransfer {
+    payload: RuntimeResourceTransferPayload,
+    bytes: Vec<u8>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RuntimeResourceTransferStore;
+    use crate::runtime::{RuntimeResource, RuntimeResourceKind};
+
+    #[test]
+    fn creates_independent_transfer_leases_for_reused_resources() {
+        let mut store = RuntimeResourceTransferStore::new();
+
+        let first = store.store(resource("rev-1", b"image-bytes"));
+        let second = store.store(resource("rev-1", b"image-bytes"));
+
+        assert_ne!(first.transfer_id, second.transfer_id);
+        assert_eq!(first.byte_length, 11);
+        assert_eq!(store.len(), 2);
+        assert!(store.release(&first.transfer_id));
+        assert!(store.read(&first.transfer_id).is_err());
+        assert_eq!(
+            store.read(&second.transfer_id).expect("second remains"),
+            b"image-bytes"
+        );
+    }
+
+    #[test]
+    fn releases_transfers_by_revision() {
+        let mut store = RuntimeResourceTransferStore::new();
+        let rev1 = store.store(resource("rev-1", b"one"));
+        let rev2 = store.store(resource("rev-2", b"two"));
+
+        assert_eq!(store.release_revision("rev-1"), 1);
+
+        assert!(store.read(&rev1.transfer_id).is_err());
+        assert_eq!(store.read(&rev2.transfer_id).expect("rev2 remains"), b"two");
+        assert_eq!(store.len(), 1);
+    }
+
+    fn resource(revision_id: &str, bytes: &[u8]) -> RuntimeResource {
+        RuntimeResource {
+            revision_id: revision_id.to_owned(),
+            kind: RuntimeResourceKind::Image,
+            href: "Images/cover.png".to_owned(),
+            media_type: "image/png".to_owned(),
+            bytes: bytes.to_vec(),
+            width: Some(2),
+            height: Some(3),
+        }
+    }
+}

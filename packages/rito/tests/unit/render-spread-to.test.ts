@@ -5,8 +5,9 @@ import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import type { Reader, ReaderOptions } from '../../src/reader';
 
-vi.mock('../../src/render/web/resources', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../src/render/web/resources')>();
+vi.mock('../../src/reference/ts-core/render/web/resources', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('../../src/reference/ts-core/render/web/resources')>();
   const mockMeasurer = createMockTextMeasurer(0.6);
   return {
     ...actual,
@@ -72,7 +73,7 @@ const DEFAULT_OPTIONS: ReaderOptions = {
 };
 
 async function buildReader(): Promise<Reader> {
-  const { createReader } = await import('../../src/reader');
+  const { createReader } = await import('../../src/reference');
   const data = buildMinimalEpub({
     chapters: [{ id: 'ch1', href: 'ch1.xhtml', content: xhtml('<p>Hello World</p>') }],
   });

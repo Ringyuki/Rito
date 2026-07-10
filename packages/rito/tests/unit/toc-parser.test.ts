@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseNavDocument, parseNcx } from '../../src/parser/epub/toc-parser';
+import { parseNavDocument, parseNcx } from '../../src/reference/ts-core/parser/epub/toc-parser';
 
 describe('parseNavDocument', () => {
   it('parses a valid EPUB3 nav document', () => {

@@ -1,9 +1,9 @@
 // @vitest-environment happy-dom
 import { describe, expect, it, vi } from 'vitest';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { loadEpub } from '../../src/runtime/load-epub';
-import { paginateWithMeta } from '../../src/runtime/paginate';
-import type { Logger } from '../../src/utils/logger';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
+import { paginateWithMeta } from '../../src/reference/ts-core/runtime/paginate';
+import type { Logger } from '../../src/reference/ts-core/utils/logger';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 

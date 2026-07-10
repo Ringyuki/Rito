@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { TocEntry } from '@ritojs/core';
-import type { ReaderThemeOptions } from '@ritojs/core/web';
+import { preloadReaderRuntime, type TocEntry } from '@ritojs/core';
 import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   useRitoReader,
@@ -22,8 +21,11 @@ const ZOOM_SCALE_MAX = 2.0;
 
 const positionStorage = createLocalStoragePositionAdapter('rito-position');
 const annotationStorage = createLocalStorageAnnotationAdapter('rito-annotations');
+let demoEpubBlobPromise: Promise<Blob> | undefined;
 
-function getThemeOptions(theme: 'light' | 'dark'): ReaderThemeOptions {
+void preloadReaderRuntime().catch(() => undefined);
+
+function getThemeOptions(theme: 'light' | 'dark') {
   if (theme === 'dark') return { backgroundColor: '#1a1a1a', foregroundColor: '#e5e5e5' };
   return { backgroundColor: '#ffffff', foregroundColor: null };
 }
@@ -45,7 +47,7 @@ export function useReader(
 
   const vpWidth = containerWidth > 0 ? Math.round(containerWidth / zoomScale) : 0;
   const vpHeight = containerHeight > 0 ? Math.round(containerHeight / zoomScale) : 0;
-  const margin = containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
+  const margin = readerViewportMargin(containerWidth);
 
   const rito = useRitoReader({
     reader: {
@@ -96,14 +98,6 @@ export function useReader(
 
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Reader zoom shrinks the logical viewport while scaling the display surface
-  // back up, so pagination and on-screen size stay in sync.
-  useEffect(() => {
-    if (vpWidth === 0 || !rito.controller) return;
-    rito.setRenderScale(zoomScale);
-    rito.resize(vpWidth, vpHeight, margin);
-  }, [vpWidth, vpHeight, zoomScale, margin, rito.controller]);
-
   // Sync theme
   useEffect(() => {
     if (!rito.controller) return;
@@ -139,12 +133,7 @@ export function useReader(
   );
 
   const loadDemo = useCallback(async () => {
-    await rito.load(
-      fetch(demoEpubUrl).then(async (resp) => {
-        if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
-        return resp.arrayBuffer();
-      }),
-    );
+    await rito.load(fetchDemoEpubData());
   }, [rito]);
 
   const toggleSpreadMode = useCallback(() => {
@@ -273,4 +262,16 @@ export function useReader(
     searchOpen,
     setSearchOpen,
   };
+}
+
+export function readerViewportMargin(containerWidth: number): number {
+  return containerWidth < 640 ? 16 : containerWidth < 1024 ? 32 : 50;
+}
+
+async function fetchDemoEpubData(): Promise<ArrayBuffer> {
+  demoEpubBlobPromise ??= fetch(demoEpubUrl).then(async (resp) => {
+    if (!resp.ok) throw new Error(`HTTP ${String(resp.status)}`);
+    return resp.blob();
+  });
+  return (await demoEpubBlobPromise).arrayBuffer();
 }

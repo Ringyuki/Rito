@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { parseCssDeclarations } from '../../src/style/css/property-parser';
-import { parseDisplay, parseVerticalAlign } from '../../src/style/css/value-parsers';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/style/core/types';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { parseCssDeclarations } from '../../src/reference/ts-core/style/css/property-parser';
+import {
+  parseDisplay,
+  parseVerticalAlign,
+} from '../../src/reference/ts-core/style/css/value-parsers';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { VERTICAL_ALIGNS, DISPLAY_VALUES } from '../../src/reference/ts-core/style/core/types';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import type { ComputedStyle } from '../../src/style/core/types';
-import type { StyledSegment } from '../../src/layout/text/styled-segment';
-import type { TextRun } from '../../src/layout/core/types';
+import type { ComputedStyle } from '../../src/reference/ts-core/style/core/types';
+import type { StyledSegment } from '../../src/reference/ts-core/layout/text/styled-segment';
+import type { TextRun } from '../../src/reference/ts-core/layout/core/types';
 
 const BASE_FONT_SIZE = 16;
 const measurer = createMockTextMeasurer(0.6);

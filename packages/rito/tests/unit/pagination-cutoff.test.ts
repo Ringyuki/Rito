@@ -5,13 +5,13 @@
  * lines appear on the next page (not lost).
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { createLayoutConfig } from '../../src/layout/core/config';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
 
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);

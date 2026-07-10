@@ -15,6 +15,16 @@ export {
   type AddAnnotationInput,
 } from './controller/index';
 
+export type {
+  AnnotationRecord,
+  AnnotationRecordPatch,
+  RecordStorageAdapter,
+  ResolvedAnnotation,
+  ReadingPosition,
+  SearchResult,
+  TextRange,
+} from './interaction/index';
+
 export type { OverlayLayer, Rect } from './painter/types';
 export type { TransitionDriverOptions } from './driver/types';
 

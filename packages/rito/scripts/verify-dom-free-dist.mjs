@@ -4,9 +4,10 @@ import { readFile } from 'node:fs/promises';
 import { Worker } from 'node:worker_threads';
 import { strToU8, zipSync } from 'fflate';
 
-const DIST_URL = new URL('../dist/', import.meta.url);
+const REFERENCE_DIST_URL = new URL('../.output/reference-build/reference/', import.meta.url);
 const FORBIDDEN_XML_DOM_RE = /\b(?:DOMParser|XMLSerializer)\b|@xmldom/;
-const LOCAL_MODULE_IMPORT_RE = /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["'](\.\/[^"']+\.mjs)["']/g;
+const LOCAL_MODULE_IMPORT_RE =
+  /(?:\bfrom\s+|\bimport\s*(?:\(\s*)?)["']((?:\.\.?\/)[^"']+\.mjs)["']/g;
 const WORKER_TIMEOUT_MS = 15_000;
 
 function buildEpub() {
@@ -49,7 +50,7 @@ const CHAPTER_XHTML = `<?xml version="1.0"?>
   <body><p>DOM-free &amp; worker-safe.</p></body>
 </html>`;
 
-await assertDomFreeCoreGraph();
+await assertDomFreeReferenceGraph();
 
 const epubBytes = buildEpub();
 const epub = epubBytes.buffer.slice(
@@ -58,7 +59,7 @@ const epub = epubBytes.buffer.slice(
 );
 const worker = new Worker(new URL('./dom-free-dist-worker.mjs', import.meta.url), {
   workerData: {
-    moduleUrl: new URL('../dist/index.mjs', import.meta.url).href,
+    moduleUrl: new URL('../.output/reference-build/reference/index.mjs', import.meta.url).href,
     epub,
   },
   transferList: [epub],
@@ -95,8 +96,8 @@ try {
   await worker.terminate();
 }
 
-async function assertDomFreeCoreGraph() {
-  const pending = [new URL('index.mjs', DIST_URL)];
+async function assertDomFreeReferenceGraph() {
+  const pending = [new URL('index.mjs', REFERENCE_DIST_URL)];
   const visited = new Set();
 
   while (pending.length > 0) {

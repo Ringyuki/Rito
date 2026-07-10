@@ -156,152 +156,152 @@
       "textLength": 482
     },
     {
-      "endPage": 37,
+      "endPage": 38,
       "href": "Text/chapter1.xhtml",
       "idref": "chapter1.xhtml",
       "linear": true,
-      "pageCount": 21,
+      "pageCount": 22,
       "startPage": 17,
       "textHash": "7ba560e8983bbf8b",
       "textLength": 18595
     },
     {
-      "endPage": 64,
+      "endPage": 66,
       "href": "Text/chapter2.xhtml",
       "idref": "chapter2.xhtml",
       "linear": true,
-      "pageCount": 27,
-      "startPage": 38,
+      "pageCount": 28,
+      "startPage": 39,
       "textHash": "336c33485b781c1f",
       "textLength": 26059
     },
     {
-      "endPage": 96,
+      "endPage": 99,
       "href": "Text/chapter3.xhtml",
       "idref": "chapter3.xhtml",
       "linear": true,
-      "pageCount": 32,
-      "startPage": 65,
+      "pageCount": 33,
+      "startPage": 67,
       "textHash": "6a879754cc2aebef",
       "textLength": 27362
     },
     {
-      "endPage": 98,
+      "endPage": 101,
       "href": "Text/interlude1.xhtml",
       "idref": "interlude1.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 97,
+      "startPage": 100,
       "textHash": "662396383b6dc7d4",
       "textLength": 1446
     },
     {
-      "endPage": 116,
+      "endPage": 119,
       "href": "Text/chapter4.xhtml",
       "idref": "chapter4.xhtml",
       "linear": true,
       "pageCount": 18,
-      "startPage": 99,
+      "startPage": 102,
       "textHash": "57af7005d5482c5f",
       "textLength": 16675
     },
     {
-      "endPage": 120,
+      "endPage": 123,
       "href": "Text/interlude2.xhtml",
       "idref": "interlude2.xhtml",
       "linear": true,
       "pageCount": 4,
-      "startPage": 117,
+      "startPage": 120,
       "textHash": "b70f13c4affa4761",
       "textLength": 3678
     },
     {
-      "endPage": 134,
+      "endPage": 139,
       "href": "Text/chapter5.xhtml",
       "idref": "chapter5.xhtml",
       "linear": true,
-      "pageCount": 14,
-      "startPage": 121,
+      "pageCount": 16,
+      "startPage": 124,
       "textHash": "c048736d04745ced",
       "textLength": 12885
     },
     {
-      "endPage": 138,
+      "endPage": 143,
       "href": "Text/interlude3.xhtml",
       "idref": "interlude3.xhtml",
       "linear": true,
       "pageCount": 4,
-      "startPage": 135,
+      "startPage": 140,
       "textHash": "996b2fd3fa97f14a",
       "textLength": 3425
     },
     {
-      "endPage": 161,
+      "endPage": 166,
       "href": "Text/chapter6.xhtml",
       "idref": "chapter6.xhtml",
       "linear": true,
       "pageCount": 23,
-      "startPage": 139,
+      "startPage": 144,
       "textHash": "cf8d01ff578b5534",
       "textLength": 21280
     },
     {
-      "endPage": 165,
+      "endPage": 170,
       "href": "Text/interlude4.xhtml",
       "idref": "interlude4.xhtml",
       "linear": true,
       "pageCount": 4,
-      "startPage": 162,
+      "startPage": 167,
       "textHash": "8af6583fa6d178e9",
       "textLength": 3454
     },
     {
-      "endPage": 195,
+      "endPage": 201,
       "href": "Text/chapter7.xhtml",
       "idref": "chapter7.xhtml",
       "linear": true,
-      "pageCount": 30,
-      "startPage": 166,
+      "pageCount": 31,
+      "startPage": 171,
       "textHash": "6a47f7adaad89291",
       "textLength": 25814
     },
     {
-      "endPage": 201,
+      "endPage": 207,
       "href": "Text/epilogue1.xhtml",
       "idref": "epilogue1.xhtml",
       "linear": true,
       "pageCount": 6,
-      "startPage": 196,
+      "startPage": 202,
       "textHash": "14e7e231686fd76e",
       "textLength": 6255
     },
     {
-      "endPage": 203,
+      "endPage": 210,
       "href": "Text/epilogue2.xhtml",
       "idref": "epilogue2.xhtml",
       "linear": true,
-      "pageCount": 2,
-      "startPage": 202,
+      "pageCount": 3,
+      "startPage": 208,
       "textHash": "220851ff7e797e26",
       "textLength": 1620
     },
     {
-      "endPage": 205,
+      "endPage": 212,
       "href": "Text/postscript.xhtml",
       "idref": "postscript.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 204,
+      "startPage": 211,
       "textHash": "03df0739b2a762fd",
       "textLength": 2041
     },
     {
-      "endPage": 207,
+      "endPage": 214,
       "href": "Text/sp.xhtml",
       "idref": "sp.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 206,
+      "startPage": 213,
       "textHash": "fb85d1f8ce7ed722",
       "textLength": 1998
     }
@@ -349,7 +349,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "2ade061df980bd70",
+      "detailHash": "8c1e23f7f8576f5c",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -409,7 +409,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "20a7d67d75632f39",
+      "detailHash": "7d633cd0cf96516a",
       "firstText": "",
       "index": 4,
       "lastText": ""
@@ -424,7 +424,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1710c9a125f6d518",
+      "detailHash": "aa2830af93e1efc7",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -454,7 +454,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "fac5742bac0079a9",
+      "detailHash": "ea218d1fdbaaa1c9",
       "firstText": "",
       "index": 7,
       "lastText": ""
@@ -484,7 +484,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "ff421319f22fd5df",
+      "detailHash": "9c35932345b35d39",
       "firstText": "",
       "index": 9,
       "lastText": ""
@@ -589,7 +589,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "0571daeb6b25f68e",
+      "detailHash": "9c542eb357010b09",
       "firstText": "",
       "index": 16,
       "lastText": ""
@@ -649,7 +649,7 @@
         "ruby": 5,
         "textRuns": 22
       },
-      "detailHash": "feabe4930d10da6b",
+      "detailHash": "579d73f1fff6a86f",
       "firstText": "如今，战线位于远方，牢牢钉死在铁幕之外的远处，而这个小房间就是共和国八十五区当中，仅存的战场了。",
       "index": 20,
       "lastText": "体无意识的「通道」打开了。那条「通道」通过集体无意识之海，连上了第三战队队长机，个人代号「昴宿星」的处理终端"
@@ -806,18 +806,63 @@
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 4,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 7,
+        "ruby": 0,
+        "textRuns": 7
+      },
+      "detailHash": "7731f4d3206dbc30",
+      "firstText": "蕾娜一边将两边的裤袜扣上吊带，一边笑着这么说。明明自己都老实接受了关于知觉同步的检查，阿涅塔还是这么",
+      "index": 31,
+      "lastText": "头轰下去了喔。」"
+    },
+    {
+      "counts": {
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 4
       },
-      "detailHash": "7dfa509661a68495",
-      "firstText": "蕾娜一边将两边的裤袜扣上吊带，一边笑着这么说。明明自己都老实接受了关于知觉同步的检查，阿涅塔还是这么",
-      "index": 31,
-      "lastText": "「什么叫不知道……」"
+      "detailHash": "a0a1819018a80894",
+      "firstText": "穿好裙子，套上上衣，把扣子统统扣好之后，蕾娜才转头看了过去，并用单手把弯腰时滑落的银发拨到背后去。",
+      "index": 32,
+      "lastText": "对世间来说可就严重了呢。」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "46d72ea808d6c940",
+      "firstText": "「结果呢？」",
+      "index": 33,
+      "lastText": "环境、治安和教育水准越为低落，失业率也越高。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "1cb0243e61c02ac6",
+      "firstText": "「等到两年后『军团』消灭了，是要怎么办啊？没在战争的时候，挂着『军方退役』的头衔也不会比较好找工作",
+      "index": 34,
+      "lastText": "方的同步装置必须灌上相当于二等亲关系的拟似遗传因子资讯。至于为什么这样做就能让彼此成为同步对象，我也不清"
     },
     {
       "counts": {
@@ -829,44 +874,14 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "07945dfd4fe18180",
-      "firstText": "「因为当事人都死了，所以我也没办法调查得多详细嘛。同步装置本身没有异常，就这样结案了。虽然我也曾经努",
-      "index": 32,
-      "lastText": "这是掳获了无数架「军团」进行调查后所得到的真相。它们的中枢处理系统从一开始就被设定了无法变更的寿命，"
+      "detailHash": "553515626772025f",
+      "firstText": "楚。」",
+      "index": 35,
+      "lastText": "「说到这个呢，蕾娜。你要不要来点戚风蛋糕？是我的新作品喔，用了真的鸡蛋。」"
     },
     {
       "counts": {
         "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "99950246523a3ee6",
-      "firstText": "每一代版本的上限均为五万小时，大约接近六年。想必是用来预防意外的失控情况吧。",
-      "index": 33,
-      "lastText": "「那么，只要找那个人问清楚不就好了？」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "197b229ff82c884d",
-      "firstText": "这时候，阿涅塔的眼神变得极为冷酷。",
-      "index": 34,
-      "lastText": "院中养鸡的潘洛斯家大小姐，才能负担得起的兴趣。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -874,24 +889,24 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "406d9388fea83c2f",
-      "firstText": "不过。",
-      "index": 35,
-      "lastText": "她启动了知觉同步。这是一种不受距离、天候与地形影响，启动时也不受场所时间限制的划时代双向通讯手段。"
+      "detailHash": "251d92583c4d7deb",
+      "firstText": "「咦！」",
+      "index": 36,
+      "lastText": "他究竟是什么样的人呢？"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 21
       },
-      "detailHash": "f654dab38b5521ef",
-      "firstText": "连结完成。未发生错误。接着，耳边响起了不存在于这个房间的些微杂音。",
-      "index": 36,
+      "detailHash": "6547843a36a30a59",
+      "firstText": "他肯定——很讨厌我们这些人吧？",
+      "index": 37,
       "lastText": "「我也要请你多多指教喽，送葬者。」"
     },
     {
@@ -904,9 +919,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "e3a5bcb66785806e",
+      "detailHash": "3bb32d54b7b8ac8b",
       "firstText": "",
-      "index": 37,
+      "index": 38,
       "lastText": ""
     },
     {
@@ -919,9 +934,9 @@
         "ruby": 1,
         "textRuns": 25
       },
-      "detailHash": "42fd31aff6e2035a",
+      "detailHash": "56ba54210e109a77",
       "firstText": "第二章",
-      "index": 38,
+      "index": 39,
       "lastText": "（像是煮饭、洗衣、扫除和照料基地内的田地或鸡之类），就是在做自己想做的事。"
     },
     {
@@ -934,9 +949,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "4ada891d843855a9",
+      "detailHash": "f456dbf971b84388",
       "firstText": "这时有个踏响军靴的粗暴脚步声越来越近，一道连战车炮都会吓哭的大嗓门，在机库中轰然响起。",
-      "index": 39,
+      "index": 40,
       "lastText": "辛微微歪过头，用手背轻轻敲了敲自己的「破坏神」——「送葬者」的装甲。就敲在机舱正下方的小小标志上，图"
     },
     {
@@ -949,9 +964,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c74a52979a49c132",
+      "detailHash": "e117c37b765a35fd",
       "firstText": "案是一个扛着铁锹的无头骷髅骑士。",
-      "index": 40,
+      "index": 41,
       "lastText": "「……这些小混蛋能像现在这样放肆，都是你的功劳啊，辛。」"
     },
     {
@@ -964,9 +979,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "9c6559f37a88e268",
+      "detailHash": "02238305cb4a50c6",
       "firstText": "「不过比起其他处理终端，让整备班辛苦三倍的也是我。」",
-      "index": 41,
+      "index": 42,
       "lastText": "天真无邪地笑着说：『没想到你也有疏忽的一面呢。』那出自纯粹善意与亲和的声音，也在脑中回荡不已。"
     },
     {
@@ -979,9 +994,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "61f49c11ff3d307f",
+      "detailHash": "281c2ef392a7afd7",
       "firstText": "「到任当天就为了打声招呼而进行同步，并说希望能与我们保持交流，所以约好了每天定时进行联络。以一个共和",
-      "index": 42,
+      "index": 43,
       "lastText": "「我记得……就在吃完早餐没多久吧。」"
     },
     {
@@ -994,9 +1009,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "2ae625d94ae9bf7b",
+      "detailHash": "73325f82d5de5514",
       "firstText": "「现在已经快中午了耶。」",
-      "index": 43,
+      "index": 44,
       "lastText": "「呃，那个，因为冷静下来想想，这种打扮很难为情啊……」"
     },
     {
@@ -1009,9 +1024,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "74cc6eda3921404c",
+      "detailHash": "90349e0f56d6d00e",
       "firstText": "黑发黑瞳，身材娇小且拥有象牙般肌肤，属于极东黑种的凯耶，虽然语气不知为何偏向男性化，却是个货真价实的",
-      "index": 44,
+      "index": 45,
       "lastText": "「凯、凯耶！那个那个，我先声明我对辛并没有什么特别的想法喔。只、只是觉得这样好像不太妥当！你想想，东"
     },
     {
@@ -1024,9 +1039,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "b646afd90d445c84",
+      "detailHash": "fab1639b260d5b51",
       "firstText": "方女性不就该像那什么大和抚子的，所以……」",
-      "index": 45,
+      "index": 46,
       "lastText": "「啊——嗯。其实在下从今天开始就兼差做传令兵了。」"
     },
     {
@@ -1039,9 +1054,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "749d873f23d0b4f7",
+      "detailHash": "0ffbf5c0e5f4b772",
       "firstText": "看来是有人叫他过来传话的样子。仍旧用双手抱着身子，试图藏住野战服底下丰满身躯的可蕾娜，不由得嘟起嘴",
-      "index": 46,
+      "index": 47,
       "lastText": "这句话，让少女们的表情不约而同紧绷起来。"
     },
     {
@@ -1054,9 +1069,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "c81c6b9e2644d73b",
+      "detailHash": "a23c1eb4dceb1279",
       "firstText": "人活着不是单靠面包。",
-      "index": 47,
+      "index": 48,
       "lastText": "看着像个不良少年一样蹲着的莱登站了起来，菲多也有样学样，发出吵死人的声响撑着腿起身。从机体残骸到炮弹"
     },
     {
@@ -1069,9 +1084,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "6fa25b7c67fd7309",
+      "detailHash": "aa719951aa4457a8",
       "firstText": "碎片，捡拾一切可能回收利用的无机物，装满货柜返回基地，是它们这些「清道夫」出厂时所设定的任务之一。因此，莱登",
-      "index": 48,
+      "index": 49,
       "lastText": "「不用了……保持原样才是对这家伙最好的凭吊。」"
     },
     {
@@ -1084,9 +1099,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "b4f9db4f129460de",
+      "detailHash": "dab4c10d0b1a803a",
       "firstText": "他认识这种树。是樱花。原产于大陆极东地区，在春天到来时整棵树都会开满了花。今年开花的时候，在凯耶的提",
-      "index": 49,
+      "index": 50,
       "lastText": "狞的弧线。"
     },
     {
@@ -1099,9 +1114,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "1388b8a2158919c1",
+      "detailHash": "b7a0820c04a9a157",
       "firstText": "「只有『羊』在是吧——简直就像在打靶嘛。」",
-      "index": 50,
+      "index": 51,
       "lastText": "天蓝色领巾，也是他那不祥外号的由来之一。"
     },
     {
@@ -1114,9 +1129,9 @@
         "ruby": 7,
         "textRuns": 39
       },
-      "detailHash": "83efd11cf335c4c3",
+      "detailHash": "4322c5dacb311ab6",
       "firstText": "光是看到那条遮住脖子的领巾，就让人不禁觉得那位死神的头该不会真的没有连在身上吧。",
-      "index": 51,
+      "index": 52,
       "lastText": "但就算战术被看穿也无所谓，因为投入比对手更雄厚的大量战力，是自古以来不变的战术策略。"
     },
     {
@@ -1129,9 +1144,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "c3d26adbde9a0c4c",
+      "detailHash": "9e2178aa0c3025f1",
       "firstText": "正如「军团」之名的这批大部队，在战力上已经不能用倍数来简单换算了，但对辛他们来说这种情况只是家常便饭",
-      "index": 52,
+      "index": 53,
       "lastText": "语调平淡的辛如此回应之后，同步的另一端似乎倒抽了一口气。"
     },
     {
@@ -1144,74 +1159,29 @@
         "ruby": 1,
         "textRuns": 29
       },
-      "detailHash": "84aa574ae579ff31",
+      "detailHash": "01d1ce7e0721795f",
       "firstText": "『好快……真不愧是送葬者呢。』",
-      "index": 53,
+      "index": 54,
       "lastText": "大部队前进，外型锐利宛如食人鱼一般的，就是斥候型。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 4
       },
-      "detailHash": "cf6adda255e74b6a",
+      "detailHash": "e0971cbc5a5e223f",
       "firstText": "而背着七六毫米多连装反战车火箭炮，第一对脚尖上的高周波刀闪耀着铁灰色寒光，像一只长了六条腿的鲨鱼一样",
-      "index": 54,
-      "lastText": "或后方进行炮击。这时候一开始发动攻击的「破坏神」已经趁机冲进掩蔽之中，开始迂回绕往其他敌机的死角了。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "02d50953e9c3d09c",
-      "firstText": "「破坏神」是一种无可救药的缺陷机体。",
       "index": 55,
-      "lastText": "机，趁着射击的空档向四散在市区中的友机下达最有效率的杀戮指示。"
+      "lastText": "在上空展开的阻电扰乱型大军遮住了阳光，让这一带如乌云罩顶般昏暗，身兼「军团」血液及神经网络功能的流体"
     },
     {
       "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 6,
-        "textRuns": 36
-      },
-      "detailHash": "711c371ef768645d",
-      "firstText": "「——第三小队。请诱导交战中的小队往西南方后退。第五小队在原地待机，等敌方小队进入射击范围后，以全机",
-      "index": 56,
-      "lastText": "『收到。交给我吧。』"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "b07a52d5ed5f7e85",
-      "firstText": "「管制一号。透过指向雷射传输资讯可能会让我方的位置遭到锁定。接下来请以口头下达作战指示。」",
-      "index": 57,
-      "lastText": "另一端似乎勾起微微一笑。接着「送葬者」便从废墟里冲了出去。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1219,14 +1189,44 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "e81d7b16a50cf92b",
-      "firstText": "以「破坏神」的最大速度，巧妙地在掩蔽物之间移动，冲向由四台战车型组成的小队。看见这种用有勇无谋也不足",
-      "index": 58,
-      "lastText": "『……！』"
+      "detailHash": "8328bb0316d2d1f4",
+      "firstText": "奈米机械变成代谢废物而排出的残骸，像是银色的鳞粉，也像是雪花一般飘然而下。",
+      "index": 56,
+      "lastText": "我们这边还有「死神」的庇佑啊。"
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 5,
+        "textRuns": 35
+      },
+      "detailHash": "4482a860ed4c9632",
+      "firstText": "背负着无头骷髅标志的「破坏神」——「送葬者」在崩毁的建筑物与瓦砾的掩护下，向前奔驰。",
+      "index": 57,
+      "lastText": "从远方飞来的炮弹在战场上四处掀起爆炸。地上的黑土在高温下发泡膨胀，炸裂开来。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 1,
+        "textRuns": 27
+      },
+      "detailHash": "528573c16b7e446b",
+      "firstText": "这是列阵在大后方的一五五毫米自走炮型「军团」，也就是长距离炮兵型的支援炮击。",
+      "index": 58,
+      "lastText": "看来他听到了之前自己和赛欧之间的对话。说得还真是风凉啊。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1234,25 +1234,55 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "360eaa945f511497",
-      "firstText": "可以感觉到位于同步另一端的管制官，已经说不出话来了。",
+      "detailHash": "0a7054f6606527f1",
+      "firstText": "『……战车型的确比预料中还要多。或许是趁着补给时会合了吧。』",
       "index": 59,
-      "lastText": "只要没有遭受夜袭或夜间出击任务，从吃完晚饭到就寝的这数小时就是自由时间了。"
+      "lastText": "然后击发。"
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 25,
+        "lines": 28,
         "ruby": 0,
-        "textRuns": 25
+        "textRuns": 28
       },
-      "detailHash": "fd81d7d96df1ed62",
-      "firstText": "在收拾干净的厨房里，泡好所有人的咖啡后，安琪端着咖啡走了回来，就看见在集合了基地所有人的机库前广场上",
+      "detailHash": "eab3de2379c8d557",
+      "firstText": "取消了雷管最低起爆距离设定的高速穿甲弹贯穿了装甲，以秒速八千公尺的速度将高性能炸药的爆炸力推进机体内",
       "index": 60,
-      "lastText": "辛所击倒的空罐崩塌下来，但是他连看都不看，只是待在稍微远离喧嚣的地方，独自一人默默地看著书。这时，一"
+      "lastText": "武器，在被榨干了最后一分利用价值后，成为倒在战场一隅的无名尸，就是他们的命运。和死在这片战场上的数百万同胞一"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "218f5de14e5e35c1",
+      "firstText": "样，除了回归大地的白骨之外，无法留下任何东西。",
+      "index": 61,
+      "lastText": "「嗯。」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "0a63c053f5905bc9",
+      "firstText": "「……哇啊啊啊啊！居然一枪解决，还是一样扯啊……」",
+      "index": 62,
+      "lastText": "流。"
     },
     {
       "counts": {
@@ -1264,10 +1294,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "5c4b37e47dd5b22f",
-      "firstText": "只装了咖啡的马克杯突然摆到他的面前。",
-      "index": 61,
-      "lastText": "倘若不想和我说话，请各位别介意，切断同步也无妨——在第一天听见蕾娜这么说就很开心地迅速切断同步的人，"
+      "detailHash": "f7af39df8e72801d",
+      "firstText": "「没有问题，管制一号。今天也辛苦你了。」",
+      "index": 63,
+      "lastText": "生硬地回了这么一句后，管制官稍稍和缓了语气说："
     },
     {
       "counts": {
@@ -1275,14 +1305,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 25
       },
-      "detailHash": "80f23f303e51307d",
-      "firstText": "现在则是若无其事地开始玩起扔小刀比赛。辛一边看着他们玩闹，一边回答蕾娜。而莱登、赛欧和凯耶等等几个人，大概是",
-      "index": 62,
-      "lastText": "戴亚轻声嘀咕的这句话，辛依旧当作没听到，继续埋首于那本厚重的哲学书。"
+      "detailHash": "6aab751479df1ea9",
+      "firstText": "『我也明白，之前是因为报告也没人看，所以你才会选择不交，关于这点是我们这边不好，所以我并不会生气。可",
+      "index": 64,
+      "lastText": "辛忍不住啧了一声，把在一旁偷偷察言观色的凯耶吓得连马尾都跳了一下，连忙双手合十用力低头表达歉意。而辛"
     },
     {
       "counts": {
@@ -1290,28 +1320,28 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
+        "lines": 25,
+        "ruby": 8,
+        "textRuns": 39
       },
-      "detailHash": "a5f9d6c68f65b64a",
-      "firstText": "因为管制官不在这里，自然看不到这一幕。而她或许是想到现在的处理终端们都是在年幼时就被送进强制收容所，",
-      "index": 63,
-      "lastText": "全都是在管制官这边。"
+      "detailHash": "d96b36cd50e198a3",
+      "firstText": "只是抬抬手表示这不是在针对你。",
+      "index": 65,
+      "lastText": "大家的视线都集中在辛身上。而他的目光还是停留在书本上，就这样随意答道："
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 8,
-        "textRuns": 35
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 4
       },
-      "detailHash": "9e68342f0eb8e677",
-      "firstText": "大概是想要打破尴尬的气氛吧，她刻意让声音显得开朗一些。",
-      "index": 64,
+      "detailHash": "bd45de8c3490dc39",
+      "firstText": "「不知道。我从来没想过。」",
+      "index": 66,
       "lastText": "「或许吧。」"
     },
     {
@@ -1324,9 +1354,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "16b597585bee798d",
+      "detailHash": "6b82b92cb62e8a27",
       "firstText": "第三章",
-      "index": 65,
+      "index": 67,
       "lastText": "「送葬者。首先是关于前几天申请的物资送达日期……」"
     },
     {
@@ -1339,9 +1369,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "f1a363b428834cf7",
+      "detailHash": "efabdcf314edbad9",
       "firstText": "一边听着管制官与辛之间的公务交流，莱登拿着捡回来的填字游戏杂志，打发无聊的夜晚。",
-      "index": 66,
+      "index": 68,
       "lastText": "喵叫。在里头的双亲或是孩子们全被压扁了，只有这家伙完全没事呢。』"
     },
     {
@@ -1354,9 +1384,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "64e95f0107b7226e",
+      "detailHash": "c4de4fe275f9f947",
       "firstText": "『然后啊，不知道为何，它最黏的人却是送葬者。』",
-      "index": 67,
+      "index": 69,
       "lastText": "原来如此。"
     },
     {
@@ -1369,9 +1399,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "76cbbf6e75124cf8",
+      "detailHash": "470ecc7e60a3380c",
       "firstText": "「……可是，为什么要这样做呢？」",
-      "index": 68,
+      "index": 70,
       "lastText": "个管制官都没办法继续与「死神」接触。"
     },
     {
@@ -1384,9 +1414,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "e048ce2f86fbd804",
+      "detailHash": "7719e849c85ffd3d",
       "firstText": "那个少女还不知道辛拥有那个别称的真正原因为何。只是刚好这段时间没碰上那种敌人而已，但是这样的好运并不",
-      "index": 69,
+      "index": 71,
       "lastText": "虽然当时把那群人渣推开，不顾浑身沾染鲜血，努力帮可蕾娜的双亲急救，最后因为还是回天乏术而向她和姐姐道"
     },
     {
@@ -1399,9 +1429,9 @@
         "ruby": 2,
         "textRuns": 29
       },
-      "detailHash": "cbe4395c454d4ca3",
+      "detailHash": "69d84712f58d5dcd",
       "firstText": "歉的人，也是白系种的……白银种的军人。",
-      "index": 70,
+      "index": 72,
       "lastText": "「对耶。」"
     },
     {
@@ -1414,9 +1444,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "12726aed4b506ad8",
+      "detailHash": "2054d6c4bd8e6dac",
       "firstText": "凯耶微微一笑，总觉得有些怀念。",
-      "index": 71,
+      "index": 73,
       "lastText": "『原来如此……那么，我也得好好感谢那些人才行呢。』"
     },
     {
@@ -1429,9 +1459,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1a3124f2455af71b",
+      "detailHash": "14a81eb4cdfc8175",
       "firstText": "凯耶稍微把身体往前倾。虽然只是透过同步交流，她还是下意识调整成面对面说话的姿势。",
-      "index": 72,
+      "index": 74,
       "lastText": "一般来说不会在这种地方弄搞错吧，而且两者也没有多大的差别。"
     },
     {
@@ -1444,9 +1474,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "20de070f3810f1c3",
+      "detailHash": "3c41f8d874414afa",
       "firstText": "戴亚和悠人好像快笑死一样，拼命捶着桌子和墙壁（这时墙的另一头响起奇诺「吵死了！」的怒吼），就连辛也难",
-      "index": 73,
+      "index": 75,
       "lastText": "挥战斗能力。比如分析敌情、调整时程让必要的补给物资能优先送达，以及每天跑进资料库搜寻负责区域的详细情报等等。"
     },
     {
@@ -1459,9 +1489,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "f6d270d2e97ecaee",
+      "detailHash": "1892fa8eb1696e5f",
       "firstText": "最近她每天多了项工作，就是不厌其烦地申请位于战区后方的迎击炮使用许可。只要动用射程超长的迎击炮，多少",
-      "index": 74,
+      "index": 76,
       "lastText": "『只要能帮到大家，我什么都愿意做。』"
     },
     {
@@ -1474,9 +1504,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "59dcd222fe102c44",
+      "detailHash": "9a3e8c2db1f29dc9",
       "firstText": "原本回答十分明快的少女，在回应蕾娜时声音突然就会变得极为冷漠。",
-      "index": 75,
+      "index": 77,
       "lastText": "隆隆炮声透过同步，在耳边炸裂开来。"
     },
     {
@@ -1489,9 +1519,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "bcf0bda6f53d9c0b",
+      "detailHash": "f7f51709e4564fd5",
       "firstText": "鏖战正酣，我方一面消除「军团」的红色光点，一面推进战线。",
-      "index": 76,
+      "index": 78,
       "lastText": "两者之间小于战车炮弹的最低起爆距离，所以战车型选择挥动前脚攻击。冷漠而残酷，就像无情的齿轮不顾夹在其"
     },
     {
@@ -1504,9 +1534,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "0d38e4a4b4685ac4",
+      "detailHash": "27fd4da2676ec025",
       "firstText": "中的人如何哭喊，依旧毫不留情地将其碾碎一般。",
-      "index": 77,
+      "index": 79,
       "lastText": "宛如在冥府之畔的昏暗中徘徊，为了替死去的同伴找个引路人，绞死一切活物的亡者骨骸一般。"
     },
     {
@@ -1519,160 +1549,40 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c5d2a81a2d1d75ba",
+      "detailHash": "7397df7a6a5d66f5",
       "firstText": "之后没花多久时间，「军团」部队便全军覆没了。并不是中途撤退，而是如字面上的意思，片甲不留。",
-      "index": 78,
+      "index": 80,
       "lastText": "是八六，和你这样的高尚之人不一样，只不过是比人类劣等的猪罢了！』"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 4,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 5,
+        "ruby": 1,
+        "textRuns": 7
+      },
+      "detailHash": "f8dff467be02f0c3",
+      "firstText": "「不……」",
+      "index": 81,
+      "lastText": "看待，那又是怎样啊？』"
+    },
+    {
+      "counts": {
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
-        "ruby": 2,
-        "textRuns": 18
-      },
-      "detailHash": "7235323e8d6df42a",
-      "firstText": "「不……」",
-      "index": 79,
-      "lastText": "的决定性证据。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 4
       },
-      "detailHash": "a09228f1c582935e",
-      "firstText": "『你从头到尾根本就没有问过我们叫什么名字吧！』",
-      "index": 80,
-      "lastText": "声音虽然冷淡，语气上却没有责备之意，反而让蕾娜感觉更加疏离冷漠。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "670aa9ab0cea26f2",
-      "firstText": "对方没有责怪自己的无礼。之所以没有责怪，是因为早就死心了。反正不管说了什么，另一头的人也充耳不闻，就",
-      "index": 81,
-      "lastText": "个性开朗，不拘小节，却被队上所有人排挤。当时的赛欧也对他相当反感。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "55d1beca82cf7619",
-      "firstText": "笑面狐的个人代号也是从他身上继承来的。当时从未接触过画画的赛欧，照着描绘在队长「破坏神」驾驶舱下方笑",
+      "detailHash": "5f21d1d3391f1d7c",
+      "firstText": "处理终端们的情感透过同步管道传递过来了。",
       "index": 82,
-      "lastText": "另一端的气息像是吓了一跳，接着还是没有说话。面对仿佛踌躇不定的沉默，辛并不介意，只是静静等待对方开"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "cd3d4b6610efe37d",
-      "firstText": "口。",
-      "index": 83,
-      "lastText": "声音依旧淡漠。不加任何修饰，只是单纯陈述事实。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "4dd8db076cc779c5",
-      "firstText": "『你没有必要这么做。他所说的话，并不代表我们所有人的意见。我们都很清楚造成这个现状的元凶不是你，而且",
-      "index": 84,
-      "lastText": "『啊……对喔。是少校。虽然才刚晋级而已。』"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "ded2518a180b8175",
-      "firstText": "「那么今后就以米利杰少校来称呼吧。这样可以吗？」",
-      "index": 85,
-      "lastText": "这时她突然觉得自己羞于见人。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "ba66eeff98eadb6a",
-      "firstText": "对于周遭发生的死亡、大量产生的死亡，他只是默默接受，承担下来。他始终不曾说出一句怨叹，仿佛理所当然地",
-      "index": 86,
-      "lastText": "蕾娜立刻带着愕然的语气反问了这么一句。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "39dfd3aba4140849",
-      "firstText": "砰咚！同步的另一头传来不知道是椅子还是什么重物倒地的声响。对方似乎猛力站了起来。",
-      "index": 87,
-      "lastText": "原与树林，接着又是雄伟宛如山脉一般的铁幕。初次由上而下目睹这些奇景而眼睛一亮的蕾娜，在看见被铁丝网与地雷区重"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "ca0ec454b08a6de5",
-      "firstText": "重包围，粗制滥造的组合屋式强制收容所零星分布在夕阳西下的草原上，这种荒凉至极的景象时，也不由得面色凝重，陷入",
-      "index": 88,
-      "lastText": "欠缺灯火的战场上，那片漆黑夜空中突然响起震耳欲聋的爆炸声，一团红色火球迸散开来。"
+      "lastText": "『你说你从没叫过我们八六？只不过是你嘴上没说而已啊！说什么保卫国家是国民的荣耀，说什么自己非得回应这"
     },
     {
       "counts": {
@@ -1681,13 +1591,28 @@
         "images": 0,
         "inlineAtoms": 0,
         "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
+        "ruby": 1,
+        "textRuns": 25
       },
-      "detailHash": "340e29e83c4e4f8a",
-      "firstText": "左翼上的旋翼中弹了。侦察机拖着火焰下坠，离地表越来越近——",
-      "index": 89,
-      "lastText": "夜空与鲜红火焰的衬托下，一跃而出。"
+      "detailHash": "2b25ae3623ddf0a5",
+      "firstText": "份理念。你以为我们是自己想来打仗的吗？我们可是被关在外头啊！被逼着上战场啊！在这九年当中有好几百万人被迫去死",
+      "index": 83,
+      "lastText": "笑面狐先是啧了一声，接着气息便随着同步连接一起消失了。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "32f13f4da68682d2",
+      "firstText": "狼人深深吐了口气，就像是要把内心的感情宣泄出来一样，接着便把注意力转向蕾娜。",
+      "index": 84,
+      "lastText": "打破了约定。就因为那个恶心的白猪，让自己打破了最重要的约定。"
     },
     {
       "counts": {
@@ -1699,10 +1624,40 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "c41939edeffe0876",
-      "firstText": "画在机体侧面的无头骷髅骑士纹章，深深烙印在蕾娜的眼中。",
-      "index": 90,
-      "lastText": "「很久没见面吗？」"
+      "detailHash": "3a7b5a303b299b22",
+      "firstText": "即使如此，刚才自己之所以忍耐不住，一定是——",
+      "index": 85,
+      "lastText": "就在他把金属片放置于预先在桌上摊开的布面上时，知觉同步突然启动了。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "fa0ea2f08dc0ad5f",
+      "firstText": "辛正打算解开装有简易工具的布包，手上的动作停顿了一瞬间，不由得皱起眉头。因为同步的对象只有辛一个人，",
+      "index": 86,
+      "lastText": "蕾娜用力握紧了放在腿上的双手。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "8e7429af75834089",
+      "firstText": "「我叫蕾娜。芙拉蒂蕾娜·米利杰。虽然事到如今了……可以告诉我你们的名字吗……？」",
+      "index": 87,
+      "lastText": "绪。反观辛这边，还是以平淡的语气，一一报上同伴的姓名。"
     },
     {
       "counts": {
@@ -1714,10 +1669,25 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "97fbb94f1999f4f1",
-      "firstText": "「……嗯。因为我还不能回去啊。」",
-      "index": 91,
-      "lastText": "直到刚才还挂在脸上的笑容消失了。雷用着如同立誓一般真挚的语气，诉说自己的想法。"
+      "detailHash": "a1c15d337ac5c805",
+      "firstText": "「副队长狼人，叫作莱登·修迦。笑面狐叫作赛欧特·利迦。雪女叫作安琪·艾玛。神枪叫作可蕾娜·库克米拉。",
+      "index": 88,
+      "lastText": "定。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "dd4468b5c3f5ba7b",
+      "firstText": "「当时我活到了最后，一直以来也都是如此。所以我有责任带着他们一起走下去，直到我把所有战死的同伴，带到",
+      "index": 89,
+      "lastText": "『我还不知道你的名字呢……？』"
     },
     {
       "counts": {
@@ -1729,25 +1699,25 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "703c4d18ec347ea0",
-      "firstText": "「我不会死，也不可以死。我一定要活下去，一定要回到我弟弟的身边。」",
-      "index": 92,
-      "lastText": "蕾娜正想着自己该说点什么才好，随即便听见辛平静地开口："
+      "detailHash": "ad5f46ad4d53ed7d",
+      "firstText": "辛眨了眨眼。对方似乎以为他不想说出自己的名字，但并非如此，只是单纯忘记了而已。",
+      "index": 90,
+      "lastText": "看似姐姐的少女悲痛哭号，以及看似妹妹的女孩不掉一滴眼泪，冰冷至极的双眸，一直回荡在瓦兹拉夫的脑海中。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 25
       },
-      "detailHash": "56e949f16af07789",
-      "firstText": "『你之前曾经问过我，退伍之后想做什么，对吧？』",
-      "index": 93,
-      "lastText": "辛一句话也没说，蕾娜就像是自知理亏而缩着身子等着被骂的孩子一样，也让赛欧觉得越来越头大。他已经搞不清"
+      "detailHash": "ce26091296572a49",
+      "firstText": "那两个孩子想必这一生都不会原谅白系种及共和国吧。",
+      "index": 91,
+      "lastText": "但是在「军团」的包围下完全与他国断绝交流，也无法利用航空机种进行地面攻击，是有其理由的。"
     },
     {
       "counts": {
@@ -1755,14 +1725,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 27,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 27
+        "textRuns": 22
       },
-      "detailHash": "d1733c8448e2794f",
-      "firstText": "楚自己到底是还在生气，或者只是赌一口气而已了。",
-      "index": 94,
-      "lastText": "以现在重提一次，也没什么大不了。"
+      "detailHash": "f078373794ef3317",
+      "firstText": "反空自走炮型。",
+      "index": 92,
+      "lastText": "扫，飞行员就被一刀两断，上半身飞得老远，而下半身则是喷着血柱缓缓倒地。"
     },
     {
       "counts": {
@@ -1774,24 +1744,99 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "fcc064382db70627",
-      "firstText": "「无聊的往事就说到这里了……对了，我叫赛欧特·利迦。要叫我赛欧或利迦，还是可爱的小蠢猪都无所谓啦。」",
-      "index": 95,
-      "lastText": "一个好久没有听见的名字。"
+      "detailHash": "a9ef221eda4e3978",
+      "firstText": "这时，斥候型的复合感应装置，突然间转向蕾娜这边。",
+      "index": 93,
+      "lastText": "「叫我雷就好了，不然我的名字很难念吧？听说是我们家族传统的名字，但是对共和国人来说就很陌生了。」"
     },
     {
       "counts": {
-        "blocks": 3,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 4,
+        "lines": 26,
         "ruby": 0,
-        "textRuns": 4
+        "textRuns": 26
       },
-      "detailHash": "51ff59fee0131cfb",
-      "firstText": "一个本来以为再也不会听见的名字。他甚至连这个名字本身都快要遗忘了。因为自始至终，辛从来都没有用这个名",
+      "detailHash": "d8293a14584d7470",
+      "firstText": "「你不是共和国人吗？」",
+      "index": 94,
+      "lastText": "「你不怕吗……？」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c1515a84969d8083",
+      "firstText": "「当然会怕啊。可是要是不战斗，就没办法活下去了。」",
+      "index": 95,
+      "lastText": "「……对不起。」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c06618c93c0f27b7",
+      "firstText": "『没什么。』",
       "index": 96,
+      "lastText": "戴亚现在笑得很贱，安琪不知为何用温柔的眼神望了过来。啊，该死！干嘛一脸「跟我没关系」的表情撇过头去"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "f3d70b960707dc5a",
+      "firstText": "啊，可蕾娜。明明那时候你自己也很火大，要是我没有爆发的话，你还不是也会对她发难。",
+      "index": 97,
+      "lastText": "接着无线电突然爆出一阵杂音，随即回归沉默。那时候赛欧才终于明白，对方早就知道会死，所以才不选择透过同"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "93d9698bf7df6de3",
+      "firstText": "步说话。因为他是带着战死的觉悟，带着再也回不去的觉悟，返回这座九死一生的战场。",
+      "index": 98,
+      "lastText": "「你也是个笨蛋啊……喔，对了。快点把地图传过来吧。你昨天忙着哭，都忘了吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 8,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 9,
+        "ruby": 0,
+        "textRuns": 9
+      },
+      "detailHash": "1676d778c89ee654",
+      "firstText": "蕾娜这一次是真的笑了。",
+      "index": 99,
       "lastText": "哥哥。"
     },
     {
@@ -1804,9 +1849,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "3dc39aa4accb6931",
+      "detailHash": "facf863094ac8a97",
       "firstText": "间章",
-      "index": 97,
+      "index": 100,
       "lastText": "就算问他为什么会知道，他也只能回答我就是知道。辛不需要任何理由，他深信这就是事实，如此而已。"
     },
     {
@@ -1819,9 +1864,9 @@
         "ruby": 0,
         "textRuns": 1
       },
-      "detailHash": "e6fad727d4d86fe4",
+      "detailHash": "c2648403dd727296",
       "firstText": "眼前的驾驶舱里，悄悄盖上一层白色积雪的阴影之中，可以清楚看见哥哥已经变色的无头骸骨，就横躺在那里。",
-      "index": 98,
+      "index": 101,
       "lastText": "眼前的驾驶舱里，悄悄盖上一层白色积雪的阴影之中，可以清楚看见哥哥已经变色的无头骸骨，就横躺在那里。"
     },
     {
@@ -1834,9 +1879,9 @@
         "ruby": 1,
         "textRuns": 24
       },
-      "detailHash": "358b9513ec1430d1",
+      "detailHash": "2420657239f32df1",
       "firstText": "第四章",
-      "index": 99,
+      "index": 102,
       "lastText": "『对不起喔。』"
     },
     {
@@ -1849,9 +1894,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "3c57f11bd0712d92",
+      "detailHash": "c5c72fd0f7e73cd4",
       "firstText": "——†——",
-      "index": 100,
+      "index": 103,
       "lastText": "感觉另一端的蕾娜似乎抿着嘴，不是很开心的样子。辛一边忙着卸下退壳钩，一边说了下去，语气依旧十分平淡。"
     },
     {
@@ -1864,9 +1909,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4da69cdda3e0c98b",
+      "detailHash": "39b86251c20217fb",
       "firstText": "「要是和战场牵扯太深，就会变得像我一样喔。」",
-      "index": 101,
+      "index": 104,
       "lastText": "「咦？」"
     },
     {
@@ -1879,9 +1924,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "aaa58a44f5d90d09",
+      "detailHash": "1a44b10d5a88da1e",
       "firstText": "『就是关于家人的事。我的脑袋里只剩下一些残缺的记忆，就连长相和声音都不记得了。』",
-      "index": 102,
+      "index": 105,
       "lastText": "陷入一阵沉默。"
     },
     {
@@ -1894,9 +1939,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "fe1d9ff707362eda",
+      "detailHash": "0bd5b0da10b72c7b",
       "firstText": "原来那些内容莫名其妙的巡逻报告是这么回事啊。蕾娜不由得叹了口气。",
-      "index": 103,
+      "index": 106,
       "lastText": "对喔，这也难怪。因为对方是个男生啊。"
     },
     {
@@ -1909,9 +1954,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "f0ad313b507f4e19",
+      "detailHash": "d16421b28cd57cd6",
       "firstText": "一想到这里，她不禁觉得有些难为情。",
-      "index": 104,
+      "index": 107,
       "lastText": "没的错误战法，是人类在履带式战车刚兴起时常犯的错误。"
     },
     {
@@ -1924,9 +1969,9 @@
         "ruby": 1,
         "textRuns": 27
       },
-      "detailHash": "4823377a65e26f28",
+      "detailHash": "afb2434fcc90e6aa",
       "firstText": "「若是能够承受",
-      "index": 105,
+      "index": 108,
       "lastText": "么？"
     },
     {
@@ -1939,9 +1984,9 @@
         "ruby": 2,
         "textRuns": 27
       },
-      "detailHash": "6f048014400408e8",
+      "detailHash": "2017529153ad30df",
       "firstText": "敌军",
-      "index": 106,
+      "index": 109,
       "lastText": "那个总是沉着冷静的少年，在呼唤的声音中罕见带着焦躁，可是已经陷入恐慌的蕾娜完全听不进去。她只是拼命捂"
     },
     {
@@ -1954,9 +1999,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "bd88119493287fd6",
+      "detailHash": "ba774c0d98a19449",
       "firstText": "住耳朵，缩着身子试图逃避一切，大声尖叫希望能盖过这些声音，但是始终不曾停歇的濒死大合唱，逐渐侵蚀了她的理智",
-      "index": 107,
+      "index": 110,
       "lastText": "音」的其他人来说，这种举动宛如天方夜谭，但是身为源头的辛，的确有能力办到。"
     },
     {
@@ -1969,9 +2014,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "42dff09d89e89bcf",
+      "detailHash": "0d77079e6d79f26b",
       "firstText": "无需凝神专注便能锁定声音，只花了一点时间便掌握了距离与方向。他透过超越人类五感的精准度，完成了犹如大",
-      "index": 108,
+      "index": 111,
       "lastText": "对象。"
     },
     {
@@ -1984,9 +2029,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "1563bb7700d5962b",
+      "detailHash": "474040a4d8eb58c5",
       "firstText": "「……诺赞上尉。」",
-      "index": 109,
+      "index": 112,
       "lastText": "「上尉……今天在战斗中听见的那个声音是……」"
     },
     {
@@ -1999,9 +2044,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "4491dbab6f78afb4",
+      "detailHash": "882ef1595fa2e44a",
       "firstText": "在说出口的瞬间，身体又没来由地一阵发寒。",
-      "index": 110,
+      "index": 113,
       "lastText": "目标的必要，遵照无谓的遗命在世间徘徊……可说是亡国军队的亡灵。』"
     },
     {
@@ -2014,9 +2059,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "4ca645eddf9f27a5",
+      "detailHash": "0acc4676d24676b4",
       "firstText": "「……难不成你们每次都能事先察觉『军团』来袭也是因为……？」",
-      "index": 111,
+      "index": 114,
       "lastText": "『这场战争最多在两年内就会终结——共和国政府是如此预测的，对吧？』"
     },
     {
@@ -2029,9 +2074,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "f293ebf125a96ffa",
+      "detailHash": "58a1cf9aa6f54a37",
       "firstText": "「啊，是的……你怎么知道呢？」",
-      "index": 112,
+      "index": 115,
       "lastText": "「……黑羊。」"
     },
     {
@@ -2044,9 +2089,9 @@
         "ruby": 3,
         "textRuns": 31
       },
-      "detailHash": "b3b829b3b0814997",
+      "detailHash": "4b0461107efd52ed",
       "firstText": "『是的。它们就是混在「",
-      "index": 113,
+      "index": 116,
       "lastText": "并未增加，也并未减少……可是八六呢？究竟还剩下多少？』"
     },
     {
@@ -2059,9 +2104,9 @@
         "ruby": 2,
         "textRuns": 30
       },
-      "detailHash": "367dd731db345807",
+      "detailHash": "937a0ceccbde033b",
       "firstText": "蕾娜没办法回答，因为她不知道答案。共和国并未对此进行统计调查。",
-      "index": 114,
+      "index": 117,
       "lastText": "『那是指待在可观测范围内的「军团」吧？从交战区深处到「军团」的势力范围当中，可是全天都笼罩在阻电扰乱"
     },
     {
@@ -2074,9 +2119,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "fefb1e4be1c67b93",
+      "detailHash": "4f0eb1040cae0631",
       "firstText": "型的电磁干扰之下，完全无法进行观测……的确，出现在前线的「军团」正在减少，但那只是因为没有出动的必要而已。它",
-      "index": 115,
+      "index": 118,
       "lastText": "蕾娜突然想起一件事，连忙开口："
     },
     {
@@ -2089,9 +2134,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "30e904a2cfd7ef83",
+      "detailHash": "2ebebb889171ae13",
       "firstText": "「那是……假设你们在几年后遭到全灭的话，才会发生的事情吧？」",
-      "index": 116,
+      "index": 119,
       "lastText": "辛悄悄抬起一只手，触摸镜像里自己脖子上的伤痕。"
     },
     {
@@ -2104,9 +2149,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "356ec8672399243a",
+      "detailHash": "af993caa10810202",
       "firstText": "间章",
-      "index": 117,
+      "index": 120,
       "lastText": "一起入伍的友人虽然全都死了，但他们到死为止都用尽全力在战斗。那位老妇人也是。冒着可能被射杀的风险，也"
     },
     {
@@ -2119,9 +2164,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9b8d535144434868",
+      "detailHash": "8614699f5692b27a",
       "firstText": "要拼命保护莱登他们。",
-      "index": 118,
+      "index": 121,
       "lastText": "为何不需要巡逻……为何辛能够具备超出年纪的沉稳？在那一战中，莱登似乎有了答案。"
     },
     {
@@ -2134,9 +2179,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e7521c6d2f608062",
+      "detailHash": "a7621f922137e9ba",
       "firstText": "——†——",
-      "index": 119,
+      "index": 122,
       "lastText": "「……喔，抱歉啦。」"
     },
     {
@@ -2149,9 +2194,9 @@
         "ruby": 1,
         "textRuns": 18
       },
-      "detailHash": "274f2fc38aa2136e",
+      "detailHash": "bbaaef26777fc45c",
       "firstText": "看莱登花了点功夫关上有点故障的门，听着他的脚步声返回隔壁房间，传出弹簧床吱嘎作响的声音后，辛依旧待在",
-      "index": 120,
+      "index": 123,
       "lastText": "「我马上就能去找你了——哥哥。」"
     },
     {
@@ -2164,9 +2209,9 @@
         "ruby": 1,
         "textRuns": 23
       },
-      "detailHash": "ec927f03b7511a95",
+      "detailHash": "3d35f8368e50d5d3",
       "firstText": "第五章",
-      "index": 121,
+      "index": 124,
       "lastText": "蕾娜感觉得出来，那位身处于遥远战场上的少女，现在正紧紧抿着双唇。仿佛还能听见她咬紧牙关的声音。"
     },
     {
@@ -2179,9 +2224,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "362398c26666be01",
+      "detailHash": "fdd9e8c2c952234f",
       "firstText": "『",
-      "index": 122,
+      "index": 125,
       "lastText": "双方默认的事实。"
     },
     {
@@ -2194,9 +2239,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "0108b241490e74a5",
+      "detailHash": "1aee50e5e650061d",
       "firstText": "『……那么，诺赞上尉呢？该不会是在今天的战斗中发生了什么——』",
-      "index": 123,
+      "index": 126,
       "lastText": "起来。"
     },
     {
@@ -2209,9 +2254,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "8a8ba90478e41b04",
+      "detailHash": "641591b6a2708f60",
       "firstText": "『关于人员补充，我会尽量想办法，让人员优先送来这里。』",
-      "index": 124,
+      "index": 127,
       "lastText": "「也是呢……我记得以前凯耶也曾经讲过类似的话……」"
     },
     {
@@ -2224,9 +2269,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "18d26b4d5706f376",
+      "detailHash": "b0dae98c9a0e2750",
       "firstText": "——因为你并不是个坏人。还是别和我们扯上关系比较好。",
-      "index": 125,
+      "index": 128,
       "lastText": "说着说着，可蕾娜以为安琪哭了，但是她并没有哭。当安琪拨开湿透的刘海望向可蕾娜时，那张柔和的脸蛋又露出"
     },
     {
@@ -2239,9 +2284,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "dac46255e51198f8",
+      "detailHash": "227292e3be2d92fe",
       "firstText": "了如往常般的和煦笑容。",
-      "index": 126,
+      "index": 129,
       "lastText": "『嗯。』"
     },
     {
@@ -2254,9 +2299,9 @@
         "ruby": 1,
         "textRuns": 25
       },
-      "detailHash": "f170a4bd2b7b1ec9",
+      "detailHash": "02e25835ad7c2be7",
       "firstText": "辛任由对方满是鲜血与内脏碎片的手，触碰着自己的脸颊，连眉头也不皱一下。可蕾娜觉得，那是世界上最为美丽",
-      "index": 127,
+      "index": 130,
       "lastText": "送来的。据说是你们申请的特殊弹头。真是够了，区区的畜牲也敢劳烦人类多费工夫……」"
     },
     {
@@ -2269,9 +2314,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "e9f9bf993624f0e4",
+      "detailHash": "c03362a952ad92dd",
       "firstText": "军官的身后是一座看起来很坚固的防爆货柜，大量封条和显示内容为弹药的标志，让货柜格外显眼。",
-      "index": 128,
+      "index": 131,
       "lastText": "不过，今天倒是没有什么好事之人过来打扰蕾娜。"
     },
     {
@@ -2284,9 +2329,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "9ebf6aae07b1b48c",
+      "detailHash": "193cae79f79bac9a",
       "firstText": "黑色的丝质晚礼服并未违背服装礼仪，但是配上黑色宝石与白色花饰后，俨然就是参加丧事才作的打扮。再加上她",
-      "index": 129,
+      "index": 132,
       "lastText": "的球场上，队员和整备人员随意坐在四处，而球场外围还能看见待命中的「破坏神」的机影。"
     },
     {
@@ -2299,25 +2344,40 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "dc7c85a645dc9e3c",
+      "detailHash": "847b51a450afd192",
       "firstText": "载着整备人员的菲多手脚俐落地设置好发射筒，拿切割金属用的喷枪代替打火机，将导火线一一点燃。",
-      "index": 130,
+      "index": 133,
       "lastText": "我也好想跟你们一起看——蕾娜好不容易才把这句话吞了回去。因为这是一句不能说出口的话语。虽然蕾娜想要的"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "49d8916e913ed5c1",
+      "firstText": "话，随时都能飞过去，可是辛他们就不一样了，他们并不是心甘情愿待在战场的，而且蕾娜也不可能把他们带回来。「一",
+      "index": 134,
+      "lastText": "『我不记得有这么糟糕啊。』"
+    },
+    {
+      "counts": {
+        "blocks": 5,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 14
+        "textRuns": 4
       },
-      "detailHash": "95bc11a1cc07552d",
-      "firstText": "话，随时都能飞过去，可是辛他们就不一样了，他们并不是心甘情愿待在战场的，而且蕾娜也不可能把他们带回来。「一",
-      "index": 131,
-      "lastText": "『而且，刚才安琪终于哭了。她总是喜欢独自承担压力，所以这真的得要感谢你才行。』"
+      "detailHash": "af46568f1f85cacc",
+      "firstText": "「那就请你亲自过来确认吧。等到战争结束之后，等你退伍之后，跟大家一起过来。」",
+      "index": 135,
+      "lastText": "『不会。毕竟这是我们第一次用礼炮吊祭，戴亚他们肯定也会觉得很高兴。那些家伙最讨厌的就是哭哭啼啼的事"
     },
     {
       "counts": {
@@ -2325,43 +2385,58 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 24
       },
-      "detailHash": "ec5431ef75f48598",
-      "firstText": "「……」",
-      "index": 132,
-      "lastText": "无论蕾娜提出多少次兵员补充，无论她陈情了多少遍。"
+      "detailHash": "ffdebac2d6d121b3",
+      "firstText": "了。』",
+      "index": 136,
+      "lastText": "她吸了一口气，果断地表达自己的心意。因为那是自己的——是先锋战队管制官芙拉蒂蕾娜·米利杰的职责。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 2,
+        "textRuns": 27
+      },
+      "detailHash": "27bfc19471dd458b",
+      "firstText": "「在这之前，我不会让你们死去。不会再让任何人死去。」",
+      "index": 137,
+      "lastText": "突然停歇的话，就算是身为精锐的他们也难以撤退，甚至可能会全军覆没。"
+    },
+    {
+      "counts": {
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 24,
-        "ruby": 2,
-        "textRuns": 28
+        "ruby": 0,
+        "textRuns": 24
       },
-      "detailHash": "6b9233c83d9761ce",
-      "firstText": "先锋战队依旧没有得到半个补充兵员。",
-      "index": 133,
-      "lastText": "「我……」"
+      "detailHash": "da850f38139f1876",
+      "firstText": "甩开追击之后，最终的损失达到四机。智世、奇诺、托马和库洛托宣告阵亡。",
+      "index": 138,
+      "lastText": "「……咦？」"
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 3
       },
-      "detailHash": "7c7ed8b2ef49ee25",
-      "firstText": "蕾娜在颤栗之中，努力找寻该说出口的话语。",
-      "index": 134,
+      "detailHash": "ae983e019d938f1d",
+      "firstText": "接着，辛平静地如实以告。",
+      "index": 139,
       "lastText": "『我们将会全军覆没。这个部队就是为此而准备的处刑场。』"
     },
     {
@@ -2374,9 +2449,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "150f2a63c33126ec",
+      "detailHash": "95c0a25f360f6179",
       "firstText": "间章",
-      "index": 135,
+      "index": 140,
       "lastText": "怎么想也想不出答案。"
     },
     {
@@ -2389,9 +2464,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "86498f6d10abfe15",
+      "detailHash": "af449436721d3284",
       "firstText": "所以，他才想跑去问哥哥。",
-      "index": 136,
+      "index": 141,
       "lastText": "辛听见了哥哥的「声音」，甚至盖过了雷鸣般的怒吼。那道声音宛如熊熊烈火，宛如一把利刃，由于源自于思维本"
     },
     {
@@ -2404,9 +2479,9 @@
         "ruby": 2,
         "textRuns": 26
       },
-      "detailHash": "cf4a317b453880a8",
+      "detailHash": "20ce110f7c724e50",
       "firstText": "身，所以毫无任何遮掩，赤裸裸地展露在辛的面前。",
-      "index": 137,
+      "index": 142,
       "lastText": "那些声音都在哀叹，都在寻求同样的东西。"
     },
     {
@@ -2419,9 +2494,9 @@
         "ruby": 0,
         "textRuns": 6
       },
-      "detailHash": "f495dfc1f6084184",
+      "detailHash": "0f8d6c10092cdd1a",
       "firstText": "无论神父或是其他人都听不见的声音究竟是什么，辛也自然而然想通了。",
-      "index": 138,
+      "index": 143,
       "lastText": "就在那一天，辛办理了从军的手续。"
     },
     {
@@ -2434,9 +2509,9 @@
         "ruby": 1,
         "textRuns": 21
       },
-      "detailHash": "0078008ef4c773dd",
+      "detailHash": "37308bba6e123007",
       "firstText": "第六章",
-      "index": 139,
+      "index": 144,
       "lastText": "『我并没有要责备你的意思……只是，从开战到现在，你曾经在八十五区内见过任何一个八六吗？』"
     },
     {
@@ -2449,9 +2524,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "ad5d3bb9e58073ed",
+      "detailHash": "c816da112df744f2",
       "firstText": "「……啊——！」",
-      "index": 140,
+      "index": 145,
       "lastText": "大吉。』"
     },
     {
@@ -2464,9 +2539,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "3b339f3c4a0acb00",
+      "detailHash": "891aa38f69c3e651",
       "firstText": "「……！」",
-      "index": 141,
+      "index": 146,
       "lastText": "选择上了战场。而且要是他们放弃战斗，最先牺牲的还是被关在铁幕之外，强制收容所内的家人。所以他们除了相信共和国"
     },
     {
@@ -2479,9 +2554,9 @@
         "ruby": 2,
         "textRuns": 29
       },
-      "detailHash": "fc4f436788c67e0d",
+      "detailHash": "46d2318bd17a35d1",
       "firstText": "的哄骗继续奋战，也没有其他选择了。",
-      "index": 142,
+      "index": 147,
       "lastText": "莱登在狭小的驾驶舱里，想办法伸展身子，仰望着天空。"
     },
     {
@@ -2494,9 +2569,9 @@
         "ruby": 1,
         "textRuns": 29
       },
-      "detailHash": "07eb0eb14d519b82",
+      "detailHash": "f7c82d760605b3b2",
       "firstText": "那个老婆婆教给自己向神还是啥玩意儿的祈祷方式，早就忘光光了。可是她趴在泥土路上痛哭失声的模样，至今仍",
-      "index": 143,
+      "index": 148,
       "lastText": "他们是八六。是被遗弃在战场，属于战场的民族。"
     },
     {
@@ -2509,9 +2584,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "8a98f42518083d78",
+      "detailHash": "d8bb0b4088a0edfe",
       "firstText": "一直奋战到无法战斗为止，全心全意活出精彩，就是他们的荣誉。",
-      "index": 144,
+      "index": 149,
       "lastText": "「你应该也并不在意，但好歹让我说一句。那不是你的错。」"
     },
     {
@@ -2524,9 +2599,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "64b52da7e295afad",
+      "detailHash": "5aab24eec2759b41",
       "firstText": "辛的异能可以侦测敌人在哪里，却无法分辨有什么敌人。虽然能从布署和数量来推测机种，但是要他推测出混在大",
-      "index": 145,
+      "index": 150,
       "lastText": "莱登不禁倒抽一口气。他知道这件事很久了。就是那个他们从未亲眼见过，却与它所指挥的「军团」交战过好几"
     },
     {
@@ -2539,9 +2614,9 @@
         "ruby": 1,
         "textRuns": 26
       },
-      "detailHash": "bc9eced6366d9f58",
+      "detailHash": "d719f7c18f89db18",
       "firstText": "次，思虑精密而冷酷，战术风格狡猾多变的「牧羊人」。",
-      "index": 146,
+      "index": 151,
       "lastText": "不出所料，听完一切内幕的阿涅塔，露出了目瞪口呆的表情。"
     },
     {
@@ -2554,9 +2629,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "9cdc03e586067503",
+      "detailHash": "befff63bc2412df5",
       "firstText": "为防隔墙有耳，地点选在她的研究室，还特地支开了所有人。桌上摆着一对黑兔与白兔马克杯，里头装了咖啡，另",
-      "index": 147,
+      "index": 152,
       "lastText": "感应到彼此的情绪。」"
     },
     {
@@ -2569,9 +2644,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e0e62a6fce17fd46",
+      "detailHash": "cdf2960034dfe7ba",
       "firstText": "阿涅塔的父亲是脑神经科学家，从事人与人交流时脑部运作状况的研究。",
-      "index": 148,
+      "index": 153,
       "lastText": "「蕾娜啊。虽然你表现得像个圣女一样，但事到如今你也跟我同罪喔……不然你觉得那个同步装置究竟牺牲了多少"
     },
     {
@@ -2584,9 +2659,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "985e5af23d218f28",
+      "detailHash": "05aa902d354adebe",
       "firstText": "八六？」",
-      "index": 149,
+      "index": 154,
       "lastText": "「不过，你也好不到哪里去吧。」"
     },
     {
@@ -2599,9 +2674,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "fdcb7b911f477c38",
+      "detailHash": "5e067f17318d55b2",
       "firstText": "阿涅塔如此嘲笑蕾娜。嘲笑到现在还没有想通，好像完全不知道人类的恶意是没有底限的，这位善良又愚蠢的好",
-      "index": 150,
+      "index": 155,
       "lastText": "侦察目标：所能推进的最终位置。"
     },
     {
@@ -2614,9 +2689,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "db8e19a291476642",
+      "detailHash": "94fabea74466c289",
       "firstText": "任务时间：不限。但期间若有成员后退，则视为阵前逃亡，就地处决。",
-      "index": 151,
+      "index": 156,
       "lastText": "蕾娜想起阿涅塔最后抛下的那番话，心生胆怯。她咬紧牙关，努力地忍耐。"
     },
     {
@@ -2629,9 +2704,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "3a44c475655e17dd",
+      "detailHash": "7e02a58b32783be2",
       "firstText": "「拜托您。共和国不该……我们不该错上加错。」",
-      "index": 152,
+      "index": 157,
       "lastText": "多数国民根本就不在乎八六的死活。而遵从这个决定，不正是我们国军的使命吗？」"
     },
     {
@@ -2644,9 +2719,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "54d9a32c0799939b",
+      "detailHash": "256825cc6424caa8",
       "firstText": "蕾娜一掌用力拍在桌上。「砰！」的一道沉重却又空洞的声音，回荡在办公室中。",
-      "index": 153,
+      "index": 158,
       "lastText": "啊啊，这就是绝望吗？"
     },
     {
@@ -2659,9 +2734,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "e56b7ca72b204b68",
+      "detailHash": "2e698e2e2c6329ff",
       "firstText": "「……打扰您了，卡尔修塔尔准将。」",
-      "index": 154,
+      "index": 159,
       "lastText": "「少校，请问有什么事？」"
     },
     {
@@ -2674,9 +2749,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "174715156f617033",
+      "detailHash": "127860c37f1d93c5",
       "firstText": "辛比了个手势，示意稍后再谈，同时开口回应蕾娜。阿尔德雷希多点点头，暂时离开了现场。",
-      "index": 155,
+      "index": 160,
       "lastText": "蕾娜说到最后几乎变成哭喊，辛沉默了一会儿。随后传来的声音中，似乎带着淡淡的苦笑。"
     },
     {
@@ -2689,9 +2764,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "71ba049728ac7a15",
+      "detailHash": "aaabc9af2e8c5383",
       "firstText": "『少校。我们并不是为了送死才去的。』",
-      "index": 156,
+      "index": 161,
       "lastText": "「既然我猜得没错，那你就更不该动手。就算对方是『军团』，但手足相残实在太……」"
     },
     {
@@ -2704,9 +2779,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "011b8e7d55252af2",
+      "detailHash": "2eea9ea3e9c3fa20",
       "firstText": "『哥哥是「牧羊人」。所以不解决他，我们哪里也去不了。』",
-      "index": 157,
+      "index": 162,
       "lastText": "那也是第一次，从作战开始到结束，蕾娜都没有介入管制。"
     },
     {
@@ -2719,9 +2794,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d6b1bb8299b76e20",
+      "detailHash": "d00f8d486370e4be",
       "firstText": "之后，终于到了特别侦察的日子。",
-      "index": 158,
+      "index": 163,
       "lastText": "足虫，在侦察队后方待命。"
     },
     {
@@ -2734,9 +2809,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "0e6d067540f5feed",
+      "detailHash": "aeef218901efba4b",
       "firstText": "这样一来，准备就大功告成了。接着只要一踏出基地，就再也无法回头。作战开始的同时，他们的军籍和国军本部",
-      "index": 159,
+      "index": 164,
       "lastText": "『……辛。』"
     },
     {
@@ -2749,9 +2824,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "ae97cafe39c84c41",
+      "detailHash": "ee56d1463f911b04",
       "firstText": "「嗯。」",
-      "index": 160,
+      "index": 165,
       "lastText": "那道笑容状似癫狂，宛如泛着寒光的刀锋，如此冷冽而凶残。"
     },
     {
@@ -2764,9 +2839,9 @@
         "ruby": 0,
         "textRuns": 1
       },
-      "detailHash": "8e44cc9ab3c4c5ae",
+      "detailHash": "2ce6d25af554b4fc",
       "firstText": "「找到你了——哥哥。」",
-      "index": 161,
+      "index": 166,
       "lastText": "「找到你了——哥哥。」"
     },
     {
@@ -2779,9 +2854,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c96c349ffe7bdcb9",
+      "detailHash": "c3dda7fb92c49852",
       "firstText": "间章",
-      "index": 162,
+      "index": 167,
       "lastText": "没多久，妈妈也死了。伴随着死亡通知，雷的征兵通知也到了。"
     },
     {
@@ -2794,9 +2869,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "d3de8b9f80e5991d",
+      "detailHash": "e0828633ce50a30e",
       "firstText": "在分配到的卧室中，雷看着那份通知站在原地不动，心中的怒意令他目眦尽裂。",
-      "index": 163,
+      "index": 168,
       "lastText": "「……神父……」"
     },
     {
@@ -2809,9 +2884,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "370a737f2dd9a01b",
+      "detailHash": "438cada46455e448",
       "firstText": "「你给我出去。」",
-      "index": 164,
+      "index": 169,
       "lastText": "可是。"
     },
     {
@@ -2824,9 +2899,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "f7c5f6398c68603a",
+      "detailHash": "1cc5c9a3bba9e2f1",
       "firstText": "落在身上的雪花好冷，这下子也差不多该完蛋啦。雷那颗因失血过多而有些恍惚的脑袋这么想着。",
-      "index": 165,
+      "index": 170,
       "lastText": "而这份思念，成就了现在的「他」。"
     },
     {
@@ -2839,9 +2914,9 @@
         "ruby": 1,
         "textRuns": 21
       },
-      "detailHash": "9ca1b86625681fec",
+      "detailHash": "8c8cb0e01685f0ea",
       "firstText": "第七章",
-      "index": 166,
+      "index": 171,
       "lastText": "唉，没救了。"
     },
     {
@@ -2854,9 +2929,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "3781b4c78fc67ec4",
+      "detailHash": "9b3a08c13623734f",
       "firstText": "已经拉不回来了。这家伙的心原本就不在这里。他一直被束缚着，被那个失去的首级，被那个找寻了多年，哥哥在",
-      "index": 167,
+      "index": 172,
       "lastText": "已然超越战车炮，达到重炮等级的一五五毫米主炮发出巨吼，甚至摆脱声音的高速穿甲弹便落在「送葬者」上一秒"
     },
     {
@@ -2869,9 +2944,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "e4ebaa2f2e44ad18",
+      "detailHash": "c14e319bf5c955c9",
       "firstText": "的所在位置，直接贯穿到地底。",
-      "index": 168,
+      "index": 173,
       "lastText": "还是说我们这边会先垮掉啊？"
     },
     {
@@ -2884,29 +2959,44 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "934eff6370554446",
+      "detailHash": "e85e9a4cf5ca23b8",
       "firstText": "一丝丧气的念头在脑中一闪而过。他已经不记得自己解决几架「军团」了，只觉得怎么样也没完没了。不断累积的",
-      "index": 169,
+      "index": 174,
       "lastText": "虽然从未见过，但他们知道那是什么。是迎击炮。林立在「破坏神」守护的前线之后，却从未发挥过作用的摆设。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 5,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 5,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 5
       },
-      "detailHash": "b9014426736b1aae",
+      "detailHash": "a4ed086ab58480c8",
       "firstText": "而启动这个东西的人。",
-      "index": 170,
-      "lastText": "只有那双坚定的白银色双眸，散发着异样的光彩。"
+      "index": 175,
+      "lastText": "『是的，就是我。不好意思来迟了，战队各员。』"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 3,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 2,
+        "ruby": 0,
+        "textRuns": 2
+      },
+      "detailHash": "3ada79e5e6b8d733",
+      "firstText": "——†——",
+      "index": 176,
+      "lastText": "「——我不是说我不想再见到你吗，蕾娜？」"
+    },
+    {
+      "counts": {
+        "blocks": 21,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2914,40 +3004,25 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d404ed66aa2a8d8f",
-      "firstText": "「关于视觉的同步设定，包含同步装置的调整在内，请你帮我解决。」",
-      "index": 171,
-      "lastText": "蕾娜甩开她的手，往后退了一步。阿涅塔追着蕾娜，也踏入细雨和夜色之中，却只见到对方脸上冰冷无比的笑容。"
+      "detailHash": "bd4f5279b31f1ff9",
+      "firstText": "本来一直担心阿涅塔不会出来应门，没想到她还是十分干脆地现身在玄关了。",
+      "index": 177,
+      "lastText": "「没错，他就在我的部队里。先锋战队战队长，个人代号『送葬者』。他……就是辛喔。」"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "e5dda3adb6ac07ca",
-      "firstText": "其实，蕾娜并未从辛口中听见任何关于阿涅塔的事情。他恐怕……已经不记得了吧。就连雷和父母的记忆，都被战",
-      "index": 172,
-      "lastText": "怎么能在第一天，在这个他们才开始迈步前进的场所就宣告终结呢？"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 27,
-        "ruby": 0,
-        "textRuns": 27
-      },
-      "detailHash": "c1a29a0874234650",
-      "firstText": "从另一头传回的银铃嗓音，让莱登忍不住发出怒吼。就在第二梯队毁灭后，第三梯队判断不该前进，而莱登等人也",
-      "index": 173,
-      "lastText": "「喔，放心吧。这对我们来说是家常便饭了。」"
+      "detailHash": "b17577df968f4b0c",
+      "firstText": "阿涅塔不仅曾经拥有拯救的机会，而且放弃了两次。",
+      "index": 178,
+      "lastText": "好不容易才获得自由。当时辛是这么说的。"
     },
     {
       "counts": {
@@ -2959,115 +3034,40 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "551d11bcf76618bf",
-      "firstText": "『……诺赞上尉呢？』",
-      "index": 174,
-      "lastText": "型，一派悠闲地重新面向这边。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "4307e986eba78a9a",
-      "firstText": "就连牵制射击也逼得自己不得不拼命闪躲，而自己唯一能够攻破的部位，也被对方严密守着是吧。",
-      "index": 175,
-      "lastText": "自已。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "20ce2cfbd5794d04",
-      "firstText": "「可是，你不是找到你哥，还把他好好埋葬了吗？这样应该就够了吧？」",
-      "index": 176,
-      "lastText": "他是想把自己折磨到死吗？不——只是不想用枪炮解决自己吧。那无数蠢动的手，就像那天夜里哥哥掐住自己脖子"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "aea8bdf3b78ed9b6",
-      "firstText": "的手一样。",
-      "index": 177,
-      "lastText": "是死亡。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "0c1bd74619aa35ed",
-      "firstText": "重战车型悠然地走上前去，不知为何没有开炮。但是对方身上散发的不祥气息，让莱登觉得不能让他靠近辛。",
-      "index": 178,
-      "lastText": "听见蕾娜告知的内容，可蕾娜差点忍不住跳起来。因为她是狙击手，就算没对她说明，也马上就猜到对方想干什么"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "9c4c9de632774a6b",
-      "firstText": "了。",
+      "detailHash": "2f688e0e09ccc599",
+      "firstText": "虽然蕾娜不认为那叫作自由，但毕竟她没有能力撤销特别侦察任务，也无法还给他们真正的自由。既然如此，至少",
       "index": 179,
-      "lastText": "『唔……我没事。』"
+      "lastText": "「……你真的是个笨蛋啊。」"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 25
       },
-      "detailHash": "b6280013afe41ff1",
-      "firstText": "『我也是。抱歉，赛欧。』",
+      "detailHash": "250d7aec2240f99f",
+      "firstText": "『我又不是为了你们才这么做的。只是因为若是让数量这么多的「军团」突破前线，共和国就危险了。我还不想",
       "index": 180,
-      "lastText": "那些共和国的垃圾，把辛利用到这种程度还不满足，居然还想拿他当诱饵，连同我一起炸碎吗！"
+      "lastText": "却被重战车型丛生于炮塔上的其中一条手臂扫开了。"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 21
+        "textRuns": 25
       },
-      "detailHash": "6e151b0eee4c4577",
-      "firstText": "没有时间带着辛逃跑了。因此，雷将前半段的四条腿猛力一蹬，让机体像骏马一样仰起上身。他扭转身躯，用最为",
+      "detailHash": "73935d799daad2eb",
+      "firstText": "「……！」",
       "index": 181,
-      "lastText": "每一处角落都遭受冲击力的洗礼。"
+      "lastText": "应该已经变声了吧？还是还没呢？怎样都好，反正就是想听听。"
     },
     {
       "counts": {
@@ -3075,14 +3075,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 25,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 25
       },
-      "detailHash": "3c0c44856dd24a49",
-      "firstText": "「命中。」",
+      "detailHash": "8263d7be702d8bc2",
+      "firstText": "两人望着星星坠落的天空。像是小孩一样的剪影，背靠着伏在地上的「破坏神」装甲上。",
       "index": 182,
-      "lastText": "其实一点也不想和哥哥战斗的辛，却坚持与雷正面对决的理由。"
+      "lastText": "道，只好先想办法把腿部破坏掉。"
     },
     {
       "counts": {
@@ -3090,44 +3090,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 24
       },
-      "detailHash": "39016e249d1defad",
-      "firstText": "「你不是要吊祭你的哥哥吗！——辛！」",
+      "detailHash": "e866fd25cbcf1cae",
+      "firstText": "终于见面了。这下子终于可以把他带回去了。",
       "index": 183,
-      "lastText": "后也没有原谅自己的哥哥的声音。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "2424d89750990c5b",
-      "firstText": "当他第一次在亡灵的哀叹中听见那个声音时，就下定决心一定要找到哥哥，亲手送他离去。",
-      "index": 184,
-      "lastText": "他还是必须彻底做个了结，才能继续前进。"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6fde1232fa871480",
-      "firstText": "瞄准完成。炮口对准了挡在面前的钢铁色装甲中间，那道被自己劈开的缝隙。",
-      "index": 185,
-      "lastText": "从扣下扳机到炮弹命中，事实上不用一秒钟。在这段体感无限延长的时间中，辛看见一双手缓缓伸了进来。好像在"
+      "lastText": "感觉到辛的同步瞬间断绝，莱登不禁瞪大了双眼。这时候，周遭的「军团」大致上都解决了，菲多也卸下了第二个"
     },
     {
       "counts": {
@@ -3135,48 +3105,93 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "8b1bef0abf2cb5b0",
+      "firstText": "货柜。而待在后方观望迟迟不肯放弃的「军团」，也被蕾娜毫不留情地施以飞弹制裁，正在撤退当中。",
+      "index": 184,
+      "lastText": "无论是飞弹或重炮，威力都太过强大。「破坏神」的装甲非常脆弱，要是对重战车型开炮的话，四散的碎片肯定会"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "64b3e2e177343359",
-      "firstText": "寻找什么东西，微微张开了手掌。是记忆中哥哥的那双大手。",
+      "detailHash": "3d61dd3793d44f8a",
+      "firstText": "牵连到辛。",
+      "index": 185,
+      "lastText": "趁机接近对方的赛欧和安琪同时射出钢索钩爪，分别缠住炮身和一只腿，两机就这样将四肢牢牢踏住地面。重量只"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "86aff680a70518dd",
+      "firstText": "有重战车型十分之一的「破坏神」，就算两架合力也只是稍微让对方增加了点负担而已。将切换成近发引信的榴弹发射出",
       "index": 186,
-      "lastText": "『好的。』"
+      "lastText": "就在他伸手抓住座舱罩，正准备扯下来的时候，锁定警报才响了起来。"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "detailHash": "30fe3e975cfd703d",
-      "firstText": "等了一小段时间后，听见莱登连结上一句「可以了喔」，蕾娜才再度启动知觉同步。等到其他人都重新连上后，才",
+      "detailHash": "6c404d92a77c1f88",
+      "firstText": "在迅速上移的光学感应器视野中，巨大的炮弹已经迫在眉睫了。只见一条像人类小孩一样大的巨型蛆虫，展开调节",
       "index": 187,
-      "lastText": "『警戒和维修就等找到睡觉的地方再说吧……才第一天就用了这么多弹药，损失真大啊。』"
+      "lastText": "接触目标后，引信——并没有启动。"
     },
     {
       "counts": {
-        "blocks": 22,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 22
       },
-      "detailHash": "7d985351bd128ac0",
-      "firstText": "『哎呀，这样不是很好吗？毕竟解决了这么多敌人。』",
+      "detailHash": "d2f346e18d104675",
+      "firstText": "不发弹。",
       "index": 188,
-      "lastText": "「不要留下我一个人。」"
+      "lastText": "「给我起来啊，你这个笨蛋！喂！辛！」"
     },
     {
       "counts": {
-        "blocks": 21,
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "9f245c1faaf8127b",
+      "firstText": "「诺赞上尉！你听得到吗，诺赞上尉！请你醒一醒！」",
+      "index": 189,
+      "lastText": "辛只知道，自己和「送葬者」机体都还没死。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3184,14 +3199,14 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "b580e7d66cbf9025",
-      "firstText": "迟了一拍之后才理解自己说了什么的蕾娜，僵在原地。什么不说，偏偏说不要留下我？不但不要脸，而且根本搞不",
-      "index": 189,
-      "lastText": "『我们先走一步了，少校。』"
+      "detailHash": "d4548fd1b19a8000",
+      "firstText": "而希望能由自己亲手埋葬的哥哥，就在眼前。",
+      "index": 190,
+      "lastText": "死了之后又被带走，幽禁在等同于亡灵的战斗机械中，不断呼唤着自己的哥哥。辛发誓一定要找到他的首级，与他"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 22,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3199,29 +3214,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "15fc1b4504e79d23",
-      "firstText": "同步静静地中断了。",
-      "index": 190,
-      "lastText": "他以略显沙哑的大嗓门这么说之后，就用下巴比了比后头的队舍。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "4f1896a1ad4232de",
-      "firstText": "「虽然他们都清理过自己的房间了，但也不是完全没有留下什么。新来的小鬼们晚一点才会进去，如果只是这么一",
+      "detailHash": "305efec01c2e8d70",
+      "firstText": "正面对决，将他毁灭之后好好安葬才行。",
       "index": 191,
-      "lastText": "杀了我能让心情好些，那就动手吧……可是从来没有人真的动手。这次也是一样。托他们的福，我又一次错过死亡了。」"
+      "lastText": "把这么一句话告诉辛就好，却在说出口之前就死去了。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3229,25 +3229,10 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "413c8ccaaca4cd39",
-      "firstText": "听起来像是为了自己又被留下感到怅然若失。",
+      "detailHash": "6cc28937cc68ff97",
+      "firstText": "就像那时候一样，雷伸出了双手。从那道被劈开的缝隙中伸出手。",
       "index": 192,
-      "lastText": "也有一本斜放着的素描簿，但里面一张画也没有，全都是白纸。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 26,
-        "ruby": 0,
-        "textRuns": 26
-      },
-      "detailHash": "01a2ebfbb2c263f6",
-      "firstText": "毛线和勾针都收纳在篮子里，却没看见任何蕾丝编织成品。",
-      "index": 193,
-      "lastText": "下一张是便条纸。是一位豪迈男子龙飞凤舞的笔迹。"
+      "lastText": "他不知道自己为何悲伤，甚至不知道从心底涌起，堵在胸口的这股情绪就是悲伤。"
     },
     {
       "counts": {
@@ -3259,24 +3244,129 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "8a2ca2cad2682c25",
-      "firstText": "『要是你真的特地跑来找到了这些东西，就证明你是个真正的笨蛋。』",
-      "index": 194,
-      "lastText": "不对绝望屈服，不玷污人之所以为人的原则，一直坚持走到生命的尽头。"
+      "detailHash": "df1737be041bd110",
+      "firstText": "只是任由泪水不断流出，停也停不住。",
+      "index": 193,
+      "lastText": "蕾娜愣了一下，眨了眨眼。刚才……"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 23,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 24,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 24
       },
-      "detailHash": "6ffb382ef6a8c460",
-      "firstText": "没错，直到最后他们都相信她可以办到。",
+      "detailHash": "7dce693622b7d5b7",
+      "firstText": "刚才他们五个人之间好像达成了什么共识。除了蕾娜之外的其他人，都完成了交流。",
+      "index": 194,
+      "lastText": "饱受煎熬的焦躁，与像是被浇了盆冷水一样的失落预感，促使她开口："
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "dfba8a8ae1d27181",
+      "firstText": "「等等。请等一下……！」",
       "index": 195,
+      "lastText": "贵。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "95842b35193b3784",
+      "firstText": "发现蕾娜默默地接受了这场离别，他们便再度迈开步伐。而在最后，面对虽然理解但感情上依旧难以接受的蕾娜，",
+      "index": 196,
+      "lastText": "飞往先锋战队基地的运输机，正好也是运送从各战区汇集而来的下一批处刑对象的运输机。她找上了人事部里一位个性软弱"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "cf3da0b2b6cef039",
+      "firstText": "又好说话的士兵，靠着近乎于威胁的方式，才得以搭了上去。",
+      "index": 197,
+      "lastText": "「要是有的话，我打算去找看看，让它杀了我。结果那家伙却说没有，完全没听到喊着我的名字的『军团』。听到"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 26,
+        "ruby": 0,
+        "textRuns": 26
+      },
+      "detailHash": "3ca9a01d93cd1e5e",
+      "firstText": "他这么说……我觉得罪恶感少了一点啊。老婆跟女儿虽然死了，但至少没有被困在战场上。等我到了那边，一定能见到她们",
+      "index": 198,
+      "lastText": "位于最后面也是最宽广的房间，就是战队长的房间。蕾娜推开有些故障的门。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "ae2ef2281b9bbba2",
+      "firstText": "这里也有狭小的弹簧床和衣柜，里头还有一张这里才有的书桌，以及前方稍微宽敞一点的空间。那里摆了大量的杂",
+      "index": 199,
+      "lastText": "不用说明她也能猜到，他们就是直到昨天为止的先锋战队队员。辛、莱登、赛欧、可蕾娜、安琪，还有其他已不在"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "ab5aaa43558833f8",
+      "firstText": "人世的所有人。这很有可能是到任当天拍的照片。",
+      "index": 200,
+      "lastText": "『要是有一天，你来到了我们抵达的场所，可否为我们送上一束花呢？』"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 18,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "e76e424b7255d339",
+      "firstText": "正如同他字面上所表达的意义，但也不仅止于此。",
+      "index": 201,
       "lastText": "——芙拉蒂蕾娜·米利杰《回顾录》"
     },
     {
@@ -3289,9 +3379,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "0408dccd271e21dc",
+      "detailHash": "694cdd7614a62115",
       "firstText": "终章",
-      "index": 196,
+      "index": 202,
       "lastText": "室时曾经一度取出，制作了精巧的复制品，以及名单纪录后，再度放回原处。"
     },
     {
@@ -3304,9 +3394,9 @@
         "ruby": 1,
         "textRuns": 27
       },
-      "detailHash": "9394f1f024b89ff9",
+      "detailHash": "2b3133fca01e52b1",
       "firstText": "两年前辛他们所抵达的这个场所，共和国却永远也到不了。",
-      "index": 197,
+      "index": 203,
       "lastText": "到底还要持续到什么时候！』"
     },
     {
@@ -3319,9 +3409,9 @@
         "ruby": 0,
         "textRuns": 26
       },
-      "detailHash": "0d2e9380395a143b",
+      "detailHash": "fc6a04b4ac58da08",
       "firstText": "现场连一个赞同的声音也没有。",
-      "index": 198,
+      "index": 204,
       "lastText": "「家臣团」和曾为「家臣」的所属战队，以及其他大部分的部队，都答应了这个请求。"
     },
     {
@@ -3334,9 +3424,9 @@
         "ruby": 0,
         "textRuns": 27
       },
-      "detailHash": "56f2ddacd0ecf126",
+      "detailHash": "d3f294ffed998513",
       "firstText": "话虽如此，这些人并不是基于善意或信赖，而是看中了八十五区内拥有发电设备及生产工厂，生存机率较高的关系",
-      "index": 199,
+      "index": 205,
       "lastText": "但是在强制收容所找到收容者所写下的详细资料，以及听取幸存者的亲身经历，又在收容所和要塞遗址发现了埋藏"
     },
     {
@@ -3349,9 +3439,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "c633f4bd4866142b",
+      "detailHash": "68313357e258a82b",
       "firstText": "的大量白骨后，联邦看待共和国的目光就益发冰冷起来。当他们找到人体实验的纪录，发现了婴幼儿的贩卖纪录，以及士兵",
-      "index": 200,
+      "index": 206,
       "lastText": "亲身犯险的她一手促成的。她这个手上沾满鲜血的黑衣女王，没有资格受到称赞。"
     },
     {
@@ -3364,9 +3454,9 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "74631ef171fe492c",
+      "detailHash": "32fb088d40102e46",
       "firstText": "高官用慈爱的目光看了看这位严以律己的女子后，转身迈开步伐，走向不知何时站在远处，身穿联邦军铁灰色军服",
-      "index": 201,
+      "index": 207,
       "lastText": "为了奋战到底，为了存活下去。"
     },
     {
@@ -3379,25 +3469,40 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "db0703813339678b",
+      "detailHash": "b3838e2af64346f3",
       "firstText": "终章——二",
-      "index": 202,
+      "index": 208,
       "lastText": "就像恶作剧大成功的小孩子一样，他们用眼神互相交流。"
     },
     {
       "counts": {
-        "blocks": 5,
+        "blocks": 4,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
         "lines": 4,
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "1623ca9a2abcd1f9",
+      "detailHash": "d55446995d81d6cc",
       "firstText": "以队长身分作为代表的他，开口回应：",
-      "index": 203,
+      "index": 209,
       "lastText": "「好久不见，管制一号。」"
+    },
+    {
+      "counts": {
+        "blocks": 1,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 0,
+        "ruby": 0,
+        "textRuns": 0
+      },
+      "detailHash": "2230478c4c672ef4",
+      "firstText": "",
+      "index": 210,
+      "lastText": ""
     },
     {
       "counts": {
@@ -3409,9 +3514,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "85c922b6f1012efa",
+      "detailHash": "bbdc1eb3b05578a9",
       "firstText": "后记",
-      "index": 204,
+      "index": 211,
       "lastText": "·明明在假想世界中，却出现了圣经和雷马克的理由……就请各位自由想像吧。"
     },
     {
@@ -3424,9 +3529,9 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "de66087f57ad6b72",
+      "detailHash": "b3547b039f34b6eb",
       "firstText": "……丢人现眼的闲话就说到这里吧，最后请容我致上谢辞。",
-      "index": 205,
+      "index": 212,
       "lastText": "后记执笔中BGM：シドニア（angela）"
     },
     {
@@ -3439,9 +3544,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "62f2cc7bff274088",
+      "detailHash": "a9ccf7e9cce05700",
       "firstText": "首刷限定4P特典小册子",
-      "index": 206,
+      "index": 213,
       "lastText": "但不知为何迟迟没有得到回应，莱登于是张开了单边眼睛。"
     },
     {
@@ -3454,9 +3559,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "8235f96ce8768ea6",
+      "detailHash": "9a2fcab2a66f0f1a",
       "firstText": "「怎么了吗？」",
-      "index": 207,
+      "index": 214,
       "lastText": "根本是五十步笑百步。"
     }
   ],
@@ -3465,10 +3570,10 @@
     "chapterCount": 30,
     "chapterTextIndexCount": 30,
     "footnoteCount": 0,
-    "fullDetailHash": "02b161e52c4372d8",
-    "pageCount": 208,
+    "fullDetailHash": "304f88d1f7b1e7e0",
+    "pageCount": 215,
     "totals": {
-      "blocks": 3463,
+      "blocks": 3469,
       "hrs": 2,
       "images": 15,
       "inlineAtoms": 0,
@@ -3494,8 +3599,8 @@
               "alt": "001",
               "bounds": {
                 "height": 640,
-                "width": 520,
-                "x": 0,
+                "width": 432.457,
+                "x": 43.771,
                 "y": 0
               },
               "href": null,
@@ -5720,7 +5825,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 591.966,
             "width": 520,
             "x": 0,
             "y": 0
@@ -5729,7 +5834,7 @@
             {
               "alt": "002",
               "bounds": {
-                "height": 300,
+                "height": 591.966,
                 "width": 400,
                 "x": 60,
                 "y": 0
@@ -5772,7 +5877,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 591.966,
             "width": 520,
             "x": 0,
             "y": 0
@@ -5781,7 +5886,7 @@
             {
               "alt": "003",
               "bounds": {
-                "height": 300,
+                "height": 591.966,
                 "width": 400,
                 "x": 60,
                 "y": 0
@@ -6704,7 +6809,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -6713,9 +6818,9 @@
             {
               "alt": "004",
               "bounds": {
-                "height": 300,
-                "width": 400,
-                "x": 60,
+                "height": 720,
+                "width": 384.439,
+                "x": 67.78,
                 "y": 0
               },
               "href": null,
@@ -7453,7 +7558,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -7462,9 +7567,9 @@
             {
               "alt": "005",
               "bounds": {
-                "height": 300,
-                "width": 400,
-                "x": 60,
+                "height": 720,
+                "width": 384.439,
+                "x": 67.78,
                 "y": 0
               },
               "href": null,
@@ -12502,7 +12607,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 295.983,
             "width": 520,
             "x": 0,
             "y": 0
@@ -12511,7 +12616,7 @@
             {
               "alt": "006",
               "bounds": {
-                "height": 300,
+                "height": 295.983,
                 "width": 400,
                 "x": 60,
                 "y": 0
@@ -13517,7 +13622,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 591.966,
             "width": 520,
             "x": 0,
             "y": 0
@@ -13526,7 +13631,7 @@
             {
               "alt": "009",
               "bounds": {
-                "height": 300,
+                "height": 591.966,
                 "width": 400,
                 "x": 60,
                 "y": 0
@@ -13559,7 +13664,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 37,
+      "index": 38,
       "lastText": "",
       "paint": null
     },
@@ -14619,7 +14724,7 @@
         "textRuns": 25
       },
       "firstText": "第二章",
-      "index": 38,
+      "index": 39,
       "lastText": "（像是煮饭、洗衣、扫除和照料基地内的田地或鸡之类），就是在做自己想做的事。",
       "paint": null
     },
@@ -14633,1274 +14738,6 @@
             "width": 520,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 259.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "大概是想要打破尴尬的气氛吧，她刻意让声音显得开朗一些。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 520,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.579
-                  },
-                  "text": "『对了，我看到文件上的日期相当久远，这是从某位前辈手上继承而来的吗？还是说，难道你从那时候就入伍",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 28.8,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "了？』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 81.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 364.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「啊。这家伙从一开始就这样搞了，管制一号。在我认识他之前，他一直都是这样。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 112
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 297.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "莱登也用打趣的语调加入了对话。感觉另一头的管制官似乎愣了一下。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 142.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 153.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『狼人和送葬者以前就认识了吗？』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 172.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 76.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "凯耶耸耸肩应道：",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 59.6,
-            "width": 520,
-            "x": 0,
-            "y": 203.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 29.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 165.812,
-                    "x": 32,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "「应该是说，大部分的人都是。比方说",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.363,
-                    "x": 197.976,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "戴亚",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.363,
-                    "x": 197.976,
-                    "y": 0
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "黑狗",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 9.6,
-                    "x": 217.502,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "和",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.363,
-                    "x": 227.265,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "安琪",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.363,
-                    "x": 227.265,
-                    "y": 0
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "雪女",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 146.286,
-                    "x": 246.792,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "从入伍之后就一直是队友，而我和",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.363,
-                    "x": 393.241,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "悠人",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.363,
-                    "x": 393.241,
-                    "y": 0
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "猎隼",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 68.18,
-                    "x": 412.767,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "也同队了一年。",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.363,
-                    "x": 481.11,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "赛欧",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.363,
-                    "x": 481.11,
-                    "y": 0
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "笑面狐",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 9.6,
-                    "x": 500.637,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "和",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 9.6,
-                    "x": 510.4,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "可",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 9.6,
-                    "x": 510.4,
-                    "y": 0
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "神枪",
-                  "type": "ruby-annotation"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 29.8,
-                "width": 520,
-                "x": 0,
-                "y": 29.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.2,
-                    "x": 0,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "蕾娜",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.2,
-                    "x": 0,
-                    "y": 29.8
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "神枪",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 76.8,
-                    "x": 19.2,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "从前年开始就待在",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 9.6,
-                    "x": 96,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "辛",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 9.6,
-                    "x": 96,
-                    "y": 29.8
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "送葬者",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 9.6,
-                    "x": 105.6,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "和",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 19.2,
-                    "x": 115.2,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "莱登",
-                  "type": "text-run"
-                },
-                {
-                  "bounds": {
-                    "height": 8,
-                    "width": 19.2,
-                    "x": 115.2,
-                    "y": 29.8
-                  },
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 8,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "狼人",
-                  "type": "ruby-annotation"
-                },
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 134.4,
-                    "y": 9
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "的部队了……我记得他们两个认识也有两年了吧。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 272.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「是三年。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 302.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 201.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "莱登开口回答，而管制官先沉默了一下才开口：",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 333.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 172.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『……请问各位都从军多久了呢……？』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 363.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 307.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「大家大概都是第四年吧。啊，送葬者是最久的，今年已经第五年了。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 394
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 153.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "这时，管制官语调突然雀跃了起来。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 520,
-            "x": 0,
-            "y": 424.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "『这么说，再过不久送葬者就要服满役期了呢……退伍之后，有没有想做的事情呢？还是想要去哪里，或是想看看",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 48,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "什么呢？』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 475.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 336,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "大家的视线都集中在辛身上。而他的目光还是停留在书本上，就这样随意答道：",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 506
           },
           "children": [
             {
@@ -15950,7 +14787,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 536.4
+            "y": 30.4
           },
           "children": [
             {
@@ -16000,7 +14837,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 566.8
+            "y": 60.8
           },
           "children": [
             {
@@ -16050,7 +14887,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 597.2
+            "y": 91.2
           },
           "children": [
             {
@@ -16101,16 +14938,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 18,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 8,
-        "textRuns": 35
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 4
       },
-      "firstText": "大概是想要打破尴尬的气氛吧，她刻意让声音显得开朗一些。",
-      "index": 64,
+      "firstText": "「不知道。我从来没想过。」",
+      "index": 66,
       "lastText": "「或许吧。」",
       "paint": null
     },
@@ -17186,7 +16023,7 @@
         "textRuns": 23
       },
       "firstText": "第三章",
-      "index": 65,
+      "index": 67,
       "lastText": "「送葬者。首先是关于前几天申请的物资送达日期……」",
       "paint": null
     },
@@ -17196,10 +16033,260 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 520,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "蕾娜这一次是真的笑了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 30.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 57.6,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "『马上好。』",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 89.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 240,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "听着众人交谈的过程中，辛突然忆起昨天蕾娜所说的话。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 120
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 57.6,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "修雷·诺赞。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 150.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 115.2,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "一个好久没有听见的名字。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 520,
+            "x": 0,
+            "y": 180.8
           },
           "children": [
             {
@@ -17283,7 +16370,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 51.2
+            "y": 232
           },
           "children": [
             {
@@ -17333,7 +16420,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 81.6
+            "y": 262.4
           },
           "children": [
             {
@@ -17384,16 +16471,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 8,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 4,
+        "lines": 9,
         "ruby": 0,
-        "textRuns": 4
+        "textRuns": 9
       },
-      "firstText": "一个本来以为再也不会听见的名字。他甚至连这个名字本身都快要遗忘了。因为自始至终，辛从来都没有用这个名",
-      "index": 96,
+      "firstText": "蕾娜这一次是真的笑了。",
+      "index": 99,
       "lastText": "哥哥。",
       "paint": null
     },
@@ -18470,7 +17557,7 @@
         "textRuns": 23
       },
       "firstText": "间章",
-      "index": 97,
+      "index": 100,
       "lastText": "就算问他为什么会知道，他也只能回答我就是知道。辛不需要任何理由，他深信这就是事实，如此而已。",
       "paint": null
     },
@@ -18543,7 +17630,7 @@
         "textRuns": 1
       },
       "firstText": "眼前的驾驶舱里，悄悄盖上一层白色积雪的阴影之中，可以清楚看见哥哥已经变色的无头骸骨，就横躺在那里。",
-      "index": 98,
+      "index": 101,
       "lastText": "眼前的驾驶舱里，悄悄盖上一层白色积雪的阴影之中，可以清楚看见哥哥已经变色的无头骸骨，就横躺在那里。",
       "paint": null
     },
@@ -19648,7 +18735,7 @@
         "textRuns": 24
       },
       "firstText": "第四章",
-      "index": 99,
+      "index": 102,
       "lastText": "『对不起喔。』",
       "paint": null
     },
@@ -20791,7 +19878,7 @@
         "textRuns": 24
       },
       "firstText": "「那是……假设你们在几年后遭到全灭的话，才会发生的事情吧？」",
-      "index": 116,
+      "index": 119,
       "lastText": "辛悄悄抬起一只手，触摸镜像里自己脖子上的伤痕。",
       "paint": null
     },
@@ -21767,7 +20854,7 @@
         "textRuns": 20
       },
       "firstText": "间章",
-      "index": 117,
+      "index": 120,
       "lastText": "一起入伍的友人虽然全都死了，但他们到死为止都用尽全力在战斗。那位老妇人也是。冒着可能被射杀的风险，也",
       "paint": null
     },
@@ -22633,7 +21720,7 @@
         "textRuns": 18
       },
       "firstText": "看莱登花了点功夫关上有点故障的门，听着他的脚步声返回隔壁房间，传出弹簧床吱嘎作响的声音后，辛依旧待在",
-      "index": 120,
+      "index": 123,
       "lastText": "「我马上就能去找你了——哥哥。」",
       "paint": null
     },
@@ -23729,7 +22816,7 @@
         "textRuns": 23
       },
       "firstText": "第五章",
-      "index": 121,
+      "index": 124,
       "lastText": "蕾娜感觉得出来，那位身处于遥远战场上的少女，现在正紧紧抿着双唇。仿佛还能听见她咬紧牙关的声音。",
       "paint": null
     },
@@ -23743,974 +22830,6 @@
             "width": 520,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "蕾娜在颤栗之中，努力找寻该说出口的话语。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 30.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 297.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "口干舌燥。不祥的想像和某种预感让她胆战心惊。这让她越说越激动。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 60.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 374.4,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「我现在就让他们把补充许可批下来。让他们今天就立刻批准。这实在太奇怪了——！」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 91.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 201.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "先锋战队从很久以前就陷入机能不全的状态了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 62.4,
-            "width": 520,
-            "x": 0,
-            "y": 121.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 488,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.163
-                  },
-                  "text": "兵员不足，因此也得不到足够的休养，必须向周边部队申请支援或代为出击，才勉强能维持防卫线。军方高层明明",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 520,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.03
-                  },
-                  "text": "也很清楚他们的现状才是，却始终没有任何作为。支援和代为出击的申请都是一下子就通过了，却只有缺额补充的申请一直",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 41.6
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 480,
-                    "x": 0,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "被打回票。她甚至厚着脸皮向卡尔修塔尔苦苦哀求，但就算透过身为准将的他提出申请，也得不到半个补充名额。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 193.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "辛只是说了短短的一句：",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 224
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 48,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『少校。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 254.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 288,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「我再去找准将好好谈一次。还是不行的话，无论用什么手段——」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 284.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 76.8,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『米利杰少校。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 315.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "辛又加重语气呼唤了一声，蕾娜才闭上嘴巴。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 345.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 115.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『我们所有人都不在意。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 376
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 67.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『……是啊。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 406.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 278.4,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "莱登代表其他人表示同意。而剩下的所有人都陷入了沉重的沉默。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 436.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 115.2,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「……你在说什么……？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 467.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 249.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『少校，已经够了。不管你再怎么努力，都是徒劳无功。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 497.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 134.4,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「诺赞上尉，这是怎么回……」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 528
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 201.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "『不会有兵源补充过来的。一个人也不会有。』",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 558.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 520,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 32,
-                    "y": 0
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": null,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "FZWBKS",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「……咦？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 520,
-            "x": 0,
-            "y": 588.8
           },
           "children": [
             {
@@ -24760,7 +22879,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 619.2
+            "y": 30.4
           },
           "children": [
             {
@@ -24810,7 +22929,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 678.4
+            "y": 89.6
           },
           "children": [
             {
@@ -24861,16 +22980,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 21,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 3
       },
-      "firstText": "蕾娜在颤栗之中，努力找寻该说出口的话语。",
-      "index": 134,
+      "firstText": "接着，辛平静地如实以告。",
+      "index": 139,
       "lastText": "『我们将会全军覆没。这个部队就是为此而准备的处刑场。』",
       "paint": null
     },
@@ -25917,7 +24036,7 @@
         "textRuns": 24
       },
       "firstText": "间章",
-      "index": 135,
+      "index": 140,
       "lastText": "怎么想也想不出答案。",
       "paint": null
     },
@@ -26240,7 +24359,7 @@
         "textRuns": 6
       },
       "firstText": "无论神父或是其他人都听不见的声音究竟是什么，辛也自然而然想通了。",
-      "index": 138,
+      "index": 143,
       "lastText": "就在那一天，辛办理了从军的手续。",
       "paint": null
     },
@@ -27300,7 +25419,7 @@
         "textRuns": 21
       },
       "firstText": "第六章",
-      "index": 139,
+      "index": 144,
       "lastText": "『我并没有要责备你的意思……只是，从开战到现在，你曾经在八十五区内见过任何一个八六吗？』",
       "paint": null
     },
@@ -27360,7 +25479,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 300,
+            "height": 591.966,
             "width": 520,
             "x": 0,
             "y": 30.4
@@ -27369,7 +25488,7 @@
             {
               "alt": "013",
               "bounds": {
-                "height": 300,
+                "height": 591.966,
                 "width": 400,
                 "x": 60,
                 "y": 0
@@ -27402,7 +25521,7 @@
         "textRuns": 1
       },
       "firstText": "「找到你了——哥哥。」",
-      "index": 161,
+      "index": 166,
       "lastText": "「找到你了——哥哥。」",
       "paint": null
     },
@@ -28429,7 +26548,7 @@
         "textRuns": 22
       },
       "firstText": "间章",
-      "index": 162,
+      "index": 167,
       "lastText": "没多久，妈妈也死了。伴随着死亡通知，雷的征兵通知也到了。",
       "paint": null
     },
@@ -29352,7 +27471,7 @@
         "textRuns": 18
       },
       "firstText": "落在身上的雪花好冷，这下子也差不多该完蛋啦。雷那颗因失血过多而有些恍惚的脑袋这么想着。",
-      "index": 165,
+      "index": 170,
       "lastText": "而这份思念，成就了现在的「他」。",
       "paint": null
     },
@@ -30412,7 +28531,7 @@
         "textRuns": 21
       },
       "firstText": "第七章",
-      "index": 166,
+      "index": 171,
       "lastText": "唉，没救了。",
       "paint": null
     },
@@ -30426,6 +28545,240 @@
             "width": 520,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 211.2,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "正如同他字面上所表达的意义，但也不仅止于此。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 520,
+            "x": 0,
+            "y": 30.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 488,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.163
+                  },
+                  "text": "坚持走到生命的尽头，是辛、是他们所期盼的自由。而他们最后所能抵达的场所，也是蕾娜总有一天一定要达到的",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 28.8,
+                    "x": 0,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "目标。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 124.8,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "蕾娜知道，自己还能走下去。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 112
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 520,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 307.2,
+                    "x": 32,
+                    "y": 0
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": null,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "FZWBKS",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不对绝望屈服，不玷污人之所以为人的原则，一直坚持走到生命的尽头。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 520,
+            "x": 0,
+            "y": 142.4
           },
           "children": [
             {
@@ -30475,7 +28828,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 30.4
+            "y": 172.8
           },
           "children": [
             {
@@ -30525,7 +28878,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 60.8
+            "y": 203.2
           },
           "children": [
             {
@@ -30575,7 +28928,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 91.2
+            "y": 233.6
           },
           "children": [
             {
@@ -30625,7 +28978,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 121.6
+            "y": 264
           },
           "children": [
             {
@@ -30709,7 +29062,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 172.8
+            "y": 315.2
           },
           "children": [
             {
@@ -30759,7 +29112,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 232
+            "y": 374.4
           },
           "children": [
             {
@@ -30809,7 +29162,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 262.4
+            "y": 404.8
           },
           "children": [
             {
@@ -30893,7 +29246,7 @@
             "height": 41.6,
             "width": 520,
             "x": 0,
-            "y": 342.4
+            "y": 484.8
           },
           "children": [
             {
@@ -30977,7 +29330,7 @@
             "height": 20.8,
             "width": 520,
             "x": 0,
-            "y": 422.4
+            "y": 564.8
           },
           "children": [
             {
@@ -31028,16 +29381,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 10,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 18
       },
-      "firstText": "没错，直到最后他们都相信她可以办到。",
-      "index": 195,
+      "firstText": "正如同他字面上所表达的意义，但也不仅止于此。",
+      "index": 201,
       "lastText": "——芙拉蒂蕾娜·米利杰《回顾录》",
       "paint": null
     },
@@ -31614,7 +29967,7 @@
         "textRuns": 13
       },
       "firstText": "……丢人现眼的闲话就说到这里吧，最后请容我致上谢辞。",
-      "index": 205,
+      "index": 212,
       "lastText": "后记执笔中BGM：シドニア（angela）",
       "paint": null
     },
@@ -32707,7 +31060,7 @@
         "textRuns": 23
       },
       "firstText": "首刷限定4P特典小册子",
-      "index": 206,
+      "index": 213,
       "lastText": "但不知为何迟迟没有得到回应，莱登于是张开了单边眼睛。",
       "paint": null
     }

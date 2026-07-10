@@ -58,7 +58,7 @@ describe('createController', () => {
       spreads: [{ left: { index: 0 }, right: undefined }],
       dpr: 2,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread: vi.fn(),
       resize: vi.fn(),
       setSpreadMode: vi.fn(),
@@ -126,7 +126,7 @@ describe('createController', () => {
       ],
       dpr: 1,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread,
       resize: vi.fn(),
       setSpreadMode: vi.fn(),
@@ -190,7 +190,7 @@ describe('createController', () => {
       spreads: [{ left: { index: 0 }, right: undefined }],
       dpr: 1,
       renderSpread: vi.fn(),
-      renderSpreadTo: vi.fn(),
+      renderSpreadTo: vi.fn(() => true),
       notifyActiveSpread: vi.fn(() => {
         throw sentinel;
       }),

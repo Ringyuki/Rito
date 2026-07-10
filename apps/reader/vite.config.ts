@@ -43,4 +43,7 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    exclude: ['@ritojs/core', '@ritojs/core-wasm', '@ritojs/kit', '@ritojs/react'],
+  },
 });

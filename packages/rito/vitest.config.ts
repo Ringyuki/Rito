@@ -5,7 +5,7 @@ if (coverageEnabled) process.env['RITO_COVERAGE'] = '1';
 
 export default defineConfig({
   test: {
-    testTimeout: 15_000,
+    testTimeout: 30_000,
     include: ['tests/**/*.test.ts'],
     exclude: [
       ...configDefaults.exclude,

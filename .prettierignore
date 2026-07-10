@@ -3,6 +3,7 @@ node_modules/
 coverage/
 pnpm-lock.yaml
 packages/rito/tests/golden/render-commands/**/*.json
+packages/rito/tests/rust-fixtures/**/*.json
 **/.dart_tool/
 **/build/
 **/.idea/

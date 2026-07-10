@@ -15,13 +15,7 @@ export function useFileLoader(onLoad: (data: ArrayBuffer) => void): {
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (reader.result instanceof ArrayBuffer) {
-          onLoad(reader.result);
-        }
-      };
-      reader.readAsArrayBuffer(file);
+      void file.arrayBuffer().then(onLoad);
       e.target.value = '';
     },
     [onLoad],

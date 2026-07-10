@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/render/page';
+import { renderPage } from '../../src/reference/ts-core/render/page';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { Page } from '../../src/layout/core/types';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_RUN_PAINT, runPaintFromStyle } from '../../src/layout/text/run-paint-from-style';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { Page } from '../../src/reference/ts-core/layout/core/types';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import {
+  DEFAULT_RUN_PAINT,
+  runPaintFromStyle,
+} from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 const CONFIG = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 

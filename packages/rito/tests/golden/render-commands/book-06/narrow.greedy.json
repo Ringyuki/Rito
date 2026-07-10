@@ -59,14 +59,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "1c4e85deca911561",
+            "hash": "0ab29d07b9b63cc3",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "cbbaf095c6442731",
+            "hash": "2f49c29f24628d79",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -171,7 +171,7 @@
                   28,
                   28,
                   304,
-                  228
+                  431.457
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -209,14 +209,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "1c4e85deca911561",
+            "hash": "0ab29d07b9b63cc3",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "4523d9ead6e0b42d",
+            "hash": "28a53793faaf8fde",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -321,7 +321,7 @@
                   28,
                   28,
                   304,
-                  228
+                  431.457
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -3869,14 +3869,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "4de3dcdbf9fca9d5",
+            "hash": "b29e89dba32dc6aa",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 462,
-            "hash": "585ddbe9ca18b0a3",
+            "hash": "242c426fc8830622",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -4125,7 +4125,7 @@
                   70.917,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4162,7 +4162,7 @@
                     "length": 8
                   },
                   82.887,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4199,7 +4199,7 @@
                     "length": 1
                   },
                   98.547,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4236,7 +4236,7 @@
                     "length": 18
                   },
                   64.35,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4273,7 +4273,7 @@
                     "length": 18
                   },
                   64.35,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4310,7 +4310,7 @@
                     "length": 8
                   },
                   64.35,
-                  147.395
+                  162.02
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4323,7 +4323,7 @@
                   149.194,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4360,7 +4360,7 @@
                     "length": 6
                   },
                   163.662,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4397,7 +4397,7 @@
                     "length": 1
                   },
                   176.824,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4434,7 +4434,7 @@
                     "length": 19
                   },
                   141.072,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4471,7 +4471,7 @@
                     "length": 19
                   },
                   141.072,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4508,7 +4508,7 @@
                     "length": 16
                   },
                   141.072,
-                  147.395
+                  162.02
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4521,7 +4521,7 @@
                   229.028,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4558,7 +4558,7 @@
                     "length": 7
                   },
                   241.336,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4595,7 +4595,7 @@
                     "length": 1
                   },
                   256.658,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4632,7 +4632,7 @@
                     "length": 19
                   },
                   220.906,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4669,7 +4669,7 @@
                     "length": 19
                   },
                   220.906,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4680,9 +4680,9 @@
                     "imageHref": "Images/LAE.png"
                   },
                   67.5,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4719,7 +4719,7 @@
                     "length": 3
                   },
                   86.58,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4756,7 +4756,7 @@
                     "length": 4
                   },
                   84.69,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4793,7 +4793,7 @@
                     "length": 1
                   },
                   90.63,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4830,7 +4830,7 @@
                     "length": 14
                   },
                   64.35,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4867,7 +4867,7 @@
                     "length": 14
                   },
                   64.35,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4904,7 +4904,7 @@
                     "length": 9
                   },
                   64.35,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4915,9 +4915,9 @@
                     "imageHref": "Images/AEBT.png"
                   },
                   126,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4954,7 +4954,7 @@
                     "length": 4
                   },
                   143.19,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4991,7 +4991,7 @@
                     "length": 4
                   },
                   143.19,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5028,7 +5028,7 @@
                     "length": 1
                   },
                   149.13,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5065,7 +5065,7 @@
                     "length": 14
                   },
                   122.85,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5102,7 +5102,7 @@
                     "length": 14
                   },
                   122.85,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5139,7 +5139,7 @@
                     "length": 14
                   },
                   122.85,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5176,7 +5176,7 @@
                     "length": 4
                   },
                   122.85,
-                  244.19
+                  271.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5187,9 +5187,9 @@
                     "imageHref": "Images/ALNY.png"
                   },
                   184.5,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -5226,7 +5226,7 @@
                     "length": 3
                   },
                   202.455,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5263,7 +5263,7 @@
                     "length": 4
                   },
                   200.565,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5300,7 +5300,7 @@
                     "length": 1
                   },
                   207.63,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5337,7 +5337,7 @@
                     "length": 14
                   },
                   181.35,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5374,7 +5374,7 @@
                     "length": 14
                   },
                   181.35,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5411,7 +5411,7 @@
                     "length": 13
                   },
                   181.35,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5422,9 +5422,9 @@
                     "imageHref": "Images/SLK.png"
                   },
                   243,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.7
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -5461,7 +5461,7 @@
                     "length": 3
                   },
                   262.08,
-                  202.97
+                  230.17
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5498,7 +5498,7 @@
                     "length": 6
                   },
                   256.41,
-                  209.27
+                  236.47
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5535,7 +5535,7 @@
                     "length": 1
                   },
                   266.13,
-                  217.73
+                  244.93
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5572,7 +5572,7 @@
                     "length": 14
                   },
                   239.85,
-                  225.29
+                  252.49
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5609,7 +5609,7 @@
                     "length": 13
                   },
                   239.85,
-                  231.59
+                  258.79
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5646,7 +5646,7 @@
                     "length": 14
                   },
                   239.85,
-                  237.89
+                  265.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5683,7 +5683,7 @@
                     "length": 5
                   },
                   239.85,
-                  244.19
+                  271.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5720,7 +5720,7 @@
                     "length": 7
                   },
                   161.1,
-                  263.99
+                  291.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5760,7 +5760,7 @@
               {
                 "args": [
                   63.5,
-                  277.5
+                  304.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -5768,7 +5768,7 @@
               {
                 "args": [
                   297.5,
-                  277.5
+                  304.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -5815,7 +5815,7 @@
                     "length": 7
                   },
                   87.29,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5852,7 +5852,7 @@
                     "length": 1
                   },
                   98.9,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5889,7 +5889,7 @@
                     "length": 19
                   },
                   64.35,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5926,7 +5926,7 @@
                     "length": 15
                   },
                   64.35,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -5963,7 +5963,7 @@
                     "length": 5
                   },
                   170.55,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6000,7 +6000,7 @@
                     "length": 1
                   },
                   178.38,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6037,7 +6037,7 @@
                     "length": 19
                   },
                   143.83,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6074,7 +6074,7 @@
                     "length": 19
                   },
                   143.83,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6111,7 +6111,7 @@
                     "length": 5
                   },
                   143.83,
-                  312.69
+                  339.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6148,7 +6148,7 @@
                     "length": 7
                   },
                   246.25,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6185,7 +6185,7 @@
                     "length": 1
                   },
                   257.86,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6222,7 +6222,7 @@
                     "length": 19
                   },
                   223.311,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6259,7 +6259,7 @@
                     "length": 19
                   },
                   223.311,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6296,7 +6296,7 @@
                     "length": 5
                   },
                   223.311,
-                  312.69
+                  339.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6333,7 +6333,7 @@
                     "length": 5
                   },
                   91.07,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6370,7 +6370,7 @@
                     "length": 1
                   },
                   98.9,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6407,7 +6407,7 @@
                     "length": 19
                   },
                   64.35,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6444,7 +6444,7 @@
                     "length": 7
                   },
                   64.35,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6481,7 +6481,7 @@
                     "length": 7
                   },
                   166.77,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6518,7 +6518,7 @@
                     "length": 1
                   },
                   178.38,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6555,7 +6555,7 @@
                     "length": 19
                   },
                   143.83,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6592,7 +6592,7 @@
                     "length": 17
                   },
                   143.83,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6629,7 +6629,7 @@
                     "length": 7
                   },
                   246.25,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6666,7 +6666,7 @@
                     "length": 1
                   },
                   257.86,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6703,7 +6703,7 @@
                     "length": 19
                   },
                   223.311,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6740,7 +6740,7 @@
                     "length": 19
                   },
                   223.311,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6777,7 +6777,7 @@
                     "length": 5
                   },
                   223.311,
-                  354.72
+                  381.92
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -6817,14 +6817,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "4de3dcdbf9fca9d5",
+            "hash": "b29e89dba32dc6aa",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 462,
-            "hash": "41f3ce99b6da1068",
+            "hash": "39247d73882f3c78",
             "methods": {
               "beginPath": 3,
               "clip": 1,
@@ -7073,7 +7073,7 @@
                   70.917,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7110,7 +7110,7 @@
                     "length": 8
                   },
                   82.887,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7147,7 +7147,7 @@
                     "length": 1
                   },
                   98.547,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7184,7 +7184,7 @@
                     "length": 18
                   },
                   64.35,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7221,7 +7221,7 @@
                     "length": 18
                   },
                   64.35,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7258,7 +7258,7 @@
                     "length": 8
                   },
                   64.35,
-                  147.395
+                  162.02
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7271,7 +7271,7 @@
                   149.194,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7308,7 +7308,7 @@
                     "length": 6
                   },
                   163.662,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7345,7 +7345,7 @@
                     "length": 1
                   },
                   176.824,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7382,7 +7382,7 @@
                     "length": 19
                   },
                   141.072,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7419,7 +7419,7 @@
                     "length": 19
                   },
                   141.072,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7456,7 +7456,7 @@
                     "length": 16
                   },
                   141.072,
-                  147.395
+                  162.02
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7469,7 +7469,7 @@
                   229.028,
                   70.4,
                   58.5,
-                  43.875
+                  58.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7506,7 +7506,7 @@
                     "length": 7
                   },
                   241.336,
-                  117.875
+                  132.5
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7543,7 +7543,7 @@
                     "length": 1
                   },
                   256.658,
-                  127.235
+                  141.86
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7580,7 +7580,7 @@
                     "length": 19
                   },
                   220.906,
-                  134.795
+                  149.42
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7617,7 +7617,7 @@
                     "length": 19
                   },
                   220.906,
-                  141.095
+                  155.72
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7628,9 +7628,9 @@
                     "imageHref": "Images/LAE.png"
                   },
                   67.5,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7667,7 +7667,7 @@
                     "length": 3
                   },
                   86.58,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7704,7 +7704,7 @@
                     "length": 4
                   },
                   84.69,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7741,7 +7741,7 @@
                     "length": 1
                   },
                   90.63,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7778,7 +7778,7 @@
                     "length": 14
                   },
                   64.35,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7815,7 +7815,7 @@
                     "length": 14
                   },
                   64.35,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7852,7 +7852,7 @@
                     "length": 9
                   },
                   64.35,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7863,9 +7863,9 @@
                     "imageHref": "Images/AEBT.png"
                   },
                   126,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -7902,7 +7902,7 @@
                     "length": 4
                   },
                   143.19,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7939,7 +7939,7 @@
                     "length": 4
                   },
                   143.19,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -7976,7 +7976,7 @@
                     "length": 1
                   },
                   149.13,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8013,7 +8013,7 @@
                     "length": 14
                   },
                   122.85,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8050,7 +8050,7 @@
                     "length": 14
                   },
                   122.85,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8087,7 +8087,7 @@
                     "length": 14
                   },
                   122.85,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8124,7 +8124,7 @@
                     "length": 4
                   },
                   122.85,
-                  244.19
+                  271.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8135,9 +8135,9 @@
                     "imageHref": "Images/ALNY.png"
                   },
                   184.5,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.5
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -8174,7 +8174,7 @@
                     "length": 3
                   },
                   202.455,
-                  202.97
+                  229.97
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8211,7 +8211,7 @@
                     "length": 4
                   },
                   200.565,
-                  209.27
+                  236.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8248,7 +8248,7 @@
                     "length": 1
                   },
                   207.63,
-                  217.73
+                  244.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8285,7 +8285,7 @@
                     "length": 14
                   },
                   181.35,
-                  225.29
+                  252.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8322,7 +8322,7 @@
                     "length": 14
                   },
                   181.35,
-                  231.59
+                  258.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8359,7 +8359,7 @@
                     "length": 13
                   },
                   181.35,
-                  237.89
+                  264.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8370,9 +8370,9 @@
                     "imageHref": "Images/SLK.png"
                   },
                   243,
-                  162.695,
+                  177.32,
                   49.5,
-                  37.125
+                  49.7
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -8409,7 +8409,7 @@
                     "length": 3
                   },
                   262.08,
-                  202.97
+                  230.17
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8446,7 +8446,7 @@
                     "length": 6
                   },
                   256.41,
-                  209.27
+                  236.47
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8483,7 +8483,7 @@
                     "length": 1
                   },
                   266.13,
-                  217.73
+                  244.93
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8520,7 +8520,7 @@
                     "length": 14
                   },
                   239.85,
-                  225.29
+                  252.49
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8557,7 +8557,7 @@
                     "length": 13
                   },
                   239.85,
-                  231.59
+                  258.79
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8594,7 +8594,7 @@
                     "length": 14
                   },
                   239.85,
-                  237.89
+                  265.09
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8631,7 +8631,7 @@
                     "length": 5
                   },
                   239.85,
-                  244.19
+                  271.39
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8668,7 +8668,7 @@
                     "length": 7
                   },
                   161.1,
-                  263.99
+                  291.19
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8708,7 +8708,7 @@
               {
                 "args": [
                   63.5,
-                  277.5
+                  304.5
                 ],
                 "method": "moveTo",
                 "type": "call"
@@ -8716,7 +8716,7 @@
               {
                 "args": [
                   297.5,
-                  277.5
+                  304.5
                 ],
                 "method": "lineTo",
                 "type": "call"
@@ -8763,7 +8763,7 @@
                     "length": 7
                   },
                   87.29,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8800,7 +8800,7 @@
                     "length": 1
                   },
                   98.9,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8837,7 +8837,7 @@
                     "length": 19
                   },
                   64.35,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8874,7 +8874,7 @@
                     "length": 15
                   },
                   64.35,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8911,7 +8911,7 @@
                     "length": 5
                   },
                   170.55,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8948,7 +8948,7 @@
                     "length": 1
                   },
                   178.38,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -8985,7 +8985,7 @@
                     "length": 19
                   },
                   143.83,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9022,7 +9022,7 @@
                     "length": 19
                   },
                   143.83,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9059,7 +9059,7 @@
                     "length": 5
                   },
                   143.83,
-                  312.69
+                  339.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9096,7 +9096,7 @@
                     "length": 7
                   },
                   246.25,
-                  284.07
+                  311.27
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9133,7 +9133,7 @@
                     "length": 1
                   },
                   257.86,
-                  292.53
+                  319.73
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9170,7 +9170,7 @@
                     "length": 19
                   },
                   223.311,
-                  300.09
+                  327.29
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9207,7 +9207,7 @@
                     "length": 19
                   },
                   223.311,
-                  306.39
+                  333.59
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9244,7 +9244,7 @@
                     "length": 5
                   },
                   223.311,
-                  312.69
+                  339.89
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9281,7 +9281,7 @@
                     "length": 5
                   },
                   91.07,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9318,7 +9318,7 @@
                     "length": 1
                   },
                   98.9,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9355,7 +9355,7 @@
                     "length": 19
                   },
                   64.35,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9392,7 +9392,7 @@
                     "length": 7
                   },
                   64.35,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9429,7 +9429,7 @@
                     "length": 7
                   },
                   166.77,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9466,7 +9466,7 @@
                     "length": 1
                   },
                   178.38,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9503,7 +9503,7 @@
                     "length": 19
                   },
                   143.83,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9540,7 +9540,7 @@
                     "length": 17
                   },
                   143.83,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9577,7 +9577,7 @@
                     "length": 7
                   },
                   246.25,
-                  326.1
+                  353.3
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9614,7 +9614,7 @@
                     "length": 1
                   },
                   257.86,
-                  334.56
+                  361.76
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9651,7 +9651,7 @@
                     "length": 19
                   },
                   223.311,
-                  342.12
+                  369.32
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9688,7 +9688,7 @@
                     "length": 19
                   },
                   223.311,
-                  348.42
+                  375.62
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9725,7 +9725,7 @@
                     "length": 5
                   },
                   223.311,
-                  354.72
+                  381.92
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -9751,7 +9751,7 @@
       ]
     },
     {
-      "id": "book-06-narrow.greedy-page-0068",
+      "id": "book-06-narrow.greedy-page-0069",
       "page": {
         "bounds": {
           "height": 640,
@@ -9768,7 +9768,7 @@
           "ruby": 2,
           "textRuns": 26
         },
-        "index": 68,
+        "index": 69,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -12231,7 +12231,7 @@
       ]
     },
     {
-      "id": "book-06-narrow.greedy-page-0262",
+      "id": "book-06-narrow.greedy-page-0266",
       "page": {
         "bounds": {
           "height": 640,
@@ -12248,7 +12248,7 @@
           "ruby": 0,
           "textRuns": 11
         },
-        "index": 262,
+        "index": 266,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -13389,7 +13389,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 263,
+    "pageCount": 267,
     "pixelRatios": [
       1,
       2
@@ -13533,8 +13533,8 @@
         "features": [
           "ruby"
         ],
-        "id": "book-06-narrow.greedy-page-0068",
-        "pageIndex": 68
+        "id": "book-06-narrow.greedy-page-0069",
+        "pageIndex": 69
       },
       {
         "counts": {
@@ -13556,8 +13556,8 @@
         "features": [
           "last"
         ],
-        "id": "book-06-narrow.greedy-page-0262",
-        "pageIndex": 262
+        "id": "book-06-narrow.greedy-page-0266",
+        "pageIndex": 266
       }
     ]
   }

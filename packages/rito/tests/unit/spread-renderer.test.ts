@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { render, getSpreadDimensions } from '../../src/render/spread';
+import { render, getSpreadDimensions } from '../../src/reference/ts-core/render/spread';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { Page, Spread } from '../../src/layout/core/types';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { Page, Spread } from '../../src/reference/ts-core/layout/core/types';
 
 const SINGLE = createLayoutConfig({ width: 400, height: 600, margin: 20 });
 const DOUBLE = createLayoutConfig({

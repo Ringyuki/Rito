@@ -18,6 +18,7 @@ export interface PixelReferenceBook {
 
 const HELPER_DIR = dirname(fileURLToPath(import.meta.url));
 const DIST_ROOT = resolve(HELPER_DIR, '../../../dist');
+const REFERENCE_DIST_ROOT = resolve(HELPER_DIR, '../../../.output/reference-build');
 const PIXEL_REVIEW_REFERENCE_ROOT = resolve(
   HELPER_DIR,
   '../../../test-results/pixel-review/reference-books',
@@ -81,6 +82,10 @@ async function handleRequest(
     await sendDistFile(response, pathname.slice('/dist/'.length));
     return;
   }
+  if (pathname.startsWith('/reference-dist/')) {
+    await sendReferenceDistFile(response, pathname.slice('/reference-dist/'.length));
+    return;
+  }
   if (pathname.startsWith('/vendor/')) {
     await sendVendorFile(response, pathname.slice('/vendor/'.length));
     return;
@@ -116,6 +121,24 @@ async function registerReferenceBook(
 async function sendDistFile(response: ServerResponse, relativePath: string): Promise<void> {
   const path = resolve(DIST_ROOT, relativePath);
   if (!path.startsWith(`${DIST_ROOT}${sep}`)) {
+    response.writeHead(403).end('Forbidden');
+    return;
+  }
+
+  try {
+    const body = await readFile(path);
+    response.writeHead(200, { 'content-type': contentType(path) }).end(body);
+  } catch {
+    response.writeHead(404).end('Not found');
+  }
+}
+
+async function sendReferenceDistFile(
+  response: ServerResponse,
+  relativePath: string,
+): Promise<void> {
+  const path = resolve(REFERENCE_DIST_ROOT, relativePath);
+  if (!path.startsWith(`${REFERENCE_DIST_ROOT}${sep}`)) {
     response.writeHead(403).end('Forbidden');
     return;
   }
@@ -319,7 +342,7 @@ function renderHtml(): string {
 
   window.renderRitoPixelReady = 'loading';
 
-  import('/dist/web.mjs')
+  import('/reference-dist/compatibility/web.mjs')
     .then(({ createReader }) => {
       window.renderRitoPixelReady = 'ready';
       window.renderRitoPixelRun = async (testRun, bookBase64) => {

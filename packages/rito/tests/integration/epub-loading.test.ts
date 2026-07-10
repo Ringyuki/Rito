@@ -1,8 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { createZipReader } from '../../src/parser/epub/zip-reader';
-import { CONTAINER_PATH, parseContainer } from '../../src/parser/epub/container-parser';
-import { parsePackageDocument } from '../../src/parser/epub/package-parser';
+import { createZipReader } from '../../src/reference/ts-core/parser/epub/zip-reader';
+import {
+  CONTAINER_PATH,
+  parseContainer,
+} from '../../src/reference/ts-core/parser/epub/container-parser';
+import { parsePackageDocument } from '../../src/reference/ts-core/parser/epub/package-parser';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 
 describe('EPUB loading pipeline', () => {

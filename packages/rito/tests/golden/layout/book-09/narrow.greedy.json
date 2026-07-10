@@ -176,62 +176,62 @@
       "textLength": 678
     },
     {
-      "endPage": 59,
+      "endPage": 60,
       "href": "Text/Section001_0001.xhtml",
       "idref": "Section001_0001.xhtml",
       "linear": true,
-      "pageCount": 43,
+      "pageCount": 44,
       "startPage": 17,
       "textHash": "c583a24d341121d0",
       "textLength": 27538
     },
     {
-      "endPage": 107,
+      "endPage": 110,
       "href": "Text/Section001_0002.xhtml",
       "idref": "Section001_0002.xhtml",
       "linear": true,
-      "pageCount": 48,
-      "startPage": 60,
+      "pageCount": 50,
+      "startPage": 61,
       "textHash": "560a017e8f66ead0",
       "textLength": 30791
     },
     {
-      "endPage": 180,
+      "endPage": 186,
       "href": "Text/Section001_0003.xhtml",
       "idref": "Section001_0003.xhtml",
       "linear": true,
-      "pageCount": 73,
-      "startPage": 108,
+      "pageCount": 76,
+      "startPage": 111,
       "textHash": "e9609a91cefb12e7",
       "textLength": 46525
     },
     {
-      "endPage": 200,
+      "endPage": 207,
       "href": "Text/Section001_0004.xhtml",
       "idref": "Section001_0004.xhtml",
       "linear": true,
-      "pageCount": 20,
-      "startPage": 181,
+      "pageCount": 21,
+      "startPage": 187,
       "textHash": "2c533e81dc306aec",
       "textLength": 13093
     },
     {
-      "endPage": 203,
+      "endPage": 210,
       "href": "Text/Section001_0005.xhtml",
       "idref": "Section001_0005.xhtml",
       "linear": true,
       "pageCount": 3,
-      "startPage": 201,
+      "startPage": 208,
       "textHash": "b728aaab2246b0f6",
       "textLength": 1729
     },
     {
-      "endPage": 204,
+      "endPage": 211,
       "href": "Text/backcover.xhtml",
       "idref": "backcover.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 204,
+      "startPage": 211,
       "textHash": "c0e50a5b3a9a152a",
       "textLength": 537
     }
@@ -279,7 +279,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1c787055fffe1352",
+      "detailHash": "0c69e4763cd3404c",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -324,7 +324,7 @@
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "878895c40aa25b01",
+      "detailHash": "df0e6391e59f5f7b",
       "firstText": "制作者",
       "index": 3,
       "lastText": "援"
@@ -354,7 +354,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "3cd818627b3528db",
+      "detailHash": "9e048aa394b8003d",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -369,7 +369,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "06429ff3d8a3594b",
+      "detailHash": "210f5c2367d9bbd5",
       "firstText": "",
       "index": 6,
       "lastText": ""
@@ -384,7 +384,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "3eef3937ed405110",
+      "detailHash": "aa3bf70fc77f0c6b",
       "firstText": "",
       "index": 7,
       "lastText": ""
@@ -399,7 +399,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "854acd14ff37bbb9",
+      "detailHash": "82a63725ce096552",
       "firstText": "",
       "index": 8,
       "lastText": ""
@@ -429,7 +429,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "02d201dfb564c392",
+      "detailHash": "9450f97569163aa7",
       "firstText": "",
       "index": 10,
       "lastText": ""
@@ -459,7 +459,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "441dff2d7936943d",
+      "detailHash": "c7d9461f4973ec77",
       "firstText": "",
       "index": 12,
       "lastText": ""
@@ -489,7 +489,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "d05cee1be354b890",
+      "detailHash": "51954f9337a5f861",
       "firstText": "",
       "index": 14,
       "lastText": ""
@@ -706,228 +706,18 @@
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 3
       },
-      "detailHash": "b726c15a6e39f587",
+      "detailHash": "f4574b4a4bb092ac",
       "firstText": "那场意外发生在几天之前。",
       "index": 29,
-      "lastText": "居校园名人的原因之一。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "25edb867dfc915a6",
-      "firstText": "上课时的认真态度，以及短时间之内让兰斯洛特成长为圣龙的事",
-      "index": 30,
-      "lastText": "即使对方贵为公主，亚修的自尊心也不容许他就此退让。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d841e7707272efd8",
-      "firstText": "「罗雷亚蒙家的家训不关我的事！我已经道歉了，还要我怎",
-      "index": 31,
-      "lastText": "就算是一国的公主，也不能随便侮辱他人。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6083d0a4ca02d2be",
-      "firstText": "于是亚修往前踏出一步，丝毫不隐藏内心的怒气。",
-      "index": 32,
-      "lastText": "「这算什么？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "f6ff28d9832283c9",
-      "firstText": "「真正优秀的明明是兰斯洛特，又不是饲主。」",
-      "index": 33,
-      "lastText": "通常是由速度最快的骑手排在最前面。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9e398642f07cc24f",
-      "firstText": "不过今年的骑龙祭不太一样。",
-      "index": 34,
-      "lastText": "「选手就位！」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "154046f4bf670af5",
-      "firstText": "蕾贝卡的声音从半空中传来。",
-      "index": 35,
-      "lastText": "斯洛特的尾巴奋力奔驰。参赛者彼此保持一定的距离，绕行学院的操"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6bea3c698b42df18",
-      "firstText": "场。",
-      "index": 36,
-      "lastText": "西尔维亚的名次逐渐下滑，眼看着就要跟亚修一起敬陪末座了。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "e395ad875d7bcf6d",
-      "firstText": "亚修陷入沉思。",
-      "index": 37,
-      "lastText": "她们大概以为亚修会直接通过吧。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "54f58240fb0d1bb2",
-      "firstText": "「呵呵……你们错了！」",
-      "index": 38,
-      "lastText": "女学生歇斯底里的咆哮和地龙的怒吼，在狭窄的市区道路无限回"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "d9c6a3cf898a9eaa",
-      "firstText": "荡。",
-      "index": 39,
-      "lastText": "德已经耗尽了体力。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "da3095deb9c9f007",
-      "firstText": "从出发到现在，布里基德一直保持跟兰斯洛特相同的速度。",
-      "index": 40,
-      "lastText": "亚修反射性地回过头来，凝视着身后的森林。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "19168ac8b27cb67e",
-      "firstText": "「……是谁？」",
-      "index": 41,
-      "lastText": "「你是……？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "48cbda62a445456e",
-      "firstText": "自树丛之后现身的人，是一名身材高瘦的男子，左手还握着亚修",
-      "index": 42,
-      "lastText": "男子手中的东西，确实是帝国制造的武器。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b9533db59dd07e58",
-      "firstText": "可是男子说话的语气非但没有帝国人独特的腔调，反而是相当纯",
-      "index": 43,
-      "lastText": "「诅咒……？」"
+      "lastText": "修，很快地就将身边的同学一一击倒。"
     },
     {
       "counts": {
@@ -939,25 +729,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6e8250338ff87290",
-      "firstText": "亚修皱起眉头，他万万也没想到居然会从帝国人的口中听见这种",
-      "index": 44,
-      "lastText": "少女捂着双眼略显惧色，不过很快地就追了上去。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "8942fe70d8ff12ee",
-      "firstText": "亚修跳进邻近的树丛，头也不回地发足狂奔。",
-      "index": 45,
-      "lastText": "他只能一步一步地往后退。"
+      "detailHash": "b77020e3c5003e82",
+      "firstText": "说不得意是骗人的。",
+      "index": 30,
+      "lastText": "「用你的豆腐脑好好想想吧！你的学费、服装费、餐费、住宿费"
     },
     {
       "counts": {
@@ -969,10 +744,145 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ac9b6685266ac58f",
-      "firstText": "再退个几步，就要跌落断崖了。",
-      "index": 46,
-      "lastText": "「啊……？」"
+      "detailHash": "503099678bbd6bcb",
+      "firstText": "以及教材费到底是谁出的钱？」",
+      "index": 31,
+      "lastText": "身后的雷蒙试图劝阻，亚修却充耳不闻。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "0cd801830f60af22",
+      "firstText": "类似的羞辱已经不是第一次了。到现在还没有自己的帕尔，也难",
+      "index": 32,
+      "lastText": "——如果我在几天之后的比赛获得优胜，请你立刻收回刚刚的那"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "4fcf8c00090dddfc",
+      "firstText": "句话！",
+      "index": 33,
+      "lastText": "身为骑士王家的嫡长子，却触犯了最大的禁忌。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "83a3dcf8ed357cdd",
+      "firstText": "没有人知道朱利亚斯王子屠龙的动机为何，因为他还来不及吐露",
+      "index": 34,
+      "lastText": "这种安排可说是正中亚修的下怀。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c17304c263b4835c",
+      "firstText": "得以出场比赛就已经是万幸了，起始位置居然还排在西尔维亚的",
+      "index": 35,
+      "lastText": "只听得见内心的鼓动，以及龙的低沉喘息。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "62a56dc53976178b",
+      "firstText": "连热闹非凡的观众席都陷入一片寂静。",
+      "index": 36,
+      "lastText": "「是她们……！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "247f34638a30f529",
+      "firstText": "四名参赛者并排成一列，挡住前方的去路。仔细一看，亚修立刻",
+      "index": 37,
+      "lastText": "「现在不是装清高的时候！难道你一点都不生气？」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0114a11213f88f15",
+      "firstText": "「我不想跟敌人交谈！你尽管去吧，我的事情不用你管！」",
+      "index": 38,
+      "lastText": "「不好意思、不好意思。这只龙是跟别人借来的，好像有点不太"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "9af53cc124a3a457",
+      "firstText": "听话呢！」",
+      "index": 39,
+      "lastText": "「……布里基德？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "1fa653bf7565bf0a",
+      "firstText": "一路追赶兰斯洛特的布里基德突然放慢了速度。",
+      "index": 40,
+      "lastText": "他跟西尔维亚之间，也已经分出胜负。迫使西尔维亚收回失言的"
     },
     {
       "counts": {
@@ -984,14 +894,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e4564bd96acef52f",
-      "firstText": "亚修几乎不敢相信自己眼睛。",
-      "index": 47,
-      "lastText": "剧痛之余，几乎失去了意识。"
+      "detailHash": "ab7a476f5f7181ab",
+      "firstText": "目的，到头来还是无法实现。",
+      "index": 41,
+      "lastText": "是骑士国境内占地辽阔的森林地带。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -999,44 +909,134 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "511abc6532b79a4b",
-      "firstText": "强忍疼痛的亚修低头看着自己的胸口，赫然发现胸前出现了一道",
+      "detailHash": "b9b56a0b8412e926",
+      "firstText": "在林中奔驰的同时，亚修频频低头张望，避免自己被有如血管一",
+      "index": 42,
+      "lastText": "险峻山脉另一侧的赛法洛斯帝国虽然欠缺龙的庇护，却发展出高"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "885567a6df33bd1b",
+      "firstText": "度的机械文明。",
+      "index": 43,
+      "lastText": "如今携带武器的帝国人出现在骑士国的境内，骑士国绝对可以、"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "986e2e21643715bd",
+      "firstText": "也应该将这件事解读为帝国的军事行动。",
+      "index": 44,
+      "lastText": "定睛一看，漆黑的大蛇原来是一条长鞭。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "89309e5d4bd10d9c",
+      "firstText": "应该是山岳民族惯用的武器吧。真正的高手使起长鞭可说是变幻",
+      "index": 45,
+      "lastText": "「我到底哪里得罪你了？」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "d7ff9c45c984ea41",
+      "firstText": "「遇见我们就是你最大的不幸。」",
+      "index": 46,
+      "lastText": "「咕哇！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "1bfdc6ac6d382c39",
+      "firstText": "重重跌落地面的少女发出痛苦的哀鸣，右手也不由自主地松开了",
+      "index": 47,
+      "lastText": "「呜哇啊啊啊啊！」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "73841fba03001cb9",
+      "firstText": "强劲的风压几乎快要撕裂亚修的皮肤。",
       "index": 48,
-      "lastText": "少女的身形娇小，胸部微微隆起，白皙滑嫩的肌肤更是人间少"
+      "lastText": "少女毫无抵抗地滑入亚修的怀中。"
     },
     {
       "counts": {
         "blocks": 13,
         "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 15,
+        "ruby": 0,
+        "textRuns": 15
+      },
+      "detailHash": "a217a3e95f6cbd10",
+      "firstText": "不知不觉中，亚修和少女的身边出现了一个巨大的光球，将两人",
+      "index": 49,
+      "lastText": "亚修轻轻地将少女放在地上，迅速地脱下骑龙服的外套。"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "d0711bb7857c6785",
-      "firstText": "有，令人产生天使下凡的错觉。",
-      "index": 49,
-      "lastText": "的少女脸庞，以及妖娆性感的成熟女人香。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "94d715a3bfe94473",
-      "firstText": "相较之下，眼前的少女就只是单纯的少女，亚修从她身上感受不",
+      "detailHash": "baf227b2bcce8924",
+      "firstText": "光是一件外套，就足以遮蔽少女娇小玲珑的身躯。",
       "index": 50,
-      "lastText": "亚修呆立当场。"
+      "lastText": "亚修这才松了口气，一屁股坐在地上。"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1044,14 +1044,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e370e326828f6c20",
-      "firstText": "帕尔的诞生固然是亚修梦寐以求的愿望，可是其他人的帕尔都是",
+      "detailHash": "d4b58d7b2e022581",
+      "firstText": "接着他又目不转晴地端详着少女的脸庞。",
       "index": 51,
-      "lastText": "亚修披在她身上的外套瞬间滑落。"
+      "lastText": "角。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1059,14 +1059,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bd97ab011b97e5de",
-      "firstText": "纤细玲珑的裸体一览无遗。",
+      "detailHash": "4dc559f12b96bcd5",
+      "firstText": "亚修不禁在脑中回想整件事的来龙去脉。",
       "index": 52,
-      "lastText": "亚修连忙攀附着身旁的岩石，才免于被风暴吹走的命运。"
+      "lastText": "了些之外，并没有什么大碍。"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1074,55 +1074,25 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c6795b17f38e5672",
-      "firstText": "「龙的喷嚏果然可怕……」",
+      "detailHash": "7cda196fe4691185",
+      "firstText": "「好、好可怕的力气……」",
       "index": 53,
-      "lastText": "「没、没事……」"
+      "lastText": "就在这个时候，一阵强风吹过峡谷。"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "9741fe0ca9d93d40",
-      "firstText": "慑于少女的淫威，亚修只能支吾其词。",
+      "detailHash": "16c65d81582efaaa",
+      "firstText": "时序虽然已经进入春天，凉风吹在身上还是颇具寒意。",
       "index": 54,
-      "lastText": "族灭种的危机。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "47707d2331896d30",
-      "firstText": "「正是如此。不过我并不认为龙族欠人类一份情，毕竟人类是高",
-      "index": 55,
-      "lastText": "自从亚修成为育龙人以来，一直藏在心里的名字。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "f1d1f930edb9e8b8",
-      "firstText": "「往后——你的名字就是艾可。」",
-      "index": 56,
-      "lastText": "「——龙种的记忆。」"
+      "lastText": "「有件事我想确定一下，你应该就是寄宿在我体内的龙吧？」"
     },
     {
       "counts": {
@@ -1134,10 +1104,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b95c0b1377e50dd3",
-      "firstText": "「呃？」",
-      "index": 57,
-      "lastText": "「怎、怎么回事？」"
+      "detailHash": "abd19759915845a1",
+      "firstText": "「严格说来，应该是我暂时借用你的身体才对。」",
+      "index": 55,
+      "lastText": "的星精就是类似「气」的物质，同时也是不可或缺的力量来源。"
     },
     {
       "counts": {
@@ -1145,28 +1115,73 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "fdc916d418f73a13",
+      "firstText": "龙族的历史比人类更加悠久。随着世代的繁衍，龙族体内的星精",
+      "index": 56,
+      "lastText": "契约！」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 22,
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "2fc4d4643b4ccba2",
-      "firstText": "「你好像有所误会，我看还是把话说清楚好了。第一，你不是我",
-      "index": 58,
-      "lastText": "Beauty ~A.S.B.1365.4~」 is"
+      "detailHash": "bee8d92d52578518",
+      "firstText": "「原来龙族的规矩这么多，真是辛苦你了。」",
+      "index": 57,
+      "lastText": "当熟悉嘛！」"
     },
     {
       "counts": {
-        "blocks": 1,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 23
       },
-      "detailHash": "039a9b55fc359545",
-      "firstText": "closed",
+      "detailHash": "a2c3485ba25537d1",
+      "firstText": "其实亚修并没有夸赞的意思，不过艾可还是志得意满地挺起胸",
+      "index": 58,
+      "lastText": "「唔……你做什么？」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "4e9bd9e517eeb30d",
+      "firstText": "「我叫做亚修，从今天开始就是你的饲主。」",
       "index": 59,
+      "lastText": "蕾贝卡骑乘的古夫林头也不回地直接飞向森林外围的峡谷，仿佛"
+    },
+    {
+      "counts": {
+        "blocks": 4,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "4b75e5cea8db0f78",
+      "firstText": "受到某种力量的牵引。",
+      "index": 60,
       "lastText": "closed"
     },
     {
@@ -1179,9 +1194,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "d107ce82e84f6ad0",
+      "detailHash": "1ce63648b9467885",
       "firstText": "第二话 安萨里邦的市区",
-      "index": 60,
+      "index": 61,
       "lastText": "看来她又打算炫耀龙种记忆所学习的知识了。"
     },
     {
@@ -1194,9 +1209,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "58518658b91cbcff",
+      "detailHash": "825bc65eed97161d",
       "firstText": "「当然知道。就是主人肚子饿的时候，将身上的肉贡献出来的奴",
-      "index": 61,
+      "index": 62,
       "lastText": "「你不是说真的吧……？」"
     },
     {
@@ -1209,9 +1224,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a3d8994906026869",
+      "detailHash": "9159199a9c872c01",
       "firstText": "「当然是真的！再不乖乖地听话，就一脚踩扁你！」",
-      "index": 62,
+      "index": 63,
       "lastText": "当初占据床铺的人正是艾可。"
     },
     {
@@ -1224,9 +1239,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "91a3251d5723df52",
+      "detailHash": "647e426555e2bb1b",
       "firstText": "如今她居然主动钻进亚修的被窝，这简直就是莫名其妙。",
-      "index": 63,
+      "index": 64,
       "lastText": "咬相当舒服，感觉并不差，甚至还让亚修感到某种程度的快感。"
     },
     {
@@ -1239,9 +1254,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6a24007fe000c57a",
+      "detailHash": "026d283bd885ec4e",
       "firstText": "「……嗯？」",
-      "index": 64,
+      "index": 65,
       "lastText": "亚修的朋友并不多，脑海中立刻浮现出雷蒙和马克斯的身影。"
     },
     {
@@ -1254,9 +1269,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "36f2293c1f5ab78b",
+      "detailHash": "2a9ae2c148a54945",
       "firstText": "「今天不是休假日吗？让我多睡一下会死喔……」",
-      "index": 65,
+      "index": 66,
       "lastText": "棉被从身上滑落，露出雪白的胸部。"
     },
     {
@@ -1269,9 +1284,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "369e74fe0f95844c",
+      "detailHash": "738552e01f4bc476",
       "firstText": "「呜、呜哇！不、不要误会，事情不是这样！」",
-      "index": 66,
+      "index": 67,
       "lastText": "亚修频频低头致谢。"
     },
     {
@@ -1284,9 +1299,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6d41aab468f42b1a",
+      "detailHash": "0816cacff5115abc",
       "firstText": "「至于其他的日常用品，可能得由你负责采买了。手头方便",
-      "index": 67,
+      "index": 68,
       "lastText": "「嗯，我明白了。艾可是我的帕尔，我会负起责任照顾她的。」"
     },
     {
@@ -1299,9 +1314,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b27155891a8aa873",
+      "detailHash": "b75f43d710fc430a",
       "firstText": "亚修的表情十分认真，蕾贝卡不禁微微一笑。",
-      "index": 68,
+      "index": 69,
       "lastText": "「哈……哈……哈啾！」"
     },
     {
@@ -1314,9 +1329,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "461b9920b38eefa2",
+      "detailHash": "188424a72b5bb8fa",
       "firstText": "相当可爱的喷嚏。",
-      "index": 69,
+      "index": 70,
       "lastText": "「根据龙种的记忆，安萨里邦市区应该有许多商店。」"
     },
     {
@@ -1329,9 +1344,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "777e9566c21b48b6",
+      "detailHash": "f27ca3e0c653ed24",
       "firstText": "「是没错啦！」",
-      "index": 70,
+      "index": 71,
       "lastText": "才刚进入市区道路，艾可就发出由衷的赞叹。毕竟跟抽象的知识"
     },
     {
@@ -1344,9 +1359,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "dc9c38a84296d8f9",
+      "detailHash": "25a0fba53dd38528",
       "firstText": "比较起来，实景实物还是震撼多了。",
-      "index": 71,
+      "index": 72,
       "lastText": "「你刚刚说什么？」"
     },
     {
@@ -1359,9 +1374,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "5bdf2e2c74fc3182",
+      "detailHash": "6a026171c7cb8892",
       "firstText": "「没、没什么。」",
-      "index": 72,
+      "index": 73,
       "lastText": "「怎么啦？」"
     },
     {
@@ -1374,9 +1389,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6043d8ab9b01e365",
+      "detailHash": "0808b846ca8e4a0b",
       "firstText": "不明究理的艾可开口询问。",
-      "index": 73,
+      "index": 74,
       "lastText": "「嗯，说的也是。」"
     },
     {
@@ -1389,9 +1404,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9f67db667c20ae44",
+      "detailHash": "79e0ccb5d92e0c41",
       "firstText": "安萨尔是一种高级药本植物的名称，也是安萨里邦的特产。除了",
-      "index": 74,
+      "index": 75,
       "lastText": "情。"
     },
     {
@@ -1404,9 +1419,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "67095f8f48543b46",
+      "detailHash": "50dca8471821a43a",
       "firstText": "光是欣赏艾可惊人的吃相都来不及了，亚修根本无暇享用自己的",
-      "index": 75,
+      "index": 76,
       "lastText": "「喂喂喂，这是在做什么？」"
     },
     {
@@ -1419,474 +1434,504 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "49d4242765259ae5",
+      "detailHash": "4f5ea9f248cf4698",
       "firstText": "「不、不行……我忍不住了……！」",
-      "index": 76,
+      "index": 77,
       "lastText": "艾可慢慢地逼近亚修，仿佛是发情的小动物。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 8,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 11,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 11
       },
-      "detailHash": "801b3b0249518e87",
+      "detailHash": "4367d5808293c72d",
       "firstText": "再不快点想个办法，铁定会被街上的保安官以妨碍风化的罪名加",
-      "index": 77,
-      "lastText": "训！」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "2855e81b363710a7",
-      "firstText": "足以开山碎石的愤怒铁拳顿时以石破天惊之势袭向亚修的脸孔。",
       "index": 78,
-      "lastText": "人形呢！」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "69988d8504bfc55e",
-      "firstText": "「看不出来从不跟别人打交道的公主殿下，居然也会对这种八卦",
-      "index": 79,
-      "lastText": "「公主殿下不是有话要告诉亚修大人吗？我会乖乖地转身背对公"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "679107c18051eda9",
-      "firstText": "主殿下，请殿下不必有所顾忌，勇敢地说出来吧。」",
-      "index": 80,
-      "lastText": "西尔维亚质问艾可。语气十分冰冷，不带一丝情感。"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "1a16b6f9dc0d7a50",
-      "firstText": "「你这个愚蠢又无知的人类又是什么意思？这家伙的饲主是我，",
-      "index": 81,
-      "lastText": "「当时我一时气愤，所以才口不择言。其实你的帕尔活得很好，"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8a76d0decbf225d7",
-      "firstText": "而且也顺利诞生了。」",
-      "index": 82,
-      "lastText": "「艾、艾尔？」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "17a194f2e521b510",
-      "firstText": "艾可眯起双眼，冷冷地凝视着亚修。",
-      "index": 83,
-      "lastText": "话才刚出口，亚修就后悔了。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "f4cd92a8d94e18ec",
-      "firstText": "「到底想怎样……？没错，我就是要问你到底想怎样！」",
-      "index": 84,
-      "lastText": "「这是艾可戴的帽子，怎么会掉在厕所的地板上？」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "d8a6b6912b574b1b",
-      "firstText": "艾可冲进厕所之后，亚修就站在可以看到出入口的地方静静等",
-      "index": 85,
-      "lastText": "「这我当然知道，可是到底该怎么做才好？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "05056ab18a9ef5f9",
-      "firstText": "「如果对方是圣龙，只要育龙人进行召唤，就会立刻飞到主人的",
-      "index": 86,
-      "lastText": "「这……这是你的〈星刻〉？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "1d36e3e08049002e",
-      "firstText": "「嗯。」",
-      "index": 87,
-      "lastText": "法改变这个不争的事实。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "bfb3629855aec0d9",
-      "firstText": "是的，艾可是亚修的帕尔。",
-      "index": 88,
-      "lastText": "最后彩蝶来到位于市区东侧的偏僻角落。人迹罕至的空地上，耸"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "4ac91b3567667872",
-      "firstText": "立着一间附带前后院的破旧豪宅，看起来就像是童话故事中的鬼屋，不",
-      "index": 89,
-      "lastText": "缓地往内开启。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "fc1308fcc6372afc",
-      "firstText": "「那是什么？」",
-      "index": 90,
-      "lastText": "「这……这算什么！」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "7f299f97632d2d9a",
-      "firstText": "仰躺的艾可被紧紧地绑在床上，除了长袜之外，所有的衣物都被",
-      "index": 91,
-      "lastText": "「龙族居然会诞生为人形，直一是意想不到。」"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "75bf1e770eb49ede",
-      "firstText": "「你说什么？」",
-      "index": 92,
-      "lastText": "——咻！"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "8e79e1448be0609d",
-      "firstText": "银色的闪光以迅雷不及掩耳的速度掠过艾可的鼻尖。",
-      "index": 93,
-      "lastText": "出红色的龙绮华晶。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "03091a8a01367b0c",
-      "firstText": "「红之炎龙吐息！」",
-      "index": 94,
-      "lastText": "艾可气得柳眉倒竖，不过被束缚在床上的她还是少了平常的气"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "e0a3123009f8138d",
-      "firstText": "势。而且裸露在外的肌肤看起来格外地诱人，对亚修的心脏可是一大考",
-      "index": 95,
-      "lastText": "——安洁拉·康威尔博士。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "db8fdf8fd45975cf",
-      "firstText": "今天早上才从蕾贝卡的口中听到这个名字。康威尔博士是个知名",
-      "index": 96,
-      "lastText": "「解、解剖？你是在开玩笑吧？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "1262f02b1b3d70f5",
-      "firstText": "「当然不是开玩笑。想要探究某种生物的特性，解剖是最直截了",
-      "index": 97,
-      "lastText": "亚修感到脸上一热。安洁拉猜的没错，亚修确实对左腕的〈星"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "77b97a248bb75491",
-      "firstText": "刻〉抱持着一种莫名的恐惧。",
-      "index": 98,
-      "lastText": "「公主殿下，请务必小心。安洁拉博士是个出名的研究狂，只要"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "94fe0f8c1da82f32",
-      "firstText": "是为了研究，就算是不择手段也要达到目的。」",
-      "index": 99,
-      "lastText": "「难道是庭院中的那些石碑……！」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "09b1b4505a173a30",
-      "firstText": "安洁拉露出得意的微笑。",
-      "index": 100,
-      "lastText": "「怎么能怪我呢？这种魔法本来就很难控制力道的！」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "63130ae857df4ef1",
-      "firstText": "「两位，现在不是吵架的时候吧？」",
-      "index": 101,
-      "lastText": "精致的花纹瞬间浮起。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "df260e63d8facc3a",
-      "firstText": "「魔法阵……」",
-      "index": 102,
-      "lastText": "发现左腕凝聚了巨大的热源，亚修为之一惊。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "581e444d35ac56f1",
-      "firstText": "浓浓睡意顿时被抛到了九霄云外。",
-      "index": 103,
-      "lastText": "「呀！」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e89bb9121fe2e173",
-      "firstText": "大概是亚修的指尖太过冰冷，或者是背部的肌肤特别敏感，艾可",
-      "index": 104,
-      "lastText": "当初是科赛特找出艾可的衣物，安慰哭哭啼啼的艾可、协助她穿"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "a2081d0c8c87b900",
-      "firstText": "上衣服的人也是科赛特。",
-      "index": 105,
-      "lastText": "亚修还是第一次受到女生的赞美，一颗心不禁跳得飞快。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "89c62aa59b88038b",
-      "firstText": "「别说了。当时我只想救出艾可，也没想那么多。对了，我跟那",
-      "index": 106,
-      "lastText": "「脸皮真不是普通的厚……」"
+      "lastText": "亚修心惊胆战地抬头一看，果然是西尔维亚王女殿下。"
     },
     {
       "counts": {
         "blocks": 4,
         "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "9b70d561453383f2",
+      "firstText": "「女人的公敌应该受到正义之锤的惩罚，这是罗雷亚蒙家的家",
+      "index": 79,
+      "lastText": "足以开山碎石的愤怒铁拳顿时以石破天惊之势袭向亚修的脸孔。"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 23
       },
-      "detailHash": "22346c244b41bc92",
-      "firstText": "级任导师突然换成年轻的美女老师，包括雷蒙在内的男同学无不",
+      "detailHash": "ee5a6c1fe3720947",
+      "firstText": "「这样应该就没问题了。」",
+      "index": 80,
+      "lastText": "「看不出来从不跟别人打交道的公主殿下，居然也会对这种八卦"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "a7d3a473428a8226",
+      "firstText": "话题感兴趣。」",
+      "index": 81,
+      "lastText": "主殿下，请殿下不必有所顾忌，勇敢地说出来吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "8618345084e8829c",
+      "firstText": "「我才不相信呢，又不是第一天认识你，就算转身背对我，你也",
+      "index": 82,
+      "lastText": "「你这个愚蠢又无知的人类又是什么意思？这家伙的饲主是我，"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "02aa27dfd5b3123a",
+      "firstText": "世界上只有我才能对他动手动脚！」",
+      "index": 83,
+      "lastText": "艾可和西尔维亚的对峙陷入了胶着，彼此都不肯相让。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "60362a72cfa4b03d",
+      "firstText": "「哼，算了。」",
+      "index": 84,
+      "lastText": "如今亚修在比赛中落败，西尔维亚大可不需要道歉，更何况艾可已经诞"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "8c90dac3ef58ca04",
+      "firstText": "生了，亚修根本没把那句话放在心上。",
+      "index": 85,
+      "lastText": "「干嘛啦，不要烦我好吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "4e055ce944231380",
+      "firstText": "「你对女生厕所这么有兴趣？」",
+      "index": 86,
+      "lastText": "「公主殿下，我们走吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "23bb78fed703f831",
+      "firstText": "「我也要去？」",
+      "index": 87,
+      "lastText": "西尔维亚的猜测顿时让亚修冷汗直流。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "9357d2b0bf12fbad",
+      "firstText": "「……难怪先前总觉得好像有人躲在暗处偷窥我们。」",
+      "index": 88,
+      "lastText": "「看来也只能试试看了。谢啦，公主。」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "3d8cc8a72596c00a",
+      "firstText": "西尔维亚的双颊市刻泛起一抹红晕。",
+      "index": 89,
+      "lastText": "亚修明显地感受到〈星刻〉逐渐发热。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "46ba971929d4237f",
+      "firstText": "「拜托……告诉我艾可在哪里吧……」",
+      "index": 90,
+      "lastText": "「等一下，一个人太危险了！我也一起去！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0afab3a0c6d0c18b",
+      "firstText": "「不管是上刀山还是下油锅，我永远追随公主殿下！」",
+      "index": 91,
+      "lastText": "「哎呀，这才是骑士王家的公主殿下。」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "d774115ca297ef7c",
+      "firstText": "「不太好吧，这里是市区耶。科赛特，你也别随便附和！」",
+      "index": 92,
+      "lastText": "西尔维亚慌慌张张地追了上去，看来她的胆子真的不大。"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "0edf77763c84061b",
+      "firstText": "*",
+      "index": 93,
+      "lastText": "「感觉如何？」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "8f65a4c313578185",
+      "firstText": "出现在门口的人，是一名戴着眼镜的女子。",
+      "index": 94,
+      "lastText": "——咻！"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "6c4f5815c23c6bb9",
+      "firstText": "银色的闪光以迅雷不及掩耳的速度掠过艾可的鼻尖。",
+      "index": 95,
+      "lastText": "「难道你是……？」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "de5200229e44cbdf",
+      "firstText": "女子拿出第二把手术刀，若无其事地开口：",
+      "index": 96,
+      "lastText": "一阵轰然巨响之后，厚重的门扉被炸出一个大洞。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "fbd2de974dc27c8c",
+      "firstText": "「艾可！」",
+      "index": 97,
+      "lastText": "前的白衣女子。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "9cad900fa9e50849",
+      "firstText": "「你这是什么意思？」",
+      "index": 98,
+      "lastText": "拨出时间。既然如此，又怎么会……？"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "aa0b8a829bd68572",
+      "firstText": "安洁拉的嘴角浮现一抹笑意，似乎察觉了亚修内心的疑问。",
+      "index": 99,
+      "lastText": "「……你实在是让我太失望了！我要把艾可带回去！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "06fbd35115e02548",
+      "firstText": "说完之后，亚修迳自走向床边。",
+      "index": 100,
+      "lastText": "这时艾可的叫喊吸引了亚修的注意，让亚修从畏惧〈星刻〉的情"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "09b22f852cefb1ec",
+      "firstText": "绪中获得解放。",
+      "index": 101,
+      "lastText": "维亚的面前，与安洁拉展开对峙。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "a532db64320898d6",
+      "firstText": "「……看不出来你这个侍女挺灵光的嘛！」",
+      "index": 102,
+      "lastText": "范宵小入侵的保全系统。」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "70fd02b71a25d68f",
+      "firstText": "「保全系统？所以我们得以进入建筑物的原因也是……？」",
+      "index": 103,
+      "lastText": "前的烟雾。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "5ae0f3fa4c91912d",
+      "firstText": "「难道……！」",
+      "index": 104,
+      "lastText": "「公主殿下……」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "1c4ef4c1e112a73f",
+      "firstText": "试着保护西尔维亚的科赛特也跟着倒在地上。",
+      "index": 105,
+      "lastText": "「难道艾可的魔力透过星精路……？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "85ab36100f2de664",
+      "firstText": "安洁拉似乎看得见亚修的左腕所发生的异常现象。",
+      "index": 106,
+      "lastText": "「……艾可？」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "bf1b09a8fd32e1e1",
+      "firstText": "「……你这只宠物竟敢随便乱摸！」",
       "index": 107,
+      "lastText": "何是好。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "625098e6c38e6846",
+      "firstText": "「呵呵，因为我是侍女嘛！」",
+      "index": 108,
+      "lastText": "「呵呵，你说呢？」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "b3e80270a219a771",
+      "firstText": "科赛特露出不置可否的微笑，令人猜不透她在想些什么。",
+      "index": 109,
+      "lastText": "原因很简单，安洁拉一定是为了艾可才动这些手脚。"
+    },
+    {
+      "counts": {
+        "blocks": 2,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 3,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "79aa5000d14bb594",
+      "firstText": "「往后还请多多指教。」",
+      "index": 110,
       "lastText": "修，嘴角浮现出令人不寒血栗的冷笑。"
     },
     {
@@ -1899,9 +1944,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "c4171459dd325ae7",
+      "detailHash": "06fe17e09ac2861a",
       "firstText": "第三话 尸灰龙的袭击",
-      "index": 108,
+      "index": 111,
       "lastText": "拜访学生会的时候了。"
     },
     {
@@ -1914,9 +1959,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "be9895a1d9ce3755",
+      "detailHash": "90f0bac5f87c56df",
       "firstText": "「真的假的？蕾贝卡大姐头一定会问东问西的吧？光是想像她冷",
-      "index": 109,
+      "index": 112,
       "lastText": "站在宣丽堂皇的大门之前，亚修不禁吞了口唾液。"
     },
     {
@@ -1929,9 +1974,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "97af5046c2a8f058",
+      "detailHash": "8b14983e82fc77c5",
       "firstText": "自古以来，安萨里邦学生会就拥有莫大的权力，不但介入学院理",
-      "index": 110,
+      "index": 113,
       "lastText": "「不必这么拘束，坐吧。」"
     },
     {
@@ -1944,9 +1989,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "01885f53e3019f00",
+      "detailHash": "5da03504051daa23",
       "firstText": "「是……」",
-      "index": 111,
+      "index": 114,
       "lastText": "「科赛特愿意替我照顾艾可，这方面倒是不成问题。」"
     },
     {
@@ -1959,9 +2004,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "1084c84a1cb7a2cd",
+      "detailHash": "8833d1dfb0194ecf",
       "firstText": "前几天的绑架事件结束之后，亚修在闲聊中向科赛特提起自己的",
-      "index": 112,
+      "index": 115,
       "lastText": "晕目眩。"
     },
     {
@@ -1974,9 +2019,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "ca25728b7733bda5",
+      "detailHash": "ab3ede337859c2a1",
       "firstText": "「这……这个……」",
-      "index": 113,
+      "index": 116,
       "lastText": "每天一定造访龙舍五次，亲手喂食、打扫龙舍、甚至是洗澡。如"
     },
     {
@@ -1989,9 +2034,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "d54cc18127dc2499",
+      "detailHash": "af2ab8d0d15ba6a8",
       "firstText": "果兰斯洛特表示身上某个部分发痒，还会亲自帮它抓痒。",
-      "index": 114,
+      "index": 117,
       "lastText": "一想到那名少年，西尔维亚顿时感到心跳加速。"
     },
     {
@@ -2004,9 +2049,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7a1284e71f7d494b",
+      "detailHash": "632fbf028cd3c44d",
       "firstText": "要不是他适时伸出援手，西尔维亚也无法成为育龙人。",
-      "index": 115,
+      "index": 118,
       "lastText": "*"
     },
     {
@@ -2019,9 +2064,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "60380644a30adc81",
+      "detailHash": "8ddae8622e273404",
       "firstText": "亚修将事情的来龙去脉叙述一遍之后，蕾贝卡不禁叹了口气。",
-      "index": 116,
+      "index": 119,
       "lastText": "「嗯……『米卡悟斯』应该是化名，不太像帝国人的姓氏，说不"
     },
     {
@@ -2034,9 +2079,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d6541d296df653bd",
+      "detailHash": "a5318cc014fe56f0",
       "firstText": "定是帝国军的情报员。若真如此，这可不是小小的学生所能解决的问",
-      "index": 117,
+      "index": 120,
       "lastText": "骑士王亲自率领罗雷亚蒙圣龙骑士团加入战局，缔造了辉煌的战"
     },
     {
@@ -2049,85 +2094,100 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "460e12e01f889ea5",
+      "detailHash": "caee01165a55d506",
       "firstText": "绩，迫使损失惨重的帝国军不得不自谢普隆王国撤军。",
-      "index": 118,
+      "index": 121,
       "lastText": "「那只是同学之间的玩笑话。」"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 11,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 12,
         "ruby": 0,
         "textRuns": 12
       },
-      "detailHash": "0975d76a49745f97",
+      "detailHash": "672f8608b5b77ea5",
       "firstText": "「你太谦虚了，连我也没办法骑上别人的帕尔呢！」",
-      "index": 119,
+      "index": 122,
       "lastText": "「第二级紧急状况……？」"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 4,
         "hrs": 0,
-        "images": 0,
+        "images": 1,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 3
       },
-      "detailHash": "40dcdf9b883f03ab",
+      "detailHash": "361c955217b1e5fd",
       "firstText": "蕾贝卡很快地判读钟声所代表的意义，立刻来到窗边。亚修也站",
-      "index": 120,
-      "lastText": "除了自己所认定的主人之外，龙族不会让其他人骑在背上。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "65fd42cfcc52c868",
-      "firstText": "果然不出所料，西尔维亚只能吃力地攀附在幼龙的身上，随时可",
-      "index": 121,
-      "lastText": "可是亚修并没有救出西尔维亚的自信。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "4474b7d61492dfd7",
-      "firstText": "「那现在该怎么办……？」",
-      "index": 122,
-      "lastText": "之下，无法直视的亚修没办法看个仔细。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "2f127833e636bb88",
-      "firstText": "再度睁开眼睛的时候，蕾贝卡已经套上了金碧辉煌的骑士盔甲。",
       "index": 123,
-      "lastText": "亚修还来不及会意，蕾贝卡就瞄准了学生会办公室的窗户，将西"
+      "lastText": "安萨里邦的「第二级紧急状况」，代表龙因为某种原因突然失"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "c84adec7f60f087f",
+      "firstText": "控，迳自飞离龙舍的意思。",
+      "index": 124,
+      "lastText": "能被甩出去。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "7b852e68776885c7",
+      "firstText": "西尔维亚的举动显然对现场的龙丁造成极大的困扰。",
+      "index": 125,
+      "lastText": "「我刚刚不是说了吗？你以为安萨里邦的学生会长是谁？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "daf1c02b381fd9c0",
+      "firstText": "蕾贝卡突然跳上窗台。大红色的秀发随风飞舞，仿佛燃烧的火",
+      "index": 126,
+      "lastText": "全身流露出神圣而不可侵犯的气息，仿佛神话故事所描述的圣骑"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "5de6a529fadcd59e",
+      "firstText": "士。",
+      "index": 127,
+      "lastText": "距离虽然不到两公尺，不过在半空中丢下堂堂的公主殿下，没有"
     },
     {
       "counts": {
@@ -2139,14 +2199,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "7079cecdaf027f3d",
-      "firstText": "尔维亚的身体扔了出去。",
-      "index": 124,
-      "lastText": "「呜……」"
+      "detailHash": "728e19f6b36987c2",
+      "firstText": "过人的胆识可是做不出来的。",
+      "index": 128,
+      "lastText": "在亚修的怀中之后，立刻面红耳赤地奋力挣扎。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2154,10 +2214,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "c53e47360a43c264",
-      "firstText": "蕾贝卡制伏幼龙之后不久，西尔维亚悠悠醒转。当她发现自己躺",
-      "index": 125,
-      "lastText": "幼龙事件的第二天刚好是学校的休假日。"
+      "detailHash": "fe773dac179e8a4a",
+      "firstText": "「你……你想做什么……！」",
+      "index": 129,
+      "lastText": "其实亚修比较想一个人待在宿舍里面，可是——"
     },
     {
       "counts": {
@@ -2169,10 +2229,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e8a0f42484acb81b",
-      "firstText": "亚修再度带着艾可来到安萨里邦的市区。",
-      "index": 126,
-      "lastText": "「你、你……」"
+      "detailHash": "1a1e00e4a96b6c77",
+      "firstText": "「可丽饼在呼唤我！」",
+      "index": 130,
+      "lastText": "「我的脸怎么了吗？」"
     },
     {
       "counts": {
@@ -2184,10 +2244,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7040d263ad9b591f",
-      "firstText": "少女细长的双眸睁得大大的。",
-      "index": 127,
-      "lastText": "或许只是相貌神似的其他人吧，这种解释比较合理。"
+      "detailHash": "f6e8170b3bbf1423",
+      "firstText": "「呀啊啊啊啊！」",
+      "index": 131,
+      "lastText": "不可能认错人。那张脸孔、那个声音、那种语气……他就是阿妮"
     },
     {
       "counts": {
@@ -2199,14 +2259,14 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f88facc90c56c8c8",
-      "firstText": "「不对！」",
-      "index": 128,
-      "lastText": "怀的心事。"
+      "detailHash": "02f2c317a7f8ca66",
+      "firstText": "亚在森林中遇见的那个人，照理说早就死在阿妮亚的手上了。",
+      "index": 132,
+      "lastText": "难一侥幸捡回一命。"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2214,10 +2274,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c1636cd97e64e489",
-      "firstText": "悬崖崩塌的时候，少年居然推了阿妮亚一把。阿妮亚因此幸免于",
-      "index": 129,
-      "lastText": "正午的钟声响起。"
+      "detailHash": "a812abca9dac76ae",
+      "firstText": "即使自己面临生死关头，那名少年还是在危急时刻救了阿妮亚一",
+      "index": 133,
+      "lastText": "艾可迫不及待地拿起香草口味的可丽饼，狠狠咬了一口。"
     },
     {
       "counts": {
@@ -2229,10 +2289,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "1e7be7b4faf81b64",
-      "firstText": "离开可丽饼的摊位之后，亚修和艾可一路来到了圣达拉姆广场。",
-      "index": 130,
-      "lastText": "史人物。」"
+      "detailHash": "79d9adae516706b4",
+      "firstText": "自从亚修将安萨尔可丽饼列入管制之后，这一路上艾可都不肯说",
+      "index": 134,
+      "lastText": "艾可的观察力十分敏锐，亚修不禁大为钦佩。"
     },
     {
       "counts": {
@@ -2244,10 +2304,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "5b1527d9a0a0ee3f",
-      "firstText": "「圣像上的盔甲……好像是圣骑甲。」",
-      "index": 131,
-      "lastText": "说完之后，艾可头也不回地冲了出去。"
+      "detailHash": "ef0ce8fd77f42245",
+      "firstText": "「看得出来吗？」",
+      "index": 135,
+      "lastText": "对于龙族而言，为主人创造圣骑甲象征着「将自己的身心奉献给"
     },
     {
       "counts": {
@@ -2259,40 +2319,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "dd198d201a9add99",
-      "firstText": "直到现在，亚修才猛然想起过去在课常上所学到的知识。",
-      "index": 132,
-      "lastText": "「这不是安萨尔的香味吗？不行，说什么都不可以！」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "99f8f1497883fdab",
-      "firstText": "既然是以花茶闻名的咖啡厅，安萨尔茶当然也是招牌茶饮之一。",
-      "index": 133,
-      "lastText": "「可恶……这家咖啡厅真是会给我找麻烦！」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "354a75307860295a",
-      "firstText": "先带着艾可离开这里再说吧。",
-      "index": 134,
-      "lastText": "享有半价优待。」"
+      "detailHash": "9ddecdc2769aa41a",
+      "firstText": "主人」，意义十分深远。",
+      "index": 136,
+      "lastText": "身为性嗜安萨尔的龙族，艾可当然不可能错过安萨尔茶独特的香气。"
     },
     {
       "counts": {
@@ -2304,10 +2334,40 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8ec206b39666d73e",
-      "firstText": "「原来如此……」",
-      "index": 135,
-      "lastText": "瓦〉的安萨尔花茶固然是极品，可是艾可的年纪还小，经不起那种刺"
+      "detailHash": "37cc183b2737d91d",
+      "firstText": "「哼，你真的很讨厌。安萨尔是龙族的最爱，也就是所谓成龙的",
+      "index": 137,
+      "lastText": "艾可的模样实在是太诱人了，亚修没有保持冷静的自信。再说万"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "08e75f133d7d376e",
+      "firstText": "一被学院的其他学生撞见——",
+      "index": 138,
+      "lastText": "小小的店面十分热闹，身材壮硕的劳动工作者络绎不绝。"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "2b6f2a0fe2993968",
+      "firstText": "刚好有一张四人的空桌，于是蕾贝卡和西尔维亚坐在一起，对面",
+      "index": 139,
+      "lastText": "「我会牢记在心的。」"
     },
     {
       "counts": {
@@ -2319,160 +2379,370 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "609d1387c838151f",
-      "firstText": "激。」",
-      "index": 136,
-      "lastText": "口。」"
+      "detailHash": "0ef5e70b91c62b6d",
+      "firstText": "亚修虚心回答之后，现场笼罩在令人窒息的气氛之中，原因当然",
+      "index": 140,
+      "lastText": "「让几位久等了。」"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 8,
+        "ruby": 0,
+        "textRuns": 8
+      },
+      "detailHash": "1d5f18f8a5631207",
+      "firstText": "这时女服务生刚好出现，替大家上菜。",
+      "index": 141,
+      "lastText": "位于古老寺院最高层的钟楼，安静得令人吃惊。"
+    },
+    {
+      "counts": {
+        "blocks": 4,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "fd490357a2ac53ab",
+      "firstText": "喧闹的市区仿佛是另一个世界。",
+      "index": 142,
+      "lastText": "四字。"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "b3192d4830927a40",
+      "firstText": "这座面向圣达拉姆的寺院十分老旧，并未对外开放，而且由于技",
+      "index": 143,
+      "lastText": "器。「安萨里邦市」「训练龙族成为军事武器的基地」，基本上是错误"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "6cea735a1fa018cf",
+      "firstText": "的认知。",
+      "index": 144,
+      "lastText": "今满桌子的荤食料理摆在眼前，自然没有不食指大动的道理。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "9875b5ecb5b27aaa",
+      "firstText": "「吃不够还可以再点，不必客气。」",
+      "index": 145,
+      "lastText": "「就是昨天的那件事嘛，总觉得公主殿下实在是太冲动了。」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "283cba8394024575",
+      "firstText": "西尔维亚的双颊顿时泛起一抹红晕。",
+      "index": 146,
+      "lastText": "「……尸灰龙……！」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "ab4f88e2fb5b6d2a",
+      "firstText": "阿妮亚下意识地说出这个被诅咒的字眼。",
+      "index": 147,
+      "lastText": "明明是应该四下逃命的时刻，大家却不约而同地呆立原地，抬起"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "9258ee99f25df517",
+      "firstText": "头来看着眼前的怪物。",
+      "index": 148,
+      "lastText": "秩序，仍难以控制陷入恐慌状态的人群。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "1a8c99fe24658d09",
+      "firstText": "偌大的广场仿佛人间地狱。广场四周的店面涌出无数的客人，逃",
+      "index": 149,
+      "lastText": "裂了艾可身上的衣服，露出雪白的肌肤。"
     },
     {
       "counts": {
         "blocks": 12,
         "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "ef7331c6f9f093dc",
-      "firstText": "语气虽然遗憾，蕾贝卡的笑容却有点幸灾乐祸的调调。",
-      "index": 137,
-      "lastText": "凝视着米卡悟斯的背影，阿妮亚的脑海突然浮现出「深不可测」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 16
       },
-      "detailHash": "2eaf417226821df0",
-      "firstText": "四字。",
-      "index": 138,
-      "lastText": "对于安萨里邦的市民而言，龙是「可爱的野兽」，而不是军事武"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6c8c20377934da30",
-      "firstText": "器。「安萨里邦市」「训练龙族成为军事武器的基地」，基本上是错误",
-      "index": 139,
-      "lastText": "相当现实的家伙。平时只独钟可丽饼味的艾可毕竟是肉食性的龙族，如"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d3c8f3bb0f6b178a",
-      "firstText": "今满桌子的荤食料理摆在眼前，自然没有不食指大动的道理。",
-      "index": 140,
-      "lastText": "锐利的眼神仿佛贯穿了亚修的眉间。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "2e568a9c598d1dfe",
-      "firstText": "「就是昨天的那件事嘛，总觉得公主殿下实在是太冲动了。」",
-      "index": 141,
-      "lastText": "达拉姆广场的正中央，出现了一只巨龙。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "216eb5d9542ae3e9",
-      "firstText": "「……尸灰龙……！」",
-      "index": 142,
-      "lastText": "当地人和观光客呆呆地站在原地动也不动。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "c9d21a2aeb3df1c2",
-      "firstText": "明明是应该四下逃命的时刻，大家却不约而同地呆立原地，抬起",
-      "index": 143,
-      "lastText": "现实的事态，现场的局面明显地失控。尽管安萨里邦的保安官试图维持"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9f9feb3fdee05966",
-      "firstText": "秩序，仍难以控制陷入恐慌状态的人群。",
-      "index": 144,
-      "lastText": "「艾可！」"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 18,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "ab679c6df0a3d20a",
-      "firstText": "身体和四肢被触手缠绕的艾可很快地就被吊上了半空中。触手撕",
-      "index": 145,
+      "detailHash": "9e05f970b7790655",
+      "firstText": "「可恶！不要太过分了！」",
+      "index": 150,
       "lastText": "洛瓦〉，二楼到四楼是一家百货公司。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 2
       },
-      "detailHash": "08e8d9d0b3dcc1da",
+      "detailHash": "16d6c8d64fece869",
       "firstText": "「天啊……」",
-      "index": 146,
-      "lastText": "正气凛然的宣言顿时获得无数市民的喝采。"
+      "index": 151,
+      "lastText": "亚修几乎不敢相信自己的眼睛，更不敢想像巨龙的攻击到底造成"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "155678f0c1b90579",
+      "firstText": "了多么惨重的伤亡。",
+      "index": 152,
+      "lastText": "接着又轻易地突破第二层。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "b85bf3b708ec9287",
+      "firstText": "可是行进速度显然迟缓了许多。",
+      "index": 153,
+      "lastText": "仿佛伤口本身也是一个生命体。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "7aeeccc4d3105c02",
+      "firstText": "伤口迅速再生，巨龙又恢复原本的样貌，歪斜的双眸更是流露出",
+      "index": 154,
+      "lastText": "微颤抖。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "bad3731a83cdfb65",
+      "firstText": "亚修连忙来到西尔维亚的身旁。",
+      "index": 155,
+      "lastText": "「连亚理安洛德也不是对手……？」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "19629af4f3e37585",
+      "firstText": "亚理安洛德已经没有防御第二波攻击的魔力了。",
+      "index": 156,
+      "lastText": "快点想办法救她出来。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "91376884dcd7896b",
+      "firstText": "毕竟艾可是亚修的帕尔。",
+      "index": 157,
+      "lastText": "于是亚修高举右手。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "857d9b7307f69ea5",
+      "firstText": "「抱歉，得罪了！」",
+      "index": 158,
+      "lastText": "只见巨龙缓缓地转动硕大的头部，睥睨着亚修和西尔维亚。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "fa5cce85ea500712",
+      "firstText": "西尔维亚顿时变了脸色。",
+      "index": 159,
+      "lastText": "亚修和西尔维亚两人都飘在半空中。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "235910ff9cda5b7b",
+      "firstText": "几秒钟之后，亚修才意识到自己跨坐在兰斯洛特的背上。看来西",
+      "index": 160,
+      "lastText": "「嗯，请带我前往指定位置。这件事非我不可，不能假手他"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "8a4354eb347d0d0a",
+      "firstText": "人。」",
+      "index": 161,
+      "lastText": "噗的一声，亚修平安降落。之后双脚一滑，差点跌了下去，幸好"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "e9ccae233118c600",
+      "firstText": "亚修的反应够快，立刻反手抓住暗灰色的体毛。",
+      "index": 162,
+      "lastText": "对付这只巨龙应该也不成问题。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "fe2eb6c800128702",
+      "firstText": "「来吧……！」",
+      "index": 163,
+      "lastText": "是的，亚修差一点就驯服了那只巨龙。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "543b35c4662f4188",
+      "firstText": "*",
+      "index": 164,
+      "lastText": "拯救自己。"
     },
     {
       "counts": {
@@ -2480,14 +2750,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 21
       },
-      "detailHash": "bc460f378ce38820",
-      "firstText": "蕾贝卡当然不会满足于市民的声援。只见她收敛心神，缓缓地念",
-      "index": 147,
-      "lastText": "浓浓的黑烟覆盖巨龙的身躯。"
+      "detailHash": "0908732572da2218",
+      "firstText": "「唔……」",
+      "index": 165,
+      "lastText": "墙边散落着尚未制作完成的石膏像。不完整的人体、不完整的鸟"
     },
     {
       "counts": {
@@ -2499,205 +2769,25 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "18b4028751f3591b",
-      "firstText": "大家都认为蕾贝卡赢得了胜利。",
-      "index": 148,
-      "lastText": "现在也只能祈祷建筑物里面的市民都已经逃离现场了。"
+      "detailHash": "19cf4325848c356d",
+      "firstText": "兽、城堡和神殿的缩小模型，以及艾可从未见过的交通工具。",
+      "index": 166,
+      "lastText": "「可恶的女人，看我一脚踩扁你！」"
     },
     {
       "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "7c0665f339a09a0c",
-      "firstText": "「可恶……！」",
-      "index": 149,
-      "lastText": "「马克斯？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "0a7ca4e3d0eff073",
-      "firstText": "「这里交给我——呜哇！」",
-      "index": 150,
-      "lastText": "保安官事务所的战力，也只是猎枪或是木棒而已。配置龙骑士的"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "3ed50b74cfd08179",
-      "firstText": "保安官事务所，大概只有在人都市才看得到。",
-      "index": 151,
-      "lastText": "绝对不能让艾可死在这里。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "b3f377872f97d32e",
-      "firstText": "于是亚修下定了决心。",
-      "index": 152,
-      "lastText": "亚修指着缓步移动的巨龙。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "435136d6cc7f3bc8",
-      "firstText": "更精确的说法，应该是巨龙的头顶。",
-      "index": 153,
-      "lastText": "巨龙的魔法攻击让建筑物化成一堆瓦砾，如同瀑布一般朝着亚修"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "2b70e496ba262a69",
-      "firstText": "和西尔维亚倾泻而下。",
-      "index": 154,
-      "lastText": "西尔维亚的斥责顿时让亚修恢复冷静。虽然对西尔维亚有点不好"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b7688af29d0ac67d",
-      "firstText": "意思，现在也只能继续抱着她的身体了。",
-      "index": 155,
-      "lastText": "现在是救出艾可的唯一机会。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "3e18ea0b1db63a60",
-      "firstText": "他打定主意，从兰斯洛特的背上站了起来。为了保持平衡，亚修",
-      "index": 156,
-      "lastText": "就在龙丁陷入苦战的时候，碰巧经过现场的亚修直接跳上失控的"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8e8940dde45c9cec",
-      "firstText": "幼龙。",
-      "index": 157,
-      "lastText": "猝不及防的亚修立刻飞了出去。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "0089c61ed90b937d",
-      "firstText": "就在快要撞上建筑物的那一瞬间，兰斯洛特及时赶到。",
-      "index": 158,
-      "lastText": "艾可打了个冷颤。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "18b1af34ef3adb46",
-      "firstText": "这简直就是自杀的行为。",
-      "index": 159,
-      "lastText": "的口腔之中。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "56462e35cfc27848",
-      "firstText": "「艾可——！」",
-      "index": 160,
-      "lastText": "「呵呵，喜欢吗？这是以五年后的你为基准设计出来的。」"
-    },
-    {
-      "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 3
       },
-      "detailHash": "8d843a973d1618e1",
-      "firstText": "「你、你说什么？」",
-      "index": 161,
-      "lastText": "刺眼的光芒，在天花板投射出依然与巨龙奋战不懈的亚修。"
+      "detailHash": "bf0b5ffbe5e17b9e",
+      "firstText": "「……没意义的废话就此打住。他就要死了，你真的不在乎",
+      "index": 167,
+      "lastText": "娜比右手一挥，半空中顿时浮现一颗水晶球。只见水晶球绽放出"
     },
     {
       "counts": {
@@ -2709,10 +2799,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "73d30b7f0b18cfcf",
-      "firstText": "「他到底在做什么！」",
-      "index": 162,
-      "lastText": "——那……你可以利用龙种记忆的设计图，自行创造圣骑甲吗？"
+      "detailHash": "080cf4c58073dce4",
+      "firstText": "刺眼的光芒，在天花板投射出依然与巨龙奋战不懈的亚修。",
+      "index": 168,
+      "lastText": "——那当然，龙种记忆也收录了圣骑甲的设计图呢！"
     },
     {
       "counts": {
@@ -2724,10 +2814,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "d6461903732e5af0",
-      "firstText": "——你有没有搞错啊？那只是仿制品而已。",
-      "index": 163,
-      "lastText": "娜比的嘴角浮现一抹冷笑。"
+      "detailHash": "ecb5c75c51d0278e",
+      "firstText": "——那……你可以利用龙种记忆的设计图，自行创造圣骑甲吗？",
+      "index": 169,
+      "lastText": "「没那么简单。」"
     },
     {
       "counts": {
@@ -2739,10 +2829,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4088c793d4b64ced",
-      "firstText": "「为什么？我虽然没有制作圣骑甲的经验，却继承了跟圣骑甲有",
-      "index": 164,
-      "lastText": "大量的情报在艾可的脑中构筑出清晰的立体影像。"
+      "detailHash": "31b12b9423695053",
+      "firstText": "娜比的嘴角浮现一抹冷笑。",
+      "index": 170,
+      "lastText": "「这就是……他的资料？」"
     },
     {
       "counts": {
@@ -2754,104 +2844,14 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "46c8beed4d50c07e",
-      "firstText": "「————！」",
-      "index": 165,
-      "lastText": "不过兰斯洛特的魔力有限，迟早会有用罄的一天，事实上它的飞"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "15fe684c664449dd",
-      "firstText": "行速度也明显地降低了不少。",
-      "index": 166,
-      "lastText": "亚做出的举动。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9709bbda1915b63c",
-      "firstText": "这时亚修突然注意到左腕的〈星刻〉隐隐作痛，就跟安洁拉绑架",
-      "index": 167,
-      "lastText": "这时艾可突然听见亚修的声音。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "27c21b9839e5d532",
-      "firstText": "「是他……？」",
-      "index": 168,
-      "lastText": "「没错，我才不会放弃……！」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "d01ea19a5d9512e5",
-      "firstText": "疲惫的身躯再度充满了全新的魔力。",
-      "index": 169,
-      "lastText": "「……马刺！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "175d842506cf216a",
-      "firstText": "刹那之间，艾可开启了通往新世界的大门。",
-      "index": 170,
-      "lastText": "话才刚说完，亚修的身体顿时笼罩在刺眼的光芒之中。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a37424f22740e98c",
-      "firstText": "「这是……」",
+      "detailHash": "486ea18b1a0af467",
+      "firstText": "大量的情报在艾可的脑中构筑出清晰的立体影像。",
       "index": 171,
-      "lastText": "冲。"
+      "lastText": "的攻击都集中在兰斯洛特的身上，市区建筑物的损害并未持续扩大。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2859,14 +2859,74 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bf56c75bfa4bfa3b",
-      "firstText": "体内的魔力虽然已经消耗殆尽，兰斯洛特依然奋力拍动翅膀。",
+      "detailHash": "e7d5e8bb7bc13870",
+      "firstText": "不过兰斯洛特的魔力有限，迟早会有用罄的一天，事实上它的飞",
       "index": 172,
-      "lastText": "亚修终于与巨龙合而为一了。"
+      "lastText": "绳，西尔维亚大概早就一巴掌打在亚修的脸上，如同亚修先前对西尔维"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "0334a78079e1425e",
+      "firstText": "亚做出的举动。",
+      "index": 173,
+      "lastText": "『不要放弃！』"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "a35e085842bff868",
+      "firstText": "这时艾可突然听见亚修的声音。",
+      "index": 174,
+      "lastText": "以待毙，否则又怎么对得起自己的尊严、自己的良心。"
     },
     {
       "counts": {
         "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "eb7a083d31cfd647",
+      "firstText": "「没错，我才不会放弃……！」",
+      "index": 175,
+      "lastText": "万千感慨之中，选出了最后的零件。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "88d8734fb51a565d",
+      "firstText": "「……马刺！」",
+      "index": 176,
+      "lastText": "「收下？收下什么？」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2874,10 +2934,40 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "365f002fc2575d70",
-      "firstText": "错不了。圣骑甲的魔力，将亚修的才华发挥得淋漓尽致。",
-      "index": 173,
-      "lastText": "覆了他对尸灰龙的认知。"
+      "detailHash": "eff04e3dc2ca44e6",
+      "firstText": "话才刚说完，亚修的身体顿时笼罩在刺眼的光芒之中。",
+      "index": 177,
+      "lastText": "穿上圣骑甲之后，亚修流露出无比的目信。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "39e52263aed5cfe8",
+      "firstText": "感受到亚修的气势，西尔维亚毫不犹豫地指示兰斯洛特低头俯",
+      "index": 178,
+      "lastText": "立。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "dcf8bbff451c07f9",
+      "firstText": "甚至还清楚地感受到巨龙的体温。",
+      "index": 179,
+      "lastText": "置。"
     },
     {
       "counts": {
@@ -2889,55 +2979,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c61a49c1253af575",
-      "firstText": "不过米卡悟斯依然气定神闲，并未显露出愤怒或是焦躁的情绪，",
-      "index": 174,
-      "lastText": "而具凝视着阿妮亚。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "8ef266a906345a44",
-      "firstText": "「撤退吧。」",
-      "index": 175,
-      "lastText": "「……尸灰龙？违反自然定律的存在？你……真的吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "c2102c7d902f8c43",
-      "firstText": "肯定的意识传入脑中。",
-      "index": 176,
-      "lastText": "「现身吧……蒙受光之恩宠的长剑……请赐予我消灭黑暗的力"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "6728660743c617f6",
-      "firstText": "量……」",
-      "index": 177,
-      "lastText": "两人的距离忽远忽近。"
+      "detailHash": "b59d6900f75f250d",
+      "firstText": "然而米卡悟斯并不能让尸灰龙振翅高飞，那个少年的行动已经颠",
+      "index": 180,
+      "lastText": "「不会吧……！」"
     },
     {
       "counts": {
@@ -2949,10 +2994,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bd02fa44f0936dab",
-      "firstText": "强大的风压让亚修几乎睁不开眼晴，不过他还是鼓起全身的力气",
-      "index": 178,
-      "lastText": "不过急就章的产物依然协助亚修拯救了艾可。"
+      "detailHash": "66b5a60f43658f5a",
+      "firstText": "米卡悟斯并没有继续开口的意思。只见他默默地收起巨剑，隔着",
+      "index": 181,
+      "lastText": "同时它也透过圣骑甲表达自己的心愿。"
     },
     {
       "counts": {
@@ -2964,24 +3009,69 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c4052c3b3be9ed45",
-      "firstText": "「谢啦，艾可。」",
-      "index": 179,
-      "lastText": "已。松了口气之后，亚修不禁摇头苦笑。"
+      "detailHash": "f7c221378625b36b",
+      "firstText": "一个令亚修为之心痛的愿望。",
+      "index": 182,
+      "lastText": "一把长剑，带有光属性的圣剑。"
     },
     {
       "counts": {
-        "blocks": 3,
+        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 3,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 3
+        "textRuns": 22
       },
-      "detailHash": "f43d323c8c5467ca",
-      "firstText": "「天才驯龙师……？」",
-      "index": 180,
+      "detailHash": "2b019fe332e7dd2f",
+      "firstText": "依据脑海中的资讯，亚修缓缓地念出咒语：",
+      "index": 183,
+      "lastText": "艾可也伸出双手。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "877f9f064fad3e3a",
+      "firstText": "两人的距离忽远忽近。",
+      "index": 184,
+      "lastText": "正如艾可所言，这只是急就章的产物。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "5991fe31b4c7ba04",
+      "firstText": "不过急就章的产物依然协助亚修拯救了艾可。",
+      "index": 185,
+      "lastText": "亚修的心中顿时闪过一抹不安，不过艾可只是发出轻微的鼻息而"
+    },
+    {
+      "counts": {
+        "blocks": 4,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 4
+      },
+      "detailHash": "59061eadf21b132c",
+      "firstText": "已。松了口气之后，亚修不禁摇头苦笑。",
+      "index": 186,
       "lastText": "至少亚修到现在还找不到驯服艾可的方法。"
     },
     {
@@ -2994,9 +3084,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "525521f3eada6e76",
+      "detailHash": "1ec9f646168f63c1",
       "firstText": "终章",
-      "index": 181,
+      "index": 187,
       "lastText": "土壤和枯叶散发出来的腐臭令人不悦。"
     },
     {
@@ -3009,9 +3099,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "3a65a281403e7f69",
+      "detailHash": "734f540ca3ef5ce0",
       "firstText": "每当遇见老鼠、蛇或是蜘蛛的时候，总是哭着逃之夭夭。西尔维",
-      "index": 182,
+      "index": 188,
       "lastText": "概是跟西尔维亚一样，正准备接受〈幼生之仪〉吧。"
     },
     {
@@ -3024,9 +3114,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "9ce855ea745cbb80",
+      "detailHash": "78717712e745d2e4",
       "firstText": "少年走到西尔维亚面前，伸出了手。",
-      "index": 183,
+      "index": 189,
       "lastText": "「给我闭嘴！」"
     },
     {
@@ -3039,9 +3129,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "74e38915b5494298",
+      "detailHash": "f660a92d6766bd40",
       "firstText": "西尔维亚厉声怒斥，猝不及防的少年差点跌了个狗吃屎。",
-      "index": 184,
+      "index": 190,
       "lastText": "西尔维亚默然不语。『没有人陪你』这句话如同一把长剑，刺入"
     },
     {
@@ -3054,9 +3144,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "cba1a91666057964",
+      "detailHash": "47cf8cdd952e4158",
       "firstText": "她的胸口。",
-      "index": 185,
+      "index": 191,
       "lastText": "黑夜已过，早晨的阳光透过窗帘的缝隙映射而入。"
     },
     {
@@ -3069,9 +3159,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "eff4a6a8cf9e5544",
+      "detailHash": "1f5859dfd9adc75b",
       "firstText": "揉揉惺忪的睡眼，西尔维亚慢慢坐了起来。",
-      "index": 186,
+      "index": 192,
       "lastText": "*"
     },
     {
@@ -3084,9 +3174,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "4f97856bdec826ad",
+      "detailHash": "cc245e62178d52f1",
       "firstText": "安萨里邦攻击事件之后的第二天。",
-      "index": 187,
+      "index": 193,
       "lastText": "「好吧，就从现在一直打扫到晚上吧！」"
     },
     {
@@ -3099,9 +3189,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "722521f3c770447d",
+      "detailHash": "71e5159b46e23051",
       "firstText": "其实只要交给马克斯，两三下就清洁溜溜了。亚修自己也很清",
-      "index": 188,
+      "index": 194,
       "lastText": "还是把这个玩偶塞进衣柜里面吧。万一被人看见，少不了又是一"
     },
     {
@@ -3114,134 +3204,59 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "b007329603490f0a",
+      "detailHash": "496be76f366f3fe1",
       "firstText": "顿讪笑。",
-      "index": 189,
+      "index": 195,
       "lastText": "来宾。」"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 8,
+        "ruby": 0,
+        "textRuns": 8
+      },
+      "detailHash": "5098846e392ac011",
+      "firstText": "躲在蕾贝卡身后的人物，居然是西尔维亚。",
+      "index": 196,
+      "lastText": "出众的礼服。"
+    },
+    {
+      "counts": {
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 13
+        "textRuns": 3
       },
-      "detailHash": "80368fde7eb94090",
-      "firstText": "躲在蕾贝卡身后的人物，居然是西尔维亚。",
-      "index": 190,
-      "lastText": "满脸通红的西尔维亚大声喝斥。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8dfb327a6a5b7545",
-      "firstText": "蕾贝卡、西尔维亚、科赛特，再加上不说话的时候也是个美少女",
-      "index": 191,
-      "lastText": "「好了好了，两个都别吵。烤鸡还有很多，够大家吃的了。再说"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "ab79ead784c91c47",
-      "firstText": "今天的主角是艾可，就让她吃个过瘾吧。」",
-      "index": 192,
-      "lastText": "即使再怎么坚持，还是难敌睡魔的侵袭。无奈之余，亚修只好抱"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a1c3d7f179241898",
-      "firstText": "起艾可，将她放在床上。",
-      "index": 193,
-      "lastText": "西尔维亚显然喝醉了。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d611e44110de25f0",
-      "firstText": "裙摆凌乱，露出雪白的大腿，脸泛红潮、眼神迷离，宛如寒冰的",
-      "index": 194,
-      "lastText": "「那个少年……？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "687f5e1d03d20701",
-      "firstText": "亚修为之一愣。",
-      "index": 195,
-      "lastText": "两人不约而同地正襟危坐了起来。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "fbd9c6d120129262",
-      "firstText": "「这次的事件让我深刻地感受到学生会的力有未逮。目前学生会",
-      "index": 196,
-      "lastText": "「是的，我一定会尽力而为的。还有，往后请直接称呼我的名字"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d651995add13f4a0",
-      "firstText": "就好。至少在学生会的时候，请不要把我当成骑士王家的公主。」",
+      "detailHash": "1f8b5d9c45f95422",
+      "firstText": "「呵呵……好久没看到这么有趣的公主殿下了，我也想来凑凑热",
       "index": 197,
-      "lastText": "修的面前。"
+      "lastText": "科赛特躲在西尔维亚的身后吃吃而笑。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c2ce1cdd065cd8ff",
+      "firstText": "「你、你给我安静一点！」",
+      "index": 198,
+      "lastText": "「怎么能怪我呢？要怪就怪烤鸡太好吃了！」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3249,10 +3264,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "153170f6a17f86ed",
-      "firstText": "「哎呀，原来两位都是爱吃醋的女人。」",
-      "index": 198,
-      "lastText": "长和书记，有机会再介绍给你们认识。他们两位的个性虽然有点古怪，"
+      "detailHash": "2439d52c81d2f198",
+      "firstText": "「烤鸡是无辜的，不要随便迁怒好吗？」",
+      "index": 199,
+      "lastText": "亚修出声询问，却换来艾可的反驳。"
     },
     {
       "counts": {
@@ -3264,10 +3279,100 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "03e1f2770efdf60c",
-      "firstText": "却都是优秀的龙骑士。」",
-      "index": 199,
-      "lastText": "不过她的眼神依然冰冷，亚修突然有一种被冰冷的眼神细细解剖"
+      "detailHash": "88683d0f107cc28d",
+      "firstText": "「哼……你把我当成什么人啦？我还要吃……唔……」",
+      "index": 200,
+      "lastText": "「有、有事吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "5013ea38e8fe9262",
+      "firstText": "西尔维亚显然喝醉了。",
+      "index": 201,
+      "lastText": "「你根本就比不上那个少年！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0d838d4f290f9e22",
+      "firstText": "「那个少年……？」",
+      "index": 202,
+      "lastText": "互望一眼，派对特有的轻松气氛顿时消失得无影无踪。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "54912766adcca6cf",
+      "firstText": "两人不约而同地正襟危坐了起来。",
+      "index": 203,
+      "lastText": "西尔维亚凝视着蕾贝卡，眼神十分真挚。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "cd0cdc62885cc388",
+      "firstText": "「是的，我一定会尽力而为的。还有，往后请直接称呼我的名字",
+      "index": 204,
+      "lastText": "艾可和西尔维亚难得立场一致，不过蕾贝卡却挺身而出，挡在亚"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "1d87a6d7745806ee",
+      "firstText": "修的面前。",
+      "index": 205,
+      "lastText": "「这位是担任会计的马克斯，两位应该已经认识了吧。至于副会"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "f24bdba4eaac704f",
+      "firstText": "长和书记，有机会再介绍给你们认识。他们两位的个性虽然有点古怪，",
+      "index": 206,
+      "lastText": "样消失无踪，取而代之的是成熟女人特有的魅力。"
     },
     {
       "counts": {
@@ -3275,13 +3380,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 12
       },
-      "detailHash": "67add47c0d20162c",
-      "firstText": "的错觉。如果将安洁拉比喻为蛇，亚修就像是一只被蛇盯上的青蛙。",
-      "index": 200,
+      "detailHash": "7df5ad7b819e846d",
+      "firstText": "不过她的眼神依然冰冷，亚修突然有一种被冰冷的眼神细细解剖",
+      "index": 207,
       "lastText": "夜晚的派对才刚刚揭开序幕。"
     },
     {
@@ -3294,9 +3399,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "ff4ab95674745ba4",
+      "detailHash": "6345d3189021f0a3",
       "firstText": "后记",
-      "index": 201,
+      "index": 208,
       "lastText": "——驾驭者与被驾驭的对象。"
     },
     {
@@ -3309,9 +3414,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "a80cc55df40afb23",
+      "detailHash": "22c1f25743e62a37",
       "firstText": "当两者的波长互相结合的时候，往往能缔造出爆炸性的成果。",
-      "index": 202,
+      "index": 209,
       "lastText": "瑞智士记"
     },
     {
@@ -3324,9 +3429,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "3128ec57cf59290c",
+      "detailHash": "553c30d7f3de677b",
       "firstText": "",
-      "index": 203,
+      "index": 210,
       "lastText": ""
     },
     {
@@ -3339,9 +3444,9 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "03f14882b8ae3c4e",
+      "detailHash": "141183bcfbbcd1c4",
       "firstText": "",
-      "index": 204,
+      "index": 211,
       "lastText": ""
     }
   ],
@@ -3350,8 +3455,8 @@
     "chapterCount": 23,
     "chapterTextIndexCount": 23,
     "footnoteCount": 0,
-    "fullDetailHash": "7d004088cc9f55b3",
-    "pageCount": 205,
+    "fullDetailHash": "36d6379d808104ad",
+    "pageCount": 212,
     "totals": {
       "blocks": 3146,
       "hrs": 2,
@@ -3369,7 +3474,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 455.7,
             "width": 304,
             "x": 0,
             "y": 0
@@ -3378,7 +3483,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 228,
+                "height": 455.7,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -4803,7 +4908,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 104.5,
             "width": 304,
             "x": 0,
             "y": 106.4
@@ -4812,7 +4917,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 228,
+                "height": 104.5,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -4835,7 +4940,7 @@
             "height": 20.8,
             "width": 182.4,
             "x": 97.28,
-            "y": 334.4
+            "y": 210.9
           },
           "children": [
             {
@@ -4893,7 +4998,7 @@
             "height": 20.8,
             "width": 142.4,
             "x": 137.28,
-            "y": 355.2
+            "y": 231.7
           },
           "children": [
             {
@@ -4951,7 +5056,7 @@
             "height": 37.44,
             "width": 200.64,
             "x": 97.28,
-            "y": 376
+            "y": 252.5
           },
           "children": [
             {
@@ -5313,7 +5418,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 476.489,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5322,7 +5427,7 @@
             {
               "alt": "001 (1)",
               "bounds": {
-                "height": 228,
+                "height": 476.489,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -5365,7 +5470,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 584,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5374,9 +5479,9 @@
             {
               "alt": "001 (2)",
               "bounds": {
-                "height": 228,
-                "width": 304,
-                "x": 0,
+                "height": 584,
+                "width": 273.312,
+                "x": 15.344,
                 "y": 0
               },
               "href": null,
@@ -5417,7 +5522,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 584,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5426,9 +5531,9 @@
             {
               "alt": "001 (3)",
               "bounds": {
-                "height": 228,
-                "width": 304,
-                "x": 0,
+                "height": 584,
+                "width": 272.728,
+                "x": 15.636,
                 "y": 0
               },
               "href": null,
@@ -5469,7 +5574,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 225.019,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5478,7 +5583,7 @@
             {
               "alt": "001 (4)",
               "bounds": {
-                "height": 228,
+                "height": 225.019,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -8039,7 +8144,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 225.185,
             "width": 304,
             "x": 0,
             "y": 0
@@ -8048,7 +8153,7 @@
             {
               "alt": "001 (5)",
               "bounds": {
-                "height": 228,
+                "height": 225.185,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -10686,7 +10791,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 225.687,
             "width": 304,
             "x": 0,
             "y": 0
@@ -10695,7 +10800,7 @@
             {
               "alt": "001 (6)",
               "bounds": {
-                "height": 228,
+                "height": 225.687,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -10919,7 +11024,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 464.122,
             "width": 304,
             "x": 0,
             "y": 0
@@ -10928,7 +11033,7 @@
             {
               "alt": "contents",
               "bounds": {
-                "height": 228,
+                "height": 464.122,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -12831,6 +12936,224 @@
                 {
                   "bounds": {
                     "height": 20.8,
+                    "width": 96,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "受到某种力量的牵引。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "之后蕾贝卡说了一句话：",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「今天是古夫林第一次违抗我的命令。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 62.4,
+            "width": 304,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "wordSpacingPx": 7.467
+                  },
+                  "text": "「The Awakening of Sleeping",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "wordSpacingPx": 32
+                  },
+                  "text": "Beauty ~A.S.B.1365.4~」 is",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
                     "width": 57.6,
                     "x": 0,
                     "y": 2.4
@@ -12868,16 +13191,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 1,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 6
       },
-      "firstText": "closed",
-      "index": 59,
+      "firstText": "受到某种力量的牵引。",
+      "index": 60,
       "lastText": "closed",
       "paint": null
     },
@@ -13836,7 +14159,7 @@
         "textRuns": 20
       },
       "firstText": "第二话 安萨里邦的市区",
-      "index": 60,
+      "index": 61,
       "lastText": "看来她又打算炫耀龙种记忆所学习的知识了。",
       "paint": null
     },
@@ -13846,144 +14169,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 304,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 272,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.119
-                  },
-                  "text": "级任导师突然换成年轻的美女老师，包括雷蒙在内的男同学无不",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 211.2,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "兴奋得高声欢呼，唯独亚修一副愁云惨雾的模样。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 48
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "原因很简单，安洁拉一定是为了艾可才动这些手脚。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 75.2
           },
           "children": [
             {
@@ -14033,7 +14222,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 102.4
+            "y": 27.2
           },
           "children": [
             {
@@ -14118,16 +14307,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 4,
+        "blocks": 2,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 6,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 6
+        "textRuns": 3
       },
-      "firstText": "级任导师突然换成年轻的美女老师，包括雷蒙在内的男同学无不",
-      "index": 107,
+      "firstText": "「往后还请多多指教。」",
+      "index": 110,
       "lastText": "修，嘴角浮现出令人不寒血栗的冷笑。",
       "paint": null
     },
@@ -15070,7 +15259,7 @@
         "textRuns": 20
       },
       "firstText": "第三话 尸灰龙的袭击",
-      "index": 108,
+      "index": 111,
       "lastText": "拜访学生会的时候了。",
       "paint": null
     },
@@ -15084,6 +15273,56 @@
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "已。松了口气之后，亚修不禁摇头苦笑。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
           },
           "children": [
             {
@@ -15133,7 +15372,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 54.4
           },
           "children": [
             {
@@ -15183,7 +15422,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 81.6
           },
           "children": [
             {
@@ -15234,16 +15473,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 4,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 3,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 3
+        "textRuns": 4
       },
-      "firstText": "「天才驯龙师……？」",
-      "index": 180,
+      "firstText": "已。松了口气之后，亚修不禁摇头苦笑。",
+      "index": 186,
       "lastText": "至少亚修到现在还找不到驯服艾可的方法。",
       "paint": null
     },
@@ -16218,7 +16457,7 @@
         "textRuns": 20
       },
       "firstText": "终章",
-      "index": 181,
+      "index": 187,
       "lastText": "土壤和枯叶散发出来的腐臭令人不悦。",
       "paint": null
     },
@@ -16228,7 +16467,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 41.6,
             "width": 304,
             "x": 0,
             "y": 0
@@ -16240,6 +16479,40 @@
                 "width": 304,
                 "x": 0,
                 "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "不过她的眼神依然冰冷，亚修突然有一种被冰冷的眼神细细解剖",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
               },
               "runs": [
                 {
@@ -16281,7 +16554,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 48
           },
           "children": [
             {
@@ -16331,7 +16604,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 75.2
           },
           "children": [
             {
@@ -16381,7 +16654,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 102.4
           },
           "children": [
             {
@@ -16431,7 +16704,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 108.8
+            "y": 129.6
           },
           "children": [
             {
@@ -16515,7 +16788,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 156.8
+            "y": 177.6
           },
           "children": [
             {
@@ -16565,7 +16838,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 184
+            "y": 204.8
           },
           "children": [
             {
@@ -16615,7 +16888,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 211.2
+            "y": 232
           },
           "children": [
             {
@@ -16699,7 +16972,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 259.2
+            "y": 280
           },
           "children": [
             {
@@ -16754,12 +17027,12 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 11,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 12
       },
-      "firstText": "的错觉。如果将安洁拉比喻为蛇，亚修就像是一只被蛇盯上的青蛙。",
-      "index": 200,
+      "firstText": "不过她的眼神依然冰冷，亚修突然有一种被冰冷的眼神细细解剖",
+      "index": 207,
       "lastText": "夜晚的派对才刚刚揭开序幕。",
       "paint": null
     },
@@ -17702,7 +17975,7 @@
         "textRuns": 20
       },
       "firstText": "后记",
-      "index": 201,
+      "index": 208,
       "lastText": "——驾驭者与被驾驭的对象。",
       "paint": null
     },
@@ -18581,7 +18854,7 @@
         "textRuns": 20
       },
       "firstText": "当两者的波长互相结合的时候，往往能缔造出爆炸性的成果。",
-      "index": 202,
+      "index": 209,
       "lastText": "瑞智士记",
       "paint": null
     },
@@ -18591,7 +18864,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 458.522,
             "width": 304,
             "x": 0,
             "y": 0
@@ -18600,7 +18873,7 @@
             {
               "alt": "001-10",
               "bounds": {
-                "height": 228,
+                "height": 458.522,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -18633,7 +18906,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 203,
+      "index": 210,
       "lastText": "",
       "paint": null
     },
@@ -18643,7 +18916,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 451.039,
             "width": 304,
             "x": 0,
             "y": 0
@@ -18652,7 +18925,7 @@
             {
               "alt": "backcover",
               "bounds": {
-                "height": 228,
+                "height": 451.039,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -18685,7 +18958,7 @@
         "textRuns": 0
       },
       "firstText": "",
-      "index": 204,
+      "index": 211,
       "lastText": "",
       "paint": null
     }

@@ -1,4 +1,4 @@
-import type { SelectionEngine } from '@ritojs/core/selection';
+import type { SelectionEngine } from '../../interaction/index';
 
 export function bindPointerEvents(
   canvas: HTMLCanvasElement,

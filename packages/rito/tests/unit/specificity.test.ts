@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { calculateSpecificity, compareSpecificity } from '../../src/style/cascade/specificity';
+import {
+  calculateSpecificity,
+  compareSpecificity,
+} from '../../src/reference/ts-core/style/cascade/specificity';
 
 describe('calculateSpecificity', () => {
   it('element selector', () => {

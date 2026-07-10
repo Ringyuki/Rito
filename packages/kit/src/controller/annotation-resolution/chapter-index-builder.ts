@@ -5,8 +5,7 @@
  * chapter text from HitEntry sourceRefs instead.
  */
 
-import type { ChapterTextIndex, ChapterTextSpan } from '@ritojs/core/annotations';
-import type { HitMap } from '@ritojs/core/integration';
+import type { ChapterTextIndex, ChapterTextSpan, HitMap } from '../../interaction/index';
 
 /**
  * Build a chapter text index from the HitMaps of pages belonging to one chapter.

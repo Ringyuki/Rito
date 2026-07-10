@@ -47,7 +47,7 @@ describe('PageBufferPool', () => {
     pool.resize(800, 600, 1);
     pool.assignSlot('curr', 5);
 
-    const renderer = vi.fn();
+    const renderer = vi.fn((_spreadIndex: number) => true);
     pool.ensureContent('curr', renderer);
 
     expect(renderer).toHaveBeenCalledTimes(1);
@@ -59,9 +59,23 @@ describe('PageBufferPool', () => {
     expect(renderer).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps content dirty when renderer defers painting', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 5);
+
+    const renderer = vi.fn(() => false);
+    expect(pool.ensureContent('curr', renderer)).toBe(false);
+    expect(pool.curr.contentDirty).toBe(true);
+
+    const readyRenderer = vi.fn(() => true);
+    expect(pool.ensureContent('curr', readyRenderer)).toBe(true);
+    expect(pool.curr.contentDirty).toBe(false);
+  });
+
   it('ensureContent skips empty slots', () => {
     const pool = createPageBufferPool();
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     pool.ensureContent('curr', renderer);
     expect(renderer).not.toHaveBeenCalled();
   });
@@ -152,12 +166,28 @@ describe('PageBufferPool', () => {
     expect(pool.curr.contentDirty).toBe(true);
   });
 
+  it('resize is a no-op when backing dimensions are unchanged', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 1);
+    pool.assignSlot('curr', 1);
+
+    const renderer = vi.fn(() => true);
+    pool.ensureContent('curr', renderer);
+    expect(pool.curr.contentDirty).toBe(false);
+
+    pool.resize(800, 600, 1);
+
+    expect(pool.curr.content.width).toBe(800);
+    expect(pool.curr.content.height).toBe(600);
+    expect(pool.curr.contentDirty).toBe(false);
+  });
+
   it('invalidateAllContent marks all slots dirty', () => {
     const pool = createPageBufferPool();
     pool.resize(100, 100, 1);
     pool.assignSlot('curr', 0);
 
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     pool.ensureContent('curr', renderer);
     expect(pool.curr.contentDirty).toBe(false);
 
@@ -175,7 +205,7 @@ describe('PageBufferPool', () => {
     pool.assignSlot('next', 2);
 
     // Clear dirty flags
-    const renderer = vi.fn();
+    const renderer = vi.fn(() => true);
     const provider = vi.fn(() => []);
     pool.ensureContent('curr', renderer);
     pool.ensureOverlay('curr', provider, 1);

@@ -1,18 +1,20 @@
 import type { FootnoteEntry, PackageMetadata, Page, Spread, TocEntry } from '@ritojs/core';
-import type { Reader, ReaderThemeOptions } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type {
   AnnotationRecord,
   AnnotationRecordPatch,
   RecordStorageAdapter,
   ResolvedAnnotation,
-} from '@ritojs/core/annotations';
-import type { ReadingPosition } from '@ritojs/core/position';
-import type { SearchResult } from '@ritojs/core/search';
-import type { TextRange } from '@ritojs/core/selection';
+} from '../interaction/index';
+import type { ReadingPosition } from '../interaction/index';
+import type { SearchResult } from '../interaction/index';
+import type { TextRange } from '../interaction/index';
 import type { TransitionDriverOptions } from '../driver/types';
 import type { PositionStorageAdapter } from '../storage/types';
 import type { KeyboardManager } from '../keyboard/types';
 import type { TypedEmitter } from '../utils/event-emitter';
+
+type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
 /** Defaults matching `@ritojs/core` ReaderOptions defaults. */
 export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;

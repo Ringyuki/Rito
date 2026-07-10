@@ -1,7 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { extractAllFootnotes, extractChapterFootnotes } from '../../src/runtime/footnote-extractor';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import {
+  extractAllFootnotes,
+  extractChapterFootnotes,
+} from '../../src/reference/ts-core/runtime/footnote-extractor';
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

@@ -1,0 +1,225 @@
+use crate::{
+    wire::{
+        parse_active_chapter_preview_revision_request, parse_full_revision_bundle_request,
+        parse_initial_preview_revision_request, parse_preview_revision_bundle_request,
+        parse_view_revision_request, serialize_json, WasmPlannedFrameResourcePrefetchResponse,
+    },
+    WasmRuntimeDocument, WasmRuntimeError,
+};
+use rito_core::runtime::{
+    encode_runtime_bundle, RuntimeInitialFrameDecision, RuntimeRevisionBundle,
+};
+use serde::Serialize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmRevisionFrameSelection {
+    pub spread_index: usize,
+    pub display_spread_index: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmRevisionBundleResponse {
+    pub bundle: RuntimeRevisionBundle,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub frame_selection: Option<WasmRevisionFrameSelection>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_frame_window: Option<WasmPlannedFrameResourcePrefetchResponse>,
+    pub preview: bool,
+    pub released_previous_revision_transfer_count: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WasmViewRevisionResponse {
+    pub kind: rito_core::runtime::RuntimeViewRevisionKind,
+    pub display: rito_core::runtime::RuntimeViewRevisionDisplay,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub follow_up: Option<rito_core::runtime::RuntimeViewRevisionFollowUp>,
+    pub result: WasmRevisionBundleResponse,
+}
+
+impl WasmRuntimeDocument {
+    pub fn create_full_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_full_revision_bundle_request(request_json)?;
+        let creation = self
+            .document
+            .create_full_revision_bundle(request.runtime)
+            .map_err(WasmRuntimeError::from_engine)?;
+        let revision_id = creation.bundle.revision.revision_id.clone();
+        let released_previous_revision_transfer_count = request
+            .previous_revision_id
+            .as_ref()
+            .map_or(0, |revision_id| {
+                self.transfers.release_revision(revision_id)
+            });
+        let initial_frame_window =
+            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+        serialize_json(&WasmRevisionBundleResponse {
+            bundle: creation.bundle,
+            frame_selection: creation.initial_frame.as_ref().map(frame_selection),
+            initial_frame_window,
+            preview: creation.preview,
+            released_previous_revision_transfer_count,
+        })
+    }
+
+    pub fn create_initial_preview_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_initial_preview_revision_request(request_json)?;
+        let creation = self
+            .document
+            .create_initial_preview_revision_bundle(request)
+            .map_err(WasmRuntimeError::from_engine)?;
+        let revision_id = creation.bundle.revision.revision_id.clone();
+        let initial_frame_window =
+            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+        serialize_json(&WasmRevisionBundleResponse {
+            bundle: creation.bundle,
+            frame_selection: creation.initial_frame.as_ref().map(frame_selection),
+            initial_frame_window,
+            preview: creation.preview,
+            released_previous_revision_transfer_count: 0,
+        })
+    }
+
+    pub fn create_active_chapter_preview_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_active_chapter_preview_revision_request(request_json)?;
+        let previous_revision_id = request.previous_revision_id.clone();
+        let Some(creation) = self
+            .document
+            .create_active_chapter_preview_revision_bundle(request)
+            .map_err(WasmRuntimeError::from_engine)?
+        else {
+            return serialize_json(&Option::<WasmRevisionBundleResponse>::None);
+        };
+        let released_previous_revision_transfer_count =
+            self.transfers.release_revision(&previous_revision_id);
+        let revision_id = creation.bundle.revision.revision_id.clone();
+        let initial_frame_window =
+            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+        serialize_json(&Some(WasmRevisionBundleResponse {
+            bundle: creation.bundle,
+            frame_selection: creation.initial_frame.as_ref().map(frame_selection),
+            initial_frame_window,
+            preview: creation.preview,
+            released_previous_revision_transfer_count,
+        }))
+    }
+
+    pub fn create_preview_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_preview_revision_bundle_request(request_json)?;
+        let previous_revision_id = request.previous_revision_id.clone();
+        let Some(creation) = self
+            .document
+            .create_preview_revision_bundle(request)
+            .map_err(WasmRuntimeError::from_engine)?
+        else {
+            return serialize_json(&Option::<WasmRevisionBundleResponse>::None);
+        };
+        let released_previous_revision_transfer_count =
+            previous_revision_id.as_ref().map_or(0, |revision_id| {
+                self.transfers.release_revision(revision_id)
+            });
+        let revision_id = creation.bundle.revision.revision_id.clone();
+        let initial_frame_window =
+            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+        serialize_json(&Some(WasmRevisionBundleResponse {
+            bundle: creation.bundle,
+            frame_selection: creation.initial_frame.as_ref().map(frame_selection),
+            initial_frame_window,
+            preview: creation.preview,
+            released_previous_revision_transfer_count,
+        }))
+    }
+
+    pub fn create_view_revision_bundle_json(
+        &mut self,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let response = self.create_view_revision_bundle_response(request_json)?;
+        serialize_json(&response)
+    }
+
+    pub fn create_view_revision_bundle_bytes(
+        &mut self,
+        request_json: &str,
+    ) -> Result<Vec<u8>, WasmRuntimeError> {
+        let response = self.create_view_revision_bundle_response(request_json)?;
+        encode_runtime_bundle(&response).map_err(WasmRuntimeError::from_engine)
+    }
+
+    fn create_view_revision_bundle_response(
+        &mut self,
+        request_json: &str,
+    ) -> Result<WasmViewRevisionResponse, WasmRuntimeError> {
+        let request = parse_view_revision_request(request_json)?;
+        let previous_revision_id = request.previous_revision_id.clone();
+        let view = self
+            .document
+            .create_view_revision_bundle(request)
+            .map_err(WasmRuntimeError::from_engine)?;
+        let revision_id = view.revision.bundle.revision.revision_id.clone();
+        let released_previous_revision_transfer_count =
+            previous_revision_id.as_ref().map_or(0, |revision_id| {
+                self.transfers.release_revision(revision_id)
+            });
+        let initial_frame_window =
+            self.initial_frame_window(&revision_id, view.revision.initial_frame.as_ref())?;
+        Ok(WasmViewRevisionResponse {
+            kind: view.kind,
+            display: view.display,
+            follow_up: view.follow_up,
+            result: WasmRevisionBundleResponse {
+                bundle: view.revision.bundle,
+                frame_selection: view.revision.initial_frame.as_ref().map(frame_selection),
+                initial_frame_window,
+                preview: view.revision.preview,
+                released_previous_revision_transfer_count,
+            },
+        })
+    }
+
+    fn initial_frame_window(
+        &mut self,
+        revision_id: &str,
+        initial_frame: Option<&RuntimeInitialFrameDecision>,
+    ) -> Result<Option<WasmPlannedFrameResourcePrefetchResponse>, WasmRuntimeError> {
+        let Some(initial_frame) = initial_frame else {
+            return Ok(None);
+        };
+        let mut plan = self
+            .document
+            .frame_resource_warm_plan(revision_id, initial_frame.spread_index)
+            .map_err(WasmRuntimeError::from_engine)?;
+        plan.display_spread_index = initial_frame.display_spread_index;
+        let mut spreads = Vec::new();
+        for spread_index in plan.spread_indexes.clone() {
+            spreads.push(self.prefetch_frame_resources(revision_id, spread_index)?);
+        }
+        Ok(Some(WasmPlannedFrameResourcePrefetchResponse {
+            plan,
+            spreads,
+            pending_transfer_count: self.pending_resource_transfer_count(),
+        }))
+    }
+}
+
+fn frame_selection(initial_frame: &RuntimeInitialFrameDecision) -> WasmRevisionFrameSelection {
+    WasmRevisionFrameSelection {
+        spread_index: initial_frame.spread_index,
+        display_spread_index: initial_frame.display_spread_index,
+    }
+}

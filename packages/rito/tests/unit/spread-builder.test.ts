@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { buildSpreads } from '../../src/layout/spread';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { Page } from '../../src/layout/core/types';
+import { buildSpreads } from '../../src/reference/ts-core/layout/spread';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { Page } from '../../src/reference/ts-core/layout/core/types';
 
 function makePage(index: number): Page {
   return { index, bounds: { x: 0, y: 0, width: 400, height: 600 }, content: [] };

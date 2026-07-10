@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { CONTAINER_PATH, parseContainer } from '../../src/parser/epub/container-parser';
+import {
+  CONTAINER_PATH,
+  parseContainer,
+} from '../../src/reference/ts-core/parser/epub/container-parser';
 
 describe('parseContainer', () => {
   it('extracts the rootfile full-path', () => {

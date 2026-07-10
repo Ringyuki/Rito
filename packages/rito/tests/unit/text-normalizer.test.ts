@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { collapseWhitespace, isWhitespaceOnly } from '../../src/parser/xhtml/text-normalizer';
+import {
+  collapseWhitespace,
+  isWhitespaceOnly,
+} from '../../src/reference/ts-core/parser/xhtml/text-normalizer';
 
 describe('collapseWhitespace', () => {
   it('collapses consecutive spaces', () => {

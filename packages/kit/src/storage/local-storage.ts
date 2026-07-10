@@ -1,4 +1,4 @@
-import type { AnnotationRecord, RecordStorageAdapter } from '@ritojs/core/annotations';
+import type { AnnotationRecord, RecordStorageAdapter } from '../interaction/index';
 import type { PositionStorageAdapter } from './types';
 
 /** Persist annotation records to localStorage under the given key. */

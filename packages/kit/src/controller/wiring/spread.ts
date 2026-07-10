@@ -3,10 +3,10 @@
  * whenever a spread is rendered or needs a visual refresh.
  */
 import type { Spread } from '@ritojs/core';
-import type { Reader } from '@ritojs/core/web';
-import { buildHitMap, buildLinkMap } from '@ritojs/core/integration';
-import type { PositionTracker } from '@ritojs/core/position';
+import type { Reader } from '@ritojs/core';
+import { buildHitMap, buildLinkMap, type PositionTracker } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
+import { asLegacyPage, asLegacySpread } from '../compat/legacy-page';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { WiringDeps } from '../core/wiring-deps';
@@ -23,7 +23,7 @@ export function coordinateOnSpreadRendered(
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
 
-  engines.selection.setSpread(spread, mapper.selectionConfig, reader.measurer);
+  engines.selection.setSpread(asLegacySpread(spread), mapper.selectionConfig, reader.measurer);
   rebuildHitMaps(spread, state);
   rebuildLinksByPage(spread, state);
 
@@ -53,14 +53,14 @@ function updatePosition(
 function rebuildHitMaps(spread: Spread, state: CoordinatorState): void {
   state.hitMaps.clear();
   for (const page of [spread.left, spread.right]) {
-    if (page) state.hitMaps.set(page.index, buildHitMap(page));
+    if (page) state.hitMaps.set(page.index, buildHitMap(asLegacyPage(page)));
   }
 }
 
 function rebuildLinksByPage(spread: Spread, state: CoordinatorState): void {
   state.linksByPage.clear();
   for (const page of [spread.left, spread.right]) {
-    if (page) state.linksByPage.set(page.index, buildLinkMap(page));
+    if (page) state.linksByPage.set(page.index, buildLinkMap(asLegacyPage(page)));
   }
 }
 
@@ -78,6 +78,15 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
+  if (typeof deps.reader.onSpreadContentInvalidated === 'function') {
+    disposables.add(
+      deps.reader.onSpreadContentInvalidated((idx) => {
+        if (idx === deps.getCurrentSpread()) deps.syncViewport?.();
+        deps.frameDriver.markContentDirty(idx);
+        deps.notifyNavigationContentReady(idx);
+      }),
+    );
+  }
 }
 
 export function refreshCurrentOverlay(deps: WiringDeps): void {

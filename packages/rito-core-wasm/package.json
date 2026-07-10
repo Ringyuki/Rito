@@ -1,0 +1,45 @@
+{
+  "name": "@ritojs/core-wasm",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "description": "Private build and decoder workspace for the Rust-backed Rito core",
+  "license": "AGPL-3.0-only",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.mts",
+  "homepage": "https://github.com/Ringyuki/Rito/tree/master/packages/rito-core-wasm#readme",
+  "bugs": {
+    "url": "https://github.com/Ringyuki/Rito/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ringyuki/Rito.git",
+    "directory": "packages/rito-core-wasm"
+  },
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "types": "./dist/index.d.mts"
+    },
+    "./decoder": {
+      "import": "./dist/decoder.mjs",
+      "types": "./dist/decoder.d.mts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build-wasm.mjs",
+    "build:placeholder": "node scripts/build-placeholder.mjs",
+    "build:wasm": "node scripts/build-wasm.mjs",
+    "smoke:wasm": "node scripts/smoke-wasm.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "typecheck": "tsc --noEmit",
+    "verify:wasm": "node scripts/verify-wasm.mjs"
+  }
+}

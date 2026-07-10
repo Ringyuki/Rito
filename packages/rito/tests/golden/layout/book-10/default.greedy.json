@@ -309,7 +309,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "7b8cb8c03cf42f2e",
+      "detailHash": "2101d8cbfb7d72fd",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -339,7 +339,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1a738471265e3b89",
+      "detailHash": "d8563717f3e31690",
       "firstText": "",
       "index": 2,
       "lastText": ""
@@ -414,7 +414,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "76beaa136110fc5e",
+      "detailHash": "27d0fcd2abb3a70c",
       "firstText": "",
       "index": 7,
       "lastText": ""
@@ -429,7 +429,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "8333ba026caf76b3",
+      "detailHash": "f388ad9ac393b720",
       "firstText": "",
       "index": 8,
       "lastText": ""
@@ -444,7 +444,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "4816cebffbb99ff6",
+      "detailHash": "a6770bf3fa1350ff",
       "firstText": "",
       "index": 9,
       "lastText": ""
@@ -459,7 +459,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "d386bf9393a50722",
+      "detailHash": "4781acd523c174fd",
       "firstText": "",
       "index": 10,
       "lastText": ""
@@ -474,7 +474,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "e809eee3884dc71c",
+      "detailHash": "ba4ff7f8e5794187",
       "firstText": "",
       "index": 11,
       "lastText": ""
@@ -2034,7 +2034,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "c75598d8d3d1744f",
+      "detailHash": "2f1eedc0cf7608b0",
       "firstText": "",
       "index": 115,
       "lastText": ""
@@ -2049,7 +2049,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "adce2d84c1968037",
+      "detailHash": "7f4d5f6b1bf3b628",
       "firstText": "",
       "index": 116,
       "lastText": ""
@@ -4314,7 +4314,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "204c7604a0b4404a",
+      "detailHash": "6f76c11614fc60f6",
       "firstText": "",
       "index": 267,
       "lastText": ""
@@ -4329,7 +4329,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "0a33f9c37e9b9ff6",
+      "detailHash": "92e8314d22ce4435",
       "firstText": "",
       "index": 268,
       "lastText": ""
@@ -7014,7 +7014,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "2a376335762f329c",
+      "detailHash": "1e4e42c855e00c2a",
       "firstText": "",
       "index": 447,
       "lastText": ""
@@ -7025,7 +7025,7 @@
     "chapterCount": 26,
     "chapterTextIndexCount": 26,
     "footnoteCount": 0,
-    "fullDetailHash": "3ec0b9661c80d57d",
+    "fullDetailHash": "3133746bbee30892",
     "pageCount": 448,
     "totals": {
       "blocks": 7352,
@@ -7044,7 +7044,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -7053,9 +7053,9 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 513,
+                "x": 3.5,
                 "y": 0
               },
               "href": null,
@@ -7429,7 +7429,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 131.171,
             "width": 520,
             "x": 0,
             "y": 16
@@ -7438,7 +7438,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
+                "height": 131.171,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -9665,18 +9665,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
-            "y": 16
+            "y": 0
           },
           "children": [
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 499.5,
+                "x": 10.25,
                 "y": 0
               },
               "href": null,
@@ -9717,7 +9717,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
             "y": 0
@@ -9726,9 +9726,9 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 499.5,
+                "x": 10.25,
                 "y": 0
               },
               "href": null,
@@ -9769,7 +9769,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 372.32,
             "width": 520,
             "x": 0,
             "y": 16
@@ -9778,7 +9778,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
+                "height": 372.32,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -9821,18 +9821,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
-            "y": 16
+            "y": 0
           },
           "children": [
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 499.5,
+                "x": 10.25,
                 "y": 0
               },
               "href": null,
@@ -9873,7 +9873,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 372.32,
             "width": 520,
             "x": 0,
             "y": 0
@@ -9882,7 +9882,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
+                "height": 372.32,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -13482,18 +13482,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
-            "y": 16
+            "y": 0
           },
           "children": [
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 499.5,
+                "x": 10.25,
                 "y": 0
               },
               "href": null,
@@ -13534,7 +13534,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 365.04,
             "width": 520,
             "x": 0,
             "y": 0
@@ -13543,7 +13543,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
+                "height": 365.04,
                 "width": 520,
                 "x": 0,
                 "y": 0
@@ -19200,18 +19200,18 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 720,
             "width": 520,
             "x": 0,
-            "y": 16
+            "y": 0
           },
           "children": [
             {
               "alt": null,
               "bounds": {
-                "height": 390,
-                "width": 520,
-                "x": 0,
+                "height": 720,
+                "width": 499.5,
+                "x": 10.25,
                 "y": 0
               },
               "href": null,
@@ -19252,7 +19252,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 390,
+            "height": 365.56,
             "width": 520,
             "x": 0,
             "y": 0
@@ -19261,7 +19261,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 390,
+                "height": 365.56,
                 "width": 520,
                 "x": 0,
                 "y": 0

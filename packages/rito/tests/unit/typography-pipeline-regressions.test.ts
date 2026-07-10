@@ -1,16 +1,22 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { layoutBlocks } from '../../src/layout/block';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { LayoutBlock, TextRun } from '../../src/layout/core/types';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
-import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
-import { flattenInlineContent, isInlineAtom } from '../../src/layout/text/styled-segment';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { paginateChapterNodes, preparePaginationContext } from '../../src/runtime/pagination-core';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { parseCssRules } from '../../src/style/css/rule-parser';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { LayoutBlock, TextRun } from '../../src/reference/ts-core/layout/core/types';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
+import { createKnuthPlassLayouter } from '../../src/reference/ts-core/layout/line-breaker/kp';
+import {
+  flattenInlineContent,
+  isInlineAtom,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import {
+  paginateChapterNodes,
+  preparePaginationContext,
+} from '../../src/reference/ts-core/runtime/pagination-core';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 
 const measurer = createMockTextMeasurer(0.6);

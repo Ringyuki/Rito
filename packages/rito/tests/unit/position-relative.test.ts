@@ -1,18 +1,21 @@
 import { describe, expect, it } from 'vitest';
-import { parseCssDeclarations } from '../../src/style/css/property-parser';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { POSITIONS } from '../../src/style/core/types';
-import { layoutBlocks } from '../../src/layout/block';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { parseCssDeclarations } from '../../src/reference/ts-core/style/css/property-parser';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { POSITIONS } from '../../src/reference/ts-core/style/core/types';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
-import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
-import { renderPage } from '../../src/render/page';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
+import type {
+  DocumentNode,
+  ElementAttributes,
+} from '../../src/reference/ts-core/parser/xhtml/types';
+import { renderPage } from '../../src/reference/ts-core/render/page';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import type { Page } from '../../src/layout/core/types';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import type { Page } from '../../src/reference/ts-core/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 const BASE_FONT_SIZE = 16;
 const measurer = createMockTextMeasurer(0.6);

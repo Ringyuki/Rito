@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSelectionEngine } from '../../src/interaction/selection';
+import { createSelectionEngine } from '../../src/reference/ts-core/interaction/selection';
 import type {
   LayoutBlock,
   LayoutConfig,
@@ -7,9 +7,9 @@ import type {
   Page,
   Spread,
   TextRun,
-} from '../../src/layout/core/types';
-import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+} from '../../src/reference/ts-core/layout/core/types';
+import type { TextMeasurer } from '../../src/reference/ts-core/layout/text/text-measurer';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 const runPaint = {
   ...DEFAULT_RUN_PAINT,

@@ -1,12 +1,11 @@
-import type { SelectionEngine } from '@ritojs/core/selection';
-import type { SearchEngine } from '@ritojs/core/search';
+import type { SelectionEngine } from '../../interaction/index';
+import type { SearchEngine } from '../../interaction/index';
 import type {
   AnnotationStore,
   ResolvedAnnotation,
   ChapterTextIndex,
-} from '@ritojs/core/annotations';
-import type { PositionTracker, ReadingPosition } from '@ritojs/core/position';
-import type { HitMap, LinkRegion } from '@ritojs/core/integration';
+} from '../../interaction/index';
+import type { HitMap, LinkRegion, PositionTracker, ReadingPosition } from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 
 export interface CoordinatorEngines {

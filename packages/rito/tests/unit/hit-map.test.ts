@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { buildHitMap, buildLinkMap, hitTest, hitTestLink } from '../../src/interaction/core';
-import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import {
+  buildHitMap,
+  buildLinkMap,
+  hitTest,
+  hitTestLink,
+} from '../../src/reference/ts-core/interaction/core';
+import type {
+  LayoutBlock,
+  LineBox,
+  Page,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 function makeRun(text: string, x: number, w: number, href?: string): TextRun {
   const run: TextRun = {

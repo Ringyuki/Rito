@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController } from '@ritojs/kit';
-import type { TextRange } from '@ritojs/core/selection';
+import type { ReaderController, TextRange } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 interface Rect {

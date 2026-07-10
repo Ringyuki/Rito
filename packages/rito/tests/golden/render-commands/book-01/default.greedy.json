@@ -59,14 +59,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ced1ac794fd88df2",
+            "hash": "295d1e69de6c2ca8",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "1d012d6669b6af9a",
+            "hash": "e88e4a4b7314e684",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -168,10 +168,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  48.225,
                   40,
-                  40,
-                  520,
-                  390
+                  503.55,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -209,14 +209,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ced1ac794fd88df2",
+            "hash": "295d1e69de6c2ca8",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "f69e7ddb85291e7a",
+            "hash": "eedaa141a2c63ccb",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -318,10 +318,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  48.225,
                   40,
-                  40,
-                  520,
-                  390
+                  503.55,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -407,14 +407,14 @@
               "transform": 8,
               "translate": 1
             },
-            "hash": "ed776667784b9b28",
+            "hash": "571c3de631b54530",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 289,
-            "hash": "ee5edd78374213f1",
+            "hash": "41659144271cca61",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1350,7 +1350,7 @@
                   },
                   252,
                   204.8,
-                  72,
+                  62.302,
                   120
                 ],
                 "method": "drawImage",
@@ -1585,7 +1585,7 @@
                   268,
                   329.6,
                   72,
-                  120
+                  99.844
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -1856,7 +1856,7 @@
                   404,
                   579.2,
                   72,
-                  120
+                  119.137
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -2051,8 +2051,8 @@
                     "imageHref": "Images/icon04.png"
                   },
                   124,
-                  587.2,
-                  72,
+                  586.337,
+                  59.651,
                   120
                 ],
                 "method": "drawImage",
@@ -2066,7 +2066,7 @@
               {
                 "args": [
                   282.4,
-                  726.88
+                  726.017
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2081,7 +2081,7 @@
               {
                 "args": [
                   -282.4,
-                  -726.88
+                  -726.017
                 ],
                 "method": "translate",
                 "type": "call"
@@ -2094,7 +2094,7 @@
               {
                 "args": [
                   194.4,
-                  703.68,
+                  702.817,
                   176,
                   46.4
                 ],
@@ -2139,7 +2139,7 @@
               {
                 "args": [
                   258.4,
-                  711.68,
+                  710.817,
                   48,
                   16
                 ],
@@ -2158,7 +2158,7 @@
                     "length": 5
                   },
                   258.4,
-                  711.68
+                  710.817
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2195,7 +2195,7 @@
                     "length": 4
                   },
                   239.2,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2232,7 +2232,7 @@
                     "length": 4
                   },
                   277.6,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2269,7 +2269,7 @@
                     "length": 1
                   },
                   316,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2315,14 +2315,14 @@
               "transform": 8,
               "translate": 1
             },
-            "hash": "ed776667784b9b28",
+            "hash": "571c3de631b54530",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 289,
-            "hash": "6bc6ba1198ea053d",
+            "hash": "5b1cb212b6eba921",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -3258,7 +3258,7 @@
                   },
                   252,
                   204.8,
-                  72,
+                  62.302,
                   120
                 ],
                 "method": "drawImage",
@@ -3493,7 +3493,7 @@
                   268,
                   329.6,
                   72,
-                  120
+                  99.844
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -3764,7 +3764,7 @@
                   404,
                   579.2,
                   72,
-                  120
+                  119.137
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -3959,8 +3959,8 @@
                     "imageHref": "Images/icon04.png"
                   },
                   124,
-                  587.2,
-                  72,
+                  586.337,
+                  59.651,
                   120
                 ],
                 "method": "drawImage",
@@ -3974,7 +3974,7 @@
               {
                 "args": [
                   282.4,
-                  726.88
+                  726.017
                 ],
                 "method": "translate",
                 "type": "call"
@@ -3989,7 +3989,7 @@
               {
                 "args": [
                   -282.4,
-                  -726.88
+                  -726.017
                 ],
                 "method": "translate",
                 "type": "call"
@@ -4002,7 +4002,7 @@
               {
                 "args": [
                   194.4,
-                  703.68,
+                  702.817,
                   176,
                   46.4
                 ],
@@ -4047,7 +4047,7 @@
               {
                 "args": [
                   258.4,
-                  711.68,
+                  710.817,
                   48,
                   16
                 ],
@@ -4066,7 +4066,7 @@
                     "length": 5
                   },
                   258.4,
-                  711.68
+                  710.817
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4103,7 +4103,7 @@
                     "length": 4
                   },
                   239.2,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4140,7 +4140,7 @@
                     "length": 4
                   },
                   277.6,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4177,7 +4177,7 @@
                     "length": 1
                   },
                   316,
-                  730.88
+                  730.017
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -4208,7 +4208,7 @@
       ]
     },
     {
-      "id": "book-01-default.greedy-page-0208",
+      "id": "book-01-default.greedy-page-0217",
       "page": {
         "bounds": {
           "height": 800,
@@ -4225,7 +4225,7 @@
           "ruby": 0,
           "textRuns": 9
         },
-        "index": 208,
+        "index": 217,
         "selectedFeatureCounts": {
           "blockBackground": 9,
           "blockBorder": 0,
@@ -6174,7 +6174,7 @@
       ]
     },
     {
-      "id": "book-01-default.greedy-page-0210",
+      "id": "book-01-default.greedy-page-0219",
       "page": {
         "bounds": {
           "height": 800,
@@ -6191,7 +6191,7 @@
           "ruby": 0,
           "textRuns": 7
         },
-        "index": 210,
+        "index": 219,
         "selectedFeatureCounts": {
           "blockBackground": 6,
           "blockBorder": 0,
@@ -7728,7 +7728,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 211,
+    "pageCount": 220,
     "pixelRatios": [
       1,
       2
@@ -7806,8 +7806,8 @@
           "inlineAtom",
           "blockBackground"
         ],
-        "id": "book-01-default.greedy-page-0208",
-        "pageIndex": 208
+        "id": "book-01-default.greedy-page-0217",
+        "pageIndex": 217
       },
       {
         "counts": {
@@ -7829,8 +7829,8 @@
         "features": [
           "last"
         ],
-        "id": "book-01-default.greedy-page-0210",
-        "pageIndex": 210
+        "id": "book-01-default.greedy-page-0219",
+        "pageIndex": 219
       }
     ]
   }

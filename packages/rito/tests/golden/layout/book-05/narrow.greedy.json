@@ -96,152 +96,152 @@
       "textLength": 2270
     },
     {
-      "endPage": 22,
+      "endPage": 23,
       "href": "Text/Section001.xhtml",
       "idref": "Section001.xhtml",
       "linear": true,
-      "pageCount": 13,
+      "pageCount": 14,
       "startPage": 10,
       "textHash": "6a6f34d936445095",
       "textLength": 7334
     },
     {
-      "endPage": 39,
+      "endPage": 41,
       "href": "Text/Section002.xhtml",
       "idref": "Section002.xhtml",
       "linear": true,
-      "pageCount": 17,
-      "startPage": 23,
+      "pageCount": 18,
+      "startPage": 24,
       "textHash": "b37f4b8354bf7a77",
       "textLength": 9737
     },
     {
-      "endPage": 50,
+      "endPage": 53,
       "href": "Text/Section003.xhtml",
       "idref": "Section003.xhtml",
       "linear": true,
-      "pageCount": 11,
-      "startPage": 40,
+      "pageCount": 12,
+      "startPage": 42,
       "textHash": "1fc7c32a559cb560",
       "textLength": 6232
     },
     {
-      "endPage": 59,
+      "endPage": 62,
       "href": "Text/Section004.xhtml",
       "idref": "Section004.xhtml",
       "linear": true,
       "pageCount": 9,
-      "startPage": 51,
+      "startPage": 54,
       "textHash": "3f4d9515c35690bc",
       "textLength": 5031
     },
     {
-      "endPage": 76,
+      "endPage": 79,
       "href": "Text/Section005.xhtml",
       "idref": "Section005.xhtml",
       "linear": true,
       "pageCount": 17,
-      "startPage": 60,
+      "startPage": 63,
       "textHash": "b602bcde50fe8993",
       "textLength": 10076
     },
     {
-      "endPage": 88,
+      "endPage": 91,
       "href": "Text/Section006.xhtml",
       "idref": "Section006.xhtml",
       "linear": true,
       "pageCount": 12,
-      "startPage": 77,
+      "startPage": 80,
       "textHash": "029b4e0d8e8fc9d6",
       "textLength": 6346
     },
     {
-      "endPage": 99,
+      "endPage": 103,
       "href": "Text/Section007.xhtml",
       "idref": "Section007.xhtml",
       "linear": true,
-      "pageCount": 11,
-      "startPage": 89,
+      "pageCount": 12,
+      "startPage": 92,
       "textHash": "d837a0843dc4d8a6",
       "textLength": 6123
     },
     {
-      "endPage": 112,
+      "endPage": 116,
       "href": "Text/Section008.xhtml",
       "idref": "Section008.xhtml",
       "linear": true,
       "pageCount": 13,
-      "startPage": 100,
+      "startPage": 104,
       "textHash": "94803ac32af85871",
       "textLength": 7212
     },
     {
-      "endPage": 132,
+      "endPage": 137,
       "href": "Text/Section009.xhtml",
       "idref": "Section009.xhtml",
       "linear": true,
-      "pageCount": 20,
-      "startPage": 113,
+      "pageCount": 21,
+      "startPage": 117,
       "textHash": "76ab8ccec4c9ddf7",
       "textLength": 10843
     },
     {
-      "endPage": 142,
+      "endPage": 148,
       "href": "Text/Section010.xhtml",
       "idref": "Section010.xhtml",
       "linear": true,
-      "pageCount": 10,
-      "startPage": 133,
+      "pageCount": 11,
+      "startPage": 138,
       "textHash": "ec14c01eea10561b",
       "textLength": 5439
     },
     {
-      "endPage": 160,
+      "endPage": 166,
       "href": "Text/Section011.xhtml",
       "idref": "Section011.xhtml",
       "linear": true,
       "pageCount": 18,
-      "startPage": 143,
+      "startPage": 149,
       "textHash": "441fd83dfb0f3047",
       "textLength": 9923
     },
     {
-      "endPage": 175,
+      "endPage": 181,
       "href": "Text/Section012.xhtml",
       "idref": "Section012.xhtml",
       "linear": true,
       "pageCount": 15,
-      "startPage": 161,
+      "startPage": 167,
       "textHash": "f172abda6f2061ad",
       "textLength": 8233
     },
     {
-      "endPage": 197,
+      "endPage": 203,
       "href": "Text/Section013.xhtml",
       "idref": "Section013.xhtml",
       "linear": true,
       "pageCount": 22,
-      "startPage": 176,
+      "startPage": 182,
       "textHash": "59f2f81e54b8debf",
       "textLength": 12493
     },
     {
-      "endPage": 207,
+      "endPage": 213,
       "href": "Text/Section014.xhtml",
       "idref": "Section014.xhtml",
       "linear": true,
       "pageCount": 10,
-      "startPage": 198,
+      "startPage": 204,
       "textHash": "cf361e29ea275e04",
       "textLength": 5021
     },
     {
-      "endPage": 209,
+      "endPage": 215,
       "href": "Text/Afterword.xhtml",
       "idref": "Afterword.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 208,
+      "startPage": 214,
       "textHash": "afe5232fa5daff9f",
       "textLength": 1362
     }
@@ -288,7 +288,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "eacfa9491725e804",
+      "detailHash": "c1386bd33cb217f8",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -348,7 +348,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6cfe9b596397b756",
+      "detailHash": "ae49ef742bcdf46e",
       "firstText": "",
       "index": 4,
       "lastText": ""
@@ -363,7 +363,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "2d1b8d3f44b8c893",
+      "detailHash": "92785fb364ecf713",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -378,7 +378,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "92aef114087f1916",
+      "detailHash": "75f1460219f2f31e",
       "firstText": "",
       "index": 6,
       "lastText": ""
@@ -393,7 +393,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "6e25a4004b861738",
+      "detailHash": "26b7da5a5a2bdb7e",
       "firstText": "",
       "index": 7,
       "lastText": ""
@@ -505,33 +505,33 @@
     },
     {
       "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 12,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "52ae9cb0e617082f",
-      "firstText": "难不成至今的一切，全都是我这个没女人缘的家伙做的梦──",
-      "index": 15,
-      "lastText": "……太、太好了，原来一切并不是梦。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 6
       },
-      "detailHash": "3da8de9c7e244cf1",
-      "firstText": "由于没女人缘的日子持续得太久，我到现在还是偶尔会惶惶不",
+      "detailHash": "cf2801b6a445353f",
+      "firstText": "难不成至今的一切，全都是我这个没女人缘的家伙做的梦──",
+      "index": 15,
+      "lastText": "汁，笑得天真无邪地站在面前。"
+    },
+    {
+      "counts": {
+        "blocks": 4,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 3,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "baa11113bc90ad85",
+      "firstText": "五官轮廓分明，端整的美貌。",
       "index": 16,
-      "lastText": "气啊。"
+      "lastText": "比我稍微低一点的身高，配上明显高过我的腰部。"
     },
     {
       "counts": {
@@ -543,14 +543,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c41a4ca7b3dfda46",
-      "firstText": "太感谢你了，前世的我。",
+      "detailHash": "ce39e31048026d1b",
+      "firstText": "她就像是那种会登上青年漫画杂志封面的，平时罕有的美少女。",
       "index": 17,
-      "lastText": "「……你确定他们是在称赞吗？」"
+      "lastText": "好温柔。我好喜欢她。"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -558,14 +558,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "111730da07a93641",
-      "firstText": "「啊哈哈，总比半生不熟要好嘛～」",
+      "detailHash": "5ac706a805778c54",
+      "firstText": "不只人漂亮，心也一样美。",
       "index": 18,
-      "lastText": "因为晴香羞答答地，把视线别向一旁。"
+      "lastText": "「怎样称赞？」"
     },
     {
       "counts": {
-        "blocks": 19,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -573,14 +573,29 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a1e4dc8f001bf94a",
-      "firstText": "取而代之的是，她将右手拘谨地伸往一旁的我。",
+      "detailHash": "6d40353cb8f95478",
+      "firstText": "「说我的演技愈来愈入戏了，就好像从一般的萝卜变成入味的萝",
       "index": 19,
-      "lastText": "到男女关系的场面，还是立刻破功。"
+      "lastText": "而校门就是那个边界。"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "eb60c87b1132fcbc",
+      "firstText": "我往晴香那儿瞄了一眼，两人视线于是对上。",
+      "index": 20,
+      "lastText": "而不用说，我这头可不只一点点而已。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -588,10 +603,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6be4f179508abd74",
-      "firstText": "每次看到那些阳光型男子，即使面对根本不是自己女友的女生，",
-      "index": 20,
-      "lastText": "当然我个人的感觉是这样啦，但刚刚提到一辈子没有其他意思！只是觉"
+      "detailHash": "1c064f0b76dbe073",
+      "firstText": "要说有多紧张，我连声带发出的声音都高了一度。",
+      "index": 21,
+      "lastText": "我刚刚该不会……说了什么很肉麻的话吧？有吗！？"
     },
     {
       "counts": {
@@ -603,24 +618,24 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "34ca608e73848f53",
-      "firstText": "得要是能成真的话不知该有多好，就只是这样而已……！」",
-      "index": 21,
-      "lastText": "「～～～～……」"
+      "detailHash": "2e8aa55cbf47871d",
+      "firstText": "啊，还真的有！提到什么『一辈子』！",
+      "index": 22,
+      "lastText": "……我从来不晓得。"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 19
       },
-      "detailHash": "3e8b8cf3a22bad2e",
-      "firstText": "……我终于明白了。",
-      "index": 22,
+      "detailHash": "d877ea996a5820f5",
+      "firstText": "在辽阔的世界上要是有人能够真心地喜欢自己，居然是这么开",
+      "index": 23,
       "lastText": "怎知在这之后却遇见了，颠复这一切的那个她。"
     },
     {
@@ -633,9 +648,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "9224ca71a1429c1f",
+      "detailHash": "6a281d2adb1892a7",
       "firstText": "第二话 迷茫×初接触",
-      "index": 23,
+      "index": 24,
       "lastText": "『哈哈哈！抱歉抱歉，只是不知怎地，突然很想听听你的声"
     },
     {
@@ -648,9 +663,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "fb5075a441f1d7dc",
+      "detailHash": "e46b89b334579b65",
       "firstText": "音！』",
-      "index": 24,
+      "index": 25,
       "lastText": "『这个嘛……就是……嗯。』"
     },
     {
@@ -663,9 +678,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4968d8569d4e2317",
+      "detailHash": "cd10120e3bcf0e49",
       "firstText": "「干嘛啊，有那么难以启齿吗？」",
-      "index": 25,
+      "index": 26,
       "lastText": "的人生，你选择的人不管是谁我都接受就是了。」"
     },
     {
@@ -678,9 +693,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "60291e82568d8c3f",
+      "detailHash": "6030da8bf463e428",
       "firstText": "『喔喔，能听你这样讲真是太欣慰了……不过报告当然是重点之",
-      "index": 26,
+      "index": 27,
       "lastText": "大，一间是我的寝室兼饭厅，一间则是以隔间隔开的老爸房间，目前实"
     },
     {
@@ -693,9 +708,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "79973820c9f0b811",
+      "detailHash": "f5a9850548a1c8d5",
       "firstText": "际上是仓库。",
-      "index": 27,
+      "index": 28,
       "lastText": "拜讬饶了我吧，这我真的不能接受。你帮我打给她，请她立刻掉头回"
     },
     {
@@ -708,9 +723,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3cecfebff877a71f",
+      "detailHash": "1ed955788e3e77f6",
       "firstText": "家。」",
-      "index": 28,
+      "index": 29,
       "lastText": "然而──"
     },
     {
@@ -723,9 +738,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "baaf8527c76fe607",
+      "detailHash": "d72d2c828cbc1c7a",
       "firstText": "「这也太乱七八糟了吧……」",
-      "index": 29,
+      "index": 30,
       "lastText": "总、总之还是先确认对方身分，再决定如何应对。"
     },
     {
@@ -738,9 +753,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "2ed90c2de9c31326",
+      "detailHash": "4a9f79d7bbe0f70d",
       "firstText": "如此盘算的我，透过鹰眼往外看。",
-      "index": 30,
+      "index": 31,
       "lastText": "神不宁的过动模样。"
     },
     {
@@ -753,25 +768,40 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "9436d59f4fde2d47",
+      "detailHash": "adc80cc3beb66baa",
       "firstText": "那表情里早已失去平常的活泼，显得徬徨无助。",
-      "index": 31,
+      "index": 32,
       "lastText": "晴香看我时，拥有更灿烂的眼神。"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 6,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 8,
+        "ruby": 0,
+        "textRuns": 8
+      },
+      "detailHash": "25de22312cd935f7",
+      "firstText": "光靠这一点就足以判断出，她跟晴香是不同人。",
+      "index": 33,
+      "lastText": "袋。"
+    },
+    {
+      "counts": {
+        "blocks": 3,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "e485804b981d44a9",
-      "firstText": "光靠这一点就足以判断出，她跟晴香是不同人。",
-      "index": 32,
-      "lastText": "「请问，怎么了吗？我脸上该不会沾了什么东西吧？」"
+      "detailHash": "729fa49d9edd519d",
+      "firstText": "这……",
+      "index": 34,
+      "lastText": "只剩唯一一种。"
     },
     {
       "counts": {
@@ -783,10 +813,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e7ee1539c6796f3d",
-      "firstText": "「……请问，你该不会是……时雨小姐？」",
-      "index": 33,
-      "lastText": "正当我的情绪被一波又一波的冲击给耗损殆尽而呆立原地，和晴"
+      "detailHash": "a43eed083cfc020c",
+      "firstText": "「请问，怎么了吗？我脸上该不会沾了什么东西吧？」",
+      "index": 35,
+      "lastText": "「那个，你应该有接到通知，知道我今天会来吧？」"
     },
     {
       "counts": {
@@ -794,13 +824,13 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "6bda1465de347184",
-      "firstText": "香一模一样的她不安地向我问话。",
-      "index": 34,
+      "detailHash": "d77821a6051f9970",
+      "firstText": "正当我的情绪被一波又一波的冲击给耗损殆尽而呆立原地，和晴",
+      "index": 36,
       "lastText": "是一起生活的兄妹了。打扫的事也让我帮忙吧。打扰了～」"
     },
     {
@@ -813,9 +843,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "69e37a2f279678ee",
+      "detailHash": "e59676c662c91ac5",
       "firstText": "「啊，等──先等一下！」",
-      "index": 35,
+      "index": 37,
       "lastText": "「嗯～不然屋内的整理就交给哥哥，我趁这段时间准备晚餐吧。"
     },
     {
@@ -828,9 +858,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "8e4501417a38878e",
+      "detailHash": "d52a4af743e6a87a",
       "firstText": "哥哥你应该还没吃晚餐吧？」",
-      "index": 36,
+      "index": 38,
       "lastText": "而正当我像这样陷入纠结──"
     },
     {
@@ -843,9 +873,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "1ff02c19940b0f88",
+      "detailHash": "d606a9e932332a63",
       "firstText": "忙着下厨的她没有转身，背对着我并说了。",
-      "index": 37,
+      "index": 39,
       "lastText": "「…………！」"
     },
     {
@@ -858,9 +888,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f66195c11f59eaaf",
+      "detailHash": "ee7e73f015692deb",
       "firstText": "……原来如此。这么说也对。",
-      "index": 38,
+      "index": 40,
       "lastText": "虽然说得有些腼腆，但我还是说出口了。"
     },
     {
@@ -873,9 +903,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "6123cc3999bfd508",
+      "detailHash": "d2ddb0627e5b6c29",
       "firstText": "像这样直呼女生的名字，实在让人有些紧张。",
-      "index": 39,
+      "index": 41,
       "lastText": "厢情愿的严重误判就是了。"
     },
     {
@@ -888,9 +918,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "ea84b83f06bad84a",
+      "detailHash": "63855543cbccdeb4",
       "firstText": "第三话 小恶魔×脱衣秀",
-      "index": 40,
+      "index": 42,
       "lastText": "甚至还有，老爸以前蒐集的恐龙模型。"
     },
     {
@@ -903,9 +933,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "236f31e251b5cd4c",
+      "detailHash": "7b1738a167bb3205",
       "firstText": "那部分也许该请时雨帮忙拿去二手店之类的地方卖掉，或多或少",
-      "index": 41,
+      "index": 43,
       "lastText": "用。"
     },
     {
@@ -918,9 +948,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1c26ccbab5e35896",
+      "detailHash": "58573d39adb17c1c",
       "firstText": "我于是回到起居室，将它挂上滑轨确认长度。",
-      "index": 42,
+      "index": 44,
       "lastText": "虽然今后还有许多事得打算，不过总之真是谢天谢地。"
     },
     {
@@ -933,9 +963,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9fc93f19337d3771",
+      "detailHash": "e93f57c8ae5cd0a2",
       "firstText": "我来到起居室坐下休息，看着平常就有在收看的综艺节目。",
-      "index": 43,
+      "index": 45,
       "lastText": "该死，这下该怎么办？先到隔间里的老爸房间内回避一下好了。"
     },
     {
@@ -948,9 +978,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0ed160ec80bf8e05",
+      "detailHash": "6e1a97d546bb7c24",
       "firstText": "不对，这也行不通。那里已经是时雨的房间了。",
-      "index": 44,
+      "index": 46,
       "lastText": "「那、那个行李箱我可以开吗？」"
     },
     {
@@ -963,9 +993,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e943657b2491ca9f",
+      "detailHash": "89d407859f75126c",
       "firstText": "「没关系的，内衣之类的我都已经收进房间里了，不必介意。」",
-      "index": 45,
+      "index": 47,
       "lastText": "体内不知什么东西警铃大响。"
     },
     {
@@ -978,69 +1008,84 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "de1775f5e6b35efa",
+      "detailHash": "7b6778b7fdb3ef62",
       "firstText": "那家伙难不成……",
-      "index": 46,
+      "index": 48,
       "lastText": "眨眼般的一瞬之间，彷彿全身血液凝固般动弹不得。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 6,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "0c8d0b72775eb22f",
+      "firstText": "而没过多久，脸就像是着火般愈来愈烫。",
+      "index": 49,
+      "lastText": "但时雨却怔怔地歪过头──"
+    },
+    {
+      "counts": {
+        "blocks": 3,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "c11b3699240674fb",
-      "firstText": "而没过多久，脸就像是着火般愈来愈烫。",
-      "index": 47,
-      "lastText": "缘关系的兄妹，在正值青春期的情况下也太糟糕了吧！？我们现在虽然"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "909d53db803a4004",
-      "firstText": "应该要主动亲近彼此，但是这完全已经跨越红线了……」",
-      "index": 48,
-      "lastText": "生啊。」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "4ff1c23d462d250c",
-      "firstText": "「啊哈☆哥哥你还真老实。原来你对自己的理智没有把握吗？但",
-      "index": 49,
-      "lastText": "「人家哪有装乖喵～」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "bac39a5171628da0",
-      "firstText": "「明明就有！」",
+      "detailHash": "4f17cc022a09a6a0",
+      "firstText": "「什么打扮？刚洗完澡的人这身打扮不是很正常的吗？哥哥你刚",
       "index": 50,
+      "lastText": "「如果在自己家里的话当然是这样，可是这地方──」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "f6e128b10ef08a17",
+      "firstText": "「这地方现在也是我家啰？」",
+      "index": 51,
+      "lastText": "那样。虽然全都是哥哥一个人反应过度就是了。」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "cfbc1b6c9e2446bc",
+      "firstText": "「……要是我一个人反应过度，而酿出什么不可挽回的后果怎么",
+      "index": 52,
+      "lastText": "「还说什么勉强自己尽快习惯跟我相处，你这家伙根本只是在装"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "86a9fb6f378dd467",
+      "firstText": "乖吧！」",
+      "index": 53,
       "lastText": "显而易见的未来所带来的不寒而栗，让我再也无法置之不理。"
     },
     {
@@ -1053,9 +1098,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1c7548bc175400e4",
+      "detailHash": "8f4e62b64d02e449",
       "firstText": "第四话 早安×共识",
-      "index": 51,
+      "index": 54,
       "lastText": "身体好沉重。"
     },
     {
@@ -1068,9 +1113,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f25b7c53f575da2c",
+      "detailHash": "9af8dd6bb854cf19",
       "firstText": "刚刚嘴上虽然说没有，但其实是谎话。",
-      "index": 52,
+      "index": 55,
       "lastText": "不如就趁今天中午把她约出来谈吧。"
     },
     {
@@ -1083,9 +1128,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ae9fff7409ef369e",
+      "detailHash": "b580778cae80ac13",
       "firstText": "……如此这般，等我心中做出结论，已经是凌晨两点过后的事",
-      "index": 53,
+      "index": 56,
       "lastText": "她的鲑鱼不会过硬而充满鲜甜，荷包蛋是蛋黄浓稠的半熟蛋。"
     },
     {
@@ -1098,9 +1143,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a559da482fa77f30",
+      "detailHash": "a11fedc17bff5db7",
       "firstText": "至于味噌汤则是香气扑鼻，里头的切碎金针菇更是带来口感的享",
-      "index": 54,
+      "index": 57,
       "lastText": "「哥哥你还真是缺乏想像力耶。就算是因为父母亲再婚，我们还"
     },
     {
@@ -1113,9 +1158,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f3fc5e56c4f7857d",
+      "detailHash": "3bc0023f34fc57c5",
       "firstText": "是昨天才刚认识吧？像我们这样的男女同居的事要是被大家知道，岂不",
-      "index": 55,
+      "index": 58,
       "lastText": "个家。"
     },
     {
@@ -1128,9 +1173,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "83447ae121edea50",
+      "detailHash": "57af9863a054d478",
       "firstText": "「抱歉，我可以答应你不四处声张，但是希望能开几个特例。我",
-      "index": 56,
+      "index": 59,
       "lastText": "可的事。"
     },
     {
@@ -1143,9 +1188,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f4c78e94f61e7bda",
+      "detailHash": "02587bdeb3c7ea5c",
       "firstText": "但我现在终于确定，这个家伙──完全是食髓知味。",
-      "index": 57,
+      "index": 60,
       "lastText": "因为那股香气，竟然跟晴香的一模一样。"
     },
     {
@@ -1158,9 +1203,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "67943d83137da9ed",
+      "detailHash": "40b446b09fc31974",
       "firstText": "该死。长相也就算了，为什么她们连香味都一模一样！？",
-      "index": 58,
+      "index": 61,
       "lastText": "接着，她起身开始收拾自己的餐具。"
     },
     {
@@ -1173,9 +1218,9 @@
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "74d33e665a30c3c4",
+      "detailHash": "a80059cb681f1bbd",
       "firstText": "……怎么突然变得这么老实乖巧。",
-      "index": 59,
+      "index": 62,
       "lastText": "要理解女人心的复杂，对我来说还是太困难了些。"
     },
     {
@@ -1188,9 +1233,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "695ceb5bb740c875",
+      "detailHash": "ead4d3a29807b9a9",
       "firstText": "第五话 重逢×姐妹",
-      "index": 60,
+      "index": 63,
       "lastText": "而他当时并没有提到『哥哥』之类的字眼，就只是照着班级座号"
     },
     {
@@ -1203,9 +1248,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6cfbe59167dbd78b",
+      "detailHash": "541f25287586d135",
       "firstText": "安排座位。",
-      "index": 61,
+      "index": 64,
       "lastText": "「可是啊，我总觉得好像以前在哪里看过时雨。」"
     },
     {
@@ -1218,9 +1263,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ed1e64dad3f32115",
+      "detailHash": "30e77b39c013d0fb",
       "firstText": "「喔，我也是。不知道为什么。」",
-      "index": 62,
+      "index": 65,
       "lastText": "虽然我从最初就无意隐瞒，但我们同居的事要是在我不在场的情"
     },
     {
@@ -1233,9 +1278,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3eb527c1add07227",
+      "detailHash": "e9843b7774cfc0dd",
       "firstText": "况下被晴香知道可不太好，因为到时我就没办法为我们的关系当场辩护",
-      "index": 63,
+      "index": 66,
       "lastText": "之前。"
     },
     {
@@ -1248,9 +1293,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e92587c50008f4be",
+      "detailHash": "592a66a03734a7eb",
       "firstText": "接着向坐在那儿的，眉清目秀到令人发指的好朋友──若林友卫",
-      "index": 64,
+      "index": 67,
       "lastText": "人事迹的相泽那样，答案却是否定的。"
     },
     {
@@ -1263,9 +1308,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "d609272f499d7e5f",
+      "detailHash": "ff4c398c005fb060",
       "firstText": "而这都是因为，友卫不管对男生还是女生都一视同仁地平等对",
-      "index": 65,
+      "index": 68,
       "lastText": "「你跟她几乎没讲到话也看得出来？」"
     },
     {
@@ -1278,9 +1323,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "81d5c286b2da440e",
+      "detailHash": "7756a53746f69295",
       "firstText": "「因为她被人提问式轰炸，照理说应该只会觉得不耐烦，却摆出",
-      "index": 66,
+      "index": 69,
       "lastText": "但友卫跟刚士常听我倾吐或者放闪光，已经知道我们之间的关"
     },
     {
@@ -1293,9 +1338,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "d4f4651029d06f2b",
+      "detailHash": "8548cf26d78e6589",
       "firstText": "系。",
-      "index": 67,
+      "index": 70,
       "lastText": "「这……」"
     },
     {
@@ -1308,9 +1353,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8d21ba9786330685",
+      "detailHash": "5ea450846e1cbdff",
       "firstText": "「你们的关系好不容易进展到牵手，这么煎熬的恋爱是不会长久",
-      "index": 68,
+      "index": 71,
       "lastText": "「那么友卫你认为该怎么做比较好？」"
     },
     {
@@ -1323,9 +1368,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4e8f2403bc5dfac7",
+      "detailHash": "a0e94571297580b3",
       "firstText": "「……首先你至少要先把事情告诉时雨，请她在学校时尽量和你",
-      "index": 69,
+      "index": 72,
       "lastText": "……啥？"
     },
     {
@@ -1338,9 +1383,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "83789d8057f38d7d",
+      "detailHash": "c0c6cfb07202cb5d",
       "firstText": "「睪固酮是能够增大肌肉，为男性带来雄壮身材的男性荷尔蒙，",
-      "index": 70,
+      "index": 73,
       "lastText": "「我、我吗！？」"
     },
     {
@@ -1353,9 +1398,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e7cfc0c90faff45d",
+      "detailHash": "613e91d2afe162c7",
       "firstText": "被点名的刚士从椅子上弹了起来。",
-      "index": 71,
+      "index": 74,
       "lastText": "音。"
     },
     {
@@ -1368,9 +1413,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "04f239d84754adee",
+      "detailHash": "1de4b019699f4a20",
       "firstText": "不会吧──",
-      "index": 72,
+      "index": 75,
       "lastText": "× × ×"
     },
     {
@@ -1383,9 +1428,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "2208a204785bf8aa",
+      "detailHash": "46aaac34d3388d28",
       "firstText": "「呜……对不起呀，一见面我就情绪失控成这样……」",
-      "index": 73,
+      "index": 76,
       "lastText": "你如果是男主角，就该像男主角一样自立自强，而不是把我拖进这种泥"
     },
     {
@@ -1398,9 +1443,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e14ef702d16e7469",
+      "detailHash": "82b6b843f05d9737",
       "firstText": "淖般的人际关系里！」",
-      "index": 74,
+      "index": 77,
       "lastText": "关键传球。）"
     },
     {
@@ -1413,9 +1458,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b2d19a1d34d943dd",
+      "detailHash": "83704739649978e9",
       "firstText": "最关键、最要命的提问。",
-      "index": 75,
+      "index": 78,
       "lastText": "「…………是啊。」"
     },
     {
@@ -1428,9 +1473,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "caf83767f4ff214c",
+      "detailHash": "6a1f4d2fd4d8bc05",
       "firstText": "坦白讲，时雨刚刚真的帮了大忙。",
-      "index": 76,
+      "index": 79,
       "lastText": "我判断不出，正确答案究竟为何。"
     },
     {
@@ -1443,9 +1488,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "ae82dd3a60bc9091",
+      "detailHash": "29f89c1c0a58cb9a",
       "firstText": "第六话 轻咬×居家型",
-      "index": 77,
+      "index": 80,
       "lastText": "只是给晴香带来负担。只是种依赖的行为。"
     },
     {
@@ -1458,9 +1503,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "ac40646311ce678f",
+      "detailHash": "b0d38b3866bcf5f7",
       "firstText": "我若真的在乎晴香，隐瞒所伴随的愧疚本来就该由我承担。",
-      "index": 78,
+      "index": 81,
       "lastText": "「因为我不是跟哥哥约定过吗？说三餐由我负责。」"
     },
     {
@@ -1473,9 +1518,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "cd9148cd3ec5e528",
+      "detailHash": "6f6b72a111c18bbb",
       "firstText": "「其实你也不必在意那种小事。」",
-      "index": 79,
+      "index": 82,
       "lastText": "样。」"
     },
     {
@@ -1488,9 +1533,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "5562e00b07cb3b99",
+      "detailHash": "9026615fc6a439e0",
       "firstText": "「是啊……应该是刚上小学的时候吧。我母亲跟我之前的父亲离",
-      "index": 80,
+      "index": 83,
       "lastText": "「是啊，没错，就是你。那些跟哥哥有关的话题简直没完没了，"
     },
     {
@@ -1503,9 +1548,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f12ffc4d7bc407f0",
+      "detailHash": "3d7513c5e5841cc6",
       "firstText": "甜蜜到就像是豆沙又淋上蜂蜜一样，听得我都快要吐了。」",
-      "index": 81,
+      "index": 84,
       "lastText": "原来是这样。所以她才会半途收手吗？"
     },
     {
@@ -1518,9 +1563,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "9c883e1cd1bd3234",
+      "detailHash": "c971b50afa8c15f0",
       "firstText": "「……不过一旦晓得原因，一切就都说得通了。怪不得哥哥会不",
-      "index": 82,
+      "index": 85,
       "lastText": "说完，时雨对我装出笑容。"
     },
     {
@@ -1533,25 +1578,25 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "f017b9552d704d07",
+      "detailHash": "b171fcc1d4e837e8",
       "firstText": "不是之前那种捣蛋鬼般坏心眼的笑。",
-      "index": 83,
+      "index": 86,
       "lastText": "身为恋人、身为哥哥，我这样真的好吗？"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "25dbf62e7cdc3585",
+      "detailHash": "cb2aae6888f8d4e5",
       "firstText": "──当然不好。",
-      "index": 84,
-      "lastText": "唯独这两件事，是绝不会改变的。」"
+      "index": 87,
+      "lastText": "「时雨，你别太小看你哥哥。」"
     },
     {
       "counts": {
@@ -1563,14 +1608,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "ab2f191a402f6da2",
-      "firstText": "「……！」",
-      "index": 85,
-      "lastText": "哥。」"
+      "detailHash": "b0f55d7ec32140f1",
+      "firstText": "「……咦？」",
+      "index": 88,
+      "lastText": "这件事愈快愈好──才能愈早告诉晴香真相。"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1578,10 +1623,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "62bb4bb00b766c70",
-      "firstText": "呜……",
-      "index": 86,
-      "lastText": "在我怀里的时雨依旧嘻嘻笑个没停。"
+      "detailHash": "f0f03314e4e7db6b",
+      "firstText": "因为在我看来，这就是我目前能选择的最佳答案。",
+      "index": 89,
+      "lastText": "「什、什么！？」"
     },
     {
       "counts": {
@@ -1593,24 +1638,24 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "57c14a1317c13520",
-      "firstText": "可恶！我早就知道了！早料到会是这样！",
-      "index": 87,
-      "lastText": "不过既然说要奉陪，这样倒也正合我意。"
+      "detailHash": "a4c2c0a4f8eb2e1f",
+      "firstText": "「哥哥你想想，既然我们是双胞胎，你喜欢姐姐的话应该也会喜",
+      "index": 90,
+      "lastText": "听我说完，时雨不知道是不是满意了，这才终于离开我。"
     },
     {
       "counts": {
-        "blocks": 1,
+        "blocks": 7,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 10,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 10
       },
-      "detailHash": "f7537a3a3252fffe",
-      "firstText": "「啊，结果忘记买窗帘了。」",
-      "index": 88,
+      "detailHash": "bd961e7b854585f2",
+      "firstText": "「嗯～不过在学校里我还是会自制的。毕竟兄妹的事还是得保",
+      "index": 91,
       "lastText": "「啊，结果忘记买窗帘了。」"
     },
     {
@@ -1623,9 +1668,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "e23824e993bb0fb8",
+      "detailHash": "71e7adfc86ee68e0",
       "firstText": "第七话 慌张×午后",
-      "index": 89,
+      "index": 92,
       "lastText": "这次我体悟到，人类一旦有必要性，就会自然而然地适应环境。"
     },
     {
@@ -1638,9 +1683,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "07797ad13aca1496",
+      "detailHash": "59fc5272ec8c0fbb",
       "firstText": "话虽如此……",
-      "index": 90,
+      "index": 93,
       "lastText": "宜买了四大罐可乐，直接佔去我一只手的空间。」"
     },
     {
@@ -1653,9 +1698,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "377029b75476d288",
+      "detailHash": "b209d814bb46dd60",
       "firstText": "「呜呜呜～」",
-      "index": 91,
+      "index": 94,
       "lastText": "原来你也发得出这种声音？"
     },
     {
@@ -1668,9 +1713,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "734c0aedaa00e3b8",
+      "detailHash": "e7cd281dfc9dc0b6",
       "firstText": "「我这么问吧，哥哥你今天在外一整天，都没碰过一次老二",
-      "index": 92,
+      "index": 95,
       "lastText": "「好啦！好啦好啦！我先洗手总行了吧！」"
     },
     {
@@ -1683,9 +1728,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "03adb32f421484c6",
+      "detailHash": "b28be2d210f857d6",
       "firstText": "她是打算对我的眼球做什么啊。",
-      "index": 93,
+      "index": 96,
       "lastText": "「唔唔……想不到我竟然会犯下这么基本的失误。」"
     },
     {
@@ -1698,9 +1743,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "45ba80c590654e98",
+      "detailHash": "72cd9516f2bb9983",
       "firstText": "「还真是对不起厨房守护神的名号啊。」",
-      "index": 94,
+      "index": 97,
       "lastText": "「呜……」"
     },
     {
@@ -1713,9 +1758,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "0a942c80f8be0213",
+      "detailHash": "d57ec297120cdf86",
       "firstText": "白皙又滑溜的手揉抚着我的手。",
-      "index": 95,
+      "index": 98,
       "lastText": "紧相扣。"
     },
     {
@@ -1728,9 +1773,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "afdfc85cd645974b",
+      "detailHash": "c7de9594b3543b12",
       "firstText": "沾上洗手乳的滑溜手指，进一步搔弄着敏感的指间。",
-      "index": 96,
+      "index": 99,
       "lastText": "该死。"
     },
     {
@@ -1743,39 +1788,54 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "57d3fdce08e13e34",
+      "detailHash": "34e310645955f759",
       "firstText": "时雨为何这么无动于衷？",
-      "index": 97,
+      "index": 100,
       "lastText": "不对，不是逃也似地。"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "e9223509d24746a4",
+      "detailHash": "8cb0caf1a02f917a",
       "firstText": "我是真的逃了。",
-      "index": 98,
-      "lastText": "难不成她……"
+      "index": 101,
+      "lastText": "跟晴香和我在一起时的幸福表情，两者未免太过相似。"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 22
       },
-      "detailHash": "830ee696c837e5ad",
-      "firstText": "脑海里浮现的，是近乎愚昧的想入非非。",
-      "index": 99,
+      "detailHash": "819d99ffa2c8fdd3",
+      "firstText": "……心脏的跳动声近乎聒噪。",
+      "index": 102,
+      "lastText": "何况不说别的，那个捣蛋鬼哪可能摆得出晴香那种表情。"
+    },
+    {
+      "counts": {
+        "blocks": 3,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 3,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "f264a27b87279b45",
+      "firstText": "毕竟，晴香的那种表情，是唯有愿意爱我的人，才得以拥有的。",
+      "index": 103,
       "lastText": "对，肯定是这样没错。"
     },
     {
@@ -1788,9 +1848,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "5de11d770080c320",
+      "detailHash": "552fa02cade10251",
       "firstText": "第八话 倒错×制服",
-      "index": 100,
+      "index": 104,
       "lastText": "「果然是你，时雨！」"
     },
     {
@@ -1803,9 +1863,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c8842a2246160923",
+      "detailHash": "815391aa2c9da42b",
       "firstText": "「没错，我就是哥哥的可爱妹妹时雨。哎唷～哥哥总是能够做出",
-      "index": 101,
+      "index": 105,
       "lastText": "「因为你想想，我跟姐姐不管脸还是体格，甚至发型全都是一模"
     },
     {
@@ -1818,9 +1878,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f52cf4ca286a8f24",
+      "detailHash": "ead13cdffb2a283d",
       "firstText": "一样。那么我一旦穿上姐姐的制服，实质上就等于是姐姐来家里作客不",
-      "index": 102,
+      "index": 106,
       "lastText": "「咦？为何要我来？」"
     },
     {
@@ -1833,9 +1893,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "0e48f2203113f89a",
+      "detailHash": "20a2e7624c904cc1",
       "firstText": "「因为自拍的话，很多角度跟姿势都做不出来嘛。等拍够多张后",
-      "index": 103,
+      "index": 107,
       "lastText": "「你要是摆好姿势就跟我说一声。」"
     },
     {
@@ -1848,9 +1908,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b975c57e249c6291",
+      "detailHash": "d4f759941f78f3a8",
       "firstText": "「好～」",
-      "index": 104,
+      "index": 108,
       "lastText": "事。"
     },
     {
@@ -1863,9 +1923,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "07a1f04962ac6f50",
+      "detailHash": "1297f82f633778a0",
       "firstText": "我无论如何，都得隐瞒到最后。",
-      "index": 105,
+      "index": 109,
       "lastText": "「我推！」"
     },
     {
@@ -1878,9 +1938,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ebb4f24423557e49",
+      "detailHash": "8356df9937bbc3e9",
       "firstText": "我刚以问句回应那个令人一头雾水的单字，随后的一瞬间──",
-      "index": 106,
+      "index": 110,
       "lastText": "不起来我就要生气了。」"
     },
     {
@@ -1893,9 +1953,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "7b418ad7ab094ca8",
+      "detailHash": "3b72804cc1a3b5f7",
       "firstText": "虚张声势的回瞪，让时雨吐了吐红色的舌头并把脸挪开。",
-      "index": 107,
+      "index": 111,
       "lastText": "「喂！你疯了吗！这样子不会害羞吗！？」"
     },
     {
@@ -1908,9 +1968,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "dea451a305fee653",
+      "detailHash": "dfaabad1eb60d1c5",
       "firstText": "「害羞的话当然会呀。但我还是想好好谢谢哥哥。」",
-      "index": 108,
+      "index": 112,
       "lastText": "过去也就算了，但这次确实踩到我的底线。"
     },
     {
@@ -1923,29 +1983,29 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "c964415531fef833",
+      "detailHash": "c73dfebb3a2493a0",
       "firstText": "身为晴香的男朋友与时雨的哥哥，这次非得教训她几句不可。",
-      "index": 109,
+      "index": 113,
       "lastText": "呢。要是这点程度就能满足，那就尽情看个够吧。」"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 3,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "446862f3b923e53e",
+      "detailHash": "6281b8faaf0e4f42",
       "firstText": "不对，并不是好吗！",
-      "index": 110,
-      "lastText": "我从口袋里掏出手机，拍下眼前的时雨。"
+      "index": 114,
+      "lastText": "裤吧！？"
     },
     {
       "counts": {
-        "blocks": 16,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1953,24 +2013,24 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7c8b8c23278f75cf",
-      "firstText": "接着萤幕一转，伸到时雨面前让她瞧。",
-      "index": 111,
-      "lastText": "呀。我明明跟姐姐借了一整套，没道理变成这样……啊，这么说来我回"
+      "detailHash": "4e4526836c4f72ec",
+      "firstText": "呜哇，别再卖弄似地把腰扭来扭去好吗！",
+      "index": 115,
+      "lastText": "战战兢兢地向我问了。"
     },
     {
       "counts": {
-        "blocks": 8,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 10,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 10
+        "textRuns": 19
       },
-      "detailHash": "6ffe5ae5761810dd",
-      "firstText": "家后好像因为家里太闷热……而且为了赶在哥哥之前回家，赶路赶到一",
-      "index": 112,
+      "detailHash": "d4a2ed470f08939c",
+      "firstText": "「那个………………你都看到了吗？」",
+      "index": 116,
       "lastText": "身为哥哥的我，最惊讶的就是这件事了。"
     },
     {
@@ -1983,9 +2043,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1ee481cd77ea16e1",
+      "detailHash": "754951175c346649",
       "firstText": "第九话 甜蜜×讯号",
-      "index": 113,
+      "index": 117,
       "lastText": "我能够帮她补习。"
     },
     {
@@ -1998,9 +2058,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7a5b9cc277ed5965",
+      "detailHash": "db1e15e115029c2f",
       "firstText": "而我虽然平常是这副样子，读的好歹也是星云这所名门私立学校",
-      "index": 114,
+      "index": 118,
       "lastText": "以前只听过这方面传闻，没想到竟然都是真的。"
     },
     {
@@ -2013,9 +2073,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a0bc3f00c50ac2eb",
+      "detailHash": "b4a2d33d19ed69bf",
       "firstText": "她跟我真的是同一种人类吗？",
-      "index": 115,
+      "index": 119,
       "lastText": "「呜，喀咳！」"
     },
     {
@@ -2028,9 +2088,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a2ebcf0b04235876",
+      "detailHash": "94a5672798137d80",
       "firstText": "「怎、怎么了？感冒了吗？」",
-      "index": 116,
+      "index": 120,
       "lastText": "这种时候就该逆向思考。"
     },
     {
@@ -2043,9 +2103,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c76c6a1a2b84e7ac",
+      "detailHash": "fe06a7d898f79122",
       "firstText": "不能专心那就算了。",
-      "index": 117,
+      "index": 121,
       "lastText": "「谢谢你，博道！我从来没有做回家功课做得这么顺手过耶！」"
     },
     {
@@ -2058,9 +2118,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "4fdce040054274f4",
+      "detailHash": "8df07b9107a283fc",
       "firstText": "「是、是喔？能帮上你的忙真是太好了。」",
-      "index": 118,
+      "index": 122,
       "lastText": "「我还是认真读书吧。」"
     },
     {
@@ -2073,9 +2133,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "43dcca12346b17e9",
+      "detailHash": "d884b5c85d86a497",
       "firstText": "「嘛～」",
-      "index": 119,
+      "index": 123,
       "lastText": "「嘛～～～～」"
     },
     {
@@ -2088,9 +2148,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "359125fa91c6889d",
+      "detailHash": "003cf1fb17aafdbc",
       "firstText": "我出声并招手，麻吕也真的慢吞吞地从门后进入房间。",
-      "index": 120,
+      "index": 124,
       "lastText": "实物，绝不会错的！"
     },
     {
@@ -2103,9 +2163,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "5eae712dde45d903",
+      "detailHash": "2e406403814d9be9",
       "firstText": "而且晴香家是父女家庭。",
-      "index": 121,
+      "index": 125,
       "lastText": "「啊～这小子竟然用打哈欠回话。看来它似乎挺喜欢你呢。要是"
     },
     {
@@ -2118,9 +2178,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "12cd6eccc17819fb",
+      "detailHash": "425e0a61eea89bb8",
       "firstText": "觉得很碍手碍脚，直接把它硬抱到一旁就行了。」",
-      "index": 122,
+      "index": 126,
       "lastText": "但正当我还在摸索最佳解法。"
     },
     {
@@ -2133,9 +2193,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3673b2abf9b1637f",
+      "detailHash": "4831e2dbe92c0b8a",
       "firstText": "「博道？我房间是不是很热啊？」",
-      "index": 123,
+      "index": 127,
       "lastText": "「谢谢。真是感激不尽。」"
     },
     {
@@ -2148,9 +2208,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "096ecf71c0ca7711",
+      "detailHash": "34decf5a1ccfa027",
       "firstText": "没错，我只要趁上厕所时带到房间外就行了。",
-      "index": 124,
+      "index": 128,
       "lastText": "以及目击到从我口袋里露出半截的内裤，惊愕得两眼瞪大的晴"
     },
     {
@@ -2163,9 +2223,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "690ae5d367e505e5",
+      "detailHash": "d26fcc5baf83634a",
       "firstText": "香。",
-      "index": 125,
+      "index": 129,
       "lastText": "是让人有点意外。」"
     },
     {
@@ -2178,29 +2238,29 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "0434e240c118f858",
+      "detailHash": "222069a61557fb82",
       "firstText": "回答的同时，晴香的脸颊鼓了起来。",
-      "index": 126,
+      "index": 130,
       "lastText": "晴香虽然吓了一跳──"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "3b45b4dae0355663",
+      "detailHash": "61081572c9becdd5",
       "firstText": "「────」",
-      "index": 127,
-      "lastText": "……而这就像是被当头泼了一盆冷水，让现场的氛围急遽降温。"
+      "index": 131,
+      "lastText": "……我感觉得到。"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2208,14 +2268,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "e5062f5b860afc02",
-      "firstText": "一旦冷静下来，这样的距离感反倒让人尴尬了起来，让我们都互",
-      "index": 128,
-      "lastText": "上。幸好晴香你人在家里。」"
+      "detailHash": "d042177c2f8bf7f7",
+      "firstText": "感应到所谓的讯号。",
+      "index": 132,
+      "lastText": "……想到这儿，就让人有股无名火起。"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2223,14 +2283,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7229c7be9fae2495",
-      "firstText": "传来的对话声是属于男性的。",
-      "index": 129,
-      "lastText": "亲。」"
+      "detailHash": "8831d0e172dd0946",
+      "firstText": "按门铃的那家伙到底是谁？",
+      "index": 133,
+      "lastText": "咿～～～～！？"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2238,10 +2298,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "10b770bdf94d2598",
-      "firstText": "「是、是的！您好！我叫、佐藤博道！」",
-      "index": 130,
-      "lastText": "「嗯。之前听女儿说交到男朋友，身为父亲多少还是有点担心对"
+      "detailHash": "eee48c5af64a301d",
+      "firstText": "逼近的人声与脚步声，让我在心底放声大叫。",
+      "index": 134,
+      "lastText": "「哈哈哈，这还真是有点急啊。不如等你成人之后，到时再让我"
     },
     {
       "counts": {
@@ -2253,24 +2313,39 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f63ec64f44ab302c",
-      "firstText": "方的素质，不过你看起来似乎是可安心讬付的人。既没有染发也没有穿",
-      "index": 131,
-      "lastText": "「我今天先失陪了。」"
+      "detailHash": "37f931a8438af31d",
+      "firstText": "听一次吧。」",
+      "index": 135,
+      "lastText": "想不到时间过得真快，不知不觉就这么晚了。"
     },
     {
       "counts": {
-        "blocks": 14,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 17
+        "textRuns": 22
       },
-      "detailHash": "cd14929c54f4ec7c",
-      "firstText": "「喔喔，这样啊，那就没办法了。毕竟一家团圆也很重要。非常",
-      "index": 132,
+      "detailHash": "a617b0ba65a23d73",
+      "firstText": "但──",
+      "index": 136,
+      "lastText": "假设并未成真，真是万幸。"
+    },
+    {
+      "counts": {
+        "blocks": 3,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 4,
+        "ruby": 0,
+        "textRuns": 4
+      },
+      "detailHash": "a5c6496a4f76c4de",
+      "firstText": "但……也因为他给人的感觉是如此和善……",
+      "index": 137,
       "lastText": "那苛刻的言辞里头流露出的嫌恶，莫名地令我印象深刻。"
     },
     {
@@ -2283,9 +2358,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1739cfe7ee02b79c",
+      "detailHash": "9e47a0aeb37c67d2",
       "firstText": "第十话 突袭×甜爱",
-      "index": 133,
+      "index": 138,
       "lastText": "「我做完功课还得预习明天的进度，你要打电玩的话就一个人玩"
     },
     {
@@ -2298,9 +2373,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "5293a35662ea15db",
+      "detailHash": "85fd57708d61fda3",
       "firstText": "吧。」",
-      "index": 134,
+      "index": 139,
       "lastText": "「总之我不像时雨你脑袋跟颜值两全其美，既没有外貌也没有读"
     },
     {
@@ -2313,70 +2388,40 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7eed961221697d75",
+      "detailHash": "f9247e47fd2e688b",
       "firstText": "书技巧，需要花时间预习复习课业。你要是不想一个人玩电玩也不想一",
-      "index": 135,
+      "index": 140,
       "lastText": "我试着转开视线，将精神集中在读书上。"
     },
     {
       "counts": {
-        "blocks": 10,
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "4083633f03723cd9",
+      "firstText": "正确来说，是试着集中精神。",
+      "index": 141,
+      "lastText": "修长的睫毛底下，两颗晶亮亮的眼瞳，里头尽是我的身影。"
+    },
+    {
+      "counts": {
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "7833cc2532391694",
-      "firstText": "正确来说，是试着集中精神。",
-      "index": 136,
-      "lastText": "吧。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "69c592f1fd9781c4",
-      "firstText": "但，我已经有晴香了。",
-      "index": 137,
-      "lastText": "看来刚刚缩限视野过头，反而弄巧成拙害到自己。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "2cae00b0751c3efa",
-      "firstText": "我只好内心淌着泪，把整题从头解起。",
-      "index": 138,
-      "lastText": "想做的事情，学历才不会成为枷锁。」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "6ae99c6ff11424d3",
-      "firstText": "「喔～要是让我不客气地说，想不到继父也有这么正经的看",
-      "index": 139,
-      "lastText": "其实我也觉得现在思考这些好像言之过早，但要我陪恋人虚度时"
+      "detailHash": "03367fcd6409ba36",
+      "firstText": "……该死，这丫头还真可爱啊。",
+      "index": 142,
+      "lastText": "该怎么说呢，她非常了解如何展现自己的魅力。关于这种卖弄风"
     },
     {
       "counts": {
@@ -2388,10 +2433,40 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "871a841f7ef0a1ab",
-      "firstText": "光而毫无未来规划，以我个人来说实在太困难了。",
-      "index": 140,
-      "lastText": "面对这样的我，时雨将手里的两个杯子递了一杯过来。"
+      "detailHash": "483df6170966b477",
+      "firstText": "骚的技巧，时雨远比晴香高明。",
+      "index": 143,
+      "lastText": "「这你就不能早点明讲吗！？」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "dc48d5ea4c9a10d2",
+      "firstText": "呜哇，还真的。",
+      "index": 144,
+      "lastText": "「……？」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "876b8b1b069dd07f",
+      "firstText": "「老爸这样对我说过，说如果找到梦想就要全力追逐，甚至国中",
+      "index": 145,
+      "lastText": "我对着退避三舍般缩回身子的时雨抗议道。"
     },
     {
       "counts": {
@@ -2403,24 +2478,39 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f786032a043df82d",
-      "firstText": "「既然要专心读书那还是别加牛奶跟糖比较好，所以我泡了黑咖",
-      "index": 141,
-      "lastText": "……才稍微露出破绽就被整成这样。"
+      "detailHash": "6e802dfa939aef99",
+      "firstText": "……看来对女生来说，这样的想法还是太肉麻了吗？",
+      "index": 146,
+      "lastText": "「来，这是哥哥你的份。」"
     },
     {
       "counts": {
-        "blocks": 3,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 22
       },
-      "detailHash": "cd694e1a7ee69f48",
-      "firstText": "哪有爱心是如此充满恶意的。",
-      "index": 142,
+      "detailHash": "f249f2b6855f1a6f",
+      "firstText": "「……咦？」",
+      "index": 147,
+      "lastText": "「咦～那真的是我的爱心啦。不会骗你的。」"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 7,
+        "ruby": 0,
+        "textRuns": 7
+      },
+      "detailHash": "1aa2ac673eb3aa9e",
+      "firstText": "时雨满足地咯咯笑着。",
+      "index": 148,
       "lastText": "而一旦晓得是甜的，时雨泡的这杯咖啡喝起来倒也不错。"
     },
     {
@@ -2433,9 +2523,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "18229bbf6da96d83",
+      "detailHash": "de33f5e34c9a9fe9",
       "firstText": "第十一话 恋爱×谬误",
-      "index": 143,
+      "index": 149,
       "lastText": "跟女朋友一起读书，一直是我长久以来的向往。"
     },
     {
@@ -2448,9 +2538,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6e07cf3d9bbb247f",
+      "detailHash": "6e5dfbb16117e116",
       "firstText": "因此若要说答谢，这就已经绰绰有余了。",
-      "index": 144,
+      "index": 150,
       "lastText": "「呜欸！？」"
     },
     {
@@ -2463,9 +2553,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e8fe7588cfc80208",
+      "detailHash": "8678b379baae797d",
       "firstText": "突然被与晴香相同的声音从背后一喊，我吓得睁大两眼回过头。",
-      "index": 145,
+      "index": 151,
       "lastText": "避比较好。」"
     },
     {
@@ -2478,9 +2568,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3bc71374b6626122",
+      "detailHash": "ecca55148b273fd7",
       "firstText": "「咦？为什么？」",
-      "index": 146,
+      "index": 152,
       "lastText": "「嗯，是啊。本来我看博道同学一个人孤单地佔着四人用的桌"
     },
     {
@@ -2493,9 +2583,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "17d611fed78d6759",
+      "detailHash": "20adf7e2cd3faa6d",
       "firstText": "子，想说他要是没朋友的话干脆陪他一起吃午餐，正打算开口问他。」",
-      "index": 147,
+      "index": 153,
       "lastText": "难的视线接着就瞪了过来。"
     },
     {
@@ -2508,9 +2598,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8e3137b29a21d848",
+      "detailHash": "93012c6c229fd68d",
       "firstText": "『你为什么不拒绝啊？』",
-      "index": 148,
+      "index": 154,
       "lastText": "明明在家时是个整人精，在学校里却是近乎完美地牢靠。"
     },
     {
@@ -2523,9 +2613,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "d681157fbc4afa20",
+      "detailHash": "1535f9159a44619f",
       "firstText": "这或许证明了晴香对她来说，就是如此重要吧。",
-      "index": 149,
+      "index": 155,
       "lastText": "因此我现在必须果断否认。"
     },
     {
@@ -2538,9 +2628,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6c40442b06d98582",
+      "detailHash": "a21eb1c529b80474",
       "firstText": "「哪有，我跟时雨关系一点都不好，甚至真要说的话应该是水火",
-      "index": 150,
+      "index": 156,
       "lastText": "「因为博道你不是都直接喊『时雨』吗？明明对我都花了好久的"
     },
     {
@@ -2553,9 +2643,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "0be0c55dd3fc85fe",
+      "detailHash": "702f2a101f605afe",
       "firstText": "时间才直接称我『晴香』。所以我才想说你们该不会其实很合得来。」",
-      "index": 151,
+      "index": 157,
       "lastText": "「不过我倒是希望，时雨跟博道你们关系能够更要好一些。」"
     },
     {
@@ -2568,9 +2658,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "196cd7cb5c6032d8",
+      "detailHash": "5bddebd3817b3db3",
       "firstText": "听到我们交情淡泊，晴香却显得不太满意。",
-      "index": 152,
+      "index": 158,
       "lastText": "『噗、呼呼。真是没想到，哥哥你还真是把姐姐唬得一愣一愣的"
     },
     {
@@ -2583,9 +2673,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "60d320a0d1aa938d",
+      "detailHash": "4fc580830479b4d7",
       "firstText": "呢。』",
-      "index": 153,
+      "index": 159,
       "lastText": "怎、怎怎怎么办？我的女朋友似乎远比我想像的还要肉麻！？"
     },
     {
@@ -2598,9 +2688,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e826ecd3673248a0",
+      "detailHash": "eb614996176d61df",
       "firstText": "好吧，我是很暗爽没错！",
-      "index": 154,
+      "index": 160,
       "lastText": "咿～～～～！"
     },
     {
@@ -2613,9 +2703,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "64f6b8200b9d1f44",
+      "detailHash": "7d60676fce499e89",
       "firstText": "她说我很帅气我当然高兴！",
-      "index": 155,
+      "index": 161,
       "lastText": "出来啊～！"
     },
     {
@@ -2628,25 +2718,25 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "175d5067ab61ac6c",
+      "detailHash": "b006211560068726",
       "firstText": "这不能怪我吧！一个处男能够相信的就只有网路了！",
-      "index": 156,
+      "index": 162,
       "lastText": "……这、这紧张的气氛是怎么搞的？"
     },
     {
       "counts": {
-        "blocks": 11,
+        "blocks": 3,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 2,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 2
       },
-      "detailHash": "385e6d5f799b0131",
+      "detailHash": "6797a4083ac869c9",
       "firstText": "我那欢乐的糗事为什么会带来这样的氛围！？",
-      "index": 157,
-      "lastText": "一样。」"
+      "index": 163,
+      "lastText": "然而这难堪的沉默，并没有持续太久。"
     },
     {
       "counts": {
@@ -2658,39 +2748,39 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "08c689705841ea71",
-      "firstText": "「我有吗？」",
-      "index": 158,
-      "lastText": "于是，晴香随着摇曳的短裙裙䙓，急忙地离开了。"
+      "detailHash": "0bca22f72e8ddd75",
+      "firstText": "因为时雨像是忍俊不住似地，发出微微的噗嗤声。",
+      "index": 164,
+      "lastText": "宣告午休时间结束的预备铃响起。"
     },
     {
       "counts": {
-        "blocks": 17,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "e63e29d9c9847a34",
-      "firstText": "目送她小跑步的身影离去后，时雨不但没糗我，甚至以某种钦佩",
-      "index": 159,
-      "lastText": "「没事，我什么也没说。那么我们也该回去了，否则上课就要迟"
+      "detailHash": "efe180df82f67c62",
+      "firstText": "而晴香一听见，立刻从座位起身。",
+      "index": 165,
+      "lastText": "筐。」"
     },
     {
       "counts": {
-        "blocks": 5,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 16
       },
-      "detailHash": "d6e5ac48e6f5f083",
-      "firstText": "到了。」",
-      "index": 160,
+      "detailHash": "f37940b67306cc42",
+      "firstText": "「真希望能够找个对我百依百顺，身高超过180公分，体格精",
+      "index": 166,
       "lastText": "那么好歹帮她还个餐盘，否则我心里会过意不去。"
     },
     {
@@ -2703,9 +2793,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "744a74edbd8b0776",
+      "detailHash": "079728c281348f92",
       "firstText": "第十二话 危险×课程",
-      "index": 161,
+      "index": 167,
       "lastText": "哈哈哈，这家伙。"
     },
     {
@@ -2718,9 +2808,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "cad29b68b0fb93ed",
+      "detailHash": "a9795bf39477c523",
       "firstText": "亏我难得夸奖她，怎么却得到如此不堪的回应啊。",
-      "index": 162,
+      "index": 168,
       "lastText": "「看来一定是约会临时取消了。」"
     },
     {
@@ -2733,9 +2823,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "5e39ecae1ca2c3d9",
+      "detailHash": "b586660bb877beef",
       "firstText": "「不要乌鸦嘴好吗！」",
-      "index": 163,
+      "index": 169,
       "lastText": "握手一起走在路上。然后像之前！你才到我家里来，当、当时气氛不是"
     },
     {
@@ -2748,9 +2838,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7d036984a6ee6811",
+      "detailHash": "e639409fb98cc022",
       "firstText": "还不错吗？那、那时的感觉还挺浪漫的！」",
-      "index": 164,
+      "index": 170,
       "lastText": "晴香快速说完并火速挂断。"
     },
     {
@@ -2763,9 +2853,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f928a2669040112d",
+      "detailHash": "391a0818f7098f43",
       "firstText": "APP结束通话的系统音效随后响起。",
-      "index": 165,
+      "index": 171,
       "lastText": "真的假的！？"
     },
     {
@@ -2778,9 +2868,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9bcb32c840015253",
+      "detailHash": "4ffd655b89827f8d",
       "firstText": "好吧，虽然情侣接吻本来就是天经地义的事情，之前的氛围也的",
-      "index": 166,
+      "index": 172,
       "lastText": "「……！？」"
     },
     {
@@ -2793,9 +2883,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "937b884e791587ea",
+      "detailHash": "5fb2a82340067e43",
       "firstText": "「所以哥哥何不把我当成姐姐，事先练习接吻不就行了吗？这样",
-      "index": 167,
+      "index": 173,
       "lastText": "泽同学看齐，以他的温柔为榜样比较好。」"
     },
     {
@@ -2808,9 +2898,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "fc40012b87b713c4",
+      "detailHash": "5d9bc857c50e914f",
       "firstText": "「啥！？相泽！？」",
-      "index": 168,
+      "index": 174,
       "lastText": "「女生不是常常说她们喜欢温柔的男生吗？像哥哥你们这种没女"
     },
     {
@@ -2823,9 +2913,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "5cbf8b9dcb3c02a3",
+      "detailHash": "33595f1fd830476c",
       "firstText": "人缘的男生往往照字面解读那句话的意思，但其实你们都错了。",
-      "index": 169,
+      "index": 175,
       "lastText": "动打电话来的哥哥，要体贴太多了。」"
     },
     {
@@ -2838,9 +2928,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "082a11341f79f0fb",
+      "detailHash": "0d989d2098c9ce40",
       "firstText": "「～～！」",
-      "index": 170,
+      "index": 176,
       "lastText": "我猜哥哥你其实也早就心里有数了吧？知道自己天生就是这样的"
     },
     {
@@ -2853,9 +2943,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "830cad5fe7e6c19c",
+      "detailHash": "5d0ac1b6cf469209",
       "firstText": "人。证据就是，我都已经把你批评得这么一文不值了，你对我却依然一",
-      "index": 171,
+      "index": 177,
       "lastText": "确。"
     },
     {
@@ -2868,9 +2958,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "6de6c8ebe2ec30c7",
+      "detailHash": "93634c0161872e6d",
       "firstText": "冲动令我采取平常无法想像的行动。",
-      "index": 172,
+      "index": 178,
       "lastText": "整个被我掌握在掌心，纤弱的骨架与肉体。"
     },
     {
@@ -2883,9 +2973,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "94a2fcd564314cb1",
+      "detailHash": "76d4901bcc79694b",
       "firstText": "相较于男人，太过纤弱的手腕与力道。",
-      "index": 173,
+      "index": 179,
       "lastText": "行动是发自爱情，相信姐姐也不会心胸狭窄到不愿原谅你的。」"
     },
     {
@@ -2898,9 +2988,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0a8ceb03c4776204",
+      "detailHash": "b614dbc1b5386e13",
       "firstText": "「…………」",
-      "index": 174,
+      "index": 180,
       "lastText": "因此──我向时雨保证。"
     },
     {
@@ -2913,9 +3003,9 @@
         "ruby": 0,
         "textRuns": 6
       },
-      "detailHash": "9d90d51b29b2baf5",
+      "detailHash": "ecb5ac2de41d01f3",
       "firstText": "「欸，时雨。我明天一定会跟晴香接吻，而且当然会由我主动。",
-      "index": 175,
+      "index": 181,
       "lastText": "「嗯。我会加油的。」"
     },
     {
@@ -2928,9 +3018,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "4ca4c0a9dfd41d07",
+      "detailHash": "f393c18d26aa557f",
       "firstText": "第十三话 忧郁×周末",
-      "index": 176,
+      "index": 182,
       "lastText": "补。"
     },
     {
@@ -2943,9 +3033,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c0fc4b2d6e2d1c54",
+      "detailHash": "618bddd48bd86f44",
       "firstText": "「呵啊……」",
-      "index": 177,
+      "index": 183,
       "lastText": "求他不可以一个人轻松，他却硬甩自己巴掌逼自己喊我名字，以及明明"
     },
     {
@@ -2958,9 +3048,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9c714db6014dad64",
+      "detailHash": "b5bc54187a3ff461",
       "firstText": "对女生没什么免疫力，却竭尽所能地避免对我这个妹妹造成困扰。可能",
-      "index": 178,
+      "index": 184,
       "lastText": "……但，这说起来也有点像是白操心。"
     },
     {
@@ -2973,9 +3063,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "05b906dc22c68333",
+      "detailHash": "5aed4cc5b400750e",
       "firstText": "昨天就算哥哥真的有什么逾越的行动，到时我也肯定会先清醒过",
-      "index": 179,
+      "index": 185,
       "lastText": "当初由于天文数字级的巧合，我和双胞胎姐姐的男朋友共同生"
     },
     {
@@ -2988,9 +3078,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "2494d08e644f8b14",
+      "detailHash": "2365a4d44d5975eb",
       "firstText": "活。",
-      "index": 180,
+      "index": 186,
       "lastText": "没错，那个呆头鹅般的哥哥虽然完全没想到，但关于同居带来的"
     },
     {
@@ -3003,9 +3093,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "fd7877cd05fd08e5",
+      "detailHash": "b6901a232b93a4bd",
       "firstText": "诸多问题只要靠着一招，明天就能迎刃而解，根本不必等到一年后。",
-      "index": 181,
+      "index": 187,
       "lastText": "不至于过度招摇的小饰物。"
     },
     {
@@ -3018,9 +3108,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "159a5e82d1f89392",
+      "detailHash": "aa082384e200924d",
       "firstText": "……这跟我那个以为只要穿上格子衬衫就是时尚的哥哥，可说是",
-      "index": 182,
+      "index": 188,
       "lastText": "是经验老道。"
     },
     {
@@ -3033,9 +3123,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6710c1bc413c4f3e",
+      "detailHash": "d5f4986a867bb77d",
       "firstText": "跟听说光是牵手就花了一个月的某两人比起来真是差多了。",
-      "index": 183,
+      "index": 189,
       "lastText": "持下去。"
     },
     {
@@ -3048,9 +3138,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "691f14ff1981a44f",
+      "detailHash": "8cb376413f3809a1",
       "firstText": "要为姐姐跟哥哥维持谎言，没有人比他更好用了。",
-      "index": 184,
+      "index": 190,
       "lastText": "「对，这是我脑袋的螺丝。之前掉下来之后我怕搞丢才挂在脖子"
     },
     {
@@ -3063,9 +3153,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "140bc088612af5f2",
+      "detailHash": "1c5b8ccafb9fcdc9",
       "firstText": "上。要是它没掉下来，我期中考应该会考更高分的～」",
-      "index": 185,
+      "index": 191,
       "lastText": "呀瞄的。"
     },
     {
@@ -3078,9 +3168,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8bac90e1d1b07462",
+      "detailHash": "4c6459829ea58d55",
       "firstText": "「啊～相仔你又带新的女生了吧～」",
-      "index": 186,
+      "index": 192,
       "lastText": "「你的姿势好优美喔。时雨你是不是有练过？那怎么看都不是一"
     },
     {
@@ -3093,9 +3183,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "19791ad32ad02495",
+      "detailHash": "ef157fcb3519e621",
       "firstText": "般人的体格吧。」",
-      "index": 187,
+      "index": 193,
       "lastText": "约会就是要一对一。"
     },
     {
@@ -3108,9 +3198,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b650ccbd60c6ad80",
+      "detailHash": "520edfaeb8a2fa6f",
       "firstText": "不少男生被这样的刻板观念所限制，但是对女生来说，男方的交",
-      "index": 188,
+      "index": 194,
       "lastText": "这让我不禁回想起。"
     },
     {
@@ -3123,9 +3213,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "84f85ea98379a667",
+      "detailHash": "4dc784e4a9dbe03b",
       "firstText": "想起那个……造成我跟姐姐离异的，母亲的外遇对象的身影。",
-      "index": 189,
+      "index": 195,
       "lastText": "爸爸工作很忙。他在为我们努力工作。"
     },
     {
@@ -3138,9 +3228,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "fb2ed509ba95cf90",
+      "detailHash": "05620c098493c722",
       "firstText": "之所以对独缺父亲的餐桌上这样的对话印象深刻，或许是因为它",
-      "index": 190,
+      "index": 196,
       "lastText": "而这样的突兀感，随着高尾开始待在我们家中而跟着增强。"
     },
     {
@@ -3153,9 +3243,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b4392d4370d1377b",
+      "detailHash": "5a1d4c1abbdaadce",
       "firstText": "每当面对他时，原本那个最宝贝我们的母亲，眼里彷彿再也看不",
-      "index": 191,
+      "index": 197,
       "lastText": "心想她毁了整个家庭，拆散我跟姐姐，把周遭弄得一塌糊涂，最"
     },
     {
@@ -3168,9 +3258,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "b19a215b320f61f1",
+      "detailHash": "58904145d4b09c0f",
       "firstText": "后是这样的下场。",
-      "index": 192,
+      "index": 198,
       "lastText": "作，其他人也浮夸地表达同意。"
     },
     {
@@ -3183,9 +3273,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "0560ce03f6f20707",
+      "detailHash": "ca06f92baa866ca2",
       "firstText": "当然，那指的绝不是珍珠饮料。",
-      "index": 193,
+      "index": 199,
       "lastText": "瞬间──"
     },
     {
@@ -3198,9 +3288,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "f71289182dcb60e4",
+      "detailHash": "420453941344d4a2",
       "firstText": "转身途中视野掠过的，天桥底下的公园里头的景象──",
-      "index": 194,
+      "index": 200,
       "lastText": "「安啦安啦，我们不会喝那种太辣太呛的。」"
     },
     {
@@ -3213,9 +3303,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "15d6fe0b9ae0158f",
+      "detailHash": "a11653df13a0e159",
       "firstText": "「对啊对啊。夜晚才刚开始，接下来才正要嗨耶～」",
-      "index": 195,
+      "index": 201,
       "lastText": "吗？」"
     },
     {
@@ -3228,9 +3318,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f77d810083545737",
+      "detailHash": "a33a377b1807bccf",
       "firstText": "「…………我不是说………………了吗……」",
-      "index": 196,
+      "index": 202,
       "lastText": "子！」"
     },
     {
@@ -3243,9 +3333,9 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "d42ab42fa0742a66",
+      "detailHash": "d62e6e5aaf49a90a",
       "firstText": "「接下来怎么办，相泽？要去把她追回来吗？」",
-      "index": 197,
+      "index": 203,
       "lastText": "「「「呃……」」」"
     },
     {
@@ -3258,9 +3348,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "1b599c0f3a8097ea",
+      "detailHash": "f957ee7ef3f85ff0",
       "firstText": "第十四话 初恋×悲剧收场",
-      "index": 198,
+      "index": 204,
       "lastText": "关系的对象。"
     },
     {
@@ -3273,9 +3363,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "69d84abc9ad7efd1",
+      "detailHash": "a4fa02fa47ca59b8",
       "firstText": "而且既然选择了，我也打算或多或少给他相应的回报。",
-      "index": 199,
+      "index": 205,
       "lastText": "要是刚刚跟着相泽而去，一切都能完美收场。"
     },
     {
@@ -3288,9 +3378,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "492a2aff98b69293",
+      "detailHash": "e6c2ad3aa6915dba",
       "firstText": "为什么，为什么──",
-      "index": 200,
+      "index": 206,
       "lastText": "一打开门，不意外地在玄关看到哥哥的鞋子。"
     },
     {
@@ -3303,9 +3393,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "afdd71129cee76f2",
+      "detailHash": "4c81e13a93aedd7c",
       "firstText": "我回来了──我边说边进入家里。",
-      "index": 201,
+      "index": 207,
       "lastText": "而那冲动驱策着我，也不在乎会把榻榻米弄湿，我踏上走廊与起"
     },
     {
@@ -3318,9 +3408,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "ecd68c9dce1ce233",
+      "detailHash": "92dce0c976646285",
       "firstText": "居室之间的踏阶。",
-      "index": 202,
+      "index": 208,
       "lastText": "如此强烈的──执着。"
     },
     {
@@ -3333,9 +3423,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "253c49aeb6637272",
+      "detailHash": "fa9a31eede01c136",
       "firstText": "这就是所谓的『恋爱』吧。",
-      "index": 203,
+      "index": 209,
       "lastText": "但随即我就感到有异。"
     },
     {
@@ -3348,9 +3438,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "66e8e591ff39c50e",
+      "detailHash": "595465cb6cbf7c85",
       "firstText": "因为这吻带有的，是彷彿能把嘴唇融解的情热。",
-      "index": 204,
+      "index": 210,
       "lastText": "──」"
     },
     {
@@ -3363,39 +3453,39 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "19d28f4a9f9fe20c",
+      "detailHash": "4a6cb4cd135281c8",
       "firstText": "「闭嘴。」",
-      "index": 205,
+      "index": 211,
       "lastText": "根本成不了什么羁绊，只是无意义的事物。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 4,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 12,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 3
       },
-      "detailHash": "88a8fb2b51bf33ef",
+      "detailHash": "07340a36071f3838",
       "firstText": "我只求接下来的所有瞬间，能够留在你的心底最深处。",
-      "index": 206,
-      "lastText": "但，我却没那么做。"
+      "index": 212,
+      "lastText": "那句话我之前也曾听她说过，但──"
     },
     {
       "counts": {
-        "blocks": 8,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 9,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 9
+        "textRuns": 18
       },
-      "detailHash": "0f0ddfb1e6187358",
-      "firstText": "是因为事发突然陷入混乱？是被时雨太过巨大的情浪给吞没？",
-      "index": 207,
+      "detailHash": "bfccc3dfd9b45abf",
+      "firstText": "「这一次，我可不是开玩笑的。」",
+      "index": 213,
       "lastText": "就这样，和心爱女友初吻的这天，我和女友的妹妹接吻了。"
     },
     {
@@ -3408,9 +3498,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "1f518f73e42c8cf8",
+      "detailHash": "3d4c6ab2f86a0477",
       "firstText": "后记",
-      "index": 208,
+      "index": 214,
       "lastText": "第一集首先将人际关系建构完毕。无力抗拒时雨的那个当下，这"
     },
     {
@@ -3423,9 +3513,9 @@
         "ruby": 0,
         "textRuns": 15
       },
-      "detailHash": "f611b918ded25c41",
+      "detailHash": "c20b413fbc1ea0a1",
       "firstText": "条世界线的博道就已经沦陷了（笑）。而第二集将会进一步描写两人无",
-      "index": 209,
+      "index": 215,
       "lastText": "在第二集的后记相见。海空りく在此感谢大家。"
     }
   ],
@@ -3434,10 +3524,10 @@
     "chapterCount": 24,
     "chapterTextIndexCount": 24,
     "footnoteCount": 1,
-    "fullDetailHash": "9246e1d7beca41c7",
-    "pageCount": 210,
+    "fullDetailHash": "32dc94ee1ffafeb4",
+    "pageCount": 216,
     "totals": {
-      "blocks": 3280,
+      "blocks": 3276,
       "hrs": 0,
       "images": 15,
       "inlineAtoms": 0,
@@ -3453,7 +3543,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 454.528,
             "width": 304,
             "x": 0,
             "y": 0
@@ -3462,7 +3552,7 @@
             {
               "alt": "cover",
               "bounds": {
-                "height": 228,
+                "height": 454.528,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -5516,7 +5606,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 226.033,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5525,7 +5615,7 @@
             {
               "alt": "co1",
               "bounds": {
-                "height": 228,
+                "height": 226.033,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -5568,7 +5658,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 227.539,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5577,7 +5667,7 @@
             {
               "alt": "co2",
               "bounds": {
-                "height": 228,
+                "height": 227.539,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -5620,7 +5710,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 226.715,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5629,7 +5719,7 @@
             {
               "alt": "co3",
               "bounds": {
-                "height": 228,
+                "height": 226.715,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -5672,7 +5762,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 459.001,
             "width": 304,
             "x": 0,
             "y": 0
@@ -5681,7 +5771,7 @@
             {
               "alt": "contents",
               "bounds": {
-                "height": 228,
+                "height": 459.001,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -7488,10 +7578,178 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 62.4,
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.492
+                  },
+                  "text": "在辽阔的世界上要是有人能够真心地喜欢自己，居然是这么开",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "心、这么安心的事情……所以谢谢你，博道。谢谢你愿意喜欢我。我也",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 76.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "最喜欢博道了！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 68.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 76.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「～～～～……」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 96
           },
           "children": [
             {
@@ -7541,7 +7799,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 123.2
           },
           "children": [
             {
@@ -7591,7 +7849,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 150.4
           },
           "children": [
             {
@@ -7641,7 +7899,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 177.6
           },
           "children": [
             {
@@ -7691,7 +7949,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 108.8
+            "y": 204.8
           },
           "children": [
             {
@@ -7741,7 +7999,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 136
+            "y": 232
           },
           "children": [
             {
@@ -7791,7 +8049,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 163.2
+            "y": 259.2
           },
           "children": [
             {
@@ -7875,7 +8133,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 211.2
+            "y": 307.2
           },
           "children": [
             {
@@ -7925,7 +8183,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 238.4
+            "y": 334.4
           },
           "children": [
             {
@@ -8009,7 +8267,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 286.4
+            "y": 382.4
           },
           "children": [
             {
@@ -8059,7 +8317,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 313.6
+            "y": 409.6
           },
           "children": [
             {
@@ -8109,7 +8367,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 340.8
+            "y": 436.8
           },
           "children": [
             {
@@ -8159,7 +8417,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 368
+            "y": 464
           },
           "children": [
             {
@@ -8210,16 +8468,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 13,
+        "blocks": 15,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 15,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 19
       },
-      "firstText": "……我终于明白了。",
-      "index": 22,
+      "firstText": "在辽阔的世界上要是有人能够真心地喜欢自己，居然是这么开",
+      "index": 23,
       "lastText": "怎知在这之后却遇见了，颠复这一切的那个她。",
       "paint": null
     },
@@ -9145,7 +9403,7 @@
         "textRuns": 19
       },
       "firstText": "第二话 迷茫×初接触",
-      "index": 23,
+      "index": 24,
       "lastText": "『哈哈哈！抱歉抱歉，只是不知怎地，突然很想听听你的声",
       "paint": null
     },
@@ -9954,7 +10212,7 @@
         "textRuns": 17
       },
       "firstText": "像这样直呼女生的名字，实在让人有些紧张。",
-      "index": 39,
+      "index": 41,
       "lastText": "厢情愿的严重误判就是了。",
       "paint": null
     },
@@ -10865,7 +11123,7 @@
         "textRuns": 20
       },
       "firstText": "第三话 小恶魔×脱衣秀",
-      "index": 40,
+      "index": 42,
       "lastText": "甚至还有，老爸以前蒐集的恐龙模型。",
       "paint": null
     },
@@ -10879,6 +11137,106 @@
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 38.4,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "乖吧！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 96,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「人家哪有装乖喵～」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
           },
           "children": [
             {
@@ -10928,7 +11286,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 81.6
           },
           "children": [
             {
@@ -10978,7 +11336,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 108.8
           },
           "children": [
             {
@@ -11062,7 +11420,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 102.4
+            "y": 156.8
           },
           "children": [
             {
@@ -11112,7 +11470,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 129.6
+            "y": 184
           },
           "children": [
             {
@@ -11196,7 +11554,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 177.6
+            "y": 232
           },
           "children": [
             {
@@ -11246,7 +11604,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 204.8
+            "y": 259.2
           },
           "children": [
             {
@@ -11296,7 +11654,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 232
+            "y": 286.4
           },
           "children": [
             {
@@ -11380,7 +11738,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 280
+            "y": 334.4
           },
           "children": [
             {
@@ -11430,7 +11788,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 307.2
+            "y": 361.6
           },
           "children": [
             {
@@ -11480,7 +11838,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 334.4
+            "y": 388.8
           },
           "children": [
             {
@@ -11530,7 +11888,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 361.6
+            "y": 416
           },
           "children": [
             {
@@ -11614,7 +11972,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 409.6
+            "y": 464
           },
           "children": [
             {
@@ -11664,7 +12022,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 436.8
+            "y": 491.2
           },
           "children": [
             {
@@ -11748,7 +12106,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 484.8
+            "y": 539.2
           },
           "children": [
             {
@@ -11799,16 +12157,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 15,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 20,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 22
       },
-      "firstText": "「明明就有！」",
-      "index": 50,
+      "firstText": "乖吧！」",
+      "index": 53,
       "lastText": "显而易见的未来所带来的不寒而栗，让我再也无法置之不理。",
       "paint": null
     },
@@ -12733,7 +13091,7 @@
         "textRuns": 19
       },
       "firstText": "第四话 早安×共识",
-      "index": 51,
+      "index": 54,
       "lastText": "身体好沉重。",
       "paint": null
     },
@@ -12956,7 +13314,7 @@
         "textRuns": 4
       },
       "firstText": "……怎么突然变得这么老实乖巧。",
-      "index": 59,
+      "index": 62,
       "lastText": "要理解女人心的复杂，对我来说还是太困难了些。",
       "paint": null
     },
@@ -13852,7 +14210,7 @@
         "textRuns": 20
       },
       "firstText": "第五话 重逢×姐妹",
-      "index": 60,
+      "index": 63,
       "lastText": "而他当时并没有提到『哥哥』之类的字眼，就只是照着班级座号",
       "paint": null
     },
@@ -14827,7 +15185,7 @@
         "textRuns": 20
       },
       "firstText": "坦白讲，时雨刚刚真的帮了大忙。",
-      "index": 76,
+      "index": 79,
       "lastText": "我判断不出，正确答案究竟为何。",
       "paint": null
     },
@@ -15736,7 +16094,7 @@
         "textRuns": 19
       },
       "firstText": "第六话 轻咬×居家型",
-      "index": 77,
+      "index": 80,
       "lastText": "只是给晴香带来负担。只是种依赖的行为。",
       "paint": null
     },
@@ -15746,10 +16104,412 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 83.2,
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.492
+                  },
+                  "text": "「嗯～不过在学校里我还是会自制的。毕竟兄妹的事还是得保",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "密，再说我也不想害姐姐伤心。不过一旦回到这个家，哥哥就是我一个",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "人专属的。以后可爱的妹妹会尽情地对哥哥撒娇，你可要好好地纵容我",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 62.4
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 28.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "喔♡」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 89.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 192,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "时雨将手指抵着嘴角一顶，亮出白皙的犬齿。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 116.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 211.2,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "看起来就像是在声明，今后会用它好好地伺候你。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 144
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 182.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "……嗯，看来我似乎还是把话说得太满了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 171.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不是似乎。肯定是这样。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 198.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不过既然说要奉陪，这样倒也正合我意。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 225.6
           },
           "children": [
             {
@@ -15800,16 +16560,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 1,
+        "blocks": 7,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 1,
+        "lines": 10,
         "ruby": 0,
-        "textRuns": 1
+        "textRuns": 10
       },
-      "firstText": "「啊，结果忘记买窗帘了。」",
-      "index": 88,
+      "firstText": "「嗯～不过在学校里我还是会自制的。毕竟兄妹的事还是得保",
+      "index": 91,
       "lastText": "「啊，结果忘记买窗帘了。」",
       "paint": null
     },
@@ -16718,7 +17478,7 @@
         "textRuns": 19
       },
       "firstText": "第七话 慌张×午后",
-      "index": 89,
+      "index": 92,
       "lastText": "这次我体悟到，人类一旦有必要性，就会自然而然地适应环境。",
       "paint": null
     },
@@ -16732,640 +17492,6 @@
             "width": 304,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 172.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "脑海里浮现的，是近乎愚昧的想入非非。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 304,
-            "x": 0,
-            "y": 27.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 272,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.119
-                  },
-                  "text": "而就在同时，我将泡沫即将滴落的手掌赶紧伸往浴室的水龙头，",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 268.8,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "放在一旁的肥皂于是映入视野…………等等，既然有这肥皂──",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 75.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 249.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「喂，我现在才想到，你用浴室的肥皂洗手不就好了吗？」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 102.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 230.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「啊，这么说好像也对。对不起喔～我竟然都忘了～」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 129.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 57.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「…………」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 156.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "道歉的时雨吐了下舌头。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 184
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 153.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "表情已经回到平时那个坏心眼的她。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 211.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "这家伙绝对早就知道了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 238.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 67.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "……真是好险。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 265.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 211.2,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "差点就要对自己那充满处男味的妄想信以为真了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 292.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 105.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "不自量力也要有个限度。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 320
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 240,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "何况不说别的，那个捣蛋鬼哪可能摆得出晴香那种表情。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 347.2
           },
           "children": [
             {
@@ -17415,7 +17541,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 374.4
+            "y": 27.2
           },
           "children": [
             {
@@ -17465,7 +17591,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 401.6
+            "y": 54.4
           },
           "children": [
             {
@@ -17516,16 +17642,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 15,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 3,
         "ruby": 0,
-        "textRuns": 16
+        "textRuns": 3
       },
-      "firstText": "脑海里浮现的，是近乎愚昧的想入非非。",
-      "index": 99,
+      "firstText": "毕竟，晴香的那种表情，是唯有愿意爱我的人，才得以拥有的。",
+      "index": 103,
       "lastText": "对，肯定是这样没错。",
       "paint": null
     },
@@ -18450,7 +18576,7 @@
         "textRuns": 19
       },
       "firstText": "第八话 倒错×制服",
-      "index": 100,
+      "index": 104,
       "lastText": "「果然是你，时雨！」",
       "paint": null
     },
@@ -18460,7 +18586,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 304,
             "x": 0,
             "y": 0
@@ -18472,6 +18598,408 @@
                 "width": 304,
                 "x": 0,
                 "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 163.2,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「那个………………你都看到了吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 201.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「就算我现在回答没看到，你就会相信我吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 96,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「啊啊～～～～！！」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 57.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "时雨被击溃。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 108.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 96,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "她抱着脑袋就地蹲下。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 304,
+            "x": 0,
+            "y": 136
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "接着，以像是毛毛虫的身段扭呀扭地，回到隔间另一头的自己房",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 28.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "间里。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 83.2,
+            "width": 304,
+            "x": 0,
+            "y": 184
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "「咦、咦，怎么会这样？我怎么会没穿紧身裤呢？怎么想都不对",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "呀。我明明跟姐姐借了一整套，没道理变成这样……啊，这么说来我回",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
               },
               "runs": [
                 {
@@ -18505,7 +19033,7 @@
                 "height": 20.8,
                 "width": 304,
                 "x": 0,
-                "y": 20.8
+                "y": 62.4
               },
               "runs": [
                 {
@@ -18547,7 +19075,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 48
+            "y": 273.6
           },
           "children": [
             {
@@ -18631,7 +19159,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 96
+            "y": 321.6
           },
           "children": [
             {
@@ -18681,7 +19209,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 123.2
+            "y": 348.8
           },
           "children": [
             {
@@ -18731,7 +19259,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 150.4
+            "y": 376
           },
           "children": [
             {
@@ -18781,7 +19309,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 177.6
+            "y": 403.2
           },
           "children": [
             {
@@ -18831,7 +19359,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 204.8
+            "y": 430.4
           },
           "children": [
             {
@@ -18881,7 +19409,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 232
+            "y": 457.6
           },
           "children": [
             {
@@ -18932,16 +19460,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 8,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 10,
+        "lines": 19,
         "ruby": 0,
-        "textRuns": 10
+        "textRuns": 19
       },
-      "firstText": "家后好像因为家里太闷热……而且为了赶在哥哥之前回家，赶路赶到一",
-      "index": 112,
+      "firstText": "「那个………………你都看到了吗？」",
+      "index": 116,
       "lastText": "身为哥哥的我，最惊讶的就是这件事了。",
       "paint": null
     },
@@ -19866,7 +20394,7 @@
         "textRuns": 19
       },
       "firstText": "第九话 甜蜜×讯号",
-      "index": 113,
+      "index": 117,
       "lastText": "我能够帮她补习。",
       "paint": null
     },
@@ -19876,628 +20404,10 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 41.6,
+            "height": 20.8,
             "width": 304,
             "x": 0,
             "y": 0
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 272,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.119
-                  },
-                  "text": "「喔喔，这样啊，那就没办法了。毕竟一家团圆也很重要。非常",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 297.6,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "重要。那么吃饭的事改天有机会再说吧。晴香，送博道同学出门吧。」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 48
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 38.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "「好～」",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 75.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "于是，我在晴香的目送下，踏上回家的道路。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 102.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 240,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "一直到挥手的晴香消失在视野里，疲劳感顿时一涌而上。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 129.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 134.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "……坦白讲，这真是累死人了。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 156.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 240,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "头一次到女朋友家作客，又是碰上内裤又是碰上她父亲。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 184
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 182.4,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "种种状况一次发生，实在是折腾人的一天。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 211.2
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 220.8,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "不过呢，能得到她父亲的欣赏，也算是一大收获吧。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 238.4
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 153.6,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "幸好他跟晴香很像，是个和善的人。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 265.6
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 192,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "既然他是晴香的父亲，代表也是时雨的父亲。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 41.6,
-            "width": 304,
-            "x": 0,
-            "y": 292.8
-          },
-          "children": [
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 0
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 272,
-                    "x": 32,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    },
-                    "letterSpacingPx": 0.119
-                  },
-                  "text": "一想到他的个性有可能是像时雨，实在让人不寒而栗。而这样的",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            },
-            {
-              "bounds": {
-                "height": 20.8,
-                "width": 304,
-                "x": 0,
-                "y": 20.8
-              },
-              "runs": [
-                {
-                  "bounds": {
-                    "height": 20.8,
-                    "width": 115.2,
-                    "x": 0,
-                    "y": 2.4
-                  },
-                  "href": null,
-                  "inlineMarginRight": null,
-                  "lineHeightPx": 20.8,
-                  "paint": {
-                    "color": "#000000",
-                    "font": {
-                      "family": "serif",
-                      "sizePx": 16,
-                      "style": "normal",
-                      "weight": 400
-                    }
-                  },
-                  "text": "假设并未成真，真是万幸。",
-                  "type": "text-run"
-                }
-              ],
-              "type": "line-box"
-            }
-          ],
-          "pageBreakAfter": false,
-          "pageBreakBefore": false,
-          "paint": null,
-          "tag": "p",
-          "type": "layout-block"
-        },
-        {
-          "anchorId": null,
-          "borderBox": null,
-          "bounds": {
-            "height": 20.8,
-            "width": 304,
-            "x": 0,
-            "y": 340.8
           },
           "children": [
             {
@@ -20547,7 +20457,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 368
+            "y": 27.2
           },
           "children": [
             {
@@ -20631,7 +20541,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 416
+            "y": 75.2
           },
           "children": [
             {
@@ -20682,16 +20592,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 14,
+        "blocks": 3,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 17,
+        "lines": 4,
         "ruby": 0,
-        "textRuns": 17
+        "textRuns": 4
       },
-      "firstText": "「喔喔，这样啊，那就没办法了。毕竟一家团圆也很重要。非常",
-      "index": 132,
+      "firstText": "但……也因为他给人的感觉是如此和善……",
+      "index": 137,
       "lastText": "那苛刻的言辞里头流露出的嫌恶，莫名地令我印象深刻。",
       "paint": null
     },
@@ -21601,7 +21511,7 @@
         "textRuns": 19
       },
       "firstText": "第十话 突袭×甜爱",
-      "index": 133,
+      "index": 138,
       "lastText": "「我做完功课还得预习明天的进度，你要打电玩的话就一个人玩",
       "paint": null
     },
@@ -21615,6 +21525,106 @@
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 96,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "时雨满足地咯咯笑着。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 153.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "……才稍微露出破绽就被整成这样。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
           },
           "children": [
             {
@@ -21664,7 +21674,7 @@
             "height": 62.4,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 81.6
           },
           "children": [
             {
@@ -21782,7 +21792,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 96
+            "y": 150.4
           },
           "children": [
             {
@@ -21833,16 +21843,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 3,
+        "blocks": 5,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 7,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 7
       },
-      "firstText": "哪有爱心是如此充满恶意的。",
-      "index": 142,
+      "firstText": "时雨满足地咯咯笑着。",
+      "index": 148,
       "lastText": "而一旦晓得是甜的，时雨泡的这杯咖啡喝起来倒也不错。",
       "paint": null
     },
@@ -22735,7 +22745,7 @@
         "textRuns": 19
       },
       "firstText": "第十一话 恋爱×谬误",
-      "index": 143,
+      "index": 149,
       "lastText": "跟女朋友一起读书，一直是我长久以来的向往。",
       "paint": null
     },
@@ -22745,7 +22755,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 20.8,
+            "height": 83.2,
             "width": 304,
             "x": 0,
             "y": 0
@@ -22757,6 +22767,476 @@
                 "width": 304,
                 "x": 0,
                 "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "「真希望能够找个对我百依百顺，身高超过180公分，体格精",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "瘦又有一张帅哥脸，不必工作也能年收入四千万圆，不管碰上什么事永",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 41.6
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 304,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.213
+                  },
+                  "text": "远都会支持我，即使我毫无理由动怒也愿意温柔呵护，爱女生却不会以",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 62.4
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 259.2,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "性的角度看待女生，在东京市区有不动产的绅士当男朋友～」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 89.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 124.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「拜讬不要这么贪心好吗？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 304,
+            "x": 0,
+            "y": 116.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.492
+                  },
+                  "text": "世上最好是有这种男人啦。去找不存在的东西可能还比较实际",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 19.2,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "些。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 164.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 268.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「总之，高中生活只有一次，希望时雨你也找到中意的对象。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 192
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 192,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「……要说中意的对象其实早就有一个了。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 219.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「嗯？你刚刚说怎样？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 304,
+            "x": 0,
+            "y": 246.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "「没事，我什么也没说。那么我们也该回去了，否则上课就要迟",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
               },
               "runs": [
                 {
@@ -22798,7 +23278,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 294.4
           },
           "children": [
             {
@@ -22848,7 +23328,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 321.6
           },
           "children": [
             {
@@ -22898,7 +23378,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 348.8
           },
           "children": [
             {
@@ -22948,7 +23428,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 108.8
+            "y": 376
           },
           "children": [
             {
@@ -22999,16 +23479,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 5,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 16,
         "ruby": 0,
-        "textRuns": 5
+        "textRuns": 16
       },
-      "firstText": "到了。」",
-      "index": 160,
+      "firstText": "「真希望能够找个对我百依百顺，身高超过180公分，体格精",
+      "index": 166,
       "lastText": "那么好歹帮她还个餐盘，否则我心里会过意不去。",
       "paint": null
     },
@@ -23933,7 +24413,7 @@
         "textRuns": 19
       },
       "firstText": "第十二话 危险×课程",
-      "index": 161,
+      "index": 167,
       "lastText": "哈哈哈，这家伙。",
       "paint": null
     },
@@ -24208,7 +24688,7 @@
         "textRuns": 6
       },
       "firstText": "「欸，时雨。我明天一定会跟晴香接吻，而且当然会由我主动。",
-      "index": 175,
+      "index": 181,
       "lastText": "「嗯。我会加油的。」",
       "paint": null
     },
@@ -25115,7 +25595,7 @@
         "textRuns": 18
       },
       "firstText": "第十三话 忧郁×周末",
-      "index": 176,
+      "index": 182,
       "lastText": "补。",
       "paint": null
     },
@@ -25522,7 +26002,7 @@
         "textRuns": 8
       },
       "firstText": "「接下来怎么办，相泽？要去把她追回来吗？」",
-      "index": 197,
+      "index": 203,
       "lastText": "「「「呃……」」」",
       "paint": null
     },
@@ -26415,7 +26895,7 @@
         "textRuns": 19
       },
       "firstText": "第十四话 初恋×悲剧收场",
-      "index": 198,
+      "index": 204,
       "lastText": "关系的对象。",
       "paint": null
     },
@@ -26429,6 +26909,440 @@
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 144,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「这一次，我可不是开玩笑的。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 96,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "啊啊……我当然知道。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 41.6,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 272,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    },
+                    "letterSpacingPx": 0.119
+                  },
+                  "text": "被以那样的眼神注视，受了那样的吻，就算是我这不懂女人心的",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 20.8
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 124.8,
+                    "x": 0,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "蠢货也知道，时雨是认真的。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 102.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 134.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "时雨的手轻轻地托住我的脸颊。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 129.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 172.8,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不知第几次的接吻，温度慢慢降了下来。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 156.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 153.6,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "不像先前那般贪求，而是温柔的吻。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 184
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 230.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "……当下我照理说能够抵抗，能够以蛮力将时雨推开。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 211.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 20.8,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 20.8,
+                    "width": 86.4,
+                    "x": 32,
+                    "y": 2.4
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 20.8,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "但，我却没那么做。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 20.8,
+            "width": 304,
+            "x": 0,
+            "y": 238.4
           },
           "children": [
             {
@@ -26478,7 +27392,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 265.6
           },
           "children": [
             {
@@ -26528,7 +27442,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 292.8
           },
           "children": [
             {
@@ -26578,7 +27492,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 320
           },
           "children": [
             {
@@ -26628,7 +27542,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 108.8
+            "y": 347.2
           },
           "children": [
             {
@@ -26678,7 +27592,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 136
+            "y": 374.4
           },
           "children": [
             {
@@ -26728,7 +27642,7 @@
             "height": 41.6,
             "width": 304,
             "x": 0,
-            "y": 163.2
+            "y": 401.6
           },
           "children": [
             {
@@ -26812,7 +27726,7 @@
             "height": 20.8,
             "width": 304,
             "x": 0,
-            "y": 211.2
+            "y": 449.6
           },
           "children": [
             {
@@ -26863,16 +27777,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 8,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 9,
+        "lines": 18,
         "ruby": 0,
-        "textRuns": 9
+        "textRuns": 18
       },
-      "firstText": "是因为事发突然陷入混乱？是被时雨太过巨大的情浪给吞没？",
-      "index": 207,
+      "firstText": "「这一次，我可不是开玩笑的。」",
+      "index": 213,
       "lastText": "就这样，和心爱女友初吻的这天，我和女友的妹妹接吻了。",
       "paint": null
     },
@@ -27738,7 +28652,7 @@
         "textRuns": 21
       },
       "firstText": "后记",
-      "index": 208,
+      "index": 214,
       "lastText": "第一集首先将人际关系建构完毕。无力抗拒时雨的那个当下，这",
       "paint": null
     },
@@ -28399,7 +29313,7 @@
         "textRuns": 15
       },
       "firstText": "条世界线的博道就已经沦陷了（笑）。而第二集将会进一步描写两人无",
-      "index": 209,
+      "index": 215,
       "lastText": "在第二集的后记相见。海空りく在此感谢大家。",
       "paint": null
     }

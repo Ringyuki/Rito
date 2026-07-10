@@ -1,0 +1,309 @@
+import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const repoRoot = resolve(packageRoot, '../..');
+const dist = resolve(packageRoot, 'dist');
+const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_wasm.wasm');
+const runtimeSources = [
+  'core-wasm-error-runtime.js',
+  'core-wasm-document-runtime.js',
+  'reader-compat-runtime.js',
+  'reader-worker-client-runtime.js',
+  'runtime-bundle-decoder-runtime.js',
+  'frame-command-buffer-decoder-constants.js',
+  'frame-command-buffer-decoder-records.js',
+  'frame-command-buffer-decoder-runtime.js',
+  'frame-command-buffer-decoder-validation.js',
+].map((name) => ({
+  source: resolve(packageRoot, `src/${name}`),
+  target: resolve(dist, name),
+}));
+const errorDeclarationSource = resolve(packageRoot, 'src/core-wasm-error-runtime.d.ts');
+const compatDeclarationSource = resolve(packageRoot, 'src/reader-compat-runtime.d.ts');
+const typeDeclarationSources = [
+  'common',
+  'publication',
+  'revision',
+  'frame',
+  'resource',
+  'search',
+  'reader-worker',
+  'runtime-bundle',
+  'navigation',
+  'page',
+  'interaction',
+  'status',
+].map((name) => resolve(packageRoot, `src/types/${name}.ts`));
+
+ensureWasmBindgen();
+run('cargo', ['build', '-p', 'rito-wasm', '--target', 'wasm32-unknown-unknown', '--release']);
+
+if (!existsSync(wasmInput)) {
+  throw new Error(`Expected wasm artifact was not produced: ${wasmInput}`);
+}
+
+await rm(dist, { recursive: true, force: true });
+await mkdir(dist, { recursive: true });
+
+run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescript']);
+await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
+
+const errorDeclarations = await readFile(errorDeclarationSource, 'utf8');
+const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
+const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
+await writeFile(resolve(dist, 'decoder.mjs'), decoderEntry());
+await writeFile(resolve(dist, 'index.mjs'), indexEntry());
+await writeFile(
+  resolve(dist, 'index.d.mts'),
+  [
+    "import type { InitInput } from './rito_wasm.js';",
+    "export { default as initRitoCoreWasm, RitoWasmDocument } from './rito_wasm.js';",
+    "export type { InitInput } from './rito_wasm.js';",
+    errorDeclarations,
+    typeDeclarations,
+    compatDeclarations,
+    decoderDeclaration(),
+    documentDeclarations(),
+    readerClientDeclarations(),
+    'export declare function getRitoCoreWasmStatus(): RitoCoreWasmStatus;',
+    '',
+  ].join('\n'),
+);
+await writeFile(
+  resolve(dist, 'decoder.d.mts'),
+  [
+    errorDeclarations,
+    typeDeclarations,
+    compatDeclarations,
+    decoderDeclaration(),
+    readerClientDeclarations(),
+    '',
+  ].join('\n'),
+);
+
+function decoderEntry() {
+  return [
+    "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
+    "export { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
+    "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
+    '',
+  ].join('\n');
+}
+
+function indexEntry() {
+  return [
+    "import initRitoCoreWasm, { RitoWasmDocument as RawRitoWasmDocument } from './rito_wasm.js';",
+    "import { createRitoCoreWasmDocumentRuntime } from './core-wasm-document-runtime.js';",
+    '',
+    'const runtime = createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument);',
+    '',
+    "export { default as initRitoCoreWasm, RitoWasmDocument } from './rito_wasm.js';",
+    "export { decodeRitoFrameCommandBuffer } from './frame-command-buffer-decoder-runtime.js';",
+    "export { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';",
+    "export { createRitoCoreWasmReaderChapterMap, createRitoCoreWasmReaderChapterTextIndexMap, createRitoCoreWasmReaderFootnoteMap, createRitoCoreWasmReaderManifestHrefMap, createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads, findRitoCoreWasmReaderActiveTocEntry, findRitoCoreWasmReaderSpreadContainingPage, findRitoCoreWasmReaderTocTarget } from './reader-compat-runtime.js';",
+    "export { createRitoCoreWasmInProcessReaderClient, createRitoCoreWasmReaderWorkerHandler, createRitoCoreWasmWorkerReaderClient } from './reader-worker-client-runtime.js';",
+    "export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';",
+    'export const initRitoCoreWasmEngine = runtime.initRitoCoreWasmEngine;',
+    'export const RitoCoreWasmDocument = runtime.RitoCoreWasmDocument;',
+    '',
+    'export function getRitoCoreWasmStatus() {',
+    '  return createRitoCoreWasmStatus(true);',
+    '}',
+    '',
+    createStatusFunctionSource(),
+  ].join('\n');
+}
+
+function decoderDeclaration() {
+  return [
+    'export declare const decodeRitoFrameCommandBuffer: (',
+    '  metadata: RitoFrameCommandBufferMetadata,',
+    '  bytes: Uint8Array,',
+    ') => DecodedRitoFrameCommandBuffer;',
+    'export declare const decodeRitoRuntimeBundle: (',
+    '  bytes: Uint8Array,',
+    ') => DecodedRitoRuntimeBundle;',
+  ].join('\n');
+}
+
+function documentDeclarations() {
+  return [
+    'export interface RitoCoreWasmEngine {',
+    '  openDocument(bytes: Uint8Array): RitoCoreWasmDocument;',
+    '}',
+    'export declare function initRitoCoreWasmEngine(',
+    '  initInput?:',
+    '    | InitInput',
+    '    | Promise<InitInput>',
+    '    | { readonly module_or_path: InitInput | Promise<InitInput> },',
+    '): Promise<RitoCoreWasmEngine>;',
+    'export declare class RitoCoreWasmDocument {',
+    '  free(): void;',
+    '  publication(): RitoCoreWasmPublicationInfo;',
+    '  createFullRevisionBundle(',
+    '    request: RitoCoreWasmFullRevisionBundleRequest,',
+    '  ): RitoCoreWasmRevisionBundleResponse;',
+    '  createInitialPreviewRevisionBundle(',
+    '    request: RitoCoreWasmInitialPreviewRevisionRequest,',
+    '  ): RitoCoreWasmRevisionBundleResponse;',
+    '  createActiveChapterPreviewRevisionBundle(',
+    '    request: RitoCoreWasmActiveChapterPreviewRevisionRequest,',
+    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
+    '  createPreviewRevisionBundle(',
+    '    request: RitoCoreWasmPreviewRevisionBundleRequest,',
+    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
+    '  createViewRevisionBundle(',
+    '    request: RitoCoreWasmViewRevisionRequest,',
+    '  ): RitoCoreWasmViewRevisionResponse;',
+    '  createViewRevisionBundleBytes(',
+    '    request: RitoCoreWasmViewRevisionRequest,',
+    '  ): RitoCoreWasmViewRevisionResponse;',
+    '  getFrame(revisionId: string, spreadIndex: number): RitoCoreWasmFrame;',
+    '  getFrameCommandBufferMetadata(',
+    '    revisionId: string,',
+    '    spreadIndex: number,',
+    '  ): RitoCoreWasmFrameCommandBufferMetadata;',
+    '  readFrameCommandBuffer(revisionId: string, spreadIndex: number): Uint8Array;',
+    '  getPageTargets(revisionId: string, pageIndex: number): RitoCoreWasmPageTargets;',
+    '  getPageTextPositions(revisionId: string, pageIndex: number): RitoCoreWasmPageTextPositions;',
+    '  getTextRangeGeometry(',
+    '    revisionId: string,',
+    '    request: RitoCoreWasmTextRangeGeometryRequest,',
+    '  ): RitoCoreWasmTextRangeGeometry;',
+    '  getFootnote(revisionId: string, key: string): RitoCoreWasmFootnote;',
+    '  getFootnotes(revisionId: string): RitoCoreWasmFootnotes;',
+    '  getChapterTextIndices(revisionId: string): RitoCoreWasmChapterTextIndices;',
+    '  search(revisionId: string, request: RitoCoreWasmSearchRequest): RitoCoreWasmSearchResponse;',
+    '  resolveLocator(revisionId: string, request: RitoCoreWasmLocatorRequest): RitoCoreWasmResolvedLocator;',
+    '  getResourcePayload(',
+    '    revisionId: string,',
+    '    kind: RitoCoreWasmResourceKind,',
+    '    href: string,',
+    '  ): RitoCoreWasmResourcePayload;',
+    '  prefetchResources(',
+    '    revisionId: string,',
+    '    request: RitoCoreWasmResourcePrefetchRequest,',
+    '  ): RitoCoreWasmResourcePrefetchResponse;',
+    '  prefetchPlannedFrameResources(',
+    '    revisionId: string,',
+    '    spreadIndex: number,',
+    '  ): RitoCoreWasmPlannedFrameResourcePrefetchResponse;',
+    '  readerWorkerPayload(',
+    '    request: RitoCoreWasmReaderWorkerRequest,',
+    '  ): RitoCoreWasmReaderWorkerResponsePayload;',
+    '  readResourceTransfer(transferId: string): Uint8Array;',
+    '  releaseResourceTransfer(transferId: string): boolean;',
+    '  releaseRevisionTransfers(revisionId: string): number;',
+    '  releaseRevision(revisionId: string): boolean;',
+    '  pendingResourceTransferCount(): number;',
+    '}',
+  ].join('\n');
+}
+
+function readerClientDeclarations() {
+  return [
+    'export declare function createRitoCoreWasmWorkerReaderClient(',
+    '  worker: RitoCoreWasmReaderWorkerLike,',
+    '): RitoCoreWasmReaderWorkerClient;',
+    'export declare function createRitoCoreWasmInProcessReaderClient(',
+    '  module: RitoCoreWasmReaderBindingRuntimeModule,',
+    '): RitoCoreWasmReaderWorkerClient;',
+    'export declare function createRitoCoreWasmReaderWorkerHandler(',
+    '  scope: RitoCoreWasmReaderWorkerScope,',
+    '  deps: RitoCoreWasmReaderWorkerHandlerDeps,',
+    '): void;',
+  ].join('\n');
+}
+
+function createStatusFunctionSource() {
+  return [
+    'function createRitoCoreWasmStatus(npmWasmArtifact) {',
+    '  return {',
+    "    packageName: '@ritojs/core-wasm',",
+    "    status: 'experimental',",
+    "    engine: 'rust',",
+    '    rustFacade: {',
+    '      publicationJson: true,',
+    '      createFullRevisionBundleJson: true,',
+    '      createInitialPreviewRevisionBundleJson: true,',
+    '      createActiveChapterPreviewRevisionBundleJson: true,',
+    '      createPreviewRevisionBundleJson: true,',
+    '      createViewRevisionBundleJson: true,',
+    '      createViewRevisionBundleBytes: true,',
+    '      runtimeBundleRitorb1: true,',
+    '      frameJson: true,',
+    '      packedFrameCommandBuffer: true,',
+    '      footnoteJson: true,',
+    '      footnotesJson: true,',
+    '      chapterTextIndicesJson: true,',
+    '      pageTargetsJson: true,',
+    '      pageTextPositionsJson: true,',
+    '      textRangeGeometryJson: true,',
+    '      locatorJson: true,',
+    '      resourcePrefetchJson: true,',
+    '      plannedFrameResourcePrefetchJson: true,',
+    '      searchJson: true,',
+    '      resourceTransferLeases: true,',
+    '      wasmBindgen: true,',
+    '      npmWasmArtifact,',
+    '    },',
+    '  };',
+    '}',
+    '',
+  ].join('\n');
+}
+
+function ensureWasmBindgen() {
+  const result = spawnSync('wasm-bindgen', ['--version'], {
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
+  if (result.status === 0) {
+    return;
+  }
+  throw new Error(
+    'wasm-bindgen CLI is required for build:wasm. Install it with `cargo install wasm-bindgen-cli`.',
+  );
+}
+
+async function readTypeDeclarations(paths) {
+  const sources = await Promise.all(paths.map((path) => readFile(path, 'utf8')));
+  return sources.map(stripTypeOnlyImports).join('\n');
+}
+
+function stripTypeOnlyImports(source) {
+  const lines = [];
+  let skippingImport = false;
+  for (const line of source.split('\n')) {
+    if (skippingImport) {
+      if (line.includes(';')) skippingImport = false;
+      continue;
+    }
+    if (!line.startsWith('import type ')) {
+      lines.push(line);
+      continue;
+    }
+    skippingImport = !line.includes(';');
+  }
+  return lines.join('\n');
+}
+
+function run(command, args) {
+  const result = spawnSync(command, args, {
+    cwd: repoRoot,
+    env: process.env,
+    stdio: 'inherit',
+  });
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    throw new Error(`${command} ${args.join(' ')} failed with exit code ${result.status}`);
+  }
+}

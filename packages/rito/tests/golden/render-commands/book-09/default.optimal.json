@@ -60,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ced1ac794fd88df2",
+            "hash": "962405bd0135d554",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "1d012d6669b6af9a",
+            "hash": "8a0a1da3544d64a4",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -169,10 +169,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  59.842,
                   40,
-                  40,
-                  520,
-                  390
+                  480.316,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -210,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ced1ac794fd88df2",
+            "hash": "962405bd0135d554",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "f69e7ddb85291e7a",
+            "hash": "60d667a13b53f9c5",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -319,10 +319,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  59.842,
                   40,
-                  40,
-                  520,
-                  390
+                  480.316,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -24030,7 +24030,7 @@
       ]
     },
     {
-      "id": "book-09-default.optimal-page-0151",
+      "id": "book-09-default.optimal-page-0160",
       "page": {
         "bounds": {
           "height": 800,
@@ -24047,7 +24047,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 151,
+        "index": 160,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -24084,14 +24084,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "a69fa622579b86f0",
+            "hash": "1a9e39a92438cba5",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "f14febb31763e055",
+            "hash": "a105a1fe61a7f317",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -24193,10 +24193,10 @@
                   {
                     "imageHref": "Images/backcover.jpg"
                   },
+                  57.36,
                   40,
-                  40,
-                  520,
-                  390
+                  485.28,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -24234,14 +24234,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "a69fa622579b86f0",
+            "hash": "1a9e39a92438cba5",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "148ef4912dc3f816",
+            "hash": "e8e6a3e20e512a3c",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -24343,10 +24343,10 @@
                   {
                     "imageHref": "Images/backcover.jpg"
                   },
+                  57.36,
                   40,
-                  40,
-                  520,
-                  390
+                  485.28,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -24392,7 +24392,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 152,
+    "pageCount": 161,
     "pixelRatios": [
       1,
       2
@@ -24537,8 +24537,8 @@
         "features": [
           "last"
         ],
-        "id": "book-09-default.optimal-page-0151",
-        "pageIndex": 151
+        "id": "book-09-default.optimal-page-0160",
+        "pageIndex": 160
       }
     ]
   }

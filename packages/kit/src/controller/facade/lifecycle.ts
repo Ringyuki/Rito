@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import { wireA11y } from '../wiring/a11y';
 import type { ControllerOptions } from '../types';
 import type { CoordinatorState } from '../core/coordinator-state';
@@ -9,9 +9,23 @@ export function syncCanvasSize(internals: Internals, runtime: RuntimeComponents)
   // Backing store = CSS × DPR only — do NOT multiply renderScale again.
   const size = internals.reader.getCanvasSize(internals.renderScale);
   const dpr = internals.reader.dpr;
-  runtime.surface.setSize(size.width, size.height, dpr);
+  if (shouldResizeSurface(runtime, size.width, size.height, dpr)) {
+    runtime.surface.setSize(size.width, size.height, dpr);
+  }
   runtime.pool.resize(size.width, size.height, dpr);
   runtime.td.viewportWidth = size.width;
+}
+
+function shouldResizeSurface(
+  runtime: RuntimeComponents,
+  cssWidth: number,
+  cssHeight: number,
+  dpr: number,
+): boolean {
+  return (
+    runtime.surface.width !== Math.round(cssWidth * dpr) ||
+    runtime.surface.height !== Math.round(cssHeight * dpr)
+  );
 }
 
 export function buildLifecycle(

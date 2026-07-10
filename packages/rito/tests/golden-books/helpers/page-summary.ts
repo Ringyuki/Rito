@@ -8,7 +8,7 @@ import type {
   Rect,
   RubyAnnotation,
   TextRun,
-} from '../../../src/layout/core/types';
+} from '../../../src/reference/ts-core/layout/core/types';
 import { hashJson, roundNumber, toJsonValue, type JsonValue } from './canonicalize';
 
 export interface PageCounts {

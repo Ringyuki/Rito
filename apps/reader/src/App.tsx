@@ -1,17 +1,21 @@
 import { useCallback, useState } from 'react';
-import { useContainerSize } from '@ritojs/react';
+import { useContainerSize, useReaderAutoResize } from '@ritojs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
 import { SearchBar } from '@/components/search-bar';
 import { SettingsPanel, DEFAULT_SETTINGS } from '@/components/settings-panel';
-import { useReader } from '@/hooks/use-reader';
+import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
 
 export function App() {
   const { theme, toggle: toggleTheme, setTheme } = useTheme();
-  const [containerRef, containerSize] = useContainerSize();
+  const [sizeRef, containerSize] = useContainerSize();
   const reader = useReader(theme, containerSize.width, containerSize.height);
+  const resizeRef = useReaderAutoResize(reader.controller, {
+    zoomScale: reader.zoomScale,
+    margin: ({ width }) => readerViewportMargin(width),
+  });
   const [tocOpen, setTocOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
@@ -47,6 +51,14 @@ export function App() {
   const handleLoadDemo = useCallback(() => {
     void reader.loadDemo();
   }, [reader]);
+
+  const containerRef = useCallback(
+    (node: HTMLElement | null) => {
+      sizeRef(node);
+      resizeRef(node);
+    },
+    [resizeRef, sizeRef],
+  );
 
   return (
     <div className="flex h-dvh w-dvw flex-col overflow-hidden bg-background text-foreground">

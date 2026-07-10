@@ -1,4 +1,4 @@
-import type { SearchResult } from '@ritojs/core/search';
+import type { SearchResult } from '../../interaction/index';
 import {
   goToSearchResult,
   navigateToSearchIndex,
@@ -13,10 +13,11 @@ export function buildSearchActions(
   runtime: RuntimeComponents,
 ): SearchActionsSlice {
   const searchNavDeps = createSearchNavDeps(internals, emitter, nav, runtime);
+  const searchState = { serial: 0 };
 
   return {
     search(q: string): void {
-      internals.engines.search.search(q);
+      runSearch(q, internals, searchState);
     },
     searchNext(): SearchResult | undefined {
       const result = internals.engines.search.nextResult();
@@ -32,7 +33,7 @@ export function buildSearchActions(
       navigateToSearchIndex(internals.engines.search, targetIndex, searchNavDeps);
     },
     clearSearch(): void {
-      internals.engines.search.clear();
+      clearSearch(internals, searchState);
     },
     get searchResults() {
       return internals.engines.search.getResults();
@@ -43,14 +44,45 @@ export function buildSearchActions(
   };
 }
 
+interface SearchState {
+  serial: number;
+}
+
+function runSearch(q: string, internals: Internals, state: SearchState): void {
+  state.serial += 1;
+  if (typeof internals.reader.search !== 'function') {
+    internals.engines.search.search(q);
+    return;
+  }
+  if (q.length === 0) {
+    internals.engines.search.clear();
+    return;
+  }
+  const serial = state.serial;
+  void Promise.resolve(internals.reader.search(q))
+    .then((results) => {
+      if (serial !== state.serial) return;
+      internals.engines.search.setResults(results);
+    })
+    .catch(() => {
+      if (serial !== state.serial) return;
+      internals.engines.search.setResults([]);
+    });
+}
+
+function clearSearch(internals: Internals, state: SearchState): void {
+  state.serial += 1;
+  internals.engines.search.clear();
+}
+
 function createSearchNavDeps(
   internals: Internals,
   emitter: Emitter,
   nav: Nav,
   runtime: RuntimeComponents,
 ): SearchNavDeps {
-  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): void => {
-    internals.reader.renderSpreadTo(idx, ctx);
+  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): boolean => {
+    return internals.reader.renderSpreadTo(idx, ctx);
   };
 
   return {

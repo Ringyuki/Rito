@@ -1,0 +1,13 @@
+[workspace]
+members = ["crates/rito-core", "crates/rito-wasm"]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+license = "AGPL-3.0-only"
+repository = "https://github.com/Ringyuki/Rito"
+rust-version = "1.95"
+version = "0.0.0"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"

@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { layoutBlocks } from '../../src/layout/block';
-import type { LayoutBlock } from '../../src/layout/core/types';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import type { LayoutBlock } from '../../src/reference/ts-core/layout/core/types';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 
 const measurer = createMockTextMeasurer(0.6);

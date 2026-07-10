@@ -1,5 +1,5 @@
-import { hitTestLink } from '@ritojs/core/integration';
-import type { LinkRegion } from '@ritojs/core/integration';
+import { hitTestLink } from '../../interaction/index';
+import type { LinkRegion } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
 
 /** Hit-test links at a spread-content position. Shared by desktop pointer and touch tap paths. */

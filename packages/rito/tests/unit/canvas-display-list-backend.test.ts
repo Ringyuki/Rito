@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import type { DisplayList } from '../../src/render/display-list';
-import { canvasDisplayListRenderer } from '../../src/render/backends/canvas';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import type { DisplayList } from '../../src/reference/ts-core/render/display-list';
+import { canvasDisplayListRenderer } from '../../src/reference/ts-core/render/backends/canvas';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
 
 describe('canvas display-list backend', () => {

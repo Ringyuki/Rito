@@ -60,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "1c4e85deca911561",
+            "hash": "cac577b36ab7aedd",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "cbbaf095c6442731",
+            "hash": "1d6d17cd18651536",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -172,7 +172,7 @@
                   28,
                   28,
                   304,
-                  228
+                  454.528
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -210,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "1c4e85deca911561",
+            "hash": "cac577b36ab7aedd",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "4523d9ead6e0b42d",
+            "hash": "1c46aec839981576",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -322,7 +322,7 @@
                   28,
                   28,
                   304,
-                  228
+                  454.528
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -3564,7 +3564,7 @@
       ]
     },
     {
-      "id": "book-05-narrow.greedy-page-0209",
+      "id": "book-05-narrow.greedy-page-0215",
       "page": {
         "bounds": {
           "height": 640,
@@ -3581,7 +3581,7 @@
           "ruby": 0,
           "textRuns": 15
         },
-        "index": 209,
+        "index": 215,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -5018,7 +5018,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 210,
+    "pageCount": 216,
     "pixelRatios": [
       1,
       2
@@ -5115,8 +5115,8 @@
         "features": [
           "last"
         ],
-        "id": "book-05-narrow.greedy-page-0209",
-        "pageIndex": 209
+        "id": "book-05-narrow.greedy-page-0215",
+        "pageIndex": 215
       }
     ]
   }

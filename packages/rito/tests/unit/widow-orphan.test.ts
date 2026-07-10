@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { trySplitBlock } from '../../src/layout/pagination/split';
-import type { LayoutBlock, LineBox } from '../../src/layout/core/types';
-import { parseCssDeclarations } from '../../src/style/css/property-parser';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import { inheritableStyle } from '../../src/style/core/defaults';
+import { trySplitBlock } from '../../src/reference/ts-core/layout/pagination/split';
+import type { LayoutBlock, LineBox } from '../../src/reference/ts-core/layout/core/types';
+import { parseCssDeclarations } from '../../src/reference/ts-core/style/css/property-parser';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import { inheritableStyle } from '../../src/reference/ts-core/style/core/defaults';
 
 function makeLine(y: number, height: number): LineBox {
   return {

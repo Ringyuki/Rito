@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadEpub } from '../../src/runtime/load-epub';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 
 describe('loadEpub in a DOM-less runtime', () => {

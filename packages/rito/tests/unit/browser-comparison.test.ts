@@ -5,11 +5,11 @@
  * extracts getComputedStyle values, and compares against Rito's pipeline.
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { StyledNode } from '../../src/style/core/types';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { StyledNode } from '../../src/reference/ts-core/style/core/types';
 
 const BASE = 16;
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildHrefResolver } from '../../src/utils/resolve-href';
+import { buildHrefResolver } from '../../src/reference/ts-core/utils/resolve-href';
 
 describe('buildHrefResolver', () => {
   it('resolves by exact match', () => {

@@ -4,14 +4,14 @@
  * for the real title-page structure from the demo EPUB.
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { parseCssRules } from '../../src/style/css/rule-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { layoutBlocks } from '../../src/layout/block';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { parseCssRules } from '../../src/reference/ts-core/style/css/rule-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { StyledNode } from '../../src/style/core/types';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { StyledNode } from '../../src/reference/ts-core/style/core/types';
 
 const measurer = createMockTextMeasurer(0.6);
 const layouter = createGreedyLayouter(measurer);

@@ -60,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "c5a53bffbc2b4218",
+            "hash": "f93735305a6e060b",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "7c794217a68ed2bd",
+            "hash": "2056f492e447a2b4",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -169,10 +169,10 @@
                   {
                     "imageHref": "cover.jpeg"
                   },
+                  43.5,
                   40,
-                  40,
-                  520,
-                  390
+                  513,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -210,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "c5a53bffbc2b4218",
+            "hash": "f93735305a6e060b",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "f6a51db2573266da",
+            "hash": "bf113467b2220578",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -319,10 +319,10 @@
                   {
                     "imageHref": "cover.jpeg"
                   },
+                  43.5,
                   40,
-                  40,
-                  520,
-                  390
+                  513,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -10005,14 +10005,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "07cd2adc6cc77744",
+            "hash": "68f91472acc706c9",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "b1f1052207de1529",
+            "hash": "2b8b07a07b739644",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -10114,10 +10114,10 @@
                   {
                     "imageHref": "OEBPS/Images/a001_s.jpg"
                   },
+                  50.25,
                   40,
-                  56,
-                  520,
-                  390
+                  499.5,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -10155,14 +10155,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "07cd2adc6cc77744",
+            "hash": "68f91472acc706c9",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "00c61c44f48b5a66",
+            "hash": "8dbf188ff3fbb378",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -10264,10 +10264,10 @@
                   {
                     "imageHref": "OEBPS/Images/a001_s.jpg"
                   },
+                  50.25,
                   40,
-                  56,
-                  520,
-                  390
+                  499.5,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"

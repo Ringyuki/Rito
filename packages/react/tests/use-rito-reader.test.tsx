@@ -4,7 +4,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { renderToString } from 'react-dom/server';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type { ReaderController } from '@ritojs/kit';
 import { useRitoReader, type UseRitoReaderOptions } from '../src/hooks';
 
@@ -13,7 +13,7 @@ const { createReaderMock, createControllerMock } = vi.hoisted(() => ({
   createControllerMock: vi.fn(),
 }));
 
-vi.mock('@ritojs/core/web', () => ({
+vi.mock('@ritojs/core', () => ({
   createReader: createReaderMock,
 }));
 
@@ -80,6 +80,43 @@ function createControllerStub(): ReaderController {
   } as unknown as ReaderController;
 }
 
+function createDeferredLayoutReader(overrides?: Partial<Pick<Reader, 'metadata' | 'toc'>>): {
+  readonly reader: Reader;
+  readonly dispose: ReturnType<typeof vi.fn>;
+  commitLayout(totalSpreads: number): void;
+} {
+  let totalSpreads = 0;
+  const listeners = new Set<() => void>();
+  const dispose = vi.fn();
+  const reader = {
+    dispose,
+    get totalSpreads() {
+      return totalSpreads;
+    },
+    get metadata() {
+      return overrides?.metadata ?? null;
+    },
+    get toc() {
+      return overrides?.toc ?? [];
+    },
+    get spreads() {
+      return Array.from({ length: totalSpreads }, (_, index) => ({ left: { index } }));
+    },
+    onLayoutCommitted(cb: () => void) {
+      listeners.add(cb);
+      return () => listeners.delete(cb);
+    },
+  } as unknown as Reader;
+  return {
+    reader,
+    dispose,
+    commitLayout(nextTotalSpreads) {
+      totalSpreads = nextTotalSpreads;
+      for (const listener of listeners) listener();
+    },
+  };
+}
+
 describe('useRitoReader', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -97,9 +134,11 @@ describe('useRitoReader', () => {
       root.unmount();
     });
     container.remove();
+    vi.useRealTimers();
   });
 
-  it('treats promised data as loading before reader creation starts', async () => {
+  it('shows loading for promised data only after the fast-path delay', async () => {
+    vi.useFakeTimers();
     const fakeReader = createReaderStub();
     const fakeController = createControllerStub();
     createReaderMock.mockResolvedValue(fakeReader);
@@ -128,8 +167,12 @@ describe('useRitoReader', () => {
       loadPromise = expectHookValue(latest).load(deferred.promise);
     });
 
-    expect(expectHookValue(latest).isLoading).toBe(true);
+    expect(expectHookValue(latest).isLoading).toBe(false);
     expect(createReaderMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    expect(expectHookValue(latest).isLoading).toBe(true);
 
     deferred.resolve(new ArrayBuffer(16));
     const pendingLoad = expectDefined(loadPromise);
@@ -140,6 +183,120 @@ describe('useRitoReader', () => {
     expect(createReaderMock).toHaveBeenCalledTimes(1);
     expect(expectHookValue(latest).isLoading).toBe(false);
     expect(expectHookValue(latest).isLoaded).toBe(true);
+  });
+
+  it('waits for the first reader layout before creating the controller', async () => {
+    vi.useFakeTimers();
+    const layout = createDeferredLayoutReader({
+      metadata: { title: 'deferred' } as unknown as Reader['metadata'],
+    });
+    const fakeController = createControllerStub();
+    createReaderMock.mockResolvedValue(layout.reader);
+    createControllerMock.mockReturnValue(fakeController);
+
+    const options: UseRitoReaderOptions = {
+      reader: { width: 800, height: 600 },
+    };
+
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={options}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+
+    let loadPromise: Promise<void> | undefined;
+    act(() => {
+      loadPromise = expectHookValue(latest).load(Promise.resolve(new ArrayBuffer(16)));
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(createReaderMock).toHaveBeenCalledTimes(1);
+    expect(createControllerMock).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120);
+    });
+    expect(expectHookValue(latest).isLoading).toBe(true);
+
+    act(() => {
+      layout.commitLayout(2);
+    });
+    await act(async () => {
+      await expectDefined(loadPromise);
+    });
+
+    expect(createControllerMock).toHaveBeenCalledTimes(1);
+    expect(expectHookValue(latest).isLoading).toBe(false);
+    expect(expectHookValue(latest).totalSpreads).toBe(2);
+    expect(expectHookValue(latest).metadata).toEqual(layout.reader.metadata);
+  });
+
+  it('disposes the active stack before starting a replacement load', async () => {
+    const firstReaderDispose = vi.fn();
+    const firstReader = {
+      ...createReaderStub({ totalSpreads: 2 }),
+      dispose: firstReaderDispose,
+    } as Reader;
+    const secondReader = createReaderStub({ totalSpreads: 3 });
+    const firstControllerDispose = vi.fn();
+    const firstController = {
+      ...createControllerStub(),
+      dispose: firstControllerDispose,
+    } as ReaderController;
+    const secondController = createControllerStub();
+    const secondData = createDeferred<ArrayBuffer>();
+
+    createReaderMock.mockResolvedValueOnce(firstReader).mockResolvedValueOnce(secondReader);
+    createControllerMock.mockReturnValueOnce(firstController).mockReturnValueOnce(secondController);
+
+    const options: UseRitoReaderOptions = {
+      reader: { width: 800, height: 600 },
+    };
+
+    let latest: HookValue | null = null;
+    act(() => {
+      root.render(
+        <Harness
+          options={options}
+          onValue={(value) => {
+            latest = value;
+          }}
+        />,
+      );
+    });
+
+    await act(async () => {
+      await expectHookValue(latest).load(Promise.resolve(new ArrayBuffer(8)));
+    });
+
+    expect(expectHookValue(latest).controller).toBe(firstController);
+
+    let secondLoad: Promise<void> | undefined;
+    act(() => {
+      secondLoad = expectHookValue(latest).load(secondData.promise);
+    });
+
+    expect(firstControllerDispose).toHaveBeenCalledTimes(1);
+    expect(firstReaderDispose).toHaveBeenCalledTimes(1);
+    expect(expectHookValue(latest).controller).toBeNull();
+    expect(expectHookValue(latest).isLoading).toBe(false);
+
+    secondData.resolve(new ArrayBuffer(16));
+    await act(async () => {
+      await expectDefined(secondLoad);
+    });
+
+    expect(expectHookValue(latest).controller).toBe(secondController);
+    expect(expectHookValue(latest).totalSpreads).toBe(3);
   });
 
   it('ignores stale in-flight load completions from older requests', async () => {

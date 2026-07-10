@@ -7,15 +7,15 @@
  * sourceRef.nodePath values.
  */
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { flattenInlineContent } from '../../src/layout/text/styled-segment';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { layoutBlocks } from '../../src/layout/block';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { buildHitMap } from '../../src/interaction/core/hit-map';
-import { createGreedyLayouter } from '../../src/layout/line-breaker';
-import type { TextMeasurer } from '../../src/layout/text/text-measurer';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { flattenInlineContent } from '../../src/reference/ts-core/layout/text/styled-segment';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { layoutBlocks } from '../../src/reference/ts-core/layout/block';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import { buildHitMap } from '../../src/reference/ts-core/interaction/core/hit-map';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker';
+import type { TextMeasurer } from '../../src/reference/ts-core/layout/text/text-measurer';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 8, height: 16 }),

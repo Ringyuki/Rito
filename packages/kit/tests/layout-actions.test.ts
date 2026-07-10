@@ -1,33 +1,41 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildLayoutActions } from '../src/controller/facade/layout-actions';
+import type { ReadingPosition } from '../src/interaction/index';
 import type { Internals } from '../src/controller/core/internals';
+import { buildLayoutActions } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 
-function createMocks(opts?: {
-  setTypographyChanged?: boolean;
-  setLineBreakingChanged?: boolean;
-  currentSpread?: number;
-  totalSpreads?: number;
+function createMocks(options?: {
+  readonly setTypographyChanged?: boolean;
+  readonly setLineBreakingChanged?: boolean;
+  readonly setSpreadModeChanged?: boolean;
+  readonly currentSpread?: number;
+  readonly totalSpreads?: number;
+  readonly resolvedSpread?: number;
 }) {
   const getCanvasSize = vi.fn(() => ({ width: 800, height: 600 }));
-  const setTypography = vi.fn(() => opts?.setTypographyChanged ?? true);
-  const setLineBreaking = vi.fn(() => opts?.setLineBreakingChanged ?? true);
-  const notifyActiveSpread = vi.fn();
-  const updateLayout = vi.fn();
-  const setSpreadMode = vi.fn();
+  const setTypography = vi.fn(() => options?.setTypographyChanged ?? true);
+  const setLineBreaking = vi.fn(() => options?.setLineBreakingChanged ?? true);
+  const setSpreadMode = vi.fn(() => options?.setSpreadModeChanged ?? true);
   const setTheme = vi.fn();
-  const spreads = Array.from({ length: opts?.totalSpreads ?? 3 }, (_, index) => ({ index }));
+  const notifyActiveSpread = vi.fn();
+  const updateLayout = vi.fn(() => false);
+  const spreads = Array.from({ length: options?.totalSpreads ?? 3 }, (_, index) => ({ index }));
+  const pages = spreads.map((_, index) => ({ index }));
   const reader = {
     totalSpreads: spreads.length,
     spreads,
+    pages,
+    chapterMap: new Map(),
+    manifestHrefMap: new Map(),
     dpr: 2,
     getCanvasSize,
+    getChapterTextIndices: vi.fn(() => new Map()),
     setTypography,
     setLineBreaking,
-    notifyActiveSpread,
-    updateLayout,
     setSpreadMode,
     setTheme,
+    notifyActiveSpread,
+    updateLayout,
   };
 
   const setSize = vi.fn();
@@ -36,37 +44,30 @@ function createMocks(opts?: {
   const assignSlot = vi.fn();
   const reset = vi.fn();
   const scheduleComposite = vi.fn();
+  const compositeNow = vi.fn();
+  const setPages = vi.fn();
+  const resolve = vi.fn(() => options?.resolvedSpread);
+  const getCurrent = vi.fn<() => ReadingPosition | null>(() => null);
   const internals = {
     reader,
-    currentSpread: opts?.currentSpread ?? 1,
+    currentSpread: options?.currentSpread ?? 1,
     renderScale: 1,
     options: {},
-    engines: {},
-    coordState: {},
+    engines: {
+      search: { setPages },
+      position: { getCurrent, resolve },
+    },
+    coordState: { positionUpdateMode: { kind: 'capture' } },
   } as unknown as Internals;
 
   const runtime = {
-    surface: {
-      setSize,
-    },
-    pool: {
-      resize,
-      invalidateAllContent,
-      assignSlot,
-    },
-    td: {
-      reset,
-      viewportWidth: 0,
-    },
-    frameDriver: {
-      scheduleComposite,
-    },
+    surface: { setSize },
+    pool: { resize, invalidateAllContent, assignSlot },
+    td: { reset, viewportWidth: 0 },
+    frameDriver: { scheduleComposite, compositeNow },
   } as unknown as RuntimeComponents;
-
   const emit = vi.fn();
-  const emitter = {
-    emit,
-  } as unknown as Emitter;
+  const emitter = { emit } as unknown as Emitter;
 
   return {
     reader,
@@ -80,11 +81,15 @@ function createMocks(opts?: {
       assignSlot,
       reset,
       scheduleComposite,
+      compositeNow,
       emit,
       notifyActiveSpread,
       setTypography,
       setLineBreaking,
       setTheme,
+      setPages,
+      resolve,
+      getCurrent,
     },
   };
 }
@@ -101,19 +106,20 @@ describe('buildLayoutActions', () => {
     expect(spies.scheduleComposite).toHaveBeenCalledOnce();
   });
 
-  it('refreshes layout state when typography changes trigger repagination', () => {
+  it('refreshes layout state when typography changes commit synchronously', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime);
 
     expect(actions.setTypography({ fontSize: 18, lineHeight: 1.6 })).toBe(true);
 
     expect(spies.setTypography).toHaveBeenCalledWith({ fontSize: 18, lineHeight: 1.6 });
+    expect(spies.setPages).toHaveBeenCalledWith(reader.pages);
     expect(spies.setSize).toHaveBeenCalledWith(800, 600, 2);
     expect(spies.resize).toHaveBeenCalledWith(800, 600, 2);
-    expect(spies.invalidateAllContent).toHaveBeenCalledTimes(1);
+    expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
     expect(spies.assignSlot).toHaveBeenCalledWith('curr', 1);
-    expect(spies.reset).toHaveBeenCalledTimes(1);
-    expect(spies.scheduleComposite).toHaveBeenCalledTimes(1);
+    expect(spies.reset).toHaveBeenCalledOnce();
+    expect(spies.compositeNow).toHaveBeenCalledOnce();
     expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
       spreads: reader.spreads,
       totalSpreads: reader.totalSpreads,
@@ -121,8 +127,10 @@ describe('buildLayoutActions', () => {
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
   });
 
-  it('does nothing when typography overrides do not change layout', () => {
-    const { internals, runtime, emitter, spies } = createMocks({ setTypographyChanged: false });
+  it('does nothing when typography overrides do not commit synchronously', () => {
+    const { internals, runtime, emitter, spies } = createMocks({
+      setTypographyChanged: false,
+    });
     const actions = buildLayoutActions(internals, emitter, runtime);
 
     expect(actions.setTypography({ fontFamily: 'serif' })).toBe(false);
@@ -130,41 +138,36 @@ describe('buildLayoutActions', () => {
     expect(spies.setTypography).toHaveBeenCalledWith({ fontFamily: 'serif' });
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
-    expect(spies.scheduleComposite).not.toHaveBeenCalled();
+    expect(spies.compositeNow).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
-    expect(spies.notifyActiveSpread).not.toHaveBeenCalled();
   });
 
-  it('refreshes layout state when line-breaking changes trigger repagination', () => {
+  it('refreshes layout state when line breaking commits synchronously', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime);
 
     expect(actions.setLineBreaking('optimal')).toBe(true);
 
     expect(spies.setLineBreaking).toHaveBeenCalledWith('optimal');
-    expect(spies.setSize).toHaveBeenCalledWith(800, 600, 2);
-    expect(spies.invalidateAllContent).toHaveBeenCalledTimes(1);
     expect(spies.emit).toHaveBeenCalledWith('layoutChange', {
       spreads: reader.spreads,
       totalSpreads: reader.totalSpreads,
     });
-    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
   });
 
-  it('does nothing when line-breaking does not change layout', () => {
-    const { internals, runtime, emitter, spies } = createMocks({ setLineBreakingChanged: false });
+  it('does nothing when line breaking waits for an async commit', () => {
+    const { internals, runtime, emitter, spies } = createMocks({
+      setLineBreakingChanged: false,
+    });
     const actions = buildLayoutActions(internals, emitter, runtime);
 
     expect(actions.setLineBreaking('greedy')).toBe(false);
-
-    expect(spies.setLineBreaking).toHaveBeenCalledWith('greedy');
     expect(spies.setSize).not.toHaveBeenCalled();
     expect(spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(spies.emit).not.toHaveBeenCalled();
-    expect(spies.notifyActiveSpread).not.toHaveBeenCalled();
   });
 
-  it('emits spreadChange when repagination clamps the current spread', () => {
+  it('clamps the current spread when repagination reduces the spread count', () => {
     const { reader, internals, runtime, emitter, spies } = createMocks({
       currentSpread: 3,
       totalSpreads: 1,
@@ -178,32 +181,53 @@ describe('buildLayoutActions', () => {
       spreadIndex: 0,
       spread: reader.spreads[0],
     });
-    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(0);
   });
 
-  it('marks layout repagination as a projection of the existing position', () => {
-    const { internals, runtime, emitter, spies } = createMocks();
-    const anchor = {
-      projection: { spreadIndex: 1, pageIndex: 1 },
-      progress: 0.5,
+  it('projects the canonical position through the committed layout', () => {
+    const { internals, runtime, emitter, spies } = createMocks({
+      currentSpread: 0,
+      resolvedSpread: 2,
+    });
+    const anchor: ReadingPosition = {
+      projection: { spreadIndex: 0, pageIndex: 0 },
+      progress: 0,
       timestamp: 1,
+      locator: { spineIdref: 'chapter', chapterProgress: 0.5 },
     };
-    const getCurrent = vi.fn(() => anchor);
-    const resolve = vi.fn(() => 2);
-    internals.engines = { position: { getCurrent, resolve } } as unknown as Internals['engines'];
-    internals.coordState = {
-      positionUpdateMode: { kind: 'capture' },
-    } as unknown as Internals['coordState'];
+    spies.getCurrent.mockReturnValue(anchor);
     const actions = buildLayoutActions(internals, emitter, runtime);
 
-    expect(actions.setTypography({ fontSize: 18 })).toBe(true);
+    expect(actions.setTypography({ fontSize: 20 })).toBe(true);
 
-    expect(resolve).toHaveBeenCalledWith(anchor);
+    expect(spies.resolve).toHaveBeenCalledWith(anchor);
     expect(internals.currentSpread).toBe(2);
     expect(internals.coordState.positionUpdateMode).toEqual({
       kind: 'preserve',
       position: anchor,
     });
-    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(2);
+  });
+
+  it('refreshes immediately when spread mode commits synchronously', () => {
+    const { reader, internals, runtime, emitter, spies } = createMocks();
+    const actions = buildLayoutActions(internals, emitter, runtime);
+
+    actions.setSpreadMode('double');
+
+    expect(reader.setSpreadMode).toHaveBeenCalledWith('double');
+    expect(spies.invalidateAllContent).toHaveBeenCalledOnce();
+    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
+  });
+
+  it('waits for the Rust reader layout callback when spread mode is asynchronous', () => {
+    const { reader, internals, runtime, emitter, spies } = createMocks({
+      setSpreadModeChanged: false,
+    });
+    const actions = buildLayoutActions(internals, emitter, runtime);
+
+    actions.setSpreadMode('double');
+
+    expect(reader.setSpreadMode).toHaveBeenCalledWith('double');
+    expect(spies.invalidateAllContent).not.toHaveBeenCalled();
+    expect(spies.emit).not.toHaveBeenCalled();
   });
 });

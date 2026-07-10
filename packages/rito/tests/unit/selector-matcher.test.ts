@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { SelectorTarget } from '../../src/style/cascade/selector-matcher';
-import { matchesSelector } from '../../src/style/cascade/selector-matcher';
+import type { SelectorTarget } from '../../src/reference/ts-core/style/cascade/selector-matcher';
+import { matchesSelector } from '../../src/reference/ts-core/style/cascade/selector-matcher';
 
 function target(tag: string, opts?: Partial<Omit<SelectorTarget, 'tag'>>): SelectorTarget {
   return { tag, ...opts };

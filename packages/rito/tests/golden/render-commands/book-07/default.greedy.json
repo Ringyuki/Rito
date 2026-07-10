@@ -60,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "19ffbb76ee4e8201",
+            "hash": "f62b53fdd989771a",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "1d012d6669b6af9a",
+            "hash": "bcaa11a35f15bded",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -169,10 +169,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  57.249,
                   40,
-                  40,
-                  520,
-                  390
+                  485.502,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -210,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "19ffbb76ee4e8201",
+            "hash": "f62b53fdd989771a",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "f69e7ddb85291e7a",
+            "hash": "65703e8b741184c0",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -319,10 +319,10 @@
                   {
                     "imageHref": "Images/cover.jpg"
                   },
+                  57.249,
                   40,
-                  40,
-                  520,
-                  390
+                  485.502,
+                  720
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -404,14 +404,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "eebf6e49c7381d5b",
+            "hash": "6166914ae77348e1",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 52,
-            "hash": "b75df2af20a683ed",
+            "hash": "9478753c1ae08328",
             "methods": {
               "beginPath": 2,
               "clip": 2,
@@ -521,7 +521,7 @@
                   156,
                   96,
                   288,
-                  216
+                  128.153
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -539,7 +539,7 @@
               {
                 "args": [
                   263,
-                  320,
+                  232.153,
                   74,
                   53.2
                 ],
@@ -601,7 +601,7 @@
                     "length": 1
                   },
                   288.48,
-                  331
+                  243.153
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -638,7 +638,7 @@
                     "length": 2
                   },
                   292.32,
-                  437.2
+                  349.353
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -675,7 +675,7 @@
                     "length": 5
                   },
                   271.2,
-                  452.176
+                  364.329
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -712,7 +712,7 @@
                     "length": 2
                   },
                   292.32,
-                  496.976
+                  409.129
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -749,7 +749,7 @@
                     "length": 6
                   },
                   271.2,
-                  511.952
+                  424.105
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -789,14 +789,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "eebf6e49c7381d5b",
+            "hash": "6166914ae77348e1",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 52,
-            "hash": "c9186f1ba36a5779",
+            "hash": "d6f581b6a0be4ee2",
             "methods": {
               "beginPath": 2,
               "clip": 2,
@@ -906,7 +906,7 @@
                   156,
                   96,
                   288,
-                  216
+                  128.153
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -924,7 +924,7 @@
               {
                 "args": [
                   263,
-                  320,
+                  232.153,
                   74,
                   53.2
                 ],
@@ -986,7 +986,7 @@
                     "length": 1
                   },
                   288.48,
-                  331
+                  243.153
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1023,7 +1023,7 @@
                     "length": 2
                   },
                   292.32,
-                  437.2
+                  349.353
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1060,7 +1060,7 @@
                     "length": 5
                   },
                   271.2,
-                  452.176
+                  364.329
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1097,7 +1097,7 @@
                     "length": 2
                   },
                   292.32,
-                  496.976
+                  409.129
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1134,7 +1134,7 @@
                     "length": 6
                   },
                   271.2,
-                  511.952
+                  424.105
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1160,7 +1160,7 @@
       ]
     },
     {
-      "id": "book-07-default.greedy-page-0023",
+      "id": "book-07-default.greedy-page-0025",
       "page": {
         "bounds": {
           "height": 800,
@@ -1177,7 +1177,7 @@
           "ruby": 0,
           "textRuns": 29
         },
-        "index": 23,
+        "index": 25,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -1216,14 +1216,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "2969e89b287725ce",
+            "hash": "cb007e4c7eb034b9",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 190,
-            "hash": "0189160386a2f39e",
+            "hash": "cc2d4afedefd67cc",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -1348,6 +1348,43 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
+                "value": "0px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "c69f87caf004ee49",
+                    "length": 15
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
                 "value": "0.16326530612244897px"
               },
               {
@@ -1357,7 +1394,7 @@
                     "length": 50
                   },
                   72,
-                  42.4
+                  69.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1394,7 +1431,7 @@
                     "length": 8
                   },
                   40,
-                  63.2
+                  90.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1431,7 +1468,7 @@
                     "length": 10
                   },
                   72,
-                  90.4
+                  117.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1468,7 +1505,7 @@
                     "length": 18
                   },
                   72,
-                  117.6
+                  144.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1505,7 +1542,7 @@
                     "length": 50
                   },
                   72,
-                  144.8
+                  172
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1542,7 +1579,7 @@
                     "length": 16
                   },
                   72,
-                  172
+                  199.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1579,7 +1616,7 @@
                     "length": 7
                   },
                   72,
-                  199.2
+                  226.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1616,7 +1653,7 @@
                     "length": 19
                   },
                   72,
-                  226.4
+                  253.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1653,7 +1690,7 @@
                     "length": 10
                   },
                   72,
-                  253.6
+                  280.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1690,7 +1727,7 @@
                     "length": 11
                   },
                   72,
-                  280.8
+                  308
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1727,7 +1764,7 @@
                     "length": 50
                   },
                   72,
-                  308
+                  335.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1764,7 +1801,7 @@
                     "length": 3
                   },
                   40,
-                  328.8
+                  356
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1801,7 +1838,7 @@
                     "length": 14
                   },
                   72,
-                  356
+                  383.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1838,7 +1875,7 @@
                     "length": 8
                   },
                   72,
-                  383.2
+                  410.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1875,7 +1912,7 @@
                     "length": 19
                   },
                   72,
-                  410.4
+                  437.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1912,7 +1949,7 @@
                     "length": 26
                   },
                   72,
-                  437.6
+                  464.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1949,7 +1986,7 @@
                     "length": 50
                   },
                   72,
-                  464.8
+                  492
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1986,7 +2023,7 @@
                     "length": 12
                   },
                   40,
-                  486.4
+                  513.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -1997,8 +2034,8 @@
                     "imageHref": "Images/note.png"
                   },
                   155.2,
-                  483.2,
-                  12,
+                  510.4,
+                  14.4,
                   14.4
                 ],
                 "method": "drawImage",
@@ -2035,8 +2072,8 @@
                     "hash": "ee143df579700cf2",
                     "length": 17
                   },
-                  167.2,
-                  486.4
+                  169.6,
+                  513.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2073,7 +2110,7 @@
                     "length": 23
                   },
                   72,
-                  513.6
+                  540.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2110,7 +2147,7 @@
                     "length": 50
                   },
                   72,
-                  540.8
+                  568
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2147,7 +2184,7 @@
                     "length": 54
                   },
                   40,
-                  561.6
+                  588.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2184,7 +2221,7 @@
                     "length": 34
                   },
                   40,
-                  582.4
+                  609.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2221,7 +2258,7 @@
                     "length": 50
                   },
                   72,
-                  609.6
+                  636.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2258,7 +2295,7 @@
                     "length": 6
                   },
                   40,
-                  630.4
+                  657.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2295,7 +2332,7 @@
                     "length": 49
                   },
                   72,
-                  657.6
+                  684.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2332,7 +2369,7 @@
                     "length": 50
                   },
                   72,
-                  684.8
+                  712
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2369,43 +2406,6 @@
                     "length": 35
                   },
                   40,
-                  705.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": "0.16326530612244897px"
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6342c6e0062cf552",
-                    "length": 50
-                  },
-                  72,
                   732.8
                 ],
                 "method": "fillText",
@@ -2445,14 +2445,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "2969e89b287725ce",
+            "hash": "cb007e4c7eb034b9",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 190,
-            "hash": "175b25d3624843de",
+            "hash": "541b74fd89f81b9c",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -2577,6 +2577,43 @@
               {
                 "property": "letterSpacing",
                 "type": "set",
+                "value": "0px"
+              },
+              {
+                "args": [
+                  {
+                    "hash": "c69f87caf004ee49",
+                    "length": 15
+                  },
+                  72,
+                  42.4
+                ],
+                "method": "fillText",
+                "type": "call"
+              },
+              {
+                "property": "font",
+                "type": "set",
+                "value": "16px serif"
+              },
+              {
+                "property": "fillStyle",
+                "type": "set",
+                "value": "#000000"
+              },
+              {
+                "property": "textBaseline",
+                "type": "set",
+                "value": "top"
+              },
+              {
+                "property": "wordSpacing",
+                "type": "set",
+                "value": "0px"
+              },
+              {
+                "property": "letterSpacing",
+                "type": "set",
                 "value": "0.16326530612244897px"
               },
               {
@@ -2586,7 +2623,7 @@
                     "length": 50
                   },
                   72,
-                  42.4
+                  69.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2623,7 +2660,7 @@
                     "length": 8
                   },
                   40,
-                  63.2
+                  90.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2660,7 +2697,7 @@
                     "length": 10
                   },
                   72,
-                  90.4
+                  117.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2697,7 +2734,7 @@
                     "length": 18
                   },
                   72,
-                  117.6
+                  144.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2734,7 +2771,7 @@
                     "length": 50
                   },
                   72,
-                  144.8
+                  172
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2771,7 +2808,7 @@
                     "length": 16
                   },
                   72,
-                  172
+                  199.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2808,7 +2845,7 @@
                     "length": 7
                   },
                   72,
-                  199.2
+                  226.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2845,7 +2882,7 @@
                     "length": 19
                   },
                   72,
-                  226.4
+                  253.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2882,7 +2919,7 @@
                     "length": 10
                   },
                   72,
-                  253.6
+                  280.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2919,7 +2956,7 @@
                     "length": 11
                   },
                   72,
-                  280.8
+                  308
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2956,7 +2993,7 @@
                     "length": 50
                   },
                   72,
-                  308
+                  335.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -2993,7 +3030,7 @@
                     "length": 3
                   },
                   40,
-                  328.8
+                  356
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3030,7 +3067,7 @@
                     "length": 14
                   },
                   72,
-                  356
+                  383.2
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3067,7 +3104,7 @@
                     "length": 8
                   },
                   72,
-                  383.2
+                  410.4
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3104,7 +3141,7 @@
                     "length": 19
                   },
                   72,
-                  410.4
+                  437.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3141,7 +3178,7 @@
                     "length": 26
                   },
                   72,
-                  437.6
+                  464.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3178,7 +3215,7 @@
                     "length": 50
                   },
                   72,
-                  464.8
+                  492
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3215,7 +3252,7 @@
                     "length": 12
                   },
                   40,
-                  486.4
+                  513.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3226,8 +3263,8 @@
                     "imageHref": "Images/note.png"
                   },
                   155.2,
-                  483.2,
-                  12,
+                  510.4,
+                  14.4,
                   14.4
                 ],
                 "method": "drawImage",
@@ -3264,8 +3301,8 @@
                     "hash": "ee143df579700cf2",
                     "length": 17
                   },
-                  167.2,
-                  486.4
+                  169.6,
+                  513.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3302,7 +3339,7 @@
                     "length": 23
                   },
                   72,
-                  513.6
+                  540.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3339,7 +3376,7 @@
                     "length": 50
                   },
                   72,
-                  540.8
+                  568
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3376,7 +3413,7 @@
                     "length": 54
                   },
                   40,
-                  561.6
+                  588.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3413,7 +3450,7 @@
                     "length": 34
                   },
                   40,
-                  582.4
+                  609.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3450,7 +3487,7 @@
                     "length": 50
                   },
                   72,
-                  609.6
+                  636.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3487,7 +3524,7 @@
                     "length": 6
                   },
                   40,
-                  630.4
+                  657.6
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3524,7 +3561,7 @@
                     "length": 49
                   },
                   72,
-                  657.6
+                  684.8
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3561,7 +3598,7 @@
                     "length": 50
                   },
                   72,
-                  684.8
+                  712
                 ],
                 "method": "fillText",
                 "type": "call"
@@ -3598,43 +3635,6 @@
                     "length": 35
                   },
                   40,
-                  705.6
-                ],
-                "method": "fillText",
-                "type": "call"
-              },
-              {
-                "property": "font",
-                "type": "set",
-                "value": "16px serif"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#000000"
-              },
-              {
-                "property": "textBaseline",
-                "type": "set",
-                "value": "top"
-              },
-              {
-                "property": "wordSpacing",
-                "type": "set",
-                "value": "0px"
-              },
-              {
-                "property": "letterSpacing",
-                "type": "set",
-                "value": "0.16326530612244897px"
-              },
-              {
-                "args": [
-                  {
-                    "hash": "6342c6e0062cf552",
-                    "length": 50
-                  },
-                  72,
                   732.8
                 ],
                 "method": "fillText",
@@ -3661,7 +3661,7 @@
       ]
     },
     {
-      "id": "book-07-default.greedy-page-0041",
+      "id": "book-07-default.greedy-page-0043",
       "page": {
         "bounds": {
           "height": 800,
@@ -3678,7 +3678,7 @@
           "ruby": 2,
           "textRuns": 28
         },
-        "index": 41,
+        "index": 43,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -6289,7 +6289,7 @@
       ]
     },
     {
-      "id": "book-07-default.greedy-page-0045",
+      "id": "book-07-default.greedy-page-0047",
       "page": {
         "bounds": {
           "height": 800,
@@ -6306,7 +6306,7 @@
           "ruby": 0,
           "textRuns": 21
         },
-        "index": 45,
+        "index": 47,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 2,
@@ -8991,7 +8991,7 @@
       ]
     },
     {
-      "id": "book-07-default.greedy-page-0162",
+      "id": "book-07-default.greedy-page-0171",
       "page": {
         "bounds": {
           "height": 800,
@@ -9008,7 +9008,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 162,
+        "index": 171,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -9045,14 +9045,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "a0a0fc78bb7d5cc9",
+            "hash": "46add8e4fe22a626",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "e5c6007f8b215ce3",
+            "hash": "c8ca2432f340816b",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -9157,7 +9157,7 @@
                   40,
                   40,
                   520,
-                  390
+                  673.4
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -9195,14 +9195,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "a0a0fc78bb7d5cc9",
+            "hash": "46add8e4fe22a626",
             "height": 800,
             "width": 600
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "359dd219d47bfc64",
+            "hash": "a539d50b037b4415",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -9307,7 +9307,7 @@
                   40,
                   40,
                   520,
-                  390
+                  673.4
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -9353,7 +9353,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 163,
+    "pageCount": 172,
     "pixelRatios": [
       1,
       2
@@ -9428,8 +9428,8 @@
           "text",
           "inlineAtom"
         ],
-        "id": "book-07-default.greedy-page-0023",
-        "pageIndex": 23
+        "id": "book-07-default.greedy-page-0025",
+        "pageIndex": 25
       },
       {
         "counts": {
@@ -9451,8 +9451,8 @@
         "features": [
           "ruby"
         ],
-        "id": "book-07-default.greedy-page-0041",
-        "pageIndex": 41
+        "id": "book-07-default.greedy-page-0043",
+        "pageIndex": 43
       },
       {
         "counts": {
@@ -9474,8 +9474,8 @@
         "features": [
           "blockBorder"
         ],
-        "id": "book-07-default.greedy-page-0045",
-        "pageIndex": 45
+        "id": "book-07-default.greedy-page-0047",
+        "pageIndex": 47
       },
       {
         "counts": {
@@ -9497,8 +9497,8 @@
         "features": [
           "last"
         ],
-        "id": "book-07-default.greedy-page-0162",
-        "pageIndex": 162
+        "id": "book-07-default.greedy-page-0171",
+        "pageIndex": 171
       }
     ]
   }

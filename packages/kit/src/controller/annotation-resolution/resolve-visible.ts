@@ -3,13 +3,13 @@
  * Returns resolved annotations without syncing to the old AnnotationEngine.
  */
 
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type {
   AnnotationStore,
   ResolvedAnnotation,
   ResolutionContext,
-} from '@ritojs/core/annotations';
-import { resolveAnnotations } from '@ritojs/core/annotations';
+} from '../../interaction/index';
+import { resolveAnnotations } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
 
 /**

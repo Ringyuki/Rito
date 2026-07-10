@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseTransform } from '../../src/style/css/parse-transform';
+import { parseTransform } from '../../src/reference/ts-core/style/css/parse-transform';
 
 const DEG_TO_RAD = Math.PI / 180;
 

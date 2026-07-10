@@ -1,0 +1,298 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  cacheFrame,
+  loadFrame,
+  warmBrowserReaderFrameWindow,
+} from '../../src/bindings/browser/reader/frame-cache';
+import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
+import type {
+  BrowserReaderFrame,
+  BrowserReaderState,
+} from '../../src/bindings/browser/reader/types';
+import { frameBuffer } from './browser-reader-reflow-state-fixtures';
+
+describe('Browser reader frame window adapter', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('applies the runtime-provided frame window plan for spread warming', async () => {
+    const warmed: number[] = [];
+    const state = frameWindowState([2, 3, 1, 4, 0], (index) => warmed.push(index));
+    state.frames.clear();
+
+    void warmBrowserReaderFrameWindow(state, 2);
+    await flushPromises();
+
+    expect(warmed).toEqual([2, 3, 1, 4, 0]);
+  });
+
+  it('uses the active spread when callers request initial warming', async () => {
+    const warmed: number[] = [];
+    const state = frameWindowState([4, 5, 3], (index) => warmed.push(index));
+    state.activeSpreadIndex = 4;
+    state.frames.clear();
+
+    void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
+    await flushPromises();
+
+    expect(warmed).toEqual([4, 5, 3]);
+  });
+
+  it('coalesces concurrent warm requests for the same spread window', async () => {
+    let resolveWindow: ((value: ReturnType<typeof frameWindowResult>) => void) | undefined;
+    const warmFrameWindow = vi.fn(
+      (_revisionId: string, centerSpreadIndex: number) =>
+        new Promise<ReturnType<typeof frameWindowResult>>((resolve) => {
+          resolveWindow = resolve;
+          expect(centerSpreadIndex).toBe(2);
+        }),
+    );
+    const state = frameWindowState([2], () => undefined, {
+      worker: { warmFrameWindow },
+    });
+
+    const first = warmBrowserReaderFrameWindow(state, 2);
+    const second = warmBrowserReaderFrameWindow(state, 2);
+
+    expect(warmFrameWindow).toHaveBeenCalledOnce();
+    resolveWindow?.(frameWindowResult([2], 2));
+    await Promise.all([first, second]);
+    expect(state.pendingFrameLoads.size).toBe(0);
+  });
+
+  it('does not invalidate cached frames for empty or already decoded resources', async () => {
+    const invalidated: number[] = [];
+    const state = frameWindowState([1], (index) => invalidated.push(index), {
+      images: new Map([['cover.png', { close: vi.fn() } as unknown as ImageBitmap]]),
+      worker: {
+        warmFrameWindow: () =>
+          Promise.resolve({
+            ...frameWindowResult([1], 1),
+            spreads: [
+              { spreadIndex: 0, resources: [] },
+              {
+                spreadIndex: 1,
+                resources: [
+                  {
+                    payload: {
+                      revisionId: 'rev',
+                      transferId: 'transfer-cached',
+                      kind: 'image' as const,
+                      href: 'cover.png',
+                      mediaType: 'image/png',
+                      byteLength: 4,
+                    },
+                    bytes: new Uint8Array([1, 2, 3, 4]),
+                  },
+                ],
+              },
+            ],
+          }),
+      },
+    });
+
+    await warmBrowserReaderFrameWindow(state, 1);
+
+    expect(invalidated).toEqual([]);
+  });
+
+  it('bounds the frame cache at twelve entries and refreshes recency on access', () => {
+    const state = frameWindowState([0], () => undefined);
+    state.frames.clear();
+    for (let spreadIndex = 0; spreadIndex < 12; spreadIndex += 1) {
+      cacheFrame(state, spreadIndex, { ...frame([], []), spreadIndex });
+    }
+
+    expect(loadFrame(state, 0)?.spreadIndex).toBe(0);
+    cacheFrame(state, 12, { ...frame([], []), spreadIndex: 12 });
+
+    expect(state.frames.size).toBe(12);
+    expect([...state.frames.keys()]).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 0, 12]);
+    expect(state.frames.has(0)).toBe(true);
+    expect(state.frames.has(1)).toBe(false);
+  });
+
+  it('decodes worker-provided warm resource bytes without per-spread resource requests', async () => {
+    const image = { close: vi.fn() } as unknown as ImageBitmap;
+    const createImageBitmap = vi.fn(() => Promise.resolve(image));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    const invalidated: number[] = [];
+    const state = frameWindowState([1], (index) => invalidated.push(index), {
+      worker: {
+        warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
+          Promise.resolve({
+            plan: {
+              revisionId: 'rev',
+              centerSpreadIndex,
+              displaySpreadIndex: centerSpreadIndex,
+              spreadIndexes: [1],
+            },
+            frames: [frameBuffer('rev', 1)],
+            spreads: [
+              {
+                spreadIndex: 1,
+                resources: [
+                  {
+                    payload: {
+                      revisionId: 'rev',
+                      transferId: 'transfer-1',
+                      kind: 'image',
+                      href: 'cover.png',
+                      mediaType: 'image/png',
+                      byteLength: 4,
+                    },
+                    bytes: new Uint8Array([1, 2, 3, 4]),
+                  },
+                ],
+              },
+            ],
+          }),
+      },
+    });
+
+    void warmBrowserReaderFrameWindow(state, 1);
+    await flushPromises();
+    await flushPromises();
+
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    expect(state.images.get('cover.png')).toBe(image);
+    expect(state.frames.has(1)).toBe(true);
+    expect(invalidated).toEqual([1]);
+  });
+
+  it('uses worker-provided initial frame resource bytes without requesting them again', async () => {
+    const image = { close: vi.fn() } as unknown as ImageBitmap;
+    const createImageBitmap = vi.fn(() => Promise.resolve(image));
+    vi.stubGlobal('createImageBitmap', createImageBitmap);
+    const readResource = vi.fn();
+    const state = {
+      images: new Map(),
+      pendingImageLoads: new Map(),
+      disposed: false,
+    } as unknown as BrowserReaderState;
+
+    await preloadFrameResourceBytes(state, [
+      {
+        payload: {
+          revisionId: 'rev',
+          transferId: 'transfer-1',
+          kind: 'image',
+          href: 'cover.jpg',
+          mediaType: 'image/png',
+          byteLength: 4,
+        },
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      },
+    ]);
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(createImageBitmap).toHaveBeenCalledOnce();
+    expect(state.images.get('cover.jpg')).toBe(image);
+  });
+
+  it('skips blocking image warmup when the runtime does not mark a frame image-dominated', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn());
+    const state = {
+      images: new Map(),
+      pendingImageLoads: new Map(),
+      disposed: false,
+    } as unknown as BrowserReaderState;
+
+    if (frame(['paintImage', 'paintText'], ['cover.jpg']).imageDominated) {
+      await preloadFrameResourceBytes(state, []);
+    }
+
+    expect(globalThis.createImageBitmap).not.toHaveBeenCalled();
+  });
+});
+
+function frameWindowState(
+  spreadIndexes: readonly number[],
+  onInvalidated: (index: number) => void,
+  overrides: object = {},
+): BrowserReaderState {
+  const spreadCount = Math.max(...spreadIndexes) + 1;
+  return {
+    worker: {
+      warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
+        Promise.resolve({
+          plan: {
+            revisionId: 'rev',
+            centerSpreadIndex,
+            displaySpreadIndex: centerSpreadIndex,
+            spreadIndexes,
+          },
+          frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
+          spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
+        }),
+    },
+    revisionBundle: {
+      revision: { revisionId: 'rev', layoutKey: 'layout', pageCount: spreadCount, spreadCount },
+      navigation: {
+        revisionId: 'rev',
+        pageCount: spreadCount,
+        spreadCount,
+        spreads: [],
+        chapters: [],
+        chapterMap: {},
+      },
+      tocTargets: { revisionId: 'rev', targets: [] },
+      footnotes: { revisionId: 'rev', entries: {} },
+      chapterTextIndices: { revisionId: 'rev', entries: {} },
+      fontFamilies: [],
+    },
+    decodeFrameCommandBuffer: vi.fn(() => ({ commands: [] })),
+    activeSpreadIndex: 0,
+    registeredFontFaces: new Map(),
+    publication: {
+      fontFaces: [],
+      resources: { fonts: [], images: [], stylesheets: [] },
+    },
+    pendingFrameLoads: new Map(),
+    frames: new Map(
+      Array.from({ length: spreadCount }, (_, index) => [index, frame([], [])] as const),
+    ),
+    spreadContentInvalidatedListeners: new Set([onInvalidated]),
+    disposed: false,
+    images: new Map(),
+    pendingImageLoads: new Map(),
+    ...overrides,
+  } as unknown as BrowserReaderState;
+}
+
+function frameWindowResult(spreadIndexes: readonly number[], centerSpreadIndex: number) {
+  return {
+    plan: {
+      revisionId: 'rev',
+      centerSpreadIndex,
+      displaySpreadIndex: centerSpreadIndex,
+      spreadIndexes,
+    },
+    frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
+    spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
+  };
+}
+
+async function flushPromises(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
+function frame(commandKinds: readonly string[], imageRefs: readonly string[]): BrowserReaderFrame {
+  return {
+    revisionId: 'rev',
+    spreadIndex: 0,
+    width: 800,
+    height: 600,
+    commandHash: 'hash',
+    commands: commandKinds.map((kind) => ({ kind })),
+    resourceRefs: { images: imageRefs },
+    fontFamilies: [],
+    imageDominated:
+      imageRefs.length > 0 &&
+      !commandKinds.some((kind) => kind === 'paintText' || kind === 'paintRuby'),
+  };
+}

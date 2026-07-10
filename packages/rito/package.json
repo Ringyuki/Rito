@@ -2,7 +2,7 @@
   "name": "@ritojs/core",
   "type": "module",
   "version": "0.12.1",
-  "description": "EPUB rendering engine with a Web Canvas backend",
+  "description": "Rust-backed EPUB reader core with browser package bindings",
   "license": "AGPL-3.0-only",
   "main": "./dist/index.mjs",
   "module": "./dist/index.mjs",
@@ -32,42 +32,6 @@
       "import": "./dist/index.mjs",
       "types": "./dist/index.d.mts"
     },
-    "./advanced": {
-      "import": "./dist/advanced.mjs",
-      "types": "./dist/advanced.d.mts"
-    },
-    "./web": {
-      "import": "./dist/web.mjs",
-      "types": "./dist/web.d.mts"
-    },
-    "./integration": {
-      "import": "./dist/integration.mjs",
-      "types": "./dist/integration.d.mts"
-    },
-    "./selection": {
-      "import": "./dist/selection.mjs",
-      "types": "./dist/selection.d.mts"
-    },
-    "./search": {
-      "import": "./dist/search.mjs",
-      "types": "./dist/search.d.mts"
-    },
-    "./annotations": {
-      "import": "./dist/annotations.mjs",
-      "types": "./dist/annotations.d.mts"
-    },
-    "./position": {
-      "import": "./dist/position.mjs",
-      "types": "./dist/position.d.mts"
-    },
-    "./a11y": {
-      "import": "./dist/a11y.mjs",
-      "types": "./dist/a11y.d.mts"
-    },
-    "./dom": {
-      "import": "./dist/dom.mjs",
-      "types": "./dist/dom.d.mts"
-    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -75,9 +39,13 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
-    "diagnose:render": "pnpm run build && node scripts/render-diagnostic-case.mjs",
+    "build": "pnpm --filter @ritojs/core-wasm build && tsdown && node scripts/copy-wasm-artifact.mjs && node scripts/verify-worker-entry.mjs",
+    "build:reference": "tsdown src/reference/index.ts src/compatibility/advanced.ts src/compatibility/web.ts --format esm --out-dir .output/reference-build --tsconfig tsconfig.build.json --sourcemap false --no-dts --logLevel warn",
     "dev": "tsdown --watch",
+    "diagnose:render": "pnpm --filter @ritojs/core-wasm build && pnpm run build && pnpm run build:reference && node scripts/render-diagnostic-case.mjs",
+    "diagnose:reader-parity": "pnpm --filter @ritojs/core-wasm build && pnpm run build && pnpm run build:reference && RITO_DIAG_ENGINE=both node scripts/render-diagnostic-case.mjs",
+    "fixtures:rust:check": "pnpm run build && pnpm run build:reference && RITO_RUST_FIXTURE_CHECK=1 node scripts/export-rust-fixtures.mjs",
+    "fixtures:rust:export": "pnpm run build && pnpm run build:reference && node scripts/export-rust-fixtures.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:unit": "vitest run tests/unit",
@@ -87,22 +55,22 @@
     "test:golden:books:update": "RITO_BOOK_TESTS=1 RITO_UPDATE_GOLDEN=1 vitest run tests/golden-books/golden-books.layout.test.ts",
     "test:golden:render": "RITO_RENDER_GOLDEN=1 vitest run tests/golden-render",
     "test:golden:render:update": "RITO_RENDER_GOLDEN=1 RITO_UPDATE_GOLDEN=1 vitest run tests/golden-render",
-    "test:golden:pixel": "pnpm run build && RITO_PIXEL_GOLDEN=1 playwright test -c playwright.config.ts",
-    "test:golden:pixel:review": "pnpm run build && RITO_PIXEL_GOLDEN=1 RITO_PIXEL_REVIEW=1 playwright test -c playwright.config.ts",
-    "test:golden:pixel:update": "pnpm run build && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c playwright.config.ts",
-    "test:dom-free:dist": "pnpm run build && node scripts/verify-dom-free-dist.mjs",
+    "test:golden:pixel": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 playwright test -c playwright.config.ts",
+    "test:golden:pixel:review": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 RITO_PIXEL_REVIEW=1 playwright test -c playwright.config.ts",
+    "test:golden:pixel:update": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c playwright.config.ts",
+    "test:dom-free:reference": "pnpm run build:reference && node scripts/verify-dom-free-dist.mjs",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
   },
   "publishConfig": {
     "access": "public"
   },
-  "dependencies": {
-    "css-line-break": "^2.1.0",
-    "fflate": "^0.8.2"
-  },
+  "dependencies": {},
   "devDependencies": {
+    "@ritojs/core-wasm": "workspace:*",
     "@types/node": "^25.5.0",
+    "css-line-break": "^2.1.0",
+    "fflate": "^0.8.2",
     "happy-dom": "^20.10.6",
     "saxes": "^6.0.0",
     "tsdown": "^0.21.7",

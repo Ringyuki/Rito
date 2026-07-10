@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { applyAlign, computeEffectiveLineMetrics } from '../../src/layout/text/text-align';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
-import type { TextRun } from '../../src/layout/core/types';
+import {
+  applyAlign,
+  computeEffectiveLineMetrics,
+} from '../../src/reference/ts-core/layout/text/text-align';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
+import type { TextRun } from '../../src/reference/ts-core/layout/core/types';
 
 function makeRun(text: string, x: number, width: number): TextRun {
   return {

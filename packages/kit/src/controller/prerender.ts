@@ -1,9 +1,11 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type { PageBufferPool, ContentRenderer } from '../painter/buffer-pool';
 
 /**
- * Schedule prerendering of adjacent spreads using requestIdleCallback.
- * Falls back to setTimeout if rIC is unavailable.
+ * Schedule prerendering of adjacent spreads for the next paint turn.
+ * Adjacent page buffers are part of the navigation hot path, so this uses
+ * rAF instead of idle time; otherwise the first flip after load can miss its
+ * buffer while background full reflow is still active.
  *
  * Uses a live getCurrentSpread getter so the callback always reads the
  * current spread at execution time, not the value captured at scheduling time.
@@ -16,8 +18,8 @@ export function scheduleIdlePrerender(
   contentRenderer: ContentRenderer,
 ): void {
   const schedule =
-    typeof requestIdleCallback !== 'undefined'
-      ? requestIdleCallback
+    typeof requestAnimationFrame !== 'undefined'
+      ? requestAnimationFrame
       : (cb: () => void) => setTimeout(cb, 1);
 
   schedule(() => {

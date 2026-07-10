@@ -40,7 +40,8 @@
           "textShadow": 0
         },
         "selectedFeatures": [
-          "first"
+          "first",
+          "image"
         ]
       },
       "renders": [
@@ -59,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ea1fe71eca07ef6b",
+            "hash": "8971a7dd0826ee4f",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "b0d701cbbbeb3577",
+            "hash": "a610ef38ad404a75",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -171,7 +172,7 @@
                   28,
                   28,
                   304,
-                  228
+                  426.667
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -209,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "ea1fe71eca07ef6b",
+            "hash": "8971a7dd0826ee4f",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "593166f14799f940",
+            "hash": "ede03d2dce9f6a51",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -321,7 +322,7 @@
                   28,
                   28,
                   304,
-                  228
+                  426.667
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -4027,375 +4028,7 @@
       ]
     },
     {
-      "id": "book-10-narrow.greedy-page-0007",
-      "page": {
-        "bounds": {
-          "height": 640,
-          "width": 360,
-          "x": 0,
-          "y": 0
-        },
-        "counts": {
-          "blocks": 2,
-          "hrs": 0,
-          "images": 2,
-          "inlineAtoms": 0,
-          "lines": 0,
-          "ruby": 0,
-          "textRuns": 0
-        },
-        "index": 7,
-        "selectedFeatureCounts": {
-          "blockBackground": 0,
-          "blockBorder": 0,
-          "blockClip": 0,
-          "blockOpacity": 0,
-          "blockTransform": 0,
-          "horizontalRule": 0,
-          "image": 2,
-          "inlineAtom": 0,
-          "inlineBackground": 0,
-          "inlineBorder": 0,
-          "ruby": 0,
-          "text": 0,
-          "textDecoration": 0,
-          "textShadow": 0
-        },
-        "selectedFeatures": [
-          "image"
-        ]
-      },
-      "renders": [
-        {
-          "canvas": {
-            "height": 640,
-            "width": 360
-          },
-          "displayList": {
-            "commandCount": 10,
-            "commands": {
-              "clipRect": 1,
-              "paintImage": 2,
-              "paintPage": 2,
-              "popState": 2,
-              "pushState": 2,
-              "translate": 1
-            },
-            "hash": "63ccf7c9e20df400",
-            "height": 640,
-            "width": 360
-          },
-          "pixelRatio": 1,
-          "records": {
-            "count": 17,
-            "hash": "15e28a6f71df7707",
-            "methods": {
-              "beginPath": 1,
-              "clip": 1,
-              "drawImage": 2,
-              "fillRect": 2,
-              "rect": 1,
-              "restore": 3,
-              "save": 3,
-              "scale": 1,
-              "translate": 1
-            },
-            "properties": {
-              "fillStyle": 2
-            },
-            "sequence": [
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  1,
-                  1
-                ],
-                "method": "scale",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0
-                ],
-                "method": "translate",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "rect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "clip",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "OEBPS/Images/a004_s.jpg"
-                  },
-                  28,
-                  44,
-                  304,
-                  228
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "OEBPS/Images/0003_s.jpg"
-                  },
-                  28,
-                  288,
-                  304,
-                  228
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              }
-            ]
-          }
-        },
-        {
-          "canvas": {
-            "height": 1280,
-            "width": 720
-          },
-          "displayList": {
-            "commandCount": 10,
-            "commands": {
-              "clipRect": 1,
-              "paintImage": 2,
-              "paintPage": 2,
-              "popState": 2,
-              "pushState": 2,
-              "translate": 1
-            },
-            "hash": "63ccf7c9e20df400",
-            "height": 640,
-            "width": 360
-          },
-          "pixelRatio": 2,
-          "records": {
-            "count": 17,
-            "hash": "0bb0ef5d04ba4f7c",
-            "methods": {
-              "beginPath": 1,
-              "clip": 1,
-              "drawImage": 2,
-              "fillRect": 2,
-              "rect": 1,
-              "restore": 3,
-              "save": 3,
-              "scale": 1,
-              "translate": 1
-            },
-            "properties": {
-              "fillStyle": 2
-            },
-            "sequence": [
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  2,
-                  2
-                ],
-                "method": "scale",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0
-                ],
-                "method": "translate",
-                "type": "call"
-              },
-              {
-                "property": "fillStyle",
-                "type": "set",
-                "value": "#ffffff"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "fillRect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "save",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "beginPath",
-                "type": "call"
-              },
-              {
-                "args": [
-                  0,
-                  0,
-                  360,
-                  640
-                ],
-                "method": "rect",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "clip",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "OEBPS/Images/a004_s.jpg"
-                  },
-                  28,
-                  44,
-                  304,
-                  228
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "args": [
-                  {
-                    "imageHref": "OEBPS/Images/0003_s.jpg"
-                  },
-                  28,
-                  288,
-                  304,
-                  228
-                ],
-                "method": "drawImage",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              },
-              {
-                "args": [],
-                "method": "restore",
-                "type": "call"
-              }
-            ]
-          }
-        }
-      ]
-    },
-    {
-      "id": "book-10-narrow.greedy-page-0058",
+      "id": "book-10-narrow.greedy-page-0060",
       "page": {
         "bounds": {
           "height": 640,
@@ -4412,7 +4045,7 @@
           "ruby": 0,
           "textRuns": 21
         },
-        "index": 58,
+        "index": 60,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -6427,7 +6060,7 @@
       ]
     },
     {
-      "id": "book-10-narrow.greedy-page-0281",
+      "id": "book-10-narrow.greedy-page-0284",
       "page": {
         "bounds": {
           "height": 640,
@@ -6444,7 +6077,7 @@
           "ruby": 0,
           "textRuns": 31
         },
-        "index": 281,
+        "index": 284,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 3,
@@ -10022,7 +9655,7 @@
       ]
     },
     {
-      "id": "book-10-narrow.greedy-page-0623",
+      "id": "book-10-narrow.greedy-page-0627",
       "page": {
         "bounds": {
           "height": 640,
@@ -10039,7 +9672,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 623,
+        "index": 627,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -10076,14 +9709,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "16aa1bcaee2bb6e9",
+            "hash": "3241ee6ef03fd13b",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "cefd639c56e57a0e",
+            "hash": "d87860acf02dc10f",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -10188,7 +9821,7 @@
                   28,
                   44,
                   304,
-                  228
+                  438.198
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -10226,14 +9859,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "16aa1bcaee2bb6e9",
+            "hash": "3241ee6ef03fd13b",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "02b8464680c3c5e5",
+            "hash": "947f6e047e77b1ab",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -10338,7 +9971,7 @@
                   28,
                   44,
                   304,
-                  228
+                  438.198
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -10384,12 +10017,12 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 624,
+    "pageCount": 628,
     "pixelRatios": [
       1,
       2
     ],
-    "selectedPageCount": 7,
+    "selectedPageCount": 6,
     "selectedPages": [
       {
         "counts": {
@@ -10409,7 +10042,8 @@
           "textShadow": 0
         },
         "features": [
-          "first"
+          "first",
+          "image"
         ],
         "id": "book-10-narrow.greedy-page-0000",
         "pageIndex": 0
@@ -10468,29 +10102,6 @@
           "blockOpacity": 0,
           "blockTransform": 0,
           "horizontalRule": 0,
-          "image": 2,
-          "inlineAtom": 0,
-          "inlineBackground": 0,
-          "inlineBorder": 0,
-          "ruby": 0,
-          "text": 0,
-          "textDecoration": 0,
-          "textShadow": 0
-        },
-        "features": [
-          "image"
-        ],
-        "id": "book-10-narrow.greedy-page-0007",
-        "pageIndex": 7
-      },
-      {
-        "counts": {
-          "blockBackground": 0,
-          "blockBorder": 0,
-          "blockClip": 0,
-          "blockOpacity": 0,
-          "blockTransform": 0,
-          "horizontalRule": 0,
           "image": 0,
           "inlineAtom": 0,
           "inlineBackground": 0,
@@ -10503,8 +10114,8 @@
         "features": [
           "textDecoration"
         ],
-        "id": "book-10-narrow.greedy-page-0058",
-        "pageIndex": 58
+        "id": "book-10-narrow.greedy-page-0060",
+        "pageIndex": 60
       },
       {
         "counts": {
@@ -10527,8 +10138,8 @@
           "text",
           "blockBorder"
         ],
-        "id": "book-10-narrow.greedy-page-0281",
-        "pageIndex": 281
+        "id": "book-10-narrow.greedy-page-0284",
+        "pageIndex": 284
       },
       {
         "counts": {
@@ -10550,8 +10161,8 @@
         "features": [
           "last"
         ],
-        "id": "book-10-narrow.greedy-page-0623",
-        "pageIndex": 623
+        "id": "book-10-narrow.greedy-page-0627",
+        "pageIndex": 627
       }
     ]
   }

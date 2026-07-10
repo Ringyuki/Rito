@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest';
-import { buildKPItems } from '../../src/layout/line-breaker/kp/builder';
-import { createKnuthPlassLayouter } from '../../src/layout/line-breaker/kp';
-import { buildLineBoxes } from '../../src/layout/line-breaker/kp/line-boxes';
-import { emergencyBreaks, solveKP } from '../../src/layout/line-breaker/kp/solver';
-import type { KPItem } from '../../src/layout/line-breaker/kp/types';
+import { buildKPItems } from '../../src/reference/ts-core/layout/line-breaker/kp/builder';
+import { createKnuthPlassLayouter } from '../../src/reference/ts-core/layout/line-breaker/kp';
+import { buildLineBoxes } from '../../src/reference/ts-core/layout/line-breaker/kp/line-boxes';
+import {
+  emergencyBreaks,
+  solveKP,
+} from '../../src/reference/ts-core/layout/line-breaker/kp/solver';
+import type { KPItem } from '../../src/reference/ts-core/layout/line-breaker/kp/types';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { ComputedStyle } from '../../src/style/core/types';
-import type { InlineSegment, StyledSegment } from '../../src/layout/text/styled-segment';
-import type { InlineAtom, RubyAnnotation, TextRun } from '../../src/layout/core/types';
-import { createGreedyLayouter } from '../../src/layout/line-breaker/greedy';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { ComputedStyle } from '../../src/reference/ts-core/style/core/types';
+import type {
+  InlineSegment,
+  StyledSegment,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import type {
+  InlineAtom,
+  RubyAnnotation,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
+import { createGreedyLayouter } from '../../src/reference/ts-core/layout/line-breaker/greedy';
 
 function textOf(run: TextRun | InlineAtom | RubyAnnotation | undefined): string | undefined {
   return run?.type === 'text-run' ? run.text : undefined;

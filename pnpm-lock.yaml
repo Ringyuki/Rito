@@ -191,17 +191,19 @@ importers:
         version: 4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3))
 
   packages/rito:
-    dependencies:
+    devDependencies:
+      '@ritojs/core-wasm':
+        specifier: workspace:*
+        version: link:../rito-core-wasm
+      '@types/node':
+        specifier: ^25.5.0
+        version: 25.5.0
       css-line-break:
         specifier: ^2.1.0
         version: 2.1.0
       fflate:
         specifier: ^0.8.2
         version: 0.8.2
-    devDependencies:
-      '@types/node':
-        specifier: ^25.5.0
-        version: 25.5.0
       happy-dom:
         specifier: ^20.10.6
         version: 20.10.6
@@ -214,6 +216,8 @@ importers:
       vitest:
         specifier: ^4.1.2
         version: 4.1.2(@types/node@25.5.0)(happy-dom@20.10.6)(msw@2.12.14(@types/node@25.5.0)(typescript@6.0.2))(vite@6.4.3(@types/node@25.5.0)(jiti@2.6.1)(lightningcss@1.32.0)(yaml@2.8.3))
+
+  packages/rito-core-wasm: {}
 
 packages:
 

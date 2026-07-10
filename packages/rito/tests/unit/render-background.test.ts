@@ -16,10 +16,10 @@ import { describe, expect, it } from 'vitest';
 import {
   renderBlockDecoration,
   type ResolvedRadius,
-} from '../../src/render/backends/canvas/background/background-renderer';
-import { parseBackgroundPosition } from '../../src/style/css/parse-background-position';
-import type { BackgroundPosition } from '../../src/style/core/paint-types';
-import type { BlockPaint, LayoutBlock } from '../../src/layout/core/types';
+} from '../../src/reference/ts-core/render/backends/canvas/background/background-renderer';
+import { parseBackgroundPosition } from '../../src/reference/ts-core/style/css/parse-background-position';
+import type { BackgroundPosition } from '../../src/reference/ts-core/style/core/paint-types';
+import type { BlockPaint, LayoutBlock } from '../../src/reference/ts-core/layout/core/types';
 import { createMockCanvasContext, isCall, type CanvasCall } from '../helpers/mock-canvas-context';
 
 function calls(records: readonly unknown[]): CanvasCall[] {

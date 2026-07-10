@@ -7745,7 +7745,7 @@
       ]
     },
     {
-      "id": "book-08-narrow.greedy-page-0073",
+      "id": "book-08-narrow.greedy-page-0074",
       "page": {
         "bounds": {
           "height": 640,
@@ -7762,7 +7762,7 @@
           "ruby": 8,
           "textRuns": 37
         },
-        "index": 73,
+        "index": 74,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -11724,7 +11724,7 @@
       ]
     },
     {
-      "id": "book-08-narrow.greedy-page-0317",
+      "id": "book-08-narrow.greedy-page-0322",
       "page": {
         "bounds": {
           "height": 640,
@@ -11741,7 +11741,7 @@
           "ruby": 0,
           "textRuns": 17
         },
-        "index": 317,
+        "index": 322,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -13326,7 +13326,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 318,
+    "pageCount": 323,
     "pixelRatios": [
       1,
       2
@@ -13448,8 +13448,8 @@
           "text",
           "ruby"
         ],
-        "id": "book-08-narrow.greedy-page-0073",
-        "pageIndex": 73
+        "id": "book-08-narrow.greedy-page-0074",
+        "pageIndex": 74
       },
       {
         "counts": {
@@ -13471,8 +13471,8 @@
         "features": [
           "last"
         ],
-        "id": "book-08-narrow.greedy-page-0317",
-        "pageIndex": 317
+        "id": "book-08-narrow.greedy-page-0322",
+        "pageIndex": 322
       }
     ]
   }

@@ -1,5 +1,5 @@
-import type { EpubDocument, PaginationResult } from '../../../src/runtime/types';
-import type { SpineItem, TocEntry } from '../../../src/parser/epub/types';
+import type { EpubDocument, PaginationResult } from '../../../src/reference/ts-core/runtime/types';
+import type { SpineItem, TocEntry } from '../../../src/reference/ts-core/parser/epub/types';
 import type { BookFixture } from './book-manifest';
 import { hashJson, toJsonValue, type JsonValue } from './canonicalize';
 import type { GoldenBookConfig } from './golden-configs';

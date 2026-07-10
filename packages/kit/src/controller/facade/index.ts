@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
 import type { ControllerOptions, ReaderController } from '../types';
 import type {
   Internals,
@@ -44,7 +44,7 @@ export function buildController(
     ...buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-  } as ReaderController;
+  } as unknown as ReaderController;
   Object.defineProperties(
     controller,
     Object.getOwnPropertyDescriptors(buildReaderProxies(internals)),

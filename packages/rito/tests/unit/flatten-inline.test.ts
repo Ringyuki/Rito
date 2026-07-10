@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import type { InlineSegment, StyledSegment } from '../../src/layout/text/styled-segment';
-import { flattenInlineContent, isInlineAtom } from '../../src/layout/text/styled-segment';
-import { resolveStyles } from '../../src/style/cascade/resolver';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { StyledNode } from '../../src/style/core/types';
-import type { DocumentNode, ElementAttributes } from '../../src/parser/xhtml/types';
-import { NODE_TYPES } from '../../src/parser/xhtml/types';
+import type {
+  InlineSegment,
+  StyledSegment,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import {
+  flattenInlineContent,
+  isInlineAtom,
+} from '../../src/reference/ts-core/layout/text/styled-segment';
+import { resolveStyles } from '../../src/reference/ts-core/style/cascade/resolver';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { StyledNode } from '../../src/reference/ts-core/style/core/types';
+import type {
+  DocumentNode,
+  ElementAttributes,
+} from '../../src/reference/ts-core/parser/xhtml/types';
+import { NODE_TYPES } from '../../src/reference/ts-core/parser/xhtml/types';
 
 function asText(seg: InlineSegment | undefined): StyledSegment | undefined {
   if (!seg || isInlineAtom(seg)) return undefined;

@@ -1,4 +1,4 @@
-import type { ReadingPosition } from '@ritojs/core/position';
+import type { ReadingPosition } from '../../interaction/index';
 import type { Internals, Nav, PositionActionsSlice } from './types';
 
 export function buildPositionActions(internals: Internals, nav: Nav): PositionActionsSlice {
@@ -33,7 +33,7 @@ export function buildPositionActions(internals: Internals, nav: Nav): PositionAc
         return idx;
       }
       internals.coordState.positionUpdateMode = { kind: 'preserve', position };
-      nav.goToSpread(idx);
+      nav.jumpToSpread(idx);
       return idx;
     },
   };

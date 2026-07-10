@@ -1,11 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { buildHitMap } from '../../src/interaction/core';
-import type { TextRange } from '../../src/interaction/core';
-import { getSelectedText, getSelectionRects } from '../../src/interaction/selection';
-import { buildSearchIndex, search } from '../../src/interaction/search';
-import type { LayoutBlock, LineBox, Page, TextRun } from '../../src/layout/core/types';
-import type { TextMeasurer } from '../../src/layout/text/text-measurer';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+import { buildHitMap } from '../../src/reference/ts-core/interaction/core';
+import type { TextRange } from '../../src/reference/ts-core/interaction/core';
+import {
+  getSelectedText,
+  getSelectionRects,
+} from '../../src/reference/ts-core/interaction/selection';
+import { buildSearchIndex, search } from '../../src/reference/ts-core/interaction/search';
+import type {
+  LayoutBlock,
+  LineBox,
+  Page,
+  TextRun,
+} from '../../src/reference/ts-core/layout/core/types';
+import type { TextMeasurer } from '../../src/reference/ts-core/layout/text/text-measurer';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 
 const monospacePaint = {
   ...DEFAULT_RUN_PAINT,

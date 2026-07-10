@@ -60,14 +60,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "f7c6d2a81cb3e61a",
+            "hash": "3943c5d8e40ceed4",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "cbbaf095c6442731",
+            "hash": "ddebe10f8c6cf0ed",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -172,7 +172,7 @@
                   28,
                   28,
                   304,
-                  228
+                  455.7
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -210,14 +210,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "f7c6d2a81cb3e61a",
+            "hash": "3943c5d8e40ceed4",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "4523d9ead6e0b42d",
+            "hash": "02574a6f92773dfb",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -322,7 +322,7 @@
                   28,
                   28,
                   304,
-                  228
+                  455.7
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -23580,7 +23580,7 @@
       ]
     },
     {
-      "id": "book-09-narrow.greedy-page-0204",
+      "id": "book-09-narrow.greedy-page-0211",
       "page": {
         "bounds": {
           "height": 640,
@@ -23597,7 +23597,7 @@
           "ruby": 0,
           "textRuns": 0
         },
-        "index": 204,
+        "index": 211,
         "selectedFeatureCounts": {
           "blockBackground": 0,
           "blockBorder": 0,
@@ -23634,14 +23634,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "7c261fe81d57f2ad",
+            "hash": "95f02f7617068a7d",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 1,
           "records": {
             "count": 16,
-            "hash": "746f2788bc4aa4b9",
+            "hash": "5b0f1ae4351ba82d",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -23746,7 +23746,7 @@
                   28,
                   28,
                   304,
-                  228
+                  451.039
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -23784,14 +23784,14 @@
               "pushState": 2,
               "translate": 1
             },
-            "hash": "7c261fe81d57f2ad",
+            "hash": "95f02f7617068a7d",
             "height": 640,
             "width": 360
           },
           "pixelRatio": 2,
           "records": {
             "count": 16,
-            "hash": "5ab4a86923069210",
+            "hash": "5679012e5799339e",
             "methods": {
               "beginPath": 1,
               "clip": 1,
@@ -23896,7 +23896,7 @@
                   28,
                   28,
                   304,
-                  228
+                  451.039
                 ],
                 "method": "drawImage",
                 "type": "call"
@@ -23942,7 +23942,7 @@
   },
   "schemaVersion": 2,
   "selection": {
-    "pageCount": 205,
+    "pageCount": 212,
     "pixelRatios": [
       1,
       2
@@ -24087,8 +24087,8 @@
         "features": [
           "last"
         ],
-        "id": "book-09-narrow.greedy-page-0204",
-        "pageIndex": 204
+        "id": "book-09-narrow.greedy-page-0211",
+        "pageIndex": 211
       }
     ]
   }

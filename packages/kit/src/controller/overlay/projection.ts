@@ -3,12 +3,13 @@
  * and spread-content rects into viewport-logical space via the mapper.
  */
 import type { Page, Spread } from '@ritojs/core';
-import type { Reader } from '@ritojs/core/web';
-import { buildHitMap, getSelectionRects } from '@ritojs/core/integration';
-import type { HitMap } from '@ritojs/core/integration';
-import type { ResolvedAnnotation } from '@ritojs/core/annotations';
-import { resolveAnnotations } from '@ritojs/core/annotations';
+import type { Reader } from '@ritojs/core';
+import { buildHitMap, getSelectionRects } from '../../interaction/index';
+import type { HitMap } from '../../interaction/index';
+import type { ResolvedAnnotation } from '../../interaction/index';
+import { resolveAnnotations } from '../../interaction/index';
 import type { Rect } from '../../painter/types';
+import { asLegacyPage } from '../compat/legacy-page';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import { OVERLAY_COLORS } from './merger';
@@ -125,7 +126,7 @@ export function buildAdjacentOverlayData(
   // Build ephemeral hitMaps for this spread's pages
   const hitMaps = new Map<number, HitMap>();
   for (const page of pagesOf(spread)) {
-    hitMaps.set(page.index, buildHitMap(page));
+    hitMaps.set(page.index, buildHitMap(asLegacyPage(page)));
   }
 
   // Resolve annotations against the ephemeral hitMaps

@@ -9,10 +9,10 @@ import {
   type FontRegistry,
   type ImageDecoder,
   type ImageDimensions,
-} from '../../src/render/assets';
-import { createWebFontRegistry } from '../../src/render/assets/web';
-import type { Page, Spread } from '../../src/layout/core/types';
-import type { EpubDocument } from '../../src/runtime/types';
+} from '../../src/reference/ts-core/render/assets';
+import { createWebFontRegistry } from '../../src/reference/ts-core/render/assets/web';
+import type { Page, Spread } from '../../src/reference/ts-core/layout/core/types';
+import type { EpubDocument } from '../../src/reference/ts-core/runtime/types';
 
 interface TestImage extends ImageDimensions {
   readonly id: string;

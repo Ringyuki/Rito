@@ -1,6 +1,7 @@
-import type { Reader } from '@ritojs/core/web';
-import { buildSemanticTree, createA11yMirror, type A11yMirror } from '@ritojs/core/a11y';
+import type { Reader } from '@ritojs/core';
+import { buildSemanticTree, createA11yMirror, type A11yMirror } from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
+import { asLegacyPage } from '../compat/legacy-page';
 import type { ControllerOptions } from '../types';
 
 export function wireA11y(
@@ -24,7 +25,7 @@ export function wireA11y(
       const pages = [spread.left, spread.right].filter(
         (p): p is NonNullable<typeof p> => p != null,
       );
-      const trees = pages.flatMap((page) => buildSemanticTree(page));
+      const trees = pages.flatMap((page) => buildSemanticTree(asLegacyPage(page)));
       mirror.update(trees);
     }),
   );

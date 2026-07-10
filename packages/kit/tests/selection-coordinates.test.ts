@@ -9,10 +9,10 @@
  */
 import { describe, expect, it } from 'vitest';
 import { createLayoutConfig } from '@ritojs/core';
-import type { Page, Spread, TextMeasurer } from '@ritojs/core';
-import { createSelectionEngine } from '@ritojs/core/selection';
-import type { LayoutBlock, LineBox, TextRun } from '@ritojs/core/advanced';
-import { DEFAULT_RUN_PAINT } from '@ritojs/core/advanced';
+import type { TextMeasurer } from '@ritojs/core';
+import { createSelectionEngine } from '../src/interaction/index';
+import type { LayoutBlock, LineBox, Page, Spread, TextRun } from '../src/interaction/index';
+import { DEFAULT_RUN_PAINT } from '../src/interaction/index';
 
 const measurer: TextMeasurer = {
   measureText: (text: string) => ({ width: text.length * 10, height: 20 }),

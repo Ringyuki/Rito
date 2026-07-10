@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { MeasurePaint } from '../../src/style/core/paint-types';
-import { canvasTextMeasurementBackend } from '../../src/render/backends/canvas';
+import type { MeasurePaint } from '../../src/reference/ts-core/style/core/paint-types';
+import { canvasTextMeasurementBackend } from '../../src/reference/ts-core/render/backends/canvas';
 
 const PAINT: MeasurePaint = {
   font: {

@@ -1,4 +1,4 @@
-import type { AnnotationRecord, AnnotationRecordPatch } from '@ritojs/core/annotations';
+import type { AnnotationRecord, AnnotationRecordPatch } from '../../interaction/index';
 import type { AddAnnotationInput } from '../types';
 import type { Internals, AnnotationActionsSlice } from './types';
 import { buildAnnotationTargetFromSnapshot } from '../annotation-resolution/target-builder';

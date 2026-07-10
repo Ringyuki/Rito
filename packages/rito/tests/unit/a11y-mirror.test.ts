@@ -1,8 +1,8 @@
 // @vitest-environment happy-dom
 
 import { afterEach, describe, expect, it } from 'vitest';
-import { createA11yMirror, sanitizeA11yHref } from '../../src/dom/a11y-mirror';
-import type { SemanticNode } from '../../src/interaction/core';
+import { createA11yMirror, sanitizeA11yHref } from '../../src/reference/ts-core/dom/a11y-mirror';
+import type { SemanticNode } from '../../src/reference/ts-core/interaction/core';
 
 const bounds = { x: 0, y: 0, width: 10, height: 10 };
 

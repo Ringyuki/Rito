@@ -1,10 +1,10 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from 'vitest';
-import { paginate, paginateWithMeta } from '../../src/runtime/paginate';
-import { loadEpub } from '../../src/runtime/load-epub';
+import { paginate, paginateWithMeta } from '../../src/reference/ts-core/runtime/paginate';
+import { loadEpub } from '../../src/reference/ts-core/runtime/load-epub';
 import { createMockTextMeasurer } from '../helpers/mock-text-measurer';
 import { buildMinimalEpub } from '../helpers/epub-builder';
-import { createLayoutConfig } from '../../src/layout/core/config';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
 
 const measurer = createMockTextMeasurer(0.6);
 

@@ -1,12 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { parseXhtml } from '../../src/parser/xhtml/xhtml-parser';
+import { parseXhtml } from '../../src/reference/ts-core/parser/xhtml/xhtml-parser';
 import {
   estimateNormalizedXhtmlSourceLength,
   isXhtmlSourceWithinNormalizationBudget,
   normalizeXhtmlSource,
-} from '../../src/parser/xhtml/xhtml-source-normalizer';
-import { XhtmlParseError } from '../../src/parser/xhtml/errors';
-import type { BlockNode, InlineNode, TextNode } from '../../src/parser/xhtml/types';
+} from '../../src/reference/ts-core/parser/xhtml/xhtml-source-normalizer';
+import { XhtmlParseError } from '../../src/reference/ts-core/parser/xhtml/errors';
+import type {
+  BlockNode,
+  InlineNode,
+  TextNode,
+} from '../../src/reference/ts-core/parser/xhtml/types';
 
 function xhtml(body: string): string {
   return `<?xml version="1.0" encoding="UTF-8"?>

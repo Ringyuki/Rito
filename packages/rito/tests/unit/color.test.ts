@@ -4,7 +4,7 @@ import {
   relativeLuminance,
   contrastRatio,
   resolveTextColor,
-} from '../../src/utils/color';
+} from '../../src/reference/ts-core/utils/color';
 
 describe('parseColor', () => {
   it('parses #rrggbb hex', () => {

@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { layoutImageBlock } from '../../src/layout/block/image';
-import { DEFAULT_STYLE } from '../../src/style/core/defaults';
-import type { ImageSizeMap } from '../../src/layout/block';
-import type { ImageElement, LayoutBlock } from '../../src/layout/core/types';
+import { layoutImageBlock } from '../../src/reference/ts-core/layout/block/image';
+import { DEFAULT_STYLE } from '../../src/reference/ts-core/style/core/defaults';
+import type { ImageSizeMap } from '../../src/reference/ts-core/layout/block';
+import type { ImageElement, LayoutBlock } from '../../src/reference/ts-core/layout/core/types';
 
 function getImage(block: LayoutBlock): ImageElement {
   const child = block.children[0];

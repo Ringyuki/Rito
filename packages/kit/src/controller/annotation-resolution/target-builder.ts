@@ -6,11 +6,15 @@
  * which only accepts canonical chapter-level offsets.
  */
 
-import type { AnnotationTarget } from '@ritojs/core/annotations';
-import { createAnnotationTarget, sourcePointToOffset } from '@ritojs/core/annotations';
-import type { HitEntry, HitMap } from '@ritojs/core/integration';
-import type { SelectionSnapshot } from '@ritojs/core/selection';
-import type { SourceRef } from '@ritojs/core/integration';
+import {
+  createAnnotationTarget,
+  sourcePointToOffset,
+  type AnnotationTarget,
+  type HitEntry,
+  type HitMap,
+  type SelectionSnapshot,
+  type SourceRef,
+} from '../../interaction/index';
 import type { Internals } from '../core/internals';
 
 /**

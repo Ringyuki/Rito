@@ -1,0 +1,382 @@
+import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
+import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
+
+export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
+  async function initRitoCoreWasmEngine(initInput) {
+    try {
+      await initRitoCoreWasm(initInput);
+    } catch (error) {
+      throw callRitoCoreWasm('initRitoCoreWasmEngine', () => {
+        throw error;
+      });
+    }
+    return {
+      openDocument(bytes) {
+        return callRitoCoreWasm(
+          'openDocument',
+          () => new RitoCoreWasmDocument(new RawRitoWasmDocument(bytes)),
+        );
+      },
+    };
+  }
+
+  class RitoCoreWasmDocument {
+    constructor(inner) {
+      this._inner = inner;
+    }
+
+    free() {
+      return callRitoCoreWasm('free', () => this._inner.free());
+    }
+
+    publication() {
+      return callRitoCoreWasm('publication', () =>
+        parseObjectPayload(this._inner.publicationJson(), 'publication'),
+      );
+    }
+
+    createFullRevisionBundle(request) {
+      return jsonMethod('createFullRevisionBundle', () =>
+        this._inner.createFullRevisionBundleJson(encodeJson(request, 'createFullRevisionBundle')),
+      );
+    }
+
+    createInitialPreviewRevisionBundle(request) {
+      return jsonMethod('createInitialPreviewRevisionBundle', () =>
+        this._inner.createInitialPreviewRevisionBundleJson(
+          encodeJson(request, 'createInitialPreviewRevisionBundle'),
+        ),
+      );
+    }
+
+    createActiveChapterPreviewRevisionBundle(request) {
+      return callRitoCoreWasm('createActiveChapterPreviewRevisionBundle', () => {
+        const payload = this._inner.createActiveChapterPreviewRevisionBundleJson(
+          encodeJson(request, 'createActiveChapterPreviewRevisionBundle'),
+        );
+        if (payload === 'null') return undefined;
+        return parseObjectPayload(payload, 'createActiveChapterPreviewRevisionBundle');
+      });
+    }
+
+    createPreviewRevisionBundle(request) {
+      return callRitoCoreWasm('createPreviewRevisionBundle', () => {
+        const payload = this._inner.createPreviewRevisionBundleJson(
+          encodeJson(request, 'createPreviewRevisionBundle'),
+        );
+        if (payload === 'null') return undefined;
+        return parseObjectPayload(payload, 'createPreviewRevisionBundle');
+      });
+    }
+
+    createViewRevisionBundle(request) {
+      return jsonMethod('createViewRevisionBundle', () =>
+        this._inner.createViewRevisionBundleJson(encodeJson(request, 'createViewRevisionBundle')),
+      );
+    }
+
+    createViewRevisionBundleBytes(request) {
+      return callRitoCoreWasm('createViewRevisionBundleBytes', () => {
+        const decoded = decodeRitoRuntimeBundle(
+          this._inner.createViewRevisionBundleBytes(
+            encodeJson(request, 'createViewRevisionBundleBytes'),
+          ),
+        );
+        return decoded.payload;
+      });
+    }
+
+    getFrame(revisionId, spreadIndex) {
+      return jsonMethod('getFrame', () => this._inner.getFrameJson(revisionId, spreadIndex));
+    }
+
+    getFrameCommandBufferMetadata(revisionId, spreadIndex) {
+      return jsonMethod('getFrameCommandBufferMetadata', () =>
+        this._inner.getFrameCommandBufferMetadataJson(revisionId, spreadIndex),
+      );
+    }
+
+    readFrameCommandBuffer(revisionId, spreadIndex) {
+      return callRitoCoreWasm('readFrameCommandBuffer', () =>
+        this._inner.readFrameCommandBuffer(revisionId, spreadIndex),
+      );
+    }
+
+    getPageTargets(revisionId, pageIndex) {
+      return jsonMethod('getPageTargets', () =>
+        this._inner.getPageTargetsJson(revisionId, pageIndex),
+      );
+    }
+
+    getPageTextPositions(revisionId, pageIndex) {
+      return jsonMethod('getPageTextPositions', () =>
+        this._inner.getPageTextPositionsJson(revisionId, pageIndex),
+      );
+    }
+
+    getTextRangeGeometry(revisionId, request) {
+      return jsonMethod('getTextRangeGeometry', () =>
+        this._inner.getTextRangeGeometryJson(
+          revisionId,
+          encodeJson(request, 'getTextRangeGeometry'),
+        ),
+      );
+    }
+
+    getFootnote(revisionId, key) {
+      return jsonMethod('getFootnote', () => this._inner.getFootnoteJson(revisionId, key));
+    }
+
+    getFootnotes(revisionId) {
+      return jsonMethod('getFootnotes', () => this._inner.getFootnotesJson(revisionId));
+    }
+
+    getChapterTextIndices(revisionId) {
+      return jsonMethod('getChapterTextIndices', () =>
+        this._inner.getChapterTextIndicesJson(revisionId),
+      );
+    }
+
+    search(revisionId, request) {
+      return jsonMethod('search', () =>
+        this._inner.searchJson(revisionId, encodeJson(request, 'search')),
+      );
+    }
+
+    resolveLocator(revisionId, request) {
+      return jsonMethod('resolveLocator', () =>
+        this._inner.resolveLocatorJson(revisionId, encodeJson(request, 'resolveLocator')),
+      );
+    }
+
+    getResourcePayload(revisionId, kind, href) {
+      return jsonMethod('getResourcePayload', () =>
+        this._inner.getResourcePayloadJson(revisionId, kind, href),
+      );
+    }
+
+    prefetchResources(revisionId, request) {
+      return jsonMethod('prefetchResources', () =>
+        this._inner.prefetchResourcesJson(revisionId, encodeJson(request, 'prefetchResources')),
+      );
+    }
+
+    prefetchPlannedFrameResources(revisionId, spreadIndex) {
+      return jsonMethod('prefetchPlannedFrameResources', () =>
+        this._inner.prefetchPlannedFrameResourcesJson(revisionId, spreadIndex),
+      );
+    }
+
+    readerWorkerPayload(request) {
+      return callRitoCoreWasm('readerWorkerPayload', () => readerWorkerPayload(this, request));
+    }
+
+    readResourceTransfer(transferId) {
+      return callRitoCoreWasm('readResourceTransfer', () =>
+        this._inner.readResourceTransfer(transferId),
+      );
+    }
+
+    releaseResourceTransfer(transferId) {
+      return callRitoCoreWasm('releaseResourceTransfer', () =>
+        this._inner.releaseResourceTransfer(transferId),
+      );
+    }
+
+    releaseRevisionTransfers(revisionId) {
+      return callRitoCoreWasm('releaseRevisionTransfers', () =>
+        this._inner.releaseRevisionTransfers(revisionId),
+      );
+    }
+
+    releaseRevision(revisionId) {
+      return callRitoCoreWasm('releaseRevision', () => this._inner.releaseRevision(revisionId));
+    }
+
+    pendingResourceTransferCount() {
+      return callRitoCoreWasm('pendingResourceTransferCount', () =>
+        this._inner.pendingResourceTransferCount(),
+      );
+    }
+  }
+
+  return { initRitoCoreWasmEngine, RitoCoreWasmDocument };
+}
+
+function readerWorkerPayload(document, request) {
+  switch (request.kind) {
+    case 'createViewRevision':
+      return createReaderViewRevision(document, request.request, request.wire);
+    case 'readResource':
+      return readReaderResource(document, request.revisionId, request.resourceKind, request.href);
+    case 'warmFrameWindow':
+      return warmReaderFrameWindow(document, request.revisionId, request.spreadIndex);
+    case 'resolveLocator':
+      return resolveReaderLocator(document, request.revisionId, request.locator);
+    case 'search':
+      return { kind: 'search', result: document.search(request.revisionId, request.request) };
+    case 'releaseRevisionTransfers':
+      document.releaseRevisionTransfers(request.revisionId);
+      return { kind: 'releaseRevisionTransfers' };
+    case 'releaseRevision':
+      document.releaseRevision(request.revisionId);
+      return { kind: 'releaseRevision' };
+    default:
+      throw new Error(`Unsupported reader worker request: ${String(request.kind)}`);
+  }
+}
+
+function createReaderViewRevision(document, request, wire) {
+  const view =
+    wire === 'ritorb1'
+      ? document.createViewRevisionBundleBytes(request)
+      : document.createViewRevisionBundle(request);
+  return {
+    kind: 'createViewRevision',
+    result: {
+      kind: view.kind,
+      display: view.display,
+      ...(view.followUp !== undefined ? { followUp: view.followUp } : {}),
+      result: revisionResult(document, view.result),
+    },
+  };
+}
+
+function revisionResult(document, result) {
+  return {
+    bundle: result.bundle,
+    ...(result.frameSelection !== undefined ? { frameSelection: result.frameSelection } : {}),
+    ...selectedFrameWindowResult(
+      document,
+      result.bundle.revision.revisionId,
+      result.frameSelection,
+      result.initialFrameWindow,
+    ),
+    preview: result.preview,
+  };
+}
+
+function selectedFrameWindowResult(document, revisionId, frameSelection, frameWindow) {
+  if (frameWindow === undefined || frameSelection === undefined) return {};
+  if (frameWindow.plan.revisionId !== revisionId) throw new Error('frame window revision mismatch');
+  const warmed = frameWindowResult(document, frameWindow);
+  const frame = warmed.frames.find(
+    (frame) => frame.metadata.spreadIndex === frameSelection.spreadIndex,
+  );
+  if (!frame) {
+    throw new Error('planned frame window missing selected frame');
+  }
+  return {
+    frameWindow: warmed,
+    selectedFrame: {
+      spreadIndex: frameSelection.spreadIndex,
+      displaySpreadIndex: frameSelection.displaySpreadIndex,
+      frame,
+    },
+  };
+}
+
+function warmReaderFrameWindow(document, revisionId, spreadIndex) {
+  const prefetched = document.prefetchPlannedFrameResources(revisionId, spreadIndex);
+  return { kind: 'warmFrameWindow', result: frameWindowResult(document, prefetched) };
+}
+
+function frameWindowResult(document, prefetched) {
+  return {
+    plan: prefetched.plan,
+    frames: prefetched.plan.spreadIndexes.map((spreadIndex) =>
+      readFrameBuffer(document, prefetched.plan.revisionId, spreadIndex),
+    ),
+    spreads: prefetched.spreads.map((spread) => ({
+      spreadIndex: spread.spreadIndex,
+      resources: readResourcePayloadBytes(document, spread.payloads),
+    })),
+  };
+}
+
+function readFrameBuffer(document, revisionId, spreadIndex) {
+  return {
+    metadata: document.getFrameCommandBufferMetadata(revisionId, spreadIndex),
+    bytes: document.readFrameCommandBuffer(revisionId, spreadIndex),
+  };
+}
+
+function readReaderResource(document, revisionId, kind, href) {
+  const payload = document.getResourcePayload(revisionId, kind, href);
+  try {
+    return {
+      kind: 'readResource',
+      result: { payload, bytes: document.readResourceTransfer(payload.transferId) },
+    };
+  } finally {
+    document.releaseResourceTransfer(payload.transferId);
+  }
+}
+
+function readResourcePayloadBytes(document, payloads) {
+  const resources = [];
+  for (const payload of payloads) {
+    try {
+      resources.push({ payload, bytes: document.readResourceTransfer(payload.transferId) });
+    } catch {
+      // Frame resource warmup is opportunistic. Missing bytes should not fail callers.
+    } finally {
+      document.releaseResourceTransfer(payload.transferId);
+    }
+  }
+  return resources;
+}
+
+function resolveReaderLocator(document, revisionId, locator) {
+  const href = stringProperty(locator, 'href');
+  const resolved = document.resolveLocator(revisionId, { href });
+  return {
+    kind: 'resolveLocator',
+    result: {
+      entry: { label: href, href, children: [] },
+      pageIndex: resolved.pageIndex,
+      spreadIndex: resolved.spreadIndex,
+    },
+  };
+}
+
+function stringProperty(object, key) {
+  const value = object[key];
+  if (typeof value !== 'string' || value.length === 0) {
+    throw new Error(`Reader worker locator is missing ${key}`);
+  }
+  return value;
+}
+
+function jsonMethod(operation, readPayload) {
+  return callRitoCoreWasm(operation, () => parseObjectPayload(readPayload(), operation));
+}
+
+function encodeJson(value, operation) {
+  try {
+    return JSON.stringify(value);
+  } catch (error) {
+    throw new Error(
+      `${operation} input is not JSON-serializable: ${
+        error instanceof Error ? error.message : String(error)
+      }`,
+      { cause: error },
+    );
+  }
+}
+
+function parseObjectPayload(payload, operation) {
+  let value;
+  try {
+    value = JSON.parse(payload);
+  } catch (error) {
+    throw new Error(
+      `${operation} returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error },
+    );
+  }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${operation} returned a non-object JSON payload`);
+  }
+  return value;
+}

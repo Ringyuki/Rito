@@ -5,39 +5,15 @@ import { describe, expect, it } from 'vitest';
  * Validates that the public API surface exports the expected symbols.
  */
 describe('public API surface', () => {
-  it('exports platform-neutral functions from the main entry', async () => {
+  it('exports the Rust-backed reader facade from the main entry', async () => {
     const api = await import('../../src/index');
-    expect(api.loadEpub).toBeDefined();
-    expect(api.paginate).toBeDefined();
-    expect(api.buildSpreads).toBeDefined();
+    expect(api.createReader).toBeDefined();
     expect(api.createLayoutConfig).toBeDefined();
-    expect(api.buildPageDisplayList).toBeDefined();
-    expect(api.buildSpreadDisplayList).toBeDefined();
-    expect(api.createImageAssetResolver).toBeDefined();
-    expect(api.loadFontsWithRegistry).toBeDefined();
-    expect(api.loadImagesWithDecoder).toBeDefined();
-    expect(api.createLazyImageLoaderWithDecoder).toBeDefined();
+    expect(api.preloadReaderRuntime).toBeDefined();
   });
 
-  it('exports Web Canvas preset APIs from the web entry', async () => {
-    const web = await import('../../src/web');
-    expect(web.createReader).toBeDefined();
-    expect(web.prepare).toBeDefined();
-    expect(web.disposeResources).toBeDefined();
-    expect(web.render).toBeDefined();
-    expect(web.renderPage).toBeDefined();
-    expect(web.createTextMeasurer).toBeDefined();
-    expect(web.getSpreadDimensions).toBeDefined();
-    expect(web.loadFonts).toBeDefined();
-    expect(web.loadImages).toBeDefined();
-    expect(web.loadAssets).toBeDefined();
-    expect(web.paginateWithAssets).toBeDefined();
-    expect(web.canvasDisplayListRenderer).toBeDefined();
-    expect(web.canvasTextMeasurementBackend).toBeDefined();
-  });
-
-  it('exports the stable controller-integration boundary', async () => {
-    const integration = await import('../../src/integration');
+  it('keeps the controller-integration oracle in the reference core', async () => {
+    const integration = await import('../../src/reference/ts-core/interaction');
     expect(integration.buildHitMap).toBeDefined();
     expect(integration.buildLinkMap).toBeDefined();
     expect(integration.getSelectionRects).toBeDefined();
@@ -46,15 +22,15 @@ describe('public API surface', () => {
 
   it('does not export internal APIs from main entry', async () => {
     const api = await import('../../src/index');
-    // Parser internals should be in @ritojs/core/advanced
+    // Parser internals are reference-only during the Rust migration.
     expect((api as Record<string, unknown>)['NODE_TYPES']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseXhtml']).toBeUndefined();
     expect((api as Record<string, unknown>)['createZipReader']).toBeUndefined();
-    // Style internals should be in @ritojs/core/advanced
+    // Style internals are reference-only during the Rust migration.
     expect((api as Record<string, unknown>)['DEFAULT_STYLE']).toBeUndefined();
     expect((api as Record<string, unknown>)['resolveStyles']).toBeUndefined();
     expect((api as Record<string, unknown>)['parseCssDeclarations']).toBeUndefined();
-    // Layout internals should be in @ritojs/core/advanced
+    // Layout internals are reference-only during the Rust migration.
     expect((api as Record<string, unknown>)['layoutBlocks']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateBlocks']).toBeUndefined();
     // Advanced runtime / render helpers should be kept off the main entry
@@ -67,7 +43,6 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['disposeResources']).toBeUndefined();
     expect((api as Record<string, unknown>)['render']).toBeUndefined();
     expect((api as Record<string, unknown>)['renderPage']).toBeUndefined();
-    expect((api as Record<string, unknown>)['createReader']).toBeUndefined();
     expect((api as Record<string, unknown>)['createTextMeasurer']).toBeUndefined();
     expect((api as Record<string, unknown>)['getSpreadDimensions']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateWithAssets']).toBeUndefined();
@@ -76,44 +51,15 @@ describe('public API surface', () => {
     expect((api as Record<string, unknown>)['canvasDisplayListRenderer']).toBeUndefined();
     expect((api as Record<string, unknown>)['canvasTextMeasurementBackend']).toBeUndefined();
     expect((api as Record<string, unknown>)['paginateInWorker']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createRustWorkerClient']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createBrowserRustWorkerClient']).toBeUndefined();
+    expect((api as Record<string, unknown>)['createInProcessRustWorkerClient']).toBeUndefined();
     expect((api as Record<string, unknown>)['createLogger']).toBeUndefined();
   });
 
-  it('exports internal APIs from advanced entry', async () => {
-    const adv = await import('../../src/advanced');
-    expect(adv.NODE_TYPES).toBeDefined();
-    expect(adv.DEFAULT_STYLE).toBeDefined();
-    expect(adv.FONT_WEIGHTS).toBeDefined();
-    expect(adv.FONT_STYLES).toBeDefined();
-    expect(adv.TEXT_ALIGNMENTS).toBeDefined();
-    expect(adv.parseXhtml).toBeDefined();
-    expect(adv.resolveStyles).toBeDefined();
-    expect(adv.layoutBlocks).toBeDefined();
-    expect(adv.paginateBlocks).toBeDefined();
-    expect(adv.createZipReader).toBeDefined();
-    expect(adv.paginateWithMeta).toBeDefined();
-    expect(adv.findPageForTocEntry).toBeDefined();
-    expect(adv.loadFonts).toBeDefined();
-    expect(adv.loadImages).toBeDefined();
-    expect(adv.loadFontsWithRegistry).toBeDefined();
-    expect(adv.loadImagesWithDecoder).toBeDefined();
-    expect(adv.loadAssets).toBeDefined();
-    expect(adv.paginateWithAssets).toBeDefined();
-    expect(adv.disposeAssets).toBeDefined();
-    expect(adv.createLazyImageLoader).toBeDefined();
-    expect(adv.createLazyImageLoaderWithDecoder).toBeDefined();
-    expect(adv.createImageAssetResolver).toBeDefined();
-    expect(adv.createWebFontRegistry).toBeDefined();
-    expect(adv.createWebImageAssetResolver).toBeDefined();
-    expect(adv.createWebImageDecoder).toBeDefined();
-    expect(adv.collectPageImageSources).toBeDefined();
-    expect(adv.collectSpreadImageSources).toBeDefined();
-    expect(adv.buildPageDisplayList).toBeDefined();
-    expect(adv.buildSpreadDisplayList).toBeDefined();
-    expect(adv.canvasDisplayListRenderer).toBeDefined();
-    expect((adv as Record<string, unknown>)['renderDisplayListToCanvas']).toBeUndefined();
-    expect(adv.canvasTextMeasurementBackend).toBeDefined();
-    expect((adv as Record<string, unknown>)['createCanvasTextMeasurer']).toBeUndefined();
-    expect(adv.createLogger).toBeDefined();
+  it('does not keep legacy TypeScript compatibility subpaths in package exports', async () => {
+    const packageJson = await import('../../package.json');
+    const exportsMap = packageJson.default.exports as Record<string, unknown>;
+    expect(Object.keys(exportsMap).sort()).toEqual(['.', './package.json']);
   });
 });

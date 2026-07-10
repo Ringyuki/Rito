@@ -1,0 +1,206 @@
+{
+  "entries": [
+    {
+      "bookId": "book-01",
+      "configId": "smoke.greedy",
+      "path": "book-01/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-01",
+      "configId": "default.greedy",
+      "path": "book-01/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-01",
+      "configId": "narrow.greedy",
+      "path": "book-01/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-01",
+      "configId": "default.optimal",
+      "path": "book-01/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-02",
+      "configId": "smoke.greedy",
+      "path": "book-02/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-02",
+      "configId": "default.greedy",
+      "path": "book-02/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-02",
+      "configId": "narrow.greedy",
+      "path": "book-02/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-02",
+      "configId": "default.optimal",
+      "path": "book-02/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-03",
+      "configId": "smoke.greedy",
+      "path": "book-03/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-03",
+      "configId": "default.greedy",
+      "path": "book-03/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-03",
+      "configId": "narrow.greedy",
+      "path": "book-03/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-03",
+      "configId": "default.optimal",
+      "path": "book-03/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-04",
+      "configId": "smoke.greedy",
+      "path": "book-04/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-04",
+      "configId": "default.greedy",
+      "path": "book-04/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-04",
+      "configId": "narrow.greedy",
+      "path": "book-04/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-04",
+      "configId": "default.optimal",
+      "path": "book-04/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-05",
+      "configId": "smoke.greedy",
+      "path": "book-05/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-05",
+      "configId": "default.greedy",
+      "path": "book-05/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-05",
+      "configId": "narrow.greedy",
+      "path": "book-05/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-05",
+      "configId": "default.optimal",
+      "path": "book-05/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-06",
+      "configId": "smoke.greedy",
+      "path": "book-06/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-06",
+      "configId": "default.greedy",
+      "path": "book-06/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-06",
+      "configId": "narrow.greedy",
+      "path": "book-06/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-06",
+      "configId": "default.optimal",
+      "path": "book-06/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-07",
+      "configId": "smoke.greedy",
+      "path": "book-07/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-07",
+      "configId": "default.greedy",
+      "path": "book-07/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-07",
+      "configId": "narrow.greedy",
+      "path": "book-07/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-07",
+      "configId": "default.optimal",
+      "path": "book-07/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-08",
+      "configId": "smoke.greedy",
+      "path": "book-08/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-08",
+      "configId": "default.greedy",
+      "path": "book-08/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-08",
+      "configId": "narrow.greedy",
+      "path": "book-08/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-08",
+      "configId": "default.optimal",
+      "path": "book-08/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-09",
+      "configId": "smoke.greedy",
+      "path": "book-09/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-09",
+      "configId": "default.greedy",
+      "path": "book-09/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-09",
+      "configId": "narrow.greedy",
+      "path": "book-09/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-09",
+      "configId": "default.optimal",
+      "path": "book-09/default.optimal.json.gz"
+    },
+    {
+      "bookId": "book-10",
+      "configId": "smoke.greedy",
+      "path": "book-10/smoke.greedy.json.gz"
+    },
+    {
+      "bookId": "book-10",
+      "configId": "default.greedy",
+      "path": "book-10/default.greedy.json.gz"
+    },
+    {
+      "bookId": "book-10",
+      "configId": "narrow.greedy",
+      "path": "book-10/narrow.greedy.json.gz"
+    },
+    {
+      "bookId": "book-10",
+      "configId": "default.optimal",
+      "path": "book-10/default.optimal.json.gz"
+    }
+  ],
+  "kind": "rito-rust-parity-fixture-manifest",
+  "schemaVersion": 1
+}

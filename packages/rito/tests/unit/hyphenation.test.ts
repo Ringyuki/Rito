@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { findHyphenationPoints } from '../../src/layout/text/hyphenation';
+import { findHyphenationPoints } from '../../src/reference/ts-core/layout/text/hyphenation';
 
 describe('findHyphenationPoints', () => {
   describe('short words (< 6 chars) return empty', () => {

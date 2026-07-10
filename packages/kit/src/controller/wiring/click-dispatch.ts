@@ -1,5 +1,5 @@
-import type { Reader } from '@ritojs/core/web';
-import type { HitEntry, LinkRegion } from '@ritojs/core/integration';
+import type { Reader } from '@ritojs/core';
+import type { HitEntry, LinkRegion } from '../../interaction/index';
 import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';

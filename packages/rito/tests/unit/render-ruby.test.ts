@@ -17,7 +17,7 @@
  * rendered exactly once.
  */
 import { describe, expect, it } from 'vitest';
-import { renderPage } from '../../src/render/page';
+import { renderPage } from '../../src/reference/ts-core/render/page';
 import type {
   LayoutBlock,
   LineBox,
@@ -26,9 +26,9 @@ import type {
   RubyAnnotation,
   RunPaint,
   TextRun,
-} from '../../src/layout/core/types';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { DEFAULT_RUN_PAINT } from '../../src/layout/text/run-paint-from-style';
+} from '../../src/reference/ts-core/layout/core/types';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { DEFAULT_RUN_PAINT } from '../../src/reference/ts-core/layout/text/run-paint-from-style';
 import type { CanvasCall, CanvasPropertySet, CanvasRecord } from '../helpers/mock-canvas-context';
 import { isCall } from '../helpers/mock-canvas-context';
 

@@ -11,8 +11,8 @@ import {
   parseListStyleType,
   parsePageBreak,
   parseBorder,
-} from '../../src/style/css/value-parsers';
-import { parseLength, evaluateCalc } from '../../src/style/css/parse-utils';
+} from '../../src/reference/ts-core/style/css/value-parsers';
+import { parseLength, evaluateCalc } from '../../src/reference/ts-core/style/css/parse-utils';
 
 describe('parseFontWeight', () => {
   it('parses bold to 700', () => {

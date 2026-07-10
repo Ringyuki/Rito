@@ -1,7 +1,10 @@
-import type { ReadingPosition } from '@ritojs/core/position';
-import type { ReaderThemeOptions } from '@ritojs/core/web';
+import type { Reader } from '@ritojs/core';
+import type { ReadingPosition } from '../../interaction/index';
+import { asLegacyPages } from '../compat/legacy-page';
 import { syncCanvasSize } from './lifecycle';
-import type { Internals, Emitter, RuntimeComponents, LayoutActionsSlice } from './types';
+import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
+
+type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
 export function buildLayoutActions(
   internals: Internals,
@@ -9,38 +12,32 @@ export function buildLayoutActions(
   runtime: RuntimeComponents,
 ): LayoutActionsSlice {
   return {
-    resize(w: number, h: number, margin?: number): void {
+    resize(width, height, margin): void {
       const anchor = currentPosition(internals);
-      const changed = internals.reader.updateLayout(w, h, undefined, margin);
+      const changed = internals.reader.updateLayout(width, height, undefined, margin);
       refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
-    setSpreadMode(mode: 'single' | 'double'): void {
+    setSpreadMode(mode): void {
       const anchor = currentPosition(internals);
-      internals.reader.setSpreadMode(mode);
-      emitLayoutChange(internals, emitter, runtime, anchor);
+      const result = internals.reader.setSpreadMode(mode);
+      refreshLayoutWhenChanged(didCommitSynchronously(result), internals, emitter, runtime, anchor);
     },
-    setLineBreaking(lineBreaking: 'greedy' | 'optimal'): boolean {
+    setLineBreaking(lineBreaking): boolean {
       const anchor = currentPosition(internals);
       const changed = internals.reader.setLineBreaking(lineBreaking);
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
-    setTheme(opts: ReaderThemeOptions): void {
-      internals.reader.setTheme(opts);
+    setTheme(options: ReaderThemeOptions): void {
+      internals.reader.setTheme(options);
       runtime.pool.invalidateAllContent();
       runtime.frameDriver.scheduleComposite();
     },
-    setTypography(opts: {
-      fontSize?: number | null;
-      lineHeight?: number | null;
-      lineHeightForce?: boolean;
-      fontFamily?: string | null;
-      fontFamilyForce?: boolean;
-    }): boolean {
+    setTypography(options): boolean {
       const anchor = currentPosition(internals);
-      const changed = internals.reader.setTypography(opts);
+      const changed = internals.reader.setTypography(options);
       return refreshLayoutWhenChanged(changed, internals, emitter, runtime, anchor);
     },
-    setRenderScale(scale: number): void {
+    setRenderScale(scale): void {
       applyRenderScale(scale, internals, runtime);
     },
     get renderScale() {
@@ -56,7 +53,6 @@ function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeC
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
   runtime.frameDriver.scheduleComposite();
-  // Rebuild coordinator (mapper uses renderScale for coordinate projection)
   internals.coordState.positionUpdateMode = { kind: 'skip' };
   internals.reader.notifyActiveSpread(internals.currentSpread);
 }
@@ -69,28 +65,29 @@ function refreshLayoutWhenChanged(
   anchor: ReadingPosition | null,
 ): boolean {
   if (!changed) return false;
-  emitLayoutChange(internals, emitter, runtime, anchor);
+  commitLayoutChange(internals, emitter, runtime, anchor);
   return true;
 }
 
-function emitLayoutChange(
+function didCommitSynchronously(result: unknown): boolean {
+  return result !== false;
+}
+
+/** Commit either a synchronous layout update or an async Rust revision callback. */
+export function commitLayoutChange(
   internals: Internals,
   emitter: Emitter,
   runtime: RuntimeComponents,
-  anchor: ReadingPosition | null = null,
+  anchor: ReadingPosition | null = currentPosition(internals),
 ): void {
   const previousSpread = internals.currentSpread;
-  const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
-  const resolvedSpread = anchor ? internals.engines.position?.resolve(anchor) : undefined;
-  internals.currentSpread = Math.max(
-    0,
-    Math.min(resolvedSpread ?? internals.currentSpread, maxSpreadIndex),
-  );
+  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
+  internals.currentSpread = resolveCommittedSpread(internals, anchor);
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
   runtime.td.reset();
-  runtime.frameDriver.scheduleComposite();
+  runtime.frameDriver.compositeNow();
   emitter.emit('layoutChange', {
     spreads: internals.reader.spreads,
     totalSpreads: internals.reader.totalSpreads,
@@ -98,6 +95,12 @@ function emitLayoutChange(
   emitSpreadChangeIfNeeded(internals, emitter, previousSpread);
   if (anchor) internals.coordState.positionUpdateMode = { kind: 'preserve', position: anchor };
   internals.reader.notifyActiveSpread(internals.currentSpread);
+}
+
+function resolveCommittedSpread(internals: Internals, anchor: ReadingPosition | null): number {
+  const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
+  const resolved = anchor ? internals.engines.position?.resolve(anchor) : undefined;
+  return Math.max(0, Math.min(resolved ?? internals.currentSpread, maxSpreadIndex));
 }
 
 function currentPosition(internals: Internals): ReadingPosition | null {

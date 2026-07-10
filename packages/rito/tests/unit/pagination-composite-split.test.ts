@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { ImageElement, LayoutBlock, LineBox } from '../../src/layout/core/types';
-import { createLayoutConfig } from '../../src/layout/core/config';
-import { paginateBlocks } from '../../src/layout/pagination';
-import { forceSplitBlock, trySplitBlock } from '../../src/layout/pagination/split';
+import type {
+  ImageElement,
+  LayoutBlock,
+  LineBox,
+} from '../../src/reference/ts-core/layout/core/types';
+import { createLayoutConfig } from '../../src/reference/ts-core/layout/core/config';
+import { paginateBlocks } from '../../src/reference/ts-core/layout/pagination';
+import {
+  forceSplitBlock,
+  trySplitBlock,
+} from '../../src/reference/ts-core/layout/pagination/split';
 
 function line(y: number, height = 20): LineBox {
   return { type: 'line-box', bounds: { x: 0, y, width: 100, height }, runs: [] };

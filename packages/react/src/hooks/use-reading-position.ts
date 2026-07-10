@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react';
-import type { ReaderController } from '@ritojs/kit';
-import type { ReadingPosition } from '@ritojs/core/position';
+import type { ReaderController, ReadingPosition } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 export interface ReadingPositionState {

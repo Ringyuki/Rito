@@ -136,192 +136,192 @@
       "textLength": 773
     },
     {
-      "endPage": 77,
+      "endPage": 79,
       "href": "Text/Section001.xhtml",
       "idref": "Section001.xhtml",
       "linear": true,
-      "pageCount": 63,
+      "pageCount": 65,
       "startPage": 15,
       "textHash": "7e283515bab297cc",
       "textLength": 44059
     },
     {
-      "endPage": 79,
+      "endPage": 81,
       "href": "Text/Section002.xhtml",
       "idref": "Section002.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 78,
+      "startPage": 80,
       "textHash": "e16db048b95556f3",
       "textLength": 1755
     },
     {
-      "endPage": 146,
+      "endPage": 149,
       "href": "Text/Section003.xhtml",
       "idref": "Section003.xhtml",
       "linear": true,
-      "pageCount": 67,
-      "startPage": 80,
+      "pageCount": 68,
+      "startPage": 82,
       "textHash": "2ff3b92f0c1a26c2",
       "textLength": 46760
     },
     {
-      "endPage": 150,
+      "endPage": 153,
       "href": "Text/Section004.xhtml",
       "idref": "Section004.xhtml",
       "linear": true,
       "pageCount": 4,
-      "startPage": 147,
+      "startPage": 150,
       "textHash": "89540a2b03aeba95",
       "textLength": 2453
     },
     {
-      "endPage": 216,
+      "endPage": 221,
       "href": "Text/Section005.xhtml",
       "idref": "Section005.xhtml",
       "linear": true,
-      "pageCount": 66,
-      "startPage": 151,
+      "pageCount": 68,
+      "startPage": 154,
       "textHash": "46e8c8c3f86ffcb1",
       "textLength": 44195
     },
     {
-      "endPage": 219,
+      "endPage": 224,
       "href": "Text/Section006.xhtml",
       "idref": "Section006.xhtml",
       "linear": true,
       "pageCount": 3,
-      "startPage": 217,
+      "startPage": 222,
       "textHash": "9708da8eb15b4720",
       "textLength": 1857
     },
     {
-      "endPage": 264,
+      "endPage": 270,
       "href": "Text/Section007.xhtml",
       "idref": "Section007.xhtml",
       "linear": true,
-      "pageCount": 45,
-      "startPage": 220,
+      "pageCount": 46,
+      "startPage": 225,
       "textHash": "e40ea478d768f367",
       "textLength": 30602
     },
     {
-      "endPage": 266,
+      "endPage": 272,
       "href": "Text/Section008.xhtml",
       "idref": "Section008.xhtml",
       "linear": true,
       "pageCount": 2,
-      "startPage": 265,
+      "startPage": 271,
       "textHash": "1f8893d43f1b07bb",
       "textLength": 1451
     },
     {
-      "endPage": 273,
+      "endPage": 279,
       "href": "Text/Section009.xhtml",
       "idref": "Section009.xhtml",
       "linear": true,
       "pageCount": 7,
-      "startPage": 267,
+      "startPage": 273,
       "textHash": "62d363e860e5348b",
       "textLength": 5088
     },
     {
-      "endPage": 276,
+      "endPage": 282,
       "href": "Text/Section010.xhtml",
       "idref": "Section010.xhtml",
       "linear": true,
       "pageCount": 3,
-      "startPage": 274,
+      "startPage": 280,
       "textHash": "0ec85279f1496146",
       "textLength": 2278
     },
     {
-      "endPage": 277,
+      "endPage": 283,
       "href": "Text/Theatre01.xhtml",
       "idref": "Theatre01.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 277,
+      "startPage": 283,
       "textHash": "a49bcc8ef5c3a3cc",
       "textLength": 1190
     },
     {
-      "endPage": 278,
+      "endPage": 284,
       "href": "Text/Theatre02.xhtml",
       "idref": "Theatre02.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 278,
+      "startPage": 284,
       "textHash": "25e856d95ba8a6f5",
       "textLength": 1309
     },
     {
-      "endPage": 279,
+      "endPage": 285,
       "href": "Text/Theatre03.xhtml",
       "idref": "Theatre03.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 279,
+      "startPage": 285,
       "textHash": "836691e7b55bc4da",
       "textLength": 1136
     },
     {
-      "endPage": 280,
+      "endPage": 286,
       "href": "Text/Theatre04.xhtml",
       "idref": "Theatre04.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 280,
+      "startPage": 286,
       "textHash": "c917e7582dbdab29",
       "textLength": 1136
     },
     {
-      "endPage": 281,
+      "endPage": 287,
       "href": "Text/Theatre05.xhtml",
       "idref": "Theatre05.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 281,
+      "startPage": 287,
       "textHash": "bbe2b69b92706c73",
       "textLength": 1045
     },
     {
-      "endPage": 282,
+      "endPage": 288,
       "href": "Text/Theatre06.xhtml",
       "idref": "Theatre06.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 282,
+      "startPage": 288,
       "textHash": "1335aeb20b2caca5",
       "textLength": 1314
     },
     {
-      "endPage": 283,
+      "endPage": 289,
       "href": "Text/Theatre07.xhtml",
       "idref": "Theatre07.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 283,
+      "startPage": 289,
       "textHash": "b83668dc5a6173ef",
       "textLength": 1403
     },
     {
-      "endPage": 284,
+      "endPage": 290,
       "href": "Text/Theatre08.xhtml",
       "idref": "Theatre08.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 284,
+      "startPage": 290,
       "textHash": "7693a38ed5130abb",
       "textLength": 1136
     },
     {
-      "endPage": 285,
+      "endPage": 291,
       "href": "Text/Theatre09.xhtml",
       "idref": "Theatre09.xhtml",
       "linear": true,
       "pageCount": 1,
-      "startPage": 285,
+      "startPage": 291,
       "textHash": "5d65a094fbd2682a",
       "textLength": 1137
     }
@@ -369,7 +369,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "1c787055fffe1352",
+      "detailHash": "1c418ed5780ebecb",
       "firstText": "",
       "index": 0,
       "lastText": ""
@@ -384,7 +384,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "26bc794a52495b70",
+      "detailHash": "f090fac72e7d338c",
       "firstText": "",
       "index": 1,
       "lastText": ""
@@ -444,7 +444,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "81d1e2937937e6f1",
+      "detailHash": "9c66d3482a432c30",
       "firstText": "",
       "index": 5,
       "lastText": ""
@@ -459,7 +459,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "3be7aedd9b27e516",
+      "detailHash": "61697efd0303c4d6",
       "firstText": "",
       "index": 6,
       "lastText": ""
@@ -474,7 +474,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "fc34b35a9e8eea51",
+      "detailHash": "7d723205a4037f8c",
       "firstText": "",
       "index": 7,
       "lastText": ""
@@ -489,7 +489,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "92e17ca8092c47e7",
+      "detailHash": "6e0ac200bd17c3a6",
       "firstText": "",
       "index": 8,
       "lastText": ""
@@ -504,7 +504,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "507fc1fccb7da4f7",
+      "detailHash": "1dc2af3cdbadd89c",
       "firstText": "",
       "index": 9,
       "lastText": ""
@@ -519,7 +519,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "78890247f81478c5",
+      "detailHash": "56bd306b3d33c1ed",
       "firstText": "",
       "index": 10,
       "lastText": ""
@@ -534,7 +534,7 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "85927ab4b0f2f76d",
+      "detailHash": "c9112e2c2e567b53",
       "firstText": "CONTENTS",
       "index": 11,
       "lastText": "~三败目~"
@@ -549,7 +549,7 @@
         "ruby": 0,
         "textRuns": 14
       },
-      "detailHash": "adf0340bf95f17a5",
+      "detailHash": "a0cec526b24a59c9",
       "firstText": "在开战前",
       "index": 12,
       "lastText": "窥视着你"
@@ -564,7 +564,7 @@
         "ruby": 0,
         "textRuns": 0
       },
-      "detailHash": "914c9d846c3a6d5a",
+      "detailHash": "24e0f3e2253b76f9",
       "firstText": "",
       "index": 13,
       "lastText": ""
@@ -691,18 +691,168 @@
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 6,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 5,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 3
       },
-      "detailHash": "67ffabf52f88887d",
+      "detailHash": "e4f0427e6850677f",
       "firstText": "额，也就是说……？",
       "index": 22,
-      "lastText": "我对她感到可悲的同时吸了口哈密瓜汽水。"
+      "lastText": "听了我的话后，八奈见的脸色变了。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "be3857ebf2bf0664",
+      "firstText": "「欸？！就，就是快交往的状态啦，如果那个乳牛女没出现的话",
+      "index": 23,
+      "lastText": "好像哭了一会儿后冷静了下来。擦了下眼泪露出了微笑。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "83e473ad8a33b1be",
+      "firstText": "「抱歉呢，我失态了」",
+      "index": 24,
+      "lastText": "「果然上午的时候还得这个水龙头啊……」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 25,
+        "ruby": 0,
+        "textRuns": 25
+      },
+      "detailHash": "75a1f5786000c670",
+      "firstText": "我在第三节课的休息时间选的是，新校舍一楼图书室前面的洗手",
+      "index": 25,
+      "lastText": "围一直聚集着很多人，放着不管的话估计上课铃响之前她都不会动吧。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "e0e60beb5bbad00b",
+      "firstText": "我特意绕远路走过自己的位置，将手中为了这种时刻特意准备好",
+      "index": 26,
+      "lastText": "八奈见也在那笑着摆出爽朗的表情。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "5b3748ebf839daad",
+      "firstText": "……因为之前那事还挺担心八奈见的，不过她看上好像还挺精神",
+      "index": 27,
+      "lastText": "「那么，午休在中庭一起吃——」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "fb2f9b3957cf0280",
+      "firstText": "「额，那个」",
+      "index": 28,
+      "lastText": "八奈见杏菜。是个发型稍显蓬松且给人感觉女子力很高的女生。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "5eb15c753141be2e",
+      "firstText": "眼角微微下垂，让人感觉很天真的小脸蛋，简直集齐了受男生欢",
+      "index": 29,
+      "lastText": "打开了印刷室的门，那里有着我们预料到的身影。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "6657b03511072eda",
+      "firstText": "「唔哇，这是什么情况」",
+      "index": 30,
+      "lastText": "「欸欸欸！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "a0ae0cbecd1575e1",
+      "firstText": "巴沙巴沙",
+      "index": 31,
+      "lastText": "她很平淡讲这句话说了出来。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "73936667cf397e41",
+      "firstText": "只见八奈见眼中失去了高光，正机械地整理着收集来的讲义。",
+      "index": 32,
+      "lastText": "前阵子我就在想了，你们真的是挚友吗。"
     },
     {
       "counts": {
@@ -714,10 +864,325 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "11ff2d3a0f81643f",
-      "firstText": "「和你说个真事，这是秘密喔。我跟草介一起洗过澡喔」",
-      "index": 23,
-      "lastText": "但是，八奈见这豪快的被甩样算什么啊。"
+      "detailHash": "53251b521a570707",
+      "firstText": "「那个大大的肉袋里装了粘稠的恶意。温水君也这么想的吧？」",
+      "index": 33,
+      "lastText": "「我知道了，老师我会试试的。虽然忘带教科书了」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "e8a7ac744c908556",
+      "firstText": "「不是，教科书您还是带上吧」",
+      "index": 34,
+      "lastText": "八奈见刚坐下就说了这么一句话。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "c4fe71ff2ac224d5",
+      "firstText": "「放学后，华恋酱说要三个人一起去唱K」",
+      "index": 35,
+      "lastText": "「额， 别想太多，就是凑巧发消息晚了点而已吧」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "3843091f469ac0fd",
+      "firstText": "「那天晚上，我收到了草介姐姐发来的短信。说和草介联络不",
+      "index": 36,
+      "lastText": "我们沉默地开始吃起午饭。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "03ce66ae4fedd5be",
+      "firstText": "已经早早吃完咖喱面包的我，悄悄看了下八奈见。我为什么会和",
+      "index": 37,
+      "lastText": "……误解深得很啊。你对我的印象到底是怎样的啊。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "ecd1575471d21084",
+      "firstText": "「那，差不多可以把钱还给我了吧。这个是那时候的小票」",
+      "index": 38,
+      "lastText": "「哈」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "79e5fefc0718c251",
+      "firstText": "所以她想说什么。羞怯的八奈见眼睛直直地盯着筷子前头那表面",
+      "index": 39,
+      "lastText": "「那个，果然我」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "d50807188946b88a",
+      "firstText": "「那从明天开始，我会在这里等你喔」",
+      "index": 40,
+      "lastText": "这女生奇怪的言行举止是什么回事。换作我的话可不会这样哦。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "7bfddf9164c82ef7",
+      "firstText": "「额？你是谁？哪来的？」",
+      "index": 41,
+      "lastText": "生，我感觉很难在那待下去所以就没去了。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "e1d3aa37a88785b4",
+      "firstText": "我目送着小鞠离去的背影的同时，也确信了我当时不去文艺部的",
+      "index": 42,
+      "lastText": "文库本。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "d716a914c6164b0a",
+      "firstText": "虽然说是冷淡型角色，但你这单纯就是冷淡得过分了吧。不会有",
+      "index": 43,
+      "lastText": "「不、不、不行！这个、男生不能看！」"
+    },
+    {
+      "counts": {
+        "blocks": 7,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 8,
+        "ruby": 0,
+        "textRuns": 7
+      },
+      "detailHash": "f6f6cd9ac37ed785",
+      "firstText": "「可是这不是太宰治的书吗？」",
+      "index": 44,
+      "lastText": "小鞠躲在眼镜同学的身后用带着怨恨的目光盯着我。"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 5
+      },
+      "detailHash": "7f072e394670481f",
+      "firstText": "「哎呀，看来并非如此」",
+      "index": 45,
+      "lastText": "人了。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0509960fa8182f31",
+      "firstText": "「啊，不好意思，完全成了个挂名的部员」",
+      "index": 46,
+      "lastText": "向我递来一杯茶的月之木学姐问道。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "57dda219962b742e",
+      "firstText": "「那个，最近全是轻小说」",
+      "index": 47,
+      "lastText": "沉浸在书本里的小鞠突然发出奇怪的声音。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "f4484154de9b7bc9",
+      "firstText": "「慎太郎那家伙忘了做今天班上的值日还留在教室里补做。我不",
+      "index": 48,
+      "lastText": "点。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "8a69359957f09f77",
+      "firstText": "咚咚。是敲门声。到底是谁啊在这么忙的时候来。",
+      "index": 49,
+      "lastText": "白色的瞳孔仔细地打量着我。啊，不好。好像就是因为我才有被"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "7f307b58a29e0ba2",
+      "firstText": "废部的危机来着。",
+      "index": 50,
+      "lastText": "进插头的同时，我注意到了一件事。"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "fd99d8b3ccef3578",
+      "firstText": "我这人还挺正常的。",
+      "index": 51,
+      "lastText": "明流着同样的血为什么差距这么大啊。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "a574ee7a23058776",
+      "firstText": "「但是我比较想买平胸前辈呢」",
+      "index": 52,
+      "lastText": "小事——"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 11,
+        "ruby": 0,
+        "textRuns": 10
+      },
+      "detailHash": "bd42705048dcf5a1",
+      "firstText": "「哥哥大人。没朋友不是什么羞耻的事情」",
+      "index": 53,
+      "lastText": "佳树擦了擦泪水，将我的头紧紧抱住。好热。"
+    },
+    {
+      "counts": {
+        "blocks": 5,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 5
+      },
+      "detailHash": "339a1861cce16f4e",
+      "firstText": "温水佳树。到底是兄控还是太过担心呢，总之对我的事特别关",
+      "index": 54,
+      "lastText": "嘛，课程表改了没人告诉我导致上课迟到，被联络人毫无恶意地"
     },
     {
       "counts": {
@@ -729,10 +1194,55 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "26972304004f48f4",
-      "firstText": "八奈见还在接着说。我一边把手伸向薯条，一边用满是同情的目",
-      "index": 24,
-      "lastText": "回得太早的话我就不知道该怎么去应对其他人坐在我位子上的麻"
+      "detailHash": "ce44bee2f929c19b",
+      "firstText": "无视了之类的小事倒是有。",
+      "index": 55,
+      "lastText": "「就做~你自己~ ，是那首吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "218a6ccf5dd22a7c",
+      "firstText": "总感觉，好像不太对。",
+      "index": 56,
+      "lastText": "「这个是便利店里的东西吧」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "c205b66e3ecfe9ba",
+      "firstText": "「你有好好听我说话了吗？都说我准备不了两人份的便当啦」",
+      "index": 57,
+      "lastText": "这家伙。担心她的我简直跟笨蛋一样。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "f0665dc9b75c17e5",
+      "firstText": "「说起来温水君。昨天放学后去了哪里呢？我看你去的方向不是",
+      "index": 58,
+      "lastText": "我是很想赶紧离开教室的，但作为班里的『观察者』有个建议。"
     },
     {
       "counts": {
@@ -744,550 +1254,40 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "5b6748be4ab58627",
-      "firstText": "烦情况。",
-      "index": 25,
-      "lastText": "去。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e4f94ffac9e331ce",
-      "firstText": "难道说。我朝黑板看去。",
-      "index": 26,
-      "lastText": "「对啊，顾虑这些可不像你啊」"
-    },
-    {
-      "counts": {
-        "blocks": 21,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "de3d53fba783720d",
-      "firstText": "「草介才是，稍微考虑下华恋酱的想法啊」",
-      "index": 27,
-      "lastText": "三人一脸懵地看着我。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "c7b6a02090e425d4",
-      "firstText": "就是这个啊。就是这个表情啊。真是对不起啊我这种背景一样的",
-      "index": 28,
-      "lastText": "「嗯？我脸上有什么吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "01934f90c1699ea0",
-      "firstText": "八奈见歪着头毫无防备地看着我的脸。",
-      "index": 29,
-      "lastText": "「啊咧，八奈见。怎么来这了不是在上课——唔呀！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "5abf38ce0ed37228",
-      "firstText": "甘夏老师踩到纸滑倒了，手里的讲义也一下子满天飘。",
-      "index": 30,
-      "lastText": "……暴风雨过去了。我们被老师的气势给吓住，过了一会儿才回"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "86535d037be92151",
-      "firstText": "过神。",
-      "index": 31,
-      "lastText": "「……这是在找我麻烦吧？还是说要显摆给我看呢？」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b30476cc6bc7a0e6",
-      "firstText": "八奈见终于还是把纸张给捏烂了。",
-      "index": 32,
-      "lastText": "「拜占庭万岁！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "27baf13d3e1f571a",
-      "firstText": "兴致十分高涨的甘夏老师走了进来。而我只有一股不好的预感。",
-      "index": 33,
-      "lastText": "……老师，我吐槽累了可以先回去了吗。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "55420e43470324d5",
-      "firstText": "◇",
-      "index": 34,
-      "lastText": "我怎么知道啊，那种事情。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "dd32601979bd29ee",
-      "firstText": "「我没去唱过K，所以我不太清楚」",
-      "index": 35,
-      "lastText": "挨了一顿突刺的芋头碎了一地。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8048d82dd6d855d7",
-      "firstText": "「肯、肯定是手机没电了吧。我也经常碰到这样的情况」",
-      "index": 36,
-      "lastText": "「那个，八奈见同学」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "4516c6be1e5faca1",
-      "firstText": "我情不自禁地发出了声音，甚至连自己都吓了一跳。而且我都没",
-      "index": 37,
-      "lastText": "「嗯」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "35601ef72f4286ad",
-      "firstText": "「还有最后这个涮猪肉沙拉乌冬」",
-      "index": 38,
-      "lastText": "「我虽然不是很擅长做饭，只是做便当的话」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "49bfeb56daaf699f",
-      "firstText": "「……欸？便当？」",
-      "index": 39,
-      "lastText": "◇"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9265a873ec2133bf",
-      "firstText": "听着午休结束的铃声，我疲惫地坐回椅子上。",
-      "index": 40,
-      "lastText": "「因、因为、温水君、是文艺部、的吧！」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "ca473f47f7999dce",
-      "firstText": "「欸」",
-      "index": 41,
-      "lastText": "◇"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e01e7190dd8e6eec",
-      "firstText": "我已经想回去了。",
-      "index": 42,
-      "lastText": "「那个，小鞠同学，这里的书——」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d8f5ee210e927c63",
-      "firstText": "「额。那、那个。」",
-      "index": 43,
-      "lastText": "小鞠躲在眼镜同学的身后用带着怨恨的目光盯着我。"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "5aa1fe99b3572450",
-      "firstText": "「哎呀，看来并非如此」",
-      "index": 44,
-      "lastText": "月之木学姐看着小鞠拿着的文库本，好像理解了似地点了下头。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8663f55ab020cf4d",
-      "firstText": "「啊，忘了说了呢。书架上的太宰和三岛的书是男生不可以看",
-      "index": 45,
-      "lastText": "「首先是部长。就是4月份你来的时候给你讲解的3年级学生"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "fdf56a30dcbe448a",
-      "firstText": "喔」",
-      "index": 46,
-      "lastText": "特意讲两遍」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a1ae88bfa43c2d21",
-      "firstText": "月之木学姐轻轻地挥了挥手后便走了出去。",
-      "index": 47,
-      "lastText": "得十分华丽，略显松散的校服搭配着较短的裙子。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "6ad09c063f8c5ffd",
-      "firstText": "妆容乍看之下十分自然，睫毛却很浓密，话说白色的美瞳好恐",
-      "index": 48,
-      "lastText": "「只是……看而已吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "697a3764cc911cf8",
-      "firstText": "志喜屋同学歪起脑袋，欸，只是那样不行吗？",
-      "index": 49,
-      "lastText": "◇"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "48bd996e85eb5153",
-      "firstText": "当天晚上，我在房间的书桌上重新修改笔记本上的计划表。在文",
-      "index": 50,
-      "lastText": "真狡猾。也借给哥哥啊。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "36b378033950b42a",
-      "firstText": "我正要表达不满的时候，嘴巴被曲奇给堵上了。真好吃。",
-      "index": 51,
-      "lastText": "「而且佳树也对将哥哥大人逼到不得不说谎的自己感到悲伤」"
-    },
-    {
-      "counts": {
-        "blocks": 12,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 14,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "bd817e2e7d5a312c",
-      "firstText": "佳树眼泪汪汪地接着喂给我曲奇。",
-      "index": 52,
-      "lastText": "我感叹之后会变得很麻烦的同时吸起了冰红茶。"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "0ccbc11fcea1fa1e",
-      "firstText": "《今天的欠款余额：3617日元》",
-      "index": 53,
-      "lastText": "我听来简直就是地狱啊」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "834bd7a1b87fb3b2",
-      "firstText": "啊，那首啊。我记得王子的歌词是——",
-      "index": 54,
-      "lastText": "这能称之为亲手制作的便当吗。确实外包装是亲手制作的。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "1b54d05e514e4c01",
-      "firstText": "「温水君，这个能抵多少呢」",
-      "index": 55,
-      "lastText": "「看得真仔细」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "d3b1a55686ae128a",
-      "firstText": "「因为你总是一个人径直去鞋柜那里很醒目啊」",
-      "index": 56,
-      "lastText": "观察着班级同学动向的人就镇守在那里。就算是我这种背景板去接近他"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "9e05acc58346e3d3",
-      "firstText": "们，他们也是不会让开道路的。",
-      "index": 57,
-      "lastText": "「我想应该可以吧。我帮你拜托下学姐」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8bcf2b4f898f49be",
-      "firstText": "「抱歉，感激不尽」",
-      "index": 58,
-      "lastText": "「欸……嗯，拜拜……」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d47644e2b2deeb58",
-      "firstText": "烧盐丝毫不掩盖自己的沮丧，无精打采地挥着手。",
+      "detailHash": "4d1da760f61a34ed",
+      "firstText": "——这里应该选择『等待』。班会刚结束时的学校里有很多危",
       "index": 59,
-      "lastText": "烧盐露出了像蓝天一样的笑容。"
+      "lastText": "「啊、嗯。姑且我也算是文艺部的」"
     },
     {
       "counts": {
         "blocks": 18,
         "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 23
       },
-      "detailHash": "d560370b8d2e2f4c",
-      "firstText": "嘛，考试结束之后他们会怎么样我可就不知道了。",
+      "detailHash": "1cf3bf0f066fc514",
+      "firstText": "「我听老师说那里有安部公房的全集来着。下次去我能把书借走",
       "index": 60,
-      "lastText": "◇"
+      "lastText": "教室的门口突然出现了个身材苗条的女生。"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 23
       },
-      "detailHash": "02673c8ef4143910",
-      "firstText": "在前往社团活动室的走廊途中，我向八奈见叮嘱道。",
+      "detailHash": "2a53a31ac2f17898",
+      "firstText": "咦。那人好像是在补习班一直跟绫野在一起的女生。既可爱又成",
       "index": 61,
-      "lastText": "「啊，不是，不是这——」"
+      "lastText": "嗯？烧盐这家伙，难道说。"
     },
     {
       "counts": {
@@ -1299,10 +1299,40 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "351f4efdd9510e84",
-      "firstText": "「欸，您误会了。我们只是同班同学而已」",
+      "detailHash": "ceabe75b1646f876",
+      "firstText": "「因为两个人都是特升班的，所以才会时不时会一起吧。我觉得",
       "index": 62,
-      "lastText": "一样来势汹汹地站起身闯到我们中间。"
+      "lastText": "我沉默地点了点头。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "9ad42119ad9e82e5",
+      "firstText": "◇",
+      "index": 63,
+      "lastText": "月之木学姐扶好眼镜，在和我擦身而过的时候戳了我一下。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "07652c2b8b4001d6",
+      "firstText": "「温水君真有你的。居然能带来这么可爱的孩子」",
+      "index": 64,
+      "lastText": "「你根本不学习的吧」"
     },
     {
       "counts": {
@@ -1314,130 +1344,25 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "082fa8217172920e",
-      "firstText": "「那、那个、部长、前、前阵子借给我的书、超有趣的！」",
-      "index": 63,
-      "lastText": "一脸通红地嘟囔着。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "e4a0a8d1cb31ee54",
-      "firstText": "「小鞠酱果然好可爱啊！古都好好跟人家学学」",
-      "index": 64,
-      "lastText": "『对！只是青梅竹马！』"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "78ffe5f35caba2ba",
-      "firstText": "小鞠气愤地撂下这句话离开——倒也没有这样，她尽兴地说完后",
+      "detailHash": "c0b2c3887dc2606e",
+      "firstText": "「学了学了。啊，温水君好久不见。还有一位新的社团成员？」",
       "index": 65,
-      "lastText": "不知道是不是感觉到了我们的视线，小鞠害怕地蜷缩着。唔，这"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9632e23d78dbcc2b",
-      "firstText": "股违和感是什么呢。",
-      "index": 66,
-      "lastText": "不知道是不是很快就闲得无聊了，八奈见开始看向了书架那边。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "226da7ebaa2af683",
-      "firstText": "会惹出很多麻烦所以千万别向太宰和三岛出手喔。",
-      "index": 67,
-      "lastText": "因被全部人屏蔽了该怎么办噢。"
+      "lastText": "事件了啊。小鞠"
     },
     {
       "counts": {
         "blocks": 18,
         "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "02edffa29b9d8499",
-      "firstText": "就在我七上八下的时候月之木学姐发来了回复。啊啊，太好了。",
-      "index": 68,
-      "lastText": "「那个。这是什么情况，说明白点」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
         "lines": 22,
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a9b1d4457d2f9060",
-      "firstText": "「佳树十分担心一边看着手机里推的角色一边傻笑的哥哥大人」",
-      "index": 69,
-      "lastText": "「第一次做兼具自我介绍的意图，果然得用哥哥大人的头像」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "c9614a185acd6a95",
-      "firstText": "额，等等等等。快住手好恐怖。",
-      "index": 70,
-      "lastText": "「你把我想成什么人了。我吃的是真正的食物所以不用担心」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "064846dc8419e177",
-      "firstText": "毕竟里面可是便利店卖的东西。",
-      "index": 71,
-      "lastText": "家里学习」"
+      "detailHash": "94fc22adbfc2059b",
+      "firstText": "酱，如果讨厌的话我帮你好好跟他说清楚」",
+      "index": 66,
+      "lastText": "「不知道。但是，有在交往着的那种气氛」"
     },
     {
       "counts": {
@@ -1449,10 +1374,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "3d87be4311aeac61",
-      "firstText": "「拒绝不就好了」",
-      "index": 72,
-      "lastText": "我说你这个能不能别把我也掺和进去。"
+      "detailHash": "a0d1fc60375c14a3",
+      "firstText": "耳尖的小鞠听到我们的对话后把手机怼到我们这来。",
+      "index": 67,
+      "lastText": "都是偷腥猫。听不懂吗——？」"
     },
     {
       "counts": {
@@ -1464,10 +1389,70 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "749f3823b6662381",
-      "firstText": "「再从头来一次噢。今天杏菜酱突然来不了了。轮到温水君了。",
-      "index": 73,
-      "lastText": "八奈见让我拿着盒盖，自己则用筷子戳进饭里。"
+      "detailHash": "79cef277b6e7bc8d",
+      "firstText": "那个啊。就跟有个男的在百合中乱入进来一样。原来如此，这样",
+      "index": 68,
+      "lastText": "「总之我先给你倒杯茶，你在参观名册上把名字写了吧。」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "fbba9ce04b7ce1df",
+      "firstText": "「谢谢。啊，我要绿茶」",
+      "index": 69,
+      "lastText": "说起来绫野拜托我借书来着，好，趁着这个势头发送我的第一次"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "c00ba14a911d251f",
+      "firstText": "信息吧。",
+      "index": 70,
+      "lastText": "「知道自己任性了就好好改改吧」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "ba34561c04762efd",
+      "firstText": "佳树不管我的吐槽，郑重其事地咳了一声。",
+      "index": 71,
+      "lastText": "「不对不对，你也要想想被初中生的妹妹这样对待的哥哥的立场"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "1f44d00688a06dfc",
+      "firstText": "啊」",
+      "index": 72,
+      "lastText": "「就是啊。连朋友都没的哥哥大人怎么可能会有女朋友」"
     },
     {
       "counts": {
@@ -1475,14 +1460,59 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 18
       },
-      "detailHash": "97e679c27c178e78",
-      "firstText": "「你在干嘛呢？」",
+      "detailHash": "23169b7995cfda05",
+      "firstText": "为什么我要被自己的亲妹妹反复提及没朋友啊。",
+      "index": 73,
+      "lastText": "这。看来是真的打算用便当来还钱了。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "81287c9a4dc7402a",
+      "firstText": "她在楼梯上铺好手绢然后坐下，既不是女朋友也不是朋友的她在",
       "index": 74,
-      "lastText": "当低的了。还有这个便当分量很大啊……"
+      "lastText": "「哈？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "7fc5726a0ef7e9b6",
+      "firstText": "这家伙，又说了些奇怪的话。",
+      "index": 75,
+      "lastText": "「……温水君，现在不是提那个的时候吧。你没有朋友吗」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "54f5be0e3d1d32db",
+      "firstText": "不劳你费心。",
+      "index": 76,
+      "lastText": "欸，这样啊。太好了，八奈见不是被这样的料理养大的。"
     },
     {
       "counts": {
@@ -1494,14 +1524,14 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "3bc3762d41d81a39",
-      "firstText": "「照这个趋势的话暑假前就能还完吧」",
-      "index": 75,
-      "lastText": "不经意的一句话。所以我也把自己无意中想要说出口的很普通的"
+      "detailHash": "dfea4989846fb6b2",
+      "firstText": "啊，在那坨炒菜里面吃出了冷冻的炸薯饼。",
+      "index": 77,
+      "lastText": "「她好像拿了市里的100m新人战的优胜噢。在高总体的县预"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -1509,24 +1539,24 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "72423a229b7e8690",
-      "firstText": "话语都咽了回去。",
-      "index": 76,
-      "lastText": "「也许吧」"
+      "detailHash": "dbaff99d0e639624",
+      "firstText": "赛里也拿到了好名次」",
+      "index": 78,
+      "lastText": "「被甩了这个事情，我脑袋里其实是知道的喔。但是呢，身体上"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 20
       },
-      "detailHash": "6b070daf057368ff",
-      "firstText": "「自己被甩了也没有什么改变，也不会感到很痛快噢」",
-      "index": 77,
+      "detailHash": "e54758873dcb5b8e",
+      "firstText": "还是无法体会到吧。」",
+      "index": 79,
       "lastText": "《今天的欠款余额：2867日元》"
     },
     {
@@ -1539,9 +1569,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "e1887be70ab39436",
+      "detailHash": "42a8939fdf86685a",
       "firstText": "Intermission",
-      "index": 78,
+      "index": 80,
       "lastText": "八奈见一边坏笑一边看着标签，注意到了印在边上的保质期。"
     },
     {
@@ -1554,9 +1584,9 @@
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "458a6339fd47c8c4",
+      "detailHash": "5092126dd8a783fc",
       "firstText": "今年，是几几年来着。我想想啊，因为令和元年是2019年",
-      "index": 79,
+      "index": 81,
       "lastText": "深夜。"
     },
     {
@@ -1569,9 +1599,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "151972f03a7494ab",
+      "detailHash": "409bc380308eaa21",
       "firstText": "~二败目~",
-      "index": 80,
+      "index": 82,
       "lastText": "了过来。"
     },
     {
@@ -1584,9 +1614,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "33971a99e230667d",
+      "detailHash": "18cc4fe0cb47c6e3",
       "firstText": "「温水，我有话想对你说」",
-      "index": 81,
+      "index": 83,
       "lastText": "「那我就和他说今天放学后就来拿！」"
     },
     {
@@ -1599,9 +1629,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0342d33890d82002",
+      "detailHash": "a395b6dbff26af2f",
       "firstText": "「等一下，我举个例子」",
-      "index": 82,
+      "index": 84,
       "lastText": "这个班级对我的误解已经蔓延开来了。"
     },
     {
@@ -1614,9 +1644,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8c36a2ee680bfd4f",
+      "detailHash": "f2f187caca72a7fc",
       "firstText": "「啊，但是你不要误会了噢！怎么说呢，我和光希并不是那种关",
-      "index": 83,
+      "index": 85,
       "lastText": "「啊，抱歉。没事吧？」"
     },
     {
@@ -1629,9 +1659,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "82b47bd6c3aea8a2",
+      "detailHash": "12a989caf972cccb",
       "firstText": "「你是想杀了我吗……为什么要妨碍我叫人啊」",
-      "index": 84,
+      "index": 86,
       "lastText": "开放」"
     },
     {
@@ -1644,9 +1674,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c590a4beb4b3d7a3",
+      "detailHash": "2f26aa7a470c0dc9",
       "firstText": "「啊，对哦。所以到了第三节课才换成游泳啊。怪不得操场上没",
-      "index": 85,
+      "index": 87,
       "lastText": "我必须得做点什么。天花板附近有一个装了防盗栅栏的窗户。看"
     },
     {
@@ -1659,909 +1689,924 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "ca1000ebb9341e73",
+      "detailHash": "e34012bf17edec9e",
       "firstText": "起来是没法从这里出去。",
-      "index": 86,
+      "index": 88,
       "lastText": "的声音，总之气氛稍微变怪也不是我的错。"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 10,
         "hrs": 0,
-        "images": 1,
+        "images": 0,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 12,
         "ruby": 0,
         "textRuns": 11
       },
-      "detailHash": "663d19b8d3d44f36",
+      "detailHash": "42e34374c6b992b5",
       "firstText": "「舒服点了吗？」",
-      "index": 87,
+      "index": 89,
       "lastText": "「……啊，这是我之前丢失的那个包。原来在这里啊」"
     },
     {
       "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "6edd019b4289d222",
-      "firstText": "烧盐一边擦着身体一边往运动包里看。",
-      "index": 88,
-      "lastText": "「……老师等你们完事了再过来」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
+        "blocks": 6,
         "hrs": 0,
         "images": 1,
-        "inlineAtoms": 1,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "8def27766d3db52f",
-      "firstText": "「别关别关！老师快来帮帮忙啊！」",
-      "index": 89,
-      "lastText": "「有你这号人吗？算了，之后就交给小抜了」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "fbd1a8d43659915e",
-      "firstText": "甘夏老师说完便走出了保健室。",
-      "index": 90,
-      "lastText": "小抜老师用食指抵住我的嘴唇微微一笑。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "0a4514b4a073a62a",
-      "firstText": "「你们到底干了什么……是你们和老师的秘密哦」",
-      "index": 91,
-      "lastText": "老师把隔开床的帘子拉开。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "7d74091f13eee413",
-      "firstText": "小抜老师让看着很困的烧盐睡到了床上，然后拿走了我手上的空",
-      "index": 92,
-      "lastText": "「温水君，有客人找你哦」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "54395f06a95ffbc4",
-      "firstText": "八奈见站在小抜老师的身后朝我挥着手。",
-      "index": 93,
-      "lastText": "还是放弃在便当盒中装入两人份的量了啊。"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "5b31f805d66374b5",
-      "firstText": "塑料盒子里面是一个黄色块状物。",
-      "index": 94,
-      "lastText": "「价格太低会不会对制作者很失礼的顾虑。再加上出于自尊不想"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b79870fee15d7a0d",
-      "firstText": "被人说小气。相反如果定高价格的话，自己又会有所损失所以无法接",
-      "index": 95,
-      "lastText": "「这是……白沙司？ 」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "17a7d351eeefd65b",
-      "firstText": "原来没加番茄酱就是为了这个啊。虽然我个人更喜欢番茄酱，但",
-      "index": 96,
-      "lastText": "「太好了烧盐同学。当时我都不知道该怎么办——」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "4c93da3a1073d88d",
-      "firstText": "我不禁回想起体育仓库里她那不成体统样子。烧盐一边很不可思",
-      "index": 97,
-      "lastText": "「打扰一下，柠檬在吗」"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a58eac17a06f8f3b",
-      "firstText": "门被拉开，绫野光希突然出现。张大嘴巴的烧盐不自觉地缓缓合",
-      "index": 98,
-      "lastText": "「哦，蛋包饭啊」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "746fe13a6ae9ab97",
-      "firstText": "「啊，光希同学。你在这里啊」",
-      "index": 99,
-      "lastText": "「也就是说，是类似于青梅竹马的关系吧」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "73dab528f318713f",
-      "firstText": "青梅竹马……在八奈见看来是这样的啊。",
-      "index": 100,
-      "lastText": "「我感觉柠檬酱的恋爱就像是自己的事情。我支持你哦」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "24a81c7758a4e8fd",
-      "firstText": "「谢谢！感觉我更有精神了」",
-      "index": 101,
-      "lastText": "而且烧盐身上散发着和八奈见一样的败犬女主气息。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "ae7b888f85605077",
-      "firstText": "「多谢款待」",
-      "index": 102,
-      "lastText": "什么玩意儿啊。又想来戏弄我吗。我立马抬起头，看到八奈见正"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "bac931182fc3d023",
-      "firstText": "满脸担心地看着我。",
-      "index": 103,
-      "lastText": "学姐落落大方地点了点头，然后放下一只手的食指。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "3e904e7e60b90d5a",
-      "firstText": "「我们要结束每天都只是读书的日子。我们要向写作方面进发」",
-      "index": 104,
-      "lastText": "吧』投稿！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "2704c36a366082ba",
-      "firstText": "啪啪啪。小鞠不知为何鼓起了掌。学姐抬手示意小鞠安静。我对",
-      "index": 105,
-      "lastText": "「哦，哦哦……」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "e0dabfa6b22f4d09",
-      "firstText": "小鞠出神地望着头顶。啊这，这是什么反应。",
-      "index": 106,
-      "lastText": "『没错。温水你根本就没懂。描写人心才称之为文学』"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "78078a86bbd61709",
-      "firstText": "小鞠一眼都没朝我看地用手机和我交流着。",
-      "index": 107,
-      "lastText": "部……根绝」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "9c82844c63a7c2a8",
-      "firstText": "说的东西有些恐怖。",
-      "index": 108,
-      "lastText": "「嗯，嗯。不上不下。你反省一下」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8b2df83b4a10315b",
-      "firstText": "什么。为什么就突然开始批评起我来了。",
-      "index": 109,
-      "lastText": "合」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "78ef7604a065511b",
-      "firstText": "月之木学姐微笑着。",
-      "index": 110,
-      "lastText": "「视、视察。因为不是很、很懂轻小说。我来、学习一下」"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 25,
-        "ruby": 0,
-        "textRuns": 25
-      },
-      "detailHash": "8d405851d28ea9c3",
-      "firstText": "小鞠饶有兴致地看着各种各样的封面。",
-      "index": 111,
-      "lastText": "脑中已经回答了十几次了。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "4fdba74ae1cc5f5d",
-      "firstText": "「书名就是针对读者的商品概念的解释。类似于『吃一个就能吃",
-      "index": 112,
-      "lastText": "「那、那我问你。书名你想好了吗？」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "d452f89ae10bb753",
-      "firstText": "我假装若无其事地询问她。如果出现抄袭的情况我也不能做出厌",
-      "index": 113,
-      "lastText": "她还是一如既往地麻烦啊。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "a7529b9ebbcea326",
-      "firstText": "「那我买本书就回去了」",
-      "index": 114,
-      "lastText": "小鞠啪地扔下包瞬间远离了我。她满脸通红小声地挤出了一句"
-    },
-    {
-      "counts": {
-        "blocks": 11,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 14,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "239db83557f8e59c",
-      "firstText": "话。",
-      "index": 115,
-      "lastText": "啊。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "10c7a7104f342355",
-      "firstText": "「八奈见同学那边我会和她说让她来社团的。今后我也会少来社",
-      "index": 116,
-      "lastText": "我有气无力地擦掉了喷到脸上的口水。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "53a7d7976fe39555",
-      "firstText": "◇",
-      "index": 117,
-      "lastText": "一个个的为什么总觉得我特别容易寂寞啊。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "ff6fc803b6e8704b",
-      "firstText": "「没事的。而且我这周末还要去社团的合宿」",
-      "index": 118,
-      "lastText": "「不是，也不算是交到了朋友吧。只是我进了文艺部，里面有学"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "bbb5c1fb78707c10",
-      "firstText": "长学姐还有同级生」",
-      "index": 119,
-      "lastText": "然后佳树从我手上抢走了一个购物袋。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 16
-      },
-      "detailHash": "3ed53fddefd29d79",
-      "firstText": "「怎么了，帮我分担吗」",
-      "index": 120,
-      "lastText": "「为什么你会在这里」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e75d3974d58ab494",
-      "firstText": "对于突然闯入的人，蚊絣男瞬间有一丝畏惧地抬起头。看到军服",
-      "index": 121,
-      "lastText": "去。请再去觐见森林之主，寻求再生之法」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "646651726c8a462e",
-      "firstText": "「张口闭口都是森姥爷。咋了，你不是来找我的吗」",
-      "index": 122,
-      "lastText": "这才是健全的人应该有样子，但同时又有些许的不自由。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e62b028f7f24f2a0",
-      "firstText": "「……自由吗」",
-      "index": 123,
-      "lastText": "虽然没有看见，但是透过体操服的触感我还清晰地记得。很"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "cdf9cca5dc2c4072",
-      "firstText": "软……也说不上，但却能感觉到温柔的弹力。我没有直接看着她的脸，",
-      "index": 124,
-      "lastText": "真的假的。那也受欢迎吗。虽然确实很活泼可爱，但内在却是那"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b6020ffe86007258",
-      "firstText": "个哦？",
-      "index": 125,
-      "lastText": "「嗯。男生有我和玉木部长两人」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "ddf1d597f3e4f157",
-      "firstText": "八奈见看着手机开始查起什么来。",
-      "index": 126,
-      "lastText": "上移开吧。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "6d4ffade32b9ac21",
-      "firstText": "「因为是过夜合宿所以周末时间会完全占用掉。你的时间安排没",
-      "index": 127,
-      "lastText": "「你是在小看我爸的烧烤狂热度吗！？他会一直在那里烤到我回"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "dab848e3102a290c",
-      "firstText": "来为止的！」",
-      "index": 128,
-      "lastText": "我也不忍心再拒绝下去了。无奈地取出了手机。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "3ea50f2fe2246509",
-      "firstText": "「我姑且问一下学姐吧。毕竟八奈见同学还不是部员」",
-      "index": 129,
-      "lastText": "「那是啥玩意？没有这种功能吧」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "319fdea06dca715a",
-      "firstText": "「欸？」",
-      "index": 130,
-      "lastText": "欸，怎么这么突然。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "874bbf0c173aa529",
-      "firstText": "「一天50日元」",
-      "index": 131,
-      "lastText": "「有点渴了所以来喝水的」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "5efb8d7fb378c0a7",
-      "firstText": "「特、特地、跑到这来？」",
-      "index": 132,
-      "lastText": "「呵、呵呵。肤、肤浅」"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "ceb8acae8d549aec",
-      "firstText": "「什么？你什么意思？」",
-      "index": 133,
-      "lastText": "「不是说一起吃。而是旧校舍那边的逃生楼梯没人在所以很舒"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "33c36ca62da11c46",
-      "firstText": "服。你别和我在一个楼梯上吃就行了」",
-      "index": 134,
-      "lastText": "尔玛氏就没再看了」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "387539bf61a891e9",
-      "firstText": "「那难道不是所有的开头吗」",
-      "index": 135,
-      "lastText": "「我们这每一届都会有一个图书委员。所以图书馆新书到货的时"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "225356e09e28a608",
-      "firstText": "候可以走后门哦」",
-      "index": 136,
-      "lastText": "「哈哈，这说法对柠檬不太好吧。我们可没有在交往」"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 17,
-        "ruby": 0,
-        "textRuns": 16
-      },
-      "detailHash": "8fb7ba3d94e6eb1f",
-      "firstText": "绫野把借来的书小心翼翼地放进书包。",
-      "index": 137,
-      "lastText": "听完绫野淡然说出的话后，烧盐那害羞的笑容瞬间凝固了。"
-    },
-    {
-      "counts": {
-        "blocks": 14,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "f31ebd30033ba051",
-      "firstText": "「唔，欸？你们怎么了？」",
-      "index": 138,
-      "lastText": "「抱歉，光说些自己的事情了。那我就走了啊」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "044f01b836c4309b",
-      "firstText": "「等一下绫野。女朋友难道是朝云同学？」",
-      "index": 139,
-      "lastText": "八奈见啪地一声，将新部员的王冠戴在了她的头上。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d2739b9945bf2c92",
-      "firstText": "「总之辛苦你了」",
-      "index": 140,
-      "lastText": "哦吼。感觉走廊的阴影出漏出了小鞠的半个脸。是在意我们这边"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "5f6b5159aef36d0e",
-      "firstText": "吗。",
-      "index": 141,
-      "lastText": "「柠檬酱，来坐我旁边」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "21602a9c0a7aac40",
-      "firstText": "「嗯，谢谢」",
-      "index": 142,
-      "lastText": "「这，不太好吧」"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "5af0ed1d9759eedf",
-      "firstText": "「就当做是我们庆祝你加入文艺部。随便点你喜欢的吧」",
-      "index": 143,
-      "lastText": "部吃到肚子里就用了一个小时。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 2,
-        "inlineAtoms": 2,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "9b335e4774a6dd53",
-      "firstText": "到最后烧盐也会时不时地露出笑容来，也算是一件好事吧。",
-      "index": 144,
-      "lastText": "也就是说下次轮到我来请客啊。不过对于刚才我的失言，这时候"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "77e70293e5d54423",
-      "firstText": "只能弃车保帅。",
-      "index": 145,
-      "lastText": "八奈见抬头用湿润的眼睛盯着我。"
-    },
-    {
-      "counts": {
-        "blocks": 5,
-        "hrs": 0,
-        "images": 0,
         "inlineAtoms": 0,
         "lines": 5,
         "ruby": 0,
         "textRuns": 4
       },
-      "detailHash": "325115cd64b322d7",
-      "firstText": "「那个……温水君……」",
+      "detailHash": "6e2872e94344270a",
+      "firstText": "烧盐一边擦着身体一边往运动包里看。",
+      "index": 90,
+      "lastText": "喝的？难道是刚才的宝特瓶？"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "1ebcfd135899665a",
+      "firstText": "我战战兢兢地用余光扫过去，发现烧盐正准备把满是霉菌的瓶子",
+      "index": 91,
+      "lastText": "「老师，那种情报都无所谓了赶紧来帮我一下啊！」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "6cceea305e93baab",
+      "firstText": "我把压在身上的烧盐推开后，她总算是精疲力竭地倒在了地上。",
+      "index": 92,
+      "lastText": "剧般对我微笑着。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "cee00cf0ec324dd1",
+      "firstText": "「你们两个感觉怎么样？」",
+      "index": 93,
+      "lastText": "「原来是我们的学姐啊。甘夏老师是个怎样的学生呢?」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "beda66659f5eb7e3",
+      "firstText": "「现在的样子来看你们绝对想象不到吧。她是个有点冒失又很危",
+      "index": 94,
+      "lastText": "老师穿着校服的样子。为了抹除脑海中生动的想象，我用毯子蒙住了"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "33a420a9d75fd4c1",
+      "firstText": "头。",
+      "index": 95,
+      "lastText": "「八奈见同学给温水君带了便当哦。哎呀哎呀，你也不容易呢」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "137d634b2ddc7422",
+      "firstText": "「老师，您好像在各种方面上都有所误解呢」",
+      "index": 96,
+      "lastText": "正当我独自烦恼的时候，八奈见递给我一个白色盘子。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "37ebebb37aa470e8",
+      "firstText": "「我从家庭科教室里借来的。来，你拿着盘子」",
+      "index": 97,
+      "lastText": "「温水君。我想问你一个问题。400日元的金额，你真的要这"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "389c84df3474aebd",
+      "firstText": "么定价吗？」",
+      "index": 98,
+      "lastText": "「欸？你刚才说了什么？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "a3ec35dfe1fd6106",
+      "firstText": "我是不会中招的。我沉默地将勺子放入嘴中。",
+      "index": 99,
+      "lastText": "面。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "33b665ff80235195",
+      "firstText": "「没错！甘夏老师帮你换的哦！所以我什么都没看见，什么都没",
+      "index": 100,
+      "lastText": "「不不不我现在都快要倒下了！光希你要来照顾我吗」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "0cef633ebf513a4d",
+      "firstText": "「这是慰问品。应该能吃的下吧？」",
+      "index": 101,
+      "lastText": "「抱歉，今天我必须早点回去。明天补习班见」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "2777f05f5f3e621a",
+      "firstText": "「知道了。那我晚上再联系你」",
+      "index": 102,
+      "lastText": "「朝云同学。好像从初中三年级开始就是同一个补习班的」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "0b2f83456a2c17ef",
+      "firstText": "终于从梦中回过神的烧盐猛地将身体从桌上探了出来。盘子有一",
+      "index": 103,
+      "lastText": "「嗯？没事，给你」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "990f41d992d20b6e",
+      "firstText": "烧盐叼着勺子把柄上下晃动着。",
+      "index": 104,
+      "lastText": "烧盐轻轻地说完后猛地站了起来。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "5160a08f68dd1458",
+      "firstText": "「好啦。那我就回去啦。帮我和老师打声招呼」",
+      "index": 105,
+      "lastText": "起来。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "0bf7193e2f08883f",
+      "firstText": "……现在的我在八奈见看来是什么样的角色呢。",
+      "index": 106,
+      "lastText": "「为什么现在没有写了呢」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "e26ea5decef96bf7",
+      "firstText": "「这你就不懂了吧」",
+      "index": 107,
+      "lastText": "「那接下来就说比较麻烦的事了」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "29fd1e4d46292246",
+      "firstText": "话说还有第二个来着。 我不禁挺直了腰杆。",
+      "index": 108,
+      "lastText": "「写的话用纸或手机都行。部长会把笔记本电脑带过来的，就用"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "9c12dcb2b651d7a8",
+      "firstText": "它来完成上传的工作吧」",
+      "index": 109,
+      "lastText": "「十八禁……不太好」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "142d951caff4f128",
+      "firstText": "没错。再多说几句——嗯，谁的声音？",
+      "index": 110,
+      "lastText": "「学姐，志喜屋同学和你认识吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "ca65042625d1953a",
+      "firstText": "「是的，之前和她发生过一些事情。平时的她会更加老实一点",
+      "index": 111,
+      "lastText": "我才不需要这种可能性。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "6d78a2191f06b3f1",
+      "firstText": "「这、这么说的话，你像学姐那样、考个年级222名、这样",
+      "index": 112,
+      "lastText": "◇"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "72505d4edaa0ae01",
+      "firstText": "我走在从社团回家的路上。我绕路到了丰桥车站前。因为我要去",
+      "index": 113,
+      "lastText": "情。乍一看，两个要素毫不相干，而它的源头正是疲于现代社会的残酷"
+    },
+    {
+      "counts": {
+        "blocks": 13,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "de6c63157d41787e",
+      "firstText": "的人们所追求的东西」",
+      "index": 114,
+      "lastText": "自给自足的慢生活为目标』。首先定一个进入排名的小目标——」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "cbd2c89650420ca5",
+      "firstText": "「你、你说的、这里已经有了」",
+      "index": 115,
+      "lastText": "从标题来看，是属于轻文艺或那种系的。可惜我根本没有那方面"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "5dbd5a3bddcee801",
+      "firstText": "的造诣。我若无其事地看着书架，想看看这类流行的到底是什么样的东",
+      "index": 116,
+      "lastText": "「不好说啊。我看她好像是准备来社团的。你很担心吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 19,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "f3e6f3b444a618e5",
+      "firstText": "果然，小鞠也觉得有个同年级的女生陪会更好啊。",
+      "index": 117,
+      "lastText": "话。"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 5
+      },
+      "detailHash": "9fb0b0088ae45cf6",
+      "firstText": "「M、#MeToo事件……」",
+      "index": 118,
+      "lastText": "小鞠颤抖地瞪着我，我在内心叹了口气。算了，你讨厌到这种地"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "25d6cb8be7ddc839",
+      "firstText": "步我也没办法了。",
+      "index": 119,
+      "lastText": "「对哦！」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "0d2af3b178562f46",
+      "firstText": "小鞠扔下这句话就跑走了。",
+      "index": 120,
+      "lastText": "忽然，我注意到佳树正微微仰头注视着我。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "27f80a4bbde99fb3",
+      "firstText": "「怎么了」",
+      "index": 121,
+      "lastText": "「谢谢老板！那哥哥大人你的朋友是怎样的人呢？果然是和哥哥"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "f39a0091d343b2d0",
+      "firstText": "大人一样优秀的人吧」",
+      "index": 122,
+      "lastText": "呢」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 16
+      },
+      "detailHash": "c3884a41192584cc",
+      "firstText": "「嗯，我这算前进了吗。我感觉自己活得有点随波逐流。」",
+      "index": 123,
+      "lastText": "寝痛苦呢』"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "8fbe85bb3613dd3a",
+      "firstText": "清晰的落子声传到了走廊中。",
+      "index": 124,
+      "lastText": "「你和森林之主见过面了吗」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "91e17d1e94a0b684",
+      "firstText": "「最终他让一个金发的女孩来服侍我了。人的本性不管到了哪都",
+      "index": 125,
+      "lastText": "◇"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "e6344b202fc72d93",
+      "firstText": "第二天也就是星期五。早晨的教室里总感觉有一丝浮躁。",
+      "index": 126,
+      "lastText": "「我说，我想起来昨天体育仓库的事情了。事不宜迟就在今天放"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "06201e8d0adcb986",
+      "firstText": "学后——」",
+      "index": 127,
+      "lastText": "吧？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "d3fe5b9376537afe",
+      "firstText": "「是吗，很受欢迎啊，是这样啊」",
+      "index": 128,
+      "lastText": "「比起这个，温水君。你刚才说的合宿，感觉还挺有趣的」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "d2d86b3f9c73c934",
+      "firstText": "「谁知道呢。说是罐禁闭来着，有不有趣我就不知道了」",
+      "index": 129,
+      "lastText": "呢」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c4ab3c4ce482c770",
+      "firstText": "「啊这，有这么不好吗」",
+      "index": 130,
+      "lastText": "「然后双方的家长误会我和草介在吵架了，于是他们就想在周末"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "b069c5cf494b8018",
+      "firstText": "搞一个烧烤——说是什么惊喜」",
+      "index": 131,
+      "lastText": "「别看我这样，我可是很顾虑周围人的喔？」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "2114a475faa839af",
+      "firstText": "「要是你也能顾虑一下我就好了」",
+      "index": 132,
+      "lastText": "你这什么安慰方式。个性这词的用法才没这么万能哦。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "128b783b6707a75e",
+      "firstText": "「没事。我也不怎么在意。LINE也是最近才开始有用的」",
+      "index": 133,
+      "lastText": "后感觉就这样保持下去了。而且要说我和烧盐柠檬的关联点的话。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "314055c95585d43f",
+      "firstText": "「就是那个啊，保健室里碰过面的。D班的绫野光希」",
+      "index": 134,
+      "lastText": "间，这里则变成了一个没有人的好地方。跟教室的距离不远也不近。最"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "0684e897bbc912b9",
+      "firstText": "主要的是它处于室外让有我有种目标感，这是和其他洗手池不一样的地",
+      "index": 135,
+      "lastText": "「因为建筑物是一个整体，所以这个时间段的水都是前一天留在"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "bfee05ec347abab8",
+      "firstText": "水管里的。不仅漂白粉味较少，而且也不会因为是夏天的原故从早上开",
+      "index": 136,
+      "lastText": "「！？」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "5f02dff3228453fc",
+      "firstText": "啊，我就不该问的。",
+      "index": 137,
+      "lastText": "终卷。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "2fb978026aa9778c",
+      "firstText": "「这么一看还真是壮观啊。该借哪本好呢」",
+      "index": 138,
+      "lastText": "八奈见，正哼着歌吃着百奇。看来接待得很顺利呢。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "fe6c32e94b9cabcf",
+      "firstText": "「话说绫野君。你对文艺部有兴趣吗？」",
+      "index": 139,
+      "lastText": "「你想翘掉田径部的时候，就可以那文艺部当挡箭牌喔。被我们"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "2d46208030d58a1b",
+      "firstText": "部长拜托了推不掉之类的」",
+      "index": 140,
+      "lastText": "「欸，不不不，都说了不是那样的！」"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 5,
+        "ruby": 0,
+        "textRuns": 3
+      },
+      "detailHash": "6e800bc57af9f9a4",
+      "firstText": "「都说了不是。我已经有女朋友了」",
+      "index": 141,
+      "lastText": "「唔，欸？你们怎么了？」"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "9fee8ea275ccbc5b",
+      "firstText": "绫野满脸疑惑。",
+      "index": 142,
+      "lastText": "「这样吗。那我就先走了」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "78e849cf5858ddfe",
+      "firstText": "绫野行个礼之后就离开了。……这个氛围，该怎么办才好呢。",
+      "index": 143,
+      "lastText": "刻表了，我等会发群里。集合地点就在爱大前的检票口是吧」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "334dfdc91f15ace5",
+      "firstText": "「嗯。但是等一下啊，温水君」",
+      "index": 144,
+      "lastText": "她邀请我来到的店是离学校稍微远一点的家庭餐厅——没错，就"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "fe295166bd178830",
+      "firstText": "是八奈见前不久被甩的地方。",
+      "index": 145,
+      "lastText": "「嗯？这个店怎么了？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "59d48906f7a3d091",
+      "firstText": "八奈见歪着脑袋感到奇怪。",
       "index": 146,
+      "lastText": "难道晚饭前的汉堡肉就是减肥的伙伴吗。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "e82846b33180281f",
+      "firstText": "烧盐在甜品菜单上指了一个东西。",
+      "index": 147,
+      "lastText": "八奈见一脸可疑地看着我的脸。我就像是猫头鹰一样别开了脸。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 2,
+        "inlineAtoms": 2,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "32fb39d961311def",
+      "firstText": "「就是那个，怎么说呢……败……麦……麦凯恩不是有这个人",
+      "index": 148,
+      "lastText": "友的啊。哦，我有T积分卡」"
+    },
+    {
+      "counts": {
+        "blocks": 14,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 15,
+        "ruby": 0,
+        "textRuns": 14
+      },
+      "detailHash": "f1fb28a23c11237f",
+      "firstText": "「给，烧盐同学吃的那一半和我吃的那份钱，正好」",
+      "index": 149,
       "lastText": "《本日的欠款余额：2867日元》"
     },
     {
@@ -2574,9 +2619,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "b021ea473359c831",
+      "detailHash": "4a9cce1219490164",
       "firstText": "Intermission",
-      "index": 147,
+      "index": 150,
       "lastText": "如此一来就只有这几种可能性了。"
     },
     {
@@ -2589,9 +2634,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "eab7c1a3641cea9f",
+      "detailHash": "d3781a5d33e0cdfd",
       "firstText": "①温水和烧盐在八奈见的眼皮子底下，偷偷地玩那种极限",
-      "index": 148,
+      "index": 151,
       "lastText": "「那边的同学，这么晚了还在那干什么」"
     },
     {
@@ -2604,9 +2649,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1952259d57ef758c",
+      "detailHash": "0a1ef8e49cf8fc9c",
       "firstText": "因为小抜匆忙赶出来所以穿着拖鞋。小抜看到少女的样子后非常",
-      "index": 149,
+      "index": 152,
       "lastText": "「行吧。你跑吧」"
     },
     {
@@ -2619,9 +2664,9 @@
         "ruby": 0,
         "textRuns": 5
       },
-      "detailHash": "d1df775a555d18f2",
+      "detailHash": "85c574f19c260bec",
       "firstText": "当然，小抜并没有后悔。",
-      "index": 150,
+      "index": 153,
       "lastText": "「当然！」"
     },
     {
@@ -2634,9 +2679,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "c1d69187c3fca997",
+      "detailHash": "1570f8ebaee66406",
       "firstText": "~三败目~",
-      "index": 151,
+      "index": 154,
       "lastText": "「啊？您这么喜欢海水浴吗」"
     },
     {
@@ -2649,9 +2694,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9400206c7aee282a",
+      "detailHash": "def204c92dbd841d",
       "firstText": "「泳装啊，泳装。能看到四个女生部员的泳装，这可是非常难得",
-      "index": 152,
+      "index": 155,
       "lastText": "「但是刚才的话题，有一件事我很在意」"
     },
     {
@@ -2664,9 +2709,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "33829a6840706582",
+      "detailHash": "348580eb6dff375e",
       "firstText": "「没事，说吧」",
-      "index": 153,
+      "index": 156,
       "lastText": "奈见那洁白的肌肤瞬间将我的意识覆盖。"
     },
     {
@@ -2679,40 +2724,40 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "a75bdabf23a68063",
+      "detailHash": "fa0c4deab10a59dd",
       "firstText": "她穿的是普通的比基尼——不对，因为普通过头所以露出度是不",
-      "index": 154,
+      "index": 157,
       "lastText": "「哟，温水君。你这是对我的挑战吗？」"
     },
     {
       "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 0,
-        "lines": 13,
-        "ruby": 0,
-        "textRuns": 11
-      },
-      "detailHash": "0c15e502d8be3f2b",
-      "firstText": "……挑战？什么东西。我还没来得及询问，八奈见就一口气吃完",
-      "index": 155,
-      "lastText": "之前我就已经隐隐感觉到了，这个人果然有点傻愣愣的吧。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
+        "blocks": 10,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 23,
+        "lines": 11,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 10
       },
-      "detailHash": "5e789ebf7d6ca113",
-      "firstText": "「等不疼了八奈见同学也过去吧。我会在这里看着的」",
-      "index": 156,
-      "lastText": "「啊？为什么这么说？」"
+      "detailHash": "47e7a3877f23cfb3",
+      "firstText": "……挑战？什么东西。我还没来得及询问，八奈见就一口气吃完",
+      "index": 158,
+      "lastText": "八奈见含着泪地说道。"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 5,
+        "ruby": 0,
+        "textRuns": 4
+      },
+      "detailHash": "ef567752343ac5b6",
+      "firstText": "之前我就已经隐隐感觉到了，这个人果然有点傻愣愣的吧。",
+      "index": 159,
+      "lastText": "「温温也快点来哦！」"
     },
     {
       "counts": {
@@ -2724,10 +2769,25 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "7e26b3b3a1d923f7",
-      "firstText": "这种事情我想都没想过。毕竟那家伙还喜欢着袴田草介，被甩也",
-      "index": 157,
-      "lastText": "？！失算了。小鞠像是小恶魔似地笑嘻嘻地看着用手慌慌张张摸"
+      "detailHash": "c29cd96930d5151d",
+      "firstText": "两个人在浪花冲刷着的沙滩上奔跑着。烧盐用力地将沙滩排球扔",
+      "index": 160,
+      "lastText": "「因、因为、你们总是在一起」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "b9dddb82bd788bb3",
+      "firstText": "「那难道不是因为你只有和我在一起的时候，才能碰见八奈见同",
+      "index": 161,
+      "lastText": "这个可恶小鞠。我攥紧了拳头。"
     },
     {
       "counts": {
@@ -2739,10 +2799,115 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "0ada0da26d7cee72",
-      "firstText": "索着的我。",
-      "index": 158,
-      "lastText": "「前、前提......条件?」"
+      "detailHash": "7448a2054fbe494c",
+      "firstText": "「这可是和女生一起来海边欸。就算是我也是有点兴奋的」",
+      "index": 162,
+      "lastText": "「肯定会玩的吧，不管是玩球还是赛跑」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "e62d4dc724481bee",
+      "firstText": "我站起来说起决定性的总结。小鞠则用看臭水沟似的眼神看着",
+      "index": 163,
+      "lastText": "告诉我在最边上那个店肯定好吃」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "d6e98892eca74bc0",
+      "firstText": "八奈见一边吸着面一边说道。当然，她还准备再吃一份。",
+      "index": 164,
+      "lastText": "「那家伙明明那么迟钝，却机灵地交了一个女朋友呢——」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "d184d69068e913b1",
+      "firstText": "「绫野他确实很帅也很聪明」",
+      "index": 165,
+      "lastText": "了一样。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "c7a4edf4e36d74ef",
+      "firstText": "我快不行了。完全跟不上她。我的脚打了个踉跄摔在了沙滩上。",
+      "index": 166,
+      "lastText": "「果然就像八奈酱说的一样，你就是这种地方哦」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 18
+      },
+      "detailHash": "7abb030e87fac497",
+      "firstText": "「这种地方指的是什么地方？」",
+      "index": 167,
+      "lastText": "「哎，小鞠你不吃吗？」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "76f3bb084691473a",
+      "firstText": "小鞠没有在吃，而是不安地用手指玩着沙子。",
+      "index": 168,
+      "lastText": "货，估计是制面厂每天运送过来的新鲜面。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c7ad9fa8ecbd5f49",
+      "firstText": "我忽地看向八奈见，只见她得意地对我竖起了大拇指。",
+      "index": 169,
+      "lastText": "烧盐边说着边用筷子在炒面中翻找着配菜。"
     },
     {
       "counts": {
@@ -2754,25 +2919,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "dbb3dbd9d239dda2",
-      "firstText": "「如果那是个女生朋友，更别说她还穿了泳装」",
-      "index": 159,
-      "lastText": "酱汁的香味确实能勾起人的食欲。光是闻着味道就让人想吃。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "83b063f26b9d8752",
-      "firstText": "「……八奈见同学，你现在吃的就是炒面吧」",
-      "index": 160,
-      "lastText": "两秒内就能哭出来喔？但一码归一码。哭不哭是我自己的事情，而且今"
+      "detailHash": "5be446fba9cd8995",
+      "firstText": "「是啊。话说柠檬酱，你那份里有放肉吗？」",
+      "index": 170,
+      "lastText": "跟着站了起来。"
     },
     {
       "counts": {
@@ -2784,104 +2934,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bcd60d115fd4eafb",
-      "firstText": "天我也想要和大家开开心心地玩儿」",
-      "index": 161,
-      "lastText": "跑着跟了上去。"
+      "detailHash": "318e97b249f1fb63",
+      "firstText": "明明才刚吃完呢，真是精力充沛啊。我不经意地抬起头，八奈见",
+      "index": 171,
+      "lastText": "「OK。小鞠酱，我们一起去吧」"
     },
     {
       "counts": {
         "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "1f2c90c44050ea0c",
-      "firstText": "「等、等一下！」",
-      "index": 162,
-      "lastText": "「来」"
-    },
-    {
-      "counts": {
-        "blocks": 20,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "74bd5b9a3cbb3541",
-      "firstText": "「嗯？怎么了，手上有虫子吗？」",
-      "index": 163,
-      "lastText": "就像是根本没有饱腹感一样，不愧是被评为有安定感的八奈见杏"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "b5b7a1d34e31ccc1",
-      "firstText": "菜。还有她一边分发炒面一边把最多的那份留给自己的技术也不容小",
-      "index": 164,
-      "lastText": "题怎么样」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "fee640f9a20b0fd2",
-      "firstText": "部长不但采用了小鞠的标题，还提议了使用『成为文豪吧』里那",
-      "index": 165,
-      "lastText": "「到•此•为•止！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 20,
-        "ruby": 0,
-        "textRuns": 18
-      },
-      "detailHash": "7865982963e2a167",
-      "firstText": "嗯，你们两个也到此为止吧。卿卿我我的样子看着真烦。",
-      "index": 166,
-      "lastText": "身。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "454f22c620e9d118",
-      "firstText": "「沙滩的那一边是不是在办活动？我们去看看呗」",
-      "index": 167,
-      "lastText": "「部、部长？！」"
-    },
-    {
-      "counts": {
-        "blocks": 20,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2889,44 +2949,14 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "6cf1d5f9811cd25b",
-      "firstText": "「小鞠酱就一起去吧。就当是小说的取材了」",
-      "index": 168,
-      "lastText": "某天回家的路上，她偶然间看到了一只动物。"
+      "detailHash": "cb8470540829bf66",
+      "firstText": "学姐牵着小鞠的手追了上去。我和部长并排站着默默地目送着她",
+      "index": 172,
+      "lastText": "她误入了一条不熟悉的道路，在她眼前出现的是一间被爬山虎覆"
     },
     {
       "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "15b97089a9a8d1e4",
-      "firstText": "「狐狸……？」",
-      "index": 169,
-      "lastText": "看到这一幕的堇先生瞬间脸色苍白。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "299bb4d40b493d88",
-      "firstText": "「大老爷！」",
-      "index": 170,
-      "lastText": "「毫无特色的味道」"
-    },
-    {
-      "counts": {
-        "blocks": 21,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -2934,55 +2964,10 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "ad72ea926ef2f718",
-      "firstText": "他把勺子丢在了盘子中。",
-      "index": 171,
-      "lastText": "「小鞠酱文笔不错啊」"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "98cd4c1ee6fdc7ed",
-      "firstText": "「嗯嗯，是的。至少我是写不到这种程度的」",
-      "index": 172,
-      "lastText": "是这么一回事吗。明明是个至少有几千人在看的作品呢。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "e4b0316a8ec8d09e",
-      "firstText": "「八奈见同学说她也写好了东西之后会发过来的。温水你思考得",
+      "detailHash": "90cf4cb9c546a38e",
+      "firstText": "盖的咖啡厅。像是邀请百合进入一样门自己打开了。",
       "index": 173,
-      "lastText": "会被人爱上。所谓被某人吸引，反过来说也会有分开的那一天。女主角"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "fd7b0bb4efc987d1",
-      "firstText": "们是不会被男主吸引的。而是必须遵从世界之理去仰慕和无条件地称赞",
-      "index": 174,
-      "lastText": "「八奈见同学。怎么了啊，看你这么消沉？」"
+      "lastText": "「抱、抱歉。我今天还没看到少爷……」"
     },
     {
       "counts": {
@@ -2994,10 +2979,25 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f82a8cbcfb9d76ac",
-      "firstText": "「没有……小摊」",
+      "detailHash": "1acaa90083c68226",
+      "firstText": "「那就如同约定所说的，一切都会消失于间隙之中」",
+      "index": 174,
+      "lastText": "「你这什么意思啊！明明我是代替你做的料理！再说了这就是你"
+    },
+    {
+      "counts": {
+        "blocks": 21,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 20
+      },
+      "detailHash": "40e19ef3b1c0e349",
+      "firstText": "对待客人的态度？」",
       "index": 175,
-      "lastText": "「我想问一下，牛肉和高中生有什么关联吗」"
+      "lastText": "因为有点不甘心所以就说些自以为是的话吧。"
     },
     {
       "counts": {
@@ -3005,14 +3005,29 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 21,
+        "lines": 22,
         "ruby": 0,
-        "textRuns": 19
+        "textRuns": 20
       },
-      "detailHash": "8b27d81de68c6dc7",
-      "firstText": "「义务教育时家里不是规定不能吃牛肉的吗？」",
+      "detailHash": "fb7b63a1b4a73465",
+      "firstText": "「也有不少的新成员加入了，这么一来文艺部也能稳定下来了」",
       "index": 176,
-      "lastText": "在我收拾东西的时候，烧盐像是没有玩够似的，对着大海开始做"
+      "lastText": "怎么样？」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "f9adc012352f49cb",
+      "firstText": "「我只写了个梗概，正文完全没动。怎么说呢，实际上想动笔的",
+      "index": 177,
+      "lastText": "一口气说完后，部长感慨万分地望着天空。"
     },
     {
       "counts": {
@@ -3024,10 +3039,115 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "211d928266fd852e",
-      "firstText": "起了热身。",
-      "index": 177,
-      "lastText": "「少啰嗦。我就碰」"
+      "detailHash": "9ca22175c4e2df2f",
+      "firstText": "「我也想转生到异世界被大家喜欢上啊……不知道喝完酒后去游",
+      "index": 178,
+      "lastText": "「章•鱼•烧」的嘴型。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "3af3a72d8df2c22d",
+      "firstText": "「吃太多的话，晚饭会吃不下的哦」",
+      "index": 179,
+      "lastText": "「欸？但这是爸爸他说的」"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "20ab4cee5e3b97fc",
+      "firstText": "怎么感觉着话题有点悲伤起来了。",
+      "index": 180,
+      "lastText": "「欸，啊……」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "82217fa24aaf5d0f",
+      "firstText": "小鞠急忙地想取出放在包里的手机。",
+      "index": 181,
+      "lastText": "全身湿透的小鞠拧着外套走了回来。海水浴场映衬着指定泳装的"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 21,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "f8b8edc9f0997bc5",
+      "firstText": "侧腹。……原来如此，我现在总算是明白八奈见的那番话了。这种不协",
+      "index": 182,
+      "lastText": "一种从没听过的虫子叫不断响着。可怕。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "982d9c847586ec42",
+      "firstText": "「洗好的蔬菜我放这里了」",
+      "index": 183,
+      "lastText": "题。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "759352cfee88c279",
+      "firstText": "「话说八奈见同学。你写的小说我刚才看过了哦」",
+      "index": 184,
+      "lastText": "像是白天没有吃够肉一样，八奈见的势头根本停不下来。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "8b6a9ca49e01bcf6",
+      "firstText": "顺便一提我的顺序是卷心菜•洋葱•玉米，而我正养育着的肉被",
+      "index": 185,
+      "lastText": "「欸，八奈见很懂嘛。阿根廷好像……额，离这儿很远的吧。这"
     },
     {
       "counts": {
@@ -3035,18 +3155,153 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "803bff9188a17eda",
+      "firstText": "肉就是熟成肉？」",
+      "index": 186,
+      "lastText": "「肚子很饿了吧，来吃这个」"
+    },
+    {
+      "counts": {
+        "blocks": 15,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 21,
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "143e9f8c250d8c28",
-      "firstText": "还是如往常一样亲热啊。赶紧给我爆炸吧。",
-      "index": 178,
+      "detailHash": "73a9542c3229b942",
+      "firstText": "盘子上盛着饭团，而且还是红豆饭团。",
+      "index": 187,
+      "lastText": "「所以我才在找下一个要玩的烟花呢」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "896c1a8359ac5ad4",
+      "firstText": "「欸，但是……你看嘛，这个太大了一个人玩不了的！来陪我一",
+      "index": 188,
+      "lastText": "完全烤熟了。"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "81b35cdc9aeddba9",
+      "firstText": "「啊，这个我吃了哦」",
+      "index": 189,
+      "lastText": "「没、没说……」"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 24,
+        "ruby": 0,
+        "textRuns": 24
+      },
+      "detailHash": "2863cf7858347be4",
+      "firstText": "我低着头没敢看她的脸。八奈见笑嘻嘻地把脸凑过来。",
+      "index": 190,
+      "lastText": "应该是烟花受潮了吧。正当我愣神这么想的时候，小鞠把烟花筒"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "768c9bef8db0f46a",
+      "firstText": "翻了过来朝里面看去。",
+      "index": 191,
+      "lastText": "「欸……算、算是吧……」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "6ebb86e35c0f72a6",
+      "firstText": "「你每天在镜子里看到自己脸上的伤，肯定会产生不好的回忆",
+      "index": 192,
+      "lastText": "八奈见还在吃。烧盐正用手拍着背后焦了的头发。这俩个人咋回"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "4903e4891c191ef8",
+      "firstText": "事。",
+      "index": 193,
+      "lastText": "学姐握着部长的手，抬头瞪着他。"
+    },
+    {
+      "counts": {
+        "blocks": 16,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "7df5ed54b2578d17",
+      "firstText": "「等一下古都」",
+      "index": 194,
+      "lastText": "吧」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 20,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "979fca0ae68c8378",
+      "firstText": "「哪边？」",
+      "index": 195,
       "lastText": "◇"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 17,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3054,160 +3309,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "d18738c29421de09",
-      "firstText": "太阳开始西下，白天的炎热也在迅速退去。",
-      "index": 179,
-      "lastText": "「我告诉你哦。那家伙可是纵火候选人哦」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "12ae9a0612038bc7",
-      "firstText": "「当我没问」",
-      "index": 180,
-      "lastText": "「嗯，让她一个人静静吧」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "0896d56a0d9375c0",
-      "firstText": "肉•肉•青椒•肉•肉•香肠。",
-      "index": 181,
-      "lastText": "了网上。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "4b084c08cd9f40b4",
-      "firstText": "「柠檬酱，这个很有嚼劲的是阿根廷产的吧。进口牛肉果然还是",
-      "index": 182,
-      "lastText": "什么。"
-    },
-    {
-      "counts": {
-        "blocks": 15,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 20
-      },
-      "detailHash": "74dda4708642abdc",
-      "firstText": "一旁的月之木学姐朝我递来盘子。",
-      "index": 183,
-      "lastText": "挑选着烟花没有注意到学姐。学姐沉默地一脚踹向部长的后背。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "0b254dc08b4cd781",
-      "firstText": "「倒是也看看烟花啊」",
-      "index": 184,
-      "lastText": "涉及八奈见家的事情是禁止的。但这里只能顺其自然了。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "57cf7b07ae602461",
-      "firstText": "节子的一面已经烤出了香味。如果看做是人的话，刚好是到了小",
-      "index": 185,
-      "lastText": "「真是的，我开玩笑的啦」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "8bbd90db9937d1c9",
-      "firstText": "八奈见大笑着。",
-      "index": 186,
-      "lastText": "我点燃烟花的同时瞄了一眼小鞠。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "cb53979231f4e101",
-      "firstText": "略微发白的火焰的另一边，小鞠正准备点燃一个的特大卷筒烟",
-      "index": 187,
-      "lastText": "部长若无其事地将刚才握烟花的手插进口袋。"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "417a696bce85b9dc",
-      "firstText": "「反、反正、我的脸也没人看……」",
-      "index": 188,
-      "lastText": "我、交往吧！」"
-    },
-    {
-      "counts": {
-        "blocks": 16,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "54ab3fa24daf8d84",
-      "firstText": "说到最后她的声音都嘶哑了。小鞠将一切都说完后似乎是竭尽全",
-      "index": 189,
-      "lastText": "月之木学姐仔细地用手帕将部长的手包好。"
+      "detailHash": "e22055148589d32e",
+      "firstText": "「小鞠酱，原来喜欢部长啊。哇，好大胆」",
+      "index": 196,
+      "lastText": "感到了些许疏远感的我静静地离开了座位。玩消失这一手我还是"
     },
     {
       "counts": {
@@ -3219,55 +3324,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "fabe742d73baf087",
-      "firstText": "「喂，古都」",
-      "index": 190,
-      "lastText": "部长用空洞的眼神看着我。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "c510f9835adc7a2d",
-      "firstText": "「是温水啊……抱歉，明明是难得的合宿」",
-      "index": 191,
-      "lastText": "「我马上全部吃掉」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 21
-      },
-      "detailHash": "51baa041b842b824",
-      "firstText": "◇",
-      "index": 192,
-      "lastText": "不知为何这两个人的对话成立了。烧盐这家伙有着让人意外的特"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "c2ec9e6dc389aae7",
-      "firstText": "技。",
-      "index": 193,
-      "lastText": "真的假的。这个人要找我恋爱咨询吗。我难以置信地看着学长。"
+      "detailHash": "29f0cb87fb6f1f2c",
+      "firstText": "很有自信的。那两个人也没能察觉到我已经不在了。",
+      "index": 197,
+      "lastText": "鱼一样。"
     },
     {
       "counts": {
@@ -3275,14 +3335,14 @@
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 24,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 24
+        "textRuns": 23
       },
-      "detailHash": "7cf350d732d104f6",
-      "firstText": "而且还是三角关系的咨询，这简直就像是问我蚯蚓该怎么打败金",
-      "index": 194,
-      "lastText": "部长失落地耷拉着肩膀。"
+      "detailHash": "39a540cee969760d",
+      "firstText": "「怎么说呢，部长。不管怎么看你都很受欢迎不是吗。现在可不",
+      "index": 198,
+      "lastText": "「怎么说呢，既然牵扯到她了我就和你说吧」"
     },
     {
       "counts": {
@@ -3294,10 +3354,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f49e76f0120a2248",
-      "firstText": "「怎么说呢，既然牵扯到她了我就和你说吧」",
-      "index": 195,
-      "lastText": "为什么会这么想。我自暴自弃地微笑着。"
+      "detailHash": "428e5e9e49a866cd",
+      "firstText": "「啊」",
+      "index": 199,
+      "lastText": "「别看我这样，其实我是恋爱大师哦」"
     },
     {
       "counts": {
@@ -3309,10 +3369,25 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "dd1971e99aa2f8de",
-      "firstText": "「别看我这样，其实我是恋爱大师哦」",
-      "index": 196,
-      "lastText": "背锤了一拳。"
+      "detailHash": "21a97ac6fc1f3102",
+      "firstText": "◇",
+      "index": 200,
+      "lastText": "「柠檬酱去小鞠酱那边了，我去找部长。你赶紧去追月之木学"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "29a468658c80af89",
+      "firstText": "姐！」",
+      "index": 201,
+      "lastText": "我递出买好的饮料的同时坐在了长椅上。"
     },
     {
       "counts": {
@@ -3324,29 +3399,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "a6e9c27451a77e21",
-      "firstText": "「柠檬酱去小鞠酱那边了，我去找部长。你赶紧去追月之木学",
-      "index": 197,
-      "lastText": "「总之先休息一下吧」"
+      "detailHash": "da17726ec8850c08",
+      "firstText": "「午后红茶和红茶花伝，您要哪个」",
+      "index": 202,
+      "lastText": "「……男生果然还是喜欢那种能够被自己保护的女生吧」"
     },
     {
       "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "00cbeff67d3d58a1",
-      "firstText": "我递出买好的饮料的同时坐在了长椅上。",
-      "index": 198,
-      "lastText": "学姐心情沉闷地闭着嘴，过了一会开口道。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3354,10 +3414,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "935e7bf2955f5dff",
-      "firstText": "「……男生果然还是喜欢那种能够被自己保护的女生吧」",
-      "index": 199,
-      "lastText": "「算是吧。部长在那段时间，怎么说呢……有没有和你说过什么"
+      "detailHash": "28227cec2c340ba3",
+      "firstText": "没想到都这时候竟然还是恋爱话题。部长也好学姐也好总把这种",
+      "index": 203,
+      "lastText": "话？」"
     },
     {
       "counts": {
@@ -3369,10 +3429,10 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "b44277be97840e9a",
-      "firstText": "话？」",
-      "index": 200,
-      "lastText": "难道部长说的告白就是这个吗。比我想像的还要离谱。"
+      "detailHash": "321a9312633e8412",
+      "firstText": "「话？那毕竟只要我们在一起就会说话」",
+      "index": 204,
+      "lastText": "「那你怎么回答他的呢」"
     },
     {
       "counts": {
@@ -3384,14 +3444,14 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "d5e5d6185490d136",
-      "firstText": "「那你怎么回答他的呢」",
-      "index": 201,
-      "lastText": "「部长！」"
+      "detailHash": "93bf0b2cffbe964a",
+      "firstText": "「你别在我面前出现，好像是这么回答来着的」",
+      "index": 205,
+      "lastText": "太好了，之后就交给他们两个了。我悄悄地往回走，开始朝着旅"
     },
     {
       "counts": {
-        "blocks": 18,
+        "blocks": 19,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -3399,10 +3459,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "4e81e3738a955698",
-      "firstText": "太好了，之后就交给他们两个了。我悄悄地往回走，开始朝着旅",
-      "index": 202,
-      "lastText": "的」"
+      "detailHash": "9d4ac5bb6e0fb1c3",
+      "firstText": "馆的方向走去。",
+      "index": 206,
+      "lastText": "「……我就是这种不可爱的性格。有段时间还被班级里的女生所"
     },
     {
       "counts": {
@@ -3414,10 +3474,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c8c89a9f2195b13c",
-      "firstText": "「……我就是这种不可爱的性格。有段时间还被班级里的女生所",
-      "index": 203,
-      "lastText": "部长困扰地笑了笑，抚摸着月之木学的脑袋。学姐震惊地颤抖了"
+      "detailHash": "7fcd6d62f0a4e939",
+      "firstText": "讨厌」",
+      "index": 207,
+      "lastText": "一下。"
     },
     {
       "counts": {
@@ -3429,10 +3489,10 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "abdd4c104ccaf5a7",
-      "firstText": "一下。",
-      "index": 204,
-      "lastText": "的氛围所感染，不经意间就变得大胆了起来。"
+      "detailHash": "f1fbffc202fe74b4",
+      "firstText": "「那么，我会再让你对我燃起百年的恋情」",
+      "index": 208,
+      "lastText": "「！抱、抱歉！我、我没有什么恶意！」"
     },
     {
       "counts": {
@@ -3444,10 +3504,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "7fdffbbcf46a459e",
-      "firstText": "「！抱、抱歉！我、我没有什么恶意！」",
-      "index": 205,
-      "lastText": "「我挺担心小鞠的。要赶紧回去」"
+      "detailHash": "bd148514c7ba7808",
+      "firstText": "「不，也没必要这么道歉」",
+      "index": 209,
+      "lastText": "「嗯，也是呢。但是啊。但是」"
     },
     {
       "counts": {
@@ -3459,54 +3519,69 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "0b9286eac21efb7a",
-      "firstText": "「嗯，也是呢。但是啊。但是」",
-      "index": 206,
-      "lastText": "「那个，小鞠。原来你在这里啊」"
+      "detailHash": "5b78c4e332878367",
+      "firstText": "八奈见脑袋僵硬地一歪，再次小声地嘀咕了一句。",
+      "index": 210,
+      "lastText": "「……什、什么嘛。原来是温水啊」"
     },
     {
       "counts": {
         "blocks": 18,
         "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
+        "images": 1,
+        "inlineAtoms": 1,
         "lines": 23,
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "a053f75b7e7f7e05",
-      "firstText": "「……什、什么嘛。原来是温水啊」",
-      "index": 207,
-      "lastText": "「这、这叫关系好吗……？你、是窟窿啊？」"
+      "detailHash": "fd2bda6d1dca31cf",
+      "firstText": "不妙。这家伙刚刚才被甩了。",
+      "index": 211,
+      "lastText": "窟窿是这么用的吗。我变成了一种概念。"
     },
     {
       "counts": {
         "blocks": 20,
         "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
+        "images": 0,
+        "inlineAtoms": 0,
         "lines": 22,
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "ff6dc93d57375013",
-      "firstText": "窟窿是这么用的吗。我变成了一种概念。",
-      "index": 208,
-      "lastText": "快要哭出来的小鞠翘着嘴角笑了起来。"
+      "detailHash": "fa2aa0e2ab1efb2b",
+      "firstText": "……好了，看来小鞠还能正常地说话。刚才告白的气势肯定还留",
+      "index": 212,
+      "lastText": "「诶嘿嘿……有那么短短的一瞬间、我赢了、月之木学姐」"
     },
     {
       "counts": {
-        "blocks": 12,
+        "blocks": 6,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 7,
+        "ruby": 0,
+        "textRuns": 6
+      },
+      "detailHash": "f4946ad290ef1a83",
+      "firstText": "她娇小的背颤抖着。快熄灭的火球发出滋滋的响声掉落在地上。",
+      "index": 213,
+      "lastText": "「拜托了……」"
+    },
+    {
+      "counts": {
+        "blocks": 5,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 14,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 12
+        "textRuns": 5
       },
-      "detailHash": "c3b79d56a6180586",
-      "firstText": "「诶嘿嘿……有那么短短的一瞬间、我赢了、月之木学姐」",
-      "index": 209,
+      "detailHash": "334dac17637a011d",
+      "firstText": "我沉默地回到了旅馆中，坐在了大厅的长椅上。拉开罐装咖啡的",
+      "index": 214,
       "lastText": "大厅里的日光灯管发出滋滋的声音忽明忽灭。"
     },
     {
@@ -3519,9 +3594,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "72d70e442453f9d6",
+      "detailHash": "bbffd9381f3796a4",
       "firstText": "我看着天花板的同时，思考着大家的事情。",
-      "index": 210,
+      "index": 215,
       "lastText": "活。现在却变成了以小地方的商店街为舞台的恋爱喜剧什么的，我自己"
     },
     {
@@ -3534,9 +3609,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "cc4989a85d1c1115",
+      "detailHash": "a653867d27b1dec1",
       "firstText": "才是最为吃惊的一个。",
-      "index": 211,
+      "index": 216,
       "lastText": "「早上、好。我已经、把我的小说、发给部长了……请部长、帮"
     },
     {
@@ -3549,9 +3624,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "864f019b46d72751",
+      "detailHash": "26c5746b17108d1d",
       "firstText": "我投稿一下」",
-      "index": 212,
+      "index": 217,
       "lastText": "呆呆地坐在远离我们的桌子边上。"
     },
     {
@@ -3564,9 +3639,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "bdb22e6e4c24be3c",
+      "detailHash": "b41ba3676e286486",
       "firstText": "小鞠有些神经兮兮地反复握手松手，然后坐到了月之木学姐的对",
-      "index": 213,
+      "index": 218,
       "lastText": "「小鞠酱……我本以为你不会来了。谢谢……谢谢你」"
     },
     {
@@ -3579,9 +3654,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "6aaa4467972882a4",
+      "detailHash": "a8bea24a92ca2d4d",
       "firstText": "小鞠抱着抽泣的月之木学姐。",
-      "index": 214,
+      "index": 219,
       "lastText": "她伸出的手才一天就已经晒成了更深的小麦色。"
     },
     {
@@ -3594,9 +3669,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "8ae5eacf7f791fd3",
+      "detailHash": "892a35e746f958e1",
       "firstText": "「这是图画日记？」",
-      "index": 215,
+      "index": 220,
       "lastText": "男的妄想』"
     },
     {
@@ -3609,9 +3684,9 @@
         "ruby": 0,
         "textRuns": 6
       },
-      "detailHash": "4bd6b46cb9a12210",
+      "detailHash": "f25922258fcbb7fd",
       "firstText": "！真是个不礼貌的家伙啊。能不能把这家伙拉黑啊。",
-      "index": 216,
+      "index": 221,
       "lastText": "「……给我看好了。我会让你给我满分的」"
     },
     {
@@ -3624,9 +3699,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "5f43d297bdb4a4dd",
+      "detailHash": "b80521ccb3804390",
       "firstText": "Intermission",
-      "index": 217,
+      "index": 222,
       "lastText": "「你……很能干……」"
     },
     {
@@ -3639,9 +3714,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "f9b4418569a8d365",
+      "detailHash": "0767bd80c0794e0b",
       "firstText": "对于志喜屋的搭话少女吓了一跳，她凝视着志喜屋漏出的肩膀和",
-      "index": 218,
+      "index": 223,
       "lastText": "「是的，我为了打招呼稍微做了点」"
     },
     {
@@ -3654,9 +3729,9 @@
         "ruby": 0,
         "textRuns": 5
       },
-      "detailHash": "38535e26278b8f7f",
+      "detailHash": "7ef8936191ffabcb",
       "firstText": "少女意味深长地竖起手指。",
-      "index": 219,
+      "index": 224,
       "lastText": "「我是桃园中学的学生会杂务温水佳树。请多指教哦，学姐」"
     },
     {
@@ -3669,9 +3744,9 @@
         "ruby": 0,
         "textRuns": 25
       },
-      "detailHash": "5997c51e273de49f",
+      "detailHash": "b67284d32e7566a4",
       "firstText": "~四败目~",
-      "index": 220,
+      "index": 225,
       "lastText": "「这是什么场景？」"
     },
     {
@@ -3684,9 +3759,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "802ca8b5314aedf7",
+      "detailHash": "d842a4f87d32fbcc",
       "firstText": "「我昨天在回去的电车上睡过头了。这是我往回跑了一站的场",
-      "index": 221,
+      "index": 226,
       "lastText": "◇"
     },
     {
@@ -3699,9 +3774,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b933be945879c32a",
+      "detailHash": "7af5ee21365364bc",
       "firstText": "午休一到，八奈见离开了教室。我则迟了一会才走向约好的地",
-      "index": 222,
+      "index": 227,
       "lastText": "「你们知道吗？听说八奈见最近换男人了」"
     },
     {
@@ -3714,9 +3789,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "5e6914cbd6853668",
+      "detailHash": "0589a12693c02b3d",
       "firstText": "「「真的假的！？」」",
-      "index": 223,
+      "index": 228,
       "lastText": "八奈见要是和我这种人产生绯闻了的话。"
     },
     {
@@ -3729,9 +3804,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "59500af4a7af0009",
+      "detailHash": "aaff29e1dd1de208",
       "firstText": "最重要的是——她还喜欢着袴田。",
-      "index": 224,
+      "index": 229,
       "lastText": "「抱歉啦。我并没有无视你的意思」"
     },
     {
@@ -3744,9 +3819,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "fb231537ed961042",
+      "detailHash": "42593c456e1dd1a1",
       "firstText": "「那就好」",
-      "index": 225,
+      "index": 230,
       "lastText": "对喔。还得标个价格才行。我想想，剩余的欠款是多少来着。"
     },
     {
@@ -3759,9 +3834,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "e4b904ce019d20ac",
+      "detailHash": "28fe432e3f870aac",
       "firstText": "制作三明治因为要预先处理食材，其实还挺费事的。嘛，标个",
-      "index": 226,
+      "index": 231,
       "lastText": "样。我觉得这样不太好」"
     },
     {
@@ -3774,9 +3849,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "6f48b762fa7da9a4",
+      "detailHash": "994436f4739b4886",
       "firstText": "她本来是不可能会跟我这种人说话的。",
-      "index": 227,
+      "index": 232,
       "lastText": "「八奈见同学还有很多朋友在，没必要跟我这种——」"
     },
     {
@@ -3789,9 +3864,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "16a40ff177acdfa4",
+      "detailHash": "3cb3ea603fe24932",
       "firstText": "「打住，我有点跟不上你的话题」",
-      "index": 228,
+      "index": 233,
       "lastText": "八奈见用强硬的语气终结了对话。"
     },
     {
@@ -3804,9 +3879,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "3fc7f1cc02c6c000",
+      "detailHash": "b9140d94ead8fc54",
       "firstText": "「从今以后我不会向你搭话的」",
-      "index": 229,
+      "index": 234,
       "lastText": "这是第几次了啊。我的脑内反复回想着今天中午的对话。"
     },
     {
@@ -3819,9 +3894,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b44ebc944db094dc",
+      "detailHash": "298c6047bd8db7da",
       "firstText": "……那样就好了。",
-      "index": 230,
+      "index": 235,
       "lastText": "「哥哥大人终于肯看向佳树这边了呢」"
     },
     {
@@ -3834,9 +3909,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "87324b71cb2cf4bb",
+      "detailHash": "fa0a364492314a1a",
       "firstText": "「你也在那里？话说你到底看到了多少啊？」",
-      "index": 231,
+      "index": 236,
       "lastText": "我再次转身背对佳树。"
     },
     {
@@ -3849,9 +3924,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "15bb6e7b7885f844",
+      "detailHash": "98abaa42d6777db5",
       "firstText": "「哥哥要休息会儿。佳树也赶紧回去吧」",
-      "index": 232,
+      "index": 237,
       "lastText": "第二天，距离结业式还剩2天。"
     },
     {
@@ -3864,9 +3939,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "c6d213446b1bd95d",
+      "detailHash": "9cede53346affd23",
       "firstText": "独自一人的午休。我又回到了以往的日常。",
-      "index": 233,
+      "index": 238,
       "lastText": "这沉重的一句话充满了实感。"
     },
     {
@@ -3879,9 +3954,9 @@
         "ruby": 0,
         "textRuns": 19
       },
-      "detailHash": "7ecae7d64b9b5963",
+      "detailHash": "ab1a57c34ecd784b",
       "firstText": "◇",
-      "index": 234,
+      "index": 239,
       "lastText": "「啊，温水君。好久不见呢」"
     },
     {
@@ -3894,9 +3969,9 @@
         "ruby": 0,
         "textRuns": 20
       },
-      "detailHash": "bff2e9890d163f34",
+      "detailHash": "ae123532ba08c971",
       "firstText": "别说昨天了，就连刚才我们都还在同一间教室里根本待着谈不上",
-      "index": 235,
+      "index": 240,
       "lastText": "「所以？」"
     },
     {
@@ -3909,9 +3984,9 @@
         "ruby": 0,
         "textRuns": 17
       },
-      "detailHash": "9c567c5ef8e308a6",
+      "detailHash": "15d656243c13c09b",
       "firstText": "八奈见像是故意打断我。",
-      "index": 236,
+      "index": 241,
       "lastText": "望着操场一边啃着咖喱面包。"
     },
     {
@@ -3924,9 +3999,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "43467d16ab440692",
+      "detailHash": "8d63e1f9cd07f9dd",
       "firstText": "因为最高温度超过了35度，午练被禁止。远远地就能看到擅自",
-      "index": 237,
+      "index": 242,
       "lastText": "市里6个一袋的那种。"
     },
     {
@@ -3939,9 +4014,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "9ecf9768280988d5",
+      "detailHash": "59a3327f8a6447bc",
       "firstText": "「再、再说怎么可能、只有温水一个人变得幸福。太、太狂妄",
-      "index": 238,
+      "index": 243,
       "lastText": "小鞠注意到了我的视线，有些警惕地看着我。"
     },
     {
@@ -3954,9 +4029,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "4bdf7acbc95ed32a",
+      "detailHash": "0e9b5aa8934caa28",
       "firstText": "「就、就算你说还给你、也已经迟了啊」",
-      "index": 239,
+      "index": 244,
       "lastText": "「为什么要把钱包拿出来啊？」"
     },
     {
@@ -3969,9 +4044,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "2960670e56eeeae9",
+      "detailHash": "6667a822020020bd",
       "firstText": "「额，不是。我以为是那种事来着」",
-      "index": 240,
+      "index": 245,
       "lastText": "袴田突然向我鞠躬。"
     },
     {
@@ -3984,9 +4059,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "37872981725c21b6",
+      "detailHash": "38168818373721ed",
       "firstText": "……哈？什么意思。我被拜托了什么啊？",
-      "index": 241,
+      "index": 246,
       "lastText": "「你其实知道的吧？她喜欢你」"
     },
     {
@@ -3999,9 +4074,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "ca203bdc6d46de5f",
+      "detailHash": "2445563401c3676c",
       "firstText": "我又不是八奈见的朋友，为什么我要对甩了她的男人说这种话。",
-      "index": 242,
+      "index": 247,
       "lastText": "「诶！杏菜！」"
     },
     {
@@ -4014,9 +4089,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "127d2a9603606de8",
+      "detailHash": "5a0e1aab9c092660",
       "firstText": "「我说你们两个……刚、刚才在说什么呢？」",
-      "index": 243,
+      "index": 248,
       "lastText": "「抱歉，杏菜。我想着你要是能找到新的恋情就好了」"
     },
     {
@@ -4029,9 +4104,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "b223e03762475e6a",
+      "detailHash": "c235e8b1eecc6464",
       "firstText": "「欸？」",
-      "index": 244,
+      "index": 249,
       "lastText": "在也只是我在自顾自地发火而已。"
     },
     {
@@ -4044,25 +4119,40 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "596d74326c79af4c",
+      "detailHash": "619d2b30c43112eb",
       "firstText": "我和八奈见来往的时间很短，跟这家伙不一样。当然我更不是什",
-      "index": 245,
+      "index": 250,
       "lastText": "你们脑袋里装的都是珍珠奶茶吗！？」"
     },
     {
       "counts": {
-        "blocks": 13,
+        "blocks": 8,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 8,
+        "ruby": 0,
+        "textRuns": 7
+      },
+      "detailHash": "5df27d0ed4ee8476",
+      "firstText": "「额，这个」",
+      "index": 251,
+      "lastText": "十二年份的感情打湿了八奈见的双眼，她埋进了袴田的胸口。"
+    },
+    {
+      "counts": {
+        "blocks": 6,
         "hrs": 0,
         "images": 1,
         "inlineAtoms": 0,
-        "lines": 13,
+        "lines": 6,
         "ruby": 0,
-        "textRuns": 11
+        "textRuns": 5
       },
-      "detailHash": "44acef706164f12d",
-      "firstText": "「额，这个」",
-      "index": 246,
-      "lastText": "……我在这真的好吗。"
+      "detailHash": "c037733b99e84f76",
+      "firstText": "「我还会继续喜欢你的！所以，你要和姬宫华恋一起幸福啊！你",
+      "index": 252,
+      "lastText": "我还在估算逃离这里的时机，八奈见忽然从袴田的胸口抬起了"
     },
     {
       "counts": {
@@ -4074,10 +4164,10 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "4f5a761766fdb4ac",
-      "firstText": "我还在估算逃离这里的时机，八奈见忽然从袴田的胸口抬起了",
-      "index": 247,
-      "lastText": "「在学校里跟人说话还需要获得许可吗！？这是什么世界观"
+      "detailHash": "59d204998111caf7",
+      "firstText": "头。",
+      "index": 253,
+      "lastText": "啊！？」"
     },
     {
       "counts": {
@@ -4089,10 +4179,10 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "db973b503ef236a6",
-      "firstText": "啊！？」",
-      "index": 248,
-      "lastText": "回答整齐划一。这是我和袴田心意相通的瞬间。"
+      "detailHash": "4224c420e4221de5",
+      "firstText": "但是随随便便跟女生搭话的话不太好吧……？在我生存的世界里",
+      "index": 254,
+      "lastText": "「还有，草介。好好向温水君道歉」"
     },
     {
       "counts": {
@@ -4102,27 +4192,27 @@
         "inlineAtoms": 0,
         "lines": 22,
         "ruby": 0,
-        "textRuns": 22
+        "textRuns": 21
       },
-      "detailHash": "360966172b1118db",
-      "firstText": "「还有，草介。好好向温水君道歉」",
-      "index": 249,
+      "detailHash": "783e1d1625240f1f",
+      "firstText": "为什么啊。袴田向没搞明白原因的我弯下了腰。",
+      "index": 255,
       "lastText": "我们满脸苦笑地互看了下，并排地追逐起八奈见的背影。"
     },
     {
       "counts": {
-        "blocks": 15,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 22,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 20
+        "textRuns": 22
       },
-      "detailHash": "d4a34c9267fd9016",
+      "detailHash": "55a32041a5139ac3",
       "firstText": "◇",
-      "index": 250,
-      "lastText": "「还行……但是其他科目都不咋地」"
+      "index": 256,
+      "lastText": "「咦。袴田原来是回家部啊」"
     },
     {
       "counts": {
@@ -4134,179 +4224,29 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "6b25c22f3f7f5780",
-      "firstText": "「我数学可是要补习啊。暑假还要来学校真是饶了我吧」",
-      "index": 251,
-      "lastText": "重地接着说了下去。"
-    },
-    {
-      "counts": {
-        "blocks": 13,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 24,
-        "ruby": 0,
-        "textRuns": 24
-      },
-      "detailHash": "a4eed779520d33c1",
-      "firstText": "「有些人会说，老师的暑假这么久真好啊—」",
-      "index": 252,
-      "lastText": "们，暑假开始！」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 21,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "138b4992265ba9af",
-      "firstText": "◇",
-      "index": 253,
-      "lastText": "「今、今天的是特浓的……贵了、10日元……」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "747798dcd10ca3ea",
-      "firstText": "居然知道啊。那我这喂养的还有点价值吧。",
-      "index": 254,
-      "lastText": "对，肯定会更加恶化的。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "07726319adfe0cad",
-      "firstText": "在我头痛不已的时候，从楼梯下方传来了爽快又开朗的声音。是",
-      "index": 255,
-      "lastText": "的秘密基地了」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 1,
-        "inlineAtoms": 1,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "1fbdcc74bbed88d3",
-      "firstText": "看来烧盐好像挺喜欢高处，从栏杆上探出身子眺望着操场。喂，",
-      "index": 256,
-      "lastText": "「也算不上什么重要的事。我想说……还是算了吧」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "36f8bfd342d444bf",
-      "firstText": "……小鞠很有兴趣地看着我们两个。",
+      "detailHash": "284b9146d53c50b1",
+      "firstText": "真意外。亲近感点数+1.",
       "index": 257,
-      "lastText": "起来吧！」"
-    },
-    {
-      "counts": {
-        "blocks": 18,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 22
-      },
-      "detailHash": "e902dd8493ce8211",
-      "firstText": "小鞠被烧盐拉着退场，在擦肩而过的时候她对我小声说道。",
-      "index": 258,
-      "lastText": "订正。这完全是在向后倒退。"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
-        "lines": 23,
-        "ruby": 0,
-        "textRuns": 23
-      },
-      "detailHash": "d87fc2022e0a47f5",
-      "firstText": "「那个，八奈见同学。别太钻牛角尖。这个暑假要不要去体验下",
-      "index": 259,
-      "lastText": "「我想了很多次了。但是如果现在我没有好好说出来的话，我肯"
+      "lastText": "甘夏老师貌似回想起了不好的记忆,突然一拳砸向讲台。"
     },
     {
       "counts": {
         "blocks": 12,
         "hrs": 0,
         "images": 1,
-        "inlineAtoms": 0,
-        "lines": 14,
-        "ruby": 0,
-        "textRuns": 12
-      },
-      "detailHash": "b8a11df7c989f543",
-      "firstText": "定会后悔的」",
-      "index": 260,
-      "lastText": "吓得肩膀抖了一下。"
-    },
-    {
-      "counts": {
-        "blocks": 19,
-        "hrs": 0,
-        "images": 1,
         "inlineAtoms": 1,
-        "lines": 22,
-        "ruby": 0,
-        "textRuns": 19
-      },
-      "detailHash": "36a35f90081135cb",
-      "firstText": "「——可以和我做朋友吗！」「抱歉！我只把你当朋友——」",
-      "index": 261,
-      "lastText": "「……嗯？八奈见同学，等一下」"
-    },
-    {
-      "counts": {
-        "blocks": 17,
-        "hrs": 0,
-        "images": 0,
-        "inlineAtoms": 0,
         "lines": 23,
         "ruby": 0,
-        "textRuns": 23
+        "textRuns": 22
       },
-      "detailHash": "87dc0f76e7c9a24b",
-      "firstText": "「我从刚才就一直在等着哦」",
-      "index": 262,
-      "lastText": "这家伙一如既往地很没礼貌。这过于熟悉的你一句我一句差点让"
+      "detailHash": "1b7ca6c1dba01c20",
+      "firstText": "「说到底你们过暑假的时候我还是平常的工作日啊！我可是公务",
+      "index": 258,
+      "lastText": "们，暑假开始！」"
     },
     {
       "counts": {
-        "blocks": 20,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
@@ -4314,24 +4254,174 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "427806ff793a370f",
-      "firstText": "我忘了，说起来我的朋友申请结果是什么？",
-      "index": 263,
-      "lastText": "这是我发自内心的感谢的话语。"
+      "detailHash": "7c9118b6f36088be",
+      "firstText": "◇",
+      "index": 259,
+      "lastText": "「毕竟今天是结业式嘛」"
     },
     {
       "counts": {
-        "blocks": 7,
+        "blocks": 18,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 23,
         "ruby": 0,
-        "textRuns": 7
+        "textRuns": 23
       },
-      "detailHash": "2a8e8f1df188be25",
-      "firstText": "八奈见看到我自然而然的笑容，有点惊讶然后回以我相同的笑",
+      "detailHash": "d6a6d706e860e55a",
+      "firstText": "「……但、但是会觉得过意不去、给你」",
+      "index": 260,
+      "lastText": "「咦—，原来还有这种地方啊。风吹得很舒服呢—」"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "cfc9786d38e27203",
+      "firstText": "从楼下走上来的烧盐看到我们之后假装慌张地回过头。",
+      "index": 261,
+      "lastText": "八奈见来到我的旁边。距离不近也不远，很是微妙。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "f5d5a51dd0d9668a",
+      "firstText": "「温水君。文艺部暑假都要干嘛的？」",
+      "index": 262,
+      "lastText": "「嗯？怎么了吗小鞠酱？」"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 22
+      },
+      "detailHash": "8a16e7592b456d85",
+      "firstText": "被烧盐正面看着，小鞠不由自主地把手伸向手机。",
+      "index": 263,
+      "lastText": "谢谢，下次我会准备好一升的牛奶。"
+    },
+    {
+      "counts": {
+        "blocks": 18,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "fc31667e8d19fc7a",
+      "firstText": "八奈见看着两个人走下楼梯。",
       "index": 264,
+      "lastText": "「等等，我没有钻牛角尖啦！而且断食什么我完全接受不了。"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "ce2242e0204459a2",
+      "firstText": "嗯，断食是不可以的喔温水君！」",
+      "index": 265,
+      "lastText": "好，可爱地咳了一声。"
+    },
+    {
+      "counts": {
+        "blocks": 6,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 0,
+        "lines": 6,
+        "ruby": 0,
+        "textRuns": 4
+      },
+      "detailHash": "f9cd6a84a9ad8437",
+      "firstText": "「这，这个，只，只是……听一下的话」",
+      "index": 266,
+      "lastText": "「八奈见同学。和我——」"
+    },
+    {
+      "counts": {
+        "blocks": 20,
+        "hrs": 0,
+        "images": 1,
+        "inlineAtoms": 1,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 19
+      },
+      "detailHash": "bdcb38b6b6bafc48",
+      "firstText": "「我、我在……」",
+      "index": 267,
+      "lastText": "饭。确实，我们既是同班同学也在同一个社团里，但是，那个，我想以"
+    },
+    {
+      "counts": {
+        "blocks": 17,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 23,
+        "ruby": 0,
+        "textRuns": 23
+      },
+      "detailHash": "c5e8288197102498",
+      "firstText": "朋友的身份——」",
+      "index": 268,
+      "lastText": "好像说得也对。"
+    },
+    {
+      "counts": {
+        "blocks": 19,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 22,
+        "ruby": 0,
+        "textRuns": 21
+      },
+      "detailHash": "8cedac148323f69b",
+      "firstText": "「也就是说三年后我会被温水君求婚吗？要不现在就提前拒绝了",
+      "index": 269,
+      "lastText": "自己和周围产生怎样的联系，怎样去度过，只要按照自己的意愿"
+    },
+    {
+      "counts": {
+        "blocks": 11,
+        "hrs": 0,
+        "images": 0,
+        "inlineAtoms": 0,
+        "lines": 12,
+        "ruby": 0,
+        "textRuns": 11
+      },
+      "detailHash": "ee458b3cafa3e97e",
+      "firstText": "去做就好了。",
+      "index": 270,
       "lastText": "「我可没被甩」"
     },
     {
@@ -4344,9 +4434,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "f6b2bd9fbdc63659",
+      "detailHash": "eb7671c381ad4d34",
       "firstText": "后记",
-      "index": 265,
+      "index": 271,
       "lastText": "将最开始完成的初稿全部读完还反馈了感想的T前辈、N先生、"
     },
     {
@@ -4359,9 +4449,9 @@
         "ruby": 0,
         "textRuns": 13
       },
-      "detailHash": "9706f4d77ba1f57c",
+      "detailHash": "fa574a92ad8b4ad3",
       "firstText": "W先生。没有你们三位的意见，这部作品或许就会以另外一种样貌跟大",
-      "index": 266,
+      "index": 272,
       "lastText": "候，什么也没说就将我留在家里的在天国的父亲。"
     },
     {
@@ -4374,9 +4464,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "227aeb2a40243763",
+      "detailHash": "ca1bd047bc168bd2",
       "firstText": "特典Intermission",
-      "index": 267,
+      "index": 273,
       "lastText": "径部的活动室了，所以就打算从这里直接去操场」"
     },
     {
@@ -4389,9 +4479,9 @@
         "ruby": 0,
         "textRuns": 23
       },
-      "detailHash": "f24875b83cec7b23",
+      "detailHash": "376148ca877824b7",
       "firstText": "说起来运动类社团的活动室大楼在操场的反方向来着。",
-      "index": 268,
+      "index": 274,
       "lastText": "我想太多了吧。"
     },
     {
@@ -4404,9 +4494,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "ec0ac594c488099d",
+      "detailHash": "d83231a7f8b5d74b",
       "firstText": "在烧盐脱下的衬衫，下面穿着的是从胸口往下便一览无遗的内搭",
-      "index": 269,
+      "index": 275,
       "lastText": "「温温对女生也太没抗性啦。要不要加入田径部？」"
     },
     {
@@ -4419,9 +4509,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "c69a43f421519a57",
+      "detailHash": "23f9aea38dbe2acd",
       "firstText": "烧盐苦笑着拍了拍我的肩膀。",
-      "index": 270,
+      "index": 276,
       "lastText": "……虽然不可能会有什么奇怪的想法，但是稍微观察下也挺好"
     },
     {
@@ -4434,9 +4524,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "d3bd2ff86728e2cf",
+      "detailHash": "8d8e3366c3fa0865",
       "firstText": "的。",
-      "index": 271,
+      "index": 277,
       "lastText": "哎呀，姑且还是要确认一下窗帘有没有拉好。如果是在动画里，"
     },
     {
@@ -4449,9 +4539,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "235f3bc3a75845d5",
+      "detailHash": "a9a7199cdcb70264",
       "firstText": "窗帘就这么敞开着，必定会被谁看到的。",
-      "index": 272,
+      "index": 278,
       "lastText": "喔？」"
     },
     {
@@ -4464,9 +4554,9 @@
         "ruby": 0,
         "textRuns": 21
       },
-      "detailHash": "02af36bab6dd1ca8",
+      "detailHash": "7327f2b6622d9467",
       "firstText": "「知、知道了所以……别、到我旁边来……」",
-      "index": 273,
+      "index": 279,
       "lastText": "这就是优雅早就不知道被吹飞到哪里去了的——夏日的某一天。"
     },
     {
@@ -4479,9 +4569,9 @@
         "ruby": 0,
         "textRuns": 22
       },
-      "detailHash": "1b2ba59cb9a6a8b9",
+      "detailHash": "fc659f36ff835238",
       "firstText": "蜜瓜Intermission",
-      "index": 274,
+      "index": 280,
       "lastText": "「一个人吃五个也太离谱了吧。真亏你能吃得下——」"
     },
     {
@@ -4494,9 +4584,9 @@
         "ruby": 0,
         "textRuns": 24
       },
-      "detailHash": "1ed4901c3e92ba81",
+      "detailHash": "829eb5d93dd69c3e",
       "firstText": "「等等！人家才没吃五个顶多就四个而已！最里面的角落放的是",
-      "index": 275,
+      "index": 281,
       "lastText": "「没有没有，只是在分大福而已。来，也有小鞠的份喔」"
     },
     {
@@ -4509,9 +4599,9 @@
         "ruby": 0,
         "textRuns": 18
       },
-      "detailHash": "c201a80fc28e5297",
+      "detailHash": "35954c8305cbb4aa",
       "firstText": "「噢……软绵绵的……」",
-      "index": 276,
+      "index": 282,
       "lastText": "「……欸？刚刚给她的是我的那份吗？」"
     },
     {
@@ -4524,9 +4614,9 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "abfe934bdc09755d",
+      "detailHash": "0793a56cf62829fb",
       "firstText": "小剧场",
-      "index": 277,
+      "index": 283,
       "lastText": "…为什么你要错开视线？"
     },
     {
@@ -4539,9 +4629,9 @@
         "ruby": 0,
         "textRuns": 9
       },
-      "detailHash": "5affded9ff773df5",
+      "detailHash": "061aba0f523ed8fd",
       "firstText": "有些坏家伙叫我败犬女主。",
-      "index": 278,
+      "index": 284,
       "lastText": "那不是已经死了。"
     },
     {
@@ -4554,9 +4644,9 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "b1ad322ffa9597b0",
+      "detailHash": "e5937c60b5863ffd",
       "firstText": "初次见面，我叫温水佳树。请大家一定要来看7月发",
-      "index": 279,
+      "index": 285,
       "lastText": "人类是不能随意变多的。"
     },
     {
@@ -4569,9 +4659,9 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "6c7905f999ea9ad6",
+      "detailHash": "37199e075837176b",
       "firstText": "借此机会我在这里募集哥哥的朋友。",
-      "index": 280,
+      "index": 286,
       "lastText": "难道不是过来和我交朋友的吗？"
     },
     {
@@ -4584,9 +4674,9 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "4233046162ea6c8a",
+      "detailHash": "c42c2c5b5bbeeef0",
       "firstText": "想要被安慰。",
-      "index": 281,
+      "index": 287,
       "lastText": "我错了，我不该对你抱有期待的。"
     },
     {
@@ -4599,9 +4689,9 @@
         "ruby": 0,
         "textRuns": 8
       },
-      "detailHash": "6d086d813371b77c",
+      "detailHash": "677bceb1c550eb2e",
       "firstText": "温水君为什么会喜欢我呢？",
-      "index": 282,
+      "index": 288,
       "lastText": "所以说很困扰啊。"
     },
     {
@@ -4614,9 +4704,9 @@
         "ruby": 0,
         "textRuns": 10
       },
-      "detailHash": "a43c556001452fbd",
+      "detailHash": "d129933020f0e428",
       "firstText": "华恋是我的闺蜜哦。",
-      "index": 283,
+      "index": 289,
       "lastText": "…不要一脸同情地看着我好吗？"
     },
     {
@@ -4629,9 +4719,9 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "5627920732e44ebd",
+      "detailHash": "5fe3de2c8960a86d",
       "firstText": "温水君迷上我的桥段已经决定啦。",
-      "index": 284,
+      "index": 290,
       "lastText": "你问我我也不知道啊。"
     },
     {
@@ -4644,9 +4734,9 @@
         "ruby": 0,
         "textRuns": 7
       },
-      "detailHash": "62f0a158334891fe",
+      "detailHash": "c4d4741eeca404e8",
       "firstText": "哥哥。那个人什么时候能让我见一面啊？",
-      "index": 285,
+      "index": 291,
       "lastText": "所以说这到底是什么东西？！"
     }
   ],
@@ -4655,16 +4745,16 @@
     "chapterCount": 32,
     "chapterTextIndexCount": 32,
     "footnoteCount": 26,
-    "fullDetailHash": "26b2dde364b470e8",
-    "pageCount": 286,
+    "fullDetailHash": "533d14220a17987b",
+    "pageCount": 292,
     "totals": {
-      "blocks": 4588,
+      "blocks": 4593,
       "hrs": 0,
       "images": 111,
       "inlineAtoms": 87,
-      "lines": 5784,
+      "lines": 5785,
       "ruby": 0,
-      "textRuns": 5647
+      "textRuns": 5648
     }
   },
   "samples": [
@@ -4674,7 +4764,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.674,
             "width": 304,
             "x": 0,
             "y": 0
@@ -4683,7 +4773,7 @@
             {
               "alt": null,
               "bounds": {
-                "height": 228,
+                "height": 434.674,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -4726,7 +4816,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.674,
             "width": 304,
             "x": 0,
             "y": 16
@@ -4735,7 +4825,7 @@
             {
               "alt": "ti01",
               "bounds": {
-                "height": 228,
+                "height": 434.674,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6531,7 +6621,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.286,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6540,7 +6630,7 @@
             {
               "alt": "co1",
               "bounds": {
-                "height": 228,
+                "height": 434.286,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6583,7 +6673,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 217.17,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6592,7 +6682,7 @@
             {
               "alt": "co2",
               "bounds": {
-                "height": 228,
+                "height": 217.17,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6635,7 +6725,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 217.17,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6644,7 +6734,7 @@
             {
               "alt": "co3",
               "bounds": {
-                "height": 228,
+                "height": 217.17,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6687,7 +6777,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 217.17,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6696,7 +6786,7 @@
             {
               "alt": "co4",
               "bounds": {
-                "height": 228,
+                "height": 217.17,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6739,7 +6829,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.286,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6748,7 +6838,7 @@
             {
               "alt": "co4",
               "bounds": {
-                "height": 228,
+                "height": 434.286,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -6791,7 +6881,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.286,
             "width": 304,
             "x": 0,
             "y": 0
@@ -6800,7 +6890,7 @@
             {
               "alt": "contents",
               "bounds": {
-                "height": 228,
+                "height": 434.286,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -7506,7 +7596,7 @@
           "borderBox": null,
           "bounds": {
             "height": 120,
-            "width": 72,
+            "width": 62.302,
             "x": 128,
             "y": 289.6
           },
@@ -7525,7 +7615,7 @@
                   "alt": "icon2",
                   "bounds": {
                     "height": 120,
-                    "width": 72,
+                    "width": 62.302,
                     "x": 0,
                     "y": 0
                   },
@@ -7727,7 +7817,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 120,
+            "height": 99.844,
             "width": 72,
             "x": 144,
             "y": 409.6
@@ -7737,7 +7827,7 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 120,
+                "height": 99.844,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -7746,7 +7836,7 @@
                 {
                   "alt": "icon3",
                   "bounds": {
-                    "height": 120,
+                    "height": 99.844,
                     "width": 72,
                     "x": 0,
                     "y": 0
@@ -8039,7 +8129,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 120,
+            "height": 119.137,
             "width": 72,
             "x": 232,
             "y": 81.6
@@ -8049,7 +8139,7 @@
               "anchorId": null,
               "borderBox": null,
               "bounds": {
-                "height": 120,
+                "height": 119.137,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -8058,7 +8148,7 @@
                 {
                   "alt": "icon5",
                   "bounds": {
-                    "height": 120,
+                    "height": 119.137,
                     "width": 72,
                     "x": 0,
                     "y": 0
@@ -8215,7 +8305,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 201.6
+            "y": 200.737
           },
           "children": [],
           "pageBreakAfter": false,
@@ -8229,9 +8319,9 @@
           "borderBox": null,
           "bounds": {
             "height": 120,
-            "width": 72,
+            "width": 59.651,
             "x": 0,
-            "y": 89.6
+            "y": 88.737
           },
           "children": [
             {
@@ -8248,7 +8338,7 @@
                   "alt": "icon4",
                   "bounds": {
                     "height": 120,
-                    "width": 72,
+                    "width": 59.651,
                     "x": 0,
                     "y": 0
                   },
@@ -8277,7 +8367,7 @@
             "height": 0,
             "width": 304,
             "x": 0,
-            "y": 209.6
+            "y": 208.737
           },
           "children": [],
           "pageBreakAfter": false,
@@ -8293,7 +8383,7 @@
             "height": 92.8,
             "width": 176,
             "x": 60.8,
-            "y": 206.56
+            "y": 205.697
           },
           "children": [
             {
@@ -8541,7 +8631,7 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 228,
+            "height": 434.286,
             "width": 304,
             "x": 0,
             "y": 0
@@ -8550,7 +8640,7 @@
             {
               "alt": "start",
               "bounds": {
-                "height": 228,
+                "height": 434.286,
                 "width": 304,
                 "x": 0,
                 "y": 0
@@ -10125,6 +10215,239 @@
                 {
                   "bounds": {
                     "height": 19.2,
+                    "width": 96,
+                    "x": 0,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "还是无法体会到吧。」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 38.4,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 268.8,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "烧盐这次混在男生堆里跑起了第二次。在我们的注视之下，最后",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 19.2
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 144,
+                    "x": 0,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "被高个子的男生一下子就甩开了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 73.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 201.6,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「温水君也被狠狠地甩一回的话可能就懂了吧」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 100.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 48,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「也许吧」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 128
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
                     "width": 230.4,
                     "x": 32,
                     "y": 1.6
@@ -10161,7 +10484,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 155.2
           },
           "children": [
             {
@@ -10211,7 +10534,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 182.4
           },
           "children": [
             {
@@ -10294,7 +10617,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 100.8
+            "y": 228.8
           },
           "children": [
             {
@@ -10344,7 +10667,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 128
+            "y": 256
           },
           "children": [
             {
@@ -10394,7 +10717,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 155.2
+            "y": 283.2
           },
           "children": [
             {
@@ -10444,7 +10767,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 182.4
+            "y": 310.4
           },
           "children": [
             {
@@ -10494,7 +10817,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 209.6
+            "y": 337.6
           },
           "children": [
             {
@@ -10577,7 +10900,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 256
+            "y": 384
           },
           "children": [
             {
@@ -10660,7 +10983,7 @@
             "height": 38.4,
             "width": 304,
             "x": 0,
-            "y": 302.4
+            "y": 430.4
           },
           "children": [
             {
@@ -10743,7 +11066,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 348.8
+            "y": 476.8
           },
           "children": [
             {
@@ -10770,7 +11093,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 376
+            "y": 504
           },
           "children": [
             {
@@ -10821,16 +11144,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 12,
+        "blocks": 16,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 16,
+        "lines": 21,
         "ruby": 0,
-        "textRuns": 15
+        "textRuns": 20
       },
-      "firstText": "「自己被甩了也没有什么改变，也不会感到很痛快噢」",
-      "index": 77,
+      "firstText": "还是无法体会到吧。」",
+      "index": 79,
       "lastText": "《今天的欠款余额：2867日元》",
       "paint": null
     },
@@ -11163,7 +11486,7 @@
                   "alt": "note",
                   "bounds": {
                     "height": 14.4,
-                    "width": 12,
+                    "width": 14.4,
                     "x": 259.2,
                     "y": 0
                   },
@@ -11176,7 +11499,7 @@
                   "bounds": {
                     "height": 19.2,
                     "width": 28.8,
-                    "x": 271.2,
+                    "x": 273.6,
                     "y": 3.2
                   },
                   "href": null,
@@ -11836,7 +12159,7 @@
         "textRuns": 23
       },
       "firstText": "Intermission",
-      "index": 78,
+      "index": 80,
       "lastText": "八奈见一边坏笑一边看着标签，注意到了印在边上的保质期。",
       "paint": null
     },
@@ -12341,7 +12664,7 @@
         "textRuns": 11
       },
       "firstText": "今年，是几几年来着。我想想啊，因为令和元年是2019年",
-      "index": 79,
+      "index": 81,
       "lastText": "深夜。",
       "paint": null
     },
@@ -13329,7 +13652,7 @@
         "textRuns": 22
       },
       "firstText": "~二败目~",
-      "index": 80,
+      "index": 82,
       "lastText": "了过来。",
       "paint": null
     },
@@ -13343,6 +13666,489 @@
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 220.8,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「给，烧盐同学吃的那一半和我吃的那份钱，正好」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "我在托盘上排列好零钱。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 96,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「了解。还剩下……」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 153.6,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "八奈见打开钱包的手突然停了下来。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 108.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 76.8,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「嗯，怎么了？」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 38.4,
+            "width": 304,
+            "x": 0,
+            "y": 136
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 268.8,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "可千万别告诉我说是钱不够吧。八奈见怎么着都不会这样吧，要",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            },
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 19.2
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 134.4,
+                    "x": 0,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "真是那样她岂不是个笨蛋了吗。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 182.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 96,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "八奈见的手微微颤抖。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 209.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「没想到钱竟然会不够」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 236.8
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 144,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "八奈见抬头用湿润的眼睛盯着我。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 264
           },
           "children": [
             {
@@ -13392,7 +14198,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 27.2
+            "y": 291.2
           },
           "children": [
             {
@@ -13442,7 +14248,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 54.4
+            "y": 318.4
           },
           "children": [
             {
@@ -13492,7 +14298,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 81.6
+            "y": 345.6
           },
           "children": [
             {
@@ -13519,7 +14325,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 108.8
+            "y": 372.8
           },
           "children": [
             {
@@ -13570,16 +14376,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 5,
+        "blocks": 14,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 5,
+        "lines": 15,
         "ruby": 0,
-        "textRuns": 4
+        "textRuns": 14
       },
-      "firstText": "「那个……温水君……」",
-      "index": 146,
+      "firstText": "「给，烧盐同学吃的那一半和我吃的那份钱，正好」",
+      "index": 149,
       "lastText": "《本日的欠款余额：2867日元》",
       "paint": null
     },
@@ -14482,7 +15288,7 @@
         "textRuns": 18
       },
       "firstText": "Intermission",
-      "index": 147,
+      "index": 150,
       "lastText": "如此一来就只有这几种可能性了。",
       "paint": null
     },
@@ -14755,7 +15561,7 @@
         "textRuns": 5
       },
       "firstText": "当然，小抜并没有后悔。",
-      "index": 150,
+      "index": 153,
       "lastText": "「当然！」",
       "paint": null
     },
@@ -15749,7 +16555,7 @@
         "textRuns": 22
       },
       "firstText": "~三败目~",
-      "index": 151,
+      "index": 154,
       "lastText": "「啊？您这么喜欢海水浴吗」",
       "paint": null
     },
@@ -16072,7 +16878,7 @@
         "textRuns": 6
       },
       "firstText": "！真是个不礼貌的家伙啊。能不能把这家伙拉黑啊。",
-      "index": 216,
+      "index": 221,
       "lastText": "「……给我看好了。我会让你给我满分的」",
       "paint": null
     },
@@ -17027,7 +17833,7 @@
         "textRuns": 21
       },
       "firstText": "Intermission",
-      "index": 217,
+      "index": 222,
       "lastText": "「你……很能干……」",
       "paint": null
     },
@@ -17283,7 +18089,7 @@
         "textRuns": 5
       },
       "firstText": "少女意味深长地竖起手指。",
-      "index": 219,
+      "index": 224,
       "lastText": "「我是桃园中学的学生会杂务温水佳树。请多指教哦，学姐」",
       "paint": null
     },
@@ -18337,7 +19143,7 @@
         "textRuns": 25
       },
       "firstText": "~四败目~",
-      "index": 220,
+      "index": 225,
       "lastText": "「这是什么场景？」",
       "paint": null
     },
@@ -18347,10 +19153,210 @@
           "anchorId": null,
           "borderBox": null,
           "bounds": {
-            "height": 38.4,
+            "height": 19.2,
             "width": 304,
             "x": 0,
             "y": 0
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 57.6,
+                    "x": 0,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "去做就好了。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 27.2
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 259.2,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "我只是单纯地喜欢着像现在这样和八奈见在一起度过的时间。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 54.4
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 105.6,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "「谢谢你，八奈见同学」",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 19.2,
+            "width": 304,
+            "x": 0,
+            "y": 81.6
+          },
+          "children": [
+            {
+              "bounds": {
+                "height": 19.2,
+                "width": 304,
+                "x": 0,
+                "y": 0
+              },
+              "runs": [
+                {
+                  "bounds": {
+                    "height": 19.2,
+                    "width": 134.4,
+                    "x": 32,
+                    "y": 1.6
+                  },
+                  "href": null,
+                  "inlineMarginRight": null,
+                  "lineHeightPx": 19.2,
+                  "paint": {
+                    "color": "#000000",
+                    "font": {
+                      "family": "serif",
+                      "sizePx": 16,
+                      "style": "normal",
+                      "weight": 400
+                    }
+                  },
+                  "text": "这是我发自内心的感谢的话语。",
+                  "type": "text-run"
+                }
+              ],
+              "type": "line-box"
+            }
+          ],
+          "pageBreakAfter": false,
+          "pageBreakBefore": false,
+          "paint": null,
+          "tag": "p",
+          "type": "layout-block"
+        },
+        {
+          "anchorId": null,
+          "borderBox": null,
+          "bounds": {
+            "height": 38.4,
+            "width": 304,
+            "x": 0,
+            "y": 108.8
           },
           "children": [
             {
@@ -18433,7 +19439,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 46.4
+            "y": 155.2
           },
           "children": [
             {
@@ -18483,7 +19489,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 73.6
+            "y": 182.4
           },
           "children": [
             {
@@ -18533,7 +19539,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 100.8
+            "y": 209.6
           },
           "children": [
             {
@@ -18583,7 +19589,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 128
+            "y": 236.8
           },
           "children": [
             {
@@ -18633,7 +19639,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 155.2
+            "y": 264
           },
           "children": [
             {
@@ -18660,7 +19666,7 @@
             "height": 19.2,
             "width": 304,
             "x": 0,
-            "y": 182.4
+            "y": 291.2
           },
           "children": [
             {
@@ -18711,16 +19717,16 @@
         "y": 0
       },
       "counts": {
-        "blocks": 7,
+        "blocks": 11,
         "hrs": 0,
         "images": 0,
         "inlineAtoms": 0,
-        "lines": 8,
+        "lines": 12,
         "ruby": 0,
-        "textRuns": 7
+        "textRuns": 11
       },
-      "firstText": "八奈见看到我自然而然的笑容，有点惊讶然后回以我相同的笑",
-      "index": 264,
+      "firstText": "去做就好了。",
+      "index": 270,
       "lastText": "「我可没被甩」",
       "paint": null
     },
@@ -19683,7 +20689,7 @@
         "textRuns": 22
       },
       "firstText": "后记",
-      "index": 265,
+      "index": 271,
       "lastText": "将最开始完成的初稿全部读完还反馈了感想的T前辈、N先生、",
       "paint": null
     },
@@ -20220,7 +21226,7 @@
         "textRuns": 13
       },
       "firstText": "W先生。没有你们三位的意见，这部作品或许就会以另外一种样貌跟大",
-      "index": 266,
+      "index": 272,
       "lastText": "候，什么也没说就将我留在家里的在天国的父亲。",
       "paint": null
     },
@@ -21175,7 +22181,7 @@
         "textRuns": 21
       },
       "firstText": "特典Intermission",
-      "index": 267,
+      "index": 273,
       "lastText": "径部的活动室了，所以就打算从这里直接去操场」",
       "paint": null
     },
@@ -22224,7 +23230,7 @@
         "textRuns": 21
       },
       "firstText": "「知、知道了所以……别、到我旁边来……」",
-      "index": 273,
+      "index": 279,
       "lastText": "这就是优雅早就不知道被吹飞到哪里去了的——夏日的某一天。",
       "paint": null
     },
@@ -23212,7 +24218,7 @@
         "textRuns": 22
       },
       "firstText": "蜜瓜Intermission",
-      "index": 274,
+      "index": 280,
       "lastText": "「一个人吃五个也太离谱了吧。真亏你能吃得下——」",
       "paint": null
     },
@@ -24084,7 +25090,7 @@
         "textRuns": 18
       },
       "firstText": "「噢……软绵绵的……」",
-      "index": 276,
+      "index": 282,
       "lastText": "「……欸？刚刚给她的是我的那份吗？」",
       "paint": null
     },
@@ -24635,7 +25641,7 @@
         "textRuns": 8
       },
       "firstText": "小剧场",
-      "index": 277,
+      "index": 283,
       "lastText": "…为什么你要错开视线？",
       "paint": null
     },
@@ -25239,7 +26245,7 @@
         "textRuns": 9
       },
       "firstText": "有些坏家伙叫我败犬女主。",
-      "index": 278,
+      "index": 284,
       "lastText": "那不是已经死了。",
       "paint": null
     },
@@ -25910,7 +26916,7 @@
         "textRuns": 10
       },
       "firstText": "华恋是我的闺蜜哦。",
-      "index": 283,
+      "index": 289,
       "lastText": "…不要一脸同情地看着我好吗？",
       "paint": null
     },
@@ -26377,7 +27383,7 @@
         "textRuns": 7
       },
       "firstText": "温水君迷上我的桥段已经决定啦。",
-      "index": 284,
+      "index": 290,
       "lastText": "你问我我也不知道啊。",
       "paint": null
     },
@@ -26844,7 +27850,7 @@
         "textRuns": 7
       },
       "firstText": "哥哥。那个人什么时候能让我见一面啊？",
-      "index": 285,
+      "index": 291,
       "lastText": "所以说这到底是什么东西？！",
       "paint": null
     }
