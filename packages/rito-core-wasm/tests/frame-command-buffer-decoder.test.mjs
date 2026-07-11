@@ -81,6 +81,7 @@ test('decoder entry exposes the WASM-free browser runtime surface', async () => 
     'createRitoCoreWasmReaderSpreads',
     'createRitoCoreWasmWorkerReaderClient',
     'decodeRitoFrameCommandBuffer',
+    'decodeRitoRuntimeBundle',
     'normalizeRitoCoreWasmError',
   ]) {
     assert.equal(typeof decoder[exportName], 'function', `${exportName} should be exported`);
@@ -98,8 +99,11 @@ test('decoder entry exposes the WASM-free browser runtime surface', async () => 
 });
 
 test('generated type surface does not expose publication and layout as generic JSON', async () => {
-  const declaration = await readFile(new URL('../dist/index.d.mts', import.meta.url), 'utf8');
-  const wasmBuilder = await readFile(new URL('../scripts/build-wasm.mjs', import.meta.url), 'utf8');
+  const [declaration, decoderDeclaration, wasmBuilder] = await Promise.all([
+    readFile(new URL('../dist/index.d.mts', import.meta.url), 'utf8'),
+    readFile(new URL('../dist/decoder.d.mts', import.meta.url), 'utf8'),
+    readFile(new URL('../scripts/build-wasm.mjs', import.meta.url), 'utf8'),
+  ]);
   const packageJson = JSON.parse(
     await readFile(new URL('../package.json', import.meta.url), 'utf8'),
   );
@@ -172,6 +176,13 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /decodeRitoFrameCommandBuffer/);
   assert.match(declaration, /decodeRitoRuntimeBundle/);
   assert.match(declaration, /export interface DecodedRitoRuntimeBundle/);
+  for (const surface of [declaration, decoderDeclaration]) {
+    assert.match(surface, /export type RitoCoreWasmRuntimeBundlePayload = RitoCoreWasmJsonValue;/);
+    assert.doesNotMatch(
+      surface,
+      /RitoCoreWasmRuntimeBundlePayload = RitoCoreWasmViewRevisionResponse/,
+    );
+  }
   assert.match(declaration, /export interface RitoCoreWasmFrameResourceWarmPlan/);
   assert.doesNotMatch(declaration, /frameResourceWarmPlan\(/);
   assert.match(declaration, /export interface RitoCoreWasmPlannedFrameResourcePrefetchResponse/);
@@ -182,6 +193,8 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /normalizeRitoCoreWasmError/);
   assert.match(wasmBuilder, /publication\(\): RitoCoreWasmPublicationInfo;/);
   assert.match(wasmBuilder, /request: RitoCoreWasmFullRevisionBundleRequest,/);
+  assert.match(wasmBuilder, /runtime-bundle-decoder-runtime\.d\.ts/);
+  assert.doesNotMatch(wasmBuilder, /'\) => DecodedRitoRuntimeBundle;'/);
   assert.doesNotMatch(wasmBuilder, /publication\(\): RitoCoreWasmJsonObject;/);
   assert.doesNotMatch(wasmBuilder, /layoutConfig: RitoCoreWasmJsonObject,/);
   assert.equal(packageJson.scripts.build, 'node scripts/build-wasm.mjs');
@@ -329,6 +342,16 @@ test('decodeRitoRuntimeBundle decodes string-table object payloads', () => {
     kind: 'preview',
     result: { ok: true, count: 2 },
   });
+});
+
+test('decodeRitoRuntimeBundle preserves generic scalar JSON payloads', () => {
+  const bytes = runtimeBundleBytes({
+    strings: [],
+    values: [runtimeTrueRecord()],
+    rootIndex: 0,
+  });
+
+  assert.equal(decodeRitoRuntimeBundle(bytes).payload, true);
 });
 
 test('decodeRitoRuntimeBundle preserves __proto__ as an own data property', () => {

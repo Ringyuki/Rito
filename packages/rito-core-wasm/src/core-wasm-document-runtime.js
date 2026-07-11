@@ -70,20 +70,23 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     }
 
     createViewRevisionBundle(request) {
-      return jsonMethod('createViewRevisionBundle', () =>
-        this._inner.createViewRevisionBundleJson(encodeJson(request, 'createViewRevisionBundle')),
+      return callRitoCoreWasm('createViewRevisionBundle', () =>
+        decodeJsonViewRevisionBundle(
+          this._inner.createViewRevisionBundleJson(encodeJson(request, 'createViewRevisionBundle')),
+          'createViewRevisionBundle',
+        ),
       );
     }
 
     createViewRevisionBundleBytes(request) {
-      return callRitoCoreWasm('createViewRevisionBundleBytes', () => {
-        const decoded = decodeRitoRuntimeBundle(
+      return callRitoCoreWasm('createViewRevisionBundleBytes', () =>
+        decodeBinaryViewRevisionBundle(
           this._inner.createViewRevisionBundleBytes(
             encodeJson(request, 'createViewRevisionBundleBytes'),
           ),
-        );
-        return decoded.payload;
-      });
+          'createViewRevisionBundleBytes',
+        ),
+      );
     }
 
     getFrame(revisionId, spreadIndex) {
@@ -344,11 +347,52 @@ function decodeMeasuredViewRevision(rawPayload, wire, operation) {
 }
 
 function decodeReaderViewRevision(rawPayload, wire, operation) {
-  const value =
-    wire === 'ritorb1'
-      ? decodeRitoRuntimeBundle(rawPayload).payload
-      : parseJsonPayload(rawPayload, operation);
-  return requireObjectPayload(value, operation);
+  return wire === 'ritorb1'
+    ? decodeBinaryViewRevisionBundle(rawPayload, operation)
+    : decodeJsonViewRevisionBundle(rawPayload, operation);
+}
+
+function decodeBinaryViewRevisionBundle(rawPayload, operation) {
+  return requireViewRevisionPayload(decodeRitoRuntimeBundle(rawPayload).payload, operation);
+}
+
+function decodeJsonViewRevisionBundle(rawPayload, operation) {
+  return requireViewRevisionPayload(parseJsonPayload(rawPayload, operation), operation);
+}
+
+function requireViewRevisionPayload(value, operation) {
+  const view = requireObjectPayload(value, operation);
+  if (view.kind !== 'preview' && view.kind !== 'full') {
+    throw new Error(`${operation} returned an invalid view revision kind`);
+  }
+  if (view.display !== 'revision' && view.display !== 'visualPreview') {
+    throw new Error(`${operation} returned an invalid view revision display`);
+  }
+  const result = requireObjectPayload(view.result, `${operation} result`);
+  const bundle = requireObjectPayload(result.bundle, `${operation} result bundle`);
+  const revision = requireObjectPayload(bundle.revision, `${operation} bundle revision`);
+  if (typeof revision.revisionId !== 'string' || revision.revisionId.length === 0) {
+    throw new Error(`${operation} returned a view revision without a revisionId`);
+  }
+  if (typeof result.preview !== 'boolean') {
+    throw new Error(`${operation} returned a view revision without a preview flag`);
+  }
+  requireViewRevisionFollowUp(view.followUp, operation);
+  return view;
+}
+
+function requireViewRevisionFollowUp(value, operation) {
+  if (value === undefined) return;
+  const followUp = requireObjectPayload(value, `${operation} follow-up`);
+  if (
+    followUp.mode !== 'full' ||
+    !Number.isSafeInteger(followUp.delayMs) ||
+    followUp.delayMs < 0 ||
+    typeof followUp.previousRevisionId !== 'string' ||
+    followUp.previousRevisionId.length === 0
+  ) {
+    throw new Error(`${operation} returned an invalid view revision follow-up`);
+  }
 }
 
 function requireNonNegativeInteger(value, field) {

@@ -9,7 +9,7 @@ const RUNTIME_BUNDLE_HEADER_BYTES = 56;
 const VIEW_REQUEST = { mode: 'full', layoutConfig: { pageWidth: 320, pageHeight: 480 } };
 const VIEW_RESPONSE = {
   kind: 'full',
-  display: 'canonical',
+  display: 'revision',
   result: {
     bundle: {
       revision: { revisionId: 'revision-1' },
@@ -20,13 +20,25 @@ const VIEW_RESPONSE = {
       },
     },
     preview: false,
+    releasedPreviousRevisionTransferCount: 0,
   },
+};
+const PREVIEW_VIEW_RESPONSE = {
+  ...VIEW_RESPONSE,
+  kind: 'preview',
+  display: 'visualPreview',
+  followUp: {
+    mode: 'full',
+    delayMs: 1_000,
+    previousRevisionId: 'revision-previous',
+  },
+  result: { ...VIEW_RESPONSE.result, preview: true },
 };
 const TRANSPORT_WORKER_PAYLOAD = {
   kind: 'createViewRevision',
   result: {
     kind: 'full',
-    display: 'canonical',
+    display: 'revision',
     result: {
       bundle: VIEW_RESPONSE.result.bundle,
       preview: false,
@@ -92,6 +104,48 @@ test('worker rejects invalid Rust wire metrics instead of publishing diagnostics
   assert.equal(response.ok, false);
   assert.match(response.error.message, /rawWireBytes must be a non-negative integer/);
   assert.equal(Object.hasOwn(response, '__ritoWireMetrics'), false);
+});
+
+test('view revision binary adapter rejects a generic scalar bundle payload', () => {
+  const document = new RitoCoreWasmDocument({
+    createViewRevisionBundleBytes: () => runtimeBundleBytes([], [new Uint8Array([2])], 0),
+  });
+
+  assert.throws(() => document.createViewRevisionBundleBytes(VIEW_REQUEST), {
+    message: /createViewRevisionBundleBytes returned a non-object JSON payload/,
+  });
+});
+
+test('view revision JSON adapter rejects invalid discriminants', () => {
+  const document = new RitoCoreWasmDocument({
+    createViewRevisionBundleJson: () => JSON.stringify({ ...VIEW_RESPONSE, display: 'canonical' }),
+  });
+
+  assert.throws(() => document.createViewRevisionBundle(VIEW_REQUEST), {
+    message: /createViewRevisionBundle returned an invalid view revision display/,
+  });
+});
+
+test('view revision JSON adapter accepts a valid preview follow-up', () => {
+  const document = new RitoCoreWasmDocument({
+    createViewRevisionBundleJson: () => JSON.stringify(PREVIEW_VIEW_RESPONSE),
+  });
+
+  assert.deepEqual(document.createViewRevisionBundle(VIEW_REQUEST), PREVIEW_VIEW_RESPONSE);
+});
+
+test('view revision JSON adapter rejects an invalid follow-up', () => {
+  const document = new RitoCoreWasmDocument({
+    createViewRevisionBundleJson: () =>
+      JSON.stringify({
+        ...PREVIEW_VIEW_RESPONSE,
+        followUp: { ...PREVIEW_VIEW_RESPONSE.followUp, delayMs: -1 },
+      }),
+  });
+
+  assert.throws(() => document.createViewRevisionBundle(VIEW_REQUEST), {
+    message: /createViewRevisionBundle returned an invalid view revision follow-up/,
+  });
 });
 
 function createViewRevisionRequest(wire, collectWireMetrics) {
@@ -228,7 +282,7 @@ function viewRevisionBundleBytes() {
     'kind',
     'full',
     'display',
-    'canonical',
+    'revision',
     'result',
     'bundle',
     'revision',
@@ -239,6 +293,7 @@ function viewRevisionBundleBytes() {
     'entries',
     'scopeKey',
     'chapter-text-v1:full',
+    'releasedPreviousRevisionTransferCount',
   ];
   const values = [
     stringRecord(1),
@@ -257,17 +312,19 @@ function viewRevisionBundleBytes() {
       [10, 6],
     ]),
     new Uint8Array([1]),
+    u64Record(0),
     objectRecord([
       [5, 7],
       [9, 8],
+      [14, 9],
     ]),
     objectRecord([
       [0, 0],
       [2, 1],
-      [4, 9],
+      [4, 10],
     ]),
   ];
-  return runtimeBundleBytes(strings, values, 10);
+  return runtimeBundleBytes(strings, values, 11);
 }
 
 function runtimeBundleBytes(strings, values, rootIndex) {
@@ -303,6 +360,14 @@ function runtimeBundleBytes(strings, values, rootIndex) {
 
 function stringRecord(index) {
   return joinBytes([new Uint8Array([6]), u32Bytes(index)]);
+}
+
+function u64Record(value) {
+  const bytes = new Uint8Array(9);
+  const view = new DataView(bytes.buffer);
+  view.setUint8(0, 4);
+  view.setBigUint64(1, BigInt(value), true);
+  return bytes;
 }
 
 function objectRecord(entries) {

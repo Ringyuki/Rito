@@ -21,6 +21,10 @@ const runtimeSources = [
 }));
 const errorDeclarationSource = new URL('../src/core-wasm-error-runtime.d.ts', import.meta.url);
 const compatDeclarationSource = new URL('../src/reader-compat-runtime.d.ts', import.meta.url);
+const decoderDeclarationSources = [
+  'frame-command-buffer-decoder-runtime.d.ts',
+  'runtime-bundle-decoder-runtime.d.ts',
+].map((name) => new URL(`../src/${name}`, import.meta.url));
 const typeDeclarationSources = [
   'common',
   'frame-command',
@@ -42,6 +46,7 @@ await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, ta
 
 const errorDeclarations = await readFile(errorDeclarationSource, 'utf8');
 const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
+const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
 const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
 await writeFile(new URL('decoder.mjs', dist), decoderEntry());
 await writeFile(new URL('index.mjs', dist), indexEntry());
@@ -51,7 +56,7 @@ await writeFile(
     errorDeclarations,
     typeDeclarations,
     compatDeclarations,
-    decoderDeclaration(),
+    decoderDeclarations,
     placeholderEngineDeclaration(),
     readerClientDeclarations(),
     'export declare function getRitoCoreWasmStatus(): RitoCoreWasmStatus;',
@@ -65,7 +70,7 @@ await writeFile(
     errorDeclarations,
     typeDeclarations,
     compatDeclarations,
-    decoderDeclaration(),
+    decoderDeclarations,
     readerClientDeclarations(),
     '',
   ].join('\n'),
@@ -127,18 +132,6 @@ function indexEntry() {
     '  };',
     '}',
     '',
-  ].join('\n');
-}
-
-function decoderDeclaration() {
-  return [
-    'export declare const decodeRitoFrameCommandBuffer: (',
-    '  metadata: RitoFrameCommandBufferMetadata,',
-    '  bytes: Uint8Array,',
-    ') => DecodedRitoFrameCommandBuffer;',
-    'export declare const decodeRitoRuntimeBundle: (',
-    '  bytes: Uint8Array,',
-    ') => DecodedRitoRuntimeBundle;',
   ].join('\n');
 }
 

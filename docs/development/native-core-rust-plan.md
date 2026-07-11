@@ -352,6 +352,10 @@ in place:
   encode, complete WASM method, JavaScript decode, worker processing, and worker
   round-trip time. The JavaScript decoder now computes the unchanged FNV-1a
   checksum with exact u32 lanes and avoids descriptors for ordinary object keys.
+  The low-level V1 decoder exposes a generic recursive JSON payload, while the
+  JSON/binary view adapters validate operation-specific discriminants and core
+  structure before narrowing to the view-revision response. Generated package
+  entries source both decoder signatures from the adjacent runtime declarations.
   The repeated local evidence matrix found stable size savings but materially
   higher eager encode/decode elapsed cost, so JSON remains the default and the
   current decision is no-go pending materialization optimization and a second

@@ -1,4 +1,4 @@
-import type { RitoCoreWasmViewRevisionResponse } from './revision';
+import type { RitoCoreWasmJsonValue } from './common';
 
 export interface DecodedRitoRuntimeBundle {
   readonly protocolVersion: 1;
@@ -9,5 +9,5 @@ export interface DecodedRitoRuntimeBundle {
   readonly payload: RitoCoreWasmRuntimeBundlePayload;
 }
 
-export type RitoCoreWasmRuntimeBundlePayload = RitoCoreWasmViewRevisionResponse;
+export type RitoCoreWasmRuntimeBundlePayload = RitoCoreWasmJsonValue;
 export type RitoCoreWasmReaderRuntimeWire = 'json' | 'ritorb1';

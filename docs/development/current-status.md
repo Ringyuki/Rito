@@ -108,7 +108,10 @@ Those names now belong to the old TS reference tree only.
 - The JavaScript `RITORB1` decoder keeps the same FNV-1a checksum and object
   semantics while avoiding per-byte `BigInt` work and unnecessary property
   descriptors. Cross-language goldens and malformed-checksum rejection remain
-  unchanged, and the dominant browser decode hotspots are removed.
+  unchanged, and the dominant browser decode hotspots are removed. Its low-level
+  payload contract is now the generic recursive JSON value supported by V1;
+  JSON and binary view-revision adapters validate their discriminants and core
+  structure before returning the operation-specific typed response.
 - Full reader revisions now inline document-stable `chapterTextIndices.entries`
   once per Reader/publication. That Reader's foreground and full-reflow clients
   share a private cache, so later full revisions carry a validated scope
@@ -164,6 +167,9 @@ Those names now belong to the old TS reference tree only.
 3. **Generated boundary types**
    - Raw wasm-bindgen types are generated, but many business DTO types in
      `packages/rito-core-wasm/src/types/**` are still hand-written.
+   - Decoder signatures now come from their adjacent runtime declarations for
+     both real-WASM and placeholder builds instead of four hand-maintained
+     copies.
    - Long term, Rust/schema should generate TypeScript DTO declarations.
 4. **Browser presentation adapter**
    - `packages/rito/src/bindings/browser/frame-command-renderer.ts` now owns

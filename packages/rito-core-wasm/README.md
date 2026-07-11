@@ -40,6 +40,10 @@ with the packed-buffer decoders and structured error helpers, it exposes the
 pure-JavaScript reader compatibility and worker-client helpers needed on the
 main thread. The full package root remains reserved for worker execution and
 the lazy in-process fallback because it imports the wasm-bindgen glue.
+The low-level `RITORB1` decoder reports its payload as a generic JSON value;
+view-revision wrappers validate the operation-specific discriminants and
+structure before exposing the typed response. Both generated entries reuse the
+decoder runtime declaration files as their single signature source.
 Each worker-client helper owns exactly one successfully opened publication
 session; a failed open may be retried, while disposal is terminal.
 
