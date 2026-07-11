@@ -75,6 +75,53 @@ fn caches_image_bytes_loaded_for_dimension_detection() {
 }
 
 #[test]
+fn detects_image_dimensions_from_cached_bytes_without_archive_source() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for cached image");
+
+    document
+        .read_image_bytes("Images/cover.png")
+        .expect("image bytes load")
+        .expect("image exists");
+    document.archive_source = None;
+    document
+        .ensure_image_dimensions_loaded("Images/cover.png")
+        .expect("cached image dimensions load without archive");
+
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+    assert!(document.images[0].dimensions_loaded);
+}
+
+#[test]
+fn batch_detects_cached_image_dimensions_without_reopening_archive() {
+    let mut document =
+        open_runtime_document_owned(fixture_epub()).expect("document opens for cached batch");
+
+    document
+        .read_image_bytes("Images/cover.png")
+        .expect("image bytes load")
+        .expect("image exists");
+    document.chapters[0].xhtml_source =
+        r#"<html><body><img src="Images/cover.png"/></body></html>"#.to_owned();
+    document.chapters[0].image_refs = None;
+    document
+        .archive_source
+        .as_mut()
+        .expect("archive source exists")
+        .bytes
+        .clear();
+
+    document
+        .ensure_chapter_image_dimensions_loaded(0, 1)
+        .expect("cached batch dimensions load without reopening archive");
+
+    assert_eq!(document.images[0].width, Some(2));
+    assert_eq!(document.images[0].height, Some(3));
+    assert!(document.images[0].dimensions_loaded);
+}
+
+#[test]
 fn ignores_image_dimension_ranges_beyond_available_chapters() {
     let mut document =
         open_runtime_document_owned(fixture_epub()).expect("document opens for range check");

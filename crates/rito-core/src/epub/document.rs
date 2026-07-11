@@ -197,6 +197,11 @@ impl LoadedEpubDocument {
         {
             return Ok(());
         }
+        if !self.images[index].bytes.is_empty() {
+            let dimensions = detect_image_dimensions(&self.images[index].bytes);
+            set_image_dimensions(&mut self.images[index], dimensions);
+            return Ok(());
+        }
         let Some(resource_href) = self.images.get(index).map(|resource| resource.href.clone())
         else {
             return Ok(());
@@ -204,14 +209,10 @@ impl LoadedEpubDocument {
         let bytes = self.read_archive_bytes(&resource_href)?;
         let dimensions = detect_image_dimensions(&bytes);
         if let Some(resource) = self.images.get_mut(index) {
-            resource.width = dimensions.map(|(width, _)| width);
-            resource.height = dimensions.map(|(_, height)| height);
-            resource.dimensions_loaded = true;
-            if resource.bytes.is_empty() {
-                resource.byte_length = bytes.len();
-                resource.byte_hash = Some(hash_bytes(&bytes));
-                resource.bytes = bytes;
-            }
+            set_image_dimensions(resource, dimensions);
+            resource.byte_length = bytes.len();
+            resource.byte_hash = Some(hash_bytes(&bytes));
+            resource.bytes = bytes;
         }
         Ok(())
     }
@@ -231,6 +232,17 @@ impl LoadedEpubDocument {
     }
 
     fn ensure_image_dimensions_loaded_for_refs(&mut self, refs: &[String]) -> EpubResult<()> {
+        let needs_archive = refs.iter().any(|href| {
+            find_resource_index(&self.images, href).is_some_and(|index| {
+                !self.images[index].dimensions_loaded && self.images[index].bytes.is_empty()
+            })
+        });
+        if !needs_archive {
+            for href in refs {
+                self.ensure_image_dimensions_loaded(href)?;
+            }
+            return Ok(());
+        }
         let Some(source) = self.archive_source.as_ref() else {
             for href in refs {
                 self.ensure_image_dimensions_loaded(href)?;
@@ -333,21 +345,24 @@ fn ensure_image_dimensions_loaded_with_archive(
     if images[index].dimensions_loaded {
         return Ok(());
     }
-    let bytes = if images[index].bytes.is_empty() {
-        source.read_bytes_with_archive(archive, &images[index].href)?
-    } else {
-        images[index].bytes.clone()
-    };
-    let dimensions = detect_image_dimensions(&bytes);
-    images[index].width = dimensions.map(|(width, _)| width);
-    images[index].height = dimensions.map(|(_, height)| height);
-    images[index].dimensions_loaded = true;
-    if images[index].bytes.is_empty() {
-        images[index].byte_length = bytes.len();
-        images[index].byte_hash = Some(hash_bytes(&bytes));
-        images[index].bytes = bytes;
+    if !images[index].bytes.is_empty() {
+        let dimensions = detect_image_dimensions(&images[index].bytes);
+        set_image_dimensions(&mut images[index], dimensions);
+        return Ok(());
     }
+    let bytes = source.read_bytes_with_archive(archive, &images[index].href)?;
+    let dimensions = detect_image_dimensions(&bytes);
+    set_image_dimensions(&mut images[index], dimensions);
+    images[index].byte_length = bytes.len();
+    images[index].byte_hash = Some(hash_bytes(&bytes));
+    images[index].bytes = bytes;
     Ok(())
+}
+
+fn set_image_dimensions(resource: &mut LoadedBinaryResource, dimensions: Option<(u32, u32)>) {
+    resource.width = dimensions.map(|(width, _)| width);
+    resource.height = dimensions.map(|(_, height)| height);
+    resource.dimensions_loaded = true;
 }
 
 fn collect_image_refs(node: &DocumentNode, refs: &mut BTreeSet<String>) {

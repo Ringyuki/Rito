@@ -1033,6 +1033,10 @@ Required cleanup:
    - Runtime image/font bytes now become document-owned lazy cache entries after
      first read; image bytes read for dimension detection are retained too, so
      resource lookup does not re-open the EPUB archive for the same binary.
+   - Cached image dimension probes now borrow the retained byte slice without
+     reopening the archive or cloning the image buffer. Runtime resource reads
+     snapshot only small binary metadata before the mutable lazy-cache access,
+     instead of cloning the cached resource payload.
    - Font-aware revision creation batches lazy font loading through one archive
      reader before layout, instead of reopening the EPUB once per font.
    - Chapter image-reference discovery is cached per loaded chapter, and

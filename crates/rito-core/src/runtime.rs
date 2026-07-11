@@ -36,7 +36,7 @@ use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_public
 use navigation::{active_chapter_preview, resolve_href_locator};
 use page::{page_targets, page_text_positions, text_range_geometry};
 use resource::{
-    find_binary_resource, find_text_resource, resource_not_found, runtime_binary_resource,
+    find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,
 };
 use search::search_revision;
@@ -130,24 +130,22 @@ impl RuntimeDocument {
         match kind {
             RuntimeResourceKind::Image => {
                 self.document.ensure_image_dimensions_loaded(href)?;
-                let resource = find_binary_resource(&self.document.images, href)
-                    .ok_or_else(|| resource_not_found(kind, href))?
-                    .clone();
+                let metadata = find_binary_resource_metadata(&self.document.images, href)
+                    .ok_or_else(|| resource_not_found(kind, href))?;
                 let bytes = self
                     .document
-                    .read_image_bytes(&resource.href)?
+                    .read_image_bytes(metadata.href())?
                     .ok_or_else(|| resource_not_found(kind, href))?;
-                Ok(runtime_binary_resource(revision_id, kind, &resource, bytes))
+                Ok(runtime_binary_resource(revision_id, kind, metadata, bytes))
             }
             RuntimeResourceKind::Font => {
-                let resource = find_binary_resource(&self.document.fonts, href)
-                    .ok_or_else(|| resource_not_found(kind, href))?
-                    .clone();
+                let metadata = find_binary_resource_metadata(&self.document.fonts, href)
+                    .ok_or_else(|| resource_not_found(kind, href))?;
                 let bytes = self
                     .document
-                    .read_font_bytes(&resource.href)?
+                    .read_font_bytes(metadata.href())?
                     .ok_or_else(|| resource_not_found(kind, href))?;
-                Ok(runtime_binary_resource(revision_id, kind, &resource, bytes))
+                Ok(runtime_binary_resource(revision_id, kind, metadata, bytes))
             }
             RuntimeResourceKind::Stylesheet => find_text_resource(&self.document.stylesheets, href)
                 .map(|resource| runtime_text_resource(revision_id, kind, resource))
