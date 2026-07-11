@@ -10,6 +10,10 @@ use super::{
     LoadedTextResource,
 };
 
+mod archive_images;
+
+use archive_images::append_archive_image_resources;
+
 pub fn open_document(bytes: &[u8]) -> EpubResult<LoadedEpubDocument> {
     open_document_with_chapter_loading(bytes, ChapterLoading::Eager)
 }
@@ -66,7 +70,7 @@ fn open_document_with_chapter_loading_owned(
         false,
         binary_loading,
     );
-    let images = load_binary_resources(
+    let mut images = load_binary_resources(
         &mut archive,
         &package,
         opf_dir,
@@ -74,6 +78,7 @@ fn open_document_with_chapter_loading_owned(
         true,
         binary_loading,
     );
+    append_archive_image_resources(&mut archive, &package, opf_dir, binary_loading, &mut images);
     let chapters = load_chapters(&mut archive, &package, opf_dir, chapter_loading)?;
 
     Ok(LoadedEpubDocument {

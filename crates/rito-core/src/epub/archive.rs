@@ -11,6 +11,13 @@ pub(crate) struct EpubArchive<'a> {
     zip: ZipArchive<Cursor<&'a [u8]>>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ArchiveEntryMetadata {
+    pub(crate) entry_id: usize,
+    pub(crate) path: String,
+    pub(crate) byte_length: usize,
+}
+
 impl<'a> EpubArchive<'a> {
     pub(crate) fn new(bytes: &'a [u8]) -> EpubResult<Self> {
         let reader = Cursor::new(bytes);
@@ -25,6 +32,14 @@ impl<'a> EpubArchive<'a> {
 
     pub(crate) fn read_bytes(&mut self, path: &str) -> EpubResult<Vec<u8>> {
         let entry_index = self.resolve_entry_index(path)?;
+        self.read_entry_bytes_at_index(entry_index, path)
+    }
+
+    pub(crate) fn read_entry_bytes(&mut self, entry: &ArchiveEntryMetadata) -> EpubResult<Vec<u8>> {
+        self.read_entry_bytes_at_index(entry.entry_id, &entry.path)
+    }
+
+    fn read_entry_bytes_at_index(&mut self, entry_index: usize, path: &str) -> EpubResult<Vec<u8>> {
         let mut file = self.zip.by_index(entry_index).map_err(|error| {
             EpubError::new(format!("Failed to read EPUB entry {path:?}: {error}"))
         })?;
@@ -43,6 +58,50 @@ impl<'a> EpubArchive<'a> {
         Ok(file.size() as usize)
     }
 
+    pub(crate) fn entry_metadata(&mut self, path: &str) -> EpubResult<ArchiveEntryMetadata> {
+        let entry_index = self.resolve_entry_index(path)?;
+        self.metadata_at_index(entry_index)?.ok_or_else(|| {
+            EpubError::new(format!(
+                "EPUB entry is not a safe canonical file path: {path:?}"
+            ))
+        })
+    }
+
+    pub(crate) fn file_entries(&mut self) -> Vec<ArchiveEntryMetadata> {
+        (0..self.zip.len())
+            .filter_map(|entry_index| self.metadata_at_index(entry_index).ok().flatten())
+            .collect()
+    }
+
+    fn metadata_at_index(
+        &mut self,
+        entry_index: usize,
+    ) -> EpubResult<Option<ArchiveEntryMetadata>> {
+        let file = self.zip.by_index(entry_index).map_err(|error| {
+            EpubError::new(format!(
+                "Failed to inspect EPUB entry at index {entry_index}: {error}"
+            ))
+        })?;
+        let is_safe_file = !file.is_dir()
+            && file.enclosed_name().is_some()
+            && is_safe_canonical_entry_path(file.name());
+        let path = file.name().to_owned();
+        let byte_length = usize::try_from(file.size()).ok();
+        drop(file);
+
+        if !is_safe_file || self.zip.index_for_name(&path) != Some(entry_index) {
+            return Ok(None);
+        }
+        let Some(byte_length) = byte_length else {
+            return Ok(None);
+        };
+        Ok(Some(ArchiveEntryMetadata {
+            entry_id: entry_index,
+            path,
+            byte_length,
+        }))
+    }
+
     fn resolve_entry_index(&self, path: &str) -> EpubResult<usize> {
         if let Some(index) = self.zip.index_for_name(path) {
             return Ok(index);
@@ -56,6 +115,14 @@ impl<'a> EpubArchive<'a> {
             .index_for_name(&normalized)
             .ok_or_else(|| missing_entry(path))
     }
+}
+
+fn is_safe_canonical_entry_path(path: &str) -> bool {
+    !path.is_empty()
+        && !path.starts_with('/')
+        && !path.contains('\\')
+        && !path.chars().any(char::is_control)
+        && join_zip_path("", path) == path
 }
 
 fn percent_decode_path(path: &str) -> EpubResult<String> {
@@ -111,114 +178,4 @@ fn utf8_error(path: &str, error: FromUtf8Error) -> EpubError {
 }
 
 #[cfg(test)]
-mod tests {
-    use std::io::{Cursor, Write};
-
-    use zip::{write::FileOptions, ZipWriter};
-
-    use super::EpubArchive;
-
-    #[test]
-    fn falls_back_to_percent_decoded_entry_names() {
-        let bytes = fixture_zip(&[
-            ("Text/Chapter One.xhtml", b"decoded"),
-            ("Text/\u{4e2d}.xhtml", b"unicode"),
-        ]);
-        let mut archive = EpubArchive::new(&bytes).expect("archive opens");
-
-        assert_eq!(
-            archive
-                .read_bytes("Text/Chapter%20One.xhtml")
-                .expect("encoded href resolves"),
-            b"decoded"
-        );
-        assert_eq!(
-            archive
-                .read_text("Text/%E4%B8%AD.xhtml")
-                .expect("encoded Unicode href resolves"),
-            "unicode"
-        );
-        assert_eq!(
-            archive
-                .entry_size("Text/Chapter%20One.xhtml")
-                .expect("encoded href size resolves"),
-            b"decoded".len()
-        );
-    }
-
-    #[test]
-    fn prefers_exact_entry_names_before_percent_decoding() {
-        let bytes = fixture_zip(&[
-            ("Text/Chapter%20One.xhtml", b"literal-long"),
-            ("Text/Chapter One.xhtml", b"x"),
-            ("Text/malformed%2.xhtml", b"malformed-literal"),
-        ]);
-        let mut archive = EpubArchive::new(&bytes).expect("archive opens");
-
-        assert_eq!(
-            archive
-                .read_text("Text/Chapter%20One.xhtml")
-                .expect("literal href resolves first"),
-            "literal-long"
-        );
-        assert_eq!(
-            archive
-                .entry_size("Text/Chapter%20One.xhtml")
-                .expect("literal size resolves first"),
-            b"literal-long".len()
-        );
-        assert_eq!(
-            archive
-                .read_text("Text/malformed%2.xhtml")
-                .expect("malformed literal entry still resolves exactly"),
-            "malformed-literal"
-        );
-    }
-
-    #[test]
-    fn rejects_malformed_percent_escapes_after_exact_miss() {
-        let bytes = fixture_zip(&[("Text/chapter.xhtml", b"chapter")]);
-        for path in [
-            "Text/missing%2.xhtml",
-            "Text/missing%GG.xhtml",
-            "Text/missing%FF.xhtml",
-            "Text/missing%E4%B8.xhtml",
-        ] {
-            let mut archive = EpubArchive::new(&bytes).expect("archive opens");
-            let error = archive
-                .read_bytes(path)
-                .expect_err("malformed escape must fail");
-            assert!(error.message().contains("Invalid percent escape"));
-        }
-    }
-
-    #[test]
-    fn normalizes_only_percent_decoded_dot_segments() {
-        let bytes = fixture_zip(&[
-            ("OPS/Chapter.xhtml", b"encoded-dot"),
-            ("b.xhtml", b"plain-dot"),
-        ]);
-        let mut archive = EpubArchive::new(&bytes).expect("archive opens");
-
-        assert_eq!(
-            archive
-                .read_text("OPS/Text/%2E%2E/Chapter.xhtml")
-                .expect("encoded dot segment resolves"),
-            "encoded-dot"
-        );
-        let error = archive
-            .read_text("a/../b.xhtml")
-            .expect_err("plain missing path must not gain a normalization fallback");
-        assert!(error.message().contains("Failed to read EPUB entry"));
-    }
-
-    fn fixture_zip(entries: &[(&str, &[u8])]) -> Vec<u8> {
-        let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
-        let options: FileOptions<'_, ()> = FileOptions::default();
-        for (path, bytes) in entries {
-            writer.start_file(path, options).expect("file starts");
-            writer.write_all(bytes).expect("file writes");
-        }
-        writer.finish().expect("zip finalizes").into_inner()
-    }
-}
+mod tests;

@@ -5,6 +5,7 @@ use zip::{write::FileOptions, ZipWriter};
 use super::{open_document, open_runtime_document_owned};
 
 mod resource_hrefs;
+mod unmanifested_images;
 
 #[test]
 fn opens_document_with_runtime_resources_and_chapters() {

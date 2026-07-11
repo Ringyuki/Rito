@@ -26,6 +26,26 @@ pub(crate) fn join_zip_path(base_dir: &str, href: &str) -> String {
     parts.join("/")
 }
 
+pub(crate) fn relative_zip_path(base_dir: &str, path: &str) -> String {
+    let base = base_dir
+        .trim_end_matches('/')
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    let target = path
+        .split('/')
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>();
+    let common = base
+        .iter()
+        .zip(&target)
+        .take_while(|(left, right)| left == right)
+        .count();
+    let mut relative = vec![".."; base.len() - common];
+    relative.extend_from_slice(&target[common..]);
+    relative.join("/")
+}
+
 pub(super) fn normalize_href_path(path: &str) -> String {
     let mut parts = Vec::new();
     for part in path.split('/') {
@@ -38,4 +58,26 @@ pub(super) fn normalize_href_path(path: &str) -> String {
         }
     }
     parts.join("/")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{join_zip_path, relative_zip_path};
+
+    #[test]
+    fn expresses_archive_paths_relative_to_the_opf_directory() {
+        for (base, path, expected) in [
+            ("OPS/", "OPS/Images/cover.png", "Images/cover.png"),
+            (
+                "OPS/Package/",
+                "OPS/Shared/cover.png",
+                "../Shared/cover.png",
+            ),
+            ("", "Images/cover.png", "Images/cover.png"),
+        ] {
+            let relative = relative_zip_path(base, path);
+            assert_eq!(relative, expected);
+            assert_eq!(join_zip_path(base, &relative), path);
+        }
+    }
 }
