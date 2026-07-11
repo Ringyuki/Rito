@@ -779,6 +779,29 @@ fn separates_resource_payload_json_from_bytes() {
 }
 
 #[test]
+fn takes_resource_bytes_and_consumes_the_transfer_lease() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+    let first = resource_payload(&mut document, &revision_id);
+    let second = resource_payload(&mut document, &revision_id);
+
+    let bytes = document
+        .take_resource_transfer(&first.transfer_id)
+        .expect("resource transfer is taken");
+
+    assert_eq!(bytes, minimal_png());
+    assert_eq!(document.pending_resource_transfer_count(), 1);
+    assert!(document.read_resource_transfer(&first.transfer_id).is_err());
+    assert!(document.take_resource_transfer(&first.transfer_id).is_err());
+    assert!(!document.release_resource_transfer(&first.transfer_id));
+    assert_eq!(document.release_revision_transfers(&revision_id), 1);
+    assert!(document
+        .read_resource_transfer(&second.transfer_id)
+        .is_err());
+    assert_eq!(document.pending_resource_transfer_count(), 0);
+}
+
+#[test]
 fn gives_reused_resources_independent_transfer_leases() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);

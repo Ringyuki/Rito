@@ -103,7 +103,24 @@ const frameResources = plannedFrameResources.spreads.find(
   (spread) => spread.spreadIndex === imageFrame.spreadIndex,
 );
 const resource = document.getResourcePayload(revision.revisionId, 'image', 'Images/cover.jpg');
-const resourceBytes = document.readResourceTransfer(resource.transferId);
+const resourceBytes = document.takeResourceTransfer(resource.transferId);
+const legacyResource = document.getResourcePayload(
+  revision.revisionId,
+  'image',
+  'Images/cover.jpg',
+);
+const legacyResourceBytes = document.readResourceTransfer(legacyResource.transferId);
+const workerResource = document.readerWorkerPayload({
+  id: 1,
+  kind: 'readResource',
+  revisionId: revision.revisionId,
+  resourceKind: 'image',
+  href: 'Images/cover.jpg',
+});
+const workerResourceBytes = workerResource.result.bytes;
+const transferredWorkerResourceBytes = structuredClone(workerResourceBytes, {
+  transfer: [workerResourceBytes.buffer],
+});
 
 if (revision.revisionId !== 'rev-1') {
   throw new Error(`Expected first revision to be rev-1, got ${revision.revisionId}`);
@@ -249,12 +266,21 @@ releasePlannedFrameResources(document, plannedFrameResources);
 if (resource.kind !== 'image' || resource.byteLength !== resourceBytes.length) {
   throw new Error('Expected resource payload byteLength to match transfer bytes.');
 }
+if (
+  legacyResource.byteLength !== legacyResourceBytes.length ||
+  workerResource.kind !== 'readResource' ||
+  workerResource.result.payload.byteLength !== transferredWorkerResourceBytes.length ||
+  workerResourceBytes.byteLength !== 0
+) {
+  throw new Error('Expected legacy and transferable reader-worker resource bytes.');
+}
 assertStructuredRuntimeError(() => document.getResourcePayload(revision.revisionId, 'audio', 'x'));
-if (!document.releaseResourceTransfer(resource.transferId)) {
-  throw new Error('Expected resource transfer release to succeed.');
+assertConsumedResourceTransfer(document, resource.transferId);
+if (!document.releaseResourceTransfer(legacyResource.transferId)) {
+  throw new Error('Expected legacy resource transfer release to succeed.');
 }
 if (document.pendingResourceTransferCount() !== 0) {
-  throw new Error('Expected no pending resource transfers after release.');
+  throw new Error('Expected no pending resource transfers after take and release.');
 }
 
 console.log(
@@ -428,6 +454,30 @@ function assertStructuredRuntimeError(callback) {
     return;
   }
   throw new Error('Expected invalid resource kind to throw.');
+}
+
+function assertConsumedResourceTransfer(document, transferId) {
+  for (const callback of [
+    () => document.readResourceTransfer(transferId),
+    () => document.takeResourceTransfer(transferId),
+  ]) {
+    try {
+      callback();
+    } catch (error) {
+      if (
+        error instanceof RitoCoreWasmError &&
+        error.code === 'engine-error' &&
+        error.message.includes('unknown resource transfer')
+      ) {
+        continue;
+      }
+      throw new Error(`Expected consumed transfer error, got ${String(error)}`, { cause: error });
+    }
+    throw new Error('Expected consumed resource transfer to be unavailable.');
+  }
+  if (document.releaseResourceTransfer(transferId)) {
+    throw new Error('Expected consumed resource transfer release to return false.');
+  }
 }
 
 function layoutConfig() {

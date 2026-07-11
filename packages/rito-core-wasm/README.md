@@ -26,8 +26,8 @@ The Rust `rito-wasm` crate now has a testable internal runtime facade for:
 - href/anchor locator JSON,
 - revision-scoped search JSON,
 - JSON resource payloads without bytes, and
-- transfer-id based resource prefetch, frame-resource prefetch, byte reads, and
-  releases.
+- transfer-id based resource prefetch, frame-resource prefetch, compatible byte
+  reads/releases, and consuming byte takes for production delivery.
 
 The Rust crate also exposes a minimal `wasm-bindgen` `RitoWasmDocument` wrapper
 and is checked against the `wasm32-unknown-unknown` target. The package default
@@ -71,7 +71,8 @@ After building, a narrow fixture smoke test is available. It opens a fixture
 EPUB, creates a line-breaking-aware revision, reads a paint-ready frame,
 verifies the packed `RITOFCB2` command buffer through
 `decodeRitoFrameCommandBuffer()`, checks page targets/search/text geometry,
-frame-resource prefetch, and reads then releases one image transfer:
+frame-resource prefetch, consumes one image transfer, and verifies the legacy
+read/release path:
 
 ```sh
 pnpm --filter @ritojs/core-wasm run smoke:wasm

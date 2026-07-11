@@ -39,6 +39,13 @@ impl RuntimeResourceTransferStore {
             .ok_or_else(|| EpubError::new(format!("unknown resource transfer: {transfer_id}")))
     }
 
+    pub fn take(&mut self, transfer_id: &str) -> EpubResult<Vec<u8>> {
+        self.transfers
+            .remove(transfer_id)
+            .map(|transfer| transfer.bytes)
+            .ok_or_else(|| EpubError::new(format!("unknown resource transfer: {transfer_id}")))
+    }
+
     pub fn release(&mut self, transfer_id: &str) -> bool {
         self.transfers.remove(transfer_id).is_some()
     }
@@ -122,6 +129,29 @@ mod tests {
             store.read(&second.transfer_id).expect("second remains"),
             b"image-bytes"
         );
+    }
+
+    #[test]
+    fn takes_bytes_and_consumes_only_the_selected_transfer() {
+        let mut store = RuntimeResourceTransferStore::new();
+        let first = store.store(resource("rev-1", b"first"));
+        let second = store.store(resource("rev-1", b"second"));
+
+        assert_eq!(
+            store.take(&first.transfer_id).expect("first is taken"),
+            b"first"
+        );
+
+        assert_eq!(store.len(), 1);
+        assert!(store.read(&first.transfer_id).is_err());
+        assert!(store.take(&first.transfer_id).is_err());
+        assert!(!store.release(&first.transfer_id));
+        assert_eq!(
+            store.read(&second.transfer_id).expect("second remains"),
+            b"second"
+        );
+        assert_eq!(store.release_revision("rev-1"), 1);
+        assert!(store.is_empty());
     }
 
     #[test]

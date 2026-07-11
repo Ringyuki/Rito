@@ -69,6 +69,15 @@ impl WasmRuntimeDocument {
             .map_err(WasmRuntimeError::from_engine)
     }
 
+    pub fn take_resource_transfer(
+        &mut self,
+        transfer_id: &str,
+    ) -> Result<Vec<u8>, WasmRuntimeError> {
+        self.transfers
+            .take(transfer_id)
+            .map_err(WasmRuntimeError::from_engine)
+    }
+
     pub fn release_resource_transfer(&mut self, transfer_id: &str) -> bool {
         self.transfers.release(transfer_id)
     }

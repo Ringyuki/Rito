@@ -180,6 +180,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       );
     }
 
+    takeResourceTransfer(transferId) {
+      return callRitoCoreWasm('takeResourceTransfer', () =>
+        this._inner.takeResourceTransfer(transferId),
+      );
+    }
+
     releaseResourceTransfer(transferId) {
       return callRitoCoreWasm('releaseResourceTransfer', () =>
         this._inner.releaseResourceTransfer(transferId),
@@ -485,28 +491,35 @@ function readFrameBuffer(document, revisionId, spreadIndex) {
 
 function readReaderResource(document, revisionId, kind, href) {
   const payload = document.getResourcePayload(revisionId, kind, href);
-  try {
-    return {
-      kind: 'readResource',
-      result: { payload, bytes: document.readResourceTransfer(payload.transferId) },
-    };
-  } finally {
-    document.releaseResourceTransfer(payload.transferId);
-  }
+  return {
+    kind: 'readResource',
+    result: { payload, bytes: takeResourceTransferBytes(document, payload.transferId) },
+  };
 }
 
 function readResourcePayloadBytes(document, payloads) {
   const resources = [];
   for (const payload of payloads) {
     try {
-      resources.push({ payload, bytes: document.readResourceTransfer(payload.transferId) });
+      resources.push({ payload, bytes: takeResourceTransferBytes(document, payload.transferId) });
     } catch {
       // Frame resource warmup is opportunistic. Missing bytes should not fail callers.
-    } finally {
-      document.releaseResourceTransfer(payload.transferId);
     }
   }
   return resources;
+}
+
+function takeResourceTransferBytes(document, transferId) {
+  try {
+    return document.takeResourceTransfer(transferId);
+  } catch (error) {
+    try {
+      document.releaseResourceTransfer(transferId);
+    } catch {
+      // Preserve the transfer read failure; cleanup is best effort.
+    }
+    throw error;
+  }
 }
 
 function resolveReaderLocator(document, revisionId, locator) {

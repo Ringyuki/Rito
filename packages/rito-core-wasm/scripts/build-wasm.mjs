@@ -197,6 +197,7 @@ function documentDeclarations() {
     '    request: RitoCoreWasmReaderWorkerRequest,',
     '  ): RitoCoreWasmReaderWorkerResponsePayload;',
     '  readResourceTransfer(transferId: string): Uint8Array;',
+    '  takeResourceTransfer(transferId: string): Uint8Array;',
     '  releaseResourceTransfer(transferId: string): boolean;',
     '  releaseRevisionTransfers(revisionId: string): number;',
     '  releaseRevision(revisionId: string): boolean;',

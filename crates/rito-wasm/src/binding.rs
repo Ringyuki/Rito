@@ -264,6 +264,13 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = takeResourceTransfer)]
+    pub fn take_resource_transfer(&mut self, transfer_id: &str) -> Result<Vec<u8>, JsValue> {
+        self.inner
+            .take_resource_transfer(transfer_id)
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = releaseResourceTransfer)]
     pub fn release_resource_transfer(&mut self, transfer_id: &str) -> bool {
         self.inner.release_resource_transfer(transfer_id)

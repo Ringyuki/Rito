@@ -195,12 +195,14 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /export interface RitoCoreWasmPlannedFrameResourcePrefetchResponse/);
   assert.doesNotMatch(declaration, /prefetchFrameResources\(/);
   assert.match(declaration, /prefetchPlannedFrameResources\(/);
+  assert.match(declaration, /takeResourceTransfer\(transferId: string\): Uint8Array;/);
   assert.match(declaration, /metadata: RitoFrameCommandBufferMetadata/);
   assert.match(declaration, /\) => DecodedRitoFrameCommandBuffer;/);
   assert.match(declaration, /normalizeRitoCoreWasmError/);
   assert.match(wasmBuilder, /publication\(\): RitoCoreWasmPublicationInfo;/);
   assert.match(wasmBuilder, /request: RitoCoreWasmFullRevisionBundleRequest,/);
   assert.match(wasmBuilder, /runtime-bundle-decoder-runtime\.d\.ts/);
+  assert.match(wasmBuilder, /takeResourceTransfer\(transferId: string\): Uint8Array;/);
   assert.doesNotMatch(wasmBuilder, /'\) => DecodedRitoRuntimeBundle;'/);
   assert.doesNotMatch(wasmBuilder, /publication\(\): RitoCoreWasmJsonObject;/);
   assert.doesNotMatch(wasmBuilder, /layoutConfig: RitoCoreWasmJsonObject,/);

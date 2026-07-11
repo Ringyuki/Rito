@@ -1037,6 +1037,10 @@ Required cleanup:
      reopening the archive or cloning the image buffer. Runtime resource reads
      snapshot only small binary metadata before the mutable lazy-cache access,
      instead of cloning the cached resource payload.
+   - Production Worker delivery consumes resource transfer leases atomically,
+     moving the stored Rust byte vector into the WASM return ABI instead of
+     cloning it first. Non-consuming read/release methods remain available for
+     compatibility and diagnostics.
    - Font-aware revision creation batches lazy font loading through one archive
      reader before layout, instead of reopening the EPUB once per font.
    - Chapter image-reference discovery is cached per loaded chapter, and
