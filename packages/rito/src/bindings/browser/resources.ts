@@ -4,8 +4,8 @@ import type { BrowserReaderResourceBytes } from './core-contracts';
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<void> {
   const revisionId = state.revisionBundle.revision.revisionId;
   const registeredBefore = state.registeredFontFaces.size;
-  await registerRevisionFonts(state);
-  if (state.disposed || state.revisionBundle.revision.revisionId !== revisionId) return;
+  await registerRevisionFonts(state, revisionId);
+  if (!isCurrentReaderRevision(state, revisionId)) return;
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])
       notifySpreadContentInvalidated(state, spreadIndex);
@@ -56,70 +56,75 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-async function registerRevisionFonts(state: BrowserReaderState): Promise<void> {
-  if (typeof FontFace === 'undefined' || !('fonts' in document)) return;
-  const faces = state.publication.fontFaces;
-  if (faces.length === 0) {
-    await registerSingleFontFallback(state);
-    return;
-  }
-  await Promise.all(
-    faces.map((face) =>
-      registerFontFace(state, {
-        family: face.family,
-        href: face.href,
-        style: face.style,
-        weight: face.weight,
-      }).catch(() => undefined),
-    ),
-  );
-}
-
-async function registerSingleFontFallback(state: BrowserReaderState): Promise<void> {
-  const family = state.revisionBundle.fontFamilies[0];
-  const font = state.publication.resources.fonts[0];
-  if (!family || !font || state.publication.resources.fonts.length !== 1) return;
-  await registerFontFace(state, { family, href: font.href }).catch(() => undefined);
-}
-
-async function registerFontFace(
-  state: BrowserReaderState,
-  input: {
-    readonly family: string;
-    readonly href: string;
-    readonly style?: string | undefined;
-    readonly weight?: string | undefined;
-  },
-): Promise<void> {
-  const key = fontFaceKey(input);
-  if (state.registeredFontFaces.has(key)) return;
-  const { bytes } = await state.worker.readResource(
-    state.revisionBundle.revision.revisionId,
-    'font',
-    input.href,
-  );
-  const face = new FontFace(input.family, ownedArrayBuffer(bytes), fontFaceDescriptors(input));
-  await face.load();
-  document.fonts.add(face);
-  state.registeredFontFaces.set(key, face);
-}
-
-function fontFaceDescriptors(input: {
+interface ReaderFontFaceInput {
+  readonly family: string;
+  readonly href: string;
   readonly style?: string | undefined;
   readonly weight?: string | undefined;
-}): FontFaceDescriptors {
+}
+
+interface PreparedReaderFontFace {
+  readonly key: string;
+  readonly face: FontFace;
+}
+
+async function registerRevisionFonts(state: BrowserReaderState, revisionId: string): Promise<void> {
+  if (typeof FontFace === 'undefined' || !('fonts' in document)) return;
+  const prepared = await Promise.all(
+    readerFontFaceInputs(state).map((input) =>
+      prepareReaderFontFace(state, revisionId, input).catch(() => undefined),
+    ),
+  );
+  if (!isCurrentReaderRevision(state, revisionId)) return;
+  for (const item of prepared) {
+    if (item) commitReaderFontFace(state, item);
+  }
+}
+
+function readerFontFaceInputs(state: BrowserReaderState): readonly ReaderFontFaceInput[] {
+  if (state.publication.fontFaces.length > 0) return state.publication.fontFaces;
+  const family = state.revisionBundle.fontFamilies[0];
+  const font = state.publication.resources.fonts[0];
+  if (!family || !font || state.publication.resources.fonts.length !== 1) return [];
+  return [{ family, href: font.href }];
+}
+
+async function prepareReaderFontFace(
+  state: BrowserReaderState,
+  revisionId: string,
+  input: ReaderFontFaceInput,
+): Promise<PreparedReaderFontFace | undefined> {
+  const key = fontFaceKey(input);
+  if (state.registeredFontFaces.has(key)) return;
+  const { bytes } = await state.worker.readResource(revisionId, 'font', input.href);
+  if (!isCurrentReaderRevision(state, revisionId)) return;
+  const face = new FontFace(input.family, ownedArrayBuffer(bytes), fontFaceDescriptors(input));
+  await face.load();
+  return { key, face };
+}
+
+function commitReaderFontFace(state: BrowserReaderState, prepared: PreparedReaderFontFace): void {
+  if (state.registeredFontFaces.has(prepared.key)) return;
+  try {
+    document.fonts.add(prepared.face);
+    state.registeredFontFaces.set(prepared.key, prepared.face);
+  } catch {
+    // A failed face is isolated so later source-order entries can still register.
+  }
+}
+
+function isCurrentReaderRevision(state: BrowserReaderState, revisionId: string): boolean {
+  return !state.disposed && state.revisionBundle.revision.revisionId === revisionId;
+}
+
+function fontFaceDescriptors(input: ReaderFontFaceInput): FontFaceDescriptors {
   return {
     ...(input.style !== undefined ? { style: input.style } : {}),
     ...(input.weight !== undefined ? { weight: input.weight } : {}),
   };
 }
 
-function fontFaceKey(input: {
-  readonly family: string;
-  readonly href: string;
-  readonly style?: string | undefined;
-  readonly weight?: string | undefined;
-}): string {
+function fontFaceKey(input: ReaderFontFaceInput): string {
   return [input.family, input.href, input.style ?? '', input.weight ?? ''].join('\u0000');
 }
 

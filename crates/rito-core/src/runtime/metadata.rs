@@ -64,29 +64,18 @@ pub(super) fn runtime_font_faces(document: &LoadedEpubDocument) -> Vec<RuntimeFo
             else {
                 continue;
             };
-            faces.push(RuntimeFontFaceSummary {
+            let face = RuntimeFontFaceSummary {
                 family: rule.family,
                 href: resource.href.clone(),
                 style: rule.style,
                 weight: rule.weight,
-            });
+            };
+            if let Some(index) = faces.iter().position(|existing| existing == &face) {
+                faces.remove(index);
+            }
+            faces.push(face);
         }
     }
-    faces.sort_by(|left, right| {
-        (
-            left.family.as_str(),
-            left.href.as_str(),
-            left.style.as_deref(),
-            left.weight.as_deref(),
-        )
-            .cmp(&(
-                right.family.as_str(),
-                right.href.as_str(),
-                right.style.as_deref(),
-                right.weight.as_deref(),
-            ))
-    });
-    faces.dedup();
     faces
 }
 

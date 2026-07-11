@@ -117,6 +117,117 @@ describe('Browser reader resource-backed rendering', () => {
     expect(invalidated).toEqual([2]);
   });
 
+  it('registers loaded fonts in metadata order when loads settle in reverse order', async () => {
+    const addFont = vi.fn();
+    const loadSettlements = new Map<
+      string,
+      { readonly resolve: () => void; readonly reject: () => void }
+    >();
+    class ControlledFontFace extends FakeFontFace {
+      override load(): Promise<ControlledFontFace> {
+        return new Promise((resolve, reject) => {
+          loadSettlements.set(this.family, {
+            resolve: () => {
+              resolve(this);
+            },
+            reject: () => {
+              reject(new Error(`failed to load ${this.family}`));
+            },
+          });
+        });
+      }
+    }
+    vi.stubGlobal('FontFace', ControlledFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const readResource = vi.fn((_revisionId: string, _kind: string, href: string) =>
+      Promise.resolve({
+        payload: {
+          revisionId: 'rev-1',
+          transferId: `transfer-${href}`,
+          kind: 'font' as const,
+          href,
+          mediaType: 'font/woff2',
+          byteLength: 4,
+        },
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      }),
+    );
+    const state = createState({
+      worker: { ...createWorker(), readResource } as BrowserReaderWorkerClient,
+      publication: {
+        fontFaces: [
+          { family: 'First', href: 'fonts/first.woff2' },
+          { family: 'Broken', href: 'fonts/broken.woff2' },
+          { family: 'Second', href: 'fonts/second.woff2' },
+        ],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    const preload = preloadReaderFonts(state);
+    await flushPromises();
+    expect(readResource.mock.calls.map((call) => call[2])).toEqual([
+      'fonts/first.woff2',
+      'fonts/broken.woff2',
+      'fonts/second.woff2',
+    ]);
+    expect([...loadSettlements.keys()]).toEqual(['First', 'Broken', 'Second']);
+
+    const secondLoad = expectDefined(loadSettlements.get('Second'));
+    const brokenLoad = expectDefined(loadSettlements.get('Broken'));
+    secondLoad.resolve();
+    brokenLoad.reject();
+    await flushPromises();
+    expect(addFont).not.toHaveBeenCalled();
+
+    const firstLoad = expectDefined(loadSettlements.get('First'));
+    firstLoad.resolve();
+    await preload;
+
+    expect(addFont.mock.calls.map((call) => (call[0] as ControlledFontFace).family)).toEqual([
+      'First',
+      'Second',
+    ]);
+    expect([...state.registeredFontFaces.values()].map((face) => face.family)).toEqual([
+      'First',
+      'Second',
+    ]);
+  });
+
+  it('does not register a font prepared for a stale revision', async () => {
+    const addFont = vi.fn();
+    let finishLoad: (() => void) | undefined;
+    class DeferredFontFace extends FakeFontFace {
+      override load(): Promise<DeferredFontFace> {
+        return new Promise((resolve) => {
+          finishLoad = () => {
+            resolve(this);
+          };
+        });
+      }
+    }
+    vi.stubGlobal('FontFace', DeferredFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const state = createState({
+      publication: {
+        fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    const preload = preloadReaderFonts(state);
+    await flushPromises();
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, revisionId: 'rev-2' },
+    };
+    expectDefined(finishLoad)();
+    await preload;
+
+    expect(addFont).not.toHaveBeenCalled();
+    expect(state.registeredFontFaces.size).toBe(0);
+  });
+
   it('uses runtime frame font metadata for single-font fallback registration', async () => {
     const addFont = vi.fn();
     const warmFrameWindow = vi.fn();
@@ -269,6 +380,12 @@ function fakeCanvasContext(): CanvasRenderingTarget & {
 
 function fakeImageBitmap(): ImageBitmap {
   return { close: vi.fn() } as unknown as ImageBitmap;
+}
+
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined();
+  if (value === undefined) throw new Error('expected value to be defined');
+  return value;
 }
 
 async function flushPromises(): Promise<void> {

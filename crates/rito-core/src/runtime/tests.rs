@@ -3,8 +3,9 @@ mod fixture;
 
 use command_hash::{hash_json_value, normalize_runtime_commands_for_render_hash};
 use fixture::{
-    double_layout, fixture_epub, fixture_stylesheet, layout, malformed_chapter_fixture_epub,
-    many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
+    double_layout, fixture_epub, fixture_epub_with_stylesheet, fixture_stylesheet, layout,
+    malformed_chapter_fixture_epub, many_chapter_fixture_epub, minimal_png,
+    multi_chapter_fixture_epub,
 };
 use serde_json::Value;
 
@@ -169,6 +170,24 @@ fn exposes_publication_info_before_revision_creation() {
     let info = document.publication_info();
     assert_eq!(info.resources.images[0].width, Some(2));
     assert_eq!(info.resources.images[0].height, Some(3));
+}
+
+#[test]
+fn publication_font_faces_preserve_last_occurrence_order_when_deduplicated() {
+    let bytes = fixture_epub_with_stylesheet(
+        r#"@font-face { font-family: "Zulu"; src: url("Fonts/book.otf"); font-style: italic; font-weight: 700; }
+@font-face { font-family: "Alpha"; src: url("Fonts/book.otf"); font-style: normal; font-weight: 400; }
+@font-face { font-family: "Zulu"; src: url("Fonts/book.otf"); font-style: italic; font-weight: 700; }"#,
+    );
+    let document = RuntimeDocument::open(&bytes).expect("document opens");
+
+    let info = document.publication_info();
+
+    assert_eq!(info.font_faces.len(), 2);
+    assert_eq!(info.font_faces[0].family, "Alpha");
+    assert_eq!(info.font_faces[0].href, "Fonts/book.otf");
+    assert_eq!(info.font_faces[1].family, "Zulu");
+    assert_eq!(info.font_faces[1].href, "Fonts/book.otf");
 }
 
 #[test]

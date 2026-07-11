@@ -43,8 +43,13 @@ pub fn double_layout() -> LayoutConfig {
 }
 
 pub fn fixture_epub() -> Vec<u8> {
-    fixture_epub_with_chapter(
+    fixture_epub_with_stylesheet(fixture_stylesheet())
+}
+
+pub fn fixture_epub_with_stylesheet(stylesheet: &str) -> Vec<u8> {
+    fixture_epub_with_chapter_and_stylesheet(
         br##"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><link rel="stylesheet" href="style.css"/></head><body><p id="intro">Hello runtime<a epub:type="noteref" href="#fn1">1</a></p><aside epub:type="footnote" id="fn1"><p>Runtime note</p></aside><img src="Images/cover.png" alt="cover"/></body></html>"##,
+        stylesheet,
     )
 }
 
@@ -53,6 +58,10 @@ pub fn malformed_chapter_fixture_epub() -> Vec<u8> {
 }
 
 fn fixture_epub_with_chapter(chapter: &[u8]) -> Vec<u8> {
+    fixture_epub_with_chapter_and_stylesheet(chapter, fixture_stylesheet())
+}
+
+fn fixture_epub_with_chapter_and_stylesheet(chapter: &[u8], stylesheet: &str) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(
@@ -88,12 +97,7 @@ fn fixture_epub_with_chapter(chapter: &[u8]) -> Vec<u8> {
   </spine>
 </package>"#,
     );
-    add_file(
-        &mut writer,
-        options,
-        "OPS/style.css",
-        fixture_stylesheet().as_bytes(),
-    );
+    add_file(&mut writer, options, "OPS/style.css", stylesheet.as_bytes());
     add_file(&mut writer, options, "OPS/Fonts/book.otf", b"font-bytes");
     add_file(&mut writer, options, "OPS/Images/cover.png", &minimal_png());
     add_file(&mut writer, options, "OPS/chapter.xhtml", chapter);
