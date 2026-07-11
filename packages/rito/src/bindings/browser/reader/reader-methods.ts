@@ -15,6 +15,7 @@ import {
   renderSpreadToContext,
 } from '../rendering';
 import { fallbackTextMeasurer, type BrowserReaderState } from './types';
+import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -59,6 +60,7 @@ export function buildBrowserReaderMethods(
 
   return {
     measurer: fallbackTextMeasurer,
+    interactions: createBrowserReaderInteractions(state),
     ...renderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
     ...navigationMethods(state),
@@ -237,12 +239,13 @@ function listenerMethods(
 }
 
 function disposeResources(state: BrowserReaderState): void {
+  state.disposed = true;
+  resetBrowserReaderInteractionCache(state);
   unregisterReaderFonts(state);
   for (const image of state.images.values()) image.close();
   state.images.clear();
   for (const url of state.imageObjectUrls.values()) URL.revokeObjectURL(url);
   state.imageObjectUrls.clear();
-  state.disposed = true;
   const workers = new Set([state.worker, state.foregroundWorker]);
   if (state.fullReflowWorker) workers.add(state.fullReflowWorker);
   for (const worker of workers) worker.dispose();

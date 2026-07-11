@@ -12,6 +12,7 @@ import {
 } from '../core-contracts';
 import { startBrowserReaderInitialReflow } from './pipeline/reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
+import { createBrowserReaderInteractionState } from './interaction';
 import { preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { createHostFontMetrics } from '../font-metrics';
@@ -133,9 +134,14 @@ function createInitialState(
 
 function emptyReaderRevisionState(): Pick<
   BrowserReaderState,
-  'revisionBundle' | 'revisionHandle' | 'commitGeneration'
+  'revisionBundle' | 'revisionHandle' | 'commitGeneration' | 'interaction'
 > {
-  return { revisionBundle: emptyRevisionBundle(), revisionHandle: undefined, commitGeneration: 0 };
+  return {
+    revisionBundle: emptyRevisionBundle(),
+    revisionHandle: undefined,
+    commitGeneration: 0,
+    interaction: createBrowserReaderInteractionState(),
+  };
 }
 
 function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {

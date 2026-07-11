@@ -7,6 +7,7 @@ import type {
   PackageMetadata,
   Page,
   PaginationPolicy,
+  ReaderInteractions,
   SearchOptions,
   SearchResult,
   Spread,
@@ -45,6 +46,7 @@ export interface Reader {
   readonly spreads: readonly Spread[];
   readonly dpr: number;
   readonly measurer: TextMeasurer;
+  readonly interactions?: ReaderInteractions;
   renderSpread(index: number, scale?: number): void;
   renderSpreadTo(
     index: number,

@@ -1,6 +1,7 @@
 import type { LayoutConfig } from '../../../reader';
 import { applyBrowserReaderFrameWindow, cacheFrame, resetFrameCache } from './frame-cache';
 import { decodeBrowserReaderFrame } from './frame';
+import { resetBrowserReaderInteractionCache } from './interaction';
 import { preloadFrameResourceBytes, preloadVisualPreviewFrameResources } from '../resources';
 import {
   createRitoCoreWasmReaderChapterTextIndexMap,
@@ -285,6 +286,7 @@ function applyRevisionData(state: BrowserReaderState, result: BrowserReaderRevis
   const { bundle } = result;
   state.revisionBundle = bundle;
   resetFrameCache(state);
+  resetBrowserReaderInteractionCache(state);
   state.footnotes = createRitoCoreWasmReaderFootnoteMap(bundle.footnotes);
   state.chapterTextIndices = createRitoCoreWasmReaderChapterTextIndexMap(bundle.chapterTextIndices);
   if (!result.preview || bundle.tocTargets.targets.length > 0 || state.tocTargets.length === 0) {

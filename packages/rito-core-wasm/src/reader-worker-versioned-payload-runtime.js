@@ -6,6 +6,8 @@ import {
   requirePageIndex,
   requirePageTargets,
   requireResolvedLocator,
+  requireSourceLocatorRequest,
+  requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
@@ -49,10 +51,7 @@ export function versionedReaderWorkerPayload(document, request) {
     case 'readResourceAtRevision':
       return readResourceAtRevision(document, request.revision, request.resourceKind, request.href);
     case 'resolveSourceLocatorAtRevision':
-      return valueResponse(
-        request.kind,
-        document.resolveSourceLocatorAtRevision(request.revision, request.locator),
-      );
+      return sourceLocatorResponse(document, request);
     case 'releaseRevisionTransfersAtRevision':
       return valueResponse(
         request.kind,
@@ -133,6 +132,16 @@ function locatorResponse(document, request) {
   const envelope = document.resolveLocatorAtRevision(revision, locator);
   return validatedValueResponse(operation, revision, envelope, (value) =>
     requireResolvedLocator(value, revision, locator, operation),
+  );
+}
+
+function sourceLocatorResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const locator = requireSourceLocatorRequest(request.locator, operation);
+  const envelope = document.resolveSourceLocatorAtRevision(revision, locator);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requireSourceLocatorResolution(value, revision, operation),
   );
 }
 

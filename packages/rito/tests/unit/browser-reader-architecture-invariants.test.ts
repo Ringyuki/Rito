@@ -24,6 +24,7 @@ const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client
 const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
 const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/reflow.ts');
 const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
+const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
 const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
 const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
 const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
@@ -31,7 +32,8 @@ const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resource
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership and stale-result guards are required browser orchestration.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 1750;
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2100;
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 470;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -83,7 +85,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       BROWSER_READER_THIN_SHELL_LINE_BUDGET,
     );
     expect(READER_ROOT_FILES.length).toBeLessThanOrEqual(6);
-    expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(360);
+    expect(lineCount(READER_ROOT_FILES)).toBeLessThanOrEqual(READER_PUBLIC_CONTRACT_LINE_BUDGET);
   });
 
   it('keeps runtime pipeline and state machine files out of the binding root', () => {
@@ -299,6 +301,15 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).not.toContain('previewCommit');
     expect(source).not.toContain('createRevision(');
     expect(source).not.toContain('createPreviewRevision');
+  });
+
+  it('keeps semantic interaction reads exact-versioned and preview-gated', () => {
+    const source = read(BROWSER_READER_INTERACTION);
+    expect(source).toContain('getPageTargetsAtRevision');
+    expect(source).toContain('getFootnoteAtRevision');
+    expect(source).toContain('resolveSourceLocatorAtRevision');
+    expect(source).toContain('isCurrentRevisionHandle');
+    expect(source).toContain('state.visualPreview');
   });
 
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {

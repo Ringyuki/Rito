@@ -62,6 +62,23 @@ The final shell target is:
 The target is not met if lines are merely moved to another TypeScript directory.
 Reader runtime policy must move to Rust-owned APIs, not to new TS adapters.
 
+### Temporary Versioned-Interaction Ceiling (2026-07-11)
+
+The first production native-interaction slice requires a counted browser adapter
+that binds page-target, footnote and source-locator reads to the active Worker,
+revision version and browser commit generation. It also owns the small visible-page
+LRU, pending-read coalescing and the explicit visual-preview interaction gate. These
+are browser revision-lifecycle responsibilities and must remain inside the counted
+reader directory.
+
+The enforced temporary ceilings are therefore 20 files / 2100 split-counted lines
+for `src/bindings/browser/reader/**` and 6 files / 470 lines for the stable public
+`src/reader/**` contract. This is not a new final architecture target. Selecting the
+production bounded session must delete the legacy preview/deferred-full scheduler,
+remove the superseded compatibility projections and return the shell toward the
+1550 / 360 target above. Moving this adapter or its cache policy outside the counted
+directories to satisfy the older number is explicitly forbidden.
+
 ## Non-Negotiable Boundaries
 
 - No new TypeScript reader runtime directory outside `src/bindings/browser/reader/**`.
@@ -324,6 +341,13 @@ newline-splitting count, leaving a small safety increment. The added code owns
 necessary browser lifecycle duties: explicit Rust revision release, a bounded
 12-frame LRU cache, and correct preview/full handoff between the foreground and
 full-reflow workers, with regression coverage for switching back.
+
+The 2026-07-11 native-interaction pass adds the atomic public interaction
+capability and its exact-version browser adapter under the temporary ceiling
+documented above. Its cache is revision-scoped and visual previews remain
+non-interactive. The matching Kit slice consumes link, footnote and standalone-
+image targets while leaving precise selection, annotations and accessibility for
+the later native range-geometry migration.
 
 ### Bounded Revision Integration Constraints
 

@@ -11,6 +11,7 @@ import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { WiringDeps } from '../core/wiring-deps';
 import { syncChapterIndices, resolveVisibleAnnotations } from '../annotation-resolution';
+import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 
 export function coordinateOnSpreadRendered(
   spreadIndex: number,
@@ -75,18 +76,39 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
         deps.coordState,
         deps.getRenderScale(),
       );
+      scheduleNativeTargetLoad(spread, deps);
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
   if (typeof deps.reader.onSpreadContentInvalidated === 'function') {
     disposables.add(
       deps.reader.onSpreadContentInvalidated((idx) => {
-        if (idx === deps.getCurrentSpread()) deps.syncViewport?.();
+        if (idx === deps.getCurrentSpread()) {
+          invalidateNativeTargets(deps.coordState);
+          deps.canvas.style.cursor = '';
+          const spread = deps.reader.spreads[idx];
+          if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
+          deps.syncViewport?.();
+        }
         deps.frameDriver.markContentDirty(idx);
         deps.notifyNavigationContentReady(idx);
       }),
     );
   }
+  disposables.add(() => {
+    deps.coordState.nativeInteractionsAlive = false;
+    invalidateNativeTargets(deps.coordState);
+    deps.canvas.style.cursor = '';
+  });
+}
+
+function scheduleNativeTargetLoad(spread: Spread, deps: WiringDeps): void {
+  void loadNativeTargetsForSpread(spread, deps.reader, deps.coordState).catch((error: unknown) => {
+    deps.emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source: 'native-interaction-targets',
+    });
+  });
 }
 
 export function refreshCurrentOverlay(deps: WiringDeps): void {

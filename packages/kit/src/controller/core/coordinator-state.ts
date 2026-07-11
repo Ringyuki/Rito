@@ -1,3 +1,4 @@
+import type { ReaderInteractionTarget } from '@ritojs/core';
 import type { SelectionEngine } from '../../interaction/index';
 import type { SearchEngine } from '../../interaction/index';
 import type {
@@ -23,6 +24,12 @@ export interface CoordinatorState {
   hitMaps: Map<number, HitMap>;
   /** Link regions stored per-page (page-content coords). */
   linksByPage: Map<number, readonly LinkRegion[]>;
+  /** Rust-owned semantic targets for the currently installed visible spread. */
+  nativeTargetsByPage: Map<number, readonly ReaderInteractionTarget[]>;
+  /** Invalidates async native-target reads across spread, revision, preview, and disposal changes. */
+  nativeTargetLoadGeneration: number;
+  /** False after controller disposal; retained event callbacks must not re-enter navigation. */
+  nativeInteractionsAlive: boolean;
   /** Current coordinate mapper (rebuilt on each spread render). */
   mapper: CoordinateMapper | null;
   /** Source-anchored annotation store (new system). */
@@ -41,6 +48,9 @@ export function createCoordinatorState(): CoordinatorState {
   return {
     hitMaps: new Map(),
     linksByPage: new Map(),
+    nativeTargetsByPage: new Map(),
+    nativeTargetLoadGeneration: 0,
+    nativeInteractionsAlive: true,
     mapper: null,
     annotationStore: null,
     chapterIndices: new Map(),

@@ -28,7 +28,7 @@ export function wireDomHelpers(deps: WiringDeps, disposables: DisposableCollecti
   disposables.add(bindClipboard(canvas, engines.selection));
 
   // Link cursor (hover only — clicks handled by dispatchClick above)
-  disposables.add(bindLinkCursor(canvas, coordState, convert));
+  disposables.add(bindLinkCursor(canvas, coordState, convert, deps.reader));
 
   // Annotation hover tracking
   const onMove = (e: PointerEvent): void => {

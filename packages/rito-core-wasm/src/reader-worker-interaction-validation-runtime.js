@@ -20,6 +20,10 @@ export function requireLocatorRequest(value, operation) {
   return { href: request.href };
 }
 
+export function requireSourceLocatorRequest(value, operation) {
+  return requireSourceLocator(value, operation);
+}
+
 export function requirePageTargets(value, revision, pageIndex, operation) {
   const targets = requireRecord(value, `${operation} result`);
   requireRevisionId(targets, revision, operation);
@@ -140,15 +144,13 @@ function requireSourceLocator(value, operation) {
     requireSourcePoint(range.start, operation);
     requireSourcePoint(range.end, operation);
   }
-  if (locator.sourcePoint !== undefined && locator.sourceRange !== undefined) {
-    throw new Error(`${operation} returned mutually exclusive source selectors`);
-  }
   if (
     locator.progression !== undefined &&
     (!Number.isFinite(locator.progression) || locator.progression < 0 || locator.progression > 1)
   ) {
     throw new Error(`${operation} returned an invalid source locator progression`);
   }
+  return locator;
 }
 
 function requireOptionalLocatorString(locator, field, operation) {
@@ -195,6 +197,38 @@ export function requireResolvedLocator(value, revision, request, operation) {
     throw new Error(`${operation} returned a mismatched locator fragment`);
   }
   return resolved;
+}
+
+export function requireSourceLocatorResolution(value, revision, operation) {
+  const resolution = requireRecord(value, `${operation} result`);
+  requireRevisionId(resolution, revision, operation);
+  if (resolution.status !== 'resolved' && resolution.status !== 'pending') {
+    throw new Error(`${operation} returned an invalid source locator status`);
+  }
+  requireSourceLocator(resolution.locator, operation);
+  if (typeof resolution.spineIdref !== 'string' || resolution.spineIdref.length === 0) {
+    throw new Error(`${operation} returned an invalid source locator spineIdref`);
+  }
+  if (
+    !['sourceRange', 'sourcePoint', 'anchor', 'progression', 'href'].includes(resolution.matchedBy)
+  ) {
+    throw new Error(`${operation} returned an invalid source locator match kind`);
+  }
+  if (resolution.status === 'resolved') {
+    requireCount(resolution.pageIndex, `${operation} pageIndex`);
+    requireCount(resolution.spreadIndex, `${operation} spreadIndex`);
+    if (resolution.reason !== undefined) {
+      throw new Error(`${operation} returned a pending reason for a resolved source locator`);
+    }
+  } else {
+    if (!['notPaginated', 'noPageProjection'].includes(resolution.reason)) {
+      throw new Error(`${operation} returned an invalid pending source locator reason`);
+    }
+    if (resolution.pageIndex !== undefined || resolution.spreadIndex !== undefined) {
+      throw new Error(`${operation} returned page geometry for a pending source locator`);
+    }
+  }
+  return resolution;
 }
 
 function requireRevisionId(value, revision, operation) {

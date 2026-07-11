@@ -47,6 +47,11 @@ interface TestWorkerFixture {
   readonly createRevision: Mock<TestCreateRevision>;
   readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
   readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindow']>;
+  readonly getPageTargetsAtRevision: Mock<BrowserReaderWorkerClient['getPageTargetsAtRevision']>;
+  readonly getFootnoteAtRevision: Mock<BrowserReaderWorkerClient['getFootnoteAtRevision']>;
+  readonly resolveSourceLocatorAtRevision: Mock<
+    BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']
+  >;
   readonly releaseRevisionTransfers: Mock<BrowserReaderWorkerClient['releaseRevisionTransfers']>;
   readonly releaseRevision: Mock<BrowserReaderWorkerClient['releaseRevision']>;
   readonly dispose: Mock<BrowserReaderWorkerClient['dispose']>;
@@ -92,12 +97,33 @@ export function createWorker(
     Promise.resolve<TestActiveChapterPreview | undefined>(undefined),
   );
   const open = vi.fn<BrowserReaderWorkerClient['open']>();
+  const getPageTargetsAtRevision = vi.fn<BrowserReaderWorkerClient['getPageTargetsAtRevision']>();
+  const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
+  const resolveSourceLocatorAtRevision =
+    vi.fn<BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']>();
   const createViewRevision = vi.fn((request: CoreViewRevisionRequest) =>
     createViewRevisionResult(request, createRevision, activeChapterPreview),
   );
   const worker: BrowserReaderWorkerClient = {
     sessionId,
     open,
+    createBoundedRevision: vi.fn<BrowserReaderWorkerClient['createBoundedRevision']>(),
+    continueRevision: vi.fn<BrowserReaderWorkerClient['continueRevision']>(),
+    cancelRevision: vi.fn<BrowserReaderWorkerClient['cancelRevision']>(),
+    getRevisionSummaryAtRevision:
+      vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
+    getRevisionNavigationAtRevision:
+      vi.fn<BrowserReaderWorkerClient['getRevisionNavigationAtRevision']>(),
+    readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),
+    warmFrameWindowAtRevision: vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(),
+    getPageTargetsAtRevision,
+    getFootnoteAtRevision,
+    resolveLocatorAtRevision: vi.fn<BrowserReaderWorkerClient['resolveLocatorAtRevision']>(),
+    readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(),
+    resolveSourceLocatorAtRevision,
+    releaseRevisionTransfersAtRevision:
+      vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfersAtRevision']>(),
+    releaseRevisionAtRevision: vi.fn<BrowserReaderWorkerClient['releaseRevisionAtRevision']>(),
     createViewRevision,
     readResource: vi.fn(),
     warmFrameWindow,
@@ -113,6 +139,9 @@ export function createWorker(
     createRevision,
     createViewRevision,
     warmFrameWindow,
+    getPageTargetsAtRevision,
+    getFootnoteAtRevision,
+    resolveSourceLocatorAtRevision,
     releaseRevisionTransfers,
     releaseRevision,
     dispose,

@@ -12,6 +12,8 @@ import {
   requirePageIndex,
   requirePageTargets,
   requireResolvedLocator,
+  requireSourceLocatorRequest,
+  requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send) {
@@ -111,8 +113,19 @@ export function createVersionedReaderClientMethods(send) {
     },
     readResourceAtRevision: (revision, resourceKind, href) =>
       currentRevisionResult(send, 'readResourceAtRevision', revision, { resourceKind, href }),
-    resolveSourceLocatorAtRevision: (revision, locator) =>
-      currentRevisionResult(send, 'resolveSourceLocatorAtRevision', revision, { locator }),
+    resolveSourceLocatorAtRevision: (revision, locator) => {
+      const expectedLocator = requireSourceLocatorRequest(
+        locator,
+        'resolveSourceLocatorAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'resolveSourceLocatorAtRevision',
+        revision,
+        { locator: expectedLocator },
+        (result, handle, operation) => requireSourceLocatorResolution(result, handle, operation),
+      );
+    },
     releaseRevisionTransfersAtRevision: (revision) =>
       currentRevisionResult(send, 'releaseRevisionTransfersAtRevision', revision),
     releaseRevisionAtRevision: (revision) =>

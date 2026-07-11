@@ -102,13 +102,17 @@ Those names now belong to the old TS reference tree only.
   surface instead of legacy core subpaths.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
 - The counted browser reader shell previously reached its 1550-line target.
-  Subsequent revision/session hardening has grown
-  `packages/rito/src/bindings/browser/reader/**` to 14 TypeScript files / 1729
-  physical lines, plus the static `.mjs` worker-entry facade. The bounded
+  Subsequent revision/session and native-interaction hardening has grown
+  `packages/rito/src/bindings/browser/reader/**` to 15 TypeScript files / 2052
+  physical lines, plus the static `.mjs` worker-entry facade. The temporary
+  invariant ceiling is 2100 split-counted lines because the exact-version
+  interaction adapter, visible-page LRU and preview gate are browser revision
+  lifecycle responsibilities and remain in the counted directory. The bounded
   production switch must delete the legacy preview/deferred-full scheduler and
   return this shell below the documented ceiling; adding a second browser-owned
   state machine is not acceptable.
-  - `packages/rito/src/reader/**`: 6 files / 354 lines
+  - `packages/rito/src/reader/**`: 6 files / 449 physical lines, under a temporary
+    470-line public-contract ceiling for stable interaction and locator types
   - the hardening increment is explicit revision release, a bounded 12-frame
     LRU cache, and regression-protected preview/full handoff between two workers
   - deferred preview follow-ups carry the complete Rust-authored full request;
@@ -250,9 +254,15 @@ Those names now belong to the old TS reference tree only.
    - Rust/WASM now owns typed page targets, text positions and range geometry.
      Exact-version Worker reads for page targets, individual footnotes and href
      locators are implemented with field-level response validation. The public
-     Reader and Kit click path are not connected yet.
-   - Migrate Kit selection, links, highlights, annotations, reading positions,
-     footnotes and accessibility away from legacy page-content assumptions.
+     Reader now exposes an optional atomic interaction capability backed by the
+     complete Worker/session, revision-version and browser-generation handle;
+     page targets are cached in a bounded revision-scoped LRU, and visual
+     previews explicitly disable all reads. Kit now atomically installs the
+     current spread's native targets and uses them for exact footnotes, internal
+     locator navigation, external links and standalone images without falling
+     back to legacy hit geometry.
+   - Migrate Kit selection, highlights, annotations, reading positions and
+     accessibility after precise native point/caret and range geometry lands.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
      their callers use native semantic and geometry queries.
 3. **Thin session ownership**

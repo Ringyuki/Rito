@@ -111,6 +111,14 @@ when switching from a dark theme back to a book-authored light theme.
 | `getChapterTextIndices()` | Source-based chapter text indices                    |
 | `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment` |
 | `getImageBlobUrl(src)`    | Create a blob URL for an embedded EPUB image         |
+| `interactions`            | Optional revision-safe semantic interaction provider |
+
+When present, `interactions` exposes typed page-content targets plus exact-revision
+footnote and source-locator reads. Its `enabled` flag is false while a visual-only
+preview is displayed; callers must not reuse targets from the previous canonical
+revision during that interval. Page targets intentionally cover semantic click
+sources only. Precise native selection remains a separate text-position and range-
+geometry capability.
 
 ### Lifecycle
 

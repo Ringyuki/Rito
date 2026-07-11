@@ -14,6 +14,16 @@ describe('Browser reader revision lifecycle', () => {
     const state = createState(foreground.worker);
     setRevisionState(state, revisionResult('rev-1', 1, 1).bundle.revision);
     const nextResult = revisionResult('rev-1', 1, 1);
+    const previousHandle = state.revisionHandle;
+    if (!previousHandle) throw new Error('test revision handle is missing');
+    state.interaction.pageTargets.set(0, {
+      revision: previousHandle,
+      value: { pageIndex: 0, spreadIndex: 0, targets: [] },
+    });
+    state.interaction.pendingPageTargets.set(0, {
+      revision: previousHandle,
+      task: Promise.resolve(undefined),
+    });
     const versionedResult = {
       ...nextResult,
       bundle: {
@@ -38,5 +48,7 @@ describe('Browser reader revision lifecycle', () => {
       commitGeneration: 2,
     });
     expect(state.commitGeneration).toBe(2);
+    expect(state.interaction.pageTargets.size).toBe(0);
+    expect(state.interaction.pendingPageTargets.size).toBe(0);
   });
 });

@@ -18,6 +18,7 @@ import type {
   FootnoteEntry,
   LayoutConfig,
   LogLevel,
+  ReaderPageTargets,
   Spread,
   TextMeasurer,
   TocEntry,
@@ -47,6 +48,21 @@ export interface BrowserReaderWorkerRevisionHandle {
 
 export interface BrowserReaderRevisionHandle extends BrowserReaderWorkerRevisionHandle {
   readonly commitGeneration: number;
+}
+
+export interface BrowserReaderCachedPageTargets {
+  readonly revision: BrowserReaderRevisionHandle;
+  readonly value: ReaderPageTargets;
+}
+
+export interface BrowserReaderPendingPageTargets {
+  readonly revision: BrowserReaderRevisionHandle;
+  readonly task: Promise<ReaderPageTargets | undefined>;
+}
+
+export interface BrowserReaderInteractionState {
+  readonly pageTargets: Map<number, BrowserReaderCachedPageTargets>;
+  readonly pendingPageTargets: Map<number, BrowserReaderPendingPageTargets>;
 }
 
 export interface BrowserReaderBindingModule extends CoreReaderBindingRuntimeModule {
@@ -156,6 +172,7 @@ export interface BrowserReaderState {
   revisionHandle: BrowserReaderRevisionHandle | undefined;
   commitGeneration: number;
   visualPreview: BrowserReaderVisualPreview | undefined;
+  readonly interaction: BrowserReaderInteractionState;
   frames: Map<number, BrowserReaderFrame>;
   pendingImageLoads: Map<string, Promise<void>>;
   footnotes: BrowserReaderFootnoteMap;

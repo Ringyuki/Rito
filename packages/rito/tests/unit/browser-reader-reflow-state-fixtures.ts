@@ -102,6 +102,7 @@ export function createState(
     revisionHandle: undefined,
     commitGeneration: 0,
     visualPreview: undefined,
+    interaction: { pageTargets: new Map(), pendingPageTargets: new Map() },
     frames: new Map(),
     pendingImageLoads: new Map(),
     footnotes: new Map(),

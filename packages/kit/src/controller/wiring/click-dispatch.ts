@@ -3,6 +3,8 @@ import type { HitEntry, LinkRegion } from '../../interaction/index';
 import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
+import { dispatchNativeClickTarget } from './native-click';
+import { findNativeTargetAtPos, usesNativeTargets } from './native-targets';
 
 /**
  * Unified click target resolution and event dispatch.
@@ -16,11 +18,22 @@ import type { WiringDeps } from '../core/wiring-deps';
  * Both desktop single-click and touch tap route through this function.
  */
 export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): void {
+  const nativeTargets = usesNativeTargets(deps.reader);
+  if (nativeTargets && !deps.reader.interactions?.enabled) return;
+
   // 1. Annotation click (highest priority)
   const ann = findAnnotationAtPos(pos, deps);
   if (ann) {
     const center = getAnnotationScreenCenter(ann, deps.canvas, deps);
     deps.emitter.emit('annotationClick', { annotation: ann, x: center.x, y: center.y });
+    return;
+  }
+
+  // A present native capability is authoritative even while a preview disables it.
+  // Falling through would hit-test stale compatibility geometry against native paint.
+  if (nativeTargets) {
+    const hit = findNativeTargetAtPos(pos, deps.coordState);
+    if (hit) dispatchNativeClickTarget(hit.pageIndex, hit.target, deps);
     return;
   }
 

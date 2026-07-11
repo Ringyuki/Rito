@@ -167,12 +167,15 @@ function fixtureDocument() {
         }),
       takeResourceTransfer: () => Uint8Array.of(6, 7, 8),
       releaseResourceTransfer: () => true,
-      resolveSourceLocatorAtRevisionJson: (_revisionId, version) =>
+      resolveSourceLocatorAtRevisionJson: (_revisionId, version, locatorJson) =>
         envelope(version, {
           status: 'resolved',
           revisionId: 'rev-1',
+          locator: JSON.parse(locatorJson),
+          spineIdref: 'chapter',
           pageIndex: 0,
           spreadIndex: 0,
+          matchedBy: 'href',
         }),
       releaseRevisionTransfersAtRevision: (_revisionId, version) => envelope(version, 1),
       releaseRevisionAtRevision: (_revisionId, version) =>
