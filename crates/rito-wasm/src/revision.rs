@@ -9,7 +9,7 @@ use crate::{
 };
 use rito_core::runtime::{
     encode_runtime_bundle, RuntimeInitialFrameDecision, RuntimeRevisionBundle,
-    RuntimeViewRevisionMetadata,
+    RuntimeRevisionHandle, RuntimeViewRevisionMetadata,
 };
 use serde::Serialize;
 
@@ -65,7 +65,7 @@ impl WasmRuntimeDocument {
             .document
             .create_full_revision_bundle(request.runtime)
             .map_err(WasmRuntimeError::from_engine)?;
-        let revision_id = creation.bundle.revision.revision_id.clone();
+        let revision = RuntimeRevisionHandle::from(&creation.bundle.revision);
         let released_previous_revision_transfer_count = request
             .previous_revision_id
             .as_ref()
@@ -73,7 +73,7 @@ impl WasmRuntimeDocument {
                 self.transfers.release_revision(revision_id)
             });
         let initial_frame_window =
-            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+            self.initial_frame_window(&revision, creation.initial_frame.as_ref())?;
         serialize_json(&WasmRevisionBundleResponse {
             bundle: creation.bundle,
             frame_selection: creation.initial_frame.as_ref().map(frame_selection),
@@ -92,9 +92,9 @@ impl WasmRuntimeDocument {
             .document
             .create_initial_preview_revision_bundle(request)
             .map_err(WasmRuntimeError::from_engine)?;
-        let revision_id = creation.bundle.revision.revision_id.clone();
+        let revision = RuntimeRevisionHandle::from(&creation.bundle.revision);
         let initial_frame_window =
-            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+            self.initial_frame_window(&revision, creation.initial_frame.as_ref())?;
         serialize_json(&WasmRevisionBundleResponse {
             bundle: creation.bundle,
             frame_selection: creation.initial_frame.as_ref().map(frame_selection),
@@ -119,9 +119,9 @@ impl WasmRuntimeDocument {
         };
         let released_previous_revision_transfer_count =
             self.transfers.release_revision(&previous_revision_id);
-        let revision_id = creation.bundle.revision.revision_id.clone();
+        let revision = RuntimeRevisionHandle::from(&creation.bundle.revision);
         let initial_frame_window =
-            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+            self.initial_frame_window(&revision, creation.initial_frame.as_ref())?;
         serialize_json(&Some(WasmRevisionBundleResponse {
             bundle: creation.bundle,
             frame_selection: creation.initial_frame.as_ref().map(frame_selection),
@@ -148,9 +148,9 @@ impl WasmRuntimeDocument {
             previous_revision_id.as_ref().map_or(0, |revision_id| {
                 self.transfers.release_revision(revision_id)
             });
-        let revision_id = creation.bundle.revision.revision_id.clone();
+        let revision = RuntimeRevisionHandle::from(&creation.bundle.revision);
         let initial_frame_window =
-            self.initial_frame_window(&revision_id, creation.initial_frame.as_ref())?;
+            self.initial_frame_window(&revision, creation.initial_frame.as_ref())?;
         serialize_json(&Some(WasmRevisionBundleResponse {
             bundle: creation.bundle,
             frame_selection: creation.initial_frame.as_ref().map(frame_selection),
@@ -228,13 +228,13 @@ impl WasmRuntimeDocument {
             .document
             .create_view_revision_bundle_with_metadata(request, metadata)
             .map_err(WasmRuntimeError::from_engine)?;
-        let revision_id = view.revision.bundle.revision.revision_id.clone();
+        let revision = RuntimeRevisionHandle::from(&view.revision.bundle.revision);
         let released_previous_revision_transfer_count =
             previous_revision_id.as_ref().map_or(0, |revision_id| {
                 self.transfers.release_revision(revision_id)
             });
         let initial_frame_window =
-            self.initial_frame_window(&revision_id, view.revision.initial_frame.as_ref())?;
+            self.initial_frame_window(&revision, view.revision.initial_frame.as_ref())?;
         Ok(WasmViewRevisionResponse {
             kind: view.kind,
             display: view.display,
@@ -251,7 +251,7 @@ impl WasmRuntimeDocument {
 
     fn initial_frame_window(
         &mut self,
-        revision_id: &str,
+        revision: &RuntimeRevisionHandle,
         initial_frame: Option<&RuntimeInitialFrameDecision>,
     ) -> Result<Option<WasmPlannedFrameResourcePrefetchResponse>, WasmRuntimeError> {
         let Some(initial_frame) = initial_frame else {
@@ -259,12 +259,13 @@ impl WasmRuntimeDocument {
         };
         let mut plan = self
             .document
-            .frame_resource_warm_plan(revision_id, initial_frame.spread_index)
-            .map_err(WasmRuntimeError::from_engine)?;
+            .frame_resource_warm_plan_at(revision, initial_frame.spread_index)
+            .map_err(WasmRuntimeError::from_revision_access)?
+            .value;
         plan.display_spread_index = initial_frame.display_spread_index;
         let mut spreads = Vec::new();
         for spread_index in plan.spread_indexes.clone() {
-            spreads.push(self.prefetch_frame_resources(revision_id, spread_index)?);
+            spreads.push(self.prefetch_frame_resources_at(revision, spread_index)?);
         }
         Ok(Some(WasmPlannedFrameResourcePrefetchResponse {
             plan,

@@ -104,7 +104,7 @@ fn bounded_revision_json_rejects_stale_and_replayed_cursors() {
     let stale = document
         .continue_revision_json(&stale_request.to_string())
         .expect_err("stale version fails");
-    assert_eq!(stale.code(), WasmRuntimeErrorCode::EngineError);
+    assert_eq!(stale.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
     assert!(stale.message().contains("revision version"));
 
     let missing_cursor = document
@@ -130,7 +130,7 @@ fn bounded_revision_json_rejects_stale_and_replayed_cursors() {
     let replay = document
         .continue_revision_json(&valid_request)
         .expect_err("consumed cursor cannot replay");
-    assert_eq!(replay.code(), WasmRuntimeErrorCode::EngineError);
+    assert_eq!(replay.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
     assert!(replay.message().contains("revision version"));
 }
 

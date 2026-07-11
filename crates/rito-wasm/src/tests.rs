@@ -1,5 +1,6 @@
 mod continuation;
 mod fixture;
+mod versioned;
 
 use fixture::{
     fixture_document, layout, minimal_png, multi_chapter_document, resource_payload, revision_id,

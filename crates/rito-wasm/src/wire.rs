@@ -3,7 +3,8 @@ use rito_core::runtime::{
     RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest, RuntimeFrameResourceWarmPlan,
     RuntimeFullRevisionBundleRequest, RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
-    RuntimeSearchRequest, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionRequest,
+    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextRangeGeometryRequest,
+    RuntimeViewRevisionRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -145,6 +146,12 @@ pub fn parse_search_request(json: &str) -> Result<RuntimeSearchRequest, WasmRunt
 pub fn parse_locator_request(json: &str) -> Result<RuntimeLocatorRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid locator request JSON: {error}"))
+    })
+}
+
+pub fn parse_source_locator_request(json: &str) -> Result<RuntimeSourceLocator, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!("invalid source locator request JSON: {error}"))
     })
 }
 

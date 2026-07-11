@@ -2,7 +2,7 @@ use rito_core::{
     epub::{EpubError, LoadedEpubDocument},
     runtime::{
         RuntimeDocument, RuntimeResourceKind, RuntimeResourceTransferPayload,
-        RuntimeResourceTransferStore,
+        RuntimeResourceTransferStore, RuntimeRevisionHandle,
     },
 };
 
@@ -35,11 +35,18 @@ impl WasmRuntimeDocument {
         kind: RuntimeResourceKind,
         href: &str,
     ) -> Result<RuntimeResourceTransferPayload, WasmRuntimeError> {
+        let summary = self
+            .document
+            .get_revision_summary(revision_id)
+            .map_err(WasmRuntimeError::from_continuation)?;
+        let handle = RuntimeRevisionHandle::from(&summary);
         let resource = self
             .document
-            .get_resource(revision_id, kind, href)
-            .map_err(WasmRuntimeError::from_engine)?;
-        Ok(self.transfers.store(resource))
+            .get_resource_at(&handle, kind, href)
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        self.transfers
+            .store_at(&resource.revision, resource.value)
+            .map_err(WasmRuntimeError::from_engine)
     }
 
     pub(crate) fn assert_revision_exists(&self, revision_id: &str) -> Result<(), WasmRuntimeError> {

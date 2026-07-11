@@ -11,6 +11,7 @@ mod frame;
 mod interaction;
 mod resource;
 mod revision;
+mod versioned;
 mod wire;
 mod wire_metrics;
 

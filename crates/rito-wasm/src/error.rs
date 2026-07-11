@@ -2,7 +2,10 @@ use std::{error::Error, fmt};
 
 use rito_core::{
     epub::EpubError,
-    runtime::{RuntimeContinuationError, RuntimeContinuationErrorKind},
+    runtime::{
+        RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeRevisionAccessError,
+        RuntimeRevisionAccessErrorKind, RuntimeRevisionSummary,
+    },
 };
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +13,7 @@ use serde::{Deserialize, Serialize};
 pub struct WasmRuntimeError {
     code: WasmRuntimeErrorCode,
     message: String,
+    revision: Option<Box<RuntimeRevisionSummary>>,
 }
 
 impl WasmRuntimeError {
@@ -17,6 +21,7 @@ impl WasmRuntimeError {
         Self {
             code: WasmRuntimeErrorCode::BadRequest,
             message: message.into(),
+            revision: None,
         }
     }
 
@@ -24,6 +29,7 @@ impl WasmRuntimeError {
         Self {
             code: WasmRuntimeErrorCode::InternalError,
             message: message.into(),
+            revision: None,
         }
     }
 
@@ -31,18 +37,40 @@ impl WasmRuntimeError {
         Self {
             code: WasmRuntimeErrorCode::EngineError,
             message: error.message().to_owned(),
+            revision: None,
         }
     }
 
     pub(crate) fn from_continuation(error: RuntimeContinuationError) -> Self {
-        let code = if error.kind == RuntimeContinuationErrorKind::InvalidBudget {
-            WasmRuntimeErrorCode::BadRequest
-        } else {
-            WasmRuntimeErrorCode::EngineError
+        let code = match error.kind {
+            RuntimeContinuationErrorKind::InvalidBudget => WasmRuntimeErrorCode::BadRequest,
+            RuntimeContinuationErrorKind::UnknownRevision => WasmRuntimeErrorCode::UnknownRevision,
+            RuntimeContinuationErrorKind::StaleRevisionVersion => {
+                WasmRuntimeErrorCode::StaleRevisionVersion
+            }
+            _ => WasmRuntimeErrorCode::EngineError,
         };
         Self {
             code,
             message: error.message,
+            revision: error.revision,
+        }
+    }
+
+    pub(crate) fn from_revision_access(error: RuntimeRevisionAccessError) -> Self {
+        let code = match error.kind {
+            RuntimeRevisionAccessErrorKind::UnknownRevision => {
+                WasmRuntimeErrorCode::UnknownRevision
+            }
+            RuntimeRevisionAccessErrorKind::StaleRevisionVersion => {
+                WasmRuntimeErrorCode::StaleRevisionVersion
+            }
+            RuntimeRevisionAccessErrorKind::OperationFailed => WasmRuntimeErrorCode::EngineError,
+        };
+        Self {
+            code,
+            message: error.message,
+            revision: None,
         }
     }
 
@@ -52,6 +80,10 @@ impl WasmRuntimeError {
 
     pub fn message(&self) -> &str {
         &self.message
+    }
+
+    pub fn revision(&self) -> Option<&RuntimeRevisionSummary> {
+        self.revision.as_deref()
     }
 }
 
@@ -69,6 +101,8 @@ pub enum WasmRuntimeErrorCode {
     BadRequest,
     EngineError,
     InternalError,
+    UnknownRevision,
+    StaleRevisionVersion,
 }
 
 impl WasmRuntimeErrorCode {
@@ -77,6 +111,8 @@ impl WasmRuntimeErrorCode {
             Self::BadRequest => "bad-request",
             Self::EngineError => "engine-error",
             Self::InternalError => "internal-error",
+            Self::UnknownRevision => "unknown-revision",
+            Self::StaleRevisionVersion => "stale-revision-version",
         }
     }
 }
