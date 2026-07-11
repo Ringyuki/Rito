@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimeBlock<Line> {
     pub(crate) x: f64,
     pub(crate) y: f64,
@@ -17,7 +17,7 @@ pub(crate) struct RuntimeBlock<Line> {
     pub(crate) children: Vec<RuntimeChild<Line>>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum RuntimeChild<Line> {
     Block(Box<RuntimeBlock<Line>>),
     Line(Line),

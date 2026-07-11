@@ -18,6 +18,7 @@ use super::{
     line_metrics::line_height_px,
     line_mode::layout_lines_with_fonts,
     pagination_flow::{paginate_continuous_blocks, PaginationFlowChapter},
+    pagination_session::{ContinuousLayoutSession, LayoutAdvanceStatus, LayoutWorkBudget},
     style_values::*,
     summary_json::{hash_json, hash_text, number_value},
     summary_types::ContinuousBlockChapterSummary,
@@ -28,7 +29,7 @@ use crate::{
     style::{StyledNode, StyledNodeKind},
 };
 
-type ContinuousBlock = RuntimeBlock<LineBox>;
+pub(super) type ContinuousBlock = RuntimeBlock<LineBox>;
 type ContinuousChild = RuntimeChild<LineBox>;
 type ContinuousHr = RuntimeHorizontalRule;
 
@@ -39,6 +40,52 @@ struct ContinuousLayoutState<'a> {
     y: f64,
     previous_margin_bottom: f64,
     text_layout: ContinuousTextLayout<'a>,
+}
+
+#[derive(Debug, Default)]
+pub(super) struct ContinuousLayoutCursor {
+    floats: ContinuousFloatContext,
+    y: f64,
+    previous_margin_bottom: f64,
+    list_ctx: Option<ContinuousListContext>,
+}
+
+impl ContinuousLayoutCursor {
+    pub(super) fn layout_nodes<'fonts>(
+        &mut self,
+        nodes: &[StyledNode],
+        content_width: f64,
+        content_height: f64,
+        image_sizes: &ImageSizeIndex,
+        line_breaking: LineBreaking,
+        fonts: &'fonts TextMeasurementFonts<'fonts>,
+    ) -> Vec<ContinuousBlock> {
+        let mut state = ContinuousLayoutState {
+            blocks: Vec::new(),
+            floats: std::mem::take(&mut self.floats),
+            y: self.y,
+            previous_margin_bottom: self.previous_margin_bottom,
+            text_layout: ContinuousTextLayout {
+                line_breaking,
+                fonts,
+            },
+        };
+        for node in nodes {
+            apply_continuous_clearance(&mut state, node);
+            layout_continuous_top_level_node(
+                &mut state,
+                node,
+                content_width,
+                content_height,
+                image_sizes,
+                &mut self.list_ctx,
+            );
+        }
+        self.floats = state.floats;
+        self.y = state.y;
+        self.previous_margin_bottom = state.previous_margin_bottom;
+        state.blocks
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -139,20 +186,16 @@ fn layout_continuous_blocks<'a>(
     line_breaking: LineBreaking,
     fonts: &'a TextMeasurementFonts<'a>,
 ) -> Vec<ContinuousBlock> {
-    let mut list_ctx = None;
-    let text_layout = ContinuousTextLayout {
-        line_breaking,
-        fonts,
-    };
-    layout_continuous_nodes_at(
-        nodes,
+    let mut session = ContinuousLayoutSession::new(
+        nodes.to_vec(),
         content_width,
         content_height,
-        0.0,
-        image_sizes,
-        text_layout,
-        &mut list_ctx,
-    )
+        image_sizes.clone(),
+        line_breaking,
+    );
+    let result = session.advance(LayoutWorkBudget::unbounded(), fonts);
+    debug_assert_eq!(result.status, LayoutAdvanceStatus::Complete);
+    result.output
 }
 
 pub(super) fn layout_continuous_nodes_at<'a>(
@@ -202,7 +245,7 @@ fn wrap_anonymous_inline_runs(nodes: &[StyledNode]) -> Vec<StyledNode> {
     result
 }
 
-fn flush_anonymous_inline_run(result: &mut Vec<StyledNode>, run: &mut Vec<StyledNode>) {
+pub(super) fn flush_anonymous_inline_run(result: &mut Vec<StyledNode>, run: &mut Vec<StyledNode>) {
     if run.is_empty() {
         return;
     }

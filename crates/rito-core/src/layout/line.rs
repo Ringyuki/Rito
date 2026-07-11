@@ -6,7 +6,7 @@ use super::{
     summary_json::{hash_text, number_value, rect_value},
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct LineBox {
     pub(crate) x: f64,
     pub(crate) y: f64,
@@ -76,7 +76,7 @@ impl LineBox {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) enum LineRun {
     Text(TextRunBox),
     Atom(AtomRunBox),
@@ -159,7 +159,7 @@ impl LineRun {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TextRunBox {
     pub(crate) text: String,
     pub(crate) x: f64,
@@ -247,7 +247,7 @@ fn paint_object<'a>(value: &'a Value, path: &[&str]) -> Option<&'a Map<String, V
     current.as_object()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct AtomRunBox {
     pub(crate) x: f64,
     pub(crate) y: f64,
@@ -273,7 +273,7 @@ impl AtomRunBox {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RubyRunBox {
     pub(crate) text: String,
     pub(crate) x: f64,

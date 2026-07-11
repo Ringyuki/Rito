@@ -6,14 +6,14 @@ use percent::{resource_alias, resource_path, source_alias, source_path};
 mod alias;
 mod percent;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ResourceHrefIndex<T> {
     raw_exact: BTreeMap<String, T>,
     paths: HrefMaps<T>,
     aliases: HrefMaps<T>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) struct HrefMaps<T> {
     pub(super) by_href: BTreeMap<String, Option<T>>,
     pub(super) by_suffix: BTreeMap<String, Option<T>>,

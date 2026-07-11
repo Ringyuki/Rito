@@ -6,7 +6,7 @@ pub(crate) struct ImageSize {
     pub(crate) height: f64,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ImageSizeIndex {
     hrefs: ResourceHrefIndex<ImageSize>,
 }
