@@ -4,6 +4,7 @@ import { dirname, extname, relative, resolve, sep } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
+import { productionParityHtml } from './production-parity-page';
 
 export interface PixelRenderServer {
   readonly origin: string;
@@ -76,6 +77,10 @@ async function handleRequest(
   const pathname = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
   if (pathname === '/render.html') {
     sendHtml(response, renderHtml());
+    return;
+  }
+  if (pathname === '/production-parity.html') {
+    sendHtml(response, productionParityHtml());
     return;
   }
   if (pathname.startsWith('/dist/')) {
@@ -231,6 +236,8 @@ function contentType(path: string): string {
       return 'font/woff';
     case '.woff2':
       return 'font/woff2';
+    case '.wasm':
+      return 'application/wasm';
     default:
       return 'application/octet-stream';
   }

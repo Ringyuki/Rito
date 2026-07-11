@@ -301,7 +301,10 @@ shell target without hiding runtime policy in another TypeScript directory. The
 remaining non-counted browser adapter code is still TypeScript by necessity:
 FontFace/ImageBitmap/object URL lifecycle and the production Canvas presentation
 adapter. That adapter is now independent of the TypeScript reference core; the
-reference renderer remains only in parity and diagnostic tooling.
+reference renderer remains only in parity and diagnostic tooling. A focused
+Playwright differential loads the published adapter and the reference reader in
+one Chromium page, waits for the production full revision and ready frame, and
+requires exact pixels for representative paint commands.
 
 Round 5c split the remaining oversized browser reader facade functions and moved
 the private `@ritojs/core-wasm` contract re-export to `src/bindings/browser/`.

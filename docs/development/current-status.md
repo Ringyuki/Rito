@@ -178,6 +178,11 @@ Those names now belong to the old TS reference tree only.
      The old TS display-list dispatcher and every temporary paint/path/resource
      hook have left the production build graph; the reference Canvas renderer
      remains only for parity, golden, and diagnostic tooling.
+   - The Playwright pixel suite now includes a focused published-dist A/B gate.
+     It waits for the production reader's deferred full revision and a ready
+     frame, then requires exact Canvas pixels against the reference renderer for
+     representative block, inline, text, decoration, shadow, font, and ruby
+     paint in the same Chromium process.
 
 ## Do Not Do
 

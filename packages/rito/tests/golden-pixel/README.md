@@ -3,7 +3,10 @@
 This directory contains the Playwright-based pixel regression tests. The suite
 renders curated real-book spreads through the source-only TypeScript reference
 reader and compares the final Canvas PNG output with checked-in image goldens.
-A full-book matrix is still available as an opt-in external-baseline mode.
+A focused differential also renders the same synthetic spread through the
+published Rust-backed browser build and the reference reader in one Chromium
+page, requiring exact pixel equality. A full-book matrix is still available as
+an opt-in external-baseline mode.
 
 ## Fixture Layout
 
@@ -21,6 +24,13 @@ A full-book matrix is still available as an opt-in external-baseline mode.
   alternate image within the same threshold. Update mode preserves these
   alternates because they are manually reviewed platform baselines; remove stale
   alternates explicitly when a platform fallback is no longer valid.
+- `production-canvas-parity.test.ts` does not add another platform PNG. It waits
+  for the production reader's deferred full revision, renders a ready frame from
+  `dist`, and compares it directly with the reference renderer. Its one-glyph
+  test font is a deterministic subset of the CC BY 4.0 Codicon font shipped
+  with Playwright; attribution is recorded in `CODICON-FONT-NOTICE.md`. Rust
+  measurement and browser rasterization therefore use identical font data
+  without system-font fallback.
 
 ## Commands
 

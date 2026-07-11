@@ -370,7 +370,10 @@ longer has a runtime dependency on the private WASM workspace. The remaining
 production browser binding has no direct reference edge. Frame-command
 execution, rounded paths, image href resolution, block decoration, and
 text/ruby painting are production-owned; the TypeScript reference renderer is
-source-only parity and diagnostic code.
+source-only parity and diagnostic code. A focused Playwright differential now
+loads the published production build and the reference reader in the same
+Chromium process, waits for the production full revision and frame, and requires
+exact pixels for representative Canvas paint features.
 
 Current source ownership is:
 
@@ -578,9 +581,9 @@ tests exercise the Rust-backed `@ritojs/core` path in the reader stack.
 
 The React reader now runs through Rust-backed root `@ritojs/core`, and the
 source-layout reset is complete. Current work should preserve that baseline
-while closing display parity gaps, validating the opt-in binary metadata wire,
-and strengthening production-browser pixel evidence for the now reference-free
-Canvas binding.
+while closing remaining display parity gaps, validating the opt-in binary
+metadata wire, and expanding production-browser pixel evidence beyond the
+focused exact A/B gate when resource-backed scenarios justify it.
 
 1. **Quarantine the old TypeScript core - done, still reducing shims**
    - Browser binding guardrails prohibit all imports from `src/reference/**`.
