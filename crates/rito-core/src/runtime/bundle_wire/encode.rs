@@ -17,16 +17,22 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
         .map_err(|error| EpubError::new(format!("runtime bundle serialization failed: {error}")))?;
     let mut encoder = RuntimeBundleEncoder::default();
     let root_index = encoder.encode_value(&value)?;
-    let string_section = encoder.string_section()?;
-    let value_section = encoder.values;
+    let string_section_len = encoder.string_section_len()?;
+    let value_section_len = encoder.values.len();
     let string_offset = RUNTIME_BUNDLE_HEADER_BYTES;
-    let value_offset = string_offset + string_section.len();
-    let byte_length = value_offset + value_section.len();
+    let value_offset = string_offset
+        .checked_add(string_section_len)
+        .ok_or_else(|| wire_error("runtime bundle string table is too large"))?;
+    let byte_length = value_offset
+        .checked_add(value_section_len)
+        .ok_or_else(|| wire_error("runtime bundle byte length is too large"))?;
     let byte_length_u32 = checked_u32(byte_length, "runtime bundle byte length")?;
 
-    let mut bytes = vec![0; RUNTIME_BUNDLE_HEADER_BYTES];
-    bytes.extend_from_slice(&string_section);
-    bytes.extend_from_slice(&value_section);
+    let mut bytes = Vec::with_capacity(byte_length);
+    bytes.resize(RUNTIME_BUNDLE_HEADER_BYTES, 0);
+    encoder.write_string_section(&mut bytes)?;
+    bytes.extend_from_slice(&encoder.values);
+    debug_assert_eq!(bytes.len(), byte_length);
     let checksum = runtime_bundle_checksum(&bytes[RUNTIME_BUNDLE_HEADER_BYTES..]);
 
     bytes[0..8].copy_from_slice(RUNTIME_BUNDLE_MAGIC);
@@ -51,7 +57,7 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
     write_u32_at(
         &mut bytes,
         32,
-        checked_u32(string_section.len(), "runtime bundle string table length")?,
+        checked_u32(string_section_len, "runtime bundle string table length")?,
     );
     write_u32_at(
         &mut bytes,
@@ -61,7 +67,7 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
     write_u32_at(
         &mut bytes,
         40,
-        checked_u32(value_section.len(), "runtime bundle value table length")?,
+        checked_u32(value_section_len, "runtime bundle value table length")?,
     );
     write_u32_at(&mut bytes, 44, root_index);
     write_u64_at(&mut bytes, 48, checksum);
@@ -204,16 +210,25 @@ impl RuntimeBundleEncoder {
         Ok(index)
     }
 
-    fn string_section(&self) -> EpubResult<Vec<u8>> {
-        let mut bytes = Vec::new();
+    fn string_section_len(&self) -> EpubResult<usize> {
+        let mut byte_length = 0_usize;
+        for value in &self.strings {
+            let utf8_len = value.len();
+            checked_u32(utf8_len, "RITORB1 string length")?;
+            byte_length = byte_length
+                .checked_add(4)
+                .and_then(|length| length.checked_add(utf8_len))
+                .ok_or_else(|| wire_error("RITORB1 string table is too large"))?;
+        }
+        Ok(byte_length)
+    }
+
+    fn write_string_section(&self, bytes: &mut Vec<u8>) -> EpubResult<()> {
         for value in &self.strings {
             let utf8 = value.as_bytes();
-            write_u32(
-                &mut bytes,
-                checked_u32(utf8.len(), "RITORB1 string length")?,
-            );
+            write_u32(bytes, checked_u32(utf8.len(), "RITORB1 string length")?);
             bytes.extend_from_slice(utf8);
         }
-        Ok(bytes)
+        Ok(())
     }
 }

@@ -356,6 +356,9 @@ in place:
   JSON/binary view adapters validate operation-specific discriminants and core
   structure before narrowing to the view-revision response. Generated package
   entries source both decoder signatures from the adjacent runtime declarations.
+  The Rust encoder now writes its pre-sized string table directly into the final
+  bundle allocation, removing a whole-section temporary without changing the
+  checked V1 bytes.
   The repeated local evidence matrix found stable size savings but materially
   higher eager encode/decode elapsed cost, so JSON remains the default and the
   current decision is no-go pending materialization optimization and a second

@@ -105,6 +105,9 @@ Those names now belong to the old TS reference tree only.
   the V1 wire or either decoder. Full-revision calibrations for `book-01`,
   `book-06`, and `book-10` now produce binary payloads between 78.6% and 81.2%
   of their JSON byte lengths, instead of 111.4% to 117.9% before reuse.
+- The encoder precomputes the string-table byte length and writes that table
+  directly into the final bundle allocation. This removes one whole-section
+  buffer and copy while the checked cross-language V1 bytes remain identical.
 - The JavaScript `RITORB1` decoder keeps the same FNV-1a checksum and object
   semantics while avoiding per-byte `BigInt` work and unnecessary property
   descriptors. Cross-language goldens and malformed-checksum rejection remain
