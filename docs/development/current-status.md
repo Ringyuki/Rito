@@ -9,27 +9,47 @@ for a specific decision.
 
 ## Immediate Reading Order
 
-1. [`native-core-rust-plan.md`](./native-core-rust-plan.md)
+1. [`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md)
+   - This owns the active phase order: usable Rust reader, controlled
+     DOM/WebView baseline transition, then long-term capability and performance
+     work.
+2. [`native-core-rust-plan.md`](./native-core-rust-plan.md)
    - Read: Principles, Product Shape, Package Model, Entry Point Strategy,
-     Communication Strategy, Current State, Remaining Gaps, Immediate Execution
-     Plan, Verification Gates.
-   - This is the source of truth for the Rust core migration.
-2. [`browser-reader-thin-shell-plan.md`](./browser-reader-thin-shell-plan.md)
+     Communication Strategy, Current State, Remaining Gaps, Active Usability
+     Execution Plan, Verification Gates.
+   - This owns migration boundaries, package shape and implementation
+     constraints; older work-order sections do not override the active roadmap.
+3. [`browser-reader-thin-shell-plan.md`](./browser-reader-thin-shell-plan.md)
    - Read to understand why the browser TypeScript shell is intentionally small
      and what TypeScript is still allowed to own.
-3. [`ts-core-implementation-map.md`](./ts-core-implementation-map.md)
+4. [`ts-core-implementation-map.md`](./ts-core-implementation-map.md)
    - Read when comparing Rust output to the old TypeScript implementation.
    - The old TS implementation is a reference oracle, not production code.
-4. [`rendering-diagnostics.md`](./rendering-diagnostics.md) and
+5. [`rendering-diagnostics.md`](./rendering-diagnostics.md) and
    [`testing-pipeline.md`](./testing-pipeline.md)
    - Read before fixing visual parity problems or changing golden fixtures.
-5. [`binary-wire-v2-inventory.md`](./binary-wire-v2-inventory.md)
+6. [`binary-wire-v2-inventory.md`](./binary-wire-v2-inventory.md)
    - Read before implementing `RITORB1`; it records the current JSON hot paths
-     and the first runtime-bundle migration boundary.
+     and the first runtime-bundle migration boundary. Binary-wire expansion is
+     currently deferred pending new end-to-end evidence.
 
 ## Current Product Direction
 
 The long-term core source of truth is Rust.
+
+The active product order is:
+
+1. finish a genuinely usable Rust reader, including bounded incremental layout,
+   complete native interaction wiring and a minimum performance floor;
+2. move visual authority from the TypeScript migration oracle to a pinned,
+   controlled WebView/DOM reference harness;
+3. continue long-term rendering capability and broad performance work against
+   that baseline.
+
+See
+[`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md). Minimum
+first-paint and page-turn performance is part of usability; broad tuning remains
+later work.
 
 ```text
 crates/rito-core
@@ -183,61 +203,47 @@ Those names now belong to the old TS reference tree only.
 
 ## Main Remaining Gaps
 
-1. **Display parity**
-   - Continue comparing Rust output against the TS reference/golden pipeline.
-   - Focus on the CSS/layout/display-list subset already in the plan.
-   - Do not invent new broad scope such as a full browser CSSOM unless the plan
-     is explicitly changed.
-2. **Binary-first runtime wire**
-   - `RITORB1` now has a private first slice for the normal reader
-     view-revision response, including the bundled initial frame-window and
-     resource payload metadata already present in `WasmViewRevisionResponse`.
-   - Repeated full revisions now omit cached chapter-text entries on both wire
-     choices, reducing repeated metadata transport without changing the public
-     facade or generic V1 payload. Full revision records now retain a lazy
-     full-document scope, so reader cache hits also skip Rust index construction
-     and cloning; explicit revision reads materialize the shared index on
-     demand. Preview/window revisions retain scoped snapshots.
-   - The binary reader path is still opt-in only. The A/B harness and always-on
-     browser smoke now exist, and the A/B report separates raw-wire,
-     Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
-     round-trip measurements. The repeated local matrix produced a no-go
-     decision. The first local materialization pass preserved V1 and reduced
-     allocations/copies, but binary encode/decode remains slower; the next wire
-     gate is the same matrix on another machine class, not more payload scope.
-   - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
-     currently moved through JSON.
-3. **Generated boundary types**
-   - Raw wasm-bindgen types are generated, but many business DTO types in
-     `packages/rito-core-wasm/src/types/**` are still hand-written.
-   - Decoder signatures now come from their adjacent runtime declarations for
-     both real-WASM and placeholder builds instead of four hand-maintained
-     copies.
-   - Long term, Rust/schema should generate TypeScript DTO declarations.
-4. **Browser presentation adapter**
-   - `packages/rito/src/bindings/browser/frame-command-renderer.ts` now owns
-     dispatch and Canvas state for all 12 decoded Rust frame-command kinds,
-     including transforms, clipping, page/image/HR painting, color overrides,
-     and pixel-ratio scaling. Its production-owned helpers now also implement
-     clockwise/counter-clockwise rounded paths, manifest-image href resolution,
-     block backgrounds/images/borders/shadows, and text/ruby painting including
-     inline decoration and scratch-canvas text shadows.
-   - `packages/rito/src/bindings/browser/rendering.ts` and the complete
-     production browser binding now have no imports from `src/reference/**`.
-     The old TS display-list dispatcher and every temporary paint/path/resource
-     hook have left the production build graph; the reference Canvas renderer
-     remains only for parity, golden, and diagnostic tooling.
-   - The Playwright pixel suite now includes a focused published-dist A/B gate.
-     It waits for the production reader's deferred full revision and a ready
-     frame, then requires exact Canvas pixels against the reference renderer for
-     representative block, inline, text, decoration, shadow, font, and ruby
-     paint in the same Chromium process. The fixture also exercises ordered
-     multi-family and style/weight face selection with real EPUB fonts, plus a
-     nested manifest image whose literal-space href is referenced through a
-     percent-encoded XHTML path. Exact red/blue marker pixels and a same-name
-     decoy prove that transfer, decode, href resolution, and `drawImage` all ran.
-     Its block fixture includes a non-three-decimal opacity value so semantic
-     paint precision cannot be silently reduced by layout-summary rounding.
+1. **Bounded, stateful pagination**
+   - The Rust content path is live, but selected chapters are still laid out as
+     complete batches. A large single-XHTML book therefore bypasses the current
+     chapter-level lazy loading.
+   - Add a page/node/time budget, an opaque continuation cursor, cancellation
+     and resumable window growth inside Rust layout.
+   - Initial paint must not require eight complete chapters, one complete large
+     chapter or the complete publication.
+2. **Native interaction wiring**
+   - Rust/WASM already owns page targets, text positions and range geometry, but
+     the production worker and Reader surface do not expose the complete
+     contract.
+   - Migrate Kit selection, links, highlights, annotations, reading positions,
+     footnotes and accessibility away from legacy page-content assumptions.
+   - Remove empty-page-content and synthetic-measurer compatibility stubs after
+     their callers use native semantic and geometry queries.
+3. **Thin session ownership**
+   - Reflow sequencing, preview/full handoff, revision commit and some cache and
+     font-reflow policy still live in the browser shell.
+   - Keep browser operations in the host, but move reader state transitions and
+     resource/window intent into Rust-authored session plans.
+4. **Usability and performance gates**
+   - Run a representative real-book corpus through open, first paint,
+     navigation, resize, typography changes, interaction, cancellation and
+     disposal.
+   - Measure document open, bounded initial layout, first frame, deferred
+     growth and page turns independently on a named machine/browser setup.
+   - Minimum first-paint and page-turn latency is a usability requirement, not
+     deferred micro-optimization.
+5. **Controlled baseline transition**
+   - After the usability gate, build a pinned WebView/DOM reference harness and
+     make it the visual authority for future rendering work.
+   - Keep the TypeScript oracle runnable as a historical regression tripwire,
+     but stop treating it as the authority after the transition.
+6. **Deferred migration work**
+   - Continue targeted display fixes only when they block usability or protect
+     an already supported behavior.
+   - Keep `RITORB1` private and opt-in; local evidence remains a no-go for a
+     default switch. Do not expand it without new end-to-end evidence.
+   - Generated Rust/schema-owned boundary types remain desirable after the
+     native Reader contract stabilizes.
 
 ## Do Not Do
 
@@ -251,6 +257,12 @@ Those names now belong to the old TS reference tree only.
   moved into `crates/rito-core`.
 - Do not expose temporary Rust/WASM/binary implementation names on public API
   surfaces.
+- Do not resume broad display-parity or binary-wire expansion before the
+  bounded-layout and native-interaction usability work.
+- Do not move semantic interaction targets, source ranges or layout geometry
+  into host-owned heuristics; the browser should adapt core-owned results.
+- Do not delete the TypeScript oracle before the controlled DOM/WebView
+  baseline transition is complete.
 
 ## Verification Commands
 
@@ -263,6 +275,7 @@ pnpm --filter @ritojs/core-wasm run typecheck
 pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run test
 pnpm test:e2e:wire-ab
+RITO_EPUB_SMOKE_DIR="$HOME/Downloads" pnpm test:e2e:downloads-smoke -- --workers=3
 ```
 
 Milestone loop:
@@ -289,51 +302,48 @@ runtime render-command matrix.
 
 ## Best Next Work
 
-Pick one of these, in order:
+Work in roadmap order:
 
-1. Continue display parity:
-   - keep the production/reference multi-face pixel gate green; it protects
-     declared family order and style/weight matching at final Canvas output,
-     while the resource-backed image case protects the end-to-end image path
-     and reader resource tests separately protect browser registration order;
-   - use the next real diagnostic mismatch to choose another CSS/layout fix, or
-     extend browser presentation evidence only when it locks a concrete gap;
-   - treat dot-segment normalization and stylesheet-relative background URL
-     provenance as separate correctness slices; do not broaden suffix guessing
-     to hide either problem;
-   - use TS reference diagnostics and render-command goldens;
-   - fix Rust layout/display differences without adding new TS runtime policy.
-2. Continue Binary Wire V2 validation:
-   - keep the production reader on JSON; the current single-machine evidence is
-     an explicit no-go for switching the default;
-   - treat the current scratch/string-owner/preallocation work as the completed
-     first materialization pass; do not pursue noisy micro-rewrites without a
-     measured material benefit;
-   - keep the new document-owned lazy chapter-text scope intact; only optimize
-     the remaining first-inline materialization/copy after a measured case;
-   - repeat the decode/ABBA matrix on another machine class before reconsidering
-     the default;
-   - use the existing private reader switch and instrumented
-     `test:e2e:wire-ab` report to compare raw-wire, encode/decode, worker, and
-     round-trip trends before making binary metadata default;
-   - use `pnpm --filter @ritojs/core-wasm bench:runtime-wire` for repeated
-     fixed-payload decode comparisons without layout/encode noise;
-   - set `RITO_WIRE_EPUB=/absolute/path/book.epub` on either the decode
-     benchmark or `pnpm test:e2e:wire-ab` to repeat the same measurements with
-     representative local books instead of the built-in fixture;
-   - keep adding JSON/binary agreement tests for each moved payload;
-   - keep `RITORB1` private to package internals until the public facade
-     remains stable.
-3. Keep the internal WASM workspace release-safe while the wire evolves:
-   - preserve the build-time-only dependency;
-   - keep generated glue/decoder code bundled and the `.wasm` copied into the
-     public core tarball;
-   - keep isolated tarball install/import checks green.
+1. Define revision/session identity, partial extent, source locators and the
+   incremental continuation contract.
+2. Implement bounded initial layout and resumable window growth, including the
+   large-single-XHTML case.
+3. Expose current-visible-spread link, image and footnote targets through WASM,
+   Worker and public Reader.
+4. Add precise native point/range geometry, then migrate Kit selection,
+   highlights, annotations, reading positions and accessibility.
+5. Reduce browser session policy to explicit core-requested host operations.
+6. Establish the real-book usability and stage-specific performance gate.
+7. Build the pinned WebView/DOM reference harness and declare the baseline
+   transition before broad display or performance work resumes.
 
 ## Immediate Next Implementation Plan
 
-Start with Binary Wire V2. Do not begin by moving package directories or fixing
-display details.
+Start with the revision/locator and bounded-pagination contract. The first
+implementation slice must:
+
+1. define a revision handle that distinguishes Worker/session identity, Rust
+   revision id and browser commit generation;
+2. define ready/complete/cancelled/failed state, known spread extent and
+   optional final extent;
+3. define source point/range locators and unpaginated seek/grow behavior;
+4. define the Rust-owned continuation state without exposing internal layout
+   structures in the public API;
+5. lay out a bounded initial page window and return a continuation;
+6. resume the same revision without rebuilding already committed work;
+7. cancel stale work and preserve source position across reflow;
+8. prove with a large single-XHTML fixture that first paint no longer waits for
+   the complete chapter;
+9. report stage-specific timings separately from full-publication completion.
+
+Design the continuation contract with interaction indexes and source locators
+in mind. Do not build another pagination surface that later forces selection or
+annotation geometry back into TypeScript.
+
+## Archived Binary-Wire Implementation Record
+
+The record below documents completed `RITORB1` work and remains useful evidence.
+It is not the current implementation priority.
 
 1. **Inventory current JSON hot paths**
    - Done in [`binary-wire-v2-inventory.md`](./binary-wire-v2-inventory.md).

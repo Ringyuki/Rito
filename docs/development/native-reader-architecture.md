@@ -1,5 +1,11 @@
 # Native Reader Architecture
 
+> **Active priority:**
+> [`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md) owns
+> the current phase order. The interaction and session material here is design
+> input for completing the usable Rust reader, not a competing implementation
+> plan.
+
 This document is a decision record and development plan for building a
 production native reader on top of Rito. It deliberately treats Flutter as a
 real product surface, not as a disposable integration.
@@ -16,9 +22,12 @@ plan. The TypeScript `runtime/reader-session` and Web worker shell spike has
 been removed from `@ritojs/core` because it was internal-only, unconsumed by the
 stable Web reader, and insufficient for native render/font/image parity. The
 active direction is a Rust core rewrite described in
-[`native-core-rust-plan.md`](./native-core-rust-plan.md). Session, revision,
-frame, and resource-transfer concepts below remain useful design inputs, but
-the TS command shapes and file layout are no longer current source.
+[`native-core-rust-plan.md`](./native-core-rust-plan.md), with current phase
+ordering and acceptance criteria in
+[`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md).
+Session, revision, interaction, frame, and resource-transfer concepts below
+remain useful design inputs, but the TS command shapes and file layout are no
+longer current source.
 
 ## Research Basis
 

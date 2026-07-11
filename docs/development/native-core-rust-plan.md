@@ -1,5 +1,12 @@
 # Rust Core Plan
 
+> **Active priority:**
+> [`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md) owns
+> the current phase order. Complete bounded pagination, native interaction and
+> the usability gate before resuming broad display-parity or wire-format work.
+> This document remains authoritative for migration boundaries, package shape
+> and implementation constraints.
+
 This document defines the Rust rewrite plan for Rito core. It complements:
 
 - [`ts-core-implementation-map.md`](./ts-core-implementation-map.md), which maps
@@ -11,8 +18,10 @@ This document defines the Rust rewrite plan for Rito core. It complements:
   and interaction design.
 
 The decision is explicit: the long-term core source of truth should be Rust.
-The current TypeScript implementation remains the reference implementation and
-migration oracle until Rust reaches parity. It should not keep absorbing new
+The current TypeScript implementation remains the migration oracle through the
+Rust usability gate. After that gate, visual authority moves to the controlled
+WebView/DOM harness defined by the active roadmap; the TypeScript oracle remains
+only as a historical regression tripwire. It should not keep absorbing new
 cross-platform reader runtime work.
 
 ## Principles
@@ -616,13 +625,35 @@ over kit.
 Exit criterion: existing reader flows pass through the core reader contract, and
 tests exercise the Rust-backed `@ritojs/core` path in the reader stack.
 
-## Immediate Execution Plan
+## Active Usability Execution Plan
+
+The next milestone is not more broad display or wire work. Execute the active
+roadmap in this order:
+
+1. define cross-Worker revision identity, partial extent, source locators and
+   the incremental continuation contract;
+2. implement bounded, resumable pagination inside the Rust layout/runtime
+   session, including large single-XHTML publications;
+3. expose current-visible-spread link, image and footnote targets through WASM,
+   Worker and the public Reader;
+4. add precise native point/range geometry, then migrate Kit selection,
+   highlights, annotations, positions and accessibility;
+5. reduce the browser shell to core-requested host operations;
+6. pass the real-book usability and stage-specific performance gate;
+7. build the controlled WebView/DOM harness and deliberately transition the
+   rendering baseline.
+
+See
+[`native-core-usability-roadmap.md`](./native-core-usability-roadmap.md) for the
+acceptance criteria and deferred work.
+
+## Historical Migration Execution Record
 
 The React reader now runs through Rust-backed root `@ritojs/core`, and the
 source-layout reset is complete. Current work should preserve that baseline
-while closing remaining display parity gaps, validating the opt-in binary
-metadata wire, and expanding production-browser pixel evidence beyond the
-focused exact A/B gate when resource-backed scenarios justify it.
+The checklist below records the migration work that established it. Any older
+display-parity or binary-wire priority in this record is superseded by the
+active usability roadmap.
 
 1. **Quarantine the old TypeScript core - done, still reducing shims**
    - Browser binding guardrails prohibit all imports from `src/reference/**`.
