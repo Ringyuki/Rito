@@ -138,6 +138,81 @@ test('reader accepts reordered follow-up defaults normalized by Rust serde', asy
   assert.deepEqual(view.followUp, followUp);
 });
 
+test('reader accepts empty metric maps omitted from a Rust follow-up', async () => {
+  const request = {
+    ...VIEW_REQUEST,
+    mode: 'preview',
+    layoutConfig: {
+      ...VIEW_REQUEST.layoutConfig,
+      genericSerifAdvances: {},
+      genericSerifPairAdjustments: {},
+      fontFamilyAdvances: {},
+      fontFamilyPairAdjustments: {},
+    },
+  };
+  const followUp = {
+    delayMs: 1_000,
+    request: {
+      ...request,
+      layoutConfig: { pageHeight: 480, pageWidth: 320 },
+      previousRevisionId: 'preview-empty-metrics',
+      mode: 'full',
+    },
+  };
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule(() =>
+      viewPayload(
+        { revisionId: 'preview-empty-metrics', entries: CHAPTER_ENTRIES },
+        { kind: 'preview', revisionId: 'preview-empty-metrics', followUp },
+      ),
+    ),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  const view = await client.createViewRevision(request);
+  client.dispose();
+
+  assert.deepEqual(view.followUp, followUp);
+});
+
+test('reader rejects a follow-up with a changed nested font metric', async () => {
+  const request = {
+    ...VIEW_REQUEST,
+    mode: 'preview',
+    layoutConfig: {
+      ...VIEW_REQUEST.layoutConfig,
+      genericSerifAdvances: { A: 0.5 },
+    },
+  };
+  const followUp = {
+    delayMs: 1_000,
+    request: {
+      ...request,
+      layoutConfig: {
+        ...request.layoutConfig,
+        genericSerifAdvances: { A: 0.75 },
+      },
+      previousRevisionId: 'preview-metric-mismatch',
+      mode: 'full',
+    },
+  };
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule(() =>
+      viewPayload(
+        { revisionId: 'preview-metric-mismatch', entries: CHAPTER_ENTRIES },
+        { kind: 'preview', revisionId: 'preview-metric-mismatch', followUp },
+      ),
+    ),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  await assert.rejects(
+    client.createViewRevision(request),
+    /follow-up layoutConfig does not match.*layoutConfig\["genericSerifAdvances"\]\["A"\] \(0\.5 !== 0\.75\)/,
+  );
+  client.dispose();
+});
+
 for (const [name, requestOverrides, message] of [
   [
     'layout config',

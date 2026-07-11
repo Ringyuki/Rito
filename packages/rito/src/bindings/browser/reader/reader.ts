@@ -12,8 +12,9 @@ import {
 } from '../core-contracts';
 import { startBrowserReaderInitialReflow } from './pipeline/reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { preloadReaderFonts } from '../resources';
+import { preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
+import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
   createLogger,
@@ -54,18 +55,23 @@ export async function createReader(
       options,
       spreadMode,
       lineBreaking,
+      undefined,
       () => {
-        warmInitialResources(state);
+        void warmInitialResources(state).catch((error: unknown) => {
+          state.logger.warn('initial reader resource warm failed', error);
+        });
       },
-      () => {
-        warmInitialResources(state);
-      },
+      () => warmInitialResources(state),
     );
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, options);
     defineBrowserReaderAccessors(reader, state);
     return reader as Reader;
   } catch (error) {
-    worker.dispose();
+    try {
+      worker.dispose();
+    } catch {
+      // Preserve the primary creation error when best-effort cleanup fails.
+    }
     throw await normalizeBrowserReaderError(error, 'createReader');
   }
 }
@@ -85,7 +91,6 @@ function createInitialState(
   options: ReaderOptions,
 ): BrowserReaderState {
   const spreadMode = options.spread ?? 'single';
-  const lineBreaking = options.lineBreaking ?? 'greedy';
   const state: BrowserReaderState = {
     worker,
     foregroundWorker: worker,
@@ -96,11 +101,12 @@ function createInitialState(
     documentData,
     canvas,
     ctx,
+    fontMetrics: createHostFontMetrics(),
     publication: openResult.publication,
     logger: createLogger(options.logLevel ?? 'warn'),
     config: makeBrowserReaderLayoutConfig(options, spreadMode),
     spreadMode,
-    lineBreaking,
+    lineBreaking: options.lineBreaking ?? 'greedy',
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
@@ -189,9 +195,10 @@ function fallbackDevicePixelRatio(): number {
   return typeof window !== 'undefined' ? window.devicePixelRatio : 1;
 }
 
-function warmInitialResources(state: BrowserReaderState): void {
-  void preloadReaderFonts(state);
+async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {
+  const metricsChanged = await preloadCurrentReaderFonts(state);
   void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
+  return metricsChanged;
 }
 
 function defineBrowserReaderAccessors(reader: Partial<Reader>, state: BrowserReaderState): void {

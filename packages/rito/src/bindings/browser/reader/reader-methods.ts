@@ -2,7 +2,7 @@ import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { visualLayoutConfig } from './revision';
 import { scheduleBrowserReaderReflow, clearDeferredFullReflow } from './pipeline/reflow';
-import { preloadReaderFonts } from '../resources';
+import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
 import { browserReaderSpreads } from './layout';
 import {
   findRitoCoreWasmReaderActiveTocEntry,
@@ -14,7 +14,6 @@ import {
   renderSpreadToBoundCanvas,
   renderSpreadToContext,
 } from '../rendering';
-import { getImageObjectUrl } from '../resources';
 import { fallbackTextMeasurer, type BrowserReaderState } from './types';
 
 export type BrowserReaderAccessorKey =
@@ -28,21 +27,34 @@ export type BrowserReaderAccessorKey =
   | 'dpr';
 
 export type BrowserReaderMethodSurface = Omit<Reader, BrowserReaderAccessorKey>;
-type Reflow = (next?: ReaderOptions) => void;
+type Reflow = (next?: ReaderOptions, force?: boolean) => void;
 
 export function buildBrowserReaderMethods(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): BrowserReaderMethodSurface {
   let layoutOptions = options;
-  const reflow = (next: ReaderOptions = layoutOptions): void => {
+  const reflow: Reflow = (next = layoutOptions, force = false) => {
     layoutOptions = next;
     const spreadMode = layoutOptions.spread ?? state.spreadMode;
     const lineBreaking = layoutOptions.lineBreaking ?? state.lineBreaking;
-    scheduleBrowserReaderReflow(state, layoutOptions, spreadMode, lineBreaking, () => {
-      void preloadReaderFonts(state);
-      void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
-    });
+    scheduleBrowserReaderReflow(
+      state,
+      layoutOptions,
+      spreadMode,
+      lineBreaking,
+      () => {
+        void preloadReaderFonts(state)
+          .then((metricsChanged) => {
+            if (metricsChanged) reflow(layoutOptions, true);
+            void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
+          })
+          .catch((error: unknown) => {
+            state.logger.warn('reader font preload failed', error);
+          });
+      },
+      force,
+    );
   };
 
   return {
@@ -145,7 +157,10 @@ function navigationMethods(
   return {
     getCanvasSize(scale = 1) {
       const config = visualLayoutConfig(state);
-      return { width: config.viewportWidth * scale, height: config.viewportHeight * scale };
+      return {
+        width: Math.round(config.viewportWidth * scale * state.dpr) / state.dpr,
+        height: Math.round(config.viewportHeight * scale * state.dpr) / state.dpr,
+      };
     },
     getLayoutGeometry() {
       return visualLayoutConfig(state);
@@ -222,10 +237,7 @@ function listenerMethods(
 }
 
 function disposeResources(state: BrowserReaderState): void {
-  if (typeof document !== 'undefined' && 'fonts' in document) {
-    for (const face of state.registeredFontFaces.values()) document.fonts.delete(face);
-  }
-  state.registeredFontFaces.clear();
+  unregisterReaderFonts(state);
   for (const image of state.images.values()) image.close();
   state.images.clear();
   for (const url of state.imageObjectUrls.values()) URL.revokeObjectURL(url);

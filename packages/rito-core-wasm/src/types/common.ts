@@ -40,4 +40,16 @@ export interface RitoCoreWasmLayoutConfig {
   readonly fontFamilyForce?: boolean | undefined;
   readonly paginationPolicy?: RitoCoreWasmPaginationPolicy | undefined;
   readonly textMeasurement?: RitoCoreWasmTextMeasurementMode | undefined;
+  /** Host Canvas advances in em units for generic-serif fallback characters. */
+  readonly genericSerifAdvances?: Readonly<Record<string, number>> | undefined;
+  /** Host Canvas pair adjustments in em units for generic-serif fallback runs. */
+  readonly genericSerifPairAdjustments?: Readonly<Record<string, number>> | undefined;
+  /** Host Canvas advances for missing glyph fallback under publication font families. */
+  readonly fontFamilyAdvances?:
+    | Readonly<Record<string, Readonly<Record<string, number>>>>
+    | undefined;
+  /** Host Canvas pair adjustments for fallback runs under publication font families. */
+  readonly fontFamilyPairAdjustments?:
+    | Readonly<Record<string, Readonly<Record<string, number>>>>
+    | undefined;
 }

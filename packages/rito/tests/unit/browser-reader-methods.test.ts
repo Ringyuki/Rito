@@ -7,7 +7,8 @@ const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
-  preloadReaderFonts: vi.fn(),
+  preloadReaderFonts: vi.fn(() => Promise.resolve(false)),
+  unregisterReaderFonts: vi.fn(),
   warmBrowserReaderFrameWindow: vi.fn(),
 }));
 
@@ -23,6 +24,7 @@ vi.mock('../../src/bindings/browser/reader/frame-cache', () => ({
 
 vi.mock('../../src/bindings/browser/resources', () => ({
   preloadReaderFonts: mocks.preloadReaderFonts,
+  unregisterReaderFonts: mocks.unregisterReaderFonts,
   getImageObjectUrl: vi.fn(),
 }));
 
@@ -79,6 +81,23 @@ describe('Browser reader methods', () => {
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     expect(methods.getChapterTextIndices().get('chapter')?.normalizedText).toBe('Hello');
+  });
+
+  it('aligns scaled canvas CSS dimensions to whole backing pixels', () => {
+    const state = createState();
+    state.dpr = 1.5;
+    state.config = {
+      ...state.config,
+      viewportWidth: 800.5,
+      viewportHeight: 600.25,
+    };
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    const size = methods.getCanvasSize(1.2);
+
+    expect(size).toEqual({ width: 1441 / state.dpr, height: 1080 / state.dpr });
+    expect(size.width * state.dpr).toBe(1441);
+    expect(size.height * state.dpr).toBe(1080);
   });
 });
 

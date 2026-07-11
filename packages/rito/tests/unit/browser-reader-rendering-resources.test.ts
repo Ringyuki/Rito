@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { preloadReaderFonts } from '../../src/bindings/browser/resources';
+import {
+  preloadCurrentReaderFonts,
+  preloadReaderFonts,
+} from '../../src/bindings/browser/resources';
 import { renderSpreadToContext } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
 import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
@@ -115,6 +118,101 @@ describe('Browser reader resource-backed rendering', () => {
     expect(state.registeredFontFaces.size).toBe(1);
     expect(state.registeredFontFaces.has('BookFont\u0000fonts/book.woff2\u0000\u0000')).toBe(true);
     expect(invalidated).toEqual([2]);
+  });
+
+  it('skips browser font registration when FontFace exists without a document', async () => {
+    vi.stubGlobal('FontFace', FakeFontFace);
+    vi.stubGlobal('document', undefined);
+    vi.stubGlobal('fonts', undefined);
+    const readResource = vi.fn();
+    const state = createState({
+      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      publication: {
+        fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(state.registeredFontFaces.size).toBe(0);
+  });
+
+  it('registers publication fonts through a worker-global font set', async () => {
+    const addFont = vi.fn();
+    vi.stubGlobal('FontFace', FakeFontFace);
+    vi.stubGlobal('document', undefined);
+    vi.stubGlobal('fonts', { add: addFont, delete: vi.fn() });
+    const state = createState({
+      publication: {
+        fontFaces: [{ family: 'WorkerFont', href: 'fonts/worker.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    await preloadReaderFonts(state);
+
+    expect(addFont).toHaveBeenCalledOnce();
+    expect(state.registeredFontFaces.size).toBe(1);
+  });
+
+  it('retries font registration when the active revision changes during a slow load', async () => {
+    const addFont = vi.fn();
+    const finishLoads: Array<() => void> = [];
+    class DeferredFontFace extends FakeFontFace {
+      override load(): Promise<DeferredFontFace> {
+        return new Promise((resolve) => {
+          finishLoads.push(() => {
+            resolve(this);
+          });
+        });
+      }
+    }
+    vi.stubGlobal('FontFace', DeferredFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const readResource = vi.fn((revisionId: string) =>
+      Promise.resolve({
+        payload: {
+          revisionId,
+          transferId: `transfer-${revisionId}`,
+          kind: 'font' as const,
+          href: 'fonts/book.woff2',
+          mediaType: 'font/woff2',
+          byteLength: 4,
+        },
+        bytes: new Uint8Array([1, 2, 3, 4]),
+      }),
+    );
+    const state = createState({
+      worker: { ...createWorker(), readResource } as BrowserReaderWorkerClient,
+      publication: {
+        fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    const preload = preloadCurrentReaderFonts(state);
+    await flushPromises();
+    expect(readResource).toHaveBeenCalledWith('rev-1', 'font', 'fonts/book.woff2');
+    expect(finishLoads).toHaveLength(1);
+
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, revisionId: 'rev-2' },
+    };
+    finishLoads[0]?.();
+    await flushPromises();
+
+    expect(readResource).toHaveBeenLastCalledWith('rev-2', 'font', 'fonts/book.woff2');
+    expect(finishLoads).toHaveLength(2);
+    expect(addFont).not.toHaveBeenCalled();
+
+    finishLoads[1]?.();
+    await preload;
+
+    expect(addFont).toHaveBeenCalledOnce();
+    expect(state.registeredFontFaces.size).toBe(1);
   });
 
   it('registers loaded fonts in metadata order when loads settle in reverse order', async () => {
@@ -308,6 +406,11 @@ function createState(overrides: object = {}): BrowserReaderState {
     images: new Map(),
     pendingImageLoads: new Map(),
     registeredFontFaces: new Map(),
+    ctx: fontMetricContext(),
+    fontMetrics: {
+      genericSerif: { advances: {}, pairAdjustments: {} },
+      fontFamilies: {},
+    },
     spreadContentInvalidatedListeners: new Set(),
     disposed: false,
     publication: {
@@ -317,6 +420,19 @@ function createState(overrides: object = {}): BrowserReaderState {
     },
     ...overrides,
   } as unknown as BrowserReaderState;
+}
+
+function fontMetricContext(): BrowserReaderState['ctx'] {
+  return {
+    font: '',
+    wordSpacing: '',
+    letterSpacing: '',
+    save() {},
+    restore() {},
+    measureText(text: string) {
+      return { width: Array.from(text).length * 16 } as TextMetrics;
+    },
+  } as BrowserReaderState['ctx'];
 }
 
 function createWorker(

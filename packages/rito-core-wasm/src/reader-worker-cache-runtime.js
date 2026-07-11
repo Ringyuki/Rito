@@ -74,7 +74,13 @@ function requireMatchingFollowUpPolicy(viewRequest, view) {
   const followUp = view?.followUp;
   if (followUp === undefined) return;
   if (!layoutConfigEqual(viewRequest.layoutConfig, followUp?.request?.layoutConfig)) {
-    throw new Error('Reader view revision follow-up layoutConfig does not match its request');
+    const difference = layoutConfigDifference(
+      viewRequest.layoutConfig,
+      followUp?.request?.layoutConfig,
+    );
+    throw new Error(
+      `Reader view revision follow-up layoutConfig does not match its request${difference ? ` at ${difference}` : ''}`,
+    );
   }
   if ((viewRequest.lineBreaking ?? 'greedy') !== (followUp?.request?.lineBreaking ?? 'greedy')) {
     throw new Error('Reader view revision follow-up lineBreaking does not match its request');
@@ -83,9 +89,36 @@ function requireMatchingFollowUpPolicy(viewRequest, view) {
 
 function layoutConfigEqual(left, right) {
   if (!isJsonObject(left) || !isJsonObject(right)) return false;
-  return jsonValueEqual(
-    { ...left, textMeasurement: left.textMeasurement ?? 'fixtureCompatible' },
-    { ...right, textMeasurement: right.textMeasurement ?? 'fixtureCompatible' },
+  return jsonValueEqual(normalizeLayoutConfig(left), normalizeLayoutConfig(right));
+}
+
+function layoutConfigDifference(left, right) {
+  if (!isJsonObject(left) || !isJsonObject(right)) return 'layoutConfig (non-object value)';
+  return jsonValueDifference(
+    normalizeLayoutConfig(left),
+    normalizeLayoutConfig(right),
+    'layoutConfig',
+  );
+}
+
+const EMPTY_LAYOUT_CONFIG_MAP_DEFAULTS = [
+  'genericSerifAdvances',
+  'genericSerifPairAdjustments',
+  'fontFamilyAdvances',
+  'fontFamilyPairAdjustments',
+];
+
+function normalizeLayoutConfig(config) {
+  return Object.fromEntries(
+    Object.entries({
+      ...config,
+      textMeasurement: config.textMeasurement ?? 'fixtureCompatible',
+    }).filter(
+      ([key, value]) =>
+        !EMPTY_LAYOUT_CONFIG_MAP_DEFAULTS.includes(key) ||
+        !isJsonObject(value) ||
+        jsonObjectKeys(value).length > 0,
+    ),
   );
 }
 
@@ -112,6 +145,39 @@ function jsonValueEqual(left, right) {
     leftKeys.length === rightKeys.length &&
     leftKeys.every((key) => Object.hasOwn(right, key) && jsonValueEqual(left[key], right[key]))
   );
+}
+
+function jsonValueDifference(left, right, path) {
+  if (left === right) return undefined;
+  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') {
+    return `${path} (${jsonValueLabel(left)} !== ${jsonValueLabel(right)})`;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    if (!Array.isArray(left) || !Array.isArray(right)) return `${path} (array type mismatch)`;
+    if (left.length !== right.length) return `${path}.length (${left.length} !== ${right.length})`;
+    for (let index = 0; index < left.length; index += 1) {
+      const difference = jsonValueDifference(left[index], right[index], `${path}[${index}]`);
+      if (difference !== undefined) return difference;
+    }
+    return undefined;
+  }
+  const leftKeys = jsonObjectKeys(left);
+  const rightKeys = jsonObjectKeys(right);
+  for (const key of leftKeys) {
+    const keyPath = `${path}[${JSON.stringify(key)}]`;
+    if (!rightKeys.includes(key)) return `${keyPath} (missing from follow-up)`;
+    const difference = jsonValueDifference(left[key], right[key], keyPath);
+    if (difference !== undefined) return difference;
+  }
+  const rightOnlyKey = rightKeys.find((key) => !leftKeys.includes(key));
+  return rightOnlyKey === undefined
+    ? undefined
+    : `${path}[${JSON.stringify(rightOnlyKey)}] (missing from request)`;
+}
+
+function jsonValueLabel(value) {
+  const json = JSON.stringify(value);
+  return json === undefined ? String(value) : json;
 }
 
 function jsonObjectKeys(value) {

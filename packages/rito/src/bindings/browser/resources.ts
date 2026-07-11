@@ -1,15 +1,34 @@
 import type { BrowserReaderState } from './reader/types';
 import type { BrowserReaderResourceBytes } from './core-contracts';
+import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
 
-export async function preloadReaderFonts(state: BrowserReaderState): Promise<void> {
+export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
   const revisionId = state.revisionBundle.revision.revisionId;
   const registeredBefore = state.registeredFontFaces.size;
+  let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
   await registerRevisionFonts(state, revisionId);
-  if (!isCurrentReaderRevision(state, revisionId)) return;
+  if (!isCurrentReaderRevision(state, revisionId)) return false;
+  metricsChanged =
+    ensureHostFontFamilyMetrics(
+      state.fontMetrics,
+      state.ctx,
+      [...state.registeredFontFaces.values()].map((face) => face.family),
+    ) || metricsChanged;
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])
       notifySpreadContentInvalidated(state, spreadIndex);
   }
+  return metricsChanged;
+}
+
+export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<boolean> {
+  let revisionId: string;
+  let metricsChanged = false;
+  do {
+    revisionId = state.revisionBundle.revision.revisionId;
+    metricsChanged = (await preloadReaderFonts(state)) || metricsChanged;
+  } while (!state.disposed && revisionId !== state.revisionBundle.revision.revisionId);
+  return metricsChanged;
 }
 
 export async function preloadFrameResourceBytes(
@@ -96,8 +115,14 @@ interface PreparedReaderFontFace {
   readonly face: FontFace;
 }
 
+interface BrowserFontFaceRegistry {
+  readonly add: (face: FontFace) => void;
+  readonly delete: (face: FontFace) => boolean;
+}
+
 async function registerRevisionFonts(state: BrowserReaderState, revisionId: string): Promise<void> {
-  if (typeof FontFace === 'undefined' || !('fonts' in document)) return;
+  const registry = browserFontFaceRegistry();
+  if (typeof FontFace === 'undefined' || !registry) return;
   const prepared = await Promise.all(
     readerFontFaceInputs(state).map((input) =>
       prepareReaderFontFace(state, revisionId, input).catch(() => undefined),
@@ -105,7 +130,7 @@ async function registerRevisionFonts(state: BrowserReaderState, revisionId: stri
   );
   if (!isCurrentReaderRevision(state, revisionId)) return;
   for (const item of prepared) {
-    if (item) commitReaderFontFace(state, item);
+    if (item) commitReaderFontFace(state, item, registry);
   }
 }
 
@@ -131,14 +156,31 @@ async function prepareReaderFontFace(
   return { key, face };
 }
 
-function commitReaderFontFace(state: BrowserReaderState, prepared: PreparedReaderFontFace): void {
+function commitReaderFontFace(
+  state: BrowserReaderState,
+  prepared: PreparedReaderFontFace,
+  registry: BrowserFontFaceRegistry,
+): void {
   if (state.registeredFontFaces.has(prepared.key)) return;
   try {
-    document.fonts.add(prepared.face);
+    registry.add(prepared.face);
     state.registeredFontFaces.set(prepared.key, prepared.face);
   } catch {
     // A failed face is isolated so later source-order entries can still register.
   }
+}
+
+export function unregisterReaderFonts(state: BrowserReaderState): void {
+  const registry = browserFontFaceRegistry();
+  if (registry) {
+    for (const face of state.registeredFontFaces.values()) registry.delete(face);
+  }
+  state.registeredFontFaces.clear();
+}
+
+function browserFontFaceRegistry(): BrowserFontFaceRegistry | undefined {
+  if (typeof document !== 'undefined' && 'fonts' in document) return document.fonts;
+  return (globalThis as typeof globalThis & { readonly fonts?: BrowserFontFaceRegistry }).fonts;
 }
 
 function isCurrentReaderRevision(state: BrowserReaderState, revisionId: string): boolean {

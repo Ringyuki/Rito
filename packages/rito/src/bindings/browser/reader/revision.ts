@@ -168,21 +168,6 @@ export function visualPreviewFrame(
   return preview.frame;
 }
 
-export function visualConfigMatches(
-  state: BrowserReaderState,
-  config: LayoutConfig,
-  spreadMode: 'single' | 'double',
-  lineBreaking: CoreLineBreaking,
-): boolean {
-  const preview = state.visualPreview;
-  return (
-    !!preview &&
-    JSON.stringify(preview.config) === JSON.stringify(config) &&
-    preview.spreadMode === spreadMode &&
-    preview.lineBreaking === lineBreaking
-  );
-}
-
 function shouldDiscardReflowResult(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,

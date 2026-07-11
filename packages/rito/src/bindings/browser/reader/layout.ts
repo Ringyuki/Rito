@@ -6,6 +6,7 @@ import {
   type Spread,
 } from '../../../reader';
 import { createRitoCoreWasmReaderPages, createRitoCoreWasmReaderSpreads } from '../core-contracts';
+import { hostFontMetricConfig } from '../font-metrics';
 import type { CoreLayoutConfig, BrowserReaderState } from './types';
 
 export function makeBrowserReaderLayoutConfig(
@@ -24,8 +25,15 @@ export function makeBrowserReaderLayoutConfig(
   });
 }
 
-export function toCoreLayoutConfig(config: LayoutConfig): CoreLayoutConfig {
-  return { ...config, textMeasurement: 'fontAware' };
+export function toCoreLayoutConfig(
+  config: LayoutConfig,
+  fontMetrics: BrowserReaderState['fontMetrics'],
+): CoreLayoutConfig {
+  return {
+    ...config,
+    textMeasurement: 'fontAware',
+    ...hostFontMetricConfig(fontMetrics),
+  };
 }
 
 export function applyLayoutOverrides(

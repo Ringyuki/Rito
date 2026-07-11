@@ -11,6 +11,7 @@ import type {
   normalizeRitoCoreWasmError,
 } from '../core-contracts';
 import type { BrowserReaderWorkerClient } from '../core-contracts';
+import type { HostFontMetrics } from '../font-metrics';
 import type { CanvasRenderingTarget } from '../rendering';
 import type {
   ChapterTextIndex,
@@ -130,6 +131,7 @@ export interface BrowserReaderState {
   readonly documentData: ArrayBuffer;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
+  readonly fontMetrics: HostFontMetrics;
   readonly publication: CorePublicationInfo;
   readonly logger: Logger;
   config: LayoutConfig;

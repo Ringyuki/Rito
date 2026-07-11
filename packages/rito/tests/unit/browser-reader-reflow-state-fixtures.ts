@@ -34,6 +34,10 @@ export function createState(
     documentData: new ArrayBuffer(0),
     canvas: {} as HTMLCanvasElement,
     ctx: {} as BrowserReaderState['ctx'],
+    fontMetrics: {
+      genericSerif: { advances: {}, pairAdjustments: {} },
+      fontFamilies: {},
+    },
     publication: {
       package: {
         metadata: { title: '', language: '', identifier: '' },
