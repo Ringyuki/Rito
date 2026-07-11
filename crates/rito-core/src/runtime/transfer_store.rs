@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use super::{RuntimeResource, RuntimeResourceKind};
+use super::{RuntimeResource, RuntimeResourceKind, RuntimeRevisionHandle};
 use crate::epub::{EpubError, EpubResult};
 
 #[derive(Debug, Default)]
@@ -20,12 +20,39 @@ impl RuntimeResourceTransferStore {
     }
 
     pub fn store(&mut self, resource: RuntimeResource) -> RuntimeResourceTransferPayload {
+        let revision = RuntimeRevisionHandle::new(&resource.revision_id, 0);
+        self.store_matching(&revision, resource)
+    }
+
+    pub fn store_at(
+        &mut self,
+        revision: &RuntimeRevisionHandle,
+        resource: RuntimeResource,
+    ) -> EpubResult<RuntimeResourceTransferPayload> {
+        if revision.revision_id != resource.revision_id {
+            return Err(EpubError::new(format!(
+                "resource transfer owner {} does not match resource revision {}",
+                revision.revision_id, resource.revision_id
+            )));
+        }
+        Ok(self.store_matching(revision, resource))
+    }
+
+    fn store_matching(
+        &mut self,
+        revision: &RuntimeRevisionHandle,
+        resource: RuntimeResource,
+    ) -> RuntimeResourceTransferPayload {
         let transfer_id = self.create_transfer_id();
-        let payload = RuntimeResourceTransferPayload::from_resource(&transfer_id, &resource);
+        let payload = RuntimeResourceTransferPayload::from_resource(
+            &transfer_id,
+            &revision.revision_id,
+            &resource,
+        );
         self.transfers.insert(
             transfer_id,
             RuntimeResourceTransfer {
-                payload: payload.clone(),
+                revision: revision.clone(),
                 bytes: resource.bytes,
             },
         );
@@ -53,7 +80,14 @@ impl RuntimeResourceTransferStore {
     pub fn release_revision(&mut self, revision_id: &str) -> usize {
         let before = self.transfers.len();
         self.transfers
-            .retain(|_, transfer| transfer.payload.revision_id != revision_id);
+            .retain(|_, transfer| transfer.revision.revision_id != revision_id);
+        before - self.transfers.len()
+    }
+
+    pub fn release_revision_at(&mut self, revision: &RuntimeRevisionHandle) -> usize {
+        let before = self.transfers.len();
+        self.transfers
+            .retain(|_, transfer| transfer.revision != *revision);
         before - self.transfers.len()
     }
 
@@ -88,9 +122,9 @@ pub struct RuntimeResourceTransferPayload {
 }
 
 impl RuntimeResourceTransferPayload {
-    fn from_resource(transfer_id: &str, resource: &RuntimeResource) -> Self {
+    fn from_resource(transfer_id: &str, revision_id: &str, resource: &RuntimeResource) -> Self {
         Self {
-            revision_id: resource.revision_id.clone(),
+            revision_id: revision_id.to_owned(),
             transfer_id: transfer_id.to_owned(),
             kind: resource.kind,
             href: resource.href.clone(),
@@ -104,14 +138,14 @@ impl RuntimeResourceTransferPayload {
 
 #[derive(Debug)]
 struct RuntimeResourceTransfer {
-    payload: RuntimeResourceTransferPayload,
+    revision: RuntimeRevisionHandle,
     bytes: Vec<u8>,
 }
 
 #[cfg(test)]
 mod tests {
     use super::RuntimeResourceTransferStore;
-    use crate::runtime::{RuntimeResource, RuntimeResourceKind};
+    use crate::runtime::{RuntimeResource, RuntimeResourceKind, RuntimeRevisionHandle};
 
     #[test]
     fn creates_independent_transfer_leases_for_reused_resources() {
@@ -165,6 +199,62 @@ mod tests {
         assert!(store.read(&rev1.transfer_id).is_err());
         assert_eq!(store.read(&rev2.transfer_id).expect("rev2 remains"), b"two");
         assert_eq!(store.len(), 1);
+    }
+
+    #[test]
+    fn releases_only_the_exact_revision_version() {
+        let mut store = RuntimeResourceTransferStore::new();
+        let version_zero = RuntimeRevisionHandle::new("rev-1", 0);
+        let version_one = RuntimeRevisionHandle::new("rev-1", 1);
+        let legacy = store.store(resource("rev-1", b"legacy"));
+        let current = store
+            .store_at(&version_one, resource("rev-1", b"current"))
+            .expect("matching owner");
+
+        assert_eq!(store.release_revision_at(&version_zero), 1);
+        assert!(store.read(&legacy.transfer_id).is_err());
+        assert_eq!(
+            store
+                .read(&current.transfer_id)
+                .expect("version one remains"),
+            b"current"
+        );
+
+        assert_eq!(store.release_revision_at(&version_zero), 0);
+        assert_eq!(store.release_revision_at(&version_one), 1);
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn legacy_revision_release_covers_all_versions() {
+        let mut store = RuntimeResourceTransferStore::new();
+        let version_zero = RuntimeRevisionHandle::new("rev-1", 0);
+        let version_one = RuntimeRevisionHandle::new("rev-1", 1);
+        store
+            .store_at(&version_zero, resource("rev-1", b"old"))
+            .expect("matching version zero owner");
+        store
+            .store_at(&version_one, resource("rev-1", b"new"))
+            .expect("matching version one owner");
+
+        assert_eq!(store.release_revision("rev-1"), 2);
+        assert!(store.is_empty());
+    }
+
+    #[test]
+    fn rejects_a_resource_owned_by_another_revision() {
+        let mut store = RuntimeResourceTransferStore::new();
+        let owner = RuntimeRevisionHandle::new("rev-2", 1);
+
+        let error = store
+            .store_at(&owner, resource("rev-1", b"wrong-owner"))
+            .expect_err("mismatched owner is rejected in every build");
+
+        assert_eq!(
+            error.to_string(),
+            "resource transfer owner rev-2 does not match resource revision rev-1"
+        );
+        assert!(store.is_empty());
     }
 
     fn resource(revision_id: &str, bytes: &[u8]) -> RuntimeResource {

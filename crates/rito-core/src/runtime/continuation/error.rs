@@ -2,7 +2,10 @@ use std::{error::Error, fmt, num::NonZeroUsize};
 
 use crate::{
     epub::EpubError,
-    runtime::{RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeRevisionWorkBudget},
+    runtime::{
+        RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeRevisionSummary,
+        RuntimeRevisionWorkBudget,
+    },
 };
 
 pub(super) fn checked_budget(
@@ -27,6 +30,17 @@ pub(super) fn engine_error(error: EpubError) -> RuntimeContinuationError {
     continuation_error(RuntimeContinuationErrorKind::EngineFailure, error.message())
 }
 
+pub(super) fn engine_error_with_revision(
+    error: EpubError,
+    revision: RuntimeRevisionSummary,
+) -> RuntimeContinuationError {
+    RuntimeContinuationError {
+        kind: RuntimeContinuationErrorKind::EngineFailure,
+        message: error.message().to_owned(),
+        revision: Some(Box::new(revision)),
+    }
+}
+
 pub(super) fn continuation_error(
     kind: RuntimeContinuationErrorKind,
     message: impl Into<String>,
@@ -34,6 +48,7 @@ pub(super) fn continuation_error(
     RuntimeContinuationError {
         kind,
         message: message.into(),
+        revision: None,
     }
 }
 

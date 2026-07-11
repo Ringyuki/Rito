@@ -280,7 +280,7 @@ impl RuntimeDocument {
         })
     }
 
-    fn revision_bundle_navigation(
+    pub(super) fn revision_bundle_navigation(
         &self,
         revision_id: &str,
         include_toc_targets: bool,

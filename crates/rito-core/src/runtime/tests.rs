@@ -1,3 +1,4 @@
+mod access_tests;
 mod command_hash;
 mod continuation_tests;
 mod fixture;

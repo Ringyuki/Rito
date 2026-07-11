@@ -85,15 +85,23 @@ impl RuntimeDocument {
         Ok(revision.known_extent)
     }
 
-    pub(super) fn mark_revision_failed(&mut self, revision_id: &str, revision_version: u32) {
+    pub(super) fn mark_revision_failed(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        layout_key: &str,
+    ) -> crate::runtime::RuntimeRevisionSummary {
         self.continuations
             .retain(|_, continuation| continuation.revision_id != revision_id);
-        if let Some(revision) = self.revisions.get_mut(revision_id) {
-            revision.revision_version = revision_version;
-            revision.status = RuntimeRevisionStatus::Failed;
-            revision.final_extent = None;
-            revision.clear_frame_cache();
-        }
+        let revision = self
+            .revisions
+            .get_mut(revision_id)
+            .expect("continuable revision remains available while work advances");
+        revision.revision_version = revision_version;
+        revision.status = RuntimeRevisionStatus::Failed;
+        revision.final_extent = None;
+        revision.clear_frame_cache();
+        revision_summary(revision_id, layout_key, revision)
     }
 }
 

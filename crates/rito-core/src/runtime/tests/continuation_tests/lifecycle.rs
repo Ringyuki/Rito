@@ -2,7 +2,7 @@ use super::{bounded_request, budget, continue_request};
 use crate::runtime::tests::fixture::{layout, multi_chapter_fixture_epub};
 use crate::runtime::{
     RuntimeCancelRevisionRequest, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
-    RuntimeDocument, RuntimeRevisionStatus,
+    RuntimeDocument, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionStatus,
 };
 
 #[test]
@@ -95,6 +95,13 @@ fn invalid_budget_and_swapped_cursor_do_not_consume_valid_progress() {
         invalid_create.kind,
         RuntimeContinuationErrorKind::InvalidBudget
     );
+    assert!(
+        serde_json::to_value(&invalid_create)
+            .expect("error serializes")
+            .get("revision")
+            .is_none(),
+        "pre-revision failures omit recovery metadata"
+    );
     assert_eq!(document.revision_count(), 0);
 
     let first = document
@@ -165,4 +172,57 @@ fn releasing_an_active_revision_drops_its_continuation() {
         .continue_revision(continue_request(&cursor, 1))
         .expect_err("released continuation is unavailable");
     assert_eq!(released.kind, RuntimeContinuationErrorKind::UnknownRevision);
+}
+
+#[test]
+fn failed_continuation_returns_the_new_handle_for_version_safe_cleanup() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let initial = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("first chapter advances");
+    let cursor = initial.continuation.expect("later chapters remain");
+    let stale_handle = RuntimeRevisionHandle::new(&cursor.revision_id, cursor.revision_version);
+
+    let next_chapter = &mut document.document.chapters[1];
+    next_chapter.href = "missing-chapter.xhtml".to_owned();
+    next_chapter.xhtml_source.clear();
+    next_chapter.source_loaded = false;
+    next_chapter.image_refs = None;
+
+    let error = document
+        .continue_revision(continue_request(&cursor, 1))
+        .expect_err("missing deferred chapter fails after consuming the cursor");
+    assert_eq!(error.kind, RuntimeContinuationErrorKind::EngineFailure);
+    let error_json = serde_json::to_value(&error).expect("failure serializes");
+    assert_eq!(error_json["kind"], "engineFailure");
+    assert_eq!(
+        error_json["revision"]["revisionVersion"],
+        cursor.revision_version + 1
+    );
+    assert_eq!(error_json["revision"]["status"], "failed");
+    let failed = *error
+        .revision
+        .expect("failure carries the new revision handle");
+    assert_eq!(failed.revision_version, cursor.revision_version + 1);
+    assert_eq!(failed.status, RuntimeRevisionStatus::Failed);
+
+    let stale_release = document
+        .release_revision_at(&stale_handle)
+        .expect_err("the consumed handle remains stale");
+    assert_eq!(
+        stale_release.kind,
+        RuntimeRevisionAccessErrorKind::StaleRevisionVersion
+    );
+    let failed_handle = RuntimeRevisionHandle::from(&failed);
+    assert_eq!(
+        document
+            .get_revision_summary_at(&failed_handle)
+            .expect("failed revision remains inspectable")
+            .value,
+        failed
+    );
+    assert!(document
+        .release_revision_at(&failed_handle)
+        .expect("the returned handle releases the failed revision"));
 }

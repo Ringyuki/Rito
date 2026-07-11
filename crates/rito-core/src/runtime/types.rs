@@ -168,6 +168,8 @@ pub enum RuntimeContinuationErrorKind {
 pub struct RuntimeContinuationError {
     pub kind: RuntimeContinuationErrorKind,
     pub message: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub revision: Option<Box<RuntimeRevisionSummary>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

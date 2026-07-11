@@ -15,7 +15,9 @@ mod publish;
 mod state;
 mod work;
 
-use error::{checked_budget, continuation_error, engine_error, unknown_revision};
+use error::{
+    checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
+};
 use publish::empty_revision_interactions;
 pub(in crate::runtime) use state::RuntimeContinuationRecord;
 
@@ -101,8 +103,9 @@ impl RuntimeDocument {
         let work = match self.advance_record(&mut continuation, budget) {
             Ok(work) => work,
             Err(error) => {
-                self.mark_revision_failed(&request.revision_id, next_version);
-                return Err(engine_error(error));
+                let revision =
+                    self.mark_revision_failed(&request.revision_id, next_version, &layout_key);
+                return Err(engine_error_with_revision(error, revision));
             }
         };
         self.apply_work(

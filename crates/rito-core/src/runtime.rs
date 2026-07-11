@@ -4,6 +4,7 @@ pub const OWNS: &str =
 
 use std::{cell::OnceCell, collections::BTreeMap};
 
+mod access;
 mod bundle;
 mod bundle_wire;
 mod chapter_text;
@@ -27,6 +28,10 @@ use crate::{
     layout::TextMeasurementCache,
 };
 
+pub use access::{
+    RuntimeRevisionAccessError, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
+    RuntimeVersioned,
+};
 pub use bundle_wire::{
     decode_runtime_bundle, encode_runtime_bundle, DecodedRuntimeBundle,
     RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_MAGIC_TEXT,
