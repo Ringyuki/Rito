@@ -3,10 +3,23 @@ import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './in
 import type { RitoCoreWasmTocEntry } from './publication';
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 
+export type RitoCoreWasmRevisionStatus = 'warming' | 'ready' | 'complete' | 'cancelled' | 'failed';
+
+export interface RitoCoreWasmRevisionExtent {
+  readonly pageCount: number;
+  readonly spreadCount: number;
+}
+
 export interface RitoCoreWasmRevisionSummary {
   readonly revisionId: string;
+  readonly revisionVersion: number;
   readonly layoutKey: string;
+  readonly status: RitoCoreWasmRevisionStatus;
+  readonly knownExtent: RitoCoreWasmRevisionExtent;
+  readonly finalExtent?: RitoCoreWasmRevisionExtent | undefined;
+  /** Backward-compatible alias for `knownExtent.pageCount`. */
   readonly pageCount: number;
+  /** Backward-compatible alias for `knownExtent.spreadCount`. */
   readonly spreadCount: number;
 }
 

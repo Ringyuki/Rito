@@ -1,5 +1,3 @@
-use std::collections::{BTreeMap, VecDeque};
-
 use crate::{
     epub::{EpubError, EpubResult},
     layout::{LayoutConfig, LineBreaking, TextMeasurementMode},
@@ -90,17 +88,13 @@ impl RuntimeDocument {
                 Some(self.text_measurement_cache.clone()),
             );
         let layout_key = layout_key(layout_config)?;
-        let summary = revision_summary(&revision_id, &layout_key, &layout);
-        self.revisions.insert(
-            revision_id,
-            RuntimeRevision {
-                interactions: runtime_revision_interactions(prepared, full_document),
-                layout,
-                layout_config: layout_config.clone(),
-                frame_cache: BTreeMap::new(),
-                frame_cache_order: VecDeque::new(),
-            },
+        let revision = RuntimeRevision::completed(
+            layout,
+            layout_config.clone(),
+            runtime_revision_interactions(prepared, full_document),
         );
+        let summary = revision_summary(&revision_id, &layout_key, &revision);
+        self.revisions.insert(revision_id, revision);
         Ok(summary)
     }
 
@@ -140,17 +134,13 @@ impl RuntimeDocument {
                 Some(self.text_measurement_cache.clone()),
             );
         let layout_key = layout_key(&window_layout_config)?;
-        let summary = revision_summary(&revision_id, &layout_key, &layout);
-        self.revisions.insert(
-            revision_id,
-            RuntimeRevision {
-                interactions: runtime_revision_interactions(&prepared, false),
-                layout,
-                layout_config: window_layout_config,
-                frame_cache: BTreeMap::new(),
-                frame_cache_order: VecDeque::new(),
-            },
+        let revision = RuntimeRevision::completed(
+            layout,
+            window_layout_config,
+            runtime_revision_interactions(&prepared, false),
         );
+        let summary = revision_summary(&revision_id, &layout_key, &revision);
+        self.revisions.insert(revision_id, revision);
         Ok(summary)
     }
 

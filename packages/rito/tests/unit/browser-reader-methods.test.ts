@@ -135,7 +135,16 @@ function createState(): BrowserReaderState {
       rootFontSize: 16,
     },
     revisionBundle: {
-      revision: { revisionId: 'rev', layoutKey: 'layout', pageCount: 0, spreadCount: 0 },
+      revision: {
+        revisionId: 'rev',
+        revisionVersion: 0,
+        layoutKey: 'layout',
+        status: 'complete',
+        knownExtent: { pageCount: 0, spreadCount: 0 },
+        finalExtent: { pageCount: 0, spreadCount: 0 },
+        pageCount: 0,
+        spreadCount: 0,
+      },
       navigation: {
         revisionId: 'rev',
         pageCount: 0,

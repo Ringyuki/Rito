@@ -13,6 +13,7 @@ import {
   createWorker,
   flushPromises,
   revisionResult,
+  revisionSummary,
   setRevisionState,
 } from './browser-reader-reflow-fixtures';
 
@@ -28,12 +29,7 @@ describe('Browser reader Rust follow-up dispatch', () => {
       pending.push(deferred),
     );
     const state = createState(worker);
-    setRevisionState(state, {
-      revisionId: 'rev-ready',
-      layoutKey: 'ready',
-      pageCount: 4,
-      spreadCount: 4,
-    });
+    setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'));
     state.activeSpreadIndex = 1;
     let runtimeFollowUpRequest: CoreViewRevisionRequest | undefined;
     createViewRevision.mockImplementationOnce((previewRequest) => {
@@ -207,11 +203,6 @@ describe('Browser reader reflow races', () => {
 
 function createReadyState(worker: BrowserReaderWorkerClient) {
   const state = createState(worker);
-  setRevisionState(state, {
-    revisionId: 'rev-ready',
-    layoutKey: 'ready',
-    pageCount: 4,
-    spreadCount: 4,
-  });
+  setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'));
   return state;
 }

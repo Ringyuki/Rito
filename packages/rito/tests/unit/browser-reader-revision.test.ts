@@ -13,12 +13,20 @@ describe('Browser reader revision lifecycle', () => {
     const background = createWorker(() => undefined);
     const state = createState(foreground.worker);
     setRevisionState(state, revisionResult('rev-1', 1, 1).bundle.revision);
+    const nextResult = revisionResult('rev-1', 1, 1);
+    const versionedResult = {
+      ...nextResult,
+      bundle: {
+        ...nextResult.bundle,
+        revision: { ...nextResult.bundle.revision, revisionVersion: 7 },
+      },
+    };
 
     applyBrowserReaderRevisionState(state, {
       config: state.config,
       spreadMode: state.spreadMode,
       lineBreaking: state.lineBreaking,
-      result: revisionResult('rev-1', 1, 1),
+      result: versionedResult,
       worker: background.worker,
     });
 
@@ -26,7 +34,7 @@ describe('Browser reader revision lifecycle', () => {
     expect(state.revisionHandle).toEqual({
       workerSessionId: background.worker.sessionId,
       revisionId: 'rev-1',
-      revisionVersion: 0,
+      revisionVersion: 7,
       commitGeneration: 2,
     });
     expect(state.commitGeneration).toBe(2);

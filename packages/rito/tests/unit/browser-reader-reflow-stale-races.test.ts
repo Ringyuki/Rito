@@ -12,6 +12,7 @@ import {
   createWorker,
   flushPromises,
   revisionResult,
+  revisionSummary,
   setRevisionState,
 } from './browser-reader-reflow-fixtures';
 
@@ -178,11 +179,6 @@ describe('Browser reader stale reflow races', () => {
 
 function createReadyState(worker: BrowserReaderWorkerClient) {
   const state = createState(worker);
-  setRevisionState(state, {
-    revisionId: 'rev-ready',
-    layoutKey: 'ready',
-    pageCount: 4,
-    spreadCount: 4,
-  });
+  setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'));
   return state;
 }

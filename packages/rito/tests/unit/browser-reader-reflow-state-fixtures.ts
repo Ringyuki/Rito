@@ -76,7 +76,16 @@ export function createState(
     fgColor: undefined,
     dpr: 1,
     revisionBundle: {
-      revision: { revisionId: '', layoutKey: '', pageCount: 0, spreadCount: 0 },
+      revision: {
+        revisionId: '',
+        revisionVersion: 0,
+        layoutKey: '',
+        status: 'complete',
+        knownExtent: { pageCount: 0, spreadCount: 0 },
+        finalExtent: { pageCount: 0, spreadCount: 0 },
+        pageCount: 0,
+        spreadCount: 0,
+      },
       navigation: {
         revisionId: '',
         pageCount: 0,
@@ -133,7 +142,7 @@ export function setRevisionState(
   state.revisionHandle = {
     workerSessionId: state.worker.sessionId,
     revisionId: revision.revisionId,
-    revisionVersion: 0,
+    revisionVersion: revision.revisionVersion,
     commitGeneration: state.commitGeneration,
   };
   state.revisionBundle = {
@@ -206,6 +215,24 @@ export function chapterNavigation(idref: string, startPage: number, endPage: num
   };
 }
 
+export function revisionSummary(
+  revisionId: string,
+  pageCount: number,
+  spreadCount: number,
+  layoutKey = revisionId,
+): CoreRevisionSummary {
+  return {
+    revisionId,
+    revisionVersion: 0,
+    layoutKey,
+    status: 'complete',
+    knownExtent: { pageCount, spreadCount },
+    finalExtent: { pageCount, spreadCount },
+    pageCount,
+    spreadCount,
+  };
+}
+
 export function revisionResult(
   revisionId: string,
   pageCount: number,
@@ -215,7 +242,7 @@ export function revisionResult(
   const initialFrameBuffer = spreadCount > 0 ? frameBuffer(revisionId, 0) : undefined;
   const result: BrowserReaderRevisionResult = {
     bundle: {
-      revision: { revisionId, layoutKey: revisionId, pageCount, spreadCount },
+      revision: revisionSummary(revisionId, pageCount, spreadCount),
       navigation: {
         revisionId,
         pageCount,

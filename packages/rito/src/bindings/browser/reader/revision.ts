@@ -88,6 +88,7 @@ export function applyBrowserReaderRevisionState(
     state,
     input.worker,
     input.result.bundle.revision.revisionId,
+    input.result.bundle.revision.revisionVersion,
   );
   applyLayoutState(state, input);
   applyRevisionData(state, input.result);
@@ -257,7 +258,11 @@ function commitVisualPreview(
     spreadMode: request.spreadMode,
     lineBreaking: request.lineBreaking,
     worker,
-    revision: createWorkerRevisionHandle(worker, result.bundle.revision.revisionId),
+    revision: createWorkerRevisionHandle(
+      worker,
+      result.bundle.revision.revisionId,
+      result.bundle.revision.revisionVersion,
+    ),
     baseCommitGeneration,
     spreadIndex: displaySpreadIndex,
     frame: commitFrame.frame,

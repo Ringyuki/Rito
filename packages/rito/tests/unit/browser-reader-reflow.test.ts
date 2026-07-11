@@ -15,6 +15,7 @@ import {
   flushPromises,
   frameBuffer,
   revisionResult,
+  revisionSummary,
   setRevisionState,
   spreadNavigation,
   spreadNavigationSlot,
@@ -111,12 +112,7 @@ describe('Browser reader reflow scheduling', () => {
     const pending: Deferred<BrowserReaderRevisionResult>[] = [];
     const { worker, createRevision } = createWorker((deferred) => pending.push(deferred));
     const state = createState(worker);
-    setRevisionState(state, {
-      revisionId: 'rev-ready',
-      layoutKey: 'ready',
-      pageCount: 1,
-      spreadCount: 1,
-    });
+    setRevisionState(state, revisionSummary('rev-ready', 1, 1, 'ready'));
 
     scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
     await vi.advanceTimersByTimeAsync(0);
@@ -151,12 +147,7 @@ describe('Browser reader reflow scheduling', () => {
     const pending: Deferred<BrowserReaderRevisionResult>[] = [];
     const { worker, createRevision } = createWorker((deferred) => pending.push(deferred));
     const state = createState(worker);
-    setRevisionState(state, {
-      revisionId: 'rev-ready',
-      layoutKey: 'ready',
-      pageCount: 1,
-      spreadCount: 1,
-    });
+    setRevisionState(state, revisionSummary('rev-ready', 1, 1, 'ready'));
 
     expect(
       scheduleBrowserReaderReflow(
@@ -187,18 +178,14 @@ describe('Browser reader reflow scheduling', () => {
     const state = createState(worker, {
       chapters: [{ idref: 'c1', href: 'c1.xhtml', linear: true, textLength: 1, textHash: 'c1' }],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 1, spreadCount: 1 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 1,
-        spreadCount: 1,
-        spreads: spreadNavigation(1),
-        chapters: [chapterNavigation('c1', 0, 0)],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 1, 1, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 1,
+      spreadCount: 1,
+      spreads: spreadNavigation(1),
+      chapters: [chapterNavigation('c1', 0, 0)],
+      chapterMap: {},
+    });
     scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
     await vi.advanceTimersByTimeAsync(0);
 
@@ -444,22 +431,18 @@ describe('Browser reader reflow scheduling', () => {
         { idref: 'c3', href: 'c3.xhtml', linear: true, textLength: 1, textHash: 'c3' },
       ],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 4, spreadCount: 4 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 4,
-        spreadCount: 4,
-        spreads: spreadNavigation(4),
-        chapters: [
-          chapterNavigation('c1', 0, 0),
-          chapterNavigation('c2', 1, 2),
-          chapterNavigation('c3', 3, 3),
-        ],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 4,
+      spreadCount: 4,
+      spreads: spreadNavigation(4),
+      chapters: [
+        chapterNavigation('c1', 0, 0),
+        chapterNavigation('c2', 1, 2),
+        chapterNavigation('c3', 3, 3),
+      ],
+      chapterMap: {},
+    });
     state.activeSpreadIndex = 1;
     activeChapterPreview.mockResolvedValue({ chapterIndex: 1, progress: 0 });
     let commits = 0;
@@ -515,22 +498,18 @@ describe('Browser reader reflow scheduling', () => {
         { idref: 'c2', href: 'c2.xhtml', linear: true, textLength: 1, textHash: 'c2' },
       ],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 5, spreadCount: 3 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 5,
-        spreadCount: 3,
-        spreads: [
-          spreadNavigationSlot(0, 0),
-          spreadNavigationSlot(1, 1, 2),
-          spreadNavigationSlot(2, 3, 4),
-        ],
-        chapters: [chapterNavigation('c1', 0, 0), chapterNavigation('c2', 1, 4)],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 5, 3, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 5,
+      spreadCount: 3,
+      spreads: [
+        spreadNavigationSlot(0, 0),
+        spreadNavigationSlot(1, 1, 2),
+        spreadNavigationSlot(2, 3, 4),
+      ],
+      chapters: [chapterNavigation('c1', 0, 0), chapterNavigation('c2', 1, 4)],
+      chapterMap: {},
+    });
     state.activeSpreadIndex = 1;
     activeChapterPreview.mockResolvedValue({ chapterIndex: 1, progress: 0 });
 
@@ -566,18 +545,14 @@ describe('Browser reader reflow scheduling', () => {
         { idref: 'c2', href: 'c2.xhtml', linear: true, textLength: 1, textHash: 'c2' },
       ],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 3, spreadCount: 3 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 3,
-        spreadCount: 3,
-        spreads: spreadNavigation(3),
-        chapters: [chapterNavigation('c1', 0, 0), chapterNavigation('c2', 1, 2)],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 3, 3, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 3,
+      spreadCount: 3,
+      spreads: spreadNavigation(3),
+      chapters: [chapterNavigation('c1', 0, 0), chapterNavigation('c2', 1, 2)],
+      chapterMap: {},
+    });
     state.activeSpreadIndex = 1;
     activeChapterPreview.mockResolvedValue({ chapterIndex: 1, progress: 0 });
 
@@ -610,18 +585,14 @@ describe('Browser reader reflow scheduling', () => {
         { idref: 'c2', href: 'c2.xhtml', linear: true, textLength: 1, textHash: 'c2' },
       ],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 5, spreadCount: 5 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 5,
-        spreadCount: 5,
-        spreads: spreadNavigation(5),
-        chapters: [chapterNavigation('c1', 0, 1), chapterNavigation('c2', 2, 4)],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 5, 5, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 5,
+      spreadCount: 5,
+      spreads: spreadNavigation(5),
+      chapters: [chapterNavigation('c1', 0, 1), chapterNavigation('c2', 2, 4)],
+      chapterMap: {},
+    });
     state.activeSpreadIndex = 3;
     activeChapterPreview.mockResolvedValue({ chapterIndex: 1, progress: 0.5 });
     const invalidated: number[] = [];
@@ -737,18 +708,14 @@ describe('Browser reader reflow scheduling', () => {
         { idref: 'c2', href: 'c2.xhtml', linear: true, textLength: 1, textHash: 'c2' },
       ],
     });
-    setRevisionState(
-      state,
-      { revisionId: 'rev-ready', layoutKey: 'ready', pageCount: 5, spreadCount: 5 },
-      {
-        revisionId: 'rev-ready',
-        pageCount: 5,
-        spreadCount: 5,
-        spreads: spreadNavigation(5),
-        chapters: [chapterNavigation('c1', 0, 1), chapterNavigation('c2', 2, 4)],
-        chapterMap: {},
-      },
-    );
+    setRevisionState(state, revisionSummary('rev-ready', 5, 5, 'ready'), {
+      revisionId: 'rev-ready',
+      pageCount: 5,
+      spreadCount: 5,
+      spreads: spreadNavigation(5),
+      chapters: [chapterNavigation('c1', 0, 1), chapterNavigation('c2', 2, 4)],
+      chapterMap: {},
+    });
     state.activeSpreadIndex = 3;
     activeChapterPreview.mockResolvedValue({ chapterIndex: 1, progress: 0.5 });
 

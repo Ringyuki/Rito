@@ -17,8 +17,9 @@ use super::{
     RuntimeActiveChapterPreviewRevisionRequest, RuntimeChapterTextIndices, RuntimeDocument,
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePrefetchRequest,
-    RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeSearchRequest,
-    RuntimeSourceLocator, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeRevisionExtent,
+    RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSourceLocator,
+    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
     RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
     RuntimeSourceRange, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay,
     RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
@@ -68,6 +69,56 @@ fn creates_revisions_and_caches_frames() {
     }));
     assert_eq!(frame, cached_again);
     assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
+}
+
+#[test]
+fn eager_revisions_expose_a_complete_versioned_extent() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    let expected_extent = RuntimeRevisionExtent {
+        page_count: revision.page_count,
+        spread_count: revision.spread_count,
+    };
+
+    assert_eq!(revision.revision_version, 0);
+    assert_eq!(revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(revision.known_extent, expected_extent);
+    assert_eq!(revision.final_extent, Some(expected_extent));
+    assert_eq!(revision.page_count, revision.known_extent.page_count);
+    assert_eq!(revision.spread_count, revision.known_extent.spread_count);
+
+    let stored = document
+        .revisions
+        .get(&revision.revision_id)
+        .expect("revision state is retained");
+    assert_eq!(stored.revision_version, revision.revision_version);
+    assert_eq!(stored.status, revision.status);
+    assert_eq!(stored.known_extent, revision.known_extent);
+    assert_eq!(stored.final_extent, revision.final_extent);
+
+    let bundle_revision = document
+        .revision_bundle(&revision.revision_id, false)
+        .expect("revision bundle is available")
+        .revision;
+    assert_eq!(bundle_revision, revision);
+}
+
+#[test]
+fn revision_statuses_use_stable_camel_case_wire_values() {
+    assert_eq!(
+        serde_json::to_value([
+            RuntimeRevisionStatus::Warming,
+            RuntimeRevisionStatus::Ready,
+            RuntimeRevisionStatus::Complete,
+            RuntimeRevisionStatus::Cancelled,
+            RuntimeRevisionStatus::Failed,
+        ])
+        .expect("statuses serialize"),
+        serde_json::json!(["warming", "ready", "complete", "cancelled", "failed"])
+    );
 }
 
 #[test]

@@ -70,6 +70,19 @@ fn creates_revision_from_structured_request_with_line_breaking() {
 
     assert_eq!(revision["bundle"]["revision"]["revisionId"], "rev-1");
     assert_eq!(revision["bundle"]["revision"]["pageCount"], 2);
+    assert_eq!(revision["bundle"]["revision"]["revisionVersion"], 0);
+    assert_eq!(revision["bundle"]["revision"]["status"], "complete");
+    assert_eq!(
+        revision["bundle"]["revision"]["knownExtent"],
+        serde_json::json!({
+            "pageCount": revision["bundle"]["revision"]["pageCount"],
+            "spreadCount": revision["bundle"]["revision"]["spreadCount"],
+        })
+    );
+    assert_eq!(
+        revision["bundle"]["revision"]["finalExtent"],
+        revision["bundle"]["revision"]["knownExtent"]
+    );
 }
 
 #[test]
@@ -581,6 +594,18 @@ fn reader_full_ritorb1_decodes_and_omitting_indices_reduces_bytes() {
         decode_runtime_bundle(&reference_bytes).expect("referenced reader RITORB1 decodes");
 
     assert_eq!(inline.payload["kind"], "full");
+    assert_eq!(
+        inline.payload["result"]["bundle"]["revision"]["revisionVersion"],
+        0
+    );
+    assert_eq!(
+        inline.payload["result"]["bundle"]["revision"]["status"],
+        "complete"
+    );
+    assert_eq!(
+        inline.payload["result"]["bundle"]["revision"]["finalExtent"],
+        inline.payload["result"]["bundle"]["revision"]["knownExtent"]
+    );
     assert_eq!(
         inline.payload["result"]["bundle"]["chapterTextIndices"]["scopeKey"],
         "chapter-text-v1:full"

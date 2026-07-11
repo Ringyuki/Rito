@@ -8,18 +8,20 @@ import type {
 export function createWorkerRevisionHandle(
   worker: BrowserReaderWorkerClient,
   revisionId: string,
+  revisionVersion: number,
 ): BrowserReaderWorkerRevisionHandle {
-  return { workerSessionId: worker.sessionId, revisionId, revisionVersion: 0 };
+  return { workerSessionId: worker.sessionId, revisionId, revisionVersion };
 }
 
 export function commitRevisionHandle(
   state: BrowserReaderState,
   worker: BrowserReaderWorkerClient,
   revisionId: string,
+  revisionVersion: number,
 ): BrowserReaderRevisionHandle {
   state.commitGeneration += 1;
   return {
-    ...createWorkerRevisionHandle(worker, revisionId),
+    ...createWorkerRevisionHandle(worker, revisionId, revisionVersion),
     commitGeneration: state.commitGeneration,
   };
 }

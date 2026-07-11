@@ -140,7 +140,16 @@ function emptyReaderRevisionState(): Pick<
 
 function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {
   return {
-    revision: { revisionId: '', layoutKey: '', pageCount: 0, spreadCount: 0 },
+    revision: {
+      revisionId: '',
+      revisionVersion: 0,
+      layoutKey: '',
+      status: 'complete',
+      knownExtent: { pageCount: 0, spreadCount: 0 },
+      finalExtent: { pageCount: 0, spreadCount: 0 },
+      pageCount: 0,
+      spreadCount: 0,
+    },
     navigation: {
       revisionId: '',
       pageCount: 0,

@@ -279,7 +279,16 @@ function frameWindowState(
   };
   return {
     revisionBundle: {
-      revision: { revisionId: 'rev', layoutKey: 'layout', pageCount: spreadCount, spreadCount },
+      revision: {
+        revisionId: 'rev',
+        revisionVersion: 0,
+        layoutKey: 'layout',
+        status: 'complete',
+        knownExtent: { pageCount: spreadCount, spreadCount },
+        finalExtent: { pageCount: spreadCount, spreadCount },
+        pageCount: spreadCount,
+        spreadCount,
+      },
       navigation: {
         revisionId: 'rev',
         pageCount: spreadCount,

@@ -215,7 +215,16 @@ function createViewRevisionPayload(): unknown {
       display: 'revision',
       result: {
         bundle: {
-          revision: { revisionId: 'rev-1', layoutKey: 'layout', pageCount: 0, spreadCount: 0 },
+          revision: {
+            revisionId: 'rev-1',
+            revisionVersion: 0,
+            layoutKey: 'layout',
+            status: 'complete',
+            knownExtent: { pageCount: 0, spreadCount: 0 },
+            finalExtent: { pageCount: 0, spreadCount: 0 },
+            pageCount: 0,
+            spreadCount: 0,
+          },
           navigation: {
             revisionId: 'rev-1',
             pageCount: 0,

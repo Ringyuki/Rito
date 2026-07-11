@@ -18,13 +18,18 @@ use crate::{
 use super::{
     RuntimeChapterTextIndex, RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer,
     RuntimeFrameCommandBufferMetadata, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
-    RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeRevisionSummary,
+    RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeRevisionExtent, RuntimeRevisionStatus,
+    RuntimeRevisionSummary,
 };
 
 pub(super) const FRAME_CACHE_CAPACITY: usize = 12;
 
 #[derive(Debug)]
 pub(super) struct RuntimeRevision {
+    pub(super) revision_version: u32,
+    pub(super) status: RuntimeRevisionStatus,
+    pub(super) known_extent: RuntimeRevisionExtent,
+    pub(super) final_extent: Option<RuntimeRevisionExtent>,
     pub(super) layout: BuiltLayout,
     pub(super) layout_config: LayoutConfig,
     pub(super) interactions: RuntimeRevisionInteractions,
@@ -51,14 +56,47 @@ pub(super) struct RuntimeCachedFrame {
     pub(super) command_buffer: RuntimeFrameCommandBuffer,
 }
 
+impl RuntimeRevision {
+    pub(super) fn completed(
+        layout: BuiltLayout,
+        layout_config: LayoutConfig,
+        interactions: RuntimeRevisionInteractions,
+    ) -> Self {
+        let extent = revision_extent(&layout);
+        Self {
+            revision_version: 0,
+            status: RuntimeRevisionStatus::Complete,
+            known_extent: extent,
+            final_extent: Some(extent),
+            layout,
+            layout_config,
+            interactions,
+            frame_cache: BTreeMap::new(),
+            frame_cache_order: VecDeque::new(),
+        }
+    }
+}
+
 pub(super) fn revision_summary(
     revision_id: &str,
     layout_key: &str,
-    layout: &BuiltLayout,
+    revision: &RuntimeRevision,
 ) -> RuntimeRevisionSummary {
+    let known_extent = revision.known_extent;
     RuntimeRevisionSummary {
         revision_id: revision_id.to_owned(),
+        revision_version: revision.revision_version,
         layout_key: layout_key.to_owned(),
+        status: revision.status,
+        known_extent,
+        final_extent: revision.final_extent,
+        page_count: known_extent.page_count,
+        spread_count: known_extent.spread_count,
+    }
+}
+
+fn revision_extent(layout: &BuiltLayout) -> RuntimeRevisionExtent {
+    RuntimeRevisionExtent {
         page_count: layout.summary.pagination_flow.page_count,
         spread_count: layout
             .summary

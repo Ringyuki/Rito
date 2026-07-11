@@ -52,12 +52,36 @@ impl RuntimeResource {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionExtent {
+    pub page_count: usize,
+    pub spread_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeRevisionStatus {
+    Warming,
+    Ready,
+    Complete,
+    Cancelled,
+    Failed,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionSummary {
     pub revision_id: String,
+    pub revision_version: u32,
     pub layout_key: String,
+    pub status: RuntimeRevisionStatus,
+    pub known_extent: RuntimeRevisionExtent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub final_extent: Option<RuntimeRevisionExtent>,
+    /// Backward-compatible alias for `known_extent.page_count`.
     pub page_count: usize,
+    /// Backward-compatible alias for `known_extent.spread_count`.
     pub spread_count: usize,
 }
 

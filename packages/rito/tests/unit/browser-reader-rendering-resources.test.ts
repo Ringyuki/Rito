@@ -393,7 +393,16 @@ function createState(overrides: object = {}): BrowserReaderState {
   return {
     worker: createWorker(),
     revisionBundle: {
-      revision: { revisionId: 'rev-1', layoutKey: 'layout', pageCount: 1, spreadCount: 3 },
+      revision: {
+        revisionId: 'rev-1',
+        revisionVersion: 0,
+        layoutKey: 'layout',
+        status: 'complete',
+        knownExtent: { pageCount: 1, spreadCount: 3 },
+        finalExtent: { pageCount: 1, spreadCount: 3 },
+        pageCount: 1,
+        spreadCount: 3,
+      },
       navigation: {
         revisionId: 'rev-1',
         pageCount: 1,

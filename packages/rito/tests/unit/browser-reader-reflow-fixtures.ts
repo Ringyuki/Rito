@@ -17,6 +17,7 @@ export {
   createState,
   frameBuffer,
   revisionResult,
+  revisionSummary,
   setRevisionState,
   spreadNavigation,
   spreadNavigationSlot,
