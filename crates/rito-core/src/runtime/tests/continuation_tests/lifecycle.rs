@@ -1,0 +1,168 @@
+use super::{bounded_request, budget, continue_request};
+use crate::runtime::tests::fixture::{layout, multi_chapter_fixture_epub};
+use crate::runtime::{
+    RuntimeCancelRevisionRequest, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
+    RuntimeDocument, RuntimeRevisionStatus,
+};
+
+#[test]
+fn continuation_cursor_is_one_shot_versioned_cancelled_and_released() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let initial = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("bounded revision starts");
+    let cursor = initial.continuation.clone().expect("continuation exists");
+
+    let stale = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: cursor.revision_id.clone(),
+            revision_version: cursor.revision_version + 1,
+            cursor: cursor.cursor.clone(),
+            budget: budget(1),
+        })
+        .expect_err("wrong version fails");
+    assert_eq!(
+        stale.kind,
+        RuntimeContinuationErrorKind::StaleRevisionVersion
+    );
+
+    let unknown_cursor = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: cursor.revision_id.clone(),
+            revision_version: cursor.revision_version,
+            cursor: "missing-cursor".to_owned(),
+            budget: budget(1),
+        })
+        .expect_err("unknown cursor fails");
+    assert_eq!(
+        unknown_cursor.kind,
+        RuntimeContinuationErrorKind::UnknownCursor
+    );
+
+    let next = document
+        .continue_revision(continue_request(&cursor, 1))
+        .expect("valid cursor advances");
+    assert_eq!(next.revision.revision_version, cursor.revision_version + 1);
+    let replay = document
+        .continue_revision(continue_request(&cursor, 1))
+        .expect_err("consumed cursor cannot replay");
+    assert_eq!(
+        replay.kind,
+        RuntimeContinuationErrorKind::StaleRevisionVersion
+    );
+
+    let next_cursor = next.continuation.expect("next continuation exists");
+    let cancelled = document
+        .cancel_revision(RuntimeCancelRevisionRequest {
+            revision_id: next_cursor.revision_id.clone(),
+            revision_version: next_cursor.revision_version,
+        })
+        .expect("revision cancels");
+    assert_eq!(cancelled.status, RuntimeRevisionStatus::Cancelled);
+    assert_eq!(cancelled.revision_version, next_cursor.revision_version + 1);
+    let after_cancel = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: cancelled.revision_id.clone(),
+            revision_version: cancelled.revision_version,
+            cursor: next_cursor.cursor,
+            budget: budget(1),
+        })
+        .expect_err("cancelled revision cannot continue");
+    assert_eq!(
+        after_cancel.kind,
+        RuntimeContinuationErrorKind::RevisionNotContinuable
+    );
+
+    assert!(document.release_revision(&cancelled.revision_id));
+    let after_release = document
+        .get_revision_summary(&cancelled.revision_id)
+        .expect_err("released revision is gone");
+    assert_eq!(
+        after_release.kind,
+        RuntimeContinuationErrorKind::UnknownRevision
+    );
+}
+
+#[test]
+fn invalid_budget_and_swapped_cursor_do_not_consume_valid_progress() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let invalid_create = document
+        .create_bounded_revision(bounded_request(layout(), 0))
+        .expect_err("zero create budget fails");
+    assert_eq!(
+        invalid_create.kind,
+        RuntimeContinuationErrorKind::InvalidBudget
+    );
+    assert_eq!(document.revision_count(), 0);
+
+    let first = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("first revision starts");
+    let second = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("second revision starts");
+    let first_cursor = first.continuation.expect("first cursor exists");
+    let second_cursor = second.continuation.expect("second cursor exists");
+
+    let before = document
+        .get_revision_summary(&first_cursor.revision_id)
+        .expect("first summary exists");
+    let invalid_continue = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: first_cursor.revision_id.clone(),
+            revision_version: first_cursor.revision_version,
+            cursor: first_cursor.cursor.clone(),
+            budget: budget(0),
+        })
+        .expect_err("zero continuation budget fails");
+    assert_eq!(
+        invalid_continue.kind,
+        RuntimeContinuationErrorKind::InvalidBudget
+    );
+    assert_eq!(
+        document
+            .get_revision_summary(&first_cursor.revision_id)
+            .expect("first summary is unchanged"),
+        before
+    );
+
+    let swapped = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: second_cursor.revision_id.clone(),
+            revision_version: second_cursor.revision_version,
+            cursor: first_cursor.cursor.clone(),
+            budget: budget(1),
+        })
+        .expect_err("another revision cannot consume the cursor");
+    assert_eq!(
+        swapped.kind,
+        RuntimeContinuationErrorKind::CursorOwnerMismatch
+    );
+
+    document
+        .continue_revision(continue_request(&first_cursor, 1))
+        .expect("first cursor remains valid");
+    document
+        .continue_revision(continue_request(&second_cursor, 1))
+        .expect("second cursor remains valid");
+}
+
+#[test]
+fn releasing_an_active_revision_drops_its_continuation() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let initial = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("bounded revision starts");
+    let cursor = initial.continuation.expect("active cursor exists");
+
+    assert!(document.release_revision(&cursor.revision_id));
+    assert_eq!(document.revision_count(), 0);
+    assert!(document.continuations.is_empty());
+    let released = document
+        .continue_revision(continue_request(&cursor, 1))
+        .expect_err("released continuation is unavailable");
+    assert_eq!(released.kind, RuntimeContinuationErrorKind::UnknownRevision);
+}

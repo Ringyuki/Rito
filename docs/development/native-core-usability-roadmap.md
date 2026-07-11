@@ -199,8 +199,11 @@ architecture rather than make an eager whole-book pipeline faster.
 ## Ordered Work Queue
 
 1. Define revision/session identity, partial extent, source locators and the
-   incremental continuation contract.
-2. Implement bounded initial layout and resumable window growth.
+   incremental continuation contract. **Core contract implemented; host
+   version binding remains.**
+2. Implement bounded initial layout and resumable window growth. **Core-only
+   path implemented; WASM/Worker integration, sub-node budgets and
+   cross-chapter footnote policy remain.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader.
 4. Add precise native point/range geometry, then migrate Kit selection,

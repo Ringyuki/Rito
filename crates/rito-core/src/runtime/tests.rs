@@ -1,4 +1,5 @@
 mod command_hash;
+mod continuation_tests;
 mod fixture;
 
 use command_hash::{

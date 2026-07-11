@@ -6,7 +6,7 @@ use crate::{
         LayoutConfigInput, LineBreaking, MarginInput, SpreadMode, TextMeasurementCache,
         TextMeasurementFonts,
     },
-    style::{ChapterStyleOptions, ParsedStyleChapterInput, StylesheetRuleMap},
+    style::{ChapterStyleOptions, ParsedStyleChapterInput, StyledNode, StylesheetRuleMap},
 };
 
 use super::{
@@ -63,6 +63,31 @@ pub fn summarize_loaded_document_with_layout_and_line_breaking(
 
 pub(crate) struct BuiltEpubPublication {
     pub(crate) publication: EpubPublication,
+}
+
+pub(crate) struct PreparedRuntimeLayoutChapter {
+    pub(crate) idref: String,
+    pub(crate) styled_nodes: Vec<StyledNode>,
+    pub(crate) page_paint: Option<serde_json::Value>,
+}
+
+pub(crate) fn prepare_runtime_layout_chapter(
+    prepared: &PreparedLoadedDocument,
+    layout_config: &LayoutConfig,
+) -> Option<PreparedRuntimeLayoutChapter> {
+    let input = layout_inputs(
+        &prepared.stylesheet_rules,
+        &prepared.chapters,
+        &prepared.filtered_footnote_nodes,
+        layout_config,
+    )
+    .into_iter()
+    .next()?;
+    Some(PreparedRuntimeLayoutChapter {
+        idref: input.idref.to_owned(),
+        styled_nodes: input.pagination_styled_nodes.unwrap_or(input.styled_nodes),
+        page_paint: input.page_paint,
+    })
 }
 
 pub(crate) fn build_loaded_document_with_layout_and_line_breaking(

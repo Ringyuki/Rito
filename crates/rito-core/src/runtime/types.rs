@@ -85,6 +85,91 @@ pub struct RuntimeRevisionSummary {
     pub spread_count: usize,
 }
 
+/// Maximum top-level nodes that one continuation quantum may start.
+///
+/// A single large paragraph, table, or other node is currently atomic.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionWorkBudget {
+    pub max_top_level_nodes: usize,
+}
+
+/// Request for the experimental core-only bounded revision path.
+///
+/// Cross-chapter footnote references are not yet guaranteed to match an eager
+/// revision, and this API is not wired into the production worker/WASM reader.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeBoundedRevisionRequest {
+    pub layout_config: LayoutConfig,
+    #[serde(default = "default_revision_line_breaking")]
+    pub line_breaking: LineBreaking,
+    pub budget: RuntimeRevisionWorkBudget,
+}
+
+/// Opaque one-shot handle bound to one revision version.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionCursor {
+    pub revision_id: String,
+    pub revision_version: u32,
+    pub cursor: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeContinueRevisionRequest {
+    pub revision_id: String,
+    pub revision_version: u32,
+    pub cursor: String,
+    pub budget: RuntimeRevisionWorkBudget,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeCancelRevisionRequest {
+    pub revision_id: String,
+    pub revision_version: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionPageRange {
+    pub start_page: usize,
+    pub end_page_exclusive: usize,
+}
+
+/// The newly published stable prefix and the cursor for the next quantum.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionAdvance {
+    pub revision: RuntimeRevisionSummary,
+    pub previous_known_extent: RuntimeRevisionExtent,
+    pub newly_known_pages: RuntimeRevisionPageRange,
+    pub processed_top_level_nodes: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub continuation: Option<RuntimeRevisionCursor>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeContinuationErrorKind {
+    InvalidBudget,
+    UnknownRevision,
+    StaleRevisionVersion,
+    UnknownCursor,
+    CursorOwnerMismatch,
+    RevisionNotContinuable,
+    EngineFailure,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeContinuationError {
+    pub kind: RuntimeContinuationErrorKind,
+    pub message: String,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(super) struct RuntimeRevisionRequest {
     pub layout_config: LayoutConfig,

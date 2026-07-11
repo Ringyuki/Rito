@@ -6,13 +6,15 @@ use super::{
     },
     image_size::ImageSizeIndex,
     pagination_flow::{
-        build_pagination_flow, build_runtime_pagination_flow, PaginationFlowChapter,
+        build_pagination_flow, build_runtime_pagination_flow, runtime_pagination_summary,
+        PaginationFlowChapter, PaginationFlowChapterRange,
     },
     segment_details::{
         collect_block_details, continuous_blocks_full_detail_hash,
         inline_segments_full_detail_hash, line_boxes_full_detail_hash,
         line_break_inputs_full_detail_hash, InlineSegmentBlockDetail,
     },
+    spread_flow::summarize_spread_flow,
     summary_json::{hash_json, hash_text},
     summary_types::{
         ContinuousBlockChapterSummary, ContinuousBlockSummary, InlineSegmentChapterSummary,
@@ -188,6 +190,62 @@ pub(crate) fn build_inline_segments_runtime<'a>(
         pages: pagination_flow.pages,
         chapter_start_pages: pagination_flow.chapter_start_pages,
     }
+}
+
+pub(crate) fn create_empty_runtime_layout(
+    chapter_count: usize,
+    layout_config: &LayoutConfig,
+) -> BuiltLayout {
+    let pagination_flow = build_runtime_pagination_flow(&[], layout_config);
+    BuiltLayout {
+        summary: runtime_layout_summary(chapter_count, pagination_flow.summary),
+        pages: pagination_flow.pages,
+        chapter_start_pages: pagination_flow.chapter_start_pages,
+    }
+}
+
+pub(crate) fn append_runtime_chapter_pages(
+    layout: &mut BuiltLayout,
+    idref: &str,
+    block_count: usize,
+    pages: Vec<super::LayoutRuntimePage>,
+    layout_config: &LayoutConfig,
+) {
+    let existing_start = layout
+        .summary
+        .pagination_flow
+        .chapter_map
+        .get(idref)
+        .map(|range| range.start_page);
+    let start_page = existing_start.unwrap_or(layout.pages.len());
+    for mut page in pages {
+        page.set_index(layout.pages.len());
+        layout.pages.push(page);
+    }
+    if layout.pages.len() > start_page {
+        layout.chapter_start_pages.insert(start_page);
+        layout.summary.pagination_flow.chapter_map.insert(
+            idref.to_owned(),
+            PaginationFlowChapterRange {
+                start_page,
+                end_page: layout.pages.len() - 1,
+                page_count: layout.pages.len() - start_page,
+                block_count,
+            },
+        );
+    }
+    refresh_runtime_pagination_summary(layout, layout_config);
+}
+
+fn refresh_runtime_pagination_summary(layout: &mut BuiltLayout, layout_config: &LayoutConfig) {
+    // TODO(native-continuation): maintain spread/chapter aggregates incrementally.
+    // Rebuilding them for every quantum is intentionally deferred while the
+    // core-only continuation contract is still experimental.
+    let page_count = layout.pages.len();
+    let chapter_map = layout.summary.pagination_flow.chapter_map.clone();
+    let spread_flow = summarize_spread_flow(page_count, &layout.chapter_start_pages, layout_config);
+    layout.summary.pagination_flow =
+        runtime_pagination_summary(page_count, chapter_map, spread_flow);
 }
 
 #[derive(Debug)]

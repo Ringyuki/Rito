@@ -208,7 +208,7 @@ pub(crate) fn build_runtime_pagination_flow(
     }
 }
 
-fn runtime_pagination_summary(
+pub(super) fn runtime_pagination_summary(
     page_count: usize,
     chapter_map: BTreeMap<String, PaginationFlowChapterRange>,
     spread_flow: SpreadFlowSummary,

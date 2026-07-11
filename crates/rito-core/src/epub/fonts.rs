@@ -17,7 +17,7 @@ pub(super) fn text_measurement_fonts_from_document<'a>(
     )
 }
 
-pub(super) fn text_measurement_fonts_for_layout<'a>(
+pub(crate) fn text_measurement_fonts_for_layout<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
     cache: Option<TextMeasurementCache>,

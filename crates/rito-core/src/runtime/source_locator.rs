@@ -87,10 +87,21 @@ fn resolve_canonical_source_locator(
         let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
         return pending_resolution(revision_id, canonical, matched_by, reason);
     };
+    if chapter_range.start_page >= revision.known_extent.page_count {
+        return pending_resolution(
+            revision_id,
+            canonical,
+            matched_by,
+            RuntimeSourceLocatorPendingReason::NotPaginated,
+        );
+    }
+    let known_end_page = chapter_range
+        .end_page
+        .min(revision.known_extent.page_count - 1);
     let Some(pages) = revision
         .layout
         .pages
-        .get(chapter_range.start_page..=chapter_range.end_page)
+        .get(chapter_range.start_page..=known_end_page)
     else {
         let reason = unavailable_projection_reason(revision, &canonical.spine_idref);
         return pending_resolution(revision_id, canonical, matched_by, reason);

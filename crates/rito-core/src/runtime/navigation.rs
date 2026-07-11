@@ -16,16 +16,11 @@ pub(super) fn runtime_revision_navigation(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
 ) -> RuntimeRevisionNavigation {
-    let chapter_map = revision.layout.summary.pagination_flow.chapter_map.clone();
+    let chapter_map = known_chapter_map(revision);
     RuntimeRevisionNavigation {
         revision_id: revision_id.to_owned(),
-        page_count: revision.layout.summary.pagination_flow.page_count,
-        spread_count: revision
-            .layout
-            .summary
-            .pagination_flow
-            .display_list_flow
-            .spread_count,
+        page_count: revision.known_extent.page_count,
+        spread_count: revision.known_extent.spread_count,
         spreads: runtime_spread_navigation(revision),
         chapters: document
             .chapters
@@ -38,11 +33,12 @@ pub(super) fn runtime_revision_navigation(
 
 fn runtime_spread_navigation(revision: &RuntimeRevision) -> Vec<RuntimeSpreadNavigation> {
     build_spread_slots(
-        revision.layout.pages.len(),
+        revision.known_extent.page_count,
         &revision.layout.chapter_start_pages,
         &revision.layout_config,
     )
     .into_iter()
+    .take(revision.known_extent.spread_count)
     .map(|spread| {
         let mut page_indexes = vec![spread.left_page_index];
         if let Some(right) = spread.right_page_index {
@@ -70,7 +66,7 @@ pub(super) fn active_chapter_preview(
         .into_iter()
         .find(|spread| spread.spread_index == spread_index)?
         .left_page_index;
-    let chapter_map = &revision.layout.summary.pagination_flow.chapter_map;
+    let chapter_map = known_chapter_map(revision);
     for (chapter_index, chapter) in document.chapters.iter().enumerate() {
         let Some(range) = chapter_map.get(&chapter.idref) else {
             continue;
@@ -136,7 +132,7 @@ fn collect_toc_targets(
 
 pub(super) fn spread_index_for_page(revision: &RuntimeRevision, page_index: usize) -> usize {
     build_spread_slots(
-        revision.layout.pages.len(),
+        revision.known_extent.page_count,
         &revision.layout.chapter_start_pages,
         &revision.layout_config,
     )
@@ -161,16 +157,14 @@ pub(super) fn resolve_href_locator(
         .ok_or_else(|| locator_not_found(&href))?;
     let spine_idref =
         find_spine_idref_for_href(package, href_path).ok_or_else(|| locator_not_found(&href))?;
-    let chapter_range = revision
-        .layout
-        .summary
-        .pagination_flow
-        .chapter_map
+    let chapter_map = known_chapter_map(revision);
+    let chapter_range = chapter_map
         .get(&spine_idref)
         .ok_or_else(|| locator_not_found(&href))?;
     let page_index = match fragment {
         Some(fragment) => {
-            let anchors = collect_anchor_pages(&revision.layout.pages);
+            let anchors =
+                collect_anchor_pages(&revision.layout.pages[..revision.known_extent.page_count]);
             let page_index = anchors
                 .get(fragment)
                 .copied()
@@ -192,6 +186,32 @@ pub(super) fn resolve_href_locator(
         spread_index: spread_index_for_page(revision, page_index),
         fragment,
     })
+}
+
+fn known_chapter_map(revision: &RuntimeRevision) -> BTreeMap<String, PaginationFlowChapterRange> {
+    let known_page_count = revision.known_extent.page_count;
+    revision
+        .layout
+        .summary
+        .pagination_flow
+        .chapter_map
+        .iter()
+        .filter_map(|(idref, range)| {
+            if range.start_page >= known_page_count {
+                return None;
+            }
+            let end_page = range.end_page.min(known_page_count - 1);
+            Some((
+                idref.clone(),
+                PaginationFlowChapterRange {
+                    start_page: range.start_page,
+                    end_page,
+                    page_count: end_page - range.start_page + 1,
+                    block_count: range.block_count,
+                },
+            ))
+        })
+        .collect()
 }
 
 fn runtime_chapter_navigation(

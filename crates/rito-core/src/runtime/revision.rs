@@ -144,20 +144,23 @@ impl RuntimeDocument {
         Ok(summary)
     }
 
-    fn create_revision_id(&mut self) -> String {
+    pub(super) fn create_revision_id(&mut self) -> String {
         let revision_id = format!("rev-{}", self.next_revision_index);
         self.next_revision_index += 1;
         revision_id
     }
 
-    fn ensure_layout_font_resources(&mut self, layout_config: &LayoutConfig) -> EpubResult<()> {
+    pub(super) fn ensure_layout_font_resources(
+        &mut self,
+        layout_config: &LayoutConfig,
+    ) -> EpubResult<()> {
         if layout_config.text_measurement == TextMeasurementMode::FontAware {
             self.document.ensure_all_fonts_loaded()?;
         }
         Ok(())
     }
 
-    fn prepare_cached_document_window(
+    pub(super) fn prepare_cached_document_window(
         &mut self,
         chapter_start: usize,
         chapter_count: usize,
@@ -169,7 +172,10 @@ impl RuntimeDocument {
         for index in chapter_start..end {
             chapters.push(self.parsed_chapter(index)?.clone());
         }
-        let base = self.prepared_base().clone();
+        let live_resources = crate::epub::loaded_document_resources(&self.document);
+        let base = self.prepared_base();
+        base.resources = live_resources;
+        let base = base.clone();
         Ok(crate::epub::prepare_loaded_document_with_base(
             &base, chapters,
         ))
@@ -190,7 +196,7 @@ impl RuntimeDocument {
             .or_insert_with(|| crate::epub::parsed_loaded_chapter_source(chapter)))
     }
 
-    fn prepared_base(&mut self) -> &crate::epub::PreparedLoadedDocumentBase {
+    fn prepared_base(&mut self) -> &mut crate::epub::PreparedLoadedDocumentBase {
         self.prepared_base
             .get_or_insert_with(|| crate::epub::prepare_loaded_document_base(&self.document))
     }
@@ -202,7 +208,7 @@ impl RuntimeDocument {
     }
 }
 
-fn runtime_revision_interactions(
+pub(super) fn runtime_revision_interactions(
     prepared: &crate::epub::PreparedLoadedDocument,
     full_document: bool,
 ) -> RuntimeRevisionInteractions {

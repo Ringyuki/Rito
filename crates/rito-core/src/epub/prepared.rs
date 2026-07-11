@@ -141,7 +141,7 @@ fn prepare_loaded_document_with_chapters(
     prepare_loaded_document_with_base(&base, chapters)
 }
 
-fn loaded_document_resources(document: &LoadedEpubDocument) -> PublicationResources {
+pub(crate) fn loaded_document_resources(document: &LoadedEpubDocument) -> PublicationResources {
     let mut resources = crate::resources::summarize_loaded_publication_resources(
         document
             .stylesheets

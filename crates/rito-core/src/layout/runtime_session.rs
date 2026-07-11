@@ -15,10 +15,6 @@ use crate::style::StyledNode;
 /// open page remains private until later input seals it or chapter completion
 /// explicitly finishes pagination.
 #[derive(Debug)]
-#[allow(
-    dead_code,
-    reason = "the layout continuation boundary intentionally lands before its runtime owner"
-)]
 pub(crate) struct RuntimeChapterLayoutSession {
     layout: ContinuousLayoutSession,
     pagination: ContinuousPaginationSession,
@@ -29,10 +25,6 @@ pub(crate) struct RuntimeChapterLayoutSession {
 
 #[derive(Debug, Clone, PartialEq)]
 #[must_use]
-#[allow(
-    dead_code,
-    reason = "the layout continuation boundary intentionally lands before its runtime owner"
-)]
 pub(crate) struct RuntimeChapterLayoutAdvance {
     pub(crate) status: LayoutAdvanceStatus,
     pub(crate) processed_top_level_nodes: usize,
@@ -40,10 +32,6 @@ pub(crate) struct RuntimeChapterLayoutAdvance {
     pub(crate) newly_sealed_pages: Vec<LayoutRuntimePage>,
 }
 
-#[allow(
-    dead_code,
-    reason = "the layout continuation boundary intentionally lands before its runtime owner"
-)]
 impl RuntimeChapterLayoutSession {
     pub(crate) fn new(
         styled_nodes: Vec<StyledNode>,

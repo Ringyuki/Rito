@@ -75,6 +75,32 @@ impl RuntimeRevision {
             frame_cache_order: VecDeque::new(),
         }
     }
+
+    pub(super) fn warming(
+        layout: BuiltLayout,
+        layout_config: LayoutConfig,
+        interactions: RuntimeRevisionInteractions,
+    ) -> Self {
+        Self {
+            revision_version: 0,
+            status: RuntimeRevisionStatus::Warming,
+            known_extent: RuntimeRevisionExtent {
+                page_count: 0,
+                spread_count: 0,
+            },
+            final_extent: None,
+            layout,
+            layout_config,
+            interactions,
+            frame_cache: BTreeMap::new(),
+            frame_cache_order: VecDeque::new(),
+        }
+    }
+
+    pub(super) fn clear_frame_cache(&mut self) {
+        self.frame_cache.clear();
+        self.frame_cache_order.clear();
+    }
 }
 
 pub(super) fn revision_summary(
@@ -218,12 +244,7 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision
-            .layout
-            .summary
-            .pagination_flow
-            .display_list_flow
-            .spread_count;
+        let spread_count = revision.known_extent.spread_count;
         let Some(spread_index) = initial_frame_index(spread_count, request) else {
             return Ok(None);
         };
@@ -253,6 +274,11 @@ impl RuntimeDocument {
             .revisions
             .get_mut(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        if spread_index >= revision.known_extent.spread_count {
+            return Err(EpubError::new(format!(
+                "unknown spread index: {spread_index}"
+            )));
+        }
         if revision.frame_cache.contains_key(&spread_index) {
             touch_cached_frame(revision, spread_index);
             return Ok(());

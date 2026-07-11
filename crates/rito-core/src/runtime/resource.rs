@@ -15,12 +15,7 @@ impl super::RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let spread_count = revision
-            .layout
-            .summary
-            .pagination_flow
-            .display_list_flow
-            .spread_count;
+        let spread_count = revision.known_extent.spread_count;
         let spread_indexes = warm_spread_indexes(center_spread_index, spread_count);
         Ok(RuntimeFrameResourceWarmPlan {
             revision_id: revision_id.to_owned(),
@@ -32,6 +27,9 @@ impl super::RuntimeDocument {
 }
 
 fn warm_spread_indexes(center: usize, spread_count: usize) -> Vec<usize> {
+    if spread_count == 0 {
+        return Vec::new();
+    }
     let max = spread_count.saturating_sub(1);
     FRAME_RESOURCE_WARM_OFFSETS
         .iter()

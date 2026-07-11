@@ -204,11 +204,14 @@ Those names now belong to the old TS reference tree only.
 ## Main Remaining Gaps
 
 1. **Bounded, stateful pagination**
-   - The Rust content path is live, but selected chapters are still laid out as
-     complete batches. A large single-XHTML book therefore bypasses the current
-     chapter-level lazy loading.
-   - Add a page/node/time budget, an opaque continuation cursor, cancellation
-     and resumable window growth inside Rust layout.
+   - The production reader still lays selected chapters as complete batches.
+     The Rust core now has an opt-in bounded revision path with top-level-node
+     budgets, one-shot versioned cursors, cancellation, stable partial extents,
+     lazy chapter/image loading and resumable page-window growth. It is not yet
+     exposed through WASM/Worker or selected by the browser reader.
+   - A single large paragraph/table remains atomic, and publication-wide
+     cross-chapter footnote filtering still needs a lazy-safe indexing policy
+     before the bounded path can claim universal eager equivalence.
    - Initial paint must not require eight complete chapters, one complete large
      chapter or the complete publication.
 2. **Native interaction wiring**

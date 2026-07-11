@@ -7,6 +7,7 @@ use std::{cell::OnceCell, collections::BTreeMap};
 mod bundle;
 mod bundle_wire;
 mod chapter_text;
+mod continuation;
 mod frame;
 mod metadata;
 mod navigation;
@@ -59,7 +60,9 @@ pub struct RuntimeDocument {
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     text_measurement_cache: TextMeasurementCache,
     next_revision_index: usize,
+    next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
+    continuations: BTreeMap<String, continuation::RuntimeContinuationRecord>,
 }
 
 impl RuntimeDocument {
@@ -83,7 +86,9 @@ impl RuntimeDocument {
             parsed_chapters: BTreeMap::new(),
             text_measurement_cache: TextMeasurementCache::default(),
             next_revision_index: 1,
+            next_continuation_index: 1,
             revisions: BTreeMap::new(),
+            continuations: BTreeMap::new(),
         }
     }
 
@@ -105,7 +110,12 @@ impl RuntimeDocument {
     }
 
     pub fn release_revision(&mut self, revision_id: &str) -> bool {
-        self.revisions.remove(revision_id).is_some()
+        let removed = self.revisions.remove(revision_id).is_some();
+        if removed {
+            self.continuations
+                .retain(|_, continuation| continuation.revision_id != revision_id);
+        }
+        removed
     }
 
     pub fn revision_count(&self) -> usize {

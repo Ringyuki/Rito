@@ -69,7 +69,8 @@ pub use search_flow::{
     SearchFlowQuerySummary, SearchFlowSummary, SearchRuntimeResult, SearchTextPosition,
 };
 pub(crate) use segments::{
-    build_inline_segments, build_inline_segments_runtime, InlineSegmentChapterInput,
+    append_runtime_chapter_pages, build_inline_segments, build_inline_segments_runtime,
+    create_empty_runtime_layout, InlineSegmentChapterInput,
 };
 pub(crate) use spread::build_spread_slots;
 pub use spread_flow::SpreadFlowSummary;

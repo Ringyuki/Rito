@@ -188,6 +188,58 @@ pub fn multi_chapter_fixture_epub() -> Vec<u8> {
     writer.finish().expect("zip finalizes").into_inner()
 }
 
+pub fn multi_chapter_image_fixture_epub() -> Vec<u8> {
+    let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
+    let options: FileOptions<'_, ()> = FileOptions::default();
+    add_file(
+        &mut writer,
+        options,
+        "META-INF/container.xml",
+        br#"<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OPS/package.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/package.opf",
+        br#"<?xml version="1.0"?>
+<package version="3.0" xmlns="http://www.idpf.org/2007/opf" unique-identifier="id">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Lazy image dimensions</dc:title>
+    <dc:language>en</dc:language>
+    <dc:identifier id="id">lazy-image</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="chapter-1" href="chapter-1.xhtml" media-type="application/xhtml+xml"/>
+    <item id="chapter-2" href="chapter-2.xhtml" media-type="application/xhtml+xml"/>
+    <item id="late-image" href="Images/late.png" media-type="image/png"/>
+  </manifest>
+  <spine>
+    <itemref idref="chapter-1"/>
+    <itemref idref="chapter-2"/>
+  </spine>
+</package>"#,
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-1.xhtml",
+        chapter_fixture_xhtml("chapter one initializes the prepared base").as_bytes(),
+    );
+    add_file(
+        &mut writer,
+        options,
+        "OPS/chapter-2.xhtml",
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><body><img src="Images/late.png" alt="late"/><p>chapter two follows the image</p></body></html>"#,
+    );
+    add_file(&mut writer, options, "OPS/Images/late.png", &minimal_png());
+    writer.finish().expect("zip finalizes").into_inner()
+}
+
 pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();

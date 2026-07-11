@@ -26,9 +26,11 @@ pub use document::{
     open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
 };
+pub(crate) use fonts::text_measurement_fonts_for_layout;
 pub(crate) use layout_bridge::{
     build_prepared_loaded_document_layout_prefix_with_cache_and_line_breaking,
     build_prepared_loaded_document_layout_window_with_cache_and_line_breaking,
+    prepare_runtime_layout_chapter, PreparedRuntimeLayoutChapter,
 };
 pub use layout_bridge::{
     load_publication, load_publication_with_layout, load_publication_with_layout_and_line_breaking,
@@ -36,9 +38,10 @@ pub use layout_bridge::{
 };
 pub(crate) use paths::{join_epub_href, join_zip_path, opf_dir};
 pub(crate) use prepared::{
-    parsed_loaded_chapter_source, prepare_loaded_document, prepare_loaded_document_base,
-    prepare_loaded_document_prefix, prepare_loaded_document_with_base, ParsedLoadedChapterSource,
-    PreparedLoadedDocument, PreparedLoadedDocumentBase,
+    loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document,
+    prepare_loaded_document_base, prepare_loaded_document_prefix,
+    prepare_loaded_document_with_base, ParsedLoadedChapterSource, PreparedLoadedDocument,
+    PreparedLoadedDocumentBase,
 };
 
 pub const CONTAINER_PATH: &str = "META-INF/container.xml";
