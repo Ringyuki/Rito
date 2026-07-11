@@ -24,7 +24,7 @@ pub(crate) fn summarize_stylesheet_texts<'a>(
 
 fn summarize_stylesheet(href: String, css: &str) -> CssStylesheetSummary {
     let rules = parse_css_rules(css);
-    let font_faces = parse_font_face_rules(css);
+    let font_faces = canonical_font_faces(parse_font_face_rules(css));
     let detail = json!({
         "fontFaces": font_faces.iter().map(font_face_value).collect::<Vec<_>>(),
         "rules": rules.iter().map(rule_value).collect::<Vec<_>>(),
@@ -205,6 +205,10 @@ pub(crate) fn parse_font_face_rules(css: &str) -> Vec<FontFaceRule> {
         index = brace_end + 1;
     }
 
+    rules
+}
+
+fn canonical_font_faces(mut rules: Vec<FontFaceRule>) -> Vec<FontFaceRule> {
     rules.sort_by(|left, right| {
         left.family
             .cmp(&right.family)
@@ -469,7 +473,7 @@ fn spaces(depth: usize) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_css_rules, parse_font_face_rules};
+    use super::{parse_css_rules, parse_font_face_rules, summarize_stylesheet_texts};
 
     #[test]
     fn parses_grouped_rules_into_selector_summaries() {
@@ -496,5 +500,46 @@ mod tests {
         assert_eq!(faces[0].family, "Title");
         assert_eq!(faces[0].src, "../Fonts/title.ttf");
         assert_eq!(faces[0].weight.as_deref(), Some("700"));
+    }
+
+    #[test]
+    fn font_face_parser_preserves_source_order() {
+        let faces = parse_font_face_rules(
+            r#"
+            @font-face { font-family: "Zulu"; src: url("zulu.ttf"); }
+            @font-face { font-family: "Alpha"; src: url("alpha.ttf"); }
+            "#,
+        );
+
+        assert_eq!(
+            faces
+                .iter()
+                .map(|face| face.family.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Zulu", "Alpha"]
+        );
+    }
+
+    #[test]
+    fn stylesheet_summary_canonicalizes_font_face_hash_order() {
+        let zulu_first = summarize_stylesheet_texts([(
+            "book.css",
+            r#"
+            @font-face { font-family: "Zulu"; src: url("zulu.ttf"); }
+            @font-face { font-family: "Alpha"; src: url("alpha.ttf"); }
+            "#,
+        )]);
+        let alpha_first = summarize_stylesheet_texts([(
+            "book.css",
+            r#"
+            @font-face { font-family: "Alpha"; src: url("alpha.ttf"); }
+            @font-face { font-family: "Zulu"; src: url("zulu.ttf"); }
+            "#,
+        )]);
+
+        assert_eq!(
+            zulu_first.stylesheets[0].font_face_hash,
+            alpha_first.stylesheets[0].font_face_hash
+        );
     }
 }

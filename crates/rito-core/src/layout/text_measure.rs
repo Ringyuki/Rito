@@ -100,19 +100,31 @@ impl<'a> TextMeasurementFonts<'a> {
 
     fn matching_faces<'b>(
         &'b self,
-        style: &'b TextMeasurementStyle,
-    ) -> impl Iterator<Item = &'b TextMeasurementFontFace<'a>> + 'b {
+        style: &TextMeasurementStyle,
+    ) -> Vec<&'b TextMeasurementFontFace<'a>> {
         let families = style
             .font_family
             .as_deref()
             .map(parse_font_family_list)
             .unwrap_or_default();
-        self.faces.iter().filter(move |face| {
-            families
+        let mut matches = Vec::new();
+        for family in families {
+            let best_score = self
+                .faces
                 .iter()
-                .any(|family| family.eq_ignore_ascii_case(&face.family))
-                && face.matches_style(style)
-        })
+                .filter(|face| face.ttf_face.is_some() && family.eq_ignore_ascii_case(&face.family))
+                .map(|face| face.match_score(style))
+                .min();
+            let Some(best_score) = best_score else {
+                continue;
+            };
+            matches.extend(self.faces.iter().rev().filter(|face| {
+                face.ttf_face.is_some()
+                    && family.eq_ignore_ascii_case(&face.family)
+                    && face.match_score(style) == best_score
+            }));
+        }
+        matches
     }
 
     fn cached_width(&self, key: &TextMeasurementCacheKey) -> Option<f64> {
@@ -188,19 +200,86 @@ impl<'a> TextMeasurementFontFace<'a> {
         }
     }
 
-    fn matches_style(&self, style: &TextMeasurementStyle) -> bool {
-        let style_matches = self.style.as_deref().is_none_or(|face_style| {
-            style
-                .font_style
-                .as_deref()
-                .is_none_or(|requested| face_style.eq_ignore_ascii_case(requested))
-        });
-        let weight_matches = self.weight.is_none_or(|face_weight| {
-            style
-                .font_weight
-                .is_none_or(|requested| requested.abs_diff(face_weight) <= 100)
-        });
-        style_matches && weight_matches
+    fn match_score(&self, style: &TextMeasurementStyle) -> FontFaceMatchScore {
+        FontFaceMatchScore {
+            style_distance: font_style_distance(style.font_style.as_deref(), self.style.as_deref()),
+            weight_score: font_weight_score(
+                style.font_weight.unwrap_or(INITIAL_FONT_WEIGHT),
+                self.weight.unwrap_or(INITIAL_FONT_WEIGHT),
+            ),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct FontFaceMatchScore {
+    style_distance: u8,
+    weight_score: FontWeightMatchScore,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+struct FontWeightMatchScore {
+    phase: u8,
+    distance: u16,
+}
+
+const INITIAL_FONT_STYLE: &str = "normal";
+const INITIAL_FONT_WEIGHT: u16 = 400;
+
+fn font_style_distance(requested: Option<&str>, candidate: Option<&str>) -> u8 {
+    // The supported computed-style subset normalizes requested oblique text to italic.
+    let requested = font_style_keyword(requested.unwrap_or(INITIAL_FONT_STYLE));
+    let candidate = font_style_keyword(candidate.unwrap_or(INITIAL_FONT_STYLE));
+    if requested.eq_ignore_ascii_case(candidate) {
+        return 0;
+    }
+    if requested.eq_ignore_ascii_case("normal") {
+        return if candidate.eq_ignore_ascii_case("oblique") {
+            1
+        } else {
+            2
+        };
+    }
+    if requested.eq_ignore_ascii_case("italic") && candidate.eq_ignore_ascii_case("oblique")
+        || requested.eq_ignore_ascii_case("oblique") && candidate.eq_ignore_ascii_case("italic")
+    {
+        return 1;
+    }
+    2
+}
+
+fn font_style_keyword(value: &str) -> &str {
+    value.split_ascii_whitespace().next().unwrap_or(value)
+}
+
+fn font_weight_score(requested: u16, candidate: u16) -> FontWeightMatchScore {
+    if (400..=500).contains(&requested) {
+        if candidate >= requested && candidate <= 500 {
+            return FontWeightMatchScore {
+                phase: 0,
+                distance: candidate - requested,
+            };
+        }
+        if candidate < requested {
+            return FontWeightMatchScore {
+                phase: 1,
+                distance: requested - candidate,
+            };
+        }
+        return FontWeightMatchScore {
+            phase: 2,
+            distance: candidate - 500,
+        };
+    }
+    if requested < 400 {
+        return FontWeightMatchScore {
+            phase: u8::from(candidate > requested),
+            distance: requested.abs_diff(candidate),
+        };
+    }
+    FontWeightMatchScore {
+        phase: u8::from(candidate < requested),
+        distance: requested.abs_diff(candidate),
     }
 }
 
@@ -251,7 +330,7 @@ fn font_aware_measurement(input: &TextMeasurementInput<'_>) -> Option<TextMeasur
     if let Some(width) = input.fonts.cached_width(&cache_key) {
         return Some(TextMeasurement { width });
     }
-    let faces = input.fonts.matching_faces(&input.style).collect::<Vec<_>>();
+    let faces = input.fonts.matching_faces(&input.style);
     if faces.is_empty() {
         return None;
     }
@@ -322,7 +401,9 @@ fn font_runs<'a>(
             .iter()
             .copied()
             .find(|face| face_supports_character(face, character));
-        if face.map(|face| face.bytes.as_ptr()) == active_face.map(|face| face.bytes.as_ptr()) {
+        if face.is_some_and(|face| {
+            active_face.is_some_and(|active_face| std::ptr::eq(face, active_face))
+        }) {
             continue;
         }
         if let (Some(start), Some(face)) = (active_start.take(), active_face.take()) {
@@ -432,9 +513,10 @@ mod tests {
     use zip::ZipArchive;
 
     use super::{
-        fixture_character_width, measure_text, measure_text_with_style, parse_font_family_list,
-        shaped_run_width, TextMeasurementFontFace, TextMeasurementFonts, TextMeasurementInput,
-        TextMeasurementPolicy, TextMeasurementStyle,
+        face_supports_character, fixture_character_width, font_runs, measure_text,
+        measure_text_with_style, parse_font_family_list, shaped_run_width, FontMeasurementRun,
+        TextMeasurementFontFace, TextMeasurementFonts, TextMeasurementInput, TextMeasurementPolicy,
+        TextMeasurementStyle,
     };
 
     fn assert_width(actual: f64, expected: f64) {
@@ -442,6 +524,28 @@ mod tests {
             (actual - expected).abs() < 0.000_001,
             "expected width {expected}, got {actual}"
         );
+    }
+
+    fn ordered_face_weights(requested: u16, source_weights: &[u16], bytes: &[u8]) -> Vec<u16> {
+        let fonts = TextMeasurementFonts::new(
+            source_weights
+                .iter()
+                .map(|weight| {
+                    TextMeasurementFontFace::new("Book".to_owned(), None, Some(*weight), bytes)
+                })
+                .collect(),
+        );
+        let style = TextMeasurementStyle {
+            font_family: Some("Book".to_owned()),
+            font_weight: Some(requested),
+            ..TextMeasurementStyle::default()
+        };
+
+        fonts
+            .matching_faces(&style)
+            .iter()
+            .map(|face| face.weight.expect("test face has an explicit weight"))
+            .collect()
     }
 
     #[test]
@@ -537,6 +641,249 @@ mod tests {
             parse_font_family_list("\"Fixture, Serif\", serif, 'Display \\' Name'"),
             vec!["Fixture, Serif", "serif", "Display ' Name"]
         );
+    }
+
+    #[test]
+    fn font_aware_face_selection_honors_family_declaration_order() {
+        let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new("Second".to_owned(), None, None, &bytes),
+            TextMeasurementFontFace::new("First".to_owned(), None, None, &bytes),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("First, Second".to_owned()),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+
+        assert_eq!(
+            faces
+                .iter()
+                .map(|face| face.family.as_str())
+                .collect::<Vec<_>>(),
+            vec!["First", "Second"]
+        );
+    }
+
+    #[test]
+    fn font_aware_face_selection_treats_missing_descriptors_as_normal_400() {
+        let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new("Book".to_owned(), None, None, &bytes),
+            TextMeasurementFontFace::new(
+                "Book".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &bytes,
+            ),
+        ]);
+        let italic_bold = TextMeasurementStyle {
+            font_family: Some("Book".to_owned()),
+            font_style: Some("italic".to_owned()),
+            font_weight: Some(700),
+            ..TextMeasurementStyle::default()
+        };
+
+        let italic_faces = fonts.matching_faces(&italic_bold);
+        let regular_faces = fonts.matching_faces(&TextMeasurementStyle {
+            font_family: Some("Book".to_owned()),
+            ..TextMeasurementStyle::default()
+        });
+
+        assert_eq!(italic_faces[0].style.as_deref(), Some("italic"));
+        assert_eq!(italic_faces[0].weight, Some(700));
+        assert_eq!(regular_faces[0].style, None);
+        assert_eq!(regular_faces[0].weight, None);
+    }
+
+    #[test]
+    fn font_aware_face_selection_honors_css_weight_search_direction() {
+        let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        assert_eq!(ordered_face_weights(400, &[300, 500], &bytes), vec![500]);
+        assert_eq!(ordered_face_weights(500, &[600, 400], &bytes), vec![400]);
+        assert_eq!(ordered_face_weights(300, &[400, 200], &bytes), vec![200]);
+        assert_eq!(ordered_face_weights(600, &[500, 700], &bytes), vec![700]);
+    }
+
+    #[test]
+    fn font_aware_face_selection_keeps_best_composite_in_reverse_source_order() {
+        let source_first = read_epub_font("OEBPS/Fonts/illus1.ttf");
+        let source_second = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new(
+                "Book".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &source_first,
+            ),
+            TextMeasurementFontFace::new(
+                "Book".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &source_second,
+            ),
+            TextMeasurementFontFace::new(
+                "Book".to_owned(),
+                Some("normal".to_owned()),
+                Some(600),
+                &source_first,
+            ),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("Book".to_owned()),
+            font_style: Some("italic".to_owned()),
+            font_weight: Some(600),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+
+        assert_eq!(faces.len(), 2);
+        assert_eq!(faces[0].bytes, source_second.as_slice());
+        assert_eq!(faces[1].bytes, source_first.as_slice());
+    }
+
+    #[test]
+    fn font_aware_face_selection_prefers_closest_face_before_next_family() {
+        let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let (character, _) = font_metric_sample(&bytes, 20.0);
+        let text = character.to_string();
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new(
+                "Fallback".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &bytes,
+            ),
+            TextMeasurementFontFace::new("Preferred".to_owned(), None, None, &bytes),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("Preferred, Fallback".to_owned()),
+            font_style: Some("italic".to_owned()),
+            font_weight: Some(700),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+        let runs = font_runs(&text, &faces);
+
+        let FontMeasurementRun::Shaped { face, .. } = &runs[0] else {
+            panic!("supported character must produce a shaped run");
+        };
+        assert_eq!(face.family, "Preferred");
+    }
+
+    #[test]
+    fn font_aware_face_selection_falls_back_by_glyph_across_families() {
+        let preferred_bytes = read_epub_font("OEBPS/Fonts/illus1.ttf");
+        let fallback_bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let character = character_supported_only_by(&preferred_bytes, &fallback_bytes);
+        let text = character.to_string();
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new("Preferred".to_owned(), None, None, &preferred_bytes),
+            TextMeasurementFontFace::new("Fallback".to_owned(), None, None, &fallback_bytes),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("Preferred, Fallback".to_owned()),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+        let runs = font_runs(&text, &faces);
+
+        let FontMeasurementRun::Shaped { face, .. } = &runs[0] else {
+            panic!("fallback character must produce a shaped run");
+        };
+        assert_eq!(face.family, "Fallback");
+    }
+
+    #[test]
+    fn font_aware_face_selection_ignores_invalid_exact_face() {
+        let valid_bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let invalid_bytes = [1];
+        let (character, _) = font_metric_sample(&valid_bytes, 20.0);
+        let text = character.to_string();
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new("Preferred".to_owned(), None, None, &valid_bytes),
+            TextMeasurementFontFace::new(
+                "Fallback".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &valid_bytes,
+            ),
+            TextMeasurementFontFace::new(
+                "Preferred".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &invalid_bytes,
+            ),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("Preferred, Fallback".to_owned()),
+            font_style: Some("italic".to_owned()),
+            font_weight: Some(700),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+        let runs = font_runs(&text, &faces);
+
+        assert_eq!(
+            faces
+                .iter()
+                .map(|face| face.family.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Preferred", "Fallback"]
+        );
+        let FontMeasurementRun::Shaped { face, .. } = &runs[0] else {
+            panic!("valid same-family face must provide the supported glyph");
+        };
+        assert_eq!(face.family, "Preferred");
+    }
+
+    #[test]
+    fn font_aware_face_selection_does_not_use_descriptor_runner_up_for_missing_glyph() {
+        let exact_bytes = read_epub_font("OEBPS/Fonts/illus1.ttf");
+        let runner_up_bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let character = character_supported_only_by(&exact_bytes, &runner_up_bytes);
+        let text = character.to_string();
+        let fonts = TextMeasurementFonts::new(vec![
+            TextMeasurementFontFace::new("Preferred".to_owned(), None, None, &runner_up_bytes),
+            TextMeasurementFontFace::new(
+                "Fallback".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &runner_up_bytes,
+            ),
+            TextMeasurementFontFace::new(
+                "Preferred".to_owned(),
+                Some("italic".to_owned()),
+                Some(700),
+                &exact_bytes,
+            ),
+        ]);
+        let style = TextMeasurementStyle {
+            font_family: Some("Preferred, Fallback".to_owned()),
+            font_style: Some("italic".to_owned()),
+            font_weight: Some(700),
+            ..TextMeasurementStyle::default()
+        };
+
+        let faces = fonts.matching_faces(&style);
+        let runs = font_runs(&text, &faces);
+
+        assert_eq!(
+            faces
+                .iter()
+                .map(|face| face.family.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Preferred", "Fallback"]
+        );
+        let FontMeasurementRun::Shaped { face, .. } = &runs[0] else {
+            panic!("next family exact face must provide the glyph");
+        };
+        assert_eq!(face.family, "Fallback");
     }
 
     #[test]
@@ -651,6 +998,39 @@ mod tests {
         );
     }
 
+    #[test]
+    fn font_aware_policy_counts_leading_consecutive_missing_glyphs() {
+        let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
+        let (character, _) = font_metric_sample(&bytes, 20.0);
+        let first_missing = '\u{1f600}';
+        let second_missing = '\u{1f601}';
+        let text = format!("{first_missing}{second_missing}{character}");
+        let font_face = TextMeasurementFontFace::new("illus5".to_owned(), None, None, &bytes);
+        assert!(!face_supports_character(&font_face, first_missing));
+        assert!(!face_supports_character(&font_face, second_missing));
+        let shaped = shaped_run_width(&character.to_string(), &font_face, 20.0)
+            .expect("fixture character shapes");
+        let fonts = TextMeasurementFonts::new(vec![font_face]);
+
+        let measured = measure_text(TextMeasurementInput {
+            text: &text,
+            style: TextMeasurementStyle {
+                font_size: 20.0,
+                font_family: Some("illus5".to_owned()),
+                ..TextMeasurementStyle::default()
+            },
+            policy: TextMeasurementPolicy::FontAware,
+            fonts: &fonts,
+        });
+
+        assert_width(
+            measured.width,
+            shaped
+                + fixture_character_width(first_missing, 20.0)
+                + fixture_character_width(second_missing, 20.0),
+        );
+    }
+
     fn read_epub_font(path: &str) -> Vec<u8> {
         let fixture = workspace_path("packages/rito/tests/fixtures/books/book-01.epub");
         let file = File::open(&fixture)
@@ -690,5 +1070,17 @@ mod tests {
         ((after as u32 + 1)..=0x9fff)
             .filter_map(char::from_u32)
             .find(|character| face.glyph_index(*character).is_some())
+    }
+
+    fn character_supported_only_by(preferred: &[u8], fallback: &[u8]) -> char {
+        let preferred = Face::parse(preferred, 0).expect("preferred fixture font parses");
+        let fallback = Face::parse(fallback, 0).expect("fallback fixture font parses");
+        (0x20..=0xffff)
+            .filter_map(char::from_u32)
+            .find(|character| {
+                preferred.glyph_index(*character).is_none()
+                    && fallback.glyph_index(*character).is_some()
+            })
+            .expect("fixture fonts have a fallback-only glyph")
     }
 }
