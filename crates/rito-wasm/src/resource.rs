@@ -1,4 +1,6 @@
-use rito_core::runtime::{RuntimeResourceKind, RuntimeResourceTransferPayload};
+use rito_core::runtime::{
+    RuntimeResourceKind, RuntimeResourceTransferPayload, RuntimeResourceTransferStore,
+};
 
 use crate::{
     wire::{
@@ -47,19 +49,30 @@ impl WasmRuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) -> Result<String, WasmRuntimeError> {
-        let plan = self
-            .document
-            .frame_resource_warm_plan(revision_id, spread_index)
-            .map_err(WasmRuntimeError::from_engine)?;
-        let mut spreads = Vec::new();
-        for spread_index in plan.spread_indexes.clone() {
-            spreads.push(self.prefetch_frame_resources(revision_id, spread_index)?);
-        }
-        serialize_json(&WasmPlannedFrameResourcePrefetchResponse {
-            plan,
-            spreads,
-            pending_transfer_count: self.pending_resource_transfer_count(),
-        })
+        let mut new_transfer_ids = Vec::new();
+        let result = (|| {
+            let plan = self
+                .document
+                .frame_resource_warm_plan(revision_id, spread_index)
+                .map_err(WasmRuntimeError::from_engine)?;
+            let mut spreads = Vec::new();
+            for spread_index in plan.spread_indexes.clone() {
+                let spread = self.prefetch_frame_resources(revision_id, spread_index)?;
+                new_transfer_ids.extend(
+                    spread
+                        .payloads
+                        .iter()
+                        .map(|payload| payload.transfer_id.clone()),
+                );
+                spreads.push(spread);
+            }
+            serialize_json(&WasmPlannedFrameResourcePrefetchResponse {
+                plan,
+                spreads,
+                pending_transfer_count: self.pending_resource_transfer_count(),
+            })
+        })();
+        rollback_new_transfers_on_error(&mut self.transfers, &new_transfer_ids, result)
     }
 
     pub fn read_resource_transfer(&self, transfer_id: &str) -> Result<Vec<u8>, WasmRuntimeError> {
@@ -142,5 +155,63 @@ impl WasmRuntimeDocument {
             missing_resources,
             pending_transfer_count: self.pending_resource_transfer_count(),
         })
+    }
+}
+
+pub(crate) fn rollback_new_transfers_on_error<T>(
+    transfers: &mut RuntimeResourceTransferStore,
+    transfer_ids: &[String],
+    result: Result<T, WasmRuntimeError>,
+) -> Result<T, WasmRuntimeError> {
+    if result.is_err() {
+        for transfer_id in transfer_ids {
+            transfers.release(transfer_id);
+        }
+    }
+    result
+}
+
+#[cfg(test)]
+mod tests {
+    use rito_core::runtime::{
+        RuntimeResource, RuntimeResourceKind, RuntimeResourceTransferStore, RuntimeRevisionHandle,
+    };
+
+    use super::rollback_new_transfers_on_error;
+    use crate::WasmRuntimeError;
+
+    #[test]
+    fn aggregate_rollback_releases_only_new_transfer_leases() {
+        let revision = RuntimeRevisionHandle::new("rev-1", 7);
+        let mut transfers = RuntimeResourceTransferStore::new();
+        let existing = transfers
+            .store_at(&revision, resource("existing.png"))
+            .expect("existing lease is stored");
+        let created = transfers
+            .store_at(&revision, resource("created.png"))
+            .expect("new lease is stored");
+        let error = WasmRuntimeError::internal_error("injected later spread failure");
+
+        let result = rollback_new_transfers_on_error::<()>(
+            &mut transfers,
+            std::slice::from_ref(&created.transfer_id),
+            Err(error.clone()),
+        );
+
+        assert_eq!(result, Err(error));
+        assert!(transfers.read(&existing.transfer_id).is_ok());
+        assert!(transfers.read(&created.transfer_id).is_err());
+    }
+
+    fn resource(href: &str) -> RuntimeResource {
+        RuntimeResource {
+            revision_id: "rev-1".to_owned(),
+            kind: RuntimeResourceKind::Image,
+            href: href.to_owned(),
+            media_type: "image/png".to_owned(),
+            bytes: vec![1, 2, 3],
+            width: None,
+            height: None,
+        }
     }
 }

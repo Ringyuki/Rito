@@ -4,6 +4,7 @@ use rito_core::runtime::{
 
 use super::revision_handle;
 use crate::{
+    resource::rollback_new_transfers_on_error,
     wire::{
         parse_resource_prefetch_request, serialize_json, WasmFrameResourcePrefetchResponse,
         WasmMissingResource, WasmPlannedFrameResourcePrefetchResponse,
@@ -59,21 +60,32 @@ impl WasmRuntimeDocument {
         spread_index: usize,
     ) -> Result<String, WasmRuntimeError> {
         let handle = revision_handle(revision_id, revision_version);
-        let plan = self
-            .document
-            .frame_resource_warm_plan_at(&handle, spread_index)
-            .map_err(WasmRuntimeError::from_revision_access)?
-            .value;
-        let mut spreads = Vec::new();
-        for spread_index in plan.spread_indexes.clone() {
-            spreads.push(self.prefetch_frame_resources_at(&handle, spread_index)?);
-        }
-        let response = WasmPlannedFrameResourcePrefetchResponse {
-            plan,
-            spreads,
-            pending_transfer_count: self.pending_resource_transfer_count(),
-        };
-        serialize_json(&RuntimeVersioned::new(handle, response))
+        let mut new_transfer_ids = Vec::new();
+        let result = (|| {
+            let plan = self
+                .document
+                .frame_resource_warm_plan_at(&handle, spread_index)
+                .map_err(WasmRuntimeError::from_revision_access)?
+                .value;
+            let mut spreads = Vec::new();
+            for spread_index in plan.spread_indexes.clone() {
+                let spread = self.prefetch_frame_resources_at(&handle, spread_index)?;
+                new_transfer_ids.extend(
+                    spread
+                        .payloads
+                        .iter()
+                        .map(|payload| payload.transfer_id.clone()),
+                );
+                spreads.push(spread);
+            }
+            let response = WasmPlannedFrameResourcePrefetchResponse {
+                plan,
+                spreads,
+                pending_transfer_count: self.pending_resource_transfer_count(),
+            };
+            serialize_json(&RuntimeVersioned::new(handle, response))
+        })();
+        rollback_new_transfers_on_error(&mut self.transfers, &new_transfer_ids, result)
     }
 
     fn store_resource_transfer_at(
