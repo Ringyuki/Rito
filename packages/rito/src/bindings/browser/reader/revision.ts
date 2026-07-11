@@ -1,7 +1,7 @@
 import type { LayoutConfig } from '../../../reader';
 import { applyBrowserReaderFrameWindow, cacheFrame, resetFrameCache } from './frame-cache';
 import { decodeBrowserReaderFrame } from './frame';
-import { preloadFrameResourceBytes } from '../resources';
+import { preloadFrameResourceBytes, preloadVisualPreviewFrameResources } from '../resources';
 import {
   createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
@@ -222,7 +222,7 @@ async function prepareCommitFrame(
       (spread) => spread.spreadIndex === selection.spreadIndex,
     )?.resources;
     if (frame.imageDominated && resources) await preloadFrameResourceBytes(state, resources);
-    return { displaySpreadIndex: selection.displaySpreadIndex, frame };
+    return { displaySpreadIndex: selection.displaySpreadIndex, frame, resources };
   } catch (error) {
     releaseDiscarded(worker, result);
     throw error;
@@ -234,13 +234,9 @@ function commitVisualPreview(
   request: BrowserReaderQueuedReflow,
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
-  commitFrame: {
-    readonly spreadIndex?: number | undefined;
-    readonly displaySpreadIndex?: number | undefined;
-    readonly frame?: BrowserReaderFrame | undefined;
-  },
+  commitFrame: Awaited<ReturnType<typeof prepareCommitFrame>>,
 ): boolean | 'staleSpread' {
-  const displaySpreadIndex = commitFrame.displaySpreadIndex ?? commitFrame.spreadIndex;
+  const displaySpreadIndex = commitFrame.displaySpreadIndex;
   if (!commitFrame.frame) return releaseDiscarded(worker, result);
   if (displaySpreadIndex !== state.activeSpreadIndex) {
     releaseDiscarded(worker, result);
@@ -255,6 +251,8 @@ function commitVisualPreview(
     spreadIndex: displaySpreadIndex,
     frame: commitFrame.frame,
   });
+  if (!commitFrame.frame.imageDominated)
+    preloadVisualPreviewFrameResources(state, commitFrame.resources);
   return true;
 }
 

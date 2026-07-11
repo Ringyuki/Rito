@@ -31,6 +31,34 @@ export async function preloadFrameResourceBytes(
   );
 }
 
+export function preloadVisualPreviewFrameResources(
+  state: BrowserReaderState,
+  resources: readonly BrowserReaderResourceBytes[] | undefined,
+): void {
+  const expectedPreview = state.visualPreview;
+  if (!expectedPreview || !resources) return;
+  const { spreadIndex } = expectedPreview;
+  const missingImageHrefs = resources
+    .filter(
+      (resource) => resource.payload.kind === 'image' && !state.images.has(resource.payload.href),
+    )
+    .map((resource) => resource.payload.href);
+  if (missingImageHrefs.length === 0) return;
+  void preloadFrameResourceBytes(state, resources)
+    .then(() => {
+      if (
+        state.disposed ||
+        state.visualPreview !== expectedPreview ||
+        state.activeSpreadIndex !== spreadIndex ||
+        !missingImageHrefs.some((href) => state.images.has(href))
+      ) {
+        return;
+      }
+      for (const cb of state.spreadContentInvalidatedListeners) cb(spreadIndex);
+    })
+    .catch(() => undefined);
+}
+
 export function getImageObjectUrl(state: BrowserReaderState, href: string): string | undefined {
   if (typeof URL === 'undefined') return undefined;
   const cached = state.imageObjectUrls.get(href);
