@@ -37,6 +37,7 @@ mod locator;
 mod page;
 mod pagination_flow;
 pub(crate) mod pagination_session;
+pub(crate) mod runtime_session;
 mod search_flow;
 mod segment_details;
 mod segments;
