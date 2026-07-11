@@ -82,8 +82,8 @@ Those names now belong to the old TS reference tree only.
   surface instead of legacy core subpaths.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
 - The counted browser reader shell target has been hit:
-  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1538
-    lines by `wc -l` (1550 under the architecture invariant's split-line count;
+  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1536
+    physical lines (1548 under the architecture invariant's split-line count;
     hard ceiling 1550), plus a 3-line static `.mjs` worker-entry facade
   - `packages/rito/src/reader/**`: 6 files / 354 lines
   - the hardening increment is explicit revision release, a bounded 12-frame
@@ -103,6 +103,14 @@ Those names now belong to the old TS reference tree only.
   from the selected family. Browser font loads may prepare concurrently, but
   successful faces are committed to `document.fonts` in the Rust-authored
   source order; failures and stale reader revisions remain isolated.
+- Image-size lookup, eager document reads, and runtime resource transfers now
+  share one ambiguity-aware href resolver. It preserves exact raw matches,
+  accepts percent-encoded UTF-8 hrefs and rooted source tails, and refuses to
+  guess when suffixes or basenames are ambiguous.
+- Mixed-content visual previews commit without waiting for image decode, then
+  invalidate once the selected image resources enter the browser cache. The
+  completion is ignored after navigation, preview replacement, or disposal;
+  image-dominated previews keep their existing blocking first-paint behavior.
 - The milestone parity suites are green for the current selected surface: all
   10 fixture books across 4 package/layout configurations, plus 30 exhaustive
   runtime render-command groups covering 189 cases and 378 render summaries.
@@ -213,9 +221,12 @@ Those names now belong to the old TS reference tree only.
      frame, then requires exact Canvas pixels against the reference renderer for
      representative block, inline, text, decoration, shadow, font, and ruby
      paint in the same Chromium process. The fixture also exercises ordered
-     multi-family and style/weight face selection with real EPUB fonts. Its
-     block fixture includes a non-three-decimal opacity value so semantic paint
-     precision cannot be silently reduced by layout-summary rounding.
+     multi-family and style/weight face selection with real EPUB fonts, plus a
+     nested manifest image whose literal-space href is referenced through a
+     percent-encoded XHTML path. Exact red/blue marker pixels and a same-name
+     decoy prove that transfer, decode, href resolution, and `drawImage` all ran.
+     Its block fixture includes a non-three-decimal opacity value so semantic
+     paint precision cannot be silently reduced by layout-summary rounding.
 
 ## Do Not Do
 
@@ -272,10 +283,12 @@ Pick one of these, in order:
 1. Continue display parity:
    - keep the production/reference multi-face pixel gate green; it protects
      declared family order and style/weight matching at final Canvas output,
-     while reader resource tests separately protect browser registration order;
+     while the resource-backed image case protects the end-to-end image path
+     and reader resource tests separately protect browser registration order;
    - use the next real diagnostic mismatch to choose another CSS/layout fix, or
-     add a deterministic resource-backed image pixel case when extending the
-     browser presentation evidence;
+     extend browser presentation evidence only when it locks a concrete gap;
+   - decide separately whether production should tolerate archive images that
+     are absent from the OPF manifest, as the TS reference currently does;
    - use TS reference diagnostics and render-command goldens;
    - fix Rust layout/display differences without adding new TS runtime policy.
 2. Continue Binary Wire V2 validation:

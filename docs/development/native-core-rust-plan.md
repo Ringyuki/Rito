@@ -317,6 +317,10 @@ in place:
 - Active resize previews are anchored by the current canonical page's progress
   within its chapter, so the bundled preview frame targets the same reading
   region instead of always rendering the chapter-window start.
+- Mixed-content visual previews commit their frame before selected image bytes
+  finish platform decode, then invalidate only if that exact preview remains
+  active. Navigation, replacement, and disposal suppress stale completion;
+  image-dominated previews retain their blocking first-paint behavior.
 - Browser font registration now uses source-ordered Rust `@font-face` summaries
   and Rust revision-bundle `fontFamilies` metadata. Font data may load in
   parallel, but successful faces are added to `document.fonts` in that source
@@ -324,6 +328,10 @@ in place:
   shell no longer warms/probes frames or scans decoded display-list commands to
   infer font policy. Image and font preload failures are best-effort, matching
   the old TS loader behavior.
+- Layout image sizing, eager EPUB resource reads, and runtime resource transfer
+  use one Rust href resolver. Raw exact matches retain precedence; percent-
+  encoded UTF-8 paths, leading relative segments, and rooted source tails are
+  accepted only when the suffix/basename result is unambiguous.
 - Rust package/layout parity matches the TypeScript fixture matrix for
   `book-01` through `book-10` across all 4 selected greedy/optimal viewport
   configurations.
@@ -345,10 +353,12 @@ in place:
   their source precision until the packed-frame ABI conversion. Font-aware
   layout now respects declared family order, CSS style/weight face matching,
   reverse-source composite ordering, and cross-family glyph fallback. The
-  exact-pixel gate exercises family and descriptor choices with real EPUB fonts;
-  focused unit tests protect composite order and cross-family fallback. It also
-  uses a non-three-decimal block opacity to keep geometry-summary rounding out
-  of that path. The built reader sourcemap
+  exact-pixel gate exercises family and descriptor choices with real EPUB fonts
+  and a nested resource image referenced through a percent-encoded href. Exact
+  marker colors plus a same-basename decoy prove the selected bytes reached
+  `drawImage`; focused unit tests protect composite order and cross-family
+  fallback. It also uses a non-three-decimal block opacity to keep geometry-
+  summary rounding out of that path. The built reader sourcemap
   contains no `src/reference/**` sources, and the public DTS is unchanged.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
@@ -1041,6 +1051,10 @@ Required cleanup:
    - Display commands now use a typed Rust enum internally; JSON fixtures and
      packed command buffers are derived from that same typed command list.
 7. **Resource ownership**
+   - One shared ambiguity-aware resource href resolver now feeds layout image
+     dimensions, eager document lookup, and runtime transfer metadata/bytes, so
+     a frame that sizes an encoded or rooted image path can also warm and paint
+     the same resource.
    - Runtime image/font bytes now become document-owned lazy cache entries after
      first read; image bytes read for dimension detection are retained too, so
      resource lookup does not re-open the EPUB archive for the same binary.
@@ -1058,10 +1072,9 @@ Required cleanup:
      same-window image dimension loading reuses one archive reader.
    - Chapter range loading reuses one archive reader across the requested range
      instead of reopening the EPUB once per chapter.
-   - Browser reader resource handling is split into image, font, lifecycle, and
-     shared binary/notification helpers;
-     `bindings/browser/reader/resources.ts` is now a stable barrel rather than a
-     mixed implementation file.
+   - Browser platform resource handling remains in
+     `bindings/browser/resources.ts`; the counted reader shell only requests
+     decode/cache work and applies lifecycle-safe invalidations.
 
 After this cleanup gate, display correctness work can resume with less risk of
 building on accidental architecture.
