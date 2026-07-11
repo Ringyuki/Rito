@@ -1,41 +1,79 @@
 use std::collections::BTreeMap;
 
+use alias::{resolve_map_alias, resolve_slice_alias};
+use percent::{resource_alias, source_alias};
+
+mod alias;
+mod percent;
+
 #[derive(Debug)]
 pub(crate) struct ResourceHrefIndex<T> {
-    by_href: BTreeMap<String, T>,
-    by_suffix: BTreeMap<String, Option<T>>,
-    by_basename: BTreeMap<String, Option<T>>,
+    raw: HrefMaps<T>,
+    aliases: HrefMaps<T>,
+}
+
+#[derive(Debug)]
+pub(super) struct HrefMaps<T> {
+    pub(super) by_href: BTreeMap<String, Option<T>>,
+    pub(super) by_suffix: BTreeMap<String, Option<T>>,
+    pub(super) by_basename: BTreeMap<String, Option<T>>,
 }
 
 impl<T: Copy> ResourceHrefIndex<T> {
     pub(crate) fn new<'a>(entries: impl IntoIterator<Item = (&'a str, T)>) -> Self {
-        let mut by_href = BTreeMap::new();
-        let mut by_suffix = BTreeMap::new();
-        let mut by_basename = BTreeMap::new();
+        let mut raw = HrefMaps::new();
+        let mut aliases = HrefMaps::new();
 
         for (href, value) in entries {
-            if by_href.contains_key(href) {
+            if raw.contains_href(href) {
                 continue;
             }
-            by_href.insert(href.to_owned(), value);
-            let parts = href.split('/').collect::<Vec<_>>();
-            for index in 1..parts.len() {
-                insert_unique(&mut by_suffix, parts[index..].join("/"), value);
-            }
-            if let Some(basename) = parts.last() {
-                insert_unique(&mut by_basename, (*basename).to_owned(), value);
-            }
+            raw.insert_raw(href, value);
+            aliases.insert_alias(resource_alias(href).as_ref(), value);
         }
 
-        Self {
-            by_href,
-            by_suffix,
-            by_basename,
-        }
+        Self { raw, aliases }
     }
 
     pub(crate) fn resolve(&self, src: &str) -> Option<T> {
-        resolve_href(self, src)
+        resolve_candidate(&self.raw, src).or_else(|| {
+            let alias = source_alias(src)?;
+            resolve_map_alias(&self.aliases, alias.as_ref())
+        })
+    }
+}
+
+impl<T: Copy> HrefMaps<T> {
+    fn new() -> Self {
+        Self {
+            by_href: BTreeMap::new(),
+            by_suffix: BTreeMap::new(),
+            by_basename: BTreeMap::new(),
+        }
+    }
+
+    fn contains_href(&self, href: &str) -> bool {
+        self.by_href.contains_key(href)
+    }
+
+    fn insert_raw(&mut self, href: &str, value: T) {
+        self.by_href.insert(href.to_owned(), Some(value));
+        self.insert_paths(href, value);
+    }
+
+    fn insert_alias(&mut self, href: &str, value: T) {
+        insert_unique(&mut self.by_href, href.to_owned(), value);
+        self.insert_paths(href, value);
+    }
+
+    fn insert_paths(&mut self, href: &str, value: T) {
+        let parts = href.split('/').collect::<Vec<_>>();
+        for index in 1..parts.len() {
+            insert_unique(&mut self.by_suffix, parts[index..].join("/"), value);
+        }
+        if let Some(basename) = parts.last() {
+            insert_unique(&mut self.by_basename, (*basename).to_owned(), value);
+        }
     }
 }
 
@@ -47,11 +85,11 @@ trait HrefLookup {
     fn unique_basename(&self, basename: &str) -> Option<Self::Output>;
 }
 
-impl<T: Copy> HrefLookup for ResourceHrefIndex<T> {
+impl<T: Copy> HrefLookup for HrefMaps<T> {
     type Output = T;
 
     fn exact(&self, href: &str) -> Option<T> {
-        self.by_href.get(href).copied()
+        self.by_href.get(href).copied().flatten()
     }
 
     fn unique_manifest_suffix(&self, suffix: &str) -> Option<T> {
@@ -68,13 +106,15 @@ pub(crate) fn resolve_resource_href_index<T>(
     src: &str,
     resource_href: impl for<'a> Fn(&'a T) -> &'a str + Copy,
 ) -> Option<usize> {
-    resolve_href(
-        &SliceHrefLookup {
-            resources,
-            resource_href,
-        },
-        src,
-    )
+    let raw = SliceHrefLookup {
+        resources,
+        resource_href,
+    };
+    if let Some(index) = resolve_candidate(&raw, src) {
+        return Some(index);
+    }
+    let alias = source_alias(src)?;
+    resolve_slice_alias(resources, resource_href, alias.as_ref())
 }
 
 struct SliceHrefLookup<'a, T, F> {
@@ -96,9 +136,7 @@ where
 
     fn unique_manifest_suffix(&self, suffix: &str) -> Option<usize> {
         find_unique_resource(self.resources, self.resource_href, |href| {
-            href.len() > suffix.len()
-                && href.ends_with(suffix)
-                && href.as_bytes().get(href.len() - suffix.len() - 1) == Some(&b'/')
+            is_manifest_suffix(href, suffix)
         })
     }
 
@@ -129,17 +167,6 @@ fn find_unique_resource<T>(
     found.map(|(index, _)| index)
 }
 
-fn resolve_href<L: HrefLookup>(lookup: &L, src: &str) -> Option<L::Output> {
-    if let Some(value) = resolve_candidate(lookup, src) {
-        return Some(value);
-    }
-    let decoded = percent_decode_utf8(src)?;
-    if decoded == src {
-        return None;
-    }
-    resolve_candidate(lookup, &decoded)
-}
-
 fn resolve_candidate<L: HrefLookup>(lookup: &L, src: &str) -> Option<L::Output> {
     if let Some(value) = lookup.exact(src) {
         return Some(value);
@@ -156,15 +183,20 @@ fn resolve_candidate<L: HrefLookup>(lookup: &L, src: &str) -> Option<L::Output> 
     }
 
     for (index, character) in normalized.char_indices() {
-        if character != '/' {
-            continue;
-        }
-        if let Some(value) = lookup.exact(&normalized[index + 1..]) {
-            return Some(value);
+        if character == '/' {
+            if let Some(value) = lookup.exact(&normalized[index + 1..]) {
+                return Some(value);
+            }
         }
     }
 
     lookup.unique_basename(normalized.rsplit('/').next().unwrap_or(normalized))
+}
+
+pub(super) fn is_manifest_suffix(href: &str, suffix: &str) -> bool {
+    href.len() > suffix.len()
+        && href.ends_with(suffix)
+        && href.as_bytes().get(href.len() - suffix.len() - 1) == Some(&b'/')
 }
 
 fn insert_unique<T: Copy>(values: &mut BTreeMap<String, Option<T>>, key: String, value: T) {
@@ -180,7 +212,7 @@ fn insert_unique<T: Copy>(values: &mut BTreeMap<String, Option<T>>, key: String,
     }
 }
 
-fn strip_relative_prefix(src: &str) -> &str {
+pub(super) fn strip_relative_prefix(src: &str) -> &str {
     let mut normalized = src;
     while let Some(rest) = normalized.strip_prefix("../") {
         normalized = rest;
@@ -188,96 +220,5 @@ fn strip_relative_prefix(src: &str) -> &str {
     normalized
 }
 
-fn percent_decode_utf8(value: &str) -> Option<String> {
-    if !value.as_bytes().contains(&b'%') {
-        return None;
-    }
-    let source = value.as_bytes();
-    let mut decoded = Vec::with_capacity(source.len());
-    let mut index = 0;
-    while index < source.len() {
-        if source[index] != b'%' {
-            decoded.push(source[index]);
-            index += 1;
-            continue;
-        }
-        let high = source.get(index + 1).copied().and_then(hex_value)?;
-        let low = source.get(index + 2).copied().and_then(hex_value)?;
-        decoded.push((high << 4) | low);
-        index += 3;
-    }
-    String::from_utf8(decoded).ok()
-}
-
-fn hex_value(value: u8) -> Option<u8> {
-    match value {
-        b'0'..=b'9' => Some(value - b'0'),
-        b'a'..=b'f' => Some(value - b'a' + 10),
-        b'A'..=b'F' => Some(value - b'A' + 10),
-        _ => None,
-    }
-}
-
 #[cfg(test)]
-mod tests {
-    use super::{resolve_resource_href_index, ResourceHrefIndex};
-
-    #[test]
-    fn preserves_raw_exact_precedence_before_percent_decoding() {
-        assert_resolves(
-            &["Images/My%20Pic.png", "Images/My Pic.png"],
-            "Images/My%20Pic.png",
-            Some(0),
-        );
-    }
-
-    #[test]
-    fn resolves_percent_encoded_sources_to_literal_resource_hrefs() {
-        let hrefs = ["Images/My Pic.png", "Images/中.png"];
-        assert_resolves(&hrefs, "../Images/My%20Pic.png", Some(0));
-        assert_resolves(&hrefs, "Images/%e4%b8%ad.png", Some(1));
-    }
-
-    #[test]
-    fn resolves_longest_exact_manifest_tail_from_source_paths() {
-        assert_resolves(
-            &["pic.png", "Images/pic.png"],
-            "OPS/Images/pic.png",
-            Some(1),
-        );
-    }
-
-    #[test]
-    fn rejects_ambiguous_suffixes_and_basenames() {
-        let hrefs = ["OPS/a/Images/pic.png", "OPS/b/Images/pic.png"];
-        assert_resolves(&hrefs, "Images/pic.png", None);
-        assert_resolves(&hrefs, "pic.png", None);
-    }
-
-    #[test]
-    fn malformed_or_non_utf8_percent_escapes_do_not_panic() {
-        let hrefs = ["Images/100%.png"];
-        assert_resolves(&hrefs, "Images/100%.png", Some(0));
-        assert_resolves(&hrefs, "Images/%ff.png", None);
-    }
-
-    fn assert_resolves(hrefs: &[&str], src: &str, expected: Option<usize>) {
-        let hrefs = hrefs
-            .iter()
-            .map(|href| (*href).to_owned())
-            .collect::<Vec<_>>();
-        let index = ResourceHrefIndex::new(
-            hrefs
-                .iter()
-                .enumerate()
-                .map(|(index, href)| (href.as_str(), index)),
-        );
-
-        assert_eq!(index.resolve(src), expected, "prebuilt index: {src}");
-        assert_eq!(
-            resolve_resource_href_index(&hrefs, src, String::as_str),
-            expected,
-            "linear lookup: {src}"
-        );
-    }
-}
+mod tests;

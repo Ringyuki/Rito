@@ -4,6 +4,10 @@ use zip::{write::FileOptions, ZipWriter};
 
 use super::super::{open_document, open_runtime_document_owned};
 use super::{add_file, fixture_epub, minimal_png};
+use crate::{
+    layout::{create_layout_config, LayoutConfigInput, MarginInput, SpreadMode},
+    runtime::{RuntimeDocument, RuntimeResourceKind},
+};
 
 #[test]
 fn opens_percent_encoded_manifest_hrefs_against_literal_zip_names() {
@@ -69,6 +73,52 @@ fn resolves_percent_encoded_content_href_to_literal_manifest_resource() {
     );
 }
 
+#[test]
+fn resolves_literal_content_href_to_percent_encoded_manifest_resource() {
+    let bytes = percent_manifest_literal_content_fixture_epub();
+    let mut document =
+        open_runtime_document_owned(bytes.clone()).expect("encoded manifest indexes lazily");
+
+    document
+        .ensure_chapter_image_dimensions_loaded(0, 1)
+        .expect("literal content href resolves for dimension loading");
+
+    assert_eq!(document.images.len(), 1);
+    assert_eq!(document.images[0].href, "Images/Cover%20One.png");
+    assert_eq!(
+        (document.images[0].width, document.images[0].height),
+        (Some(2), Some(3))
+    );
+    assert_eq!(
+        document
+            .read_image_bytes("../Images/Cover One.png")
+            .expect("literal content href resolves for byte loading"),
+        Some(minimal_png())
+    );
+
+    let mut runtime = RuntimeDocument::open(&bytes).expect("runtime opens encoded manifest");
+    let revision = runtime
+        .create_revision(&layout())
+        .expect("revision resolves literal image source");
+    let frame = runtime
+        .get_frame(&revision.revision_id, 0)
+        .expect("image frame is available");
+    assert!(frame
+        .resource_refs
+        .images
+        .contains(&"../Images/Cover One.png".to_owned()));
+    let resource = runtime
+        .get_resource(
+            &revision.revision_id,
+            RuntimeResourceKind::Image,
+            "../Images/Cover One.png",
+        )
+        .expect("literal image source transfers");
+    assert_eq!(resource.href, "Images/Cover%20One.png");
+    assert_eq!(resource.bytes, minimal_png());
+    assert_eq!((resource.width, resource.height), (Some(2), Some(3)));
+}
+
 fn percent_encoded_fixture_epub() -> Vec<u8> {
     image_href_fixture_epub(
         "Text/Chapter%20One.xhtml",
@@ -86,6 +136,16 @@ fn literal_space_image_fixture_epub() -> Vec<u8> {
         "Images/Cover One.png",
         "Images/Cover One.png",
         r#"<img src="../Images/Cover%20One.png"/>"#,
+    )
+}
+
+fn percent_manifest_literal_content_fixture_epub() -> Vec<u8> {
+    image_href_fixture_epub(
+        "Text/chapter.xhtml",
+        "Text/chapter.xhtml",
+        "Images/Cover%20One.png",
+        "Images/Cover One.png",
+        r#"<img src="../Images/Cover One.png"/>"#,
     )
 }
 
@@ -137,4 +197,22 @@ fn image_href_fixture_epub(
         &minimal_png(),
     );
     writer.finish().expect("zip finalizes").into_inner()
+}
+
+fn layout() -> crate::layout::LayoutConfig {
+    create_layout_config(LayoutConfigInput {
+        width: 420.0,
+        height: 640.0,
+        margin: MarginInput::All(24.0),
+        spread: SpreadMode::Single,
+        first_page_alone: true,
+        spread_gap: 0.0,
+        root_font_size: 16.0,
+        line_height_override: None,
+        line_height_force: None,
+        font_family_override: None,
+        font_family_force: None,
+        pagination_policy: None,
+        text_measurement: None,
+    })
 }

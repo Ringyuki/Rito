@@ -7,6 +7,8 @@ import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 
 export type { CanvasRenderingTarget } from './frame-command-renderer';
 
+type CanvasImageResolver = ReturnType<typeof createCanvasImageResolver>;
+
 export function renderSpreadToBoundCanvas(
   state: BrowserReaderState,
   index: number,
@@ -31,10 +33,17 @@ export function renderSpreadToContext(
     void ensureFrameLoaded(state, index);
     return false;
   }
-  preloadMissingFrameImages(state, index, frame, frame === visualPreviewFrame(state, index));
+  const resolveImage = createCanvasImageResolver(state.images);
+  preloadMissingFrameImages(
+    state,
+    index,
+    frame,
+    frame === visualPreviewFrame(state, index),
+    resolveImage,
+  );
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   paintBackground(ctx, state.bgColor);
-  renderFrameToCanvas(ctx, frame, state);
+  renderFrameToCanvas(ctx, frame, state, resolveImage);
   return true;
 }
 
@@ -59,9 +68,9 @@ function preloadMissingFrameImages(
   index: number,
   frame: BrowserReaderFrame,
   usesVisualPreview: boolean,
+  resolveImage: CanvasImageResolver,
 ): void {
   if (typeof createImageBitmap === 'undefined') return;
-  const resolveImage = createCanvasImageResolver(state.images);
   for (const href of frame.resourceRefs.images) {
     if (resolveImage(href) === undefined) {
       if (usesVisualPreview) return;
@@ -75,12 +84,13 @@ function renderFrameToCanvas(
   ctx: CanvasRenderingTarget,
   frame: BrowserReaderFrame,
   state: BrowserReaderState,
+  resolveImage: CanvasImageResolver,
 ): void {
   const pixelRatio = framePixelRatio(ctx, frame.width, frame.height);
   if (pixelRatio === undefined) return;
   renderFrameCommandsToCanvas(frame.commands, ctx, {
     pixelRatio,
-    resolveImage: createCanvasImageResolver(state.images),
+    resolveImage,
     ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
   });
 }

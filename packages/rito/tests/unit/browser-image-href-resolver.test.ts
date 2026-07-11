@@ -39,6 +39,48 @@ describe('browser image href resolver', () => {
     expect(resolve('OPS-1/Images/cover.jpg')).toBe(first);
   });
 
+  it('resolves literal sources against percent-encoded resource keys', () => {
+    const image = imageBitmap('encoded-key');
+    const images = new Map([['Images/My%20Pic.jpg', image]]);
+
+    expect(createCanvasImageResolver(images)('../Images/My Pic.jpg')).toBe(image);
+    expect(buildReferenceHrefResolver(images)('../Images/My Pic.jpg')).toBe(image);
+  });
+
+  it('keeps raw precedence and rejects unsafe alias fallbacks', () => {
+    const encoded = imageBitmap('encoded');
+    const literal = imageBitmap('literal');
+    const aliases = new Map([
+      ['Images/My%20Pic.jpg', encoded],
+      ['Images/My Pic.jpg', literal],
+    ]);
+
+    for (const resolve of [
+      createCanvasImageResolver(aliases),
+      buildReferenceHrefResolver(aliases),
+    ]) {
+      expect(resolve('Images/My%20Pic.jpg')).toBe(encoded);
+      expect(resolve('Images/My Pic.jpg')).toBe(literal);
+      expect(resolve('Images/My%20%50ic.jpg')).toBeUndefined();
+    }
+
+    const doubleEncoded = new Map([['Images/My%2520Pic.jpg', encoded]]);
+    const malformedAlias = new Map([['Images/100%25.jpg', encoded]]);
+    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
+      expect(build(doubleEncoded)('Images/My%20Pic.jpg')).toBeUndefined();
+      expect(build(malformedAlias)('Images/100%.jpg')).toBeUndefined();
+    }
+
+    const shorterFallback = new Map([
+      ['A%2Fpic.jpg', encoded],
+      ['A/pic.jpg', literal],
+      ['pic.jpg', imageBitmap('shorter')],
+    ]);
+    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
+      expect(build(shorterFallback)('A/%70ic.jpg')).toBeUndefined();
+    }
+  });
+
   it('returns undefined for missing and malformed percent-encoded hrefs', () => {
     const resolve = createCanvasImageResolver(
       new Map([['Images/cover.jpg', imageBitmap('cover')]]),

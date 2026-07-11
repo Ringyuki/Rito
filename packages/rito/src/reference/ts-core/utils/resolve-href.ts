@@ -1,116 +1,134 @@
 /** Pre-computed lookup tables for O(1) href resolution. */
 interface HrefIndex<T> {
-  readonly byHref: ReadonlyMap<string, T>;
+  readonly raw: HrefLookupIndex<T>;
+  readonly aliases: HrefLookupIndex<T>;
+}
+
+interface HrefLookupIndex<T> {
+  readonly byHref: ReadonlyMap<string, T | null>;
   readonly bySuffix: ReadonlyMap<string, T | null>;
   readonly byBasename: ReadonlyMap<string, T | null>;
 }
 
-/** Build index maps from resource hrefs for fast lookup. */
-function buildHrefIndex<T>(resources: ReadonlyMap<string, T>): HrefIndex<T> {
-  const byHref = new Map<string, T>();
-  // null = ambiguous (multiple hrefs share this suffix or basename)
-  const bySuffix = new Map<string, T | null>();
-  const byBasename = new Map<string, T | null>();
-
-  for (const [href, value] of resources) {
-    byHref.set(href, value);
-
-    // Build suffix entries for every trailing path segment of this href.
-    // e.g. "OEBPS/Images/cover.jpg" -> suffixes: "Images/cover.jpg", "cover.jpg"
-    // The full href itself is already in byHref, so we skip it for bySuffix.
-    const parts = href.split('/');
-    for (let i = 1; i < parts.length; i++) {
-      const suffix = parts.slice(i).join('/');
-      bySuffix.set(suffix, bySuffix.has(suffix) ? null : value);
-    }
-
-    const basename = parts[parts.length - 1] ?? href;
-    byBasename.set(basename, byBasename.has(basename) ? null : value);
-  }
-
-  return { byHref, bySuffix, byBasename };
+interface MutableHrefLookupIndex<T> {
+  readonly byHref: Map<string, T | null>;
+  readonly bySuffix: Map<string, T | null>;
+  readonly byBasename: Map<string, T | null>;
 }
 
-/** Strip leading "../" segments from a path. */
-function stripRelativePrefix(src: string): string {
-  let normalized = src;
-  while (normalized.startsWith('../')) {
-    normalized = normalized.slice(3);
-  }
-  return normalized;
-}
-
-/** Percent-decode an href, falling back to the raw value if malformed. */
-function percentDecode(src: string): string {
-  if (!src.includes('%')) return src;
-  try {
-    return decodeURIComponent(src);
-  } catch {
-    return src;
-  }
-}
+const AMBIGUOUS_HREF = Symbol('ambiguous resource href');
 
 /**
  * Build a lookup function that resolves an EPUB-internal src reference
  * (e.g., `../Images/cover.jpg`) against a map keyed by manifest hrefs
  * (e.g., `Images/cover.jpg`).
  *
- * The lookup tries in order:
- * 1. Exact match on the href key
- * 2. Suffix match via pre-built suffix map (O(1) per path depth)
- * 3. Basename match (only if the basename is unique in the map)
+ * Raw source/key matching always wins. If that complete lookup misses, one
+ * valid percent-decoding pass is applied symmetrically to the source and keys.
  */
 export function buildHrefResolver<T>(
   resources: ReadonlyMap<string, T>,
 ): (src: string) => T | undefined {
   const index = buildHrefIndex(resources);
-
-  return (src: string): T | undefined => {
-    // Try the raw src first, then a percent-decoded form. EPUB hrefs are URLs,
-    // so `Images/My%20Pic.jpg` must resolve to a literal `Images/My Pic.jpg` key.
-    const direct = resolveAgainstIndex(index, src);
-    if (direct !== undefined) return direct;
-    const decoded = percentDecode(src);
-    return decoded === src ? undefined : resolveAgainstIndex(index, decoded);
+  return (src) => {
+    const direct = resolveAgainstIndex(index.raw, src, false);
+    if (direct !== undefined && direct !== AMBIGUOUS_HREF) return direct;
+    const alias = percentDecode(src);
+    if (alias === undefined) return undefined;
+    const resolved = resolveAgainstIndex(index.aliases, alias, true);
+    return resolved === AMBIGUOUS_HREF ? undefined : resolved;
   };
 }
 
+function buildHrefIndex<T>(resources: ReadonlyMap<string, T>): HrefIndex<T> {
+  const raw = emptyLookupIndex<T>();
+  const aliases = emptyLookupIndex<T>();
+
+  for (const [href, value] of resources) {
+    insertHref(raw, href, value, false);
+    insertHref(aliases, percentDecode(href) ?? href, value, true);
+  }
+
+  return { raw, aliases };
+}
+
+function emptyLookupIndex<T>(): MutableHrefLookupIndex<T> {
+  return {
+    byHref: new Map(),
+    bySuffix: new Map(),
+    byBasename: new Map(),
+  };
+}
+
+function insertHref<T>(
+  index: MutableHrefLookupIndex<T>,
+  href: string,
+  value: T,
+  exactCanConflict: boolean,
+): void {
+  if (exactCanConflict) insertUnique(index.byHref, href, value);
+  else index.byHref.set(href, value);
+
+  const parts = href.split('/');
+  for (let partIndex = 1; partIndex < parts.length; partIndex += 1) {
+    insertUnique(index.bySuffix, parts.slice(partIndex).join('/'), value);
+  }
+  insertUnique(index.byBasename, parts.at(-1) ?? href, value);
+}
+
+function insertUnique<T>(values: Map<string, T | null>, key: string, value: T): void {
+  values.set(key, values.has(key) ? null : value);
+}
+
 function resolveAgainstIndex<T>(
-  { byHref, bySuffix, byBasename }: HrefIndex<T>,
+  { byHref, bySuffix, byBasename }: HrefLookupIndex<T>,
   src: string,
-): T | undefined {
-  // 1. Exact match
-  const exact = byHref.get(src);
+  stopOnAmbiguous: boolean,
+): T | typeof AMBIGUOUS_HREF | undefined {
+  const exact = lookupCandidate(byHref, src, stopOnAmbiguous);
   if (exact !== undefined) return exact;
 
-  // 2. Suffix match via pre-built maps.
   const normalized = stripRelativePrefix(src);
+  const suffixDirect = lookupCandidate(bySuffix, normalized, stopOnAmbiguous);
+  if (suffixDirect !== undefined) return suffixDirect;
 
-  // Check normalized src in suffix map: handles href.endsWith(src) case.
-  const suffixDirect = bySuffix.get(normalized);
-  if (suffixDirect !== undefined && suffixDirect !== null) return suffixDirect;
-
-  // Check if stripping ../ yields an exact href match.
   if (normalized !== src) {
-    const afterStrip = byHref.get(normalized);
+    const afterStrip = lookupCandidate(byHref, normalized, stopOnAmbiguous);
     if (afterStrip !== undefined) return afterStrip;
   }
 
-  // Check path suffixes of normalized src against exact hrefs:
-  // handles src.endsWith(href) case.
   const srcParts = normalized.split('/');
-  for (let i = 1; i < srcParts.length; i++) {
-    const srcSuffix = srcParts.slice(i).join('/');
-    const hrefMatch = byHref.get(srcSuffix);
+  for (let index = 1; index < srcParts.length; index += 1) {
+    const hrefMatch = lookupCandidate(byHref, srcParts.slice(index).join('/'), stopOnAmbiguous);
     if (hrefMatch !== undefined) return hrefMatch;
   }
 
-  // 3. Basename match (only if unambiguous)
-  const srcBasename = srcParts[srcParts.length - 1];
-  if (srcBasename) {
-    const match = byBasename.get(srcBasename);
-    if (match !== undefined && match !== null) return match;
-  }
-
+  const srcBasename = srcParts.at(-1);
+  if (srcBasename) return lookupCandidate(byBasename, srcBasename, stopOnAmbiguous);
   return undefined;
+}
+
+function lookupCandidate<T>(
+  values: ReadonlyMap<string, T | null>,
+  key: string,
+  stopOnAmbiguous: boolean,
+): T | typeof AMBIGUOUS_HREF | undefined {
+  const value = values.get(key);
+  if (value !== null) return value;
+  return stopOnAmbiguous ? AMBIGUOUS_HREF : undefined;
+}
+
+function stripRelativePrefix(src: string): string {
+  let normalized = src;
+  while (normalized.startsWith('../')) normalized = normalized.slice(3);
+  return normalized;
+}
+
+function percentDecode(src: string): string | undefined {
+  if (!src.includes('%')) return src;
+  try {
+    return decodeURIComponent(src);
+  } catch {
+    return undefined;
+  }
 }

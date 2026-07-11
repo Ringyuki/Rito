@@ -65,4 +65,43 @@ describe('buildHrefResolver', () => {
     expect(resolve('Images/My%20Pic.jpg')).toBe('blob:pic');
     expect(resolve('../Images/My%20Pic.jpg')).toBe('blob:pic');
   });
+
+  it('resolves a literal src to a percent-encoded key', () => {
+    const resolve = buildHrefResolver(new Map([['Images/My%20Pic.jpg', 'blob:pic']]));
+
+    expect(resolve('../Images/My Pic.jpg')).toBe('blob:pic');
+  });
+
+  it('preserves raw keys before rejecting decoded alias collisions', () => {
+    const resolve = buildHrefResolver(
+      new Map([
+        ['Images/My%20Pic.jpg', 'blob:encoded'],
+        ['Images/My Pic.jpg', 'blob:literal'],
+      ]),
+    );
+
+    expect(resolve('Images/My%20Pic.jpg')).toBe('blob:encoded');
+    expect(resolve('Images/My Pic.jpg')).toBe('blob:literal');
+    expect(resolve('Images/My%20%50ic.jpg')).toBeUndefined();
+  });
+
+  it('does not double-decode aliases or alias malformed sources', () => {
+    const doubleEncoded = buildHrefResolver(new Map([['Images/My%2520Pic.jpg', 'blob:double']]));
+    const malformedAlias = buildHrefResolver(new Map([['Images/100%25.jpg', 'blob:percent']]));
+
+    expect(doubleEncoded('Images/My%20Pic.jpg')).toBeUndefined();
+    expect(malformedAlias('Images/100%.jpg')).toBeUndefined();
+  });
+
+  it('does not use a shorter fallback after an alias collision', () => {
+    const resolve = buildHrefResolver(
+      new Map([
+        ['A%2Fpic.jpg', 'blob:encoded'],
+        ['A/pic.jpg', 'blob:literal'],
+        ['pic.jpg', 'blob:shorter'],
+      ]),
+    );
+
+    expect(resolve('A/%70ic.jpg')).toBeUndefined();
+  });
 });
