@@ -51,6 +51,18 @@ export function relativeArchivePath(baseDirectory: string, path: string): string
   return [...base.slice(common).map(() => '..'), ...target.slice(common)].join('/');
 }
 
+/** Express a physical archive path as an unambiguous EPUB URL-valued href. */
+export function relativeArchiveHref(baseDirectory: string, path: string): string {
+  let href = '';
+  for (const character of relativeArchivePath(baseDirectory, path)) {
+    if (character === '%') href += '%25';
+    else if (character === '?') href += '%3F';
+    else if (character === '#') href += '%23';
+    else href += character;
+  }
+  return href;
+}
+
 function stripQueryAndFragment(href: string): string {
   const query = href.indexOf('?');
   const fragment = href.indexOf('#');

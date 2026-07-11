@@ -1,9 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::resources::{detect_image_dimensions, hash_bytes, is_image_media_type};
 
-use super::{archive, join_zip_path, BinaryResourceLoading, LoadedBinaryResource, PackageDocument};
-use crate::epub::{archive::ArchiveEntryMetadata, paths::relative_zip_path};
+use super::{
+    archive, join_epub_href, BinaryResourceLoading, LoadedBinaryResource, PackageDocument,
+};
+use crate::epub::{archive::ArchiveEntryMetadata, paths::relative_epub_href};
 
 pub(super) fn append_archive_image_resources(
     archive: &mut archive::EpubArchive<'_>,
@@ -11,12 +13,13 @@ pub(super) fn append_archive_image_resources(
     opf_dir: &str,
     loading: BinaryResourceLoading,
     images: &mut Vec<LoadedBinaryResource>,
-) {
+) -> BTreeMap<String, ArchiveEntryMetadata> {
     let declared_entries = declared_image_entry_ids(archive, package, opf_dir);
     let mut logical_hrefs = images
         .iter()
         .map(|image| image.href.clone())
         .collect::<BTreeSet<_>>();
+    let mut fallback_entries = BTreeMap::new();
 
     for entry in archive.file_entries() {
         if declared_entries.contains(&entry.entry_id) {
@@ -25,14 +28,18 @@ pub(super) fn append_archive_image_resources(
         let Some(media_type) = image_media_type_from_path(&entry.path) else {
             continue;
         };
-        let href = relative_zip_path(opf_dir, &entry.path);
+        let href = relative_epub_href(opf_dir, &entry.path);
         if href.is_empty() || !logical_hrefs.insert(href.clone()) {
             continue;
         }
-        if let Some(resource) = load_archive_image(archive, &entry, href, media_type, loading) {
+        if let Some(resource) =
+            load_archive_image(archive, &entry, href.clone(), media_type, loading)
+        {
+            fallback_entries.insert(href, entry);
             images.push(resource);
         }
     }
+    fallback_entries
 }
 
 fn declared_image_entry_ids(
@@ -46,7 +53,7 @@ fn declared_image_entry_ids(
         .filter(|item| is_image_media_type(&item.media_type))
         .filter_map(|item| {
             archive
-                .entry_metadata(&join_zip_path(opf_dir, &item.href))
+                .entry_metadata(&join_epub_href(opf_dir, &item.href))
                 .ok()
                 .map(|entry| entry.entry_id)
         })

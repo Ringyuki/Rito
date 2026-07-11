@@ -9,7 +9,7 @@ import type { EpubDocument, LoadOptions } from './types';
 import { createLogger, type Logger } from '../utils/logger';
 import {
   archiveDirname,
-  relativeArchivePath,
+  relativeArchiveHref,
   resolveArchiveHref,
 } from '../parser/epub/archive-path';
 
@@ -79,7 +79,7 @@ function normalizePackagePaths(pkg: PackageDocument, opfDir: string, log: Logger
   const manifest = pkg.manifest.map((item) => {
     try {
       const archivePath = resolveArchiveHref(opfDir, item.href);
-      return { ...item, href: relativeArchivePath(opfDir, archivePath) };
+      return { ...item, href: relativeArchiveHref(opfDir, archivePath) };
     } catch (error) {
       log.warn('Manifest href will not be loaded because it is unsafe (%s): %s', item.href, error);
       return item;
@@ -162,7 +162,7 @@ function loadManifestResources(
   // still resolve. Keyed opfDir-relative to match the resolver's href matching.
   for (const fullPath of reader.listFiles()) {
     if (!IMAGE_EXTENSIONS_RE.test(fullPath)) continue;
-    const key = relativeArchivePath(opfDir, fullPath);
+    const key = relativeArchiveHref(opfDir, fullPath);
     if (images.has(key)) continue;
     try {
       images.set(key, reader.readFile(fullPath));

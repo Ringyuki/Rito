@@ -3,7 +3,7 @@ use crate::resources::{
 };
 
 use super::super::{
-    archive, join_zip_path, opf_dir, parser, toc, EpubError, EpubResult, PackageDocument,
+    archive, join_epub_href, opf_dir, parser, toc, EpubError, EpubResult, PackageDocument,
 };
 use super::{
     LoadedArchiveSource, LoadedBinaryResource, LoadedChapter, LoadedEpubDocument,
@@ -51,7 +51,7 @@ fn open_document_with_chapter_loading_owned(
 ) -> EpubResult<LoadedEpubDocument> {
     let mut archive = archive::EpubArchive::new(&bytes)?;
     let container_xml = archive.read_text(super::super::CONTAINER_PATH)?;
-    let rootfile_path = parser::parse_container(&container_xml)?;
+    let rootfile_path = join_epub_href("", &parser::parse_container(&container_xml)?);
     let opf_xml = archive.read_text(&rootfile_path)?;
     let mut package = parser::parse_package_document(&opf_xml)?;
     let opf_dir = opf_dir(&rootfile_path);
@@ -78,7 +78,13 @@ fn open_document_with_chapter_loading_owned(
         true,
         binary_loading,
     );
-    append_archive_image_resources(&mut archive, &package, opf_dir, binary_loading, &mut images);
+    let archive_image_entries = append_archive_image_resources(
+        &mut archive,
+        &package,
+        opf_dir,
+        binary_loading,
+        &mut images,
+    );
     let chapters = load_chapters(&mut archive, &package, opf_dir, chapter_loading)?;
 
     Ok(LoadedEpubDocument {
@@ -90,6 +96,7 @@ fn open_document_with_chapter_loading_owned(
         archive_source: Some(LoadedArchiveSource {
             bytes,
             opf_dir: opf_dir.to_owned(),
+            archive_image_entries,
         }),
     })
 }
@@ -107,7 +114,7 @@ fn load_text_resources(
         .filter(|item| item.media_type == "text/css")
         .filter_map(|item| {
             let text = archive
-                .read_text(&join_zip_path(opf_dir, &item.href))
+                .read_text(&join_epub_href(opf_dir, &item.href))
                 .ok()?;
             Some(LoadedTextResource {
                 href: item.href.clone(),
@@ -130,7 +137,7 @@ fn load_binary_resources(
         .iter()
         .filter(|item| matches_media_type(&item.media_type))
         .filter_map(|item| {
-            let path = join_zip_path(opf_dir, &item.href);
+            let path = join_epub_href(opf_dir, &item.href);
             let bytes = match loading {
                 BinaryResourceLoading::Eager => archive.read_bytes(&path).ok()?,
                 BinaryResourceLoading::Indexed => Vec::new(),
@@ -185,7 +192,7 @@ fn load_chapters(
             let xhtml_source = if !should_load {
                 String::new()
             } else {
-                archive.read_text(&join_zip_path(opf_dir, &href))?
+                archive.read_text(&join_epub_href(opf_dir, &href))?
             };
             Ok(LoadedChapter {
                 idref: spine.idref.clone(),

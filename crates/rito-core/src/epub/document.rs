@@ -5,9 +5,12 @@ use crate::{
     xhtml::{parse_xhtml, DocumentNode},
 };
 
-use super::{archive, join_zip_path, EpubError, EpubResult, PackageDocument};
+use super::{archive, join_epub_href, EpubError, EpubResult, PackageDocument};
 
+mod archive_source;
 mod open;
+
+use archive_source::{ArchiveResourceKind, LoadedArchiveSource};
 
 pub use open::{open_document, open_runtime_document, open_runtime_document_owned};
 
@@ -37,12 +40,6 @@ pub struct LoadedChapter {
     pub xhtml_source: String,
     pub source_loaded: bool,
     pub image_refs: Option<Vec<String>>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct LoadedArchiveSource {
-    bytes: Vec<u8>,
-    opf_dir: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,7 +87,7 @@ impl LoadedEpubDocument {
                 chapter.xhtml_source.clear();
             } else {
                 chapter.xhtml_source =
-                    archive.read_text(&join_zip_path(&source.opf_dir, &chapter.href))?;
+                    archive.read_text(&join_epub_href(&source.opf_dir, &chapter.href))?;
             }
             chapter.source_loaded = true;
             chapter.image_refs = None;
@@ -117,7 +114,11 @@ impl LoadedEpubDocument {
             if !resource.bytes.is_empty() {
                 continue;
             }
-            let bytes = source.read_bytes_with_archive(&mut archive, &resource.href)?;
+            let bytes = source.read_bytes_with_archive(
+                &mut archive,
+                &resource.href,
+                ArchiveResourceKind::Font,
+            )?;
             resource.byte_length = bytes.len();
             resource.byte_hash = Some(hash_bytes(&bytes));
             resource.bytes = bytes;
@@ -136,11 +137,21 @@ impl LoadedEpubDocument {
     }
 
     pub fn read_font_bytes(&mut self, href: &str) -> EpubResult<Option<Vec<u8>>> {
-        read_binary_resource_bytes(self.archive_source.as_ref(), &mut self.fonts, href)
+        read_binary_resource_bytes(
+            self.archive_source.as_ref(),
+            &mut self.fonts,
+            href,
+            ArchiveResourceKind::Font,
+        )
     }
 
     pub fn read_image_bytes(&mut self, href: &str) -> EpubResult<Option<Vec<u8>>> {
-        read_binary_resource_bytes(self.archive_source.as_ref(), &mut self.images, href)
+        read_binary_resource_bytes(
+            self.archive_source.as_ref(),
+            &mut self.images,
+            href,
+            ArchiveResourceKind::Image,
+        )
     }
 
     pub fn stylesheet(&self, href: &str) -> Option<&str> {
@@ -175,7 +186,7 @@ impl LoadedEpubDocument {
         let Some(href) = self.fonts.get(index).map(|resource| resource.href.clone()) else {
             return Ok(());
         };
-        let bytes = self.read_archive_bytes(&href)?;
+        let bytes = self.read_archive_bytes(&href, ArchiveResourceKind::Font)?;
         if let Some(resource) = self.fonts.get_mut(index) {
             resource.byte_length = bytes.len();
             resource.byte_hash = Some(hash_bytes(&bytes));
@@ -204,7 +215,7 @@ impl LoadedEpubDocument {
         else {
             return Ok(());
         };
-        let bytes = self.read_archive_bytes(&resource_href)?;
+        let bytes = self.read_archive_bytes(&resource_href, ArchiveResourceKind::Image)?;
         let dimensions = detect_image_dimensions(&bytes);
         if let Some(resource) = self.images.get_mut(index) {
             set_image_dimensions(resource, dimensions);
@@ -259,13 +270,17 @@ impl LoadedEpubDocument {
         Ok(())
     }
 
-    fn read_archive_bytes(&self, href: &str) -> EpubResult<Vec<u8>> {
+    fn read_archive_bytes(
+        &self,
+        href: &str,
+        resource_kind: ArchiveResourceKind,
+    ) -> EpubResult<Vec<u8>> {
         let Some(source) = self.archive_source.as_ref() else {
             return Err(EpubError::new(format!(
                 "resource bytes are not loaded: {href}"
             )));
         };
-        source.read_bytes(href)
+        source.read_bytes(href, resource_kind)
     }
 }
 
@@ -273,6 +288,7 @@ fn read_binary_resource_bytes(
     source: Option<&LoadedArchiveSource>,
     resources: &mut [LoadedBinaryResource],
     href: &str,
+    resource_kind: ArchiveResourceKind,
 ) -> EpubResult<Option<Vec<u8>>> {
     let Some(index) = find_resource_index(resources, href) else {
         return Ok(None);
@@ -286,26 +302,11 @@ fn read_binary_resource_bytes(
             "resource bytes are not loaded: {resource_href}"
         )));
     };
-    let bytes = source.read_bytes(&resource_href)?;
+    let bytes = source.read_bytes(&resource_href, resource_kind)?;
     resources[index].byte_length = bytes.len();
     resources[index].byte_hash = Some(hash_bytes(&bytes));
     resources[index].bytes = bytes.clone();
     Ok(Some(bytes))
-}
-
-impl LoadedArchiveSource {
-    fn read_bytes(&self, href: &str) -> EpubResult<Vec<u8>> {
-        let mut archive = archive::EpubArchive::new(&self.bytes)?;
-        self.read_bytes_with_archive(&mut archive, href)
-    }
-
-    fn read_bytes_with_archive(
-        &self,
-        archive: &mut archive::EpubArchive<'_>,
-        href: &str,
-    ) -> EpubResult<Vec<u8>> {
-        archive.read_bytes(&join_zip_path(&self.opf_dir, href))
-    }
 }
 
 fn cached_chapter_image_refs(chapter: &mut LoadedChapter) -> &[String] {
@@ -348,7 +349,8 @@ fn ensure_image_dimensions_loaded_with_archive(
         set_image_dimensions(&mut images[index], dimensions);
         return Ok(());
     }
-    let bytes = source.read_bytes_with_archive(archive, &images[index].href)?;
+    let bytes =
+        source.read_bytes_with_archive(archive, &images[index].href, ArchiveResourceKind::Image)?;
     let dimensions = detect_image_dimensions(&bytes);
     set_image_dimensions(&mut images[index], dimensions);
     images[index].byte_length = bytes.len();

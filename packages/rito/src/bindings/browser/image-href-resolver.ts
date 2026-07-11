@@ -1,5 +1,6 @@
 interface ImageHrefIndex {
-  readonly raw: ImageHrefLookupIndex;
+  readonly rawExact: ReadonlyMap<string, ImageBitmap>;
+  readonly paths: ImageHrefLookupIndex;
   readonly aliases: ImageHrefLookupIndex;
 }
 
@@ -23,9 +24,12 @@ export function createCanvasImageResolver(
 ): (src: string) => ImageBitmap | undefined {
   const index = buildImageHrefIndex(images);
   return (src) => {
-    const direct = resolveAgainstIndex(index.raw, src, false);
-    if (direct !== undefined && direct !== AMBIGUOUS_HREF) return direct;
-    const alias = percentDecode(src);
+    const exact = index.rawExact.get(src);
+    if (exact !== undefined) return exact;
+    const path = resolveAgainstIndex(index.paths, sourcePath(src), true);
+    if (path === AMBIGUOUS_HREF) return undefined;
+    if (path !== undefined) return path;
+    const alias = sourceAlias(src);
     if (alias === undefined) return undefined;
     const resolved = resolveAgainstIndex(index.aliases, alias, true);
     return resolved === AMBIGUOUS_HREF ? undefined : resolved;
@@ -33,15 +37,17 @@ export function createCanvasImageResolver(
 }
 
 function buildImageHrefIndex(images: ReadonlyMap<string, ImageBitmap>): ImageHrefIndex {
-  const raw = emptyLookupIndex();
+  const rawExact = new Map<string, ImageBitmap>();
+  const paths = emptyLookupIndex();
   const aliases = emptyLookupIndex();
 
   for (const [href, image] of images) {
-    insertHref(raw, href, image, false);
-    insertHref(aliases, percentDecode(href) ?? href, image, true);
+    rawExact.set(href, image);
+    insertHref(paths, resourcePath(href), image);
+    insertHref(aliases, resourceAlias(href), image);
   }
 
-  return { raw, aliases };
+  return { rawExact, paths, aliases };
 }
 
 function emptyLookupIndex(): MutableImageHrefLookupIndex {
@@ -52,14 +58,8 @@ function emptyLookupIndex(): MutableImageHrefLookupIndex {
   };
 }
 
-function insertHref(
-  index: MutableImageHrefLookupIndex,
-  href: string,
-  image: ImageBitmap,
-  exactCanConflict: boolean,
-): void {
-  if (exactCanConflict) insertUnique(index.byHref, href, image);
-  else index.byHref.set(href, image);
+function insertHref(index: MutableImageHrefLookupIndex, href: string, image: ImageBitmap): void {
+  insertUnique(index.byHref, href, image);
   const parts = href.split('/');
   for (let partIndex = 1; partIndex < parts.length; partIndex += 1) {
     insertUnique(index.bySuffix, parts.slice(partIndex).join('/'), image);
@@ -84,13 +84,12 @@ function resolveAgainstIndex(
   if (exact !== undefined) return exact;
 
   const normalized = stripRelativePrefix(src);
-  const suffix = lookupCandidate(hrefIndex.bySuffix, normalized, stopOnAmbiguous);
-  if (suffix !== undefined) return suffix;
-
   if (normalized !== src) {
     const stripped = lookupCandidate(hrefIndex.byHref, normalized, stopOnAmbiguous);
     if (stripped !== undefined) return stripped;
   }
+  const suffix = lookupCandidate(hrefIndex.bySuffix, normalized, stopOnAmbiguous);
+  if (suffix !== undefined) return suffix;
 
   const parts = normalized.split('/');
   for (let index = 1; index < parts.length; index += 1) {
@@ -119,6 +118,28 @@ function stripRelativePrefix(src: string): string {
   let normalized = src;
   while (normalized.startsWith('../')) normalized = normalized.slice(3);
   return normalized;
+}
+
+function sourceAlias(href: string): string | undefined {
+  return percentDecode(sourcePath(href));
+}
+
+function resourceAlias(href: string): string {
+  const path = resourcePath(href);
+  return percentDecode(path) ?? path;
+}
+
+function resourcePath(href: string): string {
+  return sourcePath(href);
+}
+
+function sourcePath(href: string): string {
+  const query = href.indexOf('?');
+  const fragment = href.indexOf('#');
+  let end = href.length;
+  if (query >= 0) end = Math.min(end, query);
+  if (fragment >= 0) end = Math.min(end, fragment);
+  return href.slice(0, end);
 }
 
 function percentDecode(src: string): string | undefined {

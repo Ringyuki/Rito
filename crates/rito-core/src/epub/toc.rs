@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use roxmltree::{Document, Node};
 
 use super::{
-    archive::EpubArchive, join_zip_path, EpubResult, ManifestItem, PackageDocument, TocEntry,
+    archive::EpubArchive, join_epub_href, EpubResult, ManifestItem, PackageDocument, TocEntry,
 };
 
 const EPUB_OPS_NAMESPACE: &str = "http://www.idpf.org/2007/ops";
@@ -31,7 +31,7 @@ fn load_nav_toc(
     let nav_item = manifest
         .iter()
         .find(|item| item.properties.iter().any(|property| property == "nav"))?;
-    let path = join_zip_path(opf_dir, &nav_item.href);
+    let path = join_epub_href(opf_dir, &nav_item.href);
     let xhtml = archive.read_text(&path).ok()?;
     parse_nav_document(&xhtml).ok()
 }
@@ -44,7 +44,7 @@ fn load_ncx_toc(
     let ncx_item = manifest
         .iter()
         .find(|item| item.media_type == NCX_MEDIA_TYPE)?;
-    let path = join_zip_path(opf_dir, &ncx_item.href);
+    let path = join_epub_href(opf_dir, &ncx_item.href);
     let xml = archive.read_text(&path).ok()?;
     parse_ncx(&xml).ok()
 }

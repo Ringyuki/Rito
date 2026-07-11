@@ -39,6 +39,18 @@ describe('browser image href resolver', () => {
     expect(resolve('OPS-1/Images/cover.jpg')).toBe(first);
   });
 
+  it('prefers a stripped exact path before a longer resource suffix', () => {
+    const exact = imageBitmap('exact');
+    const suffix = imageBitmap('suffix');
+    const images = new Map([
+      ['Images/cover.jpg', exact],
+      ['Other/Images/cover.jpg', suffix],
+    ]);
+
+    expect(createCanvasImageResolver(images)('../Images/cover.jpg')).toBe(exact);
+    expect(buildReferenceHrefResolver(images)('../Images/cover.jpg')).toBe(exact);
+  });
+
   it('resolves literal sources against percent-encoded resource keys', () => {
     const image = imageBitmap('encoded-key');
     const images = new Map([['Images/My%20Pic.jpg', image]]);
@@ -78,6 +90,35 @@ describe('browser image href resolver', () => {
     ]);
     for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
       expect(build(shorterFallback)('A/%70ic.jpg')).toBeUndefined();
+    }
+  });
+
+  it('resolves query and fragment aliases without hiding collisions', () => {
+    const plain = imageBitmap('plain');
+    const queried = imageBitmap('queried');
+
+    for (const build of [createCanvasImageResolver, buildReferenceHrefResolver]) {
+      const resolvePlain = build(new Map([['Images/My%20Pic.jpg?manifest=%zz', plain]]));
+      expect(resolvePlain('../Images/My Pic.jpg?cache=%zz#view')).toBe(plain);
+      expect(resolvePlain('../Images/My Pic.jpg#view')).toBe(plain);
+
+      const resolveCollision = build(
+        new Map([
+          ['A/pic.jpg', plain],
+          ['A/pic.jpg?edition=2', queried],
+          ['pic.jpg', imageBitmap('shorter')],
+        ]),
+      );
+      expect(resolveCollision('A/pic.jpg?edition=2')).toBe(queried);
+      expect(resolveCollision('A/pic.jpg#view')).toBeUndefined();
+      expect(build(new Map([['Images/a%3Fb.jpg', plain]]))('Images/a?b.jpg')).toBeUndefined();
+
+      const resolveCover = build(new Map([['Images/cover.jpg', plain]]));
+      expect(resolveCover('missing.jpg?fallback=/Images/cover.jpg')).toBeUndefined();
+      expect(resolveCover('missing.jpg#fallback/Images/cover.jpg')).toBeUndefined();
+      expect(
+        build(new Map([['missing.jpg?fallback=/Images/cover.jpg', plain]]))('Images/cover.jpg'),
+      ).toBeUndefined();
     }
   });
 

@@ -119,6 +119,57 @@ fn resolves_literal_content_href_to_percent_encoded_manifest_resource() {
     assert_eq!((resource.width, resource.height), (Some(2), Some(3)));
 }
 
+#[test]
+fn resolves_query_and_fragment_hrefs_for_lazy_image_loading() {
+    let mut document = open_runtime_document_owned(query_fragment_fixture_epub())
+        .expect("query href fixture indexes lazily");
+
+    document
+        .ensure_chapter_image_dimensions_loaded(0, 1)
+        .expect("query image source resolves for dimension loading");
+
+    assert_eq!(document.images.len(), 1);
+    assert_eq!(
+        document.images[0].href,
+        "Images/Cover%20One.png?manifest=%zz"
+    );
+    assert_eq!(document.images[0].media_type, "image/png");
+    assert_eq!(
+        (document.images[0].width, document.images[0].height),
+        (Some(2), Some(3))
+    );
+    assert_eq!(
+        document
+            .read_image_bytes("../Images/Cover One.png?size=2#view")
+            .expect("query image source resolves for byte loading"),
+        Some(minimal_png())
+    );
+}
+
+#[test]
+fn transfers_query_and_fragment_image_refs_through_the_runtime() {
+    let bytes = query_fragment_fixture_epub();
+    let mut runtime = RuntimeDocument::open(&bytes).expect("runtime opens query href fixture");
+    let revision = runtime
+        .create_revision(&layout())
+        .expect("revision resolves query image source");
+    let source_href = "../Images/Cover One.png?size=2#view";
+    let frame = runtime
+        .get_frame(&revision.revision_id, 0)
+        .expect("query image frame is available");
+    assert!(frame.resource_refs.images.contains(&source_href.to_owned()));
+    let resource = runtime
+        .get_resource(
+            &revision.revision_id,
+            RuntimeResourceKind::Image,
+            source_href,
+        )
+        .expect("query image resource transfers");
+    assert_eq!(resource.href, "Images/Cover%20One.png?manifest=%zz");
+    assert_eq!(resource.bytes, minimal_png());
+    assert_eq!((resource.width, resource.height), (Some(2), Some(3)));
+}
+
 fn percent_encoded_fixture_epub() -> Vec<u8> {
     image_href_fixture_epub(
         "Text/Chapter%20One.xhtml",
@@ -146,6 +197,16 @@ fn percent_manifest_literal_content_fixture_epub() -> Vec<u8> {
         "Images/Cover%20One.png",
         "Images/Cover One.png",
         r#"<img src="../Images/Cover One.png"/>"#,
+    )
+}
+
+fn query_fragment_fixture_epub() -> Vec<u8> {
+    image_href_fixture_epub(
+        "Text/chapter.xhtml?edition=1#start",
+        "Text/chapter.xhtml",
+        "Images/Cover%20One.png?manifest=%zz",
+        "Images/Cover One.png",
+        r#"<img src="../Images/Cover One.png?size=2#view"/>"#,
     )
 }
 

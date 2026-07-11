@@ -1,18 +1,30 @@
 use std::borrow::Cow;
 
 pub(super) fn source_alias(value: &str) -> Option<Cow<'_, str>> {
-    match percent_decode_utf8(value) {
+    let path = source_path(value);
+    match percent_decode_utf8(path) {
         Ok(Some(decoded)) => Some(Cow::Owned(decoded)),
-        Ok(None) => Some(Cow::Borrowed(value)),
+        Ok(None) => Some(Cow::Borrowed(path)),
         Err(()) => None,
     }
 }
 
 pub(super) fn resource_alias(value: &str) -> Cow<'_, str> {
-    match percent_decode_utf8(value) {
+    let path = source_path(value);
+    match percent_decode_utf8(path) {
         Ok(Some(decoded)) => Cow::Owned(decoded),
-        Ok(None) | Err(()) => Cow::Borrowed(value),
+        Ok(None) | Err(()) => Cow::Borrowed(path),
     }
+}
+
+pub(super) fn source_path(value: &str) -> &str {
+    let query = value.find('?').unwrap_or(value.len());
+    let fragment = value.find('#').unwrap_or(value.len());
+    &value[..query.min(fragment)]
+}
+
+pub(super) fn resource_path(value: &str) -> Cow<'_, str> {
+    Cow::Borrowed(source_path(value))
 }
 
 fn percent_decode_utf8(value: &str) -> Result<Option<String>, ()> {

@@ -125,6 +125,60 @@ fn transfers_an_unmanifested_image_through_the_runtime_resource_path() {
     assert_eq!((resource.width, resource.height), (Some(2), Some(3)));
 }
 
+#[test]
+fn indexes_url_delimiters_in_physical_archive_image_names() {
+    let mut document = open_runtime_document_owned(url_delimiter_image_epub())
+        .expect("delimiter image fixture opens");
+
+    document
+        .ensure_chapter_image_dimensions_loaded(0, 1)
+        .expect("delimiter image dimensions load");
+
+    for (href, dimensions) in [
+        ("Images/literal%3Fmark.png", (Some(2), Some(3))),
+        ("Images/literal%253Fmark.png", (Some(4), Some(5))),
+        ("Images/hash%23mark.png", (Some(6), Some(7))),
+    ] {
+        let resource = image(&document, href);
+        assert_eq!((resource.width, resource.height), dimensions, "{href}");
+    }
+}
+
+#[test]
+fn transfers_distinct_physical_url_delimiter_images() {
+    let bytes = url_delimiter_image_epub();
+    let mut runtime = RuntimeDocument::open(&bytes).expect("delimiter runtime opens");
+    let revision = runtime
+        .create_revision(&layout())
+        .expect("delimiter revision is created");
+
+    for (href, canonical, width, height) in [
+        (
+            "../Images/literal%3Fmark.png",
+            "Images/literal%3Fmark.png",
+            2,
+            3,
+        ),
+        (
+            "../Images/literal%253Fmark.png",
+            "Images/literal%253Fmark.png",
+            4,
+            5,
+        ),
+        ("../Images/hash%23mark.png", "Images/hash%23mark.png", 6, 7),
+    ] {
+        let resource = runtime
+            .get_resource(&revision.revision_id, RuntimeResourceKind::Image, href)
+            .expect("delimiter image transfers");
+        assert_eq!(resource.href, canonical);
+        assert_eq!(resource.bytes, png(width, height));
+        assert_eq!(
+            (resource.width, resource.height),
+            (Some(width), Some(height))
+        );
+    }
+}
+
 fn image<'a>(
     document: &'a super::super::LoadedEpubDocument,
     href: &str,
@@ -158,6 +212,29 @@ fn declared_percent_image_epub() -> Vec<u8> {
         r#"<img src="../Images/Declared%20Tile.png"/>"#,
         &[("OPS/Images/Declared Tile.png", minimal_png())],
     )
+}
+
+fn url_delimiter_image_epub() -> Vec<u8> {
+    build_epub(
+        "",
+        concat!(
+            r#"<img src="../Images/literal%3Fmark.png"/>"#,
+            r#"<img src="../Images/literal%253Fmark.png"/>"#,
+            r#"<img src="../Images/hash%23mark.png"/>"#,
+        ),
+        &[
+            ("OPS/Images/literal?mark.png", png(2, 3)),
+            ("OPS/Images/literal%3Fmark.png", png(4, 5)),
+            ("OPS/Images/hash#mark.png", png(6, 7)),
+        ],
+    )
+}
+
+fn png(width: u32, height: u32) -> Vec<u8> {
+    let mut bytes = minimal_png();
+    bytes[16..20].copy_from_slice(&width.to_be_bytes());
+    bytes[20..24].copy_from_slice(&height.to_be_bytes());
+    bytes
 }
 
 fn build_epub(manifest: &str, chapter_body: &str, entries: &[(&str, Vec<u8>)]) -> Vec<u8> {

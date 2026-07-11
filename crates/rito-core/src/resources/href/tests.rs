@@ -24,6 +24,15 @@ fn resolves_longest_exact_manifest_tail_from_source_paths() {
 }
 
 #[test]
+fn prefers_stripped_exact_paths_before_longer_resource_suffixes() {
+    assert_resolves(
+        &["Images/pic.png", "Other/Images/pic.png"],
+        "../Images/pic.png",
+        Some(0),
+    );
+}
+
+#[test]
 fn rejects_ambiguous_raw_suffixes_and_basenames() {
     let hrefs = ["OPS/a/Images/pic.png", "OPS/b/Images/pic.png"];
     assert_resolves(&hrefs, "Images/pic.png", None);
@@ -45,6 +54,53 @@ fn ambiguous_aliases_do_not_fall_back_to_shorter_keys() {
 #[test]
 fn percent_aliases_are_decoded_only_once() {
     assert_resolves(&["Images/My%2520Pic.png"], "Images/My%20Pic.png", None);
+}
+
+#[test]
+fn resolves_query_and_fragment_aliases_symmetrically() {
+    assert_resolves(
+        &["Images/pic.png"],
+        "../Images/pic.png?size=2#view",
+        Some(0),
+    );
+    assert_resolves(&["Images/pic.png"], "../Images/pic.png#view", Some(0));
+    assert_resolves(
+        &["Images/My%20Pic.png?manifest=%zz"],
+        "../Images/My Pic.png?cache=%zz#view",
+        Some(0),
+    );
+}
+
+#[test]
+fn preserves_raw_query_precedence_and_rejects_canonical_collisions() {
+    let hrefs = ["A/pic.png", "A/pic.png?edition=2", "pic.png"];
+    assert_resolves(&hrefs, "A/pic.png?edition=2", Some(1));
+    assert_resolves(&hrefs, "A/pic.png#view", None);
+}
+
+#[test]
+fn ignores_path_separators_inside_url_suffixes() {
+    assert_resolves(
+        &["Images/cover.png"],
+        "missing.png?fallback=/Images/cover.png",
+        None,
+    );
+    assert_resolves(
+        &["Images/cover.png"],
+        "missing.png#fallback/Images/cover.png",
+        None,
+    );
+    assert_resolves(
+        &["missing.png?fallback=/Images/cover.png"],
+        "Images/cover.png",
+        None,
+    );
+}
+
+#[test]
+fn does_not_strip_percent_encoded_url_delimiters_after_decoding() {
+    assert_resolves(&["Images/a%3Fb.png"], "Images/a?b.png", None);
+    assert_resolves(&["Images/a%23b.png"], "Images/a#b.png", None);
 }
 
 #[test]
