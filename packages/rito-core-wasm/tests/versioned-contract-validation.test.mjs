@@ -1,0 +1,210 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+
+import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
+import { createRitoCoreWasmWorkerReaderClient } from '../dist/reader-worker-client-runtime.js';
+
+const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
+  async () => {},
+  unusedRawDocument,
+);
+
+test('direct bounded revisions reject forged progress, range, continuation, and status semantics', () => {
+  const forgeries = [
+    { ...advance(0, 'ready', true), processedTopLevelNodes: 2 },
+    {
+      ...advance(0, 'ready', true),
+      newlyKnownPages: { startPage: 0, endPageExclusive: 2 },
+    },
+    {
+      ...advance(0, 'ready', true),
+      previousKnownExtent: { pageCount: 1, spreadCount: 1 },
+    },
+    { ...advance(0, 'ready', true), continuation: undefined },
+    {
+      ...advance(0, 'complete', false),
+      continuation: { ...handle(0), cursor: 'cursor-forged' },
+    },
+    {
+      ...advance(0, 'ready', true),
+      continuation: { ...handle(0), cursor: '' },
+    },
+    { ...advance(0, 'cancelled', false) },
+    advanceWithExtent(0, 'warming', 1, 1),
+    advanceWithExtent(0, 'ready', 1, 0),
+  ];
+  for (const forged of forgeries) {
+    const document = new RitoCoreWasmDocument({
+      createBoundedRevisionJson: () => JSON.stringify(forged),
+    });
+    assert.throws(() => document.createBoundedRevision({ layoutConfig: {}, budget: budget() }));
+  }
+});
+
+test('direct versioned reads reject matching envelopes with forged embedded revisions', () => {
+  for (const [method, value] of [
+    ['getRevisionSummaryAtRevisionJson', summary(2, 'ready')],
+    ['getRevisionBundleAtRevisionJson', bundle(2)],
+  ]) {
+    const document = new RitoCoreWasmDocument({
+      [method]: () => JSON.stringify({ revision: handle(1), value }),
+    });
+    const invoke =
+      method === 'getRevisionSummaryAtRevisionJson'
+        ? () => document.getRevisionSummaryAtRevision(handle(1))
+        : () => document.getRevisionBundleAtRevision(handle(1));
+    assert.throws(invoke, /mismatched revision|non-sequential revisionVersion/);
+  }
+
+  const value = bundle(1);
+  value.navigation = { ...value.navigation, revisionId: 'rev-other' };
+  const document = new RitoCoreWasmDocument({
+    getRevisionBundleAtRevisionJson: () => JSON.stringify({ revision: handle(1), value }),
+  });
+  assert.throws(
+    () => document.getRevisionBundleAtRevision(handle(1)),
+    /navigation returned a mismatched revisionId/,
+  );
+});
+
+test('worker client rejects forged bounded and summary results behind a matching envelope', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+
+  let pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  worker.respondLast({
+    kind: 'createBoundedRevision',
+    revision: handle(0),
+    result: { ...advance(0, 'ready', true), revision: summary(1, 'ready') },
+  });
+  await assert.rejects(pending, /mismatched revision|non-sequential revisionVersion/);
+
+  pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
+  worker.respondLast({
+    kind: 'createBoundedRevision',
+    revision: handle(0),
+    result: { ...advance(0, 'ready', true), processedTopLevelNodes: 2 },
+  });
+  await assert.rejects(pending, /exceeded its top-level node budget/);
+
+  pending = client.continueRevision({ ...handle(1), cursor: 'cursor-1', budget: budget() });
+  const continued = advance(2, 'ready', true);
+  continued.continuation = { ...handle(3), cursor: 'cursor-3' };
+  worker.respondLast({ kind: 'continueRevision', revision: handle(2), result: continued });
+  await assert.rejects(pending, /mismatched revision handle/);
+
+  pending = client.cancelRevision(handle(1));
+  worker.respondLast({
+    kind: 'cancelRevision',
+    revision: handle(2),
+    result: summary(2, 'ready'),
+  });
+  await assert.rejects(pending, /invalid revision status/);
+
+  pending = client.getRevisionSummaryAtRevision(handle(1));
+  worker.respondLast({
+    kind: 'getRevisionSummaryAtRevision',
+    revision: handle(1),
+    result: summary(2, 'ready'),
+  });
+  await assert.rejects(pending, /non-sequential revisionVersion/);
+  client.dispose();
+});
+
+function advance(version, status, continuing) {
+  const revision = summary(version, status);
+  return {
+    revision,
+    previousKnownExtent: { pageCount: 0, spreadCount: 0 },
+    newlyKnownPages: { startPage: 0, endPageExclusive: revision.pageCount },
+    processedTopLevelNodes: 1,
+    ...(continuing
+      ? { continuation: { ...handle(version), cursor: `cursor-${String(version + 1)}` } }
+      : {}),
+  };
+}
+
+function advanceWithExtent(version, status, pageCount, spreadCount) {
+  const result = advance(version, status, status !== 'complete');
+  const knownExtent = { pageCount, spreadCount };
+  result.revision = {
+    ...result.revision,
+    knownExtent,
+    pageCount,
+    spreadCount,
+  };
+  result.newlyKnownPages = { startPage: 0, endPageExclusive: pageCount };
+  return result;
+}
+
+function summary(version, status) {
+  const knownExtent = { pageCount: 1, spreadCount: 1 };
+  return {
+    ...handle(version),
+    layoutKey: 'layout',
+    status,
+    knownExtent,
+    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
+    pageCount: 1,
+    spreadCount: 1,
+  };
+}
+
+function bundle(version) {
+  const revisionId = 'rev-1';
+  return {
+    revision: summary(version, 'ready'),
+    navigation: { revisionId },
+    tocTargets: { revisionId, targets: [] },
+    footnotes: { revisionId, entries: {} },
+    chapterTextIndices: { revisionId, entries: {} },
+    fontFamilies: [],
+  };
+}
+
+function handle(revisionVersion) {
+  return { revisionId: 'rev-1', revisionVersion };
+}
+
+function budget() {
+  return { maxTopLevelNodes: 1 };
+}
+
+async function openClient(worker) {
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+  const opening = client.open(new ArrayBuffer(0));
+  await Promise.resolve();
+  worker.respondLast({ kind: 'open', result: { publication: { title: 'fixture' } } });
+  await opening;
+  return client;
+}
+
+function unusedRawDocument() {
+  throw new Error('fixture constructs the wrapped document directly');
+}
+
+class ManualWorker {
+  listeners = new Map();
+  messages = [];
+
+  addEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    listeners.push(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  postMessage(message) {
+    this.messages.push(message);
+  }
+
+  terminate() {}
+
+  respondLast(payload) {
+    const { id } = this.messages.at(-1);
+    this.emit('message', { data: { id, ok: true, payload } });
+  }
+
+  emit(type, event) {
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
+}

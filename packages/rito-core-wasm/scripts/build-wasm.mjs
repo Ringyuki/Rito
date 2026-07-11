@@ -4,6 +4,8 @@ import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { documentClassDeclarations } from './document-declarations.mjs';
+
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoRoot = resolve(packageRoot, '../..');
 const dist = resolve(packageRoot, 'dist');
@@ -11,10 +13,14 @@ const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_
 const runtimeSources = [
   'core-wasm-error-runtime.js',
   'core-wasm-document-runtime.js',
+  'core-wasm-versioned-runtime.js',
+  'core-wasm-versioned-validation-runtime.js',
   'reader-compat-runtime.js',
   'reader-worker-cache-runtime.js',
   'reader-worker-client-runtime.js',
   'reader-worker-session-runtime.js',
+  'reader-worker-versioned-client-runtime.js',
+  'reader-worker-versioned-payload-runtime.js',
   'runtime-bundle-decoder-runtime.js',
   'frame-command-buffer-value-validation.js',
   'frame-command-buffer-paint-validation.js',
@@ -42,6 +48,7 @@ const typeDeclarationSources = [
   'resource',
   'search',
   'reader-worker',
+  'reader-worker-versioned',
   'runtime-bundle',
   'navigation',
   'page',
@@ -62,7 +69,7 @@ await mkdir(dist, { recursive: true });
 run('wasm-bindgen', [wasmInput, '--out-dir', dist, '--target', 'web', '--typescript']);
 await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
 
-const errorDeclarations = await readFile(errorDeclarationSource, 'utf8');
+const errorDeclarations = stripTypeOnlyImports(await readFile(errorDeclarationSource, 'utf8'));
 const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
 const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
 const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
@@ -132,6 +139,8 @@ function indexEntry() {
 }
 
 function documentDeclarations() {
+  const classDeclarations = documentClassDeclarations();
+  requireDocumentDeclarationContract(classDeclarations);
   return [
     'export interface RitoCoreWasmEngine {',
     '  openDocument(bytes: Uint8Array): RitoCoreWasmDocument;',
@@ -142,68 +151,20 @@ function documentDeclarations() {
     '    | Promise<InitInput>',
     '    | { readonly module_or_path: InitInput | Promise<InitInput> },',
     '): Promise<RitoCoreWasmEngine>;',
-    'export declare class RitoCoreWasmDocument {',
-    '  free(): void;',
-    '  publication(): RitoCoreWasmPublicationInfo;',
-    '  createFullRevisionBundle(',
-    '    request: RitoCoreWasmFullRevisionBundleRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse;',
-    '  createInitialPreviewRevisionBundle(',
-    '    request: RitoCoreWasmInitialPreviewRevisionRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse;',
-    '  createActiveChapterPreviewRevisionBundle(',
-    '    request: RitoCoreWasmActiveChapterPreviewRevisionRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
-    '  createPreviewRevisionBundle(',
-    '    request: RitoCoreWasmPreviewRevisionBundleRequest,',
-    '  ): RitoCoreWasmRevisionBundleResponse | undefined;',
-    '  createViewRevisionBundle(',
-    '    request: RitoCoreWasmViewRevisionRequest,',
-    '  ): RitoCoreWasmViewRevisionResponse;',
-    '  createViewRevisionBundleBytes(',
-    '    request: RitoCoreWasmViewRevisionRequest,',
-    '  ): RitoCoreWasmViewRevisionResponse;',
-    '  getFrame(revisionId: string, spreadIndex: number): RitoCoreWasmFrame;',
-    '  getFrameCommandBufferMetadata(',
-    '    revisionId: string,',
-    '    spreadIndex: number,',
-    '  ): RitoCoreWasmFrameCommandBufferMetadata;',
-    '  readFrameCommandBuffer(revisionId: string, spreadIndex: number): Uint8Array;',
-    '  getPageTargets(revisionId: string, pageIndex: number): RitoCoreWasmPageTargets;',
-    '  getPageTextPositions(revisionId: string, pageIndex: number): RitoCoreWasmPageTextPositions;',
-    '  getTextRangeGeometry(',
-    '    revisionId: string,',
-    '    request: RitoCoreWasmTextRangeGeometryRequest,',
-    '  ): RitoCoreWasmTextRangeGeometry;',
-    '  getFootnote(revisionId: string, key: string): RitoCoreWasmFootnote;',
-    '  getFootnotes(revisionId: string): RitoCoreWasmFootnotes;',
-    '  getChapterTextIndices(revisionId: string): RitoCoreWasmChapterTextIndices;',
-    '  search(revisionId: string, request: RitoCoreWasmSearchRequest): RitoCoreWasmSearchResponse;',
-    '  resolveLocator(revisionId: string, request: RitoCoreWasmLocatorRequest): RitoCoreWasmResolvedLocator;',
-    '  getResourcePayload(',
-    '    revisionId: string,',
-    '    kind: RitoCoreWasmResourceKind,',
-    '    href: string,',
-    '  ): RitoCoreWasmResourcePayload;',
-    '  prefetchResources(',
-    '    revisionId: string,',
-    '    request: RitoCoreWasmResourcePrefetchRequest,',
-    '  ): RitoCoreWasmResourcePrefetchResponse;',
-    '  prefetchPlannedFrameResources(',
-    '    revisionId: string,',
-    '    spreadIndex: number,',
-    '  ): RitoCoreWasmPlannedFrameResourcePrefetchResponse;',
-    '  readerWorkerPayload(',
-    '    request: RitoCoreWasmReaderWorkerRequest,',
-    '  ): RitoCoreWasmReaderWorkerResponsePayload;',
-    '  readResourceTransfer(transferId: string): Uint8Array;',
-    '  takeResourceTransfer(transferId: string): Uint8Array;',
-    '  releaseResourceTransfer(transferId: string): boolean;',
-    '  releaseRevisionTransfers(revisionId: string): number;',
-    '  releaseRevision(revisionId: string): boolean;',
-    '  pendingResourceTransferCount(): number;',
-    '}',
+    classDeclarations,
   ].join('\n');
+}
+
+function requireDocumentDeclarationContract(declaration) {
+  for (const required of [
+    'publication(): RitoCoreWasmPublicationInfo;',
+    'request: RitoCoreWasmFullRevisionBundleRequest,',
+    'takeResourceTransfer(transferId: string): Uint8Array;',
+  ]) {
+    if (!declaration.includes(required)) {
+      throw new Error(`Document declarations are missing: ${required}`);
+    }
+  }
 }
 
 function readerClientDeclarations() {
@@ -252,6 +213,8 @@ function createStatusFunctionSource() {
     '      plannedFrameResourcePrefetchJson: true,',
     '      searchJson: true,',
     '      resourceTransferLeases: true,',
+    '      versionedRevisionAccess: true,',
+    '      boundedRevisionControl: true,',
     '      wasmBindgen: true,',
     '      npmWasmArtifact,',
     '    },',

@@ -1,12 +1,19 @@
 import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 
+import { documentClassDeclarations } from './document-declarations.mjs';
+
 const dist = new URL('../dist/', import.meta.url);
 const runtimeSources = [
   'core-wasm-error-runtime.js',
+  'core-wasm-document-runtime.js',
+  'core-wasm-versioned-runtime.js',
+  'core-wasm-versioned-validation-runtime.js',
   'reader-compat-runtime.js',
   'reader-worker-cache-runtime.js',
   'reader-worker-client-runtime.js',
   'reader-worker-session-runtime.js',
+  'reader-worker-versioned-client-runtime.js',
+  'reader-worker-versioned-payload-runtime.js',
   'runtime-bundle-decoder-runtime.js',
   'frame-command-buffer-value-validation.js',
   'frame-command-buffer-paint-validation.js',
@@ -34,6 +41,7 @@ const typeDeclarationSources = [
   'resource',
   'search',
   'reader-worker',
+  'reader-worker-versioned',
   'runtime-bundle',
   'navigation',
   'page',
@@ -44,7 +52,7 @@ const typeDeclarationSources = [
 await mkdir(dist, { recursive: true });
 await Promise.all(runtimeSources.map(({ source, target }) => copyFile(source, target)));
 
-const errorDeclarations = await readFile(errorDeclarationSource, 'utf8');
+const errorDeclarations = stripTypeOnlyImports(await readFile(errorDeclarationSource, 'utf8'));
 const compatDeclarations = stripTypeOnlyImports(await readFile(compatDeclarationSource, 'utf8'));
 const decoderDeclarations = await readTypeDeclarations(decoderDeclarationSources);
 const typeDeclarations = await readTypeDeclarations(typeDeclarationSources);
@@ -126,6 +134,8 @@ function indexEntry() {
     '      plannedFrameResourcePrefetchJson: true,',
     '      searchJson: true,',
     '      resourceTransferLeases: true,',
+    '      versionedRevisionAccess: true,',
+    '      boundedRevisionControl: true,',
     '      wasmBindgen: true,',
     '      npmWasmArtifact: false,',
     '    },',
@@ -137,8 +147,11 @@ function indexEntry() {
 
 function placeholderEngineDeclaration() {
   return [
-    'export declare function initRitoCoreWasmEngine():',
-    '  Promise<RitoCoreWasmReaderEngineRuntime>;',
+    'export interface RitoCoreWasmEngine {',
+    '  openDocument(bytes: Uint8Array): RitoCoreWasmDocument;',
+    '}',
+    'export declare function initRitoCoreWasmEngine(): Promise<RitoCoreWasmEngine>;',
+    documentClassDeclarations({ typeOnly: true }),
   ].join('\n');
 }
 

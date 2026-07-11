@@ -1,4 +1,6 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
+import { installRitoCoreWasmVersionedDocumentMethods } from './core-wasm-versioned-runtime.js';
+import { versionedReaderWorkerPayload } from './reader-worker-versioned-payload-runtime.js';
 import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
@@ -209,6 +211,8 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     }
   }
 
+  installRitoCoreWasmVersionedDocumentMethods(RitoCoreWasmDocument);
+
   return { initRitoCoreWasmEngine, RitoCoreWasmDocument };
 }
 
@@ -236,8 +240,11 @@ function readerWorkerPayload(document, request) {
     case 'releaseRevision':
       document.releaseRevision(request.revisionId);
       return { kind: 'releaseRevision' };
-    default:
+    default: {
+      const versioned = versionedReaderWorkerPayload(document, request);
+      if (versioned !== undefined) return versioned;
       throw new Error(`Unsupported reader worker request: ${String(request.kind)}`);
+    }
   }
 }
 

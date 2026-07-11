@@ -28,6 +28,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
       ...status,
       rustFacade: {
         ...status.rustFacade,
+        createViewRevisionBundleBytes: true,
         npmWasmArtifact: true,
       },
     },
@@ -57,6 +58,8 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
         plannedFrameResourcePrefetchJson: true,
         searchJson: true,
         resourceTransferLeases: true,
+        versionedRevisionAccess: true,
+        boundedRevisionControl: true,
         wasmBindgen: true,
         npmWasmArtifact: true,
       },
@@ -99,10 +102,11 @@ test('decoder entry exposes the WASM-free browser runtime surface', async () => 
 });
 
 test('generated type surface does not expose publication and layout as generic JSON', async () => {
-  const [declaration, decoderDeclaration, wasmBuilder] = await Promise.all([
+  const [declaration, decoderDeclaration, wasmBuilder, runtime] = await Promise.all([
     readFile(new URL('../dist/index.d.mts', import.meta.url), 'utf8'),
     readFile(new URL('../dist/decoder.d.mts', import.meta.url), 'utf8'),
     readFile(new URL('../scripts/build-wasm.mjs', import.meta.url), 'utf8'),
+    import(new URL('../dist/index.mjs', import.meta.url).href),
   ]);
   const packageJson = JSON.parse(
     await readFile(new URL('../package.json', import.meta.url), 'utf8'),
@@ -173,6 +177,14 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /export type RitoCoreWasmTextMeasurementMode/);
   assert.match(declaration, /readonly textMeasurement\?: RitoCoreWasmTextMeasurementMode/);
   assert.match(declaration, /export declare class RitoCoreWasmError extends Error/);
+  if (getRitoCoreWasmStatus().rustFacade.npmWasmArtifact) {
+    assert.match(declaration, /export declare class RitoCoreWasmDocument/);
+    assert.equal(typeof runtime.RitoCoreWasmDocument, 'function');
+  } else {
+    assert.match(declaration, /export interface RitoCoreWasmDocument/);
+    assert.doesNotMatch(declaration, /export declare class RitoCoreWasmDocument/);
+    assert.equal('RitoCoreWasmDocument' in runtime, false);
+  }
   assert.match(declaration, /readonly commandCounts: Readonly<Record<string, number>>;/);
   assert.match(declaration, /readonly recordStats: RitoFrameCommandBufferRecordStats;/);
   assert.match(declaration, /readonly resourceTable: readonly string\[];/);

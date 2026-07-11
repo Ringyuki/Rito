@@ -203,6 +203,9 @@ export function hydrateReaderViewRevision(cache, view, requestedScopeKey) {
   if (view.kind !== 'full') {
     throw new Error(`Reader view revision returned unsupported kind: ${String(view.kind)}`);
   }
+  if (revision.status !== 'complete') {
+    throw new Error('Reader full chapter text indices cannot be cached before revision completion');
+  }
   return hydrateFullViewRevision(cache, view, bundle, transport, revisionId, requestedScopeKey);
 }
 
@@ -261,9 +264,21 @@ function hydrateFullEntries(cache, transport, requestedScopeKey) {
 
 async function releaseInvalidRevision(send, view) {
   const revisionId = view?.result?.bundle?.revision?.revisionId;
-  if (typeof revisionId !== 'string' || revisionId.length === 0) return;
+  const revisionVersion = view?.result?.bundle?.revision?.revisionVersion;
+  if (
+    typeof revisionId !== 'string' ||
+    revisionId.length === 0 ||
+    !Number.isSafeInteger(revisionVersion) ||
+    revisionVersion < 0 ||
+    revisionVersion > 0xffff_ffff
+  ) {
+    return;
+  }
   try {
-    await send({ kind: 'releaseRevision', revisionId });
+    await send({
+      kind: 'releaseRevisionAtRevision',
+      revision: { revisionId, revisionVersion },
+    });
   } catch {
     // Preserve the transport validation error after best-effort cleanup.
   }

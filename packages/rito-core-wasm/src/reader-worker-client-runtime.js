@@ -9,6 +9,8 @@ import {
   normalizeReaderSessionCache,
   prepareReaderSessionCache,
 } from './reader-worker-cache-runtime.js';
+import { isRitoCoreWasmRevisionSummary, RitoCoreWasmError } from './core-wasm-error-runtime.js';
+import { createVersionedReaderClientMethods } from './reader-worker-versioned-client-runtime.js';
 
 let nextReaderSessionId = 1;
 
@@ -145,6 +147,7 @@ function createRitoCoreWasmReaderClient(sessionId, request, dispose, cache) {
     phase = 'disposed';
     dispose();
   };
+  const versionedMethods = createVersionedReaderClientMethods(request);
   return {
     sessionId,
     open,
@@ -170,6 +173,7 @@ function createRitoCoreWasmReaderClient(sessionId, request, dispose, cache) {
         throw new Error(`Rito reader worker returned ${payload.kind} for releaseRevision`);
       }
     },
+    ...versionedMethods,
     dispose: disposeClient,
   };
 }
@@ -260,18 +264,49 @@ async function result(request, input, kind, transfer) {
 
 function toWorkerError(deps, error) {
   const normalized = deps.normalizeRitoCoreWasmError(error, 'rito reader worker');
+  const revision = recoveryRevision(normalized.code, normalized.revision);
   return {
     name: normalized.name,
     message: normalized.message,
     code: normalized.code,
+    ...(revision !== undefined ? { revision } : {}),
   };
 }
 
 function workerError(error) {
-  const out = new Error(error.message);
-  out.name = error.name || 'Error';
-  if (error.code !== undefined) out.code = error.code;
+  const payload = error !== null && typeof error === 'object' ? error : {};
+  const code = workerErrorCode(payload.code);
+  const revision = recoveryRevision(code, payload.revision);
+  const message =
+    typeof payload.message === 'string' && payload.message.length > 0
+      ? payload.message
+      : 'Rito reader worker failed';
+  const out = new RitoCoreWasmError(code, message, {
+    ...(revision !== undefined ? { revision } : {}),
+  });
+  out.name =
+    typeof payload.name === 'string' && payload.name.length > 0
+      ? payload.name
+      : 'RitoCoreWasmError';
   return out;
+}
+
+function recoveryRevision(code, revision) {
+  return code === 'engine-error' &&
+    revision?.status === 'failed' &&
+    isRitoCoreWasmRevisionSummary(revision)
+    ? revision
+    : undefined;
+}
+
+function workerErrorCode(value) {
+  return value === 'bad-request' ||
+    value === 'engine-error' ||
+    value === 'internal-error' ||
+    value === 'unknown-revision' ||
+    value === 'stale-revision-version'
+    ? value
+    : 'internal-error';
 }
 
 function isRequest(value) {
@@ -293,6 +328,9 @@ function responseTransfer(payload) {
     case 'warmFrameWindow':
       return frameWindowTransfers(payload.result);
     case 'readResource':
+      return [payload.result.bytes.buffer];
+    case 'readFrameBufferAtRevision':
+    case 'readResourceAtRevision':
       return [payload.result.bytes.buffer];
     default:
       return [];

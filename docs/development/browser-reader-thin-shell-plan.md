@@ -324,3 +324,31 @@ newline-splitting count, leaving a small safety increment. The added code owns
 necessary browser lifecycle duties: explicit Rust revision release, a bounded
 12-frame LRU cache, and correct preview/full handoff between the foreground and
 full-reflow workers, with regression coverage for switching back.
+
+### Bounded Revision Integration Constraints
+
+The bounded core/WASM path added on 2026-07-11 must enter the browser through
+the private core-wasm session controller, not as another browser-owned reflow
+policy branch. The integration contract is:
+
+- keep at most one continuation quantum in flight for one revision, coalesce
+  requested target spreads, and yield between quanta;
+- attach the full Worker-session and Rust revision handle to every request and
+  response; an accepted advance rebinds the active handle before any follow-up
+  read can start;
+- invalidate pending frame/resource work from the previous version. The first
+  production slice may clear decoded frame caches on every advance; retaining a
+  stable-prefix frame later requires an explicit version-retagging invariant;
+- release or cancel the latest accepted handle. A stale handle must never fall
+  back to an ID-only revision release;
+- keep incomplete chapter text indices inline and revision-scoped; never store
+  them under the `chapter-text-v1:full` publication cache key;
+- consume the failed revision summary carried by an engine-failure response so
+  failed work can be inspected and released without guessing the next version;
+- use the complete current navigation snapshot after growth until a typed
+  appended-spread/chapter-upsert delta is justified by profiling.
+
+The raw WASM surface and the private JavaScript control plane are staging
+boundaries. They do not by themselves authorize selecting bounded revisions in
+the production browser Reader; that switch still requires the large-node and
+cross-chapter-footnote correctness blockers plus browser race tests.

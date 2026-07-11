@@ -81,6 +81,25 @@ font or viewport reflow.
 The first useful frame must not depend on laying out the first eight chapters,
 one entire large chapter or the full publication.
 
+Exact bounded publication has algorithmic constraints that must remain explicit:
+
+- greedy line prefixes can become stable and publish incrementally once
+  widow/orphan lookahead and open-block paint edges are preserved;
+- optimal paragraph breaks depend on the complete paragraph. Item construction
+  and dynamic programming can yield between budgets, but the paragraph cannot
+  publish before completion unless a forced-break boundary proves a prefix;
+- auto table column widths depend on a whole-table intrinsic-width prepass. The
+  prepass can be resumable and rows can publish after widths freeze;
+- one contextual shaping call, especially a huge `nowrap` run, is an atomic
+  black box unless it moves to interruptible/background native execution;
+- publication-wide cross-chapter footnote exactness requires a cached,
+  resource-light source index. It may scan XHTML targets and note candidates,
+  but must not retain every chapter DOM or mark lazy chapters/resources loaded.
+
+The eager entry point should eventually drain the same resumable state machines
+with an unbounded budget. Maintaining separate eager and bounded algorithms
+would make exact final equivalence progressively harder to prove.
+
 ### 2. Complete Native Interaction Wiring
 
 Expose Rust-owned semantic and geometry operations through the worker and
@@ -199,11 +218,12 @@ architecture rather than make an eager whole-book pipeline faster.
 ## Ordered Work Queue
 
 1. Define revision/session identity, partial extent, source locators and the
-   incremental continuation contract. **Core contract implemented; host
-   version binding remains.**
-2. Implement bounded initial layout and resumable window growth. **Core-only
-   path implemented; WASM/Worker integration, sub-node budgets and
-   cross-chapter footnote policy remain.**
+   incremental continuation contract. **Core, raw WASM and private JavaScript
+   Worker version gates are implemented; the bounded session pump remains.**
+2. Implement bounded initial layout and resumable window growth. **Core and raw
+   WASM paths plus opt-in Worker primitives are implemented; the coalescing
+   session controller, browser integration, sub-node budgets and cross-chapter
+   footnote policy remain.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader.
 4. Add precise native point/range geometry, then migrate Kit selection,

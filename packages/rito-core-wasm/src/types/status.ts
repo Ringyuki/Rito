@@ -24,6 +24,8 @@ export interface RitoCoreWasmStatus {
     readonly plannedFrameResourcePrefetchJson: true;
     readonly searchJson: true;
     readonly resourceTransferLeases: true;
+    readonly versionedRevisionAccess: true;
+    readonly boundedRevisionControl: true;
     readonly wasmBindgen: true;
     readonly npmWasmArtifact: boolean;
   };

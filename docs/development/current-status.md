@@ -101,10 +101,13 @@ Those names now belong to the old TS reference tree only.
 - `@ritojs/kit`, `@ritojs/react`, and `apps/reader` consume the root core reader
   surface instead of legacy core subpaths.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
-- The counted browser reader shell target has been hit:
-  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1536
-    physical lines (1548 under the architecture invariant's split-line count;
-    hard ceiling 1550), plus a 3-line static `.mjs` worker-entry facade
+- The counted browser reader shell previously reached its 1550-line target.
+  Subsequent revision/session hardening has grown
+  `packages/rito/src/bindings/browser/reader/**` to 14 TypeScript files / 1729
+  physical lines, plus the static `.mjs` worker-entry facade. The bounded
+  production switch must delete the legacy preview/deferred-full scheduler and
+  return this shell below the documented ceiling; adding a second browser-owned
+  state machine is not acceptable.
   - `packages/rito/src/reader/**`: 6 files / 354 lines
   - the hardening increment is explicit revision release, a bounded 12-frame
     LRU cache, and regression-protected preview/full handoff between two workers
@@ -114,6 +117,20 @@ Those names now belong to the old TS reference tree only.
 - Rust has the main runtime pieces in place: document handles, deterministic
   revisions, frame cache, resource transfer leases, locators, footnotes, text
   geometry, search, frame-resource prefetch, and packed frame command buffers.
+- The experimental bounded runtime now has one-shot continuation cursors,
+  cancellation, partial/final extents and stable-prefix publication. Every
+  revision-scoped core read also has a version-gated form, stale releases are
+  rejected before mutation, resource-transfer leases are owned by the exact
+  revision version, and post-cursor engine failures return the new failed
+  revision summary for deterministic cleanup.
+- Raw WASM exposes bounded create/continue/cancel plus version-gated frame,
+  resource, locator, interaction, geometry, metadata and release operations.
+  `unknown-revision` and `stale-revision-version` are stable wire error codes.
+- The private JavaScript facade and Worker transport preserve complete revision
+  handles for bounded advances and version-gated reads, reject skipped or
+  mismatched versions, round-trip failed-revision cleanup state, and perform
+  exact versioned release. The bounded session pump and production-reader
+  switch are still pending.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
 - Font-aware layout now follows declared `font-family` order, treats omitted
@@ -208,10 +225,16 @@ Those names now belong to the old TS reference tree only.
      The Rust core now has an opt-in bounded revision path with top-level-node
      budgets, one-shot versioned cursors, cancellation, stable partial extents,
      lazy chapter/image loading and resumable page-window growth. It is not yet
-     exposed through WASM/Worker or selected by the browser reader.
+     selected by the browser reader; raw WASM and private JavaScript/Worker
+     primitives are available, while the coalescing session controller remains
+     to be implemented.
    - A single large paragraph/table remains atomic, and publication-wide
      cross-chapter footnote filtering still needs a lazy-safe indexing policy
      before the bounded path can claim universal eager equivalence.
+   - The legacy browser shell still issues several frame/resource/search and
+     destructive release operations by revision ID only. Those paths are safe
+     only while a revision ID is immutable; they must be replaced with exact
+     session/id/version requests before same-ID bounded advances are selected.
    - Initial paint must not require eight complete chapters, one complete large
      chapter or the complete publication.
 2. **Native interaction wiring**

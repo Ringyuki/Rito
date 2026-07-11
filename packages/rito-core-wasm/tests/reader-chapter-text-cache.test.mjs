@@ -237,7 +237,13 @@ for (const [name, requestOverrides, message] of [
     const client = createRitoCoreWasmInProcessReaderClient(
       fakeModule((workerRequest) => {
         requests.push(workerRequest);
-        if (workerRequest.kind === 'releaseRevision') return { kind: 'releaseRevision' };
+        if (workerRequest.kind === 'releaseRevisionAtRevision') {
+          return {
+            kind: 'releaseRevisionAtRevision',
+            revision: workerRequest.revision,
+            result: { releasedRevision: true, releasedTransferCount: 0 },
+          };
+        }
         return viewPayload(
           { revisionId: 'preview-mismatch', entries: CHAPTER_ENTRIES },
           { kind: 'preview', revisionId: 'preview-mismatch', followUp },
@@ -249,8 +255,8 @@ for (const [name, requestOverrides, message] of [
     await assert.rejects(client.createViewRevision(request), message);
     assert.deepEqual(requests.at(-1), {
       id: 0,
-      kind: 'releaseRevision',
-      revisionId: 'preview-mismatch',
+      kind: 'releaseRevisionAtRevision',
+      revision: { revisionId: 'preview-mismatch', revisionVersion: 0 },
     });
     client.dispose();
   });
@@ -269,12 +275,55 @@ test('full chapter text index references fail when their cache scope is unknown'
   client.dispose();
 });
 
+test('incomplete full revisions cannot populate the publication chapter text cache', async () => {
+  const cache = {};
+  const first = createRitoCoreWasmInProcessReaderClient(
+    fakeModule((request) => {
+      if (request.kind === 'releaseRevisionAtRevision') {
+        return { kind: request.kind, revision: request.revision, result: {} };
+      }
+      return viewPayload(
+        { revisionId: 'revision-partial', entries: CHAPTER_ENTRIES, scopeKey: FULL_SCOPE_KEY },
+        { status: 'ready' },
+      );
+    }),
+    cache,
+  );
+  await first.open(new ArrayBuffer(0));
+  await assert.rejects(
+    first.createViewRevision(VIEW_REQUEST),
+    /cannot be cached before revision completion/,
+  );
+  first.dispose();
+
+  const second = createRitoCoreWasmInProcessReaderClient(
+    fakeModule((request) => {
+      assert.equal(request.knownFullChapterTextIndicesScopeKey, undefined);
+      return viewPayload({
+        revisionId: 'revision-complete',
+        entries: CHAPTER_ENTRIES,
+        scopeKey: FULL_SCOPE_KEY,
+      });
+    }),
+    cache,
+  );
+  await second.open(new ArrayBuffer(0));
+  await second.createViewRevision(VIEW_REQUEST);
+  second.dispose();
+});
+
 test('invalid chapter text transports release the created revision', async () => {
   const requests = [];
   const client = createRitoCoreWasmInProcessReaderClient(
     fakeModule((request) => {
       requests.push(request);
-      if (request.kind === 'releaseRevision') return { kind: 'releaseRevision' };
+      if (request.kind === 'releaseRevisionAtRevision') {
+        return {
+          kind: 'releaseRevisionAtRevision',
+          revision: request.revision,
+          result: { releasedRevision: true, releasedTransferCount: 0 },
+        };
+      }
       return viewPayload({
         revisionId: 'revision-1',
         scopeKey: FULL_SCOPE_KEY,
@@ -289,9 +338,33 @@ test('invalid chapter text transports release the created revision', async () =>
   );
   assert.deepEqual(requests.at(-1), {
     id: 0,
-    kind: 'releaseRevision',
-    revisionId: 'revision-1',
+    kind: 'releaseRevisionAtRevision',
+    revision: { revisionId: 'revision-1', revisionVersion: 0 },
   });
+  client.dispose();
+});
+
+test('invalid revision versions never fall back to id-only cleanup', async () => {
+  const requests = [];
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule((request) => {
+      requests.push(request);
+      const payload = viewPayload({
+        revisionId: 'revision-malformed',
+        scopeKey: FULL_SCOPE_KEY,
+      });
+      delete payload.result.result.bundle.revision.revisionVersion;
+      return payload;
+    }),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  await assert.rejects(
+    client.createViewRevision(VIEW_REQUEST),
+    /chapter text indices reference unknown scope/,
+  );
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].kind, 'createViewRevision');
   client.dispose();
 });
 
@@ -370,12 +443,26 @@ function viewPayload(chapterTextIndices, options = {}) {
       ...(options.followUp !== undefined ? { followUp: options.followUp } : {}),
       result: {
         bundle: {
-          revision: { revisionId },
+          revision: revisionSummary(revisionId, options.status ?? 'complete'),
           chapterTextIndices,
         },
         preview: kind === 'preview',
       },
     },
+  };
+}
+
+function revisionSummary(revisionId, status) {
+  const knownExtent = { pageCount: 1, spreadCount: 1 };
+  return {
+    revisionId,
+    revisionVersion: 0,
+    layoutKey: 'layout',
+    status,
+    knownExtent,
+    ...(status === 'complete' ? { finalExtent: knownExtent } : {}),
+    pageCount: knownExtent.pageCount,
+    spreadCount: knownExtent.spreadCount,
   };
 }
 

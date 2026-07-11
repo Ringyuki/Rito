@@ -5,6 +5,7 @@ export type * from './types/frame';
 export type * from './types/frame-command';
 export type * from './types/resource';
 export type * from './types/reader-worker';
+export type * from './types/reader-worker-versioned';
 export type * from './types/runtime-bundle';
 export type * from './types/search';
 export type * from './types/navigation';

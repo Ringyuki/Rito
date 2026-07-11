@@ -23,6 +23,60 @@ export interface RitoCoreWasmRevisionSummary {
   readonly spreadCount: number;
 }
 
+/** Stable identity for one published revision version. */
+export interface RitoCoreWasmRevisionHandle {
+  readonly revisionId: string;
+  readonly revisionVersion: number;
+}
+
+/** A response value bound to the exact revision version that produced it. */
+export interface RitoCoreWasmVersioned<T> {
+  readonly revision: RitoCoreWasmRevisionHandle;
+  readonly value: T;
+}
+
+export interface RitoCoreWasmRevisionWorkBudget {
+  readonly maxTopLevelNodes: number;
+}
+
+export interface RitoCoreWasmBoundedRevisionRequest {
+  readonly layoutConfig: RitoCoreWasmLayoutConfig;
+  readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
+  readonly budget: RitoCoreWasmRevisionWorkBudget;
+}
+
+export interface RitoCoreWasmRevisionCursor extends RitoCoreWasmRevisionHandle {
+  readonly cursor: string;
+}
+
+export interface RitoCoreWasmContinueRevisionRequest extends RitoCoreWasmRevisionHandle {
+  readonly cursor: string;
+  readonly budget: RitoCoreWasmRevisionWorkBudget;
+}
+
+export type RitoCoreWasmCancelRevisionRequest = RitoCoreWasmRevisionHandle;
+
+export interface RitoCoreWasmRevisionPageRange {
+  readonly startPage: number;
+  readonly endPageExclusive: number;
+}
+
+export interface RitoCoreWasmRevisionAdvance {
+  readonly revision: RitoCoreWasmRevisionSummary;
+  readonly previousKnownExtent: RitoCoreWasmRevisionExtent;
+  readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
+  readonly processedTopLevelNodes: number;
+  readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
+}
+
+export interface RitoCoreWasmRevisionReleaseResult {
+  readonly releasedRevision: boolean;
+  readonly releasedTransferCount: number;
+}
+
+export type RitoCoreWasmRevisionTransferRelease = RitoCoreWasmVersioned<number>;
+export type RitoCoreWasmRevisionRelease = RitoCoreWasmVersioned<RitoCoreWasmRevisionReleaseResult>;
+
 export interface RitoCoreWasmRevisionBundle {
   readonly revision: RitoCoreWasmRevisionSummary;
   readonly navigation: RitoCoreWasmRevisionNavigation;

@@ -31,6 +31,8 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
       plannedFrameResourcePrefetchJson: true,
       searchJson: true,
       resourceTransferLeases: true,
+      versionedRevisionAccess: true,
+      boundedRevisionControl: true,
       wasmBindgen: true,
       npmWasmArtifact,
     },

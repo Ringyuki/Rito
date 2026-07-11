@@ -37,3 +37,49 @@ export interface RitoCoreWasmChapterTextIndices {
   readonly revisionId: string;
   readonly entries: Readonly<Record<string, RitoCoreWasmChapterTextIndex>>;
 }
+
+export interface RitoCoreWasmSourcePoint {
+  readonly nodePath: readonly number[];
+  /** UTF-16 code-unit offset within the parsed XHTML text node. */
+  readonly textOffset: number;
+}
+
+export interface RitoCoreWasmSourceRange {
+  readonly start: RitoCoreWasmSourcePoint;
+  /** End-exclusive source boundary. */
+  readonly end: RitoCoreWasmSourcePoint;
+}
+
+export interface RitoCoreWasmSourceLocator {
+  readonly href: string;
+  readonly anchorId?: string | undefined;
+  readonly sourcePoint?: RitoCoreWasmSourcePoint | undefined;
+  readonly sourceRange?: RitoCoreWasmSourceRange | undefined;
+  readonly progression?: number | undefined;
+}
+
+export type RitoCoreWasmSourceLocatorMatchedBy =
+  | 'sourceRange'
+  | 'sourcePoint'
+  | 'anchor'
+  | 'progression'
+  | 'href';
+
+export type RitoCoreWasmSourceLocatorResolution =
+  | {
+      readonly status: 'resolved';
+      readonly revisionId: string;
+      readonly locator: RitoCoreWasmSourceLocator;
+      readonly spineIdref: string;
+      readonly pageIndex: number;
+      readonly spreadIndex: number;
+      readonly matchedBy: RitoCoreWasmSourceLocatorMatchedBy;
+    }
+  | {
+      readonly status: 'pending';
+      readonly revisionId: string;
+      readonly locator: RitoCoreWasmSourceLocator;
+      readonly spineIdref: string;
+      readonly reason: 'notPaginated' | 'noPageProjection';
+      readonly matchedBy: RitoCoreWasmSourceLocatorMatchedBy;
+    };

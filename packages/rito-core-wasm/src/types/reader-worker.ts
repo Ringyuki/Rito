@@ -6,6 +6,14 @@ import type { RitoCoreWasmFrameResourceWarmPlan, RitoCoreWasmResourcePayload } f
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type { RitoCoreWasmReaderRuntimeWire } from './runtime-bundle';
 import type {
+  RitoCoreWasmReaderVersionedClient,
+  RitoCoreWasmReaderVersionedDocumentRuntime,
+  RitoCoreWasmReaderVersionedErrorMetadata,
+  RitoCoreWasmReaderVersionedWorkerHandlerDeps,
+  RitoCoreWasmReaderVersionedWorkerRequestPayload,
+  RitoCoreWasmReaderVersionedWorkerResponse,
+} from './reader-worker-versioned';
+import type {
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionFrameSelection,
   RitoCoreWasmViewRevisionFollowUp,
@@ -13,7 +21,7 @@ import type {
   RitoCoreWasmViewRevisionResponse,
 } from './revision';
 
-export interface RitoCoreWasmReaderWorkerClient {
+export interface RitoCoreWasmReaderWorkerClient extends RitoCoreWasmReaderVersionedClient {
   /** Stable identity for this client's sole worker or in-process publication session. */
   readonly sessionId: string;
   /** Opens this client's sole publication session. Failed opens may be retried. */
@@ -77,7 +85,7 @@ export type RitoCoreWasmReaderViewRevisionResultTransport = Omit<
   readonly result: RitoCoreWasmReaderRevisionResultTransport;
 };
 
-export interface RitoCoreWasmReaderWorkerErrorPayload {
+export interface RitoCoreWasmReaderWorkerErrorPayload extends RitoCoreWasmReaderVersionedErrorMetadata {
   readonly name: string;
   readonly message: string;
   readonly code?: string | undefined;
@@ -100,12 +108,8 @@ export interface RitoCoreWasmReaderWorkerScope {
   addEventListener(type: 'message', listener: (event: { readonly data: unknown }) => void): void;
 }
 
-export interface RitoCoreWasmReaderWorkerHandlerDeps {
+export interface RitoCoreWasmReaderWorkerHandlerDeps extends RitoCoreWasmReaderVersionedWorkerHandlerDeps {
   readonly initRitoCoreWasmEngine: () => Promise<RitoCoreWasmReaderEngineRuntime>;
-  readonly normalizeRitoCoreWasmError: (
-    error: unknown,
-    operation?: string,
-  ) => Error & { readonly code?: string | undefined };
 }
 
 export interface RitoCoreWasmReaderWorkerLike {
@@ -116,7 +120,7 @@ export interface RitoCoreWasmReaderWorkerLike {
   terminate(): void;
 }
 
-export interface RitoCoreWasmReaderDocumentRuntime {
+export interface RitoCoreWasmReaderDocumentRuntime extends RitoCoreWasmReaderVersionedDocumentRuntime {
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
   createViewRevisionBundle(
@@ -191,6 +195,7 @@ type WorkerRequestId = { readonly id: number };
 export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
   (
     | { readonly kind: 'open'; readonly data: ArrayBuffer }
+    | RitoCoreWasmReaderVersionedWorkerRequestPayload
     | {
         readonly kind: 'createViewRevision';
         readonly request: RitoCoreWasmViewRevisionRequest;
@@ -225,6 +230,7 @@ export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
 
 export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'open'; readonly result: RitoCoreWasmReaderOpenResult }
+  | RitoCoreWasmReaderVersionedWorkerResponse
   | {
       readonly kind: 'createViewRevision';
       readonly result: RitoCoreWasmReaderViewRevisionResultTransport;
