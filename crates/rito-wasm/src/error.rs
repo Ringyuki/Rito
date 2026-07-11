@@ -1,6 +1,9 @@
 use std::{error::Error, fmt};
 
-use rito_core::epub::EpubError;
+use rito_core::{
+    epub::EpubError,
+    runtime::{RuntimeContinuationError, RuntimeContinuationErrorKind},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -28,6 +31,18 @@ impl WasmRuntimeError {
         Self {
             code: WasmRuntimeErrorCode::EngineError,
             message: error.message().to_owned(),
+        }
+    }
+
+    pub(crate) fn from_continuation(error: RuntimeContinuationError) -> Self {
+        let code = if error.kind == RuntimeContinuationErrorKind::InvalidBudget {
+            WasmRuntimeErrorCode::BadRequest
+        } else {
+            WasmRuntimeErrorCode::EngineError
+        };
+        Self {
+            code,
+            message: error.message,
         }
     }
 

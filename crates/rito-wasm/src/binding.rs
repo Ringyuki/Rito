@@ -83,6 +83,34 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = createBoundedRevisionJson)]
+    pub fn create_bounded_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
+        self.inner
+            .create_bounded_revision_json(request_json)
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = continueRevisionJson)]
+    pub fn continue_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
+        self.inner
+            .continue_revision_json(request_json)
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = cancelRevisionJson)]
+    pub fn cancel_revision_json(&mut self, request_json: &str) -> Result<String, JsValue> {
+        self.inner
+            .cancel_revision_json(request_json)
+            .map_err(error_to_js_value)
+    }
+
+    #[wasm_bindgen(js_name = getRevisionSummaryJson)]
+    pub fn get_revision_summary_json(&self, revision_id: &str) -> Result<String, JsValue> {
+        self.inner
+            .get_revision_summary_json(revision_id)
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = createReaderViewRevisionBundleJson)]
     pub fn create_reader_view_revision_bundle_json(
         &mut self,

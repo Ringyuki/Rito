@@ -1,3 +1,4 @@
+mod continuation;
 mod fixture;
 
 use fixture::{

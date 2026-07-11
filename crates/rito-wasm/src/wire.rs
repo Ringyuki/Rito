@@ -1,5 +1,6 @@
 use rito_core::runtime::{
-    RuntimeActiveChapterPreviewRevisionRequest, RuntimeFrameResourceWarmPlan,
+    RuntimeActiveChapterPreviewRevisionRequest, RuntimeBoundedRevisionRequest,
+    RuntimeCancelRevisionRequest, RuntimeContinueRevisionRequest, RuntimeFrameResourceWarmPlan,
     RuntimeFullRevisionBundleRequest, RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
     RuntimeSearchRequest, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionRequest,
@@ -108,6 +109,30 @@ pub fn parse_view_revision_request(
 ) -> Result<RuntimeViewRevisionRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid view revision request JSON: {error}"))
+    })
+}
+
+pub fn parse_bounded_revision_request(
+    json: &str,
+) -> Result<RuntimeBoundedRevisionRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!("invalid bounded revision request JSON: {error}"))
+    })
+}
+
+pub fn parse_continue_revision_request(
+    json: &str,
+) -> Result<RuntimeContinueRevisionRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!("invalid continue revision request JSON: {error}"))
+    })
+}
+
+pub fn parse_cancel_revision_request(
+    json: &str,
+) -> Result<RuntimeCancelRevisionRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!("invalid cancel revision request JSON: {error}"))
     })
 }
 

@@ -13,6 +13,7 @@ use rito_core::runtime::{
 };
 use serde::Serialize;
 
+mod continuation;
 mod reader_transport;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
