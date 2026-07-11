@@ -69,13 +69,21 @@ impl RuntimeDocument {
                 .ensure_chapter_image_dimensions_loaded(0, self.document.chapters.len())?;
         }
         self.ensure_layout_font_resources(layout_config)?;
-        let partial_prepared = partial_chapter_limit
-            .map(|limit| crate::epub::prepare_loaded_document_prefix(&self.document, limit));
+        let partial_data = if let Some(limit) = partial_chapter_limit {
+            let (targets, footnotes) = {
+                let index = self.publication_footnote_index()?;
+                (index.targets.clone(), index.footnotes.clone())
+            };
+            let prepared = self.prepare_cached_document_window(0, limit, &targets)?;
+            Some((prepared, footnotes))
+        } else {
+            None
+        };
+        let partial_prepared = partial_data.as_ref().map(|(prepared, _)| prepared);
         if partial_prepared.is_none() {
             self.ensure_prepared_all();
         }
         let prepared = partial_prepared
-            .as_ref()
             .or(self.prepared.as_ref())
             .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
         let layout =
@@ -88,11 +96,11 @@ impl RuntimeDocument {
                 Some(self.text_measurement_cache.clone()),
             );
         let layout_key = layout_key(layout_config)?;
-        let revision = RuntimeRevision::completed(
-            layout,
-            layout_config.clone(),
-            runtime_revision_interactions(prepared, full_document),
-        );
+        let interactions = match &partial_data {
+            Some((_, footnotes)) => partial_revision_interactions(prepared, footnotes.clone()),
+            None => runtime_revision_interactions(prepared, full_document),
+        };
+        let revision = RuntimeRevision::completed(layout, layout_config.clone(), interactions);
         let summary = revision_summary(&revision_id, &layout_key, &revision);
         self.revisions.insert(revision_id, revision);
         Ok(summary)
@@ -121,7 +129,12 @@ impl RuntimeDocument {
             .ensure_chapter_image_dimensions_loaded(chapter_start, chapter_count)?;
         self.ensure_layout_font_resources(layout_config)?;
         let revision_id = self.create_revision_id();
-        let prepared = self.prepare_cached_document_window(chapter_start, chapter_count)?;
+        let (targets, footnotes) = {
+            let index = self.publication_footnote_index()?;
+            (index.targets.clone(), index.footnotes.clone())
+        };
+        let prepared =
+            self.prepare_cached_document_window(chapter_start, chapter_count, &targets)?;
         let window_layout_config = chapter_window_layout_config(layout_config);
         let layout =
             crate::epub::build_prepared_loaded_document_layout_window_with_cache_and_line_breaking(
@@ -137,7 +150,7 @@ impl RuntimeDocument {
         let revision = RuntimeRevision::completed(
             layout,
             window_layout_config,
-            runtime_revision_interactions(&prepared, false),
+            partial_revision_interactions(&prepared, footnotes),
         );
         let summary = revision_summary(&revision_id, &layout_key, &revision);
         self.revisions.insert(revision_id, revision);
@@ -164,7 +177,25 @@ impl RuntimeDocument {
         &mut self,
         chapter_start: usize,
         chapter_count: usize,
+        targets: &crate::interaction::FootnoteTargetSet,
     ) -> EpubResult<crate::epub::PreparedLoadedDocument> {
+        let (base, chapters) =
+            self.prepare_cached_document_window_parts(chapter_start, chapter_count)?;
+        Ok(
+            crate::epub::prepare_loaded_document_with_base_and_footnote_targets(
+                &base, chapters, targets,
+            ),
+        )
+    }
+
+    fn prepare_cached_document_window_parts(
+        &mut self,
+        chapter_start: usize,
+        chapter_count: usize,
+    ) -> EpubResult<(
+        crate::epub::PreparedLoadedDocumentBase,
+        Vec<crate::epub::ParsedLoadedChapterSource>,
+    )> {
         let end = chapter_start
             .saturating_add(chapter_count)
             .min(self.document.chapters.len());
@@ -176,9 +207,7 @@ impl RuntimeDocument {
         let base = self.prepared_base();
         base.resources = live_resources;
         let base = base.clone();
-        Ok(crate::epub::prepare_loaded_document_with_base(
-            &base, chapters,
-        ))
+        Ok((base, chapters))
     }
 
     fn parsed_chapter(
@@ -206,6 +235,15 @@ impl RuntimeDocument {
             self.prepared = Some(crate::epub::prepare_loaded_document(&self.document));
         }
     }
+}
+
+fn partial_revision_interactions(
+    prepared: &crate::epub::PreparedLoadedDocument,
+    footnotes: std::collections::BTreeMap<String, crate::interaction::FootnoteEntry>,
+) -> RuntimeRevisionInteractions {
+    let mut interactions = runtime_revision_interactions(prepared, false);
+    interactions.footnotes = footnotes;
+    interactions
 }
 
 pub(super) fn runtime_revision_interactions(

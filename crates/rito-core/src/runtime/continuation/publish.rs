@@ -242,9 +242,11 @@ fn stable_page_count(
         .map_or(0, |index| index + 1)
 }
 
-pub(super) fn empty_revision_interactions() -> RuntimeRevisionInteractions {
+pub(super) fn initial_revision_interactions(
+    footnotes: BTreeMap<String, crate::interaction::FootnoteEntry>,
+) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
-        footnotes: BTreeMap::new(),
+        footnotes,
         chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::new()),
         completed_chapter_idrefs: BTreeSet::new(),
     }

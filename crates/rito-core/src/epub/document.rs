@@ -8,6 +8,7 @@ use crate::{
 use super::{archive, join_epub_href, EpubError, EpubResult, PackageDocument};
 
 mod archive_source;
+mod chapter_scan;
 mod open;
 
 use archive_source::{ArchiveResourceKind, LoadedArchiveSource};

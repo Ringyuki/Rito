@@ -7,12 +7,8 @@ use crate::{
     runtime::frame::RuntimeRevisionInteractions,
 };
 
-/// Experimental core-only continuation state.
-///
-/// Preparing one chapter at a time preserves same-chapter footnote filtering.
-/// Cross-chapter noteref filtering still requires a publication-wide lightweight
-/// target index (or relayout when a later chapter references an earlier one), so
-/// this opt-in path is not yet a universal eager-equivalence claim.
+/// Experimental core-only continuation state. Each chapter is prepared against
+/// the immutable publication footnote target index before any page is sealed.
 #[derive(Debug)]
 pub(in crate::runtime) struct RuntimeContinuationRecord {
     pub(in crate::runtime) revision_id: String,

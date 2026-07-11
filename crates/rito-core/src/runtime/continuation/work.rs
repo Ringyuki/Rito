@@ -87,10 +87,11 @@ impl RuntimeDocument {
         record: &RuntimeContinuationRecord,
     ) -> EpubResult<RuntimeChapterContinuation> {
         let chapter_index = record.next_chapter_index;
+        let footnote_targets = self.publication_footnote_index()?.targets.clone();
         self.document.ensure_chapter_loaded(chapter_index)?;
         self.document
             .ensure_chapter_image_dimensions_loaded(chapter_index, 1)?;
-        let prepared = self.prepare_cached_document_window(chapter_index, 1)?;
+        let prepared = self.prepare_cached_document_window(chapter_index, 1, &footnote_targets)?;
         let PreparedRuntimeLayoutChapter {
             idref,
             styled_nodes,

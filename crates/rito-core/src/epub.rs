@@ -39,9 +39,8 @@ pub use layout_bridge::{
 pub(crate) use paths::{join_epub_href, join_zip_path, opf_dir};
 pub(crate) use prepared::{
     loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document,
-    prepare_loaded_document_base, prepare_loaded_document_prefix,
-    prepare_loaded_document_with_base, ParsedLoadedChapterSource, PreparedLoadedDocument,
-    PreparedLoadedDocumentBase,
+    prepare_loaded_document_base, prepare_loaded_document_with_base_and_footnote_targets,
+    ParsedLoadedChapterSource, PreparedLoadedDocument, PreparedLoadedDocumentBase,
 };
 
 pub const CONTAINER_PATH: &str = "META-INF/container.xml";

@@ -18,15 +18,15 @@ mod work;
 use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
 };
-use publish::empty_revision_interactions;
+use publish::initial_revision_interactions;
 pub(in crate::runtime) use state::RuntimeContinuationRecord;
 
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
     ///
-    /// This path does not yet guarantee eager equivalence for cross-chapter
-    /// footnote references and must not be exposed through the production
-    /// worker/WASM reader contract until revision-versioned responses land.
+    /// The first bounded revision for a document pays for a publication-wide,
+    /// two-pass XHTML footnote scan. The resulting target/definition index is
+    /// cached without materializing lazy chapter or binary-resource state.
     pub fn create_bounded_revision(
         &mut self,
         request: RuntimeBoundedRevisionRequest,
@@ -42,12 +42,17 @@ impl RuntimeDocument {
     ) -> Result<(RuntimeContinuationRecord, String), RuntimeContinuationError> {
         let revision_id = self.create_revision_id();
         let layout_key = layout_key(&request.layout_config).map_err(engine_error)?;
+        let footnotes = self
+            .publication_footnote_index()
+            .map_err(engine_error)?
+            .footnotes
+            .clone();
         let layout =
             create_empty_runtime_layout(self.document.chapters.len(), &request.layout_config);
         let revision = RuntimeRevision::warming(
             layout,
             request.layout_config.clone(),
-            empty_revision_interactions(),
+            initial_revision_interactions(footnotes),
         );
         self.revisions.insert(revision_id.clone(), revision);
         if let Err(error) = self.ensure_layout_font_resources(&request.layout_config) {

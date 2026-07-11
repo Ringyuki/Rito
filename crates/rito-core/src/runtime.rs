@@ -14,6 +14,7 @@ mod metadata;
 mod navigation;
 mod page;
 mod page_target;
+mod publication_footnotes;
 mod resource;
 mod revision;
 mod search;
@@ -43,6 +44,7 @@ use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
 use page::{page_targets, page_text_positions, text_range_geometry};
+use publication_footnotes::PublicationFootnoteIndex;
 use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
     runtime_text_resource,
@@ -61,6 +63,9 @@ pub struct RuntimeDocument {
     document: LoadedEpubDocument,
     prepared: Option<crate::epub::PreparedLoadedDocument>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
+    publication_footnotes: OnceCell<PublicationFootnoteIndex>,
+    #[cfg(test)]
+    publication_footnote_scan_count: usize,
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
@@ -87,6 +92,9 @@ impl RuntimeDocument {
             document,
             prepared: None,
             prepared_base: None,
+            publication_footnotes: OnceCell::new(),
+            #[cfg(test)]
+            publication_footnote_scan_count: 0,
             full_chapter_text_indices: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),

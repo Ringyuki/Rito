@@ -6,6 +6,10 @@ use crate::layout::{
     create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
 };
 
+mod footnotes;
+
+pub use footnotes::{cross_chapter_footnote_fixture_epub, missing_future_chapter_fixture_epub};
+
 pub fn layout() -> LayoutConfig {
     create_layout_config(LayoutConfigInput {
         width: 420.0,
@@ -319,7 +323,7 @@ fn chapter_fixture_xhtml(text: &str) -> String {
     )
 }
 
-fn add_file(
+pub(super) fn add_file(
     writer: &mut ZipWriter<Cursor<Vec<u8>>>,
     options: FileOptions<'_, ()>,
     path: &str,

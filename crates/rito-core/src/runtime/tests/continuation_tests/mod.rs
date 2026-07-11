@@ -1,3 +1,4 @@
+mod footnotes;
 mod lifecycle;
 mod pagination;
 mod resources;

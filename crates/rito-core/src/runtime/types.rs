@@ -98,8 +98,12 @@ pub struct RuntimeRevisionWorkBudget {
 
 /// Request for the experimental core-only bounded revision path.
 ///
-/// Cross-chapter footnote references are not yet guaranteed to match an eager
-/// revision, and this API is not wired into the production worker/WASM reader.
+/// The first bounded request scans every spine XHTML source twice to establish
+/// exact publication-wide footnote targets and definitions. The scan is cached
+/// and does not mark lazy chapters or binary resources as loaded. Unreadable
+/// future spine resources are skipped so their failure remains deferred until
+/// continuation reaches them. Malformed XHTML contributes no footnote data,
+/// matching eager preparation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeBoundedRevisionRequest {

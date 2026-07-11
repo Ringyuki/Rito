@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use crate::{
     css::CssSummary,
     interaction::{
-        filter_referenced_footnotes, FootnoteFilterChapter, InteractionSummary,
-        ParsedInteractionChapterInput,
+        discover_footnote_targets, extract_footnotes_for_targets, FootnoteFilterChapter,
+        FootnoteTargetSet, InteractionSummary,
     },
     resources::PublicationResources,
     style::StylesheetRuleMap,
@@ -44,17 +44,6 @@ pub(crate) fn prepare_loaded_document(document: &LoadedEpubDocument) -> Prepared
     )
 }
 
-pub(crate) fn prepare_loaded_document_prefix(
-    document: &LoadedEpubDocument,
-    chapter_limit: usize,
-) -> PreparedLoadedDocument {
-    let chapter_count = chapter_limit.min(document.chapters.len());
-    prepare_loaded_document_with_chapters(
-        document,
-        parsed_loaded_chapter_sources(document.chapters.iter().take(chapter_count)),
-    )
-}
-
 pub(crate) fn prepare_loaded_document_base(
     document: &LoadedEpubDocument,
 ) -> PreparedLoadedDocumentBase {
@@ -82,6 +71,16 @@ pub(crate) fn prepare_loaded_document_with_base(
     base: &PreparedLoadedDocumentBase,
     chapters: Vec<ParsedLoadedChapterSource>,
 ) -> PreparedLoadedDocument {
+    let inputs = footnote_inputs(&chapters);
+    let targets = discover_footnote_targets(&inputs);
+    prepare_loaded_document_with_base_and_footnote_targets(base, chapters, &targets)
+}
+
+pub(crate) fn prepare_loaded_document_with_base_and_footnote_targets(
+    base: &PreparedLoadedDocumentBase,
+    chapters: Vec<ParsedLoadedChapterSource>,
+    targets: &FootnoteTargetSet,
+) -> PreparedLoadedDocument {
     let footnote_inputs = chapters
         .iter()
         .map(|chapter| FootnoteFilterChapter {
@@ -90,7 +89,8 @@ pub(crate) fn prepare_loaded_document_with_base(
             nodes: &chapter.parsed.nodes,
         })
         .collect::<Vec<_>>();
-    let mut filtered_footnote_nodes = filter_referenced_footnotes(&footnote_inputs);
+    let extraction = extract_footnotes_for_targets(&footnote_inputs, targets);
+    let mut filtered_footnote_nodes = extraction.filtered_chapters;
     filtered_footnote_nodes.retain(|idref, nodes| {
         chapters
             .iter()
@@ -104,14 +104,10 @@ pub(crate) fn prepare_loaded_document_with_base(
             chapter.parsed.clone(),
         )
     }));
-    let interaction =
-        crate::interaction::summarize_interaction_from_parsed(chapters.iter().map(|chapter| {
-            ParsedInteractionChapterInput {
-                idref: &chapter.source.idref,
-                href: &chapter.source.href,
-                nodes: &chapter.parsed.nodes,
-            }
-        }));
+    let interaction = crate::interaction::summarize_interaction_with_footnotes(
+        chapters.iter().map(|chapter| chapter.source.idref.clone()),
+        extraction.footnotes,
+    );
     PreparedLoadedDocument {
         resources: base.resources.clone(),
         css: base.css.clone(),
@@ -121,6 +117,17 @@ pub(crate) fn prepare_loaded_document_with_base(
         xhtml,
         interaction,
     }
+}
+
+fn footnote_inputs(chapters: &[ParsedLoadedChapterSource]) -> Vec<FootnoteFilterChapter<'_>> {
+    chapters
+        .iter()
+        .map(|chapter| FootnoteFilterChapter {
+            idref: &chapter.source.idref,
+            href: &chapter.source.href,
+            nodes: &chapter.parsed.nodes,
+        })
+        .collect()
 }
 
 pub(crate) fn parsed_loaded_chapter_sources_from_document(
