@@ -104,6 +104,7 @@ export function productionParityHtml(): string {
         totalSpreads: reader.totalSpreads,
         width: canvas.width,
         height: canvas.height,
+        blockOpacityCount: countSpreadBlockOpacity(reader.spreads[0]),
         pngBase64: dataUrl.slice(dataUrl.indexOf(',') + 1),
       };
     } finally {
@@ -115,6 +116,23 @@ export function productionParityHtml(): string {
     const size = reader.getCanvasSize(1);
     canvas.width = Math.round(size.width * PROFILE.devicePixelRatio);
     canvas.height = Math.round(size.height * PROFILE.devicePixelRatio);
+  }
+
+  function countSpreadBlockOpacity(spread) {
+    if (!spread) return 0;
+    return [spread.left, spread.right]
+      .filter(Boolean)
+      .flatMap((page) => page.content || [])
+      .reduce((count, block) => count + countBlockOpacity(block), 0);
+  }
+
+  function countBlockOpacity(block) {
+    const own = block.paint && block.paint.opacity < 1 ? 1 : 0;
+    return (block.children || []).reduce(
+      (count, child) =>
+        count + (child.type === 'layout-block' ? countBlockOpacity(child) : 0),
+      own,
+    );
   }
 
   function waitForNextLayoutCommit(reader) {

@@ -59,10 +59,11 @@ pub(crate) fn block_paint_from_style(style: &Map<String, Value>) -> Option<Value
     if let Some(radius) = block_radius_paint(style) {
         paint.insert("radius".to_owned(), radius);
     }
-    if let Some(opacity) = number_style(style, "opacity") {
-        if opacity < 1.0 {
-            paint.insert("opacity".to_owned(), number_value(opacity));
-        }
+    if let Some(opacity) = style
+        .get("opacity")
+        .filter(|value| value.as_f64().is_some_and(|opacity| opacity < 1.0))
+    {
+        paint.insert("opacity".to_owned(), opacity.clone());
     }
     if let Some(box_shadow) = non_empty_style_array(style, "boxShadow") {
         paint.insert("boxShadow".to_owned(), box_shadow);
@@ -593,3 +594,19 @@ const SEGMENT_STYLE_KEYS: &[&str] = &[
     "verticalAlign",
     "width",
 ];
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::block_paint_from_style;
+
+    #[test]
+    fn preserves_semantic_opacity_precision_in_block_paint() {
+        let style = json!({ "opacity": 0.2525 });
+        let paint = block_paint_from_style(style.as_object().expect("style object"))
+            .expect("opacity creates block paint");
+
+        assert_eq!(paint["opacity"], json!(0.2525));
+    }
+}

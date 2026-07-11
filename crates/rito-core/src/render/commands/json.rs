@@ -1,4 +1,4 @@
-use serde_json::{Map, Value};
+use serde_json::{Map, Number, Value};
 
 use super::{DisplayCommand, DisplayTextCommandInput};
 
@@ -16,7 +16,9 @@ fn command_fields(command: &DisplayCommand) -> Map<String, Value> {
             insert_field(&mut fields, "dx", dx.clone());
             insert_field(&mut fields, "dy", dy.clone());
         }
-        DisplayCommand::Opacity { value } => insert_field(&mut fields, "value", value.clone()),
+        DisplayCommand::Opacity { value } => {
+            insert_field(&mut fields, "value", number_value(*value))
+        }
         DisplayCommand::Transform {
             origin,
             box_value,
@@ -92,4 +94,8 @@ fn insert_optional_string(fields: &mut Map<String, Value>, key: &str, value: Opt
     if let Some(value) = value {
         insert_field(fields, key, Value::String(value));
     }
+}
+
+fn number_value(value: f64) -> Value {
+    Value::Number(Number::from_f64(value).unwrap_or_else(|| Number::from(0)))
 }

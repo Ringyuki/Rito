@@ -339,7 +339,10 @@ in place:
   images, straight/uniform/split borders, shadows, layer ordering, and local
   state restoration on paint failures. Text/ruby differentials additionally
   cover fonts, spacing, theme colors, inline decoration, ruby measurement, and
-  real Offscreen/DOM scratch-canvas shadow records. The built reader sourcemap
+  real Offscreen/DOM scratch-canvas shadow records. Semantic paint values retain
+  their source precision until the packed-frame ABI conversion; the exact-pixel
+  gate exercises a non-three-decimal block opacity to keep geometry-summary
+  rounding out of that path. The built reader sourcemap
   contains no `src/reference/**` sources, and the public DTS is unchanged.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real

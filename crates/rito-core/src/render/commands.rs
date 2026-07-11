@@ -81,7 +81,7 @@ pub(crate) enum DisplayCommand {
         dy: Value,
     },
     Opacity {
-        value: Value,
+        value: f64,
     },
     Transform {
         origin: Value,
@@ -128,7 +128,7 @@ impl DisplayCommand {
         Self::Translate { dx, dy }
     }
 
-    pub(crate) fn opacity(value: Value) -> Self {
+    pub(crate) fn opacity(value: f64) -> Self {
         Self::Opacity { value }
     }
 

@@ -177,7 +177,7 @@ fn packed_command_geometry(command: &DisplayCommand) -> (f32, f32, f32, f32, boo
             0.0,
             true,
         ),
-        DisplayCommand::Opacity { value } => (number_value(Some(value)), 0.0, 0.0, 0.0, true),
+        DisplayCommand::Opacity { value } => (*value as f32, 0.0, 0.0, 0.0, true),
         _ => (0.0, 0.0, 0.0, 0.0, false),
     }
 }

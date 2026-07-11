@@ -108,12 +108,26 @@ fn summarizes_font_families_from_text_commands() {
 
 #[test]
 fn serializes_display_commands_with_stable_wire_kinds() {
-    let commands = vec![DisplayCommand::translate(json!(12), json!(0))];
+    let commands = vec![
+        DisplayCommand::translate(json!(12), json!(0)),
+        DisplayCommand::opacity(0.2525),
+    ];
 
     assert_eq!(
         display_command_values(&commands),
-        vec![json!({ "kind": "translate", "dx": 12, "dy": 0 })]
+        vec![
+            json!({ "kind": "translate", "dx": 12, "dy": 0 }),
+            json!({ "kind": "opacity", "value": 0.2525 }),
+        ]
     );
+}
+
+#[test]
+fn packs_opacity_without_summary_precision_rounding() {
+    let packed = pack_display_commands(&[DisplayCommand::opacity(0.2525)]);
+    let value = f32::from_le_bytes(packed.bytes[20..24].try_into().expect("opacity lane"));
+
+    assert_eq!(value, 0.2525_f32);
 }
 
 #[test]

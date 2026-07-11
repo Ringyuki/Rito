@@ -242,7 +242,7 @@ fn append_block_effects(
     if let Some(opacity) = paint.get("opacity").and_then(Value::as_f64) {
         if opacity < 1.0 {
             commands.push(DisplayCommand::push_state());
-            commands.push(DisplayCommand::opacity(number_value(opacity)));
+            commands.push(DisplayCommand::opacity(opacity));
             pushes += 1;
         }
     }
@@ -764,7 +764,7 @@ mod tests {
                     "radius": { "px": 8 },
                     "visualOffset": { "dx": 5, "dy": -2 },
                     "transform": [{ "kind": "scale", "sx": 1.2, "sy": 1.2 }],
-                    "opacity": 0.5,
+                    "opacity": 0.2525,
                     "clipToBounds": true,
                 })),
                 border_box: None,
@@ -796,6 +796,11 @@ mod tests {
         assert_eq!(counts.get("clipRect"), Some(&2));
 
         let values = display_command_values(&commands);
+        let opacity = values
+            .iter()
+            .find(|value| value["kind"] == json!("opacity"))
+            .expect("block opacity command is emitted");
+        assert_eq!(opacity["value"], json!(0.2525));
         let transform = values
             .iter()
             .find(|value| value["kind"] == json!("transform"))

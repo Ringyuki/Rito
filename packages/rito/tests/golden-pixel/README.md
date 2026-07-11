@@ -30,7 +30,9 @@ an opt-in external-baseline mode.
   test font is a deterministic subset of the CC BY 4.0 Codicon font shipped
   with Playwright; attribution is recorded in `CODICON-FONT-NOTICE.md`. Rust
   measurement and browser rasterization therefore use identical font data
-  without system-font fallback.
+  without system-font fallback. The fixture also asserts that its fractional
+  block opacity reaches the reference layout before comparing pixels, guarding
+  semantic paint values from geometry-oriented precision rounding.
 
 ## Commands
 

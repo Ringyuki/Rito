@@ -182,7 +182,9 @@ Those names now belong to the old TS reference tree only.
      It waits for the production reader's deferred full revision and a ready
      frame, then requires exact Canvas pixels against the reference renderer for
      representative block, inline, text, decoration, shadow, font, and ruby
-     paint in the same Chromium process.
+     paint in the same Chromium process. Its block fixture includes a
+     non-three-decimal opacity value so semantic paint precision cannot be
+     silently reduced by layout-summary rounding.
 
 ## Do Not Do
 

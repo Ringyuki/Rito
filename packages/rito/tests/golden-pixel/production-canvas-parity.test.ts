@@ -18,6 +18,7 @@ interface BrowserParityRender {
   readonly totalSpreads: number;
   readonly width: number;
   readonly height: number;
+  readonly blockOpacityCount: number;
   readonly pngBase64: string;
 }
 
@@ -52,6 +53,7 @@ test.describe('production Canvas pixel parity', () => {
     if (!server) throw new Error('Pixel render server did not start');
     const result = await renderParityPair(page, server.origin);
     expect(result.production.totalSpreads).toBe(result.reference.totalSpreads);
+    expect(result.reference.blockOpacityCount).toBeGreaterThan(0);
     expect([result.production.width, result.production.height]).toEqual([
       result.reference.width,
       result.reference.height,
@@ -186,6 +188,7 @@ p {
 }
 .panel {
   width: 360px;
+  opacity: 0.2525;
   padding: 14px;
   background-color: #f3ead7;
   border: 2px solid #506070;
