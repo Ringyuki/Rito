@@ -80,6 +80,7 @@ struct RuntimeBundleEncoder {
     strings: Vec<String>,
     string_indexes: HashMap<String, u32>,
     scalar_indexes: HashMap<ScalarValueKey, u32>,
+    container_indexes: Vec<u32>,
     values: Vec<u8>,
     value_count: u32,
 }
@@ -141,34 +142,42 @@ impl RuntimeBundleEncoder {
     }
 
     fn encode_array(&mut self, items: &[Value]) -> EpubResult<u32> {
-        let mut indexes = Vec::with_capacity(items.len());
+        let start = self.container_indexes.len();
         for item in items {
-            indexes.push(self.encode_value(item)?);
+            let index = self.encode_value(item)?;
+            self.container_indexes.push(index);
         }
-        self.push_record(TAG_ARRAY, |bytes| {
-            write_u32(bytes, checked_u32(indexes.len(), "RITORB1 array length")?);
-            for index in indexes {
-                write_u32(bytes, index);
-            }
-            Ok(())
-        })
+        self.push_container_record(TAG_ARRAY, start, 1, "RITORB1 array length")
     }
 
     fn encode_object(&mut self, object: &Map<String, Value>) -> EpubResult<u32> {
-        let mut entries = Vec::with_capacity(object.len());
+        let start = self.container_indexes.len();
         for (key, value) in object {
             let key_index = self.intern_string(key)?;
             let value_index = self.encode_value(value)?;
-            entries.push((key_index, value_index));
+            self.container_indexes.push(key_index);
+            self.container_indexes.push(value_index);
         }
-        self.push_record(TAG_OBJECT, |bytes| {
-            write_u32(bytes, checked_u32(entries.len(), "RITORB1 object length")?);
-            for (key_index, value_index) in entries {
-                write_u32(bytes, key_index);
-                write_u32(bytes, value_index);
-            }
-            Ok(())
-        })
+        self.push_container_record(TAG_OBJECT, start, 2, "RITORB1 object length")
+    }
+
+    fn push_container_record(
+        &mut self,
+        tag: u8,
+        start: usize,
+        indexes_per_entry: usize,
+        length_label: &str,
+    ) -> EpubResult<u32> {
+        let index_count = self.container_indexes.len() - start;
+        debug_assert_eq!(index_count % indexes_per_entry, 0);
+        let entry_count = checked_u32(index_count / indexes_per_entry, length_label)?;
+        let index = self.begin_record(tag)?;
+        write_u32(&mut self.values, entry_count);
+        for position in start..self.container_indexes.len() {
+            write_u32(&mut self.values, self.container_indexes[position]);
+        }
+        self.container_indexes.truncate(start);
+        Ok(index)
     }
 
     fn push_record(
@@ -176,13 +185,18 @@ impl RuntimeBundleEncoder {
         tag: u8,
         write_payload: impl FnOnce(&mut Vec<u8>) -> EpubResult<()>,
     ) -> EpubResult<u32> {
+        let index = self.begin_record(tag)?;
+        write_payload(&mut self.values)?;
+        Ok(index)
+    }
+
+    fn begin_record(&mut self, tag: u8) -> EpubResult<u32> {
         let index = self.value_count;
         self.value_count = self
             .value_count
             .checked_add(1)
             .ok_or_else(|| wire_error("RITORB1 value table is too large"))?;
         self.values.push(tag);
-        write_payload(&mut self.values)?;
         Ok(index)
     }
 

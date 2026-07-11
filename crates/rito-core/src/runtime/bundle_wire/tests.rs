@@ -41,6 +41,27 @@ fn reuses_scalar_value_records_without_changing_payload() {
 }
 
 #[test]
+fn round_trips_deeply_nested_sibling_containers() {
+    let mut value = json!({"leaf": ["alpha", "beta"]});
+    for depth in 0_u64..64 {
+        value = if depth.is_multiple_of(2) {
+            json!([depth, value, {"sibling": [depth + 1, depth + 2]}])
+        } else {
+            json!({
+                "depth": depth,
+                "nested": value,
+                "sibling": [{"value": depth}, [depth + 1]]
+            })
+        };
+    }
+
+    let bytes = encode_runtime_bundle(&value).expect("nested bundle encodes");
+    let decoded = decode_runtime_bundle(&bytes).expect("nested bundle decodes");
+
+    assert_eq!(decoded.payload, value);
+}
+
+#[test]
 fn rejects_malformed_runtime_bundle_bytes() {
     let mut bytes = encode_runtime_bundle(&json!({"ok": true})).expect("bundle encodes");
     bytes[0] = b'X';
