@@ -327,6 +327,8 @@ function responseTransfer(payload) {
         : [];
     case 'warmFrameWindow':
       return frameWindowTransfers(payload.result);
+    case 'warmFrameWindowAtRevision':
+      return frameWindowTransfers(payload.result);
     case 'readResource':
       return [payload.result.bytes.buffer];
     case 'readFrameBufferAtRevision':

@@ -219,10 +219,10 @@ architecture rather than make an eager whole-book pipeline faster.
 
 1. Define revision/session identity, partial extent, source locators and the
    incremental continuation contract. **Core, raw WASM and private JavaScript
-   Worker version gates are implemented; the bounded session pump remains.**
+   Worker version gates plus the bounded session pump are implemented.**
 2. Implement bounded initial layout and resumable window growth. **Core and raw
-   WASM paths plus opt-in Worker primitives are implemented; the coalescing
-   session controller, browser integration, sub-node budgets and cross-chapter
+   WASM paths, opt-in Worker primitives and the coalescing session controller
+   are implemented; browser integration, sub-node budgets and cross-chapter
    footnote policy remain.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader.

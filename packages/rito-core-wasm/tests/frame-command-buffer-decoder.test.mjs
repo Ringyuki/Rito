@@ -60,6 +60,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
         resourceTransferLeases: true,
         versionedRevisionAccess: true,
         boundedRevisionControl: true,
+        boundedSessionController: true,
         wasmBindgen: true,
         npmWasmArtifact: true,
       },
@@ -78,6 +79,7 @@ test('decoder entry exposes the WASM-free browser runtime surface', async () => 
   ]);
 
   for (const exportName of [
+    'createRitoCoreWasmBoundedReaderSession',
     'createRitoCoreWasmInProcessReaderClient',
     'createRitoCoreWasmReaderChapterMap',
     'createRitoCoreWasmReaderPages',
@@ -208,6 +210,7 @@ test('generated type surface does not expose publication and layout as generic J
   assert.doesNotMatch(declaration, /prefetchFrameResources\(/);
   assert.match(declaration, /prefetchPlannedFrameResources\(/);
   assert.match(declaration, /takeResourceTransfer\(transferId: string\): Uint8Array;/);
+  assert.match(declaration, /warmFrameWindowAtRevision\(/);
   assert.match(declaration, /metadata: RitoFrameCommandBufferMetadata/);
   assert.match(declaration, /\) => DecodedRitoFrameCommandBuffer;/);
   assert.match(declaration, /normalizeRitoCoreWasmError/);

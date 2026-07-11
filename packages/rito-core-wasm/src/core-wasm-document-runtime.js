@@ -1,6 +1,9 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
 import { installRitoCoreWasmVersionedDocumentMethods } from './core-wasm-versioned-runtime.js';
-import { versionedReaderWorkerPayload } from './reader-worker-versioned-payload-runtime.js';
+import {
+  versionedReaderWorkerPayload,
+  warmVersionedReaderFrameWindow,
+} from './reader-worker-versioned-payload-runtime.js';
 import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
@@ -169,6 +172,12 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     prefetchPlannedFrameResources(revisionId, spreadIndex) {
       return jsonMethod('prefetchPlannedFrameResources', () =>
         this._inner.prefetchPlannedFrameResourcesJson(revisionId, spreadIndex),
+      );
+    }
+
+    warmFrameWindowAtRevision(revision, spreadIndex) {
+      return callRitoCoreWasm('warmFrameWindowAtRevision', () =>
+        warmVersionedReaderFrameWindow(this, revision, spreadIndex),
       );
     }
 

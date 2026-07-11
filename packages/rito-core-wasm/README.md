@@ -47,6 +47,15 @@ decoder runtime declaration files as their single signature source.
 Each worker-client helper owns exactly one successfully opened publication
 session; a failed open may be retried, while disposal is terminal.
 
+The decoder surface also exports the opt-in bounded reader session controller.
+It advances one exact-version continuation quantum at a time, yields between
+quanta, coalesces rapid spread requests around the latest target, refreshes
+versioned navigation, and returns a Rust-planned frame/resource window for that
+display target. A retarget to an already-known spread prevents the next layout
+quantum from starting. Cancellation, failure, and disposal release transfers
+and revision state by the latest full revision handle. This remains a private
+staging API and is not yet selected by the production browser Reader.
+
 For local WASM artifact builds:
 
 ```sh

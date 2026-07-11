@@ -77,7 +77,12 @@ test('worker client rejects forged bounded and summary results behind a matching
     revision: handle(0),
     result: { ...advance(0, 'ready', true), revision: summary(1, 'ready') },
   });
-  await assert.rejects(pending, /mismatched revision|non-sequential revisionVersion/);
+  await rejectMalformedMutation(
+    worker,
+    pending,
+    handle(0),
+    /mismatched revision|non-sequential revisionVersion/,
+  );
 
   pending = client.createBoundedRevision({ layoutConfig: {}, budget: budget() });
   worker.respondLast({
@@ -85,13 +90,13 @@ test('worker client rejects forged bounded and summary results behind a matching
     revision: handle(0),
     result: { ...advance(0, 'ready', true), processedTopLevelNodes: 2 },
   });
-  await assert.rejects(pending, /exceeded its top-level node budget/);
+  await rejectMalformedMutation(worker, pending, handle(0), /exceeded its top-level node budget/);
 
   pending = client.continueRevision({ ...handle(1), cursor: 'cursor-1', budget: budget() });
   const continued = advance(2, 'ready', true);
   continued.continuation = { ...handle(3), cursor: 'cursor-3' };
   worker.respondLast({ kind: 'continueRevision', revision: handle(2), result: continued });
-  await assert.rejects(pending, /mismatched revision handle/);
+  await rejectMalformedMutation(worker, pending, handle(2), /mismatched revision handle/);
 
   pending = client.cancelRevision(handle(1));
   worker.respondLast({
@@ -99,7 +104,7 @@ test('worker client rejects forged bounded and summary results behind a matching
     revision: handle(2),
     result: summary(2, 'ready'),
   });
-  await assert.rejects(pending, /invalid revision status/);
+  await rejectMalformedMutation(worker, pending, handle(2), /invalid revision status/);
 
   pending = client.getRevisionSummaryAtRevision(handle(1));
   worker.respondLast({
@@ -110,6 +115,22 @@ test('worker client rejects forged bounded and summary results behind a matching
   await assert.rejects(pending, /non-sequential revisionVersion/);
   client.dispose();
 });
+
+async function rejectMalformedMutation(worker, pending, revision, pattern) {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (worker.messages.at(-1).kind === 'releaseRevisionAtRevision') break;
+    await Promise.resolve();
+  }
+  const rollback = worker.messages.at(-1);
+  assert.equal(rollback.kind, 'releaseRevisionAtRevision');
+  assert.deepEqual(rollback.revision, revision);
+  worker.respondLast({
+    kind: 'releaseRevisionAtRevision',
+    revision,
+    result: { releasedRevision: true, releasedTransferCount: 0 },
+  });
+  await assert.rejects(pending, pattern);
+}
 
 function advance(version, status, continuing) {
   const revision = summary(version, status);

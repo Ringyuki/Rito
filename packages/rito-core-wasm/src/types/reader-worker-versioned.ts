@@ -3,8 +3,10 @@ import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
 import type {
   RitoCoreWasmReaderFrameBuffer,
+  RitoCoreWasmReaderFrameWindowWarmResult,
   RitoCoreWasmReaderResourceBytes,
 } from './reader-worker';
+import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 import type { RitoCoreWasmResourcePayload } from './resource';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
@@ -41,6 +43,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmReaderFrameBuffer>>;
+  warmFrameWindowAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    spreadIndex: number,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmReaderFrameWindowWarmResult>>;
   readResourceAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     kind: RitoCoreWasmResourceKind,
@@ -76,6 +82,14 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
   ): RitoCoreWasmVersioned<Uint8Array>;
+  prefetchPlannedFrameResourcesAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    spreadIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPlannedFrameResourcePrefetchResponse>;
+  warmFrameWindowAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    spreadIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmReaderFrameWindowWarmResult>;
   getResourcePayloadAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     kind: RitoCoreWasmResourceKind,
@@ -131,6 +145,8 @@ export type RitoCoreWasmReaderWorkerGetRevisionNavigationRequest =
   RevisionRequest<'getRevisionNavigationAtRevision'>;
 export type RitoCoreWasmReaderWorkerReadFrameBufferRequest =
   RevisionRequest<'readFrameBufferAtRevision'> & { readonly spreadIndex: number };
+export type RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest =
+  RevisionRequest<'warmFrameWindowAtRevision'> & { readonly spreadIndex: number };
 export type RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest =
   RevisionRequest<'readResourceAtRevision'> & {
     readonly resourceKind: RitoCoreWasmResourceKind;
@@ -152,6 +168,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
+  | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveSourceLocatorRequest
   | RitoCoreWasmReaderWorkerReleaseRevisionTransfersAtRevisionRequest
@@ -183,6 +200,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'readFrameBufferAtRevision',
       RitoCoreWasmReaderFrameBuffer
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'warmFrameWindowAtRevision',
+      RitoCoreWasmReaderFrameWindowWarmResult
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'readResourceAtRevision',

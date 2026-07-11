@@ -22,6 +22,7 @@ export function createVersionedReaderClientMethods(send) {
             'createBoundedRevision response',
             maximum,
           ),
+        true,
       );
     },
     continueRevision: (request) => {
@@ -39,6 +40,7 @@ export function createVersionedReaderClientMethods(send) {
         nextRevision(current, 'continueRevision'),
         (result, revision) =>
           requireRevisionAdvance(result, revision, 'continueRevision response', maximum),
+        true,
       );
     },
     cancelRevision: (request) => {
@@ -50,6 +52,7 @@ export function createVersionedReaderClientMethods(send) {
         nextRevision(current, 'cancelRevision'),
         (result, revision) =>
           requireMatchingRevisionSummary(result, revision, 'cancelRevision response', 'cancelled'),
+        true,
       );
     },
     getRevisionSummaryAtRevision: (revision) =>
@@ -64,6 +67,8 @@ export function createVersionedReaderClientMethods(send) {
       currentRevisionResult(send, 'getRevisionNavigationAtRevision', revision),
     readFrameBufferAtRevision: (revision, spreadIndex) =>
       currentRevisionResult(send, 'readFrameBufferAtRevision', revision, { spreadIndex }),
+    warmFrameWindowAtRevision: (revision, spreadIndex) =>
+      currentRevisionResult(send, 'warmFrameWindowAtRevision', revision, { spreadIndex }),
     readResourceAtRevision: (revision, resourceKind, href) =>
       currentRevisionResult(send, 'readResourceAtRevision', revision, { resourceKind, href }),
     resolveSourceLocatorAtRevision: (revision, locator) =>
@@ -86,7 +91,14 @@ function currentRevisionResult(send, kind, revision, fields = {}, validateResult
   );
 }
 
-async function versionedResult(send, kind, request, expected, validateResult) {
+async function versionedResult(
+  send,
+  kind,
+  request,
+  expected,
+  validateResult,
+  rollbackInvalidResult = false,
+) {
   const payload = await send(request);
   if (payload?.kind !== kind) {
     throw new Error(`Rito reader worker returned ${String(payload?.kind)} for ${kind}`);
@@ -98,11 +110,34 @@ async function versionedResult(send, kind, request, expected, validateResult) {
   ) {
     throw new Error(`Rito reader worker returned a mismatched revision handle for ${kind}`);
   }
-  if (!Object.hasOwn(payload, 'result')) {
-    throw new Error(`Rito reader worker returned no result for ${kind}`);
+  try {
+    if (!Object.hasOwn(payload, 'result')) {
+      throw new Error(`Rito reader worker returned no result for ${kind}`);
+    }
+    const value = validateResult?.(payload.result, revision, `${kind} response`) ?? payload.result;
+    return { revision, value };
+  } catch (error) {
+    if (rollbackInvalidResult) await rollbackCommittedRevision(send, revision);
+    throw error;
   }
-  const value = validateResult?.(payload.result, revision, `${kind} response`) ?? payload.result;
-  return { revision, value };
+}
+
+async function rollbackCommittedRevision(send, revision) {
+  try {
+    const payload = await send({ kind: 'releaseRevisionAtRevision', revision });
+    if (payload?.kind !== 'releaseRevisionAtRevision') {
+      throw new Error('Rito reader worker returned an unrelated rollback response');
+    }
+    const released = requireRevisionHandle(payload.revision, 'committed revision rollback');
+    if (
+      released.revisionId !== revision.revisionId ||
+      released.revisionVersion !== revision.revisionVersion
+    ) {
+      throw new Error('Rito reader worker returned a mismatched rollback handle');
+    }
+  } catch {
+    // Preserve the malformed mutation response; exact rollback is best effort.
+  }
 }
 
 function nextRevision(revision, operation) {

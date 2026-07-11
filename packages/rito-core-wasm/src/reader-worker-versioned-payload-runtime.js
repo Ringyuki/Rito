@@ -27,6 +27,11 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'readFrameBufferAtRevision':
       return readFrameBufferAtRevision(document, request.revision, request.spreadIndex);
+    case 'warmFrameWindowAtRevision':
+      return valueResponse(
+        request.kind,
+        document.warmFrameWindowAtRevision(request.revision, request.spreadIndex),
+      );
     case 'readResourceAtRevision':
       return readResourceAtRevision(document, request.revision, request.resourceKind, request.href);
     case 'resolveSourceLocatorAtRevision':
@@ -46,6 +51,32 @@ export function versionedReaderWorkerPayload(document, request) {
   }
 }
 
+export function warmVersionedReaderFrameWindow(document, requestedRevision, spreadIndex) {
+  const operation = 'warmFrameWindowAtRevision';
+  const revision = requireRevisionHandle(requestedRevision, operation);
+  const prefetched = document.prefetchPlannedFrameResourcesAtRevision(revision, spreadIndex);
+  requireSameHandle(revision, prefetched.revision, operation);
+  try {
+    requireFrameWindowRevision(prefetched.value, revision, spreadIndex, operation);
+    return {
+      revision,
+      value: {
+        plan: prefetched.value.plan,
+        frames: prefetched.value.plan.spreadIndexes.map((index) =>
+          readVersionedFrameBuffer(document, revision, index),
+        ),
+        spreads: prefetched.value.spreads.map((spread) => ({
+          spreadIndex: spread.spreadIndex,
+          resources: readVersionedResourcePayloadBytes(document, revision, spread.payloads),
+        })),
+      },
+    };
+  } catch (error) {
+    releasePlannedResourceTransfers(document, prefetched.value);
+    throw error;
+  }
+}
+
 function advanceResponse(kind, advance) {
   const revision = requireRevisionHandle(advance.revision, `${kind} result`);
   return { kind, revision, result: advance };
@@ -62,14 +93,33 @@ function valueResponse(kind, envelope) {
 }
 
 function readFrameBufferAtRevision(document, revision, spreadIndex) {
+  const expected = requireRevisionHandle(revision, 'readFrameBufferAtRevision');
   const metadata = document.getFrameCommandBufferMetadataAtRevision(revision, spreadIndex);
   const bytes = document.readFrameCommandBufferAtRevision(revision, spreadIndex);
+  requireSameHandle(expected, metadata.revision, 'readFrameBufferAtRevision metadata');
   requireSameHandle(metadata.revision, bytes.revision, 'readFrameBufferAtRevision');
+  requireFrameMetadata(metadata.value, expected, spreadIndex, 'readFrameBufferAtRevision');
   return {
     kind: 'readFrameBufferAtRevision',
-    revision: metadata.revision,
+    revision: expected,
     result: { metadata: metadata.value, bytes: bytes.value },
   };
+}
+
+function readVersionedFrameBuffer(document, revision, spreadIndex) {
+  const metadata = document.getFrameCommandBufferMetadataAtRevision(revision, spreadIndex);
+  requireSameHandle(revision, metadata.revision, 'warmFrameWindowAtRevision metadata');
+  requireFrameMetadata(metadata.value, revision, spreadIndex, 'warmFrameWindowAtRevision');
+  const bytes = document.readFrameCommandBufferAtRevision(revision, spreadIndex);
+  requireSameHandle(revision, bytes.revision, 'warmFrameWindowAtRevision bytes');
+  return { metadata: metadata.value, bytes: bytes.value };
+}
+
+function requireFrameMetadata(metadata, revision, spreadIndex, operation) {
+  requireRevisionId(metadata, revision, `${operation} metadata`);
+  if (metadata.spreadIndex !== spreadIndex) {
+    throw new Error(`${operation} metadata received a mismatched spreadIndex`);
+  }
 }
 
 function readResourceAtRevision(document, revision, kind, href) {
@@ -92,6 +142,74 @@ function requireSameHandle(left, right, operation) {
     expected.revisionVersion !== actual.revisionVersion
   ) {
     throw new Error(`${operation} received mismatched versioned responses`);
+  }
+}
+
+function requireFrameWindowRevision(prefetched, revision, requestedSpreadIndex, operation) {
+  const plan = prefetched?.plan;
+  requireRevisionId(plan, revision, `${operation} plan`);
+  if (
+    plan.centerSpreadIndex !== requestedSpreadIndex ||
+    plan.displaySpreadIndex !== requestedSpreadIndex
+  ) {
+    throw new Error(`${operation} received a plan for a mismatched spreadIndex`);
+  }
+  if (!Array.isArray(plan.spreadIndexes) || !Array.isArray(prefetched.spreads)) {
+    throw new Error(`${operation} received a malformed frame window plan`);
+  }
+  const indexes = new Set();
+  for (const spreadIndex of plan.spreadIndexes) {
+    if (!Number.isSafeInteger(spreadIndex) || spreadIndex < 0 || indexes.has(spreadIndex)) {
+      throw new Error(`${operation} received invalid frame window spread indexes`);
+    }
+    indexes.add(spreadIndex);
+  }
+  if (prefetched.spreads.length !== plan.spreadIndexes.length) {
+    throw new Error(`${operation} received resources inconsistent with its frame window plan`);
+  }
+  for (const [index, spread] of prefetched.spreads.entries()) {
+    requireRevisionId(spread, revision, `${operation} spread`);
+    if (spread.spreadIndex !== plan.spreadIndexes[index]) {
+      throw new Error(`${operation} received resources for a mismatched spreadIndex`);
+    }
+    if (!Array.isArray(spread.payloads)) {
+      throw new Error(`${operation} received malformed frame window resources`);
+    }
+    for (const payload of spread.payloads) {
+      requireRevisionId(payload, revision, `${operation} resource`);
+    }
+  }
+}
+
+function requireRevisionId(value, revision, operation) {
+  if (value === null || typeof value !== 'object' || value.revisionId !== revision.revisionId) {
+    throw new Error(`${operation} received a mismatched revisionId`);
+  }
+}
+
+function readVersionedResourcePayloadBytes(document, revision, payloads) {
+  const resources = [];
+  for (const payload of payloads) {
+    requireRevisionId(payload, revision, 'warmFrameWindowAtRevision resource');
+    try {
+      resources.push({ payload, bytes: takeResourceTransferBytes(document, payload.transferId) });
+    } catch {
+      // Frame resource warmup is opportunistic. Missing bytes should not fail callers.
+    }
+  }
+  return resources;
+}
+
+function releasePlannedResourceTransfers(document, prefetched) {
+  for (const spread of Array.isArray(prefetched?.spreads) ? prefetched.spreads : []) {
+    for (const payload of Array.isArray(spread?.payloads) ? spread.payloads : []) {
+      if (typeof payload?.transferId !== 'string') continue;
+      try {
+        document.releaseResourceTransfer(payload.transferId);
+      } catch {
+        // Preserve the frame-window failure; cleanup is best effort.
+      }
+    }
   }
 }
 

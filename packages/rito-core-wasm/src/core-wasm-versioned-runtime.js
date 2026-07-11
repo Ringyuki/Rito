@@ -1,16 +1,14 @@
 import { callRitoCoreWasm } from './core-wasm-error-runtime.js';
+import { runBoundedMutation, runCancelMutation } from './core-wasm-versioned-mutation-runtime.js';
 import {
   encodeJson,
   parseObject,
   requireFlatRevisionHandle,
-  requireInitialRevisionAdvance,
   requireMatchingHandle,
   requireMatchingRevisionSummary,
   requireObjectInput,
-  requireRevisionAdvance,
   requireRevisionBundle,
   requireRevisionHandle,
-  requireRevisionSummary,
   requireRevisionWorkBudget,
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
@@ -42,18 +40,7 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
     cancelRevision(request) {
       const input = requireObjectInput(request, 'cancelRevision');
       const handle = requireFlatRevisionHandle(input, 'cancelRevision');
-      return callRitoCoreWasm('cancelRevision', () =>
-        requireRevisionSummary(
-          parseObject(
-            this._inner.cancelRevisionJson(encodeJson(input, 'cancelRevision')),
-            'cancelRevision',
-          ),
-          'cancelRevision',
-          handle.revisionId,
-          handle.revisionVersion + 1,
-          'cancelled',
-        ),
-      );
+      return callRitoCoreWasm('cancelRevision', () => runCancelMutation(this, input, handle));
     },
     getFrameAtRevision(handle, spreadIndex) {
       return versionedJson(this, 'getFrameAtRevision', handle, (revision) =>
@@ -223,16 +210,15 @@ function boundedRequest(
   return callRitoCoreWasm(operation, () => {
     const input = requireObjectInput(request, operation);
     const maximum = requireRevisionWorkBudget(input.budget, operation);
-    const result = parseObject(document._inner[rawMethod](encodeJson(input, operation)), operation);
-    const revision = requireRevisionSummary(
-      result.revision,
+    return runBoundedMutation(
+      document,
+      rawMethod,
       operation,
+      input,
+      maximum,
       expectedRevisionId,
       expectedRevisionVersion,
     );
-    return operation === 'createBoundedRevision'
-      ? requireInitialRevisionAdvance(result, revision, operation, maximum)
-      : requireRevisionAdvance(result, revision, operation, maximum);
   });
 }
 

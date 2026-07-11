@@ -332,7 +332,9 @@ the private core-wasm session controller, not as another browser-owned reflow
 policy branch. The integration contract is:
 
 - keep at most one continuation quantum in flight for one revision, coalesce
-  requested target spreads, and yield between quanta;
+  requested target spreads with latest-request priority, and yield between
+  quanta. A retarget to an already-known spread must prevent the next quantum
+  from starting;
 - attach the full Worker-session and Rust revision handle to every request and
   response; an accepted advance rebinds the active handle before any follow-up
   read can start;
@@ -352,3 +354,8 @@ The raw WASM surface and the private JavaScript control plane are staging
 boundaries. They do not by themselves authorize selecting bounded revisions in
 the production browser Reader; that switch still requires the large-node and
 cross-chapter-footnote correctness blockers plus browser race tests.
+
+The private controller now implements the single-pump, target-coalescing,
+task-yielding and latest-handle cleanup rules above, including an exact-version
+frame/resource window. The remaining work in this document is therefore a
+browser lifecycle replacement, not another continuation scheduler.

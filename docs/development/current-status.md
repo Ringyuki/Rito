@@ -129,8 +129,13 @@ Those names now belong to the old TS reference tree only.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
-  exact versioned release. The bounded session pump and production-reader
-  switch are still pending.
+  exact versioned release. A private bounded session controller now coalesces
+  target spreads with latest-request priority, permits only one continuation
+  quantum in flight, yields between quanta, avoids starting another quantum
+  when a retarget is already available, refreshes complete navigation
+  snapshots, warms frames and resources at the exact accepted version, and
+  cancels/releases the latest handle after races or failures. The
+  production-reader switch is still pending.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
 - Font-aware layout now follows declared `font-family` order, treats omitted
@@ -225,9 +230,8 @@ Those names now belong to the old TS reference tree only.
      The Rust core now has an opt-in bounded revision path with top-level-node
      budgets, one-shot versioned cursors, cancellation, stable partial extents,
      lazy chapter/image loading and resumable page-window growth. It is not yet
-     selected by the browser reader; raw WASM and private JavaScript/Worker
-     primitives are available, while the coalescing session controller remains
-     to be implemented.
+     selected by the browser reader; raw WASM, private JavaScript/Worker
+     primitives and the coalescing session controller are available.
    - A single large paragraph/table remains atomic, and publication-wide
      cross-chapter footnote filtering still needs a lazy-safe indexing policy
      before the bounded path can claim universal eager equivalence.

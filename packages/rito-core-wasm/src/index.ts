@@ -2,6 +2,7 @@ import { decodeRitoFrameCommandBuffer as decodeFrameCommandBufferRuntime } from 
 import { decodeRitoRuntimeBundle as decodeRuntimeBundleRuntime } from './runtime-bundle-decoder-runtime.js';
 
 export { normalizeRitoCoreWasmError, RitoCoreWasmError } from './core-wasm-error-runtime.js';
+export { createRitoCoreWasmBoundedReaderSession } from './reader-bounded-session-runtime.js';
 export {
   createRitoCoreWasmReaderChapterMap,
   createRitoCoreWasmReaderChapterTextIndexMap,
