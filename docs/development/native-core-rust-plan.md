@@ -329,9 +329,15 @@ in place:
   infer font policy. Image and font preload failures are best-effort, matching
   the old TS loader behavior.
 - Layout image sizing, eager EPUB resource reads, and runtime resource transfer
-  use one Rust href resolver. Raw exact matches retain precedence; percent-
-  encoded UTF-8 paths, leading relative segments, and rooted source tails are
-  accepted only when the suffix/basename result is unambiguous.
+  use one Rust href resolver. The complete raw source/key lookup retains
+  precedence; one valid percent-decoding pass is then applied symmetrically to
+  source and resource keys. Leading relative segments and rooted source tails
+  remain ambiguity-aware, decoded-key conflicts terminate without a shorter
+  fallback, and malformed or double-encoded inputs are not over-decoded.
+- Safe canonical ZIP images that are absent or mislabeled in the OPF manifest
+  are indexed as tolerant fallbacks. Production runtime open reads only central-
+  directory metadata, while eager diagnostics load bytes immediately; manifest
+  media types and hrefs win by resolved physical entry identity.
 - Rust package/layout parity matches the TypeScript fixture matrix for
   `book-01` through `book-10` across all 4 selected greedy/optimal viewport
   configurations.
@@ -1055,6 +1061,10 @@ Required cleanup:
      dimensions, eager document lookup, and runtime transfer metadata/bytes, so
      a frame that sizes an encoded or rooted image path can also warm and paint
      the same resource.
+   - Archive-image fallback discovery scans safe canonical central-directory
+     entries without decompressing them. Unreferenced fallback images remain
+     metadata-only in runtime documents; referenced images reuse the existing
+     lazy dimension, byte-cache, transfer-lease, and browser decode path.
    - Runtime image/font bytes now become document-owned lazy cache entries after
      first read; image bytes read for dimension detection are retained too, so
      resource lookup does not re-open the EPUB archive for the same binary.

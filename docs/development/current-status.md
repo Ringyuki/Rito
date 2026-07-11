@@ -104,9 +104,17 @@ Those names now belong to the old TS reference tree only.
   successful faces are committed to `document.fonts` in the Rust-authored
   source order; failures and stale reader revisions remain isolated.
 - Image-size lookup, eager document reads, and runtime resource transfers now
-  share one ambiguity-aware href resolver. It preserves exact raw matches,
-  accepts percent-encoded UTF-8 hrefs and rooted source tails, and refuses to
-  guess when suffixes or basenames are ambiguous.
+  share one ambiguity-aware href resolver. It preserves the complete raw
+  source/key lookup first, then applies one valid percent-decoding pass
+  symmetrically to the source and resource keys. Encoded manifest keys, rooted
+  source tails, malformed escapes, double encoding, and decoded-key collisions
+  therefore behave consistently from layout through browser paint.
+- Rust now also indexes safe, canonical image files that are present in the ZIP
+  but absent or mislabeled in the OPF manifest, matching the reference reader's
+  real-world tolerance. Runtime open scans central-directory metadata only;
+  bytes, hashes, and intrinsic dimensions remain lazy until a chapter or
+  transfer actually uses the image. Manifest resources retain precedence by
+  resolved ZIP entry identity, including percent-encoded manifest hrefs.
 - Mixed-content visual previews commit without waiting for image decode, then
   invalidate once the selected image resources enter the browser cache. The
   completion is ignored after navigation, preview replacement, or disposal;
@@ -287,8 +295,9 @@ Pick one of these, in order:
      and reader resource tests separately protect browser registration order;
    - use the next real diagnostic mismatch to choose another CSS/layout fix, or
      extend browser presentation evidence only when it locks a concrete gap;
-   - decide separately whether production should tolerate archive images that
-     are absent from the OPF manifest, as the TS reference currently does;
+   - treat query/fragment normalization and stylesheet-relative background URL
+     provenance as separate correctness slices; do not broaden suffix guessing
+     to hide either problem;
    - use TS reference diagnostics and render-command goldens;
    - fix Rust layout/display differences without adding new TS runtime policy.
 2. Continue Binary Wire V2 validation:
