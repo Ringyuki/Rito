@@ -171,14 +171,13 @@ Those names now belong to the old TS reference tree only.
      including transforms, clipping, page/image/HR painting, color overrides,
      and pixel-ratio scaling. Its production-owned helpers now also implement
      clockwise/counter-clockwise rounded paths, manifest-image href resolution,
-     and block backgrounds, images, borders, and outer shadows.
-   - `packages/rito/src/bindings/browser/rendering.ts` retains one guarded
-     reference edge for exactly two text paint hooks: `drawTextFragment` and
-     `drawRubyFragment`. The old TS display-list dispatcher, direct rounded-path
-     hook, reference image resolver, and block-decoration closure are no longer
-     in the production boundary.
-   - This smaller dependency is visible and intentional for parity, but the
-     text/ruby paint leaves are not the final renderer-ready boundary.
+     block backgrounds/images/borders/shadows, and text/ruby painting including
+     inline decoration and scratch-canvas text shadows.
+   - `packages/rito/src/bindings/browser/rendering.ts` and the complete
+     production browser binding now have no imports from `src/reference/**`.
+     The old TS display-list dispatcher and every temporary paint/path/resource
+     hook have left the production build graph; the reference Canvas renderer
+     remains only for parity, golden, and diagnostic tooling.
 
 ## Do Not Do
 

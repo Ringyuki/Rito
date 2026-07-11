@@ -299,8 +299,9 @@ The browser resource and Canvas presentation adapters were also moved out of
 platform adapters, not reader runtime policy. This hits the counted final reader
 shell target without hiding runtime policy in another TypeScript directory. The
 remaining non-counted browser adapter code is still TypeScript by necessity:
-FontFace/ImageBitmap/object URL lifecycle and the temporary Canvas renderer
-adapter for reference parity.
+FontFace/ImageBitmap/object URL lifecycle and the production Canvas presentation
+adapter. That adapter is now independent of the TypeScript reference core; the
+reference renderer remains only in parity and diagnostic tooling.
 
 Round 5c split the remaining oversized browser reader facade functions and moved
 the private `@ritojs/core-wasm` contract re-export to `src/bindings/browser/`.
