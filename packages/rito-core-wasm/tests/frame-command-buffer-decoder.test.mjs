@@ -263,10 +263,18 @@ function runtimeU64Record(value) {
   return bytes;
 }
 
-function runtimeObjectRecord(entries) {
+function runtimeArrayRecord(indexes, declaredCount = indexes.length) {
+  return joinBytes([
+    new Uint8Array([7]),
+    u32Bytes(declaredCount),
+    ...indexes.map((index) => u32Bytes(index)),
+  ]);
+}
+
+function runtimeObjectRecord(entries, declaredCount = entries.length) {
   return joinBytes([
     new Uint8Array([8]),
-    u32Bytes(entries.length),
+    u32Bytes(declaredCount),
     ...entries.flatMap(([keyIndex, valueIndex]) => [u32Bytes(keyIndex), u32Bytes(valueIndex)]),
   ]);
 }
@@ -361,6 +369,61 @@ test('decodeRitoRuntimeBundle preserves generic scalar JSON payloads', () => {
   });
 
   assert.equal(decodeRitoRuntimeBundle(bytes).payload, true);
+});
+
+test('decodeRitoRuntimeBundle rejects forward value references from containers', () => {
+  const arrayBytes = runtimeBundleBytes({
+    strings: [],
+    values: [runtimeArrayRecord([1]), runtimeTrueRecord()],
+    rootIndex: 0,
+  });
+  const objectBytes = runtimeBundleBytes({
+    strings: ['value'],
+    values: [runtimeObjectRecord([[0, 1]]), runtimeTrueRecord()],
+    rootIndex: 0,
+  });
+
+  assert.throws(() => decodeRitoRuntimeBundle(arrayBytes), {
+    message: /value index is out of bounds/,
+  });
+  assert.throws(() => decodeRitoRuntimeBundle(objectBytes), {
+    message: /value index is out of bounds/,
+  });
+});
+
+test('decodeRitoRuntimeBundle rejects impossible counts before preallocation', () => {
+  const validBytes = runtimeBundleBytes({
+    strings: ['value'],
+    values: [runtimeTrueRecord()],
+    rootIndex: 0,
+  });
+  const badStringCount = new Uint8Array(validBytes);
+  new DataView(badStringCount.buffer).setUint32(20, 0xffffffff, true);
+  const badValueCount = new Uint8Array(validBytes);
+  new DataView(badValueCount.buffer).setUint32(24, 0xffffffff, true);
+  const badArrayCount = runtimeBundleBytes({
+    strings: [],
+    values: [runtimeArrayRecord([], 0xffffffff)],
+    rootIndex: 0,
+  });
+  const badObjectCount = runtimeBundleBytes({
+    strings: [],
+    values: [runtimeObjectRecord([], 0xffffffff)],
+    rootIndex: 0,
+  });
+
+  assert.throws(() => decodeRitoRuntimeBundle(badStringCount), {
+    message: /RITORB1 string count range exceeds payload length/,
+  });
+  assert.throws(() => decodeRitoRuntimeBundle(badValueCount), {
+    message: /RITORB1 value count range exceeds payload length/,
+  });
+  assert.throws(() => decodeRitoRuntimeBundle(badArrayCount), {
+    message: /RITORB1 array count range exceeds payload length/,
+  });
+  assert.throws(() => decodeRitoRuntimeBundle(badObjectCount), {
+    message: /RITORB1 object count range exceeds payload length/,
+  });
 });
 
 test('decodeRitoRuntimeBundle preserves __proto__ as an own data property', () => {

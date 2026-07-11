@@ -95,13 +95,14 @@ function validateRanges(header, byteLength) {
 function decodeStringTable(bytes, view, header) {
   const end = header.stringOffset + header.stringLength;
   let cursor = header.stringOffset;
-  const strings = [];
+  validateCountFitsRemaining(header.stringCount, cursor, end, 4, 'string count');
+  const strings = new Array(header.stringCount);
   for (let index = 0; index < header.stringCount; index += 1) {
     const byteLength = readUint32At(view, cursor, end, 'RITORB1 string length');
     cursor += 4;
     const stringEnd = checkedEnd(cursor, byteLength, end, 'string');
     try {
-      strings.push(utf8Decoder.decode(bytes.subarray(cursor, stringEnd)));
+      strings[index] = utf8Decoder.decode(bytes.subarray(cursor, stringEnd));
     } catch (error) {
       throw new Error(
         `RITORB1 string is not UTF-8: ${error instanceof Error ? error.message : String(error)}`,
@@ -119,7 +120,8 @@ function decodeStringTable(bytes, view, header) {
 function decodeValueTable(view, header, strings) {
   const end = header.valueOffset + header.valueLength;
   let cursor = header.valueOffset;
-  const values = [];
+  validateCountFitsRemaining(header.valueCount, cursor, end, 1, 'value count');
+  const values = new Array(header.valueCount);
   const readUint32 = (label) => {
     const value = readUint32At(view, cursor, end, label);
     cursor += 4;
@@ -131,38 +133,44 @@ function decodeValueTable(view, header, strings) {
     cursor += 1;
     switch (tag) {
       case TAG_NULL:
-        values.push(null);
+        values[index] = null;
         break;
       case TAG_FALSE:
-        values.push(false);
+        values[index] = false;
         break;
       case TAG_TRUE:
-        values.push(true);
+        values[index] = true;
         break;
       case TAG_I64:
         checkedEnd(cursor, 8, end, 'i64');
-        values.push(safeInteger(view.getBigInt64(cursor, true), 'i64'));
+        values[index] = safeInteger(view.getBigInt64(cursor, true), 'i64');
         cursor += 8;
         break;
       case TAG_U64:
         checkedEnd(cursor, 8, end, 'u64');
-        values.push(safeInteger(view.getBigUint64(cursor, true), 'u64'));
+        values[index] = safeInteger(view.getBigUint64(cursor, true), 'u64');
         cursor += 8;
         break;
       case TAG_F64:
         checkedEnd(cursor, 8, end, 'f64');
-        values.push(finiteNumber(view.getFloat64(cursor, true)));
+        values[index] = finiteNumber(view.getFloat64(cursor, true));
         cursor += 8;
         break;
       case TAG_STRING:
-        values.push(readString(strings, readUint32('RITORB1 string index')));
+        values[index] = readString(strings, readUint32('RITORB1 string index'));
         break;
-      case TAG_ARRAY:
-        values.push(readArray(values, readUint32, readUint32('RITORB1 array length')));
+      case TAG_ARRAY: {
+        const count = readUint32('RITORB1 array length');
+        validateCountFitsRemaining(count, cursor, end, 4, 'array count');
+        values[index] = readArray(values, readUint32, count, index);
         break;
-      case TAG_OBJECT:
-        values.push(readObject(values, strings, readUint32, readUint32('RITORB1 object length')));
+      }
+      case TAG_OBJECT: {
+        const count = readUint32('RITORB1 object length');
+        validateCountFitsRemaining(count, cursor, end, 8, 'object count');
+        values[index] = readObject(values, strings, readUint32, count, index);
         break;
+      }
       default:
         throw new Error(`Unsupported RITORB1 value tag: ${String(tag)}`);
     }
@@ -173,19 +181,19 @@ function decodeValueTable(view, header, strings) {
   return values;
 }
 
-function readArray(values, readUint32, count) {
-  const result = [];
+function readArray(values, readUint32, count, decodedValueCount) {
+  const result = new Array(count);
   for (let index = 0; index < count; index += 1) {
-    result.push(readValue(values, readUint32('RITORB1 array index')));
+    result[index] = readValue(values, readUint32('RITORB1 array index'), decodedValueCount);
   }
   return result;
 }
 
-function readObject(values, strings, readUint32, count) {
+function readObject(values, strings, readUint32, count, decodedValueCount) {
   const result = {};
   for (let index = 0; index < count; index += 1) {
     const key = readString(strings, readUint32('RITORB1 object key index'));
-    const value = readValue(values, readUint32('RITORB1 object value index'));
+    const value = readValue(values, readUint32('RITORB1 object value index'), decodedValueCount);
     if (key in result) {
       Object.defineProperty(result, key, {
         configurable: true,
@@ -207,8 +215,8 @@ function readString(strings, index) {
   return strings[index];
 }
 
-function readValue(values, index) {
-  if (index >= values.length) {
+function readValue(values, index, decodedValueCount) {
+  if (index >= decodedValueCount) {
     throw new Error('RITORB1 value index is out of bounds.');
   }
   return values[index];
@@ -246,6 +254,14 @@ function checkedEnd(offset, length, limit, label) {
     throw new Error(`RITORB1 ${label} range exceeds payload length.`);
   }
   return end;
+}
+
+function validateCountFitsRemaining(count, offset, limit, minimumRecordBytes, label) {
+  const minimumLength = count * minimumRecordBytes;
+  if (!Number.isSafeInteger(minimumLength)) {
+    throw new Error(`RITORB1 ${label} range exceeds payload length.`);
+  }
+  checkedEnd(offset, minimumLength, limit, label);
 }
 
 function runtimeBundleChecksum(bytes) {
