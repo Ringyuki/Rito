@@ -1,4 +1,8 @@
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
+import { unzipSync } from 'fflate';
 import { PNG } from 'pngjs';
 import { buildMinimalEpub } from '../helpers/epub-builder';
 import { SHOULD_RUN_PIXEL_GOLDEN } from './helpers/pixel-golden-file';
@@ -6,7 +10,19 @@ import { comparePng } from './helpers/png-diff';
 import { startPixelRenderServer, type PixelRenderServer } from './helpers/render-server';
 
 interface BrowserParityApi {
-  renderRitoProductionParity(bookBase64: string, fontBase64: string): Promise<BrowserParityPair>;
+  renderRitoProductionParity(
+    bookBase64: string,
+    fonts: readonly BrowserParityFontSpec[],
+  ): Promise<BrowserParityPair>;
+}
+
+interface BrowserParityFontSpec {
+  readonly family: string;
+  readonly fontBase64: string;
+  readonly descriptors?: {
+    readonly style?: string;
+    readonly weight?: string;
+  };
 }
 
 interface BrowserParityPair {
@@ -27,6 +43,14 @@ interface BrowserParityWindow extends Partial<BrowserParityApi> {
 }
 
 const PAGE_READY_TIMEOUT_MS = 30_000;
+const TEST_DIR = dirname(fileURLToPath(import.meta.url));
+const BOOK_FIXTURE_PATH = resolve(TEST_DIR, '../fixtures/books/book-01.epub');
+const BOOK_FIXTURE_FILES = unzipSync(readFileSync(BOOK_FIXTURE_PATH));
+const ILLUS1_FONT_BYTES = requireFixtureFile('OEBPS/Fonts/illus1.ttf');
+const ILLUS5_FONT_BYTES = requireFixtureFile('OEBPS/Fonts/illus5.ttf');
+// At 20px, 26 digits measure 364.52px in illus1 and 310.96px in illus5. The
+// 360px panel therefore turns a wrong face choice into a deterministic line break.
+const FONT_SELECTION_SAMPLE = '4'.repeat(26);
 
 // A HarfBuzz subset of the CC BY 4.0 Codicon font shipped with Playwright.
 // It intentionally contains only U+EA60, which is enough for this deterministic paint fixture.
@@ -72,16 +96,20 @@ async function renderParityPair(page: Page, origin: string): Promise<BrowserPari
   });
   await page.goto(`${origin}/production-parity.html`);
   await waitForParityApi(page, diagnostics);
-  return await page.evaluate(
-    async ({ bookBase64, fontBase64 }) => {
+  const result = await page.evaluate(
+    async ({ bookBase64, fonts }) => {
       const api = window as unknown as BrowserParityApi;
-      return await api.renderRitoProductionParity(bookBase64, fontBase64);
+      return await api.renderRitoProductionParity(bookBase64, fonts);
     },
     {
       bookBase64: Buffer.from(buildParityEpub()).toString('base64'),
-      fontBase64: TEST_FONT_BASE64,
+      fonts: browserParityFonts(),
     },
   );
+  if (diagnostics.length > 0) {
+    throw new Error(`Production parity render emitted browser errors:\n${diagnostics.join('\n')}`);
+  }
+  return result;
 }
 
 async function waitForParityApi(page: Page, diagnostics: readonly string[]): Promise<void> {
@@ -145,8 +173,61 @@ function buildParityEpub(): ArrayBuffer {
     title: 'Production Canvas Parity',
     chapters: [{ id: 'paint', href: 'paint.xhtml', content: parityXhtml() }],
     stylesheets: [{ id: 'paint-css', href: 'paint.css', content: PARITY_CSS }],
-    fonts: [{ id: 'font-normal', href: 'font-normal.ttf', mediaType: 'font/ttf', data: fontBytes }],
+    fonts: [
+      { id: 'font-normal', href: 'font-normal.ttf', mediaType: 'font/ttf', data: fontBytes },
+      {
+        id: 'alpha-family',
+        href: 'alpha-family.ttf',
+        mediaType: 'font/ttf',
+        data: ILLUS5_FONT_BYTES,
+      },
+      {
+        id: 'zulu-family',
+        href: 'zulu-family.ttf',
+        mediaType: 'font/ttf',
+        data: ILLUS1_FONT_BYTES,
+      },
+      {
+        id: 'descriptor-regular',
+        href: 'descriptor-a-regular.ttf',
+        mediaType: 'font/ttf',
+        data: ILLUS5_FONT_BYTES,
+      },
+      {
+        id: 'descriptor-exact',
+        href: 'descriptor-z-exact.ttf',
+        mediaType: 'font/ttf',
+        data: ILLUS1_FONT_BYTES,
+      },
+    ],
   });
+}
+
+function browserParityFonts(): readonly BrowserParityFontSpec[] {
+  return [
+    {
+      family: 'Rito Pixel Test',
+      fontBase64: TEST_FONT_BASE64,
+      descriptors: { style: 'normal', weight: '400' },
+    },
+    { family: 'Alpha Family', fontBase64: Buffer.from(ILLUS5_FONT_BYTES).toString('base64') },
+    { family: 'Zulu Family', fontBase64: Buffer.from(ILLUS1_FONT_BYTES).toString('base64') },
+    {
+      family: 'Descriptor Family',
+      fontBase64: Buffer.from(ILLUS5_FONT_BYTES).toString('base64'),
+    },
+    {
+      family: 'Descriptor Family',
+      fontBase64: Buffer.from(ILLUS1_FONT_BYTES).toString('base64'),
+      descriptors: { style: 'italic', weight: '700' },
+    },
+  ];
+}
+
+function requireFixtureFile(path: string): Uint8Array {
+  const file = BOOK_FIXTURE_FILES[path];
+  if (!file) throw new Error(`Missing production parity fixture file: ${path}`);
+  return file;
 }
 
 function parityXhtml(): string {
@@ -163,6 +244,8 @@ function parityXhtml(): string {
       <p class="decorated">&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;</p>
       <p class="shadow">&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;</p>
       <p class="ruby"><ruby>&#xea60;&#xea60;&#xea60;&#xea60;<rt>&#xea60;&#xea60;</rt></ruby></p>
+      <p class="family-order">${FONT_SELECTION_SAMPLE}</p>
+      <p class="descriptor-match">${FONT_SELECTION_SAMPLE}</p>
       <hr />
     </div>
   </body>
@@ -175,6 +258,24 @@ const PARITY_CSS = `
   src: url("font-normal.ttf");
   font-style: normal;
   font-weight: 400;
+}
+@font-face {
+  font-family: "Alpha Family";
+  src: url("alpha-family.ttf");
+}
+@font-face {
+  font-family: "Zulu Family";
+  src: url("zulu-family.ttf");
+}
+@font-face {
+  font-family: "Descriptor Family";
+  src: url("descriptor-a-regular.ttf");
+}
+@font-face {
+  font-family: "Descriptor Family";
+  src: url("descriptor-z-exact.ttf");
+  font-style: italic;
+  font-weight: 700;
 }
 body {
   margin: 0;
@@ -215,6 +316,18 @@ p {
 }
 .ruby {
   color: #5d3b83;
+}
+.family-order {
+  color: #5b331d;
+  font-family: "Zulu Family", "Alpha Family";
+  word-break: break-all;
+}
+.descriptor-match {
+  color: #285f67;
+  font-family: "Descriptor Family";
+  font-style: italic;
+  font-weight: 700;
+  word-break: break-all;
 }
 hr {
   border: 0;

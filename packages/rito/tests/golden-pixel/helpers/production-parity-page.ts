@@ -37,10 +37,10 @@ export function productionParityHtml(): string {
   ])
     .then(([referenceModule, productionModule]) => {
       window.renderRitoProductionParityReady = 'ready';
-      window.renderRitoProductionParity = async (bookBase64, fontBase64) => {
+      window.renderRitoProductionParity = async (bookBase64, fonts) => {
         const installedFonts = [];
         try {
-          installedFonts.push(...(await installTestFonts(fontBase64)));
+          installedFonts.push(...(await installTestFonts(fonts)));
           const reference = await renderEngine(referenceModule, bookBase64, false);
           const production = await renderEngine(productionModule, bookBase64, true);
           return { reference, production };
@@ -56,17 +56,19 @@ export function productionParityHtml(): string {
       );
     });
 
-  async function installTestFonts(fontBase64) {
+  async function installTestFonts(fonts) {
     const faces = [];
     try {
-      const face = new FontFace(
-        'Rito Pixel Test',
-        base64ToArrayBuffer(fontBase64),
-        { style: 'normal', weight: '400' },
-      );
-      await face.load();
-      document.fonts.add(face);
-      faces.push(face);
+      for (const font of fonts) {
+        const face = new FontFace(
+          font.family,
+          base64ToArrayBuffer(font.fontBase64),
+          font.descriptors,
+        );
+        await face.load();
+        document.fonts.add(face);
+        faces.push(face);
+      }
       await document.fonts.ready;
       return faces;
     } catch (error) {
