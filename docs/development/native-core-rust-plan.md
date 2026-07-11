@@ -636,6 +636,11 @@ focused exact A/B gate when resource-backed scenarios justify it.
    - The next Rust downshift target after the source-layout reset is the reflow
      pipeline: Rust should own the preview/full revision plan and return
      explicit work items for frame/resource presentation.
+   - Deferred preview responses now include a complete Rust-authored full view
+     request. The browser timer consumes that request directly, overriding only
+     the live active spread and removing cross-Worker revision ids. The private
+     reader client validates that the request preserves the preview layout and
+     line-breaking semantics before it can reach browser commit state.
    - Revision bundle creation has moved into `rito-core`: preview/full
      creation fields, TOC inclusion, initial-frame decision, and
      revision-scoped metadata are core runtime semantics. The wasm layer only

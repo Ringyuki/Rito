@@ -106,6 +106,81 @@ test('preview chapter text indices retain their inline public shape', async () =
   });
 });
 
+test('reader accepts reordered follow-up defaults normalized by Rust serde', async () => {
+  const request = {
+    ...VIEW_REQUEST,
+    mode: 'preview',
+    layoutConfig: { ...VIEW_REQUEST.layoutConfig, textMeasurement: 'fixtureCompatible' },
+  };
+  const followUp = {
+    delayMs: 1_000,
+    request: {
+      ...request,
+      layoutConfig: { pageHeight: 480, pageWidth: 320 },
+      lineBreaking: 'greedy',
+      previousRevisionId: 'preview-policy',
+      mode: 'full',
+    },
+  };
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule(() =>
+      viewPayload(
+        { revisionId: 'preview-policy', entries: CHAPTER_ENTRIES },
+        { kind: 'preview', revisionId: 'preview-policy', followUp },
+      ),
+    ),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  const view = await client.createViewRevision(request);
+  client.dispose();
+
+  assert.deepEqual(view.followUp, followUp);
+});
+
+for (const [name, requestOverrides, message] of [
+  [
+    'layout config',
+    { layoutConfig: { pageWidth: 321, pageHeight: 480 } },
+    /follow-up layoutConfig does not match/,
+  ],
+  ['line breaking', { lineBreaking: 'optimal' }, /follow-up lineBreaking does not match/],
+]) {
+  test(`reader rejects a follow-up with mismatched ${name} and releases its revision`, async () => {
+    const requests = [];
+    const request = { ...VIEW_REQUEST, mode: 'preview', lineBreaking: 'greedy' };
+    const followUp = {
+      delayMs: 1_000,
+      request: {
+        ...request,
+        activeSpreadIndex: 2,
+        previousRevisionId: 'preview-mismatch',
+        mode: 'full',
+        ...requestOverrides,
+      },
+    };
+    const client = createRitoCoreWasmInProcessReaderClient(
+      fakeModule((workerRequest) => {
+        requests.push(workerRequest);
+        if (workerRequest.kind === 'releaseRevision') return { kind: 'releaseRevision' };
+        return viewPayload(
+          { revisionId: 'preview-mismatch', entries: CHAPTER_ENTRIES },
+          { kind: 'preview', revisionId: 'preview-mismatch', followUp },
+        );
+      }),
+    );
+    await client.open(new ArrayBuffer(0));
+
+    await assert.rejects(client.createViewRevision(request), message);
+    assert.deepEqual(requests.at(-1), {
+      id: 0,
+      kind: 'releaseRevision',
+      revisionId: 'preview-mismatch',
+    });
+    client.dispose();
+  });
+}
+
 test('full chapter text index references fail when their cache scope is unknown', async () => {
   const client = createRitoCoreWasmInProcessReaderClient(
     fakeModule(() => viewPayload({ revisionId: 'revision-1', scopeKey: FULL_SCOPE_KEY })),
@@ -217,6 +292,7 @@ function viewPayload(chapterTextIndices, options = {}) {
     result: {
       kind,
       display: 'revision',
+      ...(options.followUp !== undefined ? { followUp: options.followUp } : {}),
       result: {
         bundle: {
           revision: { revisionId },

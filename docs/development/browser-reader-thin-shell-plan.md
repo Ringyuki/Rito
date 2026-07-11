@@ -291,9 +291,14 @@ browser preview/full reflow scheduler plus the legacy `Reader` method facade.
 
 Round 5b starts the remaining scheduler cleanup by moving deferred-full follow-up
 policy into the Rust-owned view revision response. Rust now decides whether a
-preview needs a follow-up full revision, the previous revision id to use, and the
-delay. Browser reflow still owns timer execution and Worker selection because
-those are platform concerns, but it no longer hard-codes the follow-up policy.
+preview needs a follow-up full revision and returns the complete delayed full
+request with the delay. Browser reflow still owns timer execution, Worker
+selection, rebinding the active spread at dispatch, and dropping a revision id
+that belongs to another Worker session; it no longer reconstructs layout,
+line-breaking, or mode policy from browser state. The private reader client
+validates that a follow-up preserves the preview request's layout and
+line-breaking semantics before hydration, and releases the new revision if that
+contract is violated.
 The browser resource and Canvas presentation adapters were also moved out of
 `src/bindings/browser/reader/**` into `src/bindings/browser/` because they are
 platform adapters, not reader runtime policy. This hits the counted final reader

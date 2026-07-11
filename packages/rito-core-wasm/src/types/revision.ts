@@ -49,18 +49,20 @@ export type RitoCoreWasmViewRevisionMode = 'preview' | 'full';
 export type RitoCoreWasmViewRevisionKind = 'preview' | 'full';
 export type RitoCoreWasmViewRevisionDisplay = 'revision' | 'visualPreview';
 
-export interface RitoCoreWasmViewRevisionFollowUp {
-  readonly mode: 'full';
-  readonly delayMs: number;
-  readonly previousRevisionId: string;
-}
-
 export interface RitoCoreWasmViewRevisionRequest {
   readonly layoutConfig: RitoCoreWasmLayoutConfig;
   readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
   readonly activeSpreadIndex: number;
   readonly previousRevisionId?: string | undefined;
   readonly mode: RitoCoreWasmViewRevisionMode;
+}
+
+export interface RitoCoreWasmViewRevisionFollowUp {
+  readonly delayMs: number;
+  readonly request: RitoCoreWasmViewRevisionRequest & {
+    readonly mode: 'full';
+    readonly previousRevisionId: string;
+  };
 }
 
 export interface RitoCoreWasmRevisionFrameSelection {

@@ -109,7 +109,7 @@ export interface BrowserReaderDeferredFullReflow {
 }
 
 export interface BrowserReaderReflowState {
-  active: boolean;
+  active: BrowserReaderQueuedReflow | undefined;
   token: number;
   microtaskScheduled: boolean;
   queued: BrowserReaderQueuedReflow | undefined;

@@ -62,11 +62,60 @@ export async function createCachedReaderViewRevision(cache, viewRequest, wire, s
         `Rito reader worker returned ${String(payload?.kind)} for createViewRevision`,
       );
     }
+    requireMatchingFollowUpPolicy(viewRequest, payload.result);
     return hydrateReaderViewRevision(cache, payload.result, knownScopeKey);
   } catch (error) {
     await releaseInvalidRevision(send, payload?.result);
     throw error;
   }
+}
+
+function requireMatchingFollowUpPolicy(viewRequest, view) {
+  const followUp = view?.followUp;
+  if (followUp === undefined) return;
+  if (!layoutConfigEqual(viewRequest.layoutConfig, followUp?.request?.layoutConfig)) {
+    throw new Error('Reader view revision follow-up layoutConfig does not match its request');
+  }
+  if ((viewRequest.lineBreaking ?? 'greedy') !== (followUp?.request?.lineBreaking ?? 'greedy')) {
+    throw new Error('Reader view revision follow-up lineBreaking does not match its request');
+  }
+}
+
+function layoutConfigEqual(left, right) {
+  if (!isJsonObject(left) || !isJsonObject(right)) return false;
+  return jsonValueEqual(
+    { ...left, textMeasurement: left.textMeasurement ?? 'fixtureCompatible' },
+    { ...right, textMeasurement: right.textMeasurement ?? 'fixtureCompatible' },
+  );
+}
+
+function isJsonObject(value) {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function jsonValueEqual(left, right) {
+  if (left === right) return true;
+  if (left === null || right === null || typeof left !== 'object' || typeof right !== 'object') {
+    return false;
+  }
+  if (Array.isArray(left) || Array.isArray(right)) {
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonValueEqual(value, right[index]))
+    );
+  }
+  const leftKeys = jsonObjectKeys(left);
+  const rightKeys = jsonObjectKeys(right);
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => Object.hasOwn(right, key) && jsonValueEqual(left[key], right[key]))
+  );
+}
+
+function jsonObjectKeys(value) {
+  return Object.keys(value).filter((key) => value[key] !== undefined);
 }
 
 export function hydrateReaderViewRevision(cache, view, requestedScopeKey) {

@@ -283,7 +283,7 @@ fn create_view_revision_json_declares_display_policy() {
         .create_view_revision_bundle_json(
             &serde_json::json!({
                 "layoutConfig": layout(),
-                "lineBreaking": "greedy",
+                "lineBreaking": "optimal",
                 "activeSpreadIndex": 0,
                 "mode": "preview"
             })
@@ -298,7 +298,7 @@ fn create_view_revision_json_declares_display_policy() {
         .create_view_revision_bundle_json(
             &serde_json::json!({
                 "layoutConfig": layout(),
-                "lineBreaking": "greedy",
+                "lineBreaking": "optimal",
                 "activeSpreadIndex": 1,
                 "previousRevisionId": initial_revision_id,
                 "mode": "preview"
@@ -312,14 +312,26 @@ fn create_view_revision_json_declares_display_policy() {
     assert_eq!(active["display"], "visualPreview");
     assert_eq!(active["kind"], "preview");
     assert_eq!(
-        initial["followUp"]["previousRevisionId"],
+        initial["followUp"]["request"]["previousRevisionId"],
         initial["result"]["bundle"]["revision"]["revisionId"]
     );
     assert_eq!(
-        active["followUp"]["previousRevisionId"],
+        active["followUp"]["request"]["previousRevisionId"],
         initial["result"]["bundle"]["revision"]["revisionId"]
     );
-    assert_eq!(active["followUp"]["mode"], "full");
+    assert_eq!(
+        initial["followUp"]["request"]["layoutConfig"],
+        serde_json::to_value(layout()).expect("layout serializes")
+    );
+    assert_eq!(initial["followUp"]["request"]["lineBreaking"], "optimal");
+    assert_eq!(initial["followUp"]["request"]["activeSpreadIndex"], 0);
+    assert_eq!(
+        active["followUp"]["request"]["layoutConfig"],
+        serde_json::to_value(layout()).expect("layout serializes")
+    );
+    assert_eq!(active["followUp"]["request"]["lineBreaking"], "optimal");
+    assert_eq!(active["followUp"]["request"]["activeSpreadIndex"], 1);
+    assert_eq!(active["followUp"]["request"]["mode"], "full");
 }
 
 #[test]
@@ -344,7 +356,17 @@ fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
         .expect("initial revision id is present");
     assert_eq!(initial["kind"], "preview");
     assert_eq!(initial["display"], "revision");
-    assert_eq!(initial["followUp"]["mode"], "full");
+    assert_eq!(initial["followUp"]["request"]["mode"], "full");
+    assert_eq!(
+        initial["followUp"]["request"]["layoutConfig"],
+        serde_json::to_value(layout()).expect("layout serializes")
+    );
+    assert_eq!(initial["followUp"]["request"]["lineBreaking"], "greedy");
+    assert_eq!(initial["followUp"]["request"]["activeSpreadIndex"], 0);
+    assert_eq!(
+        initial["followUp"]["request"]["previousRevisionId"],
+        initial_revision_id
+    );
 
     let active = assert_view_revision_wire_agreement(
         &mut json_document,
@@ -363,9 +385,16 @@ fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
     assert_eq!(active["kind"], "preview");
     assert_eq!(active["display"], "visualPreview");
     assert_eq!(
-        active["followUp"]["previousRevisionId"],
+        active["followUp"]["request"]["previousRevisionId"],
         initial_revision_id
     );
+    assert_eq!(
+        active["followUp"]["request"]["layoutConfig"],
+        serde_json::to_value(layout()).expect("layout serializes")
+    );
+    assert_eq!(active["followUp"]["request"]["lineBreaking"], "greedy");
+    assert_eq!(active["followUp"]["request"]["activeSpreadIndex"], 1);
+    assert_eq!(active["followUp"]["request"]["mode"], "full");
 
     let full = assert_view_revision_wire_agreement(
         &mut json_document,

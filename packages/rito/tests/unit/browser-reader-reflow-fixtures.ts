@@ -148,9 +148,12 @@ async function createViewRevisionResult(
   const followUp =
     kind === 'preview'
       ? {
-          mode: 'full' as const,
           delayMs: 1000,
-          previousRevisionId: request.previousRevisionId ?? result.bundle.revision.revisionId,
+          request: {
+            ...request,
+            mode: 'full' as const,
+            previousRevisionId: request.previousRevisionId ?? result.bundle.revision.revisionId,
+          },
         }
       : undefined;
   return {

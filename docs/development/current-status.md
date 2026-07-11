@@ -82,12 +82,15 @@ Those names now belong to the old TS reference tree only.
   surface instead of legacy core subpaths.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
 - The counted browser reader shell target has been hit:
-  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1537
-    lines by `wc -l` (1549 under the architecture invariant's split-line count;
+  - `packages/rito/src/bindings/browser/reader/**`: 12 TypeScript files / 1538
+    lines by `wc -l` (1550 under the architecture invariant's split-line count;
     hard ceiling 1550), plus a 3-line static `.mjs` worker-entry facade
   - `packages/rito/src/reader/**`: 6 files / 354 lines
   - the hardening increment is explicit revision release, a bounded 12-frame
     LRU cache, and regression-protected preview/full handoff between two workers
+  - deferred preview follow-ups carry the complete Rust-authored full request;
+    the browser only applies live-spread and Worker-session adjustments, while
+    the private reader client rejects and releases semantically mismatched plans
 - Rust has the main runtime pieces in place: document handles, deterministic
   revisions, frame cache, resource transfer leases, locators, footnotes, text
   geometry, search, frame-resource prefetch, and packed frame command buffers.

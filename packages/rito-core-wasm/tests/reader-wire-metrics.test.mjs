@@ -6,7 +6,11 @@ import { normalizeRitoCoreWasmError } from '../dist/core-wasm-error-runtime.js';
 import { createRitoCoreWasmReaderWorkerHandler } from '../dist/reader-worker-client-runtime.js';
 
 const RUNTIME_BUNDLE_HEADER_BYTES = 56;
-const VIEW_REQUEST = { mode: 'full', layoutConfig: { pageWidth: 320, pageHeight: 480 } };
+const VIEW_REQUEST = {
+  mode: 'full',
+  layoutConfig: { pageWidth: 320, pageHeight: 480 },
+  activeSpreadIndex: 0,
+};
 const VIEW_RESPONSE = {
   kind: 'full',
   display: 'revision',
@@ -28,9 +32,13 @@ const PREVIEW_VIEW_RESPONSE = {
   kind: 'preview',
   display: 'visualPreview',
   followUp: {
-    mode: 'full',
     delayMs: 1_000,
-    previousRevisionId: 'revision-previous',
+    request: {
+      ...VIEW_REQUEST,
+      lineBreaking: 'optimal',
+      activeSpreadIndex: 2,
+      previousRevisionId: 'revision-previous',
+    },
   },
   result: { ...VIEW_RESPONSE.result, preview: true },
 };
@@ -126,27 +134,64 @@ test('view revision JSON adapter rejects invalid discriminants', () => {
   });
 });
 
-test('view revision JSON adapter accepts a valid preview follow-up', () => {
-  const document = new RitoCoreWasmDocument({
-    createViewRevisionBundleJson: () => JSON.stringify(PREVIEW_VIEW_RESPONSE),
-  });
+for (const lineBreaking of [undefined, 'greedy', 'optimal']) {
+  test(`view revision JSON adapter accepts a preview follow-up with ${lineBreaking ?? 'default'} line breaking`, () => {
+    const response = previewResponseWithLineBreaking(lineBreaking);
+    const document = new RitoCoreWasmDocument({
+      createViewRevisionBundleJson: () => JSON.stringify(response),
+    });
 
-  assert.deepEqual(document.createViewRevisionBundle(VIEW_REQUEST), PREVIEW_VIEW_RESPONSE);
-});
-
-test('view revision JSON adapter rejects an invalid follow-up', () => {
-  const document = new RitoCoreWasmDocument({
-    createViewRevisionBundleJson: () =>
-      JSON.stringify({
-        ...PREVIEW_VIEW_RESPONSE,
-        followUp: { ...PREVIEW_VIEW_RESPONSE.followUp, delayMs: -1 },
-      }),
+    assert.deepEqual(document.createViewRevisionBundle(VIEW_REQUEST), response);
   });
+}
 
-  assert.throws(() => document.createViewRevisionBundle(VIEW_REQUEST), {
-    message: /createViewRevisionBundle returned an invalid view revision follow-up/,
+function previewResponseWithLineBreaking(lineBreaking) {
+  const request = { ...PREVIEW_VIEW_RESPONSE.followUp.request };
+  if (lineBreaking === undefined) delete request.lineBreaking;
+  else request.lineBreaking = lineBreaking;
+  return {
+    ...PREVIEW_VIEW_RESPONSE,
+    followUp: { ...PREVIEW_VIEW_RESPONSE.followUp, request },
+  };
+}
+
+const INVALID_FOLLOW_UPS = [
+  ['negative delay', { ...PREVIEW_VIEW_RESPONSE.followUp, delayMs: -1 }],
+  ['missing request', { delayMs: 1_000 }],
+  ['preview mode', followUpWithRequest({ mode: 'preview' })],
+  ['non-object layout', followUpWithRequest({ layoutConfig: [] })],
+  ['unknown line breaking', followUpWithRequest({ lineBreaking: 'balanced' })],
+  ['negative active spread', followUpWithRequest({ activeSpreadIndex: -1 })],
+  ['unsafe active spread', followUpWithRequest({ activeSpreadIndex: Number.MAX_SAFE_INTEGER + 1 })],
+  ['empty previous revision', followUpWithRequest({ previousRevisionId: '' })],
+];
+
+for (const [name, followUp] of INVALID_FOLLOW_UPS) {
+  test(`view revision JSON adapter rejects a follow-up with ${name}`, () => {
+    const document = new RitoCoreWasmDocument({
+      createViewRevisionBundleJson: () =>
+        JSON.stringify({
+          ...PREVIEW_VIEW_RESPONSE,
+          followUp,
+        }),
+    });
+
+    assert.throws(() => document.createViewRevisionBundle(VIEW_REQUEST), {
+      message:
+        /createViewRevisionBundle (?:follow-up.*non-object|returned an invalid view revision follow-up)/,
+    });
   });
-});
+}
+
+function followUpWithRequest(requestOverrides) {
+  return {
+    ...PREVIEW_VIEW_RESPONSE.followUp,
+    request: {
+      ...PREVIEW_VIEW_RESPONSE.followUp.request,
+      ...requestOverrides,
+    },
+  };
+}
 
 function createViewRevisionRequest(wire, collectWireMetrics) {
   return {

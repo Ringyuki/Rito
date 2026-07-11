@@ -130,7 +130,7 @@ describe('Browser reader reflow scheduling', () => {
       'queued reader reflow failed',
       state.reflow.lastError,
     );
-    expect(state.reflow.active).toBe(false);
+    expect(state.reflow.active).toBeUndefined();
   });
 
   it('rejects the initial reflow when no visible revision exists', async () => {
@@ -143,7 +143,7 @@ describe('Browser reader reflow scheduling', () => {
 
     await expect(reflow).rejects.toThrow('initial reader reflow');
     expect(state.reflow.lastError?.message).toContain('initial reader reflow');
-    expect(state.reflow.active).toBe(false);
+    expect(state.reflow.active).toBeUndefined();
   });
 
   it('debounces reflow requests after a revision is already visible', async () => {
@@ -587,7 +587,7 @@ describe('Browser reader reflow scheduling', () => {
     await flushPromises();
     await vi.advanceTimersByTimeAsync(1000);
     expect(createRevision).toHaveBeenCalledTimes(2);
-    expect(state.reflow.active).toBe(false);
+    expect(state.reflow.active).toBeUndefined();
 
     scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 1000 }, 'single', 'greedy');
     await flushPromises();
@@ -669,12 +669,15 @@ describe('Browser reader reflow scheduling', () => {
       preview: true,
     });
     await initialReflow;
+    const initialPreviewRequest = foreground.createViewRevision.mock.lastCall?.[0];
+    if (!initialPreviewRequest) throw new Error('Expected an initial preview request');
 
     expect(state.worker).toBe(foreground.worker);
     await vi.advanceTimersByTimeAsync(1000);
-    expect(background.createViewRevision).toHaveBeenLastCalledWith(
-      expect.objectContaining({ mode: 'full' }),
-    );
+    expect(background.createViewRevision).toHaveBeenLastCalledWith({
+      ...initialPreviewRequest,
+      mode: 'full',
+    });
     backgroundPending[0]?.resolve(revisionResult('background-full', 2, 2));
     await flushPromises();
 
@@ -689,6 +692,8 @@ describe('Browser reader reflow scheduling', () => {
         previousRevisionId: 'background-full',
       }),
     );
+    const resizePreviewRequest = background.createViewRevision.mock.lastCall?.[0];
+    if (!resizePreviewRequest) throw new Error('Expected a resize preview request');
     backgroundPending[1]?.resolve({
       ...revisionResult('resize-preview', 1, 1),
       preview: true,
@@ -697,14 +702,15 @@ describe('Browser reader reflow scheduling', () => {
 
     expect(state.worker).toBe(background.worker);
     expect(state.visualPreview?.revisionId).toBe('resize-preview');
+    state.activeSpreadIndex = 1;
 
     await vi.advanceTimersByTimeAsync(1000);
-    expect(foreground.createViewRevision).toHaveBeenLastCalledWith(
-      expect.objectContaining({ mode: 'full' }),
-    );
-    expect(foreground.createViewRevision.mock.lastCall?.[0]).not.toHaveProperty(
-      'previousRevisionId',
-    );
+    expect(foreground.createViewRevision).toHaveBeenLastCalledWith({
+      layoutConfig: resizePreviewRequest.layoutConfig,
+      lineBreaking: resizePreviewRequest.lineBreaking,
+      activeSpreadIndex: 1,
+      mode: 'full',
+    });
     foregroundPending[1]?.resolve(revisionResult('foreground-full', 3, 3));
     await flushPromises();
 
@@ -751,16 +757,7 @@ describe('Browser reader reflow scheduling', () => {
     });
     await flushPromises();
     expect(state.visualPreview?.config.viewportWidth).toBe(900);
-    if (!state.visualPreview) throw new Error('Expected active visual preview');
-    state.reflow.deferred = {
-      request: {
-        config: state.visualPreview.config,
-        spreadMode: 'single',
-        lineBreaking: 'greedy',
-        token: state.reflow.token,
-      },
-      followUp: { mode: 'full', delayMs: 1000, previousRevisionId: 'rev-ready' },
-    };
+    expect(state.reflow.deferred).toBeDefined();
 
     expect(scheduleBrowserReaderReflow(state, BASE_READER_OPTIONS, 'single', 'greedy')).toBe(true);
     expect(state.reflow.deferred).toBeUndefined();

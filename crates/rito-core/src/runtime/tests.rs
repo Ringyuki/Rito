@@ -16,6 +16,7 @@ use super::{
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeSearchRequest,
     RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
     RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
+    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::{LineBreaking, SpreadMode};
@@ -509,7 +510,7 @@ fn view_revision_response_declares_display_policy() {
     let initial = document
         .create_view_revision_bundle(RuntimeViewRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
+            line_breaking: LineBreaking::Optimal,
             active_spread_index: 0,
             previous_revision_id: None,
             mode: RuntimeViewRevisionMode::Preview,
@@ -518,7 +519,7 @@ fn view_revision_response_declares_display_policy() {
     let active = document
         .create_view_revision_bundle(RuntimeViewRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
+            line_breaking: LineBreaking::Optimal,
             active_spread_index: 1,
             previous_revision_id: Some(initial.revision.bundle.revision.revision_id.clone()),
             mode: RuntimeViewRevisionMode::Preview,
@@ -527,7 +528,7 @@ fn view_revision_response_declares_display_policy() {
     let full = document
         .create_view_revision_bundle(RuntimeViewRevisionRequest {
             layout_config: layout(),
-            line_breaking: LineBreaking::Greedy,
+            line_breaking: LineBreaking::Optimal,
             active_spread_index: 1,
             previous_revision_id: Some(initial.revision.bundle.revision.revision_id.clone()),
             mode: RuntimeViewRevisionMode::Full,
@@ -537,19 +538,39 @@ fn view_revision_response_declares_display_policy() {
     assert_eq!(initial.display, RuntimeViewRevisionDisplay::Revision);
     assert_eq!(active.display, RuntimeViewRevisionDisplay::VisualPreview);
     assert_eq!(full.display, RuntimeViewRevisionDisplay::Revision);
+    let initial_revision_id = initial.revision.bundle.revision.revision_id.clone();
     assert_eq!(
         initial
             .follow_up
             .as_ref()
-            .map(|follow_up| follow_up.previous_revision_id.as_str()),
-        Some(initial.revision.bundle.revision.revision_id.as_str())
+            .map(|follow_up| follow_up.delay_ms),
+        Some(DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS)
+    );
+    assert_eq!(
+        initial
+            .follow_up
+            .as_ref()
+            .map(|follow_up| &follow_up.request),
+        Some(&RuntimeViewRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Optimal,
+            active_spread_index: 0,
+            previous_revision_id: Some(initial_revision_id.clone()),
+            mode: RuntimeViewRevisionMode::Full,
+        })
     );
     assert_eq!(
         active
             .follow_up
             .as_ref()
-            .map(|follow_up| follow_up.previous_revision_id.as_str()),
-        Some(initial.revision.bundle.revision.revision_id.as_str())
+            .map(|follow_up| &follow_up.request),
+        Some(&RuntimeViewRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Optimal,
+            active_spread_index: 1,
+            previous_revision_id: Some(initial_revision_id),
+            mode: RuntimeViewRevisionMode::Full,
+        })
     );
     assert!(full.follow_up.is_none());
 }

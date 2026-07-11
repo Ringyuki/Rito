@@ -158,12 +158,11 @@ pub struct RuntimeCreatedViewRevision {
     pub revision: RuntimeCreatedRevisionBundle,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeViewRevisionFollowUp {
-    pub mode: RuntimeViewRevisionMode,
     pub delay_ms: u64,
-    pub previous_revision_id: String,
+    pub request: RuntimeViewRevisionRequest,
 }
 
 impl RuntimeRevisionRequest {

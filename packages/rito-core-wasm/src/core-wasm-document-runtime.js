@@ -384,12 +384,20 @@ function requireViewRevisionPayload(value, operation) {
 function requireViewRevisionFollowUp(value, operation) {
   if (value === undefined) return;
   const followUp = requireObjectPayload(value, `${operation} follow-up`);
+  if (!Number.isSafeInteger(followUp.delayMs) || followUp.delayMs < 0) {
+    throw new Error(`${operation} returned an invalid view revision follow-up`);
+  }
+  const request = requireObjectPayload(followUp.request, `${operation} follow-up request`);
+  requireObjectPayload(request.layoutConfig, `${operation} follow-up request layoutConfig`);
   if (
-    followUp.mode !== 'full' ||
-    !Number.isSafeInteger(followUp.delayMs) ||
-    followUp.delayMs < 0 ||
-    typeof followUp.previousRevisionId !== 'string' ||
-    followUp.previousRevisionId.length === 0
+    request.mode !== 'full' ||
+    (request.lineBreaking !== undefined &&
+      request.lineBreaking !== 'greedy' &&
+      request.lineBreaking !== 'optimal') ||
+    !Number.isSafeInteger(request.activeSpreadIndex) ||
+    request.activeSpreadIndex < 0 ||
+    typeof request.previousRevisionId !== 'string' ||
+    request.previousRevisionId.length === 0
   ) {
     throw new Error(`${operation} returned an invalid view revision follow-up`);
   }

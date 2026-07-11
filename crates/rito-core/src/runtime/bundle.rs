@@ -199,11 +199,16 @@ impl RuntimeDocument {
                             RuntimeViewRevisionDisplay::Revision
                         },
                         follow_up: revision.preview.then(|| RuntimeViewRevisionFollowUp {
-                            mode: RuntimeViewRevisionMode::Full,
                             delay_ms: DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
-                            previous_revision_id: request
-                                .previous_revision_id
-                                .unwrap_or(revision_id),
+                            request: RuntimeViewRevisionRequest {
+                                layout_config: request.layout_config,
+                                line_breaking: request.line_breaking,
+                                active_spread_index: request.active_spread_index,
+                                previous_revision_id: Some(
+                                    request.previous_revision_id.unwrap_or(revision_id),
+                                ),
+                                mode: RuntimeViewRevisionMode::Full,
+                            },
                         }),
                         revision,
                     });

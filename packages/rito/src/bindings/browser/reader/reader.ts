@@ -145,7 +145,7 @@ function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {
 
 function emptyReflowState(): BrowserReaderState['reflow'] {
   return {
-    active: false,
+    active: undefined,
     token: 0,
     microtaskScheduled: false,
     queued: undefined,

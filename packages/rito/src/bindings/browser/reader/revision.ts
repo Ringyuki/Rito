@@ -106,14 +106,9 @@ export async function commitBrowserReaderViewResult(
   result: BrowserReaderRevisionResult,
   visualPreview: boolean,
   onCommitted?: () => void,
-): Promise<boolean> {
+): Promise<boolean | 'staleSpread'> {
   if (shouldDiscardReflowResult(state, request)) return releaseDiscarded(worker, result);
-  const commitFrame = readCommitFrame(state, result);
-  const resources = result.frameWindow?.spreads.find(
-    (spread) => spread.spreadIndex === (commitFrame.spreadIndex ?? -1),
-  )?.resources;
-  if (commitFrame.frame?.imageDominated && resources)
-    await preloadFrameResourceBytes(state, resources);
+  const commitFrame = await prepareCommitFrame(state, worker, result);
   if (shouldDiscardReflowResult(state, request)) return releaseDiscarded(worker, result);
   if (visualPreview) return commitVisualPreview(state, request, worker, result, commitFrame);
   applyBrowserReaderRevisionState(state, {
@@ -209,26 +204,29 @@ function releaseRevision(worker: BrowserReaderWorkerClient, revisionId: string):
   void worker.releaseRevision(revisionId).catch(() => undefined);
 }
 
-function readCommitFrame(
+async function prepareCommitFrame(
   state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
-): {
-  readonly spreadIndex?: number | undefined;
-  readonly displaySpreadIndex?: number | undefined;
-  readonly frame?: BrowserReaderFrame | undefined;
-} {
-  const selection = result.selectedFrame;
-  if (!selection || selection.spreadIndex >= result.bundle.revision.spreadCount) return {};
-  return {
-    spreadIndex: selection.spreadIndex,
-    displaySpreadIndex: selection.displaySpreadIndex,
-    frame: decodeBrowserReaderFrame(
+) {
+  try {
+    const selection = result.selectedFrame;
+    if (!selection || selection.spreadIndex >= result.bundle.revision.spreadCount) return {};
+    const frame = decodeBrowserReaderFrame(
       state.decodeFrameCommandBuffer,
       result.bundle.revision.revisionId,
       selection.spreadIndex,
       selection.frame,
-    ),
-  };
+    );
+    const resources = result.frameWindow?.spreads.find(
+      (spread) => spread.spreadIndex === selection.spreadIndex,
+    )?.resources;
+    if (frame.imageDominated && resources) await preloadFrameResourceBytes(state, resources);
+    return { displaySpreadIndex: selection.displaySpreadIndex, frame };
+  } catch (error) {
+    releaseDiscarded(worker, result);
+    throw error;
+  }
 }
 
 function commitVisualPreview(
@@ -241,10 +239,13 @@ function commitVisualPreview(
     readonly displaySpreadIndex?: number | undefined;
     readonly frame?: BrowserReaderFrame | undefined;
   },
-): boolean {
+): boolean | 'staleSpread' {
   const displaySpreadIndex = commitFrame.displaySpreadIndex ?? commitFrame.spreadIndex;
-  if (!commitFrame.frame || displaySpreadIndex === undefined)
-    return releaseDiscarded(worker, result);
+  if (!commitFrame.frame) return releaseDiscarded(worker, result);
+  if (displaySpreadIndex !== state.activeSpreadIndex) {
+    releaseDiscarded(worker, result);
+    return 'staleSpread';
+  }
   commitBrowserReaderVisualPreview(state, {
     config: request.config,
     spreadMode: request.spreadMode,

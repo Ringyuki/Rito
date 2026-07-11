@@ -128,6 +128,13 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /readonly display: RitoCoreWasmViewRevisionDisplay;/);
   assert.match(declaration, /export interface RitoCoreWasmViewRevisionFollowUp/);
   assert.match(declaration, /readonly followUp\?: RitoCoreWasmViewRevisionFollowUp/);
+  const viewRevisionFollowUp = interfaceBody(declaration, 'RitoCoreWasmViewRevisionFollowUp');
+  assert.match(viewRevisionFollowUp, /readonly delayMs: number;/);
+  assert.match(viewRevisionFollowUp, /readonly request: RitoCoreWasmViewRevisionRequest &/);
+  assert.match(viewRevisionFollowUp, /readonly mode: 'full';/);
+  assert.match(viewRevisionFollowUp, /readonly previousRevisionId: string;/);
+  assert.doesNotMatch(viewRevisionFollowUp, /^ {2}readonly mode:/m);
+  assert.doesNotMatch(viewRevisionFollowUp, /^ {2}readonly previousRevisionId:/m);
   assert.match(declaration, /export interface RitoCoreWasmRevisionBundleResponse/);
   assert.match(declaration, /export interface RitoCoreWasmRevisionFrameSelection/);
   const revisionBundle = interfaceBody(declaration, 'RitoCoreWasmRevisionBundle');

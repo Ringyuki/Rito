@@ -106,7 +106,7 @@ export function createState(
     pendingFrameLoads: new Map(),
     layoutCommittedListeners: new Set(),
     reflow: {
-      active: false,
+      active: undefined,
       token: 0,
       microtaskScheduled: false,
       queued: undefined,
