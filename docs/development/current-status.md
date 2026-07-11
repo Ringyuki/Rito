@@ -96,6 +96,13 @@ Those names now belong to the old TS reference tree only.
   geometry, search, frame-resource prefetch, and packed frame command buffers.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
+- Font-aware layout now follows declared `font-family` order, treats omitted
+  face descriptors as `normal 400`, applies CSS style/weight matching before
+  glyph fallback, and checks equal-descriptor composite faces in reverse source
+  order. A missing glyph advances to the next family rather than a weaker face
+  from the selected family. Browser font loads may prepare concurrently, but
+  successful faces are committed to `document.fonts` in the Rust-authored
+  source order; failures and stale reader revisions remain isolated.
 - The milestone parity suites are green for the current selected surface: all
   10 fixture books across 4 package/layout configurations, plus 30 exhaustive
   runtime render-command groups covering 189 cases and 378 render summaries.
@@ -205,9 +212,10 @@ Those names now belong to the old TS reference tree only.
      It waits for the production reader's deferred full revision and a ready
      frame, then requires exact Canvas pixels against the reference renderer for
      representative block, inline, text, decoration, shadow, font, and ruby
-     paint in the same Chromium process. Its block fixture includes a
-     non-three-decimal opacity value so semantic paint precision cannot be
-     silently reduced by layout-summary rounding.
+     paint in the same Chromium process. The fixture also exercises ordered
+     multi-family and style/weight face selection with real EPUB fonts. Its
+     block fixture includes a non-three-decimal opacity value so semantic paint
+     precision cannot be silently reduced by layout-summary rounding.
 
 ## Do Not Do
 
@@ -262,8 +270,12 @@ runtime render-command matrix.
 Pick one of these, in order:
 
 1. Continue display parity:
-   - fix the font-aware face selection bug: respect the declared
-     `font-family` order and exact style/weight descriptors before fallback;
+   - keep the production/reference multi-face pixel gate green; it protects
+     declared family order and style/weight matching at final Canvas output,
+     while reader resource tests separately protect browser registration order;
+   - use the next real diagnostic mismatch to choose another CSS/layout fix, or
+     add a deterministic resource-backed image pixel case when extending the
+     browser presentation evidence;
    - use TS reference diagnostics and render-command goldens;
    - fix Rust layout/display differences without adding new TS runtime policy.
 2. Continue Binary Wire V2 validation:

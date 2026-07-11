@@ -317,11 +317,13 @@ in place:
 - Active resize previews are anchored by the current canonical page's progress
   within its chapter, so the bundled preview frame targets the same reading
   region instead of always rendering the chapter-window start.
-- Browser font registration now uses Rust-exposed `@font-face` summaries and
-  Rust revision-bundle `fontFamilies` metadata for the single-font fallback
-  path. The browser shell no longer warms/probes frames or scans decoded
-  display-list commands to infer font policy. Image and font preload failures
-  are best-effort, matching the old TS loader behavior.
+- Browser font registration now uses source-ordered Rust `@font-face` summaries
+  and Rust revision-bundle `fontFamilies` metadata. Font data may load in
+  parallel, but successful faces are added to `document.fonts` in that source
+  order; individual failures and stale revisions do not commit. The browser
+  shell no longer warms/probes frames or scans decoded display-list commands to
+  infer font policy. Image and font preload failures are best-effort, matching
+  the old TS loader behavior.
 - Rust package/layout parity matches the TypeScript fixture matrix for
   `book-01` through `book-10` across all 4 selected greedy/optimal viewport
   configurations.
@@ -340,9 +342,13 @@ in place:
   state restoration on paint failures. Text/ruby differentials additionally
   cover fonts, spacing, theme colors, inline decoration, ruby measurement, and
   real Offscreen/DOM scratch-canvas shadow records. Semantic paint values retain
-  their source precision until the packed-frame ABI conversion; the exact-pixel
-  gate exercises a non-three-decimal block opacity to keep geometry-summary
-  rounding out of that path. The built reader sourcemap
+  their source precision until the packed-frame ABI conversion. Font-aware
+  layout now respects declared family order, CSS style/weight face matching,
+  reverse-source composite ordering, and cross-family glyph fallback. The
+  exact-pixel gate exercises family and descriptor choices with real EPUB fonts;
+  focused unit tests protect composite order and cross-family fallback. It also
+  uses a non-three-decimal block opacity to keep geometry-summary rounding out
+  of that path. The built reader sourcemap
   contains no `src/reference/**` sources, and the public DTS is unchanged.
 - Private `RITORB1` view-revision metadata with cross-language golden coverage,
   safe-integer/count validation, multi-mode JSON/binary agreement tests, a real
