@@ -358,11 +358,15 @@ in place:
   entries source both decoder signatures from the adjacent runtime declarations.
   The Rust encoder now writes its pre-sized string table directly into the final
   bundle allocation, removing a whole-section temporary without changing the
-  checked V1 bytes.
+  checked V1 bytes. It also reuses one recursive container-index scratch buffer,
+  consumes the normalized JSON tree, and gives each unique string one owner
+  while restoring encounter order before output. The JavaScript decoder safely
+  preallocates declared string/value/array tables only after count-range checks
+  and continues to reject forward/self references.
   The repeated local evidence matrix found stable size savings but materially
   higher eager encode/decode elapsed cost, so JSON remains the default and the
-  current decision is no-go pending materialization optimization and a second
-  machine class.
+  current decision remains no-go after the first materialization pass. A second
+  machine class is still required before any reconsideration.
 - Reader-private full chapter-text transport deduplication on both JSON and
   `RITORB1`. Each Reader/publication inlines the document-stable entries once,
   shares them across its foreground/full-reflow clients, and sends a scoped
@@ -459,9 +463,10 @@ These are the real gaps against this plan:
      that only if a measured case justifies more ownership complexity.
    - Keep `RITORB1` opt-in. The local decode/ABBA evidence is an explicit no-go
      for a default switch: bytes are smaller, but eager encode/decode costs are
-     materially higher. Optimize materialization, repeat the same matrix, and
-     add another machine class; do not extend the wire to search/geometry until
-     the view-revision slice earns a default decision.
+     materially higher. The first scratch/string-owner/preallocation pass did
+     not reverse that result; repeat the matrix on another machine class and do
+     not extend the wire to search/geometry until the view-revision slice earns
+     a default decision.
 4. **Binary render path**
    - Current packed buffers are a V2 ABI, not the final renderer-ready contract.
    - V3 should reduce per-command object allocation and make renderers consume

@@ -111,6 +111,11 @@ Those names now belong to the old TS reference tree only.
 - The encoder precomputes the string-table byte length and writes that table
   directly into the final bundle allocation. This removes one whole-section
   buffer and copy while the checked cross-language V1 bytes remain identical.
+- The encoder now reuses one recursive container-index scratch buffer, consumes
+  the normalized JSON tree as it walks it, and keeps each unique string in one
+  owner before restoring encounter order for final output. A `book-01` full
+  payload no longer creates 19,289 per-container index vectors or duplicates
+  the 312,589-byte unique string set into both the ordered table and lookup map.
 - The JavaScript `RITORB1` decoder keeps the same FNV-1a checksum and object
   semantics while avoiding per-byte `BigInt` work and unnecessary property
   descriptors. Cross-language goldens and malformed-checksum rejection remain
@@ -118,6 +123,10 @@ Those names now belong to the old TS reference tree only.
   payload contract is now the generic recursive JSON value supported by V1;
   JSON and binary view-revision adapters validate their discriminants and core
   structure before returning the operation-specific typed response.
+- String, value, and nested-array tables now preallocate their declared sizes
+  after validating that every count fits the remaining section. Back references
+  remain valid, forward/self references remain rejected, and malicious counts
+  cannot trigger the allocation before the range check.
 - Full reader revisions now inline document-stable `chapterTextIndices.entries`
   once per Reader/publication. That Reader's foreground and full-reflow clients
   share a private cache, so later full revisions carry a validated scope
@@ -138,7 +147,8 @@ Those names now belong to the old TS reference tree only.
   about 79%–81% of JSON, but eager binary encode/decode is several times more
   expensive. The recorded decision is no-go for a default switch; see
   [`binary-wire-v2-evidence.md`](./binary-wire-v2-evidence.md). Cross-machine
-  evidence is still required after decoder/materialization optimization.
+  evidence is still required before reconsidering that decision. The first
+  local materialization pass is complete; it did not reverse the no-go.
 - Package export guards keep `@ritojs/core` limited to the root entry and
   `./package.json`.
 - The public core build bundles the private WASM workspace's JavaScript modules,
@@ -166,8 +176,9 @@ Those names now belong to the old TS reference tree only.
      browser smoke now exist, and the A/B report separates raw-wire,
      Rust-encode, full-WASM-call, JavaScript-decode, worker-processing, and
      round-trip measurements. The repeated local matrix produced a no-go
-     decision; the next milestone is materialization optimization followed by
-     the same matrix on another machine class.
+     decision. The first local materialization pass preserved V1 and reduced
+     allocations/copies, but binary encode/decode remains slower; the next wire
+     gate is the same matrix on another machine class, not more payload scope.
    - Keep `RITOFCB2` for frame commands; `RITORB1` owns runtime metadata
      currently moved through JSON.
 3. **Generated boundary types**
@@ -250,15 +261,21 @@ runtime render-command matrix.
 
 Pick one of these, in order:
 
-1. Continue Binary Wire V2 implementation:
+1. Continue display parity:
+   - fix the font-aware face selection bug: respect the declared
+     `font-family` order and exact style/weight descriptors before fallback;
+   - use TS reference diagnostics and render-command goldens;
+   - fix Rust layout/display differences without adding new TS runtime policy.
+2. Continue Binary Wire V2 validation:
    - keep the production reader on JSON; the current single-machine evidence is
      an explicit no-go for switching the default;
-   - reduce eager value-table materialization and encode/decode elapsed cost
-     without changing V1 bytes or the public object-shaped facade;
+   - treat the current scratch/string-owner/preallocation work as the completed
+     first materialization pass; do not pursue noisy micro-rewrites without a
+     measured material benefit;
    - keep the new document-owned lazy chapter-text scope intact; only optimize
      the remaining first-inline materialization/copy after a measured case;
-   - repeat the same decode/ABBA matrix after optimization and add another
-     machine class before reconsidering the default;
+   - repeat the decode/ABBA matrix on another machine class before reconsidering
+     the default;
    - use the existing private reader switch and instrumented
      `test:e2e:wire-ab` report to compare raw-wire, encode/decode, worker, and
      round-trip trends before making binary metadata default;
@@ -270,9 +287,6 @@ Pick one of these, in order:
    - keep adding JSON/binary agreement tests for each moved payload;
    - keep `RITORB1` private to package internals until the public facade
      remains stable.
-2. Continue display parity:
-   - use TS reference diagnostics and render-command goldens;
-   - fix Rust layout/display differences without adding new TS runtime policy.
 3. Keep the internal WASM workspace release-safe while the wire evolves:
    - preserve the build-time-only dependency;
    - keep generated glue/decoder code bundled and the `.wasm` copied into the

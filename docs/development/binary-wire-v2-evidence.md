@@ -156,6 +156,44 @@ unchanged, and method timing was noisy enough to show no end-to-end speedup;
 layout still dominates this operation. These measurements support a smaller
 allocation footprint, not a claim that full reflow is faster.
 
+`5680223dfbf9a2b8b01b50bd4987cb8db1d9490e`,
+`a7d3793c04893233acb4a6366558258689b34588`, and
+`fbbedec7fe4c5190dba8a02984448286400afb20` then completed the first local
+encoder/decoder materialization pass without changing the 574-byte V1 golden:
+
+- the Rust encoder reuses one recursive container-index scratch buffer instead
+  of allocating a temporary vector for every array and object;
+- it consumes the normalized JSON tree and moves each first-seen string into a
+  single lookup owner, then restores encounter order without copying string
+  contents;
+- the JavaScript decoder preallocates string, value, and nested-array tables
+  only after validating their declared counts against the remaining section,
+  while continuing to reject forward/self references and polluted prototypes.
+
+For the 972,344-byte `book-01` payload, the encoder audit counted 19,289
+per-container vector allocations and 312,589 bytes of unique string content
+that the previous lookup/table pair copied twice. Both sources of duplication
+are now removed. A fresh fixed-payload run measured median `RITORB1` decode at
+4.312 ms versus 2.004 ms for `JSON.parse`; the paired-sample ratio median was
+2.12x. This is one diagnostic process, not a replacement for the repeatability
+matrix.
+
+A fresh real-WebWorker ABBA run also passed all preview, full, reflow, canvas,
+and page-turn checks with no console or page errors. Its built-in demo initial
+full results were:
+
+| Metric             |     JSON | `RITORB1` | Binary / JSON |
+| ------------------ | -------: | --------: | ------------: |
+| Raw wire bytes     |  961,910 |   789,703 |        82.10% |
+| Rust encode        |   1.7 ms |    8.1 ms |         4.76x |
+| JavaScript decode  |   1.3 ms |    7.0 ms |         5.38x |
+| Initial full ready | 2,372 ms |  2,283 ms |         0.96x |
+
+The ready-time ordering is dominated by layout/process noise and is not a
+binary speed claim. Median frame-gap p95 remained 17.6 ms for both wires. The
+allocation/copy cleanup is worthwhile, but encode/decode still does not justify
+making binary metadata the default.
+
 These changes remove repeated transport work but do not reverse the no-go:
 the first full payload remains inline, the binary reference still costs more
 to encode/decode than JSON, and a second machine class has not been measured.
@@ -168,12 +206,11 @@ eager encoder/decoder does not earn a default switch:
 1. JSON remains the production reader default.
 2. `RITORB1` remains private and opt-in for agreement and performance work.
 3. Do not move search, locator, geometry, or other payloads yet.
-4. Continue reducing eager value-table materialization and first-inline
-   encode/decode cost without changing V1 bytes or the public object-shaped
-   facade. Do not optimize the remaining first-inline index copy without a
-   measured allocation or latency case.
-5. Re-run this matrix after that optimization, then add at least one second
-   machine class before reconsidering the default.
+4. Treat the scratch/string-owner/preallocation changes as the completed first
+   materialization pass. Do not optimize the remaining first-inline index copy
+   without a measured allocation or latency case, and do not take on complex V1
+   rewrites without a measured material benefit.
+5. Add at least one second machine class before reconsidering the default.
 
 ## Reproduction
 
