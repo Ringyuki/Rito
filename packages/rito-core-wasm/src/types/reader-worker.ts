@@ -14,6 +14,8 @@ import type {
 } from './revision';
 
 export interface RitoCoreWasmReaderWorkerClient {
+  /** Stable identity for this client's sole worker or in-process publication session. */
+  readonly sessionId: string;
   /** Opens this client's sole publication session. Failed opens may be retried. */
   open(data: ArrayBuffer): Promise<RitoCoreWasmReaderOpenResult>;
   createViewRevision(

@@ -23,5 +23,12 @@ describe('Browser reader revision lifecycle', () => {
     });
 
     expect(foreground.releaseRevision).toHaveBeenCalledWith('rev-1');
+    expect(state.revisionHandle).toEqual({
+      workerSessionId: background.worker.sessionId,
+      revisionId: 'rev-1',
+      revisionVersion: 0,
+      commitGeneration: 2,
+    });
+    expect(state.commitGeneration).toBe(2);
   });
 });

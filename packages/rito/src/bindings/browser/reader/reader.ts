@@ -110,7 +110,7 @@ function createInitialState(
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
-    revisionBundle: emptyRevisionBundle(),
+    ...emptyReaderRevisionState(),
     visualPreview: undefined,
     frames: new Map(),
     pendingImageLoads: new Map(),
@@ -129,6 +129,13 @@ function createInitialState(
   };
   state.config = applyLayoutOverrides(state, state.config);
   return state;
+}
+
+function emptyReaderRevisionState(): Pick<
+  BrowserReaderState,
+  'revisionBundle' | 'revisionHandle' | 'commitGeneration'
+> {
+  return { revisionBundle: emptyRevisionBundle(), revisionHandle: undefined, commitGeneration: 0 };
 }
 
 function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {

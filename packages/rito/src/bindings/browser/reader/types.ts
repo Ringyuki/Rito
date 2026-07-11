@@ -39,6 +39,16 @@ export interface BrowserReaderFrame {
   readonly imageDominated: boolean;
 }
 
+export interface BrowserReaderWorkerRevisionHandle {
+  readonly workerSessionId: string;
+  readonly revisionId: string;
+  readonly revisionVersion: number;
+}
+
+export interface BrowserReaderRevisionHandle extends BrowserReaderWorkerRevisionHandle {
+  readonly commitGeneration: number;
+}
+
 export interface BrowserReaderBindingModule extends CoreReaderBindingRuntimeModule {
   readonly decodeRitoFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
   readonly normalizeRitoCoreWasmError: typeof normalizeRitoCoreWasmError;
@@ -87,7 +97,9 @@ function consoleMethod(
 }
 
 export interface BrowserReaderVisualPreview {
-  readonly revisionId: string;
+  readonly revision: BrowserReaderWorkerRevisionHandle;
+  readonly baseCommitGeneration: number;
+  readonly interactionPolicy: 'disabled';
   readonly spreadIndex: number;
   readonly frame: BrowserReaderFrame;
   readonly config: LayoutConfig;
@@ -141,6 +153,8 @@ export interface BrowserReaderState {
   fgColor: string | undefined;
   dpr: number;
   revisionBundle: CoreRevisionBundle;
+  revisionHandle: BrowserReaderRevisionHandle | undefined;
+  commitGeneration: number;
   visualPreview: BrowserReaderVisualPreview | undefined;
   frames: Map<number, BrowserReaderFrame>;
   pendingImageLoads: Map<string, Promise<void>>;

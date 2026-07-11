@@ -10,7 +10,10 @@ import {
   prepareReaderSessionCache,
 } from './reader-worker-cache-runtime.js';
 
+let nextReaderSessionId = 1;
+
 export function createRitoCoreWasmWorkerReaderClient(worker, cache) {
+  const sessionId = createReaderSessionId();
   const sessionCache = normalizeReaderSessionCache(cache);
   const pending = new Map();
   let nextId = 1;
@@ -46,6 +49,7 @@ export function createRitoCoreWasmWorkerReaderClient(worker, cache) {
     fail(new Error('Rito reader worker sent an unreadable message'));
   });
   return createRitoCoreWasmReaderClient(
+    sessionId,
     async (input, transfer = []) => {
       if (disposed) throw new Error('Rito reader worker client is disposed');
       if (terminalError) throw terminalError;
@@ -77,9 +81,11 @@ export function createRitoCoreWasmWorkerReaderClient(worker, cache) {
 }
 
 export function createRitoCoreWasmInProcessReaderClient(module, cache) {
+  const sessionId = createReaderSessionId();
   const state = createReaderSessionState();
   const sessionCache = normalizeReaderSessionCache(cache);
   return createRitoCoreWasmReaderClient(
+    sessionId,
     async (input) => {
       if (input.kind === 'open') {
         return openReaderSessionDocument(
@@ -113,7 +119,7 @@ export function createRitoCoreWasmReaderWorkerHandler(scope, deps) {
   });
 }
 
-function createRitoCoreWasmReaderClient(request, dispose, cache) {
+function createRitoCoreWasmReaderClient(sessionId, request, dispose, cache) {
   let phase = 'idle';
   const open = async (data) => {
     if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
@@ -140,6 +146,7 @@ function createRitoCoreWasmReaderClient(request, dispose, cache) {
     dispose();
   };
   return {
+    sessionId,
     open,
     createViewRevision: (viewRequest) =>
       createCachedReaderViewRevision(cache, viewRequest, readerRuntimeWire(), request),
@@ -165,6 +172,12 @@ function createRitoCoreWasmReaderClient(request, dispose, cache) {
     },
     dispose: disposeClient,
   };
+}
+
+function createReaderSessionId() {
+  const sessionId = `rito-reader-session-${String(nextReaderSessionId)}`;
+  nextReaderSessionId += 1;
+  return sessionId;
 }
 
 function readerRuntimeWire() {

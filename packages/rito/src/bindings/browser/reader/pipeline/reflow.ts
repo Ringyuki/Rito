@@ -1,6 +1,7 @@
 import type { ReaderOptions } from '../../../../reader';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig, toCoreLayoutConfig } from '../layout';
 import { activePreviewWorker, commitBrowserReaderViewResult, fullReflowWorker } from '../revision';
+import { currentCommitGeneration } from './revision-handle';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import type {
   CoreViewRevisionRequest,
@@ -254,6 +255,7 @@ async function createAndCommitViewRevision(
           ...(previousRevisionId !== undefined ? { previousRevisionId } : {}),
         }
       : workerRequest;
+  const baseCommitGeneration = currentCommitGeneration(state);
   const view = await worker.createViewRevision({
     ...dispatchRequest,
     activeSpreadIndex: state.activeSpreadIndex,
@@ -267,6 +269,7 @@ async function createAndCommitViewRevision(
     view.result,
     visualPreview,
     visualPreview ? undefined : onCommitted,
+    baseCommitGeneration,
   );
   if (commit === 'staleSpread')
     return view.followUp ? { kind: view.kind, followUp: view.followUp } : undefined;

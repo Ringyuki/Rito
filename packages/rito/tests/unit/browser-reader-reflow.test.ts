@@ -484,7 +484,10 @@ describe('Browser reader reflow scheduling', () => {
 
     expect(state.revisionBundle.revision.revisionId).toBe('rev-ready');
     expect(state.revisionBundle.revision.spreadCount).toBe(4);
-    expect(state.visualPreview?.revisionId).toBe('preview');
+    expect(state.visualPreview?.revision.revisionId).toBe('preview');
+    expect(state.visualPreview?.revision.workerSessionId).toBe(worker.sessionId);
+    expect(state.visualPreview?.baseCommitGeneration).toBe(1);
+    expect(state.visualPreview?.interactionPolicy).toBe('disabled');
     expect(state.visualPreview?.spreadIndex).toBe(1);
     expect(commits).toBe(0);
     expect(createRevision).toHaveBeenCalledTimes(1);
@@ -701,7 +704,7 @@ describe('Browser reader reflow scheduling', () => {
     await flushPromises();
 
     expect(state.worker).toBe(background.worker);
-    expect(state.visualPreview?.revisionId).toBe('resize-preview');
+    expect(state.visualPreview?.revision.revisionId).toBe('resize-preview');
     state.activeSpreadIndex = 1;
 
     await vi.advanceTimersByTimeAsync(1000);

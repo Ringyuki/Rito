@@ -61,8 +61,11 @@ export const BASE_READER_OPTIONS: ReaderOptions = {
   spread: 'single',
 };
 
+let nextTestWorkerSessionId = 1;
+
 export function createWorker(
   onCreateRevision: (deferred: Deferred<BrowserReaderRevisionResult>) => void,
+  sessionId = `test-reader-session-${String(nextTestWorkerSessionId++)}`,
 ): TestWorkerFixture {
   const createRevision = vi.fn((..._args: Parameters<TestCreateRevision>) => {
     const deferred = createDeferred<BrowserReaderRevisionResult>();
@@ -92,6 +95,7 @@ export function createWorker(
     createViewRevisionResult(request, createRevision, activeChapterPreview),
   );
   const worker: BrowserReaderWorkerClient = {
+    sessionId,
     open,
     createViewRevision,
     readResource: vi.fn(),

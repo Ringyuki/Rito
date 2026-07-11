@@ -10,6 +10,7 @@ import type {
   BrowserReaderState,
 } from '../../src/bindings/browser/reader/types';
 import { frameBuffer } from './browser-reader-reflow-state-fixtures';
+import { createDeferred } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader frame window adapter', () => {
   afterEach(() => {
@@ -59,6 +60,53 @@ describe('Browser reader frame window adapter', () => {
     resolveWindow?.(frameWindowResult([2], 2));
     await Promise.all([first, second]);
     expect(state.pendingFrameLoads.size).toBe(0);
+  });
+
+  it('rejects a stale frame window when two worker sessions use the same revision id', async () => {
+    const staleWindow = createDeferred<ReturnType<typeof frameWindowResult>>();
+    const currentWindow = createDeferred<ReturnType<typeof frameWindowResult>>();
+    const invalidated: number[] = [];
+    const state = frameWindowState([0], (index) => invalidated.push(index), {
+      worker: {
+        sessionId: 'session-a',
+        warmFrameWindow: () => staleWindow.promise,
+      },
+    });
+    state.frames.clear();
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, revisionId: 'rev-1' },
+    };
+    state.revisionHandle = {
+      workerSessionId: 'session-a',
+      revisionId: 'rev-1',
+      revisionVersion: 0,
+      commitGeneration: 1,
+    };
+
+    const staleWarm = warmBrowserReaderFrameWindow(state, 0);
+    state.worker = {
+      sessionId: 'session-b',
+      warmFrameWindow: () => currentWindow.promise,
+    } as unknown as BrowserReaderState['worker'];
+    state.revisionHandle = {
+      workerSessionId: 'session-b',
+      revisionId: 'rev-1',
+      revisionVersion: 0,
+      commitGeneration: 2,
+    };
+    state.commitGeneration = 2;
+    state.pendingFrameLoads.clear();
+    const currentWarm = warmBrowserReaderFrameWindow(state, 0);
+
+    staleWindow.resolve(frameWindowResult([0], 0, 'stale-frame', 'rev-1'));
+    await staleWarm;
+    expect(state.frames.has(0)).toBe(false);
+
+    currentWindow.resolve(frameWindowResult([0], 0, 'current-frame', 'rev-1'));
+    await currentWarm;
+    expect(state.frames.get(0)?.commandHash).toBe('current-frame');
+    expect(invalidated).toEqual([0]);
   });
 
   it('does not invalidate cached frames for empty or already decoded resources', async () => {
@@ -213,20 +261,23 @@ function frameWindowState(
   overrides: object = {},
 ): BrowserReaderState {
   const spreadCount = Math.max(...spreadIndexes) + 1;
+  const overrideWorker = (overrides as { readonly worker?: object }).worker;
+  const worker = {
+    sessionId: 'frame-window-session',
+    warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
+      Promise.resolve({
+        plan: {
+          revisionId: 'rev',
+          centerSpreadIndex,
+          displaySpreadIndex: centerSpreadIndex,
+          spreadIndexes,
+        },
+        frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
+        spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
+      }),
+    ...overrideWorker,
+  };
   return {
-    worker: {
-      warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
-        Promise.resolve({
-          plan: {
-            revisionId: 'rev',
-            centerSpreadIndex,
-            displaySpreadIndex: centerSpreadIndex,
-            spreadIndexes,
-          },
-          frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
-          spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
-        }),
-    },
     revisionBundle: {
       revision: { revisionId: 'rev', layoutKey: 'layout', pageCount: spreadCount, spreadCount },
       navigation: {
@@ -242,6 +293,13 @@ function frameWindowState(
       chapterTextIndices: { revisionId: 'rev', entries: {} },
       fontFamilies: [],
     },
+    revisionHandle: {
+      workerSessionId: worker.sessionId,
+      revisionId: 'rev',
+      revisionVersion: 0,
+      commitGeneration: 1,
+    },
+    commitGeneration: 1,
     decodeFrameCommandBuffer: vi.fn(() => ({ commands: [] })),
     activeSpreadIndex: 0,
     registeredFontFaces: new Map(),
@@ -258,18 +316,27 @@ function frameWindowState(
     images: new Map(),
     pendingImageLoads: new Map(),
     ...overrides,
+    worker,
   } as unknown as BrowserReaderState;
 }
 
-function frameWindowResult(spreadIndexes: readonly number[], centerSpreadIndex: number) {
+function frameWindowResult(
+  spreadIndexes: readonly number[],
+  centerSpreadIndex: number,
+  commandHash = 'frame',
+  revisionId = 'rev',
+) {
   return {
     plan: {
-      revisionId: 'rev',
+      revisionId,
       centerSpreadIndex,
       displaySpreadIndex: centerSpreadIndex,
       spreadIndexes,
     },
-    frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
+    frames: spreadIndexes.map((spreadIndex) => {
+      const buffer = frameBuffer(revisionId, spreadIndex);
+      return { ...buffer, metadata: { ...buffer.metadata, commandHash } };
+    }),
     spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
   };
 }

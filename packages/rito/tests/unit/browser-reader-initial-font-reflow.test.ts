@@ -91,7 +91,7 @@ describe('Browser reader initial font metric reflow', () => {
 
     const refreshedConfig = fixture.createRevision.mock.calls[1]?.[0];
     expect(state.revisionBundle.revision.revisionId).toBe('preview-1');
-    expect(state.visualPreview?.revisionId).toBe('preview-2');
+    expect(state.visualPreview?.revision.revisionId).toBe('preview-2');
     expect(state.reflow.deferred?.followUp.request.layoutConfig.fontFamilyAdvances).toEqual({
       title: { ' ': 0.25 },
     });

@@ -1,10 +1,12 @@
 import { decodeBrowserReaderFrame } from './frame';
 import { preloadFrameResourceBytes } from '../resources';
 import type { BrowserReaderFrame, BrowserReaderState } from './types';
+import type { BrowserReaderRevisionHandle } from './types';
 import type {
   BrowserReaderFrameBuffer,
   BrowserReaderFrameWindowWarmResult,
 } from '../core-contracts';
+import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 
 const FRAME_CACHE_CAPACITY = 12;
 
@@ -40,8 +42,9 @@ export async function ensureFrameLoaded(
   if (spreadIndex < 0 || spreadIndex >= state.revisionBundle.revision.spreadCount) {
     return undefined;
   }
-  const revisionId = state.revisionBundle.revision.revisionId;
-  await loadFrameWindow(state, revisionId, spreadIndex);
+  const revision = state.revisionHandle;
+  if (!revision) return undefined;
+  await loadFrameWindow(state, revision, spreadIndex);
   return loadFrame(state, spreadIndex);
 }
 
@@ -53,7 +56,7 @@ export function resetFrameCache(state: BrowserReaderState): void {
 
 export function cacheFrameBuffers(
   state: BrowserReaderState,
-  revisionId: string,
+  revision: BrowserReaderRevisionHandle,
   buffers: readonly BrowserReaderFrameBuffer[],
   options: { readonly notifyFrameInvalidation?: boolean } = {},
 ): void {
@@ -64,11 +67,11 @@ export function cacheFrameBuffers(
     try {
       const frame = decodeBrowserReaderFrame(
         state.decodeFrameCommandBuffer,
-        revisionId,
+        revision.revisionId,
         spreadIndex,
         buffer,
       );
-      if (state.disposed || state.revisionBundle.revision.revisionId !== revisionId) return;
+      if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
       cacheFrame(state, spreadIndex, frame);
       if (notifyFrameInvalidation) notifySpreadContentInvalidated(state, spreadIndex);
     } catch {
@@ -79,14 +82,14 @@ export function cacheFrameBuffers(
 
 export function applyBrowserReaderFrameWindow(
   state: BrowserReaderState,
-  revisionId: string,
+  revision: BrowserReaderRevisionHandle,
   frameWindow: BrowserReaderFrameWindowWarmResult | undefined,
   options: { readonly notifyFrameInvalidation?: boolean } = {},
 ): void {
-  if (!frameWindow || state.disposed || state.revisionBundle.revision.revisionId !== revisionId) {
+  if (!frameWindow || state.disposed || !isCurrentRevisionHandle(state, revision)) {
     return;
   }
-  cacheFrameBuffers(state, revisionId, frameWindow.frames, options);
+  cacheFrameBuffers(state, revision, frameWindow.frames, options);
   for (const spread of frameWindow.spreads) {
     const missingImageHrefs = spread.resources
       .filter(
@@ -95,6 +98,7 @@ export function applyBrowserReaderFrameWindow(
       .map((resource) => resource.payload.href);
     if (missingImageHrefs.length === 0) continue;
     void preloadFrameResourceBytes(state, spread.resources).then(() => {
+      if (!isCurrentRevisionHandle(state, revision)) return;
       if (missingImageHrefs.some((href) => state.images.has(href))) {
         notifySpreadContentInvalidated(state, spread.spreadIndex);
       }
@@ -106,10 +110,10 @@ export async function warmBrowserReaderFrameWindow(
   state: BrowserReaderState,
   centerSpreadIndex: number,
 ): Promise<void> {
-  const revisionId = state.revisionBundle.revision.revisionId;
-  if (revisionId.length === 0) return;
+  const revision = state.revisionHandle;
+  if (!revision) return;
   try {
-    await loadFrameWindow(state, revisionId, centerSpreadIndex);
+    await loadFrameWindow(state, revision, centerSpreadIndex);
   } catch {
     // Frame-window resource warmup is opportunistic; rendering can request misses on demand.
   }
@@ -117,16 +121,20 @@ export async function warmBrowserReaderFrameWindow(
 
 function loadFrameWindow(
   state: BrowserReaderState,
-  revisionId: string,
+  revision: BrowserReaderRevisionHandle,
   centerSpreadIndex: number,
 ): Promise<void> {
   const pending = state.pendingFrameLoads.get(centerSpreadIndex);
   if (pending) return pending;
-  const task = state.worker
-    .warmFrameWindow(revisionId, centerSpreadIndex)
+  const worker = state.worker;
+  if (worker.sessionId !== revision.workerSessionId) {
+    return Promise.reject(new Error('Reader revision owner does not match its worker session'));
+  }
+  const task = worker
+    .warmFrameWindow(revision.revisionId, centerSpreadIndex)
     .then((frameWindow) => {
-      if (state.disposed || state.revisionBundle.revision.revisionId !== revisionId) return;
-      applyBrowserReaderFrameWindow(state, revisionId, frameWindow);
+      if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
+      applyBrowserReaderFrameWindow(state, revision, frameWindow);
     })
     .finally(() => {
       if (state.pendingFrameLoads.get(centerSpreadIndex) === task)

@@ -31,7 +31,7 @@ describe('Browser reader visual preview resources', () => {
       commitResourceVisualPreview(state, worker, resourceRevisionResult('mixed-preview', false)),
     ).resolves.toBe(true);
 
-    expect(state.visualPreview?.revisionId).toBe('mixed-preview');
+    expect(state.visualPreview?.revision.revisionId).toBe('mixed-preview');
     expect(state.visualPreview?.spreadIndex).toBe(2);
     expect(state.visualPreview?.frame.resourceRefs.images).toEqual(['images/cover.png']);
     expect(createImageBitmap).toHaveBeenCalledOnce();
@@ -85,7 +85,10 @@ describe('Browser reader visual preview resources', () => {
     );
     const preview = state.visualPreview;
     if (!preview) throw new Error('Expected a committed visual preview');
-    state.visualPreview = { ...preview, revisionId: 'replacement-preview' };
+    state.visualPreview = {
+      ...preview,
+      revision: { ...preview.revision, revisionId: 'replacement-preview' },
+    };
     imageDecode.resolve(fakeImageBitmap());
     await flushPromises();
 
@@ -143,7 +146,7 @@ describe('Browser reader visual preview resources', () => {
     await flushPromises();
 
     expect(state.images.get('images/cover.png')).toBe(bitmap);
-    expect(state.visualPreview?.revisionId).toBe('image-preview');
+    expect(state.visualPreview?.revision.revisionId).toBe('image-preview');
     expect(invalidated).toEqual([2]);
   });
 
@@ -161,7 +164,7 @@ describe('Browser reader visual preview resources', () => {
     ).resolves.toBe(true);
     await flushPromises();
 
-    expect(state.visualPreview?.revisionId).toBe('broken-preview');
+    expect(state.visualPreview?.revision.revisionId).toBe('broken-preview');
     expect(state.images.has('images/cover.png')).toBe(false);
     expect(invalidated).toEqual([2]);
   });

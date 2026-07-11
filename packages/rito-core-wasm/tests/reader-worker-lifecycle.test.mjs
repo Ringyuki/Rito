@@ -7,6 +7,23 @@ import {
   createRitoCoreWasmWorkerReaderClient,
 } from '../dist/reader-worker-client-runtime.js';
 
+test('reader clients expose stable unique session identities', () => {
+  const module = { initRitoCoreWasmEngine: async () => ({ openDocument: () => undefined }) };
+  const first = createRitoCoreWasmInProcessReaderClient(module);
+  const second = createRitoCoreWasmInProcessReaderClient(module);
+  const workerClient = createRitoCoreWasmWorkerReaderClient(new FakeWorker());
+  const firstSessionId = first.sessionId;
+
+  assert.equal(first.sessionId, firstSessionId);
+  assert.notEqual(first.sessionId, second.sessionId);
+  assert.notEqual(first.sessionId, workerClient.sessionId);
+  assert.notEqual(second.sessionId, workerClient.sessionId);
+  assert.match(first.sessionId, /^rito-reader-session-\d+$/);
+  first.dispose();
+  second.dispose();
+  workerClient.dispose();
+});
+
 test('in-process reader allows only one document open', async () => {
   const ready = deferred();
   const entry = fakeDocument('first');

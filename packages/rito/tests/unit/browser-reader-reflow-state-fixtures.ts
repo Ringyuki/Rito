@@ -90,6 +90,8 @@ export function createState(
       tocTargets: { revisionId: '', targets: [] },
       fontFamilies: [],
     },
+    revisionHandle: undefined,
+    commitGeneration: 0,
     visualPreview: undefined,
     frames: new Map(),
     pendingImageLoads: new Map(),
@@ -127,6 +129,13 @@ export function setRevisionState(
   revision: CoreRevisionSummary,
   navigation: CoreRevisionNavigation = emptyNavigation(revision),
 ): void {
+  state.commitGeneration += 1;
+  state.revisionHandle = {
+    workerSessionId: state.worker.sessionId,
+    revisionId: revision.revisionId,
+    revisionVersion: 0,
+    commitGeneration: state.commitGeneration,
+  };
   state.revisionBundle = {
     ...state.revisionBundle,
     revision,

@@ -25,7 +25,13 @@ describe('Browser reader resource-backed rendering', () => {
       worker,
       frames: new Map(),
       visualPreview: {
-        revisionId: 'preview',
+        revision: {
+          workerSessionId: worker.sessionId,
+          revisionId: 'preview',
+          revisionVersion: 0,
+        },
+        baseCommitGeneration: 1,
+        interactionPolicy: 'disabled',
         spreadIndex: 2,
         frame: { ...frameWithImages(), revisionId: 'preview', spreadIndex: 2 },
         config: {
@@ -401,6 +407,13 @@ function createState(overrides: object = {}): BrowserReaderState {
       chapterTextIndices: { revisionId: 'rev-1', entries: {} },
       fontFamilies: [],
     },
+    revisionHandle: {
+      workerSessionId: 'rendering-resource-session',
+      revisionId: 'rev-1',
+      revisionVersion: 0,
+      commitGeneration: 1,
+    },
+    commitGeneration: 1,
     frames: new Map(),
     pendingFrameLoads: new Map(),
     images: new Map(),
@@ -467,6 +480,7 @@ function createWorker(
   ),
 ): BrowserReaderWorkerClient {
   return {
+    sessionId: 'rendering-resource-session',
     readResource: vi.fn(() =>
       Promise.resolve({
         payload: { mediaType: 'image/png', transferId: 'transfer-1', byteLength: 4 },

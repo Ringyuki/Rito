@@ -7,8 +7,18 @@ import {
   createRitoCoreWasmReaderFootnoteMap,
 } from '../core-contracts';
 import type { CoreLineBreaking } from './types';
-import type { BrowserReaderFrame, BrowserReaderQueuedReflow, BrowserReaderState } from './types';
+import type {
+  BrowserReaderFrame,
+  BrowserReaderQueuedReflow,
+  BrowserReaderState,
+  BrowserReaderVisualPreview,
+} from './types';
 import type { BrowserReaderRevisionResult, BrowserReaderWorkerClient } from '../core-contracts';
+import {
+  commitRevisionHandle,
+  createWorkerRevisionHandle,
+  currentCommitGeneration,
+} from './pipeline/revision-handle';
 
 export interface BrowserReaderRevisionStateInput {
   readonly config: LayoutConfig;
@@ -74,17 +84,17 @@ export function applyBrowserReaderRevisionState(
   const previousRevisionId = state.revisionBundle.revision.revisionId;
   clearBrowserReaderVisualPreview(state);
   state.worker = input.worker;
+  state.revisionHandle = commitRevisionHandle(
+    state,
+    input.worker,
+    input.result.bundle.revision.revisionId,
+  );
   applyLayoutState(state, input);
   applyRevisionData(state, input.result);
   if (input.initialFrame) cacheFrame(state, input.initialFrame.spreadIndex, input.initialFrame);
-  applyBrowserReaderFrameWindow(
-    state,
-    input.result.bundle.revision.revisionId,
-    input.result.frameWindow,
-    {
-      notifyFrameInvalidation: false,
-    },
-  );
+  applyBrowserReaderFrameWindow(state, state.revisionHandle, input.result.frameWindow, {
+    notifyFrameInvalidation: false,
+  });
   if (
     previousRevisionId.length > 0 &&
     (previousWorker !== input.worker ||
@@ -106,11 +116,18 @@ export async function commitBrowserReaderViewResult(
   result: BrowserReaderRevisionResult,
   visualPreview: boolean,
   onCommitted?: () => void,
+  baseCommitGeneration = currentCommitGeneration(state),
 ): Promise<boolean | 'staleSpread'> {
-  if (shouldDiscardReflowResult(state, request)) return releaseDiscarded(worker, result);
+  if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
+    return releaseDiscarded(worker, result);
+  }
   const commitFrame = await prepareCommitFrame(state, worker, result);
-  if (shouldDiscardReflowResult(state, request)) return releaseDiscarded(worker, result);
-  if (visualPreview) return commitVisualPreview(state, request, worker, result, commitFrame);
+  if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
+    return releaseDiscarded(worker, result);
+  }
+  if (visualPreview) {
+    return commitVisualPreview(state, request, worker, result, commitFrame, baseCommitGeneration);
+  }
   applyBrowserReaderRevisionState(state, {
     config: request.config,
     spreadMode: request.spreadMode,
@@ -131,14 +148,17 @@ export function commitBrowserReaderVisualPreview(
     readonly spreadMode: 'single' | 'double';
     readonly lineBreaking: CoreLineBreaking;
     readonly worker: BrowserReaderWorkerClient;
-    readonly revisionId: string;
+    readonly revision: BrowserReaderVisualPreview['revision'];
+    readonly baseCommitGeneration: number;
     readonly spreadIndex: number;
     readonly frame: BrowserReaderFrame;
   },
 ): void {
   clearBrowserReaderVisualPreview(state);
   state.visualPreview = {
-    revisionId: preview.revisionId,
+    revision: preview.revision,
+    baseCommitGeneration: preview.baseCommitGeneration,
+    interactionPolicy: 'disabled',
     spreadIndex: preview.spreadIndex,
     frame: preview.frame,
     config: preview.config,
@@ -152,7 +172,7 @@ export function commitBrowserReaderVisualPreview(
 export function clearBrowserReaderVisualPreview(state: BrowserReaderState): void {
   const preview = state.visualPreview;
   state.visualPreview = undefined;
-  if (preview) releaseRevision(preview.worker, preview.revisionId);
+  if (preview) releaseRevision(preview.worker, preview.revision.revisionId);
 }
 
 export function visualLayoutConfig(state: BrowserReaderState): LayoutConfig {
@@ -171,9 +191,13 @@ export function visualPreviewFrame(
 function shouldDiscardReflowResult(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,
+  baseCommitGeneration: number,
 ): boolean {
   return (
-    state.disposed || state.reflow.queued !== undefined || request.token !== state.reflow.token
+    state.disposed ||
+    state.reflow.queued !== undefined ||
+    request.token !== state.reflow.token ||
+    currentCommitGeneration(state) !== baseCommitGeneration
   );
 }
 
@@ -220,6 +244,7 @@ function commitVisualPreview(
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
   commitFrame: Awaited<ReturnType<typeof prepareCommitFrame>>,
+  baseCommitGeneration: number,
 ): boolean | 'staleSpread' {
   const displaySpreadIndex = commitFrame.displaySpreadIndex;
   if (!commitFrame.frame) return releaseDiscarded(worker, result);
@@ -232,7 +257,8 @@ function commitVisualPreview(
     spreadMode: request.spreadMode,
     lineBreaking: request.lineBreaking,
     worker,
-    revisionId: result.bundle.revision.revisionId,
+    revision: createWorkerRevisionHandle(worker, result.bundle.revision.revisionId),
+    baseCommitGeneration,
     spreadIndex: displaySpreadIndex,
     frame: commitFrame.frame,
   });
