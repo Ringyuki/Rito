@@ -3,6 +3,8 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use super::source_locator::RuntimeSourceLocator;
+
 use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
@@ -502,7 +504,69 @@ pub struct RuntimePrefetchResponse {
     pub cached_frame_count: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimePageTargetKind {
+    Text,
+    Link,
+    Image,
+    Footnote,
+}
+
+/// Visual bounds in page-content coordinates, after layout transforms and
+/// clipping have been applied.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimePageTargetBounds {
+    pub x: f64,
+    pub y: f64,
+    pub width: f64,
+    pub height: f64,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimePageTargetText {
+    pub hash: String,
+    /// UTF-16 code-unit length, matching the reader's text-position model.
+    pub length: usize,
+}
+
+/// One paint-order page target. `kind` follows the semantic priority
+/// footnote > link > standalone image > text. Linked images remain links and
+/// retain their image metadata.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimePageTarget {
+    pub kind: RuntimePageTargetKind,
+    pub bounds: RuntimePageTargetBounds,
+    pub block_index: usize,
+    pub line_index: usize,
+    pub run_index: usize,
+    pub label: String,
+    pub text: RuntimePageTargetText,
+    /// Original EPUB href. Internal canonicalization is carried separately by
+    /// `target_locator`, preserving source-relative and fragment-only values.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub href: Option<String>,
+    /// Canonical locator for the target's source node. It is absent when the
+    /// layout did not retain enough source identity to construct one safely.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_locator: Option<RuntimeSourceLocator>,
+    /// Canonical destination for an internal href. External hrefs deliberately
+    /// have no target locator.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_locator: Option<RuntimeSourceLocator>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_src: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub image_alt: Option<String>,
+    /// Exact key in this revision's footnote table when `kind` is `Footnote`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub footnote_key: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimePageTargets {
     pub revision_id: String,
@@ -510,7 +574,7 @@ pub struct RuntimePageTargets {
     pub spread_index: usize,
     pub entry_count: usize,
     pub text_hash: String,
-    pub entries: Vec<Value>,
+    pub entries: Vec<RuntimePageTarget>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

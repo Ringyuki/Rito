@@ -15,6 +15,13 @@ pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_offset, project_source_point, SourceProjection};
 pub use types::*;
 
+pub(super) fn canonical_runtime_source_locator(
+    document: &crate::epub::LoadedEpubDocument,
+    locator: RuntimeSourceLocator,
+) -> Result<RuntimeSourceLocator, RuntimeSourceLocatorError> {
+    canonicalize_source_locator(document, locator).map(|canonical| canonical.locator)
+}
+
 impl RuntimeDocument {
     pub fn resolve_source_locator(
         &mut self,

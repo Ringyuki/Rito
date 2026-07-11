@@ -7,7 +7,7 @@ use rito_core::{
     epub::{load_publication_with_layout_and_line_breaking, EpubPublication, PackageDocument},
     layout::{LayoutConfig, LayoutSummary, LineBreaking},
     resources::PublicationResources,
-    runtime::{RuntimeDocument, RuntimeResourceKind, RuntimeSearchRequest},
+    runtime::{RuntimeDocument, RuntimePageTarget, RuntimeResourceKind, RuntimeSearchRequest},
     style::StyleSummary,
     xhtml::{ChapterSource, XhtmlSummary},
 };
@@ -1613,11 +1613,16 @@ fn assert_runtime_page_targets_match_fixture(
         .iter()
         .find(|digest| digest.index == case.page.index)
         .unwrap_or_else(|| panic!("{}: missing hit-map digest", case.id));
+    let diagnostic_entries = targets
+        .entries
+        .iter()
+        .map(runtime_page_target_value)
+        .collect::<Vec<_>>();
     let detail = json!({
         "index": targets.page_index,
-        "counts": count_runtime_hit_map_entries(&targets.entries),
+        "counts": count_runtime_hit_map_entries(&diagnostic_entries),
         "textHash": targets.text_hash,
-        "entries": targets.entries,
+        "entries": diagnostic_entries,
     });
     assert_eq!(
         targets.entry_count, expected.counts.entries,
@@ -1641,6 +1646,58 @@ fn assert_runtime_page_targets_match_fixture(
         "runtime page target detailHash mismatch for {}",
         case.id
     );
+}
+
+fn runtime_page_target_value(target: &RuntimePageTarget) -> Value {
+    let mut value = Map::new();
+    value.insert("blockIndex".to_owned(), json!(target.block_index));
+    value.insert(
+        "bounds".to_owned(),
+        Value::Object(Map::from_iter([
+            ("x".to_owned(), runtime_target_number(target.bounds.x)),
+            ("y".to_owned(), runtime_target_number(target.bounds.y)),
+            (
+                "width".to_owned(),
+                runtime_target_number(target.bounds.width),
+            ),
+            (
+                "height".to_owned(),
+                runtime_target_number(target.bounds.height),
+            ),
+        ])),
+    );
+    value.insert("lineIndex".to_owned(), json!(target.line_index));
+    value.insert("runIndex".to_owned(), json!(target.run_index));
+    value.insert(
+        "text".to_owned(),
+        json!({"hash": target.text.hash, "length": target.text.length}),
+    );
+    insert_runtime_target_string(&mut value, "href", target.href.as_deref());
+    insert_runtime_target_string(&mut value, "imageSrc", target.image_src.as_deref());
+    insert_runtime_target_string(&mut value, "imageAlt", target.image_alt.as_deref());
+    if let Some(point) = target
+        .source_locator
+        .as_ref()
+        .and_then(|locator| locator.source_point.as_ref())
+    {
+        value.insert("sourcePath".to_owned(), json!(point.node_path));
+        value.insert("sourceTextOffset".to_owned(), json!(point.text_offset));
+    }
+    Value::Object(value)
+}
+
+fn insert_runtime_target_string(value: &mut Map<String, Value>, key: &str, field: Option<&str>) {
+    if let Some(field) = field {
+        value.insert(key.to_owned(), Value::String(field.to_owned()));
+    }
+}
+
+fn runtime_target_number(value: f64) -> Value {
+    if value.fract().abs() < f64::EPSILON {
+        json!(value as i64)
+    } else {
+        json!(value)
+    }
 }
 
 fn count_runtime_hit_map_entries(entries: &[Value]) -> Value {

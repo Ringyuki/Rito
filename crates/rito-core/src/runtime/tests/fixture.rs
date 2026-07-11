@@ -46,6 +46,13 @@ pub fn fixture_epub() -> Vec<u8> {
     fixture_epub_with_stylesheet(fixture_stylesheet())
 }
 
+pub fn interaction_target_fixture_epub() -> Vec<u8> {
+    fixture_epub_with_chapter_and_stylesheet(
+        br##"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head></head><body><p id="intro"><a href="#intro">internal</a><a href="">current</a><a href="https://example.com/help#reader">external</a><a epub:type="noteref" href="#fn1">note</a><a href="#intro"><img src="Images/cover.png" alt="linked cover"/></a></p><img src="Images/cover.png" alt="standalone cover"/><aside epub:type="footnote" id="fn1"><p>Runtime note</p></aside></body></html>"##,
+        fixture_stylesheet(),
+    )
+}
+
 pub fn source_locator_fixture_epub() -> Vec<u8> {
     let paragraphs = (0..48)
         .map(|index| {
@@ -165,13 +172,13 @@ pub fn multi_chapter_fixture_epub() -> Vec<u8> {
         &mut writer,
         options,
         "OPS/chapter-1.xhtml",
-        chapter_fixture_xhtml("chapter one").as_bytes(),
+        br##"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p><a href="chapter-2.xhtml#target">chapter one</a></p></body></html>"##,
     );
     add_file(
         &mut writer,
         options,
         "OPS/chapter-2.xhtml",
-        chapter_fixture_xhtml("chapter two active window").as_bytes(),
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p id="target">chapter two active window</p></body></html>"#,
     );
     add_file(
         &mut writer,

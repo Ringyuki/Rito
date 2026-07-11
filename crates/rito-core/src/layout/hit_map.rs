@@ -2,11 +2,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Number, Value};
 
 use super::{
-    content::{RuntimeBlock, RuntimeChild, RuntimeImage},
-    line::{AtomRunBox, LineBox, LineRun, TextRunBox},
+    content::RuntimeBlock,
+    hit_target::{build_hit_targets, LayoutHitTarget},
+    line::LineBox,
     page::RuntimePage,
-    summary_json::{hash_json, hash_text, rect_value},
-    visual_geometry::{VisualGeometry, VisualRect},
+    summary_json::{hash_json, rect_value},
 };
 
 type HitMapPage = RuntimePage<RuntimeBlock<LineBox>>;
@@ -102,235 +102,17 @@ fn summarize_hit_map_flow_page(page: &HitMapPage) -> HitMapFlowPageDetail {
 }
 
 pub(crate) fn build_hit_map(page: &HitMapPage) -> (Vec<Value>, String) {
-    let mut text = String::new();
-    let entries = build_hit_map_flow_entries(page, Some(&mut text));
-    (entries, hash_text(&text))
+    let (targets, text_hash) = build_hit_targets(page);
+    let entries = targets.iter().map(hit_map_entry).collect();
+    (entries, text_hash)
 }
 
-fn build_hit_map_flow_entries(page: &HitMapPage, mut text: Option<&mut String>) -> Vec<Value> {
-    let mut entries = Vec::new();
-    let page_visual = VisualGeometry::page();
-    for (block_index, block) in page.content.iter().enumerate() {
-        let mut line_index = 0usize;
-        collect_hit_map_line_entries(
-            block,
-            block_index,
-            (0.0, 0.0),
-            &mut line_index,
-            &mut entries,
-            &mut text,
-            page_visual,
-        );
-    }
-    for (block_index, block) in page.content.iter().enumerate() {
-        collect_hit_map_block_image_entries(
-            block,
-            0.0,
-            0.0,
-            block_index,
-            &mut entries,
-            page_visual,
-        );
-    }
-    entries
-}
-
-fn collect_hit_map_line_entries(
-    block: &RuntimeBlock<LineBox>,
-    block_index: usize,
-    offset: (f64, f64),
-    line_index: &mut usize,
-    entries: &mut Vec<Value>,
-    text: &mut Option<&mut String>,
-    parent_visual: VisualGeometry,
-) {
-    let block_x = offset.0 + block.x;
-    let block_y = offset.1 + block.y;
-    let visual = parent_visual.enter_block(block, block_x, block_y);
-    for child in &block.children {
-        match child {
-            RuntimeChild::Line(line) => {
-                collect_hit_map_line(
-                    line,
-                    (block_x, block_y),
-                    block_index,
-                    *line_index,
-                    entries,
-                    text,
-                    visual,
-                );
-                *line_index += 1;
-            }
-            RuntimeChild::Block(block) => collect_hit_map_line_entries(
-                block,
-                block_index,
-                (block_x, block_y),
-                line_index,
-                entries,
-                text,
-                visual,
-            ),
-            RuntimeChild::Image(_) | RuntimeChild::Hr(_) => {}
-        }
-    }
-}
-
-fn collect_hit_map_line(
-    line: &LineBox,
-    offset: (f64, f64),
-    block_index: usize,
-    line_index: usize,
-    entries: &mut Vec<Value>,
-    text: &mut Option<&mut String>,
-    visual: VisualGeometry,
-) {
-    let line_x = offset.0 + line.x;
-    let line_y = offset.1 + line.y;
-    for (run_index, run) in line.runs.iter().enumerate() {
-        match run {
-            LineRun::Text(run) => {
-                if let Some(entry) = hit_map_text_entry(
-                    run,
-                    line_x,
-                    line_y,
-                    block_index,
-                    line_index,
-                    run_index,
-                    visual,
-                ) {
-                    if let Some(text) = text.as_deref_mut() {
-                        text.push_str(&run.text);
-                    }
-                    entries.push(entry);
-                }
-            }
-            LineRun::Atom(run) => {
-                if let Some(entry) = hit_map_atom_entry(
-                    run,
-                    line_x,
-                    line_y,
-                    block_index,
-                    line_index,
-                    run_index,
-                    visual,
-                ) {
-                    entries.push(entry);
-                }
-            }
-            LineRun::Ruby(_) => {}
-        }
-    }
-}
-
-fn collect_hit_map_block_image_entries(
-    block: &RuntimeBlock<LineBox>,
-    offset_x: f64,
-    offset_y: f64,
-    block_index: usize,
-    entries: &mut Vec<Value>,
-    parent_visual: VisualGeometry,
-) {
-    let block_x = offset_x + block.x;
-    let block_y = offset_y + block.y;
-    let visual = parent_visual.enter_block(block, block_x, block_y);
-    for child in &block.children {
-        match child {
-            RuntimeChild::Image(image) => {
-                if let Some(entry) =
-                    hit_map_image_entry(image, block_x, block_y, block_index, visual)
-                {
-                    entries.push(entry);
-                }
-            }
-            RuntimeChild::Block(block) => collect_hit_map_block_image_entries(
-                block,
-                block_x,
-                block_y,
-                block_index,
-                entries,
-                visual,
-            ),
-            RuntimeChild::Line(_) | RuntimeChild::Hr(_) => {}
-        }
-    }
-}
-
-fn hit_map_text_entry(
-    run: &TextRunBox,
-    offset_x: f64,
-    offset_y: f64,
-    block_index: usize,
-    line_index: usize,
-    run_index: usize,
-    visual: VisualGeometry,
-) -> Option<Value> {
-    let bounds = visual.resolve_rect(absolute_rect(
-        run.x, run.y, run.width, run.height, offset_x, offset_y,
-    ))?;
-    let mut value = base_hit_map_entry(block_index, line_index, run_index, bounds, &run.text);
-    insert_optional_string(&mut value, "href", run.href.as_deref());
-    insert_optional_path(&mut value, "sourcePath", run.source_path.as_ref());
-    if let Some(offset) = run.source_text_offset {
-        value.insert(
-            "sourceTextOffset".to_owned(),
-            Value::Number(Number::from(offset)),
-        );
-    }
-    Some(Value::Object(value))
-}
-
-fn hit_map_atom_entry(
-    run: &AtomRunBox,
-    offset_x: f64,
-    offset_y: f64,
-    block_index: usize,
-    line_index: usize,
-    run_index: usize,
-    visual: VisualGeometry,
-) -> Option<Value> {
-    let bounds = visual.resolve_rect(absolute_rect(
-        run.x, run.y, run.width, run.height, offset_x, offset_y,
-    ))?;
-    let mut value = base_hit_map_entry(block_index, line_index, run_index, bounds, "");
-    insert_optional_string(&mut value, "href", run.href.as_deref());
-    insert_optional_string(&mut value, "imageSrc", run.image_src.as_deref());
-    insert_optional_string(&mut value, "imageAlt", run.alt.as_deref());
-    Some(Value::Object(value))
-}
-
-fn hit_map_image_entry(
-    image: &RuntimeImage,
-    offset_x: f64,
-    offset_y: f64,
-    block_index: usize,
-    visual: VisualGeometry,
-) -> Option<Value> {
-    let bounds = visual.resolve_rect(absolute_rect(
-        image.x,
-        image.y,
-        image.width,
-        image.height,
-        offset_x,
-        offset_y,
-    ))?;
-    let mut value = base_hit_map_entry(block_index, 0, 0, bounds, "");
-    insert_optional_string(&mut value, "href", image.href.as_deref());
-    insert_optional_string(&mut value, "imageSrc", Some(&image.src));
-    insert_optional_string(&mut value, "imageAlt", image.alt.as_deref());
-    Some(Value::Object(value))
-}
-
-fn base_hit_map_entry(
-    block_index: usize,
-    line_index: usize,
-    run_index: usize,
-    bounds: VisualRect,
-    text: &str,
-) -> Map<String, Value> {
+fn hit_map_entry(target: &LayoutHitTarget) -> Value {
+    let bounds = target.rounded_bounds();
     let mut value = Map::new();
     value.insert(
         "blockIndex".to_owned(),
-        Value::Number(Number::from(block_index)),
+        Value::Number(Number::from(target.block_index)),
     );
     value.insert(
         "bounds".to_owned(),
@@ -338,20 +120,30 @@ fn base_hit_map_entry(
     );
     value.insert(
         "lineIndex".to_owned(),
-        Value::Number(Number::from(line_index)),
+        Value::Number(Number::from(target.line_index)),
     );
     value.insert(
         "runIndex".to_owned(),
-        Value::Number(Number::from(run_index)),
+        Value::Number(Number::from(target.run_index)),
     );
     value.insert(
         "text".to_owned(),
         json!({
-            "hash": hash_text(text),
-            "length": utf16_len(text),
+            "hash": target.text_hash(),
+            "length": target.text_length(),
         }),
     );
-    value
+    insert_optional_string(&mut value, "href", target.href.as_deref());
+    insert_optional_string(&mut value, "imageSrc", target.image_src.as_deref());
+    insert_optional_string(&mut value, "imageAlt", target.image_alt.as_deref());
+    insert_optional_path(&mut value, "sourcePath", target.source_path.as_ref());
+    if let Some(offset) = target.source_text_offset {
+        value.insert(
+            "sourceTextOffset".to_owned(),
+            Value::Number(Number::from(offset)),
+        );
+    }
+    Value::Object(value)
 }
 
 fn total_hit_map_counts(details: &[HitMapFlowPageDetail]) -> HitMapFlowCounts {
@@ -395,17 +187,6 @@ fn hit_map_entry_text_len(entry: &Value) -> usize {
         .unwrap_or(0)
 }
 
-fn absolute_rect(
-    x: f64,
-    y: f64,
-    width: f64,
-    height: f64,
-    offset_x: f64,
-    offset_y: f64,
-) -> VisualRect {
-    VisualRect::new(offset_x + x, offset_y + y, width, height)
-}
-
 fn insert_optional_string(output: &mut Map<String, Value>, key: &str, value: Option<&str>) {
     if let Some(value) = value {
         output.insert(key.to_owned(), Value::String(value.to_owned()));
@@ -424,10 +205,6 @@ fn insert_optional_path(output: &mut Map<String, Value>, key: &str, value: Optio
             ),
         );
     }
-}
-
-fn utf16_len(text: &str) -> usize {
-    text.encode_utf16().count()
 }
 
 #[cfg(test)]
@@ -456,7 +233,14 @@ mod tests {
                 height: 100.0,
                 semantic_tag: None,
                 anchor_id: None,
-                paint: Some(json!({ "visualOffset": { "dx": 5, "dy": -2 } })),
+                paint: Some(json!({
+                    "visualOffset": { "dx": 5, "dy": -2 },
+                    "transform": [{
+                        "kind": "translate",
+                        "x": { "unit": "px", "value": 2 },
+                        "y": { "unit": "px", "value": 3 },
+                    }],
+                })),
                 border_box: None,
                 page_break_before: false,
                 page_break_after: false,
@@ -511,9 +295,9 @@ mod tests {
             }
         );
         assert_eq!(summary.samples.len(), 1);
-        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["x"], json!(19));
-        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["y"], json!(24));
-        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["x"], json!(20));
-        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["y"], json!(58));
+        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["x"], json!(21));
+        assert_eq!(summary.samples[0]["entries"][0]["bounds"]["y"], json!(27));
+        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["x"], json!(22));
+        assert_eq!(summary.samples[0]["entries"][1]["bounds"]["y"], json!(61));
     }
 }

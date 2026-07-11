@@ -9,8 +9,9 @@ use command_hash::{
 };
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
-    fixture_stylesheet, layout, malformed_chapter_fixture_epub, many_chapter_fixture_epub,
-    minimal_png, multi_chapter_fixture_epub, source_locator_fixture_epub,
+    fixture_stylesheet, interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub,
+    many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
+    source_locator_fixture_epub,
 };
 use serde_json::Value;
 
@@ -18,9 +19,9 @@ use super::{
     frame::{chapter_window_layout_config, FRAME_CACHE_CAPACITY},
     RuntimeActiveChapterPreviewRevisionRequest, RuntimeChapterTextIndices, RuntimeDocument,
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
-    RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePrefetchRequest,
-    RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeRevisionExtent,
-    RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSourceLocator,
+    RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
+    RuntimePrefetchRequest, RuntimePreviewRevisionBundleRequest, RuntimeResourceKind,
+    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSourceLocator,
     RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
     RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
     RuntimeSourceRange, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay,
@@ -1580,8 +1581,9 @@ fn plans_frame_resource_warm_window_in_runtime() {
 }
 
 #[test]
-fn exposes_page_targets_from_hit_map_entries() {
-    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+fn exposes_typed_page_targets_with_canonical_footnote_and_image_semantics() {
+    let mut document =
+        RuntimeDocument::open(&interaction_target_fixture_epub()).expect("document opens");
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
@@ -1589,6 +1591,14 @@ fn exposes_page_targets_from_hit_map_entries() {
     let targets = document
         .get_page_targets(&revision.revision_id, 0)
         .expect("targets are available");
+    let entries = (0..revision.page_count)
+        .flat_map(|page_index| {
+            document
+                .get_page_targets(&revision.revision_id, page_index)
+                .expect("all page targets are available")
+                .entries
+        })
+        .collect::<Vec<_>>();
     let missing = document
         .get_page_targets(&revision.revision_id, 99)
         .expect_err("missing page fails");
@@ -1598,14 +1608,113 @@ fn exposes_page_targets_from_hit_map_entries() {
     assert_eq!(targets.spread_index, 0);
     assert_eq!(targets.entry_count, targets.entries.len());
     assert!(targets.entry_count >= 1);
-    assert!(targets.entries.iter().any(|entry| {
-        entry
-            .get("text")
-            .and_then(|text| text.get("length"))
-            .and_then(Value::as_u64)
-            .is_some_and(|length| length > 0)
-    }));
+    assert!(entries.iter().any(|entry| entry.text.length > 0));
+    let footnote = entries
+        .iter()
+        .find(|entry| entry.kind == RuntimePageTargetKind::Footnote)
+        .expect("same-page noteref is promoted by the current revision");
+    assert_eq!(footnote.label, "note");
+    assert_eq!(footnote.href.as_deref(), Some("#fn1"));
+    assert_eq!(footnote.footnote_key.as_deref(), Some("chapter.xhtml#fn1"));
+    let source = footnote
+        .source_locator
+        .as_ref()
+        .expect("text target keeps its click-source locator");
+    assert_eq!(source.href, "chapter.xhtml");
+    assert!(source.source_point.is_some());
+    let destination = footnote
+        .target_locator
+        .as_ref()
+        .expect("internal footnote keeps its canonical target locator");
+    assert_eq!(destination.href, "chapter.xhtml");
+    assert_eq!(destination.anchor_id.as_deref(), Some("fn1"));
+
+    let internal = entries
+        .iter()
+        .find(|entry| entry.label == "internal")
+        .expect("internal link target");
+    assert_eq!(internal.kind, RuntimePageTargetKind::Link);
+    assert_eq!(internal.href.as_deref(), Some("#intro"));
+    assert_eq!(
+        internal
+            .target_locator
+            .as_ref()
+            .and_then(|locator| locator.anchor_id.as_deref()),
+        Some("intro")
+    );
+
+    let current = entries
+        .iter()
+        .find(|entry| entry.label == "current")
+        .expect("empty href remains a current-document link");
+    assert_eq!(current.kind, RuntimePageTargetKind::Link);
+    assert_eq!(current.href.as_deref(), Some(""));
+    let current_destination = current
+        .target_locator
+        .as_ref()
+        .expect("empty href resolves to the current chapter");
+    assert_eq!(current_destination.href, "chapter.xhtml");
+    assert!(current_destination.anchor_id.is_none());
+
+    let external = entries
+        .iter()
+        .find(|entry| entry.label == "external")
+        .expect("external link target");
+    assert_eq!(external.kind, RuntimePageTargetKind::Link);
+    assert_eq!(
+        external.href.as_deref(),
+        Some("https://example.com/help#reader")
+    );
+    assert!(external.target_locator.is_none());
+
+    let linked_image = entries
+        .iter()
+        .find(|entry| entry.image_alt.as_deref() == Some("linked cover"))
+        .expect("linked image target");
+    assert_eq!(linked_image.kind, RuntimePageTargetKind::Link);
+    assert_eq!(linked_image.href.as_deref(), Some("#intro"));
+    assert!(linked_image.target_locator.is_some());
+
+    let image = entries
+        .iter()
+        .find(|entry| entry.image_alt.as_deref() == Some("standalone cover"))
+        .expect("standalone image is typed");
+    assert_eq!(image.kind, RuntimePageTargetKind::Image);
+    assert_eq!(image.label, "standalone cover");
+    assert_eq!(image.image_src.as_deref(), Some("Images/cover.png"));
+    assert!(image.href.is_none());
+    assert!(image.source_locator.is_none());
+    assert!(image.target_locator.is_none());
     assert_eq!(missing.message(), "unknown page index: 99");
+}
+
+#[test]
+fn double_spread_page_targets_keep_page_content_coordinates() {
+    let mut document =
+        RuntimeDocument::open(&source_locator_fixture_epub()).expect("document opens");
+    let layout = double_layout();
+    let revision = document
+        .create_revision(&layout)
+        .expect("double-page revision is created");
+    assert!(revision.page_count >= 3);
+
+    let left = document
+        .get_page_targets(&revision.revision_id, 1)
+        .expect("left page targets");
+    let right = document
+        .get_page_targets(&revision.revision_id, 2)
+        .expect("right page targets");
+
+    assert_eq!(left.spread_index, 1);
+    assert_eq!(right.spread_index, 1);
+    assert!(!left.entries.is_empty());
+    assert!(!right.entries.is_empty());
+    for target in left.entries.iter().chain(&right.entries) {
+        assert!(target.bounds.x >= 0.0);
+        assert!(target.bounds.x + target.bounds.width <= layout.page_width);
+        assert!(target.bounds.y >= 0.0);
+        assert!(target.bounds.y + target.bounds.height <= layout.page_height);
+    }
 }
 
 #[test]

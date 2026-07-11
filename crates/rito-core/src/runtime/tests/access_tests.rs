@@ -5,15 +5,60 @@ use crate::{
     layout::{LineBreaking, SearchTextPosition},
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
-        RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePrefetchRequest,
-        RuntimeResourceKind, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
-        RuntimeRevisionWorkBudget, RuntimeSearchRequest, RuntimeSourceLocator,
+        RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
+        RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionAccessErrorKind,
+        RuntimeRevisionHandle, RuntimeRevisionWorkBudget, RuntimeSearchRequest,
+        RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
         RuntimeTextRangeGeometryRequest, RuntimeVersioned,
     },
 };
 
 fn handle_for(summary: &crate::runtime::RuntimeRevisionSummary) -> RuntimeRevisionHandle {
     RuntimeRevisionHandle::from(summary)
+}
+
+#[test]
+fn versioned_internal_target_locator_can_remain_pending() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let initial = document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("first chapter is published");
+    let handle = handle_for(&initial.revision);
+    let targets = document
+        .get_page_targets_at(&handle, 0)
+        .expect("version-gated targets");
+    let link = targets
+        .value
+        .entries
+        .iter()
+        .find(|target| target.label == "chapter one")
+        .expect("future-chapter link target");
+    assert_eq!(link.kind, RuntimePageTargetKind::Link);
+    assert_eq!(link.href.as_deref(), Some("chapter-2.xhtml#target"));
+    let destination = link
+        .target_locator
+        .clone()
+        .expect("internal link has a canonical destination");
+    assert_eq!(destination.href, "chapter-2.xhtml");
+    assert_eq!(destination.anchor_id.as_deref(), Some("target"));
+
+    let resolution = document
+        .resolve_source_locator_at(&handle, destination)
+        .expect("future target is a valid versioned locator");
+    assert!(matches!(
+        resolution.value,
+        RuntimeSourceLocatorResolution::Pending {
+            reason: RuntimeSourceLocatorPendingReason::NotPaginated,
+            ..
+        }
+    ));
 }
 
 fn source_locator(href: &str) -> RuntimeSourceLocator {
@@ -134,9 +179,15 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
     document
         .resolve_source_locator_at(&handle, source_locator("chapter.xhtml"))
         .expect("source locator");
-    document
+    let targets = document
         .get_page_targets_at(&handle, result.page_index)
         .expect("page targets");
+    assert_eq!(targets.revision, handle);
+    assert!(targets
+        .value
+        .entries
+        .iter()
+        .any(|target| target.kind == RuntimePageTargetKind::Footnote));
     document
         .get_page_text_positions_at(&handle, result.page_index)
         .expect("text positions");

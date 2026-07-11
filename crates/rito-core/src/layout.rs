@@ -16,6 +16,7 @@ mod display_list;
 mod display_list_flow;
 mod font_summary;
 mod hit_map;
+mod hit_target;
 mod hyphenation;
 pub(crate) mod image_size;
 mod inline_atoms;
@@ -57,8 +58,8 @@ use serde::{Deserialize, Serialize};
 pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
 pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};
 pub(crate) use font_summary::summarize_layout_font_families;
-pub(crate) use hit_map::build_hit_map;
 pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
+pub(crate) use hit_target::{build_hit_targets, LayoutHitTarget};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
 pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
 pub use pagination_flow::{

@@ -13,6 +13,7 @@ mod frame;
 mod metadata;
 mod navigation;
 mod page;
+mod page_target;
 mod resource;
 mod revision;
 mod search;
@@ -209,7 +210,7 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        page_targets(revision_id, revision, page_index)
+        page_targets(&self.document, revision_id, revision, page_index)
     }
 
     pub fn get_page_text_positions(
