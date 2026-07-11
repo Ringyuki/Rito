@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 use super::{
     decode_runtime_bundle, encode_runtime_bundle, runtime_bundle_checksum, write_u32_at,
@@ -38,6 +38,25 @@ fn reuses_scalar_value_records_without_changing_payload() {
 
     assert_eq!(decoded.payload, value);
     assert_eq!(decoded.value_count, 8);
+}
+
+#[test]
+fn reuses_one_long_string_for_object_keys_and_values() {
+    let repeated = "共享字符串".repeat(2_048);
+    let mut object = Map::new();
+    object.insert(repeated.clone(), Value::String(repeated.clone()));
+    let value = Value::Array(vec![
+        Value::String(repeated.clone()),
+        Value::Object(object),
+        Value::String(repeated),
+    ]);
+
+    let bytes = encode_runtime_bundle(&value).expect("repeated strings encode");
+    let decoded = decode_runtime_bundle(&bytes).expect("repeated strings decode");
+
+    assert_eq!(decoded.payload, value);
+    assert_eq!(decoded.string_count, 1);
+    assert_eq!(decoded.value_count, 3);
 }
 
 #[test]

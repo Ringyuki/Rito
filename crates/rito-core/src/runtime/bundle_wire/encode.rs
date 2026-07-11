@@ -6,18 +6,19 @@ use serde_json::{Map, Number, Value};
 use crate::epub::{EpubError, EpubResult};
 
 use super::{
-    checked_u32, runtime_bundle_checksum, validate_safe_i64, validate_safe_u64, wire_error,
-    write_u32, write_u32_at, write_u64_at, RUNTIME_BUNDLE_HEADER_BYTES, RUNTIME_BUNDLE_MAGIC,
-    RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64, TAG_FALSE, TAG_I64, TAG_NULL, TAG_OBJECT,
-    TAG_STRING, TAG_TRUE, TAG_U64,
+    checked_u32, runtime_bundle_checksum, usize_from_u32, validate_safe_i64, validate_safe_u64,
+    wire_error, write_u32, write_u32_at, write_u64_at, RUNTIME_BUNDLE_HEADER_BYTES,
+    RUNTIME_BUNDLE_MAGIC, RUNTIME_BUNDLE_VERSION, TAG_ARRAY, TAG_F64, TAG_FALSE, TAG_I64, TAG_NULL,
+    TAG_OBJECT, TAG_STRING, TAG_TRUE, TAG_U64,
 };
 
 pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
     let value = serde_json::to_value(value)
         .map_err(|error| EpubError::new(format!("runtime bundle serialization failed: {error}")))?;
     let mut encoder = RuntimeBundleEncoder::default();
-    let root_index = encoder.encode_value(&value)?;
-    let string_section_len = encoder.string_section_len()?;
+    let root_index = encoder.encode_value(value)?;
+    let strings = encoder.take_strings_in_order()?;
+    let string_section_len = string_section_len(&strings)?;
     let value_section_len = encoder.values.len();
     let string_offset = RUNTIME_BUNDLE_HEADER_BYTES;
     let value_offset = string_offset
@@ -30,7 +31,7 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
 
     let mut bytes = Vec::with_capacity(byte_length);
     bytes.resize(RUNTIME_BUNDLE_HEADER_BYTES, 0);
-    encoder.write_string_section(&mut bytes)?;
+    write_string_section(&strings, &mut bytes)?;
     bytes.extend_from_slice(&encoder.values);
     debug_assert_eq!(bytes.len(), byte_length);
     let checksum = runtime_bundle_checksum(&bytes[RUNTIME_BUNDLE_HEADER_BYTES..]);
@@ -46,7 +47,7 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
     write_u32_at(
         &mut bytes,
         20,
-        checked_u32(encoder.strings.len(), "runtime bundle string count")?,
+        checked_u32(strings.len(), "runtime bundle string count")?,
     );
     write_u32_at(&mut bytes, 24, encoder.value_count);
     write_u32_at(
@@ -77,7 +78,6 @@ pub fn encode_runtime_bundle(value: &impl Serialize) -> EpubResult<Vec<u8>> {
 
 #[derive(Default)]
 struct RuntimeBundleEncoder {
-    strings: Vec<String>,
     string_indexes: HashMap<String, u32>,
     scalar_indexes: HashMap<ScalarValueKey, u32>,
     container_indexes: Vec<u32>,
@@ -96,15 +96,15 @@ enum ScalarValueKey {
 }
 
 impl RuntimeBundleEncoder {
-    fn encode_value(&mut self, value: &Value) -> EpubResult<u32> {
+    fn encode_value(&mut self, value: Value) -> EpubResult<u32> {
         match value {
             Value::Null => self.intern_scalar(ScalarValueKey::Null, TAG_NULL, |_| Ok(())),
             Value::Bool(value) => self.intern_scalar(
-                ScalarValueKey::Bool(*value),
-                if *value { TAG_TRUE } else { TAG_FALSE },
+                ScalarValueKey::Bool(value),
+                if value { TAG_TRUE } else { TAG_FALSE },
                 |_| Ok(()),
             ),
-            Value::Number(number) => self.encode_number(number),
+            Value::Number(number) => self.encode_number(&number),
             Value::String(value) => {
                 let string_index = self.intern_string(value)?;
                 self.intern_scalar(ScalarValueKey::String(string_index), TAG_STRING, |bytes| {
@@ -141,7 +141,7 @@ impl RuntimeBundleEncoder {
         })
     }
 
-    fn encode_array(&mut self, items: &[Value]) -> EpubResult<u32> {
+    fn encode_array(&mut self, items: Vec<Value>) -> EpubResult<u32> {
         let start = self.container_indexes.len();
         for item in items {
             let index = self.encode_value(item)?;
@@ -150,7 +150,7 @@ impl RuntimeBundleEncoder {
         self.push_container_record(TAG_ARRAY, start, 1, "RITORB1 array length")
     }
 
-    fn encode_object(&mut self, object: &Map<String, Value>) -> EpubResult<u32> {
+    fn encode_object(&mut self, object: Map<String, Value>) -> EpubResult<u32> {
         let start = self.container_indexes.len();
         for (key, value) in object {
             let key_index = self.intern_string(key)?;
@@ -214,35 +214,51 @@ impl RuntimeBundleEncoder {
         Ok(index)
     }
 
-    fn intern_string(&mut self, value: &str) -> EpubResult<u32> {
-        if let Some(index) = self.string_indexes.get(value) {
+    fn intern_string(&mut self, value: String) -> EpubResult<u32> {
+        if let Some(index) = self.string_indexes.get(value.as_str()) {
             return Ok(*index);
         }
-        let index = checked_u32(self.strings.len(), "RITORB1 string table length")?;
-        self.strings.push(value.to_owned());
-        self.string_indexes.insert(value.to_owned(), index);
+        let index = checked_u32(self.string_indexes.len(), "RITORB1 string table length")?;
+        self.string_indexes.insert(value, index);
         Ok(index)
     }
 
-    fn string_section_len(&self) -> EpubResult<usize> {
-        let mut byte_length = 0_usize;
-        for value in &self.strings {
-            let utf8_len = value.len();
-            checked_u32(utf8_len, "RITORB1 string length")?;
-            byte_length = byte_length
-                .checked_add(4)
-                .and_then(|length| length.checked_add(utf8_len))
-                .ok_or_else(|| wire_error("RITORB1 string table is too large"))?;
+    fn take_strings_in_order(&mut self) -> EpubResult<Vec<String>> {
+        let indexes = std::mem::take(&mut self.string_indexes);
+        let mut strings = (0..indexes.len()).map(|_| None).collect::<Vec<_>>();
+        for (value, index) in indexes {
+            let slot = strings.get_mut(usize_from_u32(index)).ok_or_else(|| {
+                wire_error("RITORB1 string index is out of bounds during encoding")
+            })?;
+            if slot.replace(value).is_some() {
+                return Err(wire_error("duplicate RITORB1 string index during encoding"));
+            }
         }
-        Ok(byte_length)
+        strings
+            .into_iter()
+            .collect::<Option<Vec<_>>>()
+            .ok_or_else(|| wire_error("RITORB1 string index is missing during encoding"))
     }
+}
 
-    fn write_string_section(&self, bytes: &mut Vec<u8>) -> EpubResult<()> {
-        for value in &self.strings {
-            let utf8 = value.as_bytes();
-            write_u32(bytes, checked_u32(utf8.len(), "RITORB1 string length")?);
-            bytes.extend_from_slice(utf8);
-        }
-        Ok(())
+fn string_section_len(strings: &[String]) -> EpubResult<usize> {
+    let mut byte_length = 0_usize;
+    for value in strings {
+        let utf8_len = value.len();
+        checked_u32(utf8_len, "RITORB1 string length")?;
+        byte_length = byte_length
+            .checked_add(4)
+            .and_then(|length| length.checked_add(utf8_len))
+            .ok_or_else(|| wire_error("RITORB1 string table is too large"))?;
     }
+    Ok(byte_length)
+}
+
+fn write_string_section(strings: &[String], bytes: &mut Vec<u8>) -> EpubResult<()> {
+    for value in strings {
+        let utf8 = value.as_bytes();
+        write_u32(bytes, checked_u32(utf8.len(), "RITORB1 string length")?);
+        bytes.extend_from_slice(utf8);
+    }
+    Ok(())
 }
