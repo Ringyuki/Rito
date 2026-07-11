@@ -57,6 +57,15 @@ const decodedFrameCommandBuffer = decodeRitoFrameCommandBuffer(
   frameCommandBuffer,
 );
 const targets = document.getPageTargets(revision.revisionId, 0);
+const versionedTargets = document.readerWorkerPayload({
+  id: 2,
+  kind: 'getPageTargetsAtRevision',
+  revision: {
+    revisionId: revision.revisionId,
+    revisionVersion: revision.revisionVersion,
+  },
+  pageIndex: 0,
+});
 const search = document.search(revision.revisionId, {
   query: '私',
   caseSensitive: false,
@@ -227,6 +236,13 @@ if (
 }
 if (targets.revisionId !== revision.revisionId || targets.pageIndex !== 0) {
   throw new Error('Expected page target payload to match the requested revision/page.');
+}
+if (
+  versionedTargets.revision.revisionId !== revision.revisionId ||
+  versionedTargets.revision.revisionVersion !== revision.revisionVersion ||
+  versionedTargets.result.entryCount !== targets.entryCount
+) {
+  throw new Error('Expected versioned page targets to pass the worker contract.');
 }
 if (
   textPositions.revisionId !== revision.revisionId ||

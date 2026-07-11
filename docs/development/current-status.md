@@ -126,6 +126,11 @@ Those names now belong to the old TS reference tree only.
 - Raw WASM exposes bounded create/continue/cancel plus version-gated frame,
   resource, locator, interaction, geometry, metadata and release operations.
   `unknown-revision` and `stale-revision-version` are stable wire error codes.
+- Visible-page targets are now typed Rust values rather than diagnostic JSON.
+  They distinguish text, link, standalone image and exact-revision footnote
+  targets; keep page-content bounds; preserve the source EPUB href; and carry
+  separate canonical source and internal-destination locators. The legacy
+  hit-map diagnostic JSON and golden hashes remain unchanged.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
@@ -242,9 +247,10 @@ Those names now belong to the old TS reference tree only.
    - Initial paint must not require eight complete chapters, one complete large
      chapter or the complete publication.
 2. **Native interaction wiring**
-   - Rust/WASM already owns page targets, text positions and range geometry, but
-     the production worker and Reader surface do not expose the complete
-     contract.
+   - Rust/WASM now owns typed page targets, text positions and range geometry.
+     Exact-version Worker reads for page targets, individual footnotes and href
+     locators are implemented with field-level response validation. The public
+     Reader and Kit click path are not connected yet.
    - Migrate Kit selection, links, highlights, annotations, reading positions,
      footnotes and accessibility away from legacy page-content assumptions.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
@@ -338,8 +344,8 @@ Work in roadmap order:
    incremental continuation contract.
 2. Implement bounded initial layout and resumable window growth, including the
    large-single-XHTML case.
-3. Expose current-visible-spread link, image and footnote targets through WASM,
-   Worker and public Reader.
+3. Connect the implemented typed current-visible-spread target and
+   exact-version Worker contract to the public Reader and Kit click path.
 4. Add precise native point/range geometry, then migrate Kit selection,
    highlights, annotations, reading positions and accessibility.
 5. Reduce browser session policy to explicit core-requested host operations.

@@ -126,6 +126,10 @@ handle. A visual preview must either expose its own active presentation handle
 or explicitly disable interaction until the canonical revision commits; host
 code must never hit-test old canonical pages against a newer preview frame.
 
+The Rust target DTO and exact-version Worker transport for page targets,
+individual footnotes and href locators are implemented. Browser Reader caching,
+visual-preview gating and Kit click consumption remain in this slice.
+
 Remove compatibility placeholders such as empty page content and the synthetic
 `text.length * 8` measurer once their callers use the native contract.
 
@@ -225,7 +229,8 @@ architecture rather than make an eager whole-book pipeline faster.
    are implemented; browser integration, sub-node budgets and cross-chapter
    footnote policy remain.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
-   worker and public Reader.
+   worker and public Reader. **Typed core targets and exact-version private
+   Worker reads are implemented; public Reader and Kit wiring remain.**
 4. Add precise native point/range geometry, then migrate Kit selection,
    highlights, annotations, positions and accessibility.
 5. Reduce browser session policy to explicit core-requested host operations.

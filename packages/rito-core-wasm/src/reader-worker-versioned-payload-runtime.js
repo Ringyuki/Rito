@@ -1,4 +1,12 @@
 import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
+import {
+  requireFootnote,
+  requireFootnoteKey,
+  requireLocatorRequest,
+  requirePageIndex,
+  requirePageTargets,
+  requireResolvedLocator,
+} from './reader-worker-interaction-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -32,6 +40,12 @@ export function versionedReaderWorkerPayload(document, request) {
         request.kind,
         document.warmFrameWindowAtRevision(request.revision, request.spreadIndex),
       );
+    case 'getPageTargetsAtRevision':
+      return pageTargetsResponse(document, request);
+    case 'getFootnoteAtRevision':
+      return footnoteResponse(document, request);
+    case 'resolveLocatorAtRevision':
+      return locatorResponse(document, request);
     case 'readResourceAtRevision':
       return readResourceAtRevision(document, request.revision, request.resourceKind, request.href);
     case 'resolveSourceLocatorAtRevision':
@@ -90,6 +104,41 @@ function summaryResponse(kind, summary) {
 function valueResponse(kind, envelope) {
   const revision = requireRevisionHandle(envelope.revision, `${kind} result`);
   return { kind, revision, result: envelope.value };
+}
+
+function pageTargetsResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const pageIndex = requirePageIndex(request.pageIndex, operation);
+  const envelope = document.getPageTargetsAtRevision(revision, pageIndex);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requirePageTargets(value, revision, pageIndex, operation),
+  );
+}
+
+function footnoteResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const key = requireFootnoteKey(request.key, operation);
+  const envelope = document.getFootnoteAtRevision(revision, key);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requireFootnote(value, revision, key, operation),
+  );
+}
+
+function locatorResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const locator = requireLocatorRequest(request.locator, operation);
+  const envelope = document.resolveLocatorAtRevision(revision, locator);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requireResolvedLocator(value, revision, locator, operation),
+  );
+}
+
+function validatedValueResponse(kind, expected, envelope, validate) {
+  requireSameHandle(expected, envelope.revision, kind);
+  return { kind, revision: expected, result: validate(envelope.value) };
 }
 
 function readFrameBufferAtRevision(document, revision, spreadIndex) {

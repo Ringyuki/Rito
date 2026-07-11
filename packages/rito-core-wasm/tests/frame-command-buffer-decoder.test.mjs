@@ -124,6 +124,10 @@ test('generated type surface does not expose publication and layout as generic J
     /getChapterTextIndices\(revisionId: string\): RitoCoreWasmChapterTextIndices;/,
   );
   assert.match(declaration, /export interface RitoCoreWasmRevisionBundle/);
+  assert.match(declaration, /export interface RitoCoreWasmPageTarget/);
+  const pageTargets = interfaceBody(declaration, 'RitoCoreWasmPageTargets');
+  assert.match(pageTargets, /readonly entries: readonly RitoCoreWasmPageTarget\[];/);
+  assert.doesNotMatch(pageTargets, /RitoCoreWasmJsonObject/);
   assert.match(declaration, /export interface RitoCoreWasmFullRevisionBundleRequest/);
   assert.match(declaration, /export interface RitoCoreWasmInitialPreviewRevisionRequest/);
   assert.match(declaration, /export interface RitoCoreWasmActiveChapterPreviewRevisionRequest/);

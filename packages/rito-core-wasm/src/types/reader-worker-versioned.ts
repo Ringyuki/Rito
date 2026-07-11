@@ -1,6 +1,12 @@
 import type { RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
-import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
+import type {
+  RitoCoreWasmFootnote,
+  RitoCoreWasmSourceLocator,
+  RitoCoreWasmSourceLocatorResolution,
+} from './interaction';
+import type { RitoCoreWasmLocatorRequest, RitoCoreWasmResolvedLocator } from './navigation';
+import type { RitoCoreWasmPageTargets } from './page';
 import type {
   RitoCoreWasmReaderFrameBuffer,
   RitoCoreWasmReaderFrameWindowWarmResult,
@@ -47,6 +53,18 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmReaderFrameWindowWarmResult>>;
+  getPageTargetsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageTargets>>;
+  getFootnoteAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    key: string,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmFootnote>>;
+  resolveLocatorAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    locator: RitoCoreWasmLocatorRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmResolvedLocator>>;
   readResourceAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     kind: RitoCoreWasmResourceKind,
@@ -90,6 +108,18 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
   ): RitoCoreWasmVersioned<RitoCoreWasmReaderFrameWindowWarmResult>;
+  getPageTargetsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPageTargets>;
+  getFootnoteAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    key: string,
+  ): RitoCoreWasmVersioned<RitoCoreWasmFootnote>;
+  resolveLocatorAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    locator: RitoCoreWasmLocatorRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmResolvedLocator>;
   getResourcePayloadAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     kind: RitoCoreWasmResourceKind,
@@ -147,6 +177,14 @@ export type RitoCoreWasmReaderWorkerReadFrameBufferRequest =
   RevisionRequest<'readFrameBufferAtRevision'> & { readonly spreadIndex: number };
 export type RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest =
   RevisionRequest<'warmFrameWindowAtRevision'> & { readonly spreadIndex: number };
+export type RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest =
+  RevisionRequest<'getPageTargetsAtRevision'> & { readonly pageIndex: number };
+export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
+  RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
+export type RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest =
+  RevisionRequest<'resolveLocatorAtRevision'> & {
+    readonly locator: RitoCoreWasmLocatorRequest;
+  };
 export type RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest =
   RevisionRequest<'readResourceAtRevision'> & {
     readonly resourceKind: RitoCoreWasmResourceKind;
@@ -169,6 +207,9 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveSourceLocatorRequest
   | RitoCoreWasmReaderWorkerReleaseRevisionTransfersAtRevisionRequest
@@ -204,6 +245,12 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'warmFrameWindowAtRevision',
       RitoCoreWasmReaderFrameWindowWarmResult
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<'getPageTargetsAtRevision', RitoCoreWasmPageTargets>
+  | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'resolveLocatorAtRevision',
+      RitoCoreWasmResolvedLocator
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'readResourceAtRevision',

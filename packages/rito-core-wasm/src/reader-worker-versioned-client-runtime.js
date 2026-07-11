@@ -5,6 +5,14 @@ import {
   requireRevisionHandle,
   requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
+import {
+  requireFootnote,
+  requireFootnoteKey,
+  requireLocatorRequest,
+  requirePageIndex,
+  requirePageTargets,
+  requireResolvedLocator,
+} from './reader-worker-interaction-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send) {
   return {
@@ -69,6 +77,38 @@ export function createVersionedReaderClientMethods(send) {
       currentRevisionResult(send, 'readFrameBufferAtRevision', revision, { spreadIndex }),
     warmFrameWindowAtRevision: (revision, spreadIndex) =>
       currentRevisionResult(send, 'warmFrameWindowAtRevision', revision, { spreadIndex }),
+    getPageTargetsAtRevision: (revision, pageIndex) => {
+      const expectedPageIndex = requirePageIndex(pageIndex, 'getPageTargetsAtRevision');
+      return currentRevisionResult(
+        send,
+        'getPageTargetsAtRevision',
+        revision,
+        { pageIndex: expectedPageIndex },
+        (result, handle, operation) =>
+          requirePageTargets(result, handle, expectedPageIndex, operation),
+      );
+    },
+    getFootnoteAtRevision: (revision, key) => {
+      const expectedKey = requireFootnoteKey(key, 'getFootnoteAtRevision');
+      return currentRevisionResult(
+        send,
+        'getFootnoteAtRevision',
+        revision,
+        { key: expectedKey },
+        (result, handle, operation) => requireFootnote(result, handle, expectedKey, operation),
+      );
+    },
+    resolveLocatorAtRevision: (revision, locator) => {
+      const expectedLocator = requireLocatorRequest(locator, 'resolveLocatorAtRevision');
+      return currentRevisionResult(
+        send,
+        'resolveLocatorAtRevision',
+        revision,
+        { locator: expectedLocator },
+        (result, handle, operation) =>
+          requireResolvedLocator(result, handle, expectedLocator, operation),
+      );
+    },
     readResourceAtRevision: (revision, resourceKind, href) =>
       currentRevisionResult(send, 'readResourceAtRevision', revision, { resourceKind, href }),
     resolveSourceLocatorAtRevision: (revision, locator) =>
