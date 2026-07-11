@@ -1021,7 +1021,7 @@ fn reads_revision_scoped_chapter_text_indices() {
         .expect("chapter index exists");
 
     assert_eq!(indices.revision_id, revision.revision_id);
-    assert_eq!(chapter.href, "chapter");
+    assert_eq!(chapter.href, "chapter.xhtml");
     assert_eq!(chapter.normalized_text, "Hello runtime1");
     assert!(!chapter.normalized_text.contains("Runtime note"));
     assert!(chapter

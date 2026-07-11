@@ -18,7 +18,7 @@ pub(super) fn runtime_chapter_text_index_entries(
             .unwrap_or(chapter.parsed.nodes.as_slice());
         entries.insert(
             chapter.source.idref.clone(),
-            build_chapter_text_index(&chapter.source.idref, nodes),
+            build_chapter_text_index(&chapter.source.href, nodes),
         );
     }
     entries
@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn builds_utf16_text_spans() {
         let index = build_chapter_text_index(
-            "chapter",
+            "Text/chapter.xhtml",
             &[
                 DocumentNode::Text(TextNode {
                     content: "A".to_owned(),
@@ -104,6 +104,7 @@ mod tests {
         );
 
         assert_eq!(index.normalized_text, "A😀B");
+        assert_eq!(index.href, "Text/chapter.xhtml");
         assert_eq!(index.spans[0].normalized_start, 0);
         assert_eq!(index.spans[0].normalized_end, 1);
         assert_eq!(index.spans[1].source_end, 3);
