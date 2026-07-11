@@ -19,6 +19,10 @@ use super::{
 };
 use crate::layout::LayoutConfig;
 
+pub(crate) mod cursor;
+
+use cursor::ContinuousPaginationSession;
+
 type PaginationBlock = RuntimeBlock<LineBox>;
 type PaginationChild = RuntimeChild<LineBox>;
 type PaginationPage = RuntimePage<PaginationBlock>;
@@ -259,32 +263,16 @@ pub(crate) fn paginate_continuous_blocks(
     layout_config: &LayoutConfig,
     page_paint: Option<Value>,
 ) -> Vec<PaginationPage> {
-    let content_height = layout_config.content_height();
-    if content_height <= 0.0 {
-        return Vec::new();
-    }
-
-    let mut state = PaginationState::new(
-        layout_config.page_width,
-        layout_config.page_height,
-        page_paint,
+    let mut session = ContinuousPaginationSession::new(layout_config, page_paint);
+    let block_count = blocks.len();
+    let pushed = session.push_blocks(blocks);
+    debug_assert_eq!(pushed.processed_blocks, block_count);
+    debug_assert_eq!(
+        pushed.newly_sealed_pages.end,
+        pushed.snapshot.sealed_pages.len()
     );
-
-    for (index, block) in blocks.iter().enumerate() {
-        let spacing = compute_pagination_spacing(&blocks, index);
-        place_pagination_block(
-            block.clone(),
-            spacing,
-            content_height,
-            &mut state,
-            layout_config,
-        );
-    }
-    if !state.page_blocks.is_empty() {
-        state.emit_page();
-    }
-
-    state.pages
+    debug_assert!(!pushed.snapshot.finished);
+    session.into_pages()
 }
 
 fn collect_chapter_start_pages(chapter_ranges: &[PaginationFlowChapterRange]) -> BTreeSet<usize> {
@@ -292,15 +280,6 @@ fn collect_chapter_start_pages(chapter_ranges: &[PaginationFlowChapterRange]) ->
         .iter()
         .map(|range| range.start_page)
         .collect()
-}
-
-fn compute_pagination_spacing(blocks: &[PaginationBlock], index: usize) -> f64 {
-    if index == 0 {
-        return blocks.first().map(|block| block.y).unwrap_or(0.0);
-    }
-    let previous = &blocks[index - 1];
-    let current = &blocks[index];
-    current.y - (previous.y + previous.height)
 }
 
 fn place_pagination_block(
