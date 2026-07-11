@@ -25,6 +25,9 @@ interface BrowserParityFontSpec {
   };
 }
 
+type ResourceImageKind = 'primary' | 'decoy';
+type Rgb = readonly [red: number, green: number, blue: number];
+
 interface BrowserParityPair {
   readonly reference: BrowserParityRender;
   readonly production: BrowserParityRender;
@@ -51,6 +54,12 @@ const ILLUS5_FONT_BYTES = requireFixtureFile('OEBPS/Fonts/illus5.ttf');
 // At 20px, 26 digits measure 364.52px in illus1 and 310.96px in illus5. The
 // 360px panel therefore turns a wrong face choice into a deterministic line break.
 const FONT_SELECTION_SAMPLE = '4'.repeat(26);
+const RESOURCE_IMAGE_WIDTH = 4;
+const RESOURCE_IMAGE_HEIGHT = 2;
+const PRIMARY_RED: Rgb = [255, 0, 0];
+const PRIMARY_BLUE: Rgb = [0, 0, 255];
+const DECOY_MAGENTA: Rgb = [255, 0, 255];
+const MIN_PRIMARY_COLOR_PIXELS = 100;
 
 // A HarfBuzz subset of the CC BY 4.0 Codicon font shipped with Playwright.
 // It intentionally contains only U+EA60, which is enough for this deterministic paint fixture.
@@ -76,12 +85,15 @@ test.describe('production Canvas pixel parity', () => {
   }, testInfo) => {
     if (!server) throw new Error('Pixel render server did not start');
     const result = await renderParityPair(page, server.origin);
+    expect(result.reference.totalSpreads).toBe(1);
     expect(result.production.totalSpreads).toBe(result.reference.totalSpreads);
     expect(result.reference.blockOpacityCount).toBeGreaterThan(0);
     expect([result.production.width, result.production.height]).toEqual([
       result.reference.width,
       result.reference.height,
     ]);
+    expectResourceImagePainted(result.reference);
+    expectResourceImagePainted(result.production);
     await expectPixelParity(result, testInfo);
   });
 });
@@ -167,11 +179,29 @@ function decodedPixels(png: Buffer): Buffer {
   return PNG.sync.read(png).data;
 }
 
+function expectResourceImagePainted(render: BrowserParityRender): void {
+  const pixels = decodedPixels(Buffer.from(render.pngBase64, 'base64'));
+  expect(countExactRgb(pixels, PRIMARY_RED)).toBeGreaterThan(MIN_PRIMARY_COLOR_PIXELS);
+  expect(countExactRgb(pixels, PRIMARY_BLUE)).toBeGreaterThan(MIN_PRIMARY_COLOR_PIXELS);
+  expect(countExactRgb(pixels, DECOY_MAGENTA)).toBe(0);
+}
+
+function countExactRgb(pixels: Buffer, color: Rgb): number {
+  const [red, green, blue] = color;
+  let count = 0;
+  for (let offset = 0; offset < pixels.length; offset += 4) {
+    if (pixels[offset] === red && pixels[offset + 1] === green && pixels[offset + 2] === blue) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function buildParityEpub(): ArrayBuffer {
   const fontBytes = Uint8Array.from(Buffer.from(TEST_FONT_BASE64, 'base64'));
   return buildMinimalEpub({
     title: 'Production Canvas Parity',
-    chapters: [{ id: 'paint', href: 'paint.xhtml', content: parityXhtml() }],
+    chapters: [{ id: 'paint', href: 'Text/paint.xhtml', content: parityXhtml() }],
     stylesheets: [{ id: 'paint-css', href: 'paint.css', content: PARITY_CSS }],
     fonts: [
       { id: 'font-normal', href: 'font-normal.ttf', mediaType: 'font/ttf', data: fontBytes },
@@ -200,7 +230,43 @@ function buildParityEpub(): ArrayBuffer {
         data: ILLUS1_FONT_BYTES,
       },
     ],
+    images: [
+      // The literal-space manifest key and percent-encoded XHTML src keep Rust
+      // dimension lookup and runtime resource transfer on the same href semantics.
+      {
+        id: 'resource-image-primary',
+        href: 'Images/primary/resource tile.png',
+        mediaType: 'image/png',
+        data: buildResourceImagePng('primary'),
+      },
+      {
+        id: 'resource-image-decoy',
+        href: 'Images/decoy/resource tile.png',
+        mediaType: 'image/png',
+        data: buildResourceImagePng('decoy'),
+      },
+    ],
   });
+}
+
+function buildResourceImagePng(kind: ResourceImageKind): Uint8Array {
+  const png = new PNG({ width: RESOURCE_IMAGE_WIDTH, height: RESOURCE_IMAGE_HEIGHT });
+  for (let y = 0; y < RESOURCE_IMAGE_HEIGHT; y += 1) {
+    for (let x = 0; x < RESOURCE_IMAGE_WIDTH; x += 1) {
+      const color =
+        kind === 'decoy'
+          ? DECOY_MAGENTA
+          : x < RESOURCE_IMAGE_WIDTH / 2
+            ? PRIMARY_RED
+            : PRIMARY_BLUE;
+      const offset = (y * RESOURCE_IMAGE_WIDTH + x) * 4;
+      png.data[offset] = color[0];
+      png.data[offset + 1] = color[1];
+      png.data[offset + 2] = color[2];
+      png.data[offset + 3] = 255;
+    }
+  }
+  return PNG.sync.write(png);
 }
 
 function browserParityFonts(): readonly BrowserParityFontSpec[] {
@@ -235,9 +301,10 @@ function parityXhtml(): string {
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <title>Production Canvas Parity</title>
-    <link rel="stylesheet" type="text/css" href="paint.css" />
+    <link rel="stylesheet" type="text/css" href="../paint.css" />
   </head>
   <body>
+    <img class="resource-image" src="../Images/primary/resource%20tile.png" alt="Resource pattern" />
     <div class="panel">
       <p class="plain">&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;&#xea60;</p>
       <p><span class="accent">&#xea60;&#xea60;&#xea60;&#xea60;</span></p>
@@ -286,6 +353,12 @@ body {
 }
 p {
   margin: 0 0 12px;
+}
+.resource-image {
+  display: block;
+  width: 120px;
+  height: 80px;
+  object-fit: contain;
 }
 .panel {
   width: 360px;

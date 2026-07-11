@@ -155,14 +155,28 @@ export function productionParityHtml(): string {
   function renderFrameWhenReady(reader, context, spreadIndex) {
     return new Promise((resolve, reject) => {
       let unsubscribe = () => undefined;
-      const timeout = setTimeout(() => {
+      let imageBitmapPaintCount = 0;
+      const originalDrawImage = context.drawImage;
+      context.drawImage = function (source, ...args) {
+        if (typeof ImageBitmap !== 'undefined' && source instanceof ImageBitmap) {
+          imageBitmapPaintCount += 1;
+        }
+        return originalDrawImage.call(this, source, ...args);
+      };
+      const cleanup = () => {
+        clearTimeout(timeout);
         unsubscribe();
+        context.drawImage = originalDrawImage;
+      };
+      const timeout = setTimeout(() => {
+        cleanup();
         reject(new Error('Timed out waiting for the production frame'));
       }, FRAME_TIMEOUT_MS);
       const attempt = () => {
+        const paintCountBefore = imageBitmapPaintCount;
         if (!reader.renderSpreadTo(spreadIndex, context)) return;
-        clearTimeout(timeout);
-        unsubscribe();
+        if (imageBitmapPaintCount === paintCountBefore) return;
+        cleanup();
         resolve();
       };
       unsubscribe = reader.onSpreadContentInvalidated((invalidatedIndex) => {
