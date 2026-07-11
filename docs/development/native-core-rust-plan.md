@@ -329,15 +329,17 @@ in place:
   infer font policy. Image and font preload failures are best-effort, matching
   the old TS loader behavior.
 - Layout image sizing, eager EPUB resource reads, and runtime resource transfer
-  use one Rust href resolver. The complete raw source/key lookup retains
-  precedence; one valid percent-decoding pass is then applied symmetrically to
-  source and resource keys. Leading relative segments and rooted source tails
-  remain ambiguity-aware, decoded-key conflicts terminate without a shorter
-  fallback, and malformed or double-encoded inputs are not over-decoded.
+  use one Rust href resolver. Exact raw source/key matches retain precedence;
+  remaining matching removes URL query/fragment suffixes before canonical path
+  lookup, then applies one percent-decoding pass symmetrically. Leading-relative
+  exact paths beat longer suffix candidates, while canonical conflicts,
+  malformed escapes, suffix slashes, and double encoding terminate safely.
 - Safe canonical ZIP images that are absent or mislabeled in the OPF manifest
   are indexed as tolerant fallbacks. Production runtime open reads only central-
   directory metadata, while eager diagnostics load bytes immediately; manifest
-  media types and hrefs win by resolved physical entry identity.
+  media types and hrefs win by resolved physical entry identity. Literal `%`,
+  `?`, and `#` in fallback filenames are URL-escaped without losing the exact
+  central-directory entry used for lazy reads.
 - Rust package/layout parity matches the TypeScript fixture matrix for
   `book-01` through `book-10` across all 4 selected greedy/optimal viewport
   configurations.
@@ -1064,7 +1066,9 @@ Required cleanup:
    - Archive-image fallback discovery scans safe canonical central-directory
      entries without decompressing them. Unreferenced fallback images remain
      metadata-only in runtime documents; referenced images reuse the existing
-     lazy dimension, byte-cache, transfer-lease, and browser decode path.
+     lazy dimension, byte-cache, transfer-lease, and browser decode path. URL-
+     reserved physical filenames retain an entry-identity map, so encoded
+     logical hrefs cannot redirect lazy reads to a percent-looking decoy.
    - Runtime image/font bytes now become document-owned lazy cache entries after
      first read; image bytes read for dimension detection are retained too, so
      resource lookup does not re-open the EPUB archive for the same binary.
