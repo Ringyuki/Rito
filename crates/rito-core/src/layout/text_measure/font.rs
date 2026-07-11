@@ -157,6 +157,43 @@ impl<'a> TextMeasurementFonts<'a> {
         )
     }
 
+    pub(crate) fn has_monotonic_prefix_widths(
+        &self,
+        text: &str,
+        style: &TextMeasurementStyle,
+    ) -> bool {
+        if !nonnegative(style.font_size)
+            || !nonnegative(style.letter_spacing)
+            || !nonnegative(style.word_spacing)
+            || !self.matching_faces(style).is_empty()
+        {
+            return false;
+        }
+        let monospace = style
+            .font_family
+            .as_deref()
+            .map(parse_font_family_list)
+            .unwrap_or_default()
+            .iter()
+            .any(|family| family.eq_ignore_ascii_case("monospace"));
+        let mut previous = None;
+        text.chars().all(|character| {
+            let character_width =
+                self.fallback_character_width(character, style.font_size, monospace, None);
+            let pair_adjustment = previous
+                .map(|left| {
+                    self.fallback_pair_adjustment(left, character, style.font_size, monospace, None)
+                })
+                .unwrap_or(0.0);
+            previous = Some(character);
+            // Measurement sums glyph advances and pair adjustments first, then
+            // adds spacing totals. The glyph subtotal must therefore be
+            // monotonic on its own; positive spacing cannot repair it safely.
+            let glyph_increment = character_width + pair_adjustment;
+            nonnegative(character_width) && nonnegative(glyph_increment)
+        })
+    }
+
     fn fallback_character_width(
         &self,
         character: char,
@@ -222,6 +259,10 @@ impl<'a> TextMeasurementFonts<'a> {
             }
         }
     }
+}
+
+fn nonnegative(value: f64) -> bool {
+    value.is_finite() && value >= 0.0
 }
 
 fn host_pair_adjustment(

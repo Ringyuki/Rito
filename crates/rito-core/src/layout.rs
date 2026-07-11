@@ -31,6 +31,7 @@ mod line_layout;
 mod line_metrics;
 mod line_mode;
 mod line_optimal;
+mod line_prefix;
 mod line_ruby;
 mod link_map;
 mod locator;

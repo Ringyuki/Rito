@@ -246,6 +246,7 @@ where
     )
 }
 
+#[cfg(test)]
 pub(crate) fn adjust_break_position_with_offsets<F>(
     start: usize,
     end: usize,
@@ -253,6 +254,29 @@ pub(crate) fn adjust_break_position_with_offsets<F>(
     max_width: f64,
     mut measure_width: F,
     offsets: &BTreeSet<usize>,
+) -> usize
+where
+    F: FnMut(usize) -> f64,
+{
+    adjust_break_position_with_offsets_until(
+        start,
+        end,
+        candidate,
+        max_width,
+        &mut measure_width,
+        offsets,
+        end,
+    )
+}
+
+pub(crate) fn adjust_break_position_with_offsets_until<F>(
+    start: usize,
+    end: usize,
+    candidate: usize,
+    max_width: f64,
+    mut measure_width: F,
+    offsets: &BTreeSet<usize>,
+    forward_end: usize,
 ) -> usize
 where
     F: FnMut(usize) -> f64,
@@ -269,8 +293,19 @@ where
         return backward;
     }
 
-    find_forward_fitting_break(candidate + 1, end, max_width, offsets, &mut measure_width)
-        .unwrap_or(candidate)
+    let forward_start = candidate + 1;
+    let forward_end = forward_end.min(end);
+    if forward_start >= forward_end {
+        return candidate;
+    }
+    find_forward_fitting_break(
+        forward_start,
+        forward_end,
+        max_width,
+        offsets,
+        &mut measure_width,
+    )
+    .unwrap_or(candidate)
 }
 
 pub(crate) fn try_ascii_hyphenation<F>(
@@ -787,10 +822,10 @@ fn is_regional_indicator_pair(character: char, current_count: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        adjust_break_position, contains_cjk, find_word_break, is_allowed_cjk_break,
-        is_allowed_normal_cjk_break, is_forbidden_line_start, split_line_break_segments,
-        split_text_units, try_ascii_hyphenation, unicode_line_break_offsets, utf16_len,
-        LineBreakOptions, Utf16Text,
+        adjust_break_position, adjust_break_position_with_offsets_until, contains_cjk,
+        find_word_break, is_allowed_cjk_break, is_allowed_normal_cjk_break,
+        is_forbidden_line_start, split_line_break_segments, split_text_units,
+        try_ascii_hyphenation, unicode_line_break_offsets, utf16_len, LineBreakOptions, Utf16Text,
     };
 
     fn options(
@@ -925,6 +960,28 @@ mod tests {
             ),
             6
         );
+    }
+
+    #[test]
+    fn bounded_forward_adjustment_does_not_probe_the_unbounded_suffix() {
+        let offsets = std::collections::BTreeSet::from([8, 100, 200]);
+        let mut measured = Vec::new();
+
+        let adjusted = adjust_break_position_with_offsets_until(
+            0,
+            256,
+            5,
+            10.0,
+            |position| {
+                measured.push(position);
+                11.0
+            },
+            &offsets,
+            10,
+        );
+
+        assert_eq!(adjusted, 5);
+        assert_eq!(measured, [8]);
     }
 
     #[test]

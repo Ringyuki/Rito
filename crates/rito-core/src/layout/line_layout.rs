@@ -10,16 +10,20 @@ use super::{
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
     line_align::apply_line_align,
     line_break::{
-        adjust_break_position_with_offsets, find_word_break_with_offsets, line_break_offsets,
+        adjust_break_position_with_offsets_until, find_word_break_with_offsets, line_break_offsets,
         try_ascii_hyphenation, utf16_len, LineBreakOptions, Utf16Text,
     },
     line_metrics::{
         effective_line_metrics, line_height_px, measure_text_slice_with_fonts, runs_width,
         shift_runs_y, vertical_align_offset,
     },
+    line_prefix::{find_fitting_prefix, should_probe_bounded},
     style_values::{border_width, number_style, run_paint_value, string_style},
-    text_measure::TextMeasurementFonts,
+    text_measure::{TextMeasurementFonts, TextMeasurementStyle},
 };
+
+#[cfg(test)]
+use super::line_prefix::record_prefix_probe;
 
 #[derive(Debug, Clone)]
 struct LineContext<'a> {
@@ -34,6 +38,7 @@ struct LineContext<'a> {
     break_offsets: OnceLock<BTreeSet<usize>>,
     base_style: Map<String, Value>,
     fonts: &'a TextMeasurementFonts<'a>,
+    monotonic_prefix_widths: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -145,6 +150,9 @@ fn build_line_context<'a>(
         }
     }
 
+    let full_text = text_parts.join("");
+    let monotonic_prefix_widths =
+        should_probe_bounded(offset) && has_monotonic_prefix_widths(segments, &base_style, fonts);
     let line_height = line_height_px(&base_style);
     let line_break_options = LineBreakOptions::from_style(
         string_style(&base_style, "lineBreak").as_deref(),
@@ -152,7 +160,7 @@ fn build_line_context<'a>(
         string_style(&base_style, "language").as_deref(),
     );
     LineContext {
-        full_text: text_parts.join(""),
+        full_text,
         ranges,
         atoms,
         max_width,
@@ -169,6 +177,7 @@ fn build_line_context<'a>(
         break_offsets: OnceLock::new(),
         base_style,
         fonts,
+        monotonic_prefix_widths,
     }
 }
 
@@ -291,44 +300,52 @@ fn find_break_position(
     end: usize,
     max_width: f64,
 ) -> LineBreakPosition {
-    if measure_slice(context, text, start, end) <= max_width {
+    let mut measured_widths = BTreeMap::new();
+    let mut measure_width = |slice_end: usize| {
+        if let Some(width) = measured_widths.get(&slice_end) {
+            return *width;
+        }
+        #[cfg(test)]
+        record_prefix_probe(slice_end.saturating_sub(start));
+        let width = measure_slice(context, text, start, slice_end);
+        measured_widths.insert(slice_end, width);
+        width
+    };
+    let fitting = find_fitting_prefix(
+        text,
+        start,
+        end,
+        max_width,
+        context.monotonic_prefix_widths,
+        &mut measure_width,
+    );
+    if fitting.position >= end {
         return LineBreakPosition {
             position: end,
             hyphenated: false,
         };
     }
 
-    let mut lo = start;
-    let mut hi = end;
-    while lo < hi.saturating_sub(1) {
-        let mid = text.floor_boundary((lo + hi) / 2);
-        if mid <= lo {
-            break;
-        }
-        if measure_slice(context, text, start, mid) <= max_width {
-            lo = mid;
-        } else {
-            hi = mid;
-        }
-    }
-
     let break_offsets = context
         .break_offsets
         .get_or_init(|| line_break_offsets(text, &context.line_break_options));
-    let word_break = find_word_break_with_offsets(start, lo, break_offsets);
-    if word_break == lo {
-        if let Some(hyphen_break) =
-            try_ascii_hyphenation(text, start, lo, &context.line_break_options, |candidate| {
-                measure_hyphenated_slice(context, text, start, candidate) <= max_width
-            })
-        {
-            let position = adjust_break_position_with_offsets(
+    let word_break = find_word_break_with_offsets(start, fitting.position, break_offsets);
+    if word_break == fitting.position {
+        if let Some(hyphen_break) = try_ascii_hyphenation(
+            text,
+            start,
+            fitting.position,
+            &context.line_break_options,
+            |candidate| measure_hyphenated_slice(context, text, start, candidate) <= max_width,
+        ) {
+            let position = adjust_break_position_with_offsets_until(
                 start,
                 end,
                 hyphen_break,
                 max_width,
-                |slice_end| measure_slice(context, text, start, slice_end),
+                &mut measure_width,
                 break_offsets,
+                fitting.forward_end,
             );
             return LineBreakPosition {
                 position,
@@ -337,16 +354,57 @@ fn find_break_position(
         }
     }
     LineBreakPosition {
-        position: adjust_break_position_with_offsets(
+        position: adjust_break_position_with_offsets_until(
             start,
             end,
             word_break,
             max_width,
-            |slice_end| measure_slice(context, text, start, slice_end),
+            &mut measure_width,
             break_offsets,
+            fitting.forward_end,
         ),
         hyphenated: false,
     }
+}
+
+fn has_monotonic_prefix_widths(
+    segments: &[InlineSegment],
+    base_style: &Map<String, Value>,
+    fonts: &TextMeasurementFonts<'_>,
+) -> bool {
+    // Shaping can re-form earlier glyphs, and the legacy UTF-16 binary search
+    // has observable midpoint behavior around surrogate pairs. Keep either
+    // case on the exact legacy path unless equivalence can be proved.
+    monotonic_measure_style(base_style)
+        && segments.iter().all(|segment| match segment {
+            InlineSegment::Atom(atom) => nonnegative(atom.width),
+            InlineSegment::Text(text) => {
+                text.text
+                    .chars()
+                    .all(|character| character.len_utf16() == 1)
+                    && monotonic_measure_style(&text.style)
+                    && fonts.has_monotonic_prefix_widths(
+                        &text.text,
+                        &TextMeasurementStyle::from_style(&text.style),
+                    )
+                    && text.inline_margin_left.is_none_or(nonnegative)
+                    && text.inline_margin_right.is_none_or(nonnegative)
+            }
+        })
+}
+
+fn monotonic_measure_style(style: &Map<String, Value>) -> bool {
+    nonnegative(number_style(style, "fontSize").unwrap_or(16.0))
+        && nonnegative(number_style(style, "letterSpacing").unwrap_or(0.0))
+        && nonnegative(number_style(style, "wordSpacing").unwrap_or(0.0))
+        && nonnegative(number_style(style, "paddingLeft").unwrap_or(0.0))
+        && nonnegative(number_style(style, "paddingRight").unwrap_or(0.0))
+        && nonnegative(border_width(style, "borderLeft"))
+        && nonnegative(border_width(style, "borderRight"))
+}
+
+fn nonnegative(value: f64) -> bool {
+    value.is_finite() && value >= 0.0
 }
 
 fn append_trailing_hyphen(context: &LineContext<'_>, break_pos: usize, runs: &mut [LineRun]) {
