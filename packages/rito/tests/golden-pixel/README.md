@@ -38,6 +38,8 @@ an opt-in external-baseline mode.
 
 - `pnpm test:golden:pixel`: compare pixel goldens.
 - `pnpm test:golden:pixel:review`: render a human-reviewable comparison report without updating goldens.
+- `pnpm test:golden:pixel:reader-parity-review`: render the built-in demo EPUB through the
+  TypeScript reference and Rust production readers into an isolated comparison report.
 - `pnpm test:golden:pixel:update`: regenerate pixel goldens.
 
 Useful filters:
@@ -50,6 +52,10 @@ Useful filters:
 - `RITO_PIXEL_DIAGNOSTICS=1 pnpm test:golden:pixel`
 - `RITO_PIXEL_SCOPE=full pnpm test:golden:pixel:update`
 - `RITO_PIXEL_BASELINE_ROOT=/path/to/baselines RITO_PIXEL_SCOPE=full pnpm test:golden:pixel`
+- `RITO_READER_PARITY_PROFILES=single-default pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_SPREADS=35 pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_QUERY_ONLY=1 pnpm test:golden:pixel:reader-parity-review`
+- `RITO_READER_PARITY_CAPTURE_TEXT_DRAWS=1 pnpm test:golden:pixel:reader-parity-review`
 
 Compare and update mode use 2 workers by default. Increase
 `RITO_PIXEL_WORKERS` only when the machine has enough CPU, memory, and disk I/O
@@ -82,6 +88,16 @@ The review command writes a static report to:
 ```text
 packages/rito/test-results/pixel-review/index.html
 ```
+
+The real-book reader parity review writes the same report format to
+`packages/rito/test-results/reader-parity-review/index.html`. In that report,
+`expected.png` is the live TypeScript reference render and `actual.png` is the
+live Rust-backed production render; it does not read or update committed PNG
+baselines. The demo-book gate covers every spread in the default single-page
+profile, plus key and semantic regression spreads across narrow, wide, DPR 2,
+and double-page profiles. This parity report uses a strict zero-threshold diff
+with anti-aliased pixels included; any changed pixel is reported instead of
+being absorbed by the normal golden tolerances.
 
 Each spread directory contains `expected.png`, `actual.png`, `diff.png`, and
 `metadata.json`. Review mode may also add `reference.png` for single-page DPR 1

@@ -1,7 +1,8 @@
 import { defineConfig } from '@playwright/test';
 
 const browserChannel = process.env['PLAYWRIGHT_BROWSER_CHANNEL'];
-const isPixelReview = process.env['RITO_PIXEL_REVIEW'] === '1';
+const isPixelReview =
+  process.env['RITO_PIXEL_REVIEW'] === '1' || process.env['RITO_READER_PARITY_REVIEW'] === '1';
 const DEFAULT_PIXEL_WORKERS = 2;
 
 export default defineConfig({

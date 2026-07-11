@@ -5,6 +5,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { unzipSync } from 'fflate';
 import { productionParityHtml } from './production-parity-page';
+import { readerParityReviewHtml } from './reader-parity-page';
 
 export interface PixelRenderServer {
   readonly origin: string;
@@ -81,6 +82,14 @@ async function handleRequest(
   }
   if (pathname === '/production-parity.html') {
     sendHtml(response, productionParityHtml());
+    return;
+  }
+  if (pathname === '/reader-parity-review.html') {
+    sendHtml(response, readerParityReviewHtml());
+    return;
+  }
+  if (pathname === '/favicon.ico') {
+    response.writeHead(204).end();
     return;
   }
   if (pathname.startsWith('/dist/')) {

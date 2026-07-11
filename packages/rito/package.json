@@ -56,6 +56,7 @@
     "test:golden:render": "RITO_RENDER_GOLDEN=1 vitest run tests/golden-render",
     "test:golden:render:update": "RITO_RENDER_GOLDEN=1 RITO_UPDATE_GOLDEN=1 vitest run tests/golden-render",
     "test:golden:pixel": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 playwright test -c playwright.config.ts",
+    "test:golden:pixel:reader-parity-review": "pnpm run build && pnpm run build:reference && RITO_READER_PARITY_REVIEW=1 playwright test -c playwright.config.ts tests/golden-pixel/reader-parity-review.test.ts",
     "test:golden:pixel:review": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 RITO_PIXEL_REVIEW=1 playwright test -c playwright.config.ts",
     "test:golden:pixel:update": "pnpm run build && pnpm run build:reference && RITO_PIXEL_GOLDEN=1 RITO_UPDATE_GOLDEN=1 playwright test -c playwright.config.ts",
     "test:dom-free:reference": "pnpm run build:reference && node scripts/verify-dom-free-dist.mjs",

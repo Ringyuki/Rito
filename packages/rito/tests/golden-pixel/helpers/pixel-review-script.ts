@@ -5,6 +5,10 @@ const VIEW_MODES = ['overlay', 'compare', 'reference', 'diff', 'actual', 'expect
 const dataNode = document.getElementById('review-data');
 const reviewData = JSON.parse(dataNode?.textContent || '{"records":[]}');
 const records = Array.isArray(reviewData.records) ? reviewData.records : [];
+const labels = {
+  expected: reviewData.labels?.expected || 'Expected',
+  actual: reviewData.labels?.actual || 'Actual',
+};
 const state = {
   bookId: '',
   runId: '',
@@ -396,16 +400,16 @@ function overlayView(record) {
   overlay.dataset.overlay = '';
   overlay.style.setProperty('--overlay-reveal', String(state.overlayWidth) + '%');
   applyImageFrameSize(overlay, record, 'primary');
-  const expected = image('Expected', record.expectedPath, record, 'primary');
+  const expected = image(labels.expected, record.expectedPath, record, 'primary');
   expected.className = 'overlay-base';
-  const actual = image('Actual', record.actualPath, record, 'primary');
+  const actual = image(labels.actual, record.actualPath, record, 'primary');
   actual.className = 'overlay-actual';
   overlay.append(expected, actual);
 
   const controls = document.createElement('label');
   controls.className = 'overlay-controls';
   const label = document.createElement('span');
-  label.textContent = 'Actual reveal';
+  label.textContent = labels.actual + ' reveal';
   const slider = document.createElement('input');
   slider.type = 'range';
   slider.min = '0';
@@ -420,8 +424,10 @@ function overlayView(record) {
 function compareView(record) {
   const grid = document.createElement('div');
   grid.className = 'image-grid compare';
-  if (record.expectedPath) grid.appendChild(figure('Expected', record.expectedPath, record, 'primary'));
-  grid.appendChild(figure('Actual', record.actualPath, record, 'primary'));
+  if (record.expectedPath) {
+    grid.appendChild(figure(labels.expected, record.expectedPath, record, 'primary'));
+  }
+  grid.appendChild(figure(labels.actual, record.actualPath, record, 'primary'));
   if (record.referencePath) {
     grid.appendChild(
       figure(record.referenceLabel || 'Browser XHTML', record.referencePath, record, 'reference'),
@@ -515,6 +521,8 @@ function imagePathForMode(record, mode) {
 }
 
 function labelForMode(mode) {
+  if (mode === 'expected') return labels.expected;
+  if (mode === 'actual') return labels.actual;
   return mode.charAt(0).toUpperCase() + mode.slice(1);
 }
 
