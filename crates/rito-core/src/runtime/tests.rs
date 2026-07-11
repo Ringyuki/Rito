@@ -8,7 +8,7 @@ use command_hash::{
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
     fixture_stylesheet, layout, malformed_chapter_fixture_epub, many_chapter_fixture_epub,
-    minimal_png, multi_chapter_fixture_epub,
+    minimal_png, multi_chapter_fixture_epub, source_locator_fixture_epub,
 };
 use serde_json::Value;
 
@@ -18,15 +18,27 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePrefetchRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeSearchRequest,
-    RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
-    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
-    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
+    RuntimeSourceLocator, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
+    RuntimeSourceRange, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay,
+    RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
+    RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::{LineBreaking, SpreadMode};
 
 fn chapter_text_index_keys(indices: &RuntimeChapterTextIndices) -> Vec<&str> {
     indices.entries.keys().map(String::as_str).collect()
+}
+
+fn source_locator(href: &str) -> RuntimeSourceLocator {
+    RuntimeSourceLocator {
+        href: href.to_owned(),
+        anchor_id: None,
+        source_point: None,
+        source_range: None,
+        progression: None,
+    }
 }
 
 #[test]
@@ -1127,6 +1139,341 @@ fn resolves_href_locators_through_spine_and_anchor_pages() {
         missing_anchor.message(),
         "locator not found: chapter.xhtml#missing"
     );
+}
+
+#[test]
+fn resolves_source_locators_by_href_anchor_point_range_and_progression() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    let index = document
+        .get_chapter_text_indices(&revision.revision_id)
+        .expect("chapter text index resolves")
+        .entries
+        .get("chapter")
+        .expect("chapter index exists")
+        .clone();
+    let span = index.spans.first().expect("chapter has source text");
+    let point = RuntimeSourcePoint {
+        node_path: span.node_path.clone(),
+        text_offset: 6,
+    };
+    let range = RuntimeSourceRange {
+        start: point.clone(),
+        end: RuntimeSourcePoint {
+            node_path: span.node_path.clone(),
+            text_offset: 13,
+        },
+    };
+
+    let href = document
+        .resolve_source_locator(&revision.revision_id, source_locator("chapter.xhtml"))
+        .expect("href locator resolves");
+    let mut anchor_locator = source_locator("chapter.xhtml#%69ntro");
+    anchor_locator.progression = Some(0.95);
+    let anchor = document
+        .resolve_source_locator(&revision.revision_id, anchor_locator)
+        .expect("legacy href fragment resolves");
+    let mut point_locator = source_locator("chapter.xhtml");
+    point_locator.source_point = Some(point.clone());
+    point_locator.progression = Some(0.95);
+    let point_result = document
+        .resolve_source_locator(&revision.revision_id, point_locator)
+        .expect("source point resolves");
+    let mut range_locator = source_locator("chapter.xhtml");
+    range_locator.source_range = Some(range);
+    let range_result = document
+        .resolve_source_locator(&revision.revision_id, range_locator)
+        .expect("source range resolves");
+    let mut progression_locator = source_locator("chapter.xhtml");
+    progression_locator.progression = Some(0.5);
+    let progression = document
+        .resolve_source_locator(&revision.revision_id, progression_locator)
+        .expect("progression resolves");
+    let footnote = document
+        .resolve_source_locator(&revision.revision_id, source_locator("chapter.xhtml#fn1"))
+        .expect("raw source footnote remains a valid locator");
+
+    assert_resolved_source_locator(
+        &href,
+        RuntimeSourceLocatorMatchedBy::Href,
+        "chapter.xhtml",
+        0,
+    );
+    assert_resolved_source_locator(
+        &anchor,
+        RuntimeSourceLocatorMatchedBy::Anchor,
+        "chapter.xhtml",
+        0,
+    );
+    assert_resolved_source_locator(
+        &point_result,
+        RuntimeSourceLocatorMatchedBy::SourcePoint,
+        "chapter.xhtml",
+        0,
+    );
+    assert_resolved_source_locator(
+        &range_result,
+        RuntimeSourceLocatorMatchedBy::SourceRange,
+        "chapter.xhtml",
+        0,
+    );
+    assert_resolved_source_locator(
+        &progression,
+        RuntimeSourceLocatorMatchedBy::Progression,
+        "chapter.xhtml",
+        0,
+    );
+    let RuntimeSourceLocatorResolution::Resolved { locator, .. } = anchor else {
+        panic!("anchor should be resolved");
+    };
+    assert_eq!(locator.href, "chapter.xhtml");
+    assert_eq!(locator.anchor_id.as_deref(), Some("intro"));
+    assert!(matches!(
+        footnote,
+        RuntimeSourceLocatorResolution::Pending {
+            reason: RuntimeSourceLocatorPendingReason::NoPageProjection,
+            matched_by: RuntimeSourceLocatorMatchedBy::Anchor,
+            ..
+        }
+    ));
+    assert_eq!(
+        serde_json::to_value(&href).expect("resolution serializes")["status"],
+        "resolved"
+    );
+}
+
+#[test]
+fn reports_no_page_projection_for_a_completed_empty_chapter() {
+    let mut document =
+        RuntimeDocument::open(&empty_chapter_fixture_epub()).expect("empty document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("empty revision is created");
+
+    let resolution = document
+        .resolve_source_locator(&revision.revision_id, source_locator("chapter.xhtml"))
+        .expect("empty chapter href is a valid source locator");
+
+    assert!(matches!(
+        &resolution,
+        RuntimeSourceLocatorResolution::Pending {
+            reason: RuntimeSourceLocatorPendingReason::NoPageProjection,
+            matched_by: RuntimeSourceLocatorMatchedBy::Href,
+            ..
+        }
+    ));
+    let serialized = serde_json::to_value(&resolution).expect("pending resolution serializes");
+    assert_eq!(serialized["status"], "pending");
+    assert_eq!(serialized["reason"], "noPageProjection");
+}
+
+#[test]
+fn rejects_invalid_source_locator_hrefs_and_selectors() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    let index = document
+        .get_chapter_text_indices(&revision.revision_id)
+        .expect("chapter text index resolves")
+        .entries
+        .get("chapter")
+        .expect("chapter index exists")
+        .clone();
+    let point = RuntimeSourcePoint {
+        node_path: index.spans[0].node_path.clone(),
+        text_offset: 1,
+    };
+
+    let missing_href = document
+        .resolve_source_locator(&revision.revision_id, source_locator("missing.xhtml"))
+        .expect_err("missing href fails");
+    let mut mutually_exclusive = source_locator("chapter.xhtml");
+    mutually_exclusive.source_point = Some(point.clone());
+    mutually_exclusive.source_range = Some(RuntimeSourceRange {
+        start: point.clone(),
+        end: point.clone(),
+    });
+    let mutually_exclusive = document
+        .resolve_source_locator(&revision.revision_id, mutually_exclusive)
+        .expect_err("mutually exclusive selectors fail");
+    let mut invalid_point = source_locator("chapter.xhtml");
+    invalid_point.source_point = Some(RuntimeSourcePoint {
+        node_path: point.node_path,
+        text_offset: usize::MAX,
+    });
+    let invalid_point = document
+        .resolve_source_locator(&revision.revision_id, invalid_point)
+        .expect_err("invalid source offset fails");
+    let mut missing_anchor = source_locator("chapter.xhtml");
+    missing_anchor.anchor_id = Some("missing".to_owned());
+    let missing_anchor = document
+        .resolve_source_locator(&revision.revision_id, missing_anchor)
+        .expect_err("missing source anchor fails");
+    let mut invalid_progression = source_locator("chapter.xhtml");
+    invalid_progression.progression = Some(1.01);
+    let invalid_progression = document
+        .resolve_source_locator(&revision.revision_id, invalid_progression)
+        .expect_err("out of range progression fails");
+
+    assert_eq!(
+        missing_href.kind,
+        RuntimeSourceLocatorErrorKind::HrefNotFound
+    );
+    for error in [
+        mutually_exclusive,
+        invalid_point,
+        missing_anchor,
+        invalid_progression,
+    ] {
+        assert_eq!(error.kind, RuntimeSourceLocatorErrorKind::InvalidSelector);
+    }
+}
+
+#[test]
+fn returns_pending_for_valid_source_targets_outside_a_preview_revision() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let revision = document
+        .create_revision_window_with_line_breaking(&layout(), LineBreaking::Greedy, 1, 1)
+        .expect("chapter window revision is created");
+    let window_index = document
+        .get_chapter_text_indices(&revision.revision_id)
+        .expect("window chapter index resolves")
+        .entries
+        .get("chapter-2")
+        .expect("window chapter index exists")
+        .clone();
+    let mut point_locator = source_locator("chapter-3.xhtml");
+    point_locator.source_point = Some(RuntimeSourcePoint {
+        node_path: window_index.spans[0].node_path.clone(),
+        text_offset: 1,
+    });
+
+    let pending = document
+        .resolve_source_locator(&revision.revision_id, point_locator)
+        .expect("valid unpaginated point is pending");
+    let pending_href = document
+        .resolve_source_locator(&revision.revision_id, source_locator("chapter-1.xhtml"))
+        .expect("valid unpaginated href is pending");
+    let mut invalid_point = source_locator("chapter-3.xhtml");
+    invalid_point.source_point = Some(RuntimeSourcePoint {
+        node_path: vec![999],
+        text_offset: 0,
+    });
+    let invalid_point = document
+        .resolve_source_locator(&revision.revision_id, invalid_point)
+        .expect_err("invalid unpaginated point is rejected after lazy parsing");
+
+    let RuntimeSourceLocatorResolution::Pending {
+        locator,
+        spine_idref,
+        reason,
+        matched_by,
+        ..
+    } = pending
+    else {
+        panic!("source point outside the preview should be pending");
+    };
+    assert_eq!(locator.href, "chapter-3.xhtml");
+    assert_eq!(spine_idref, "chapter-3");
+    assert_eq!(reason, RuntimeSourceLocatorPendingReason::NotPaginated);
+    assert_eq!(matched_by, RuntimeSourceLocatorMatchedBy::SourcePoint);
+    assert!(matches!(
+        pending_href,
+        RuntimeSourceLocatorResolution::Pending {
+            matched_by: RuntimeSourceLocatorMatchedBy::Href,
+            ..
+        }
+    ));
+    assert_eq!(
+        invalid_point.kind,
+        RuntimeSourceLocatorErrorKind::InvalidSelector
+    );
+    assert!(document.source_chapter_indices.contains_key("chapter-3"));
+}
+
+#[test]
+fn source_locator_projection_changes_across_reflow_without_changing_source_identity() {
+    let mut document =
+        RuntimeDocument::open(&source_locator_fixture_epub()).expect("document opens");
+    let first = document
+        .create_revision(&layout())
+        .expect("first revision is created");
+    let index = document
+        .get_chapter_text_indices(&first.revision_id)
+        .expect("chapter text index resolves")
+        .entries
+        .get("chapter")
+        .expect("chapter index exists")
+        .clone();
+    let span = &index.spans[index.spans.len() * 3 / 4];
+    let mut locator = source_locator("chapter.xhtml");
+    locator.source_point = Some(RuntimeSourcePoint {
+        node_path: span.node_path.clone(),
+        text_offset: span.source_start,
+    });
+    let mut compact_layout = layout();
+    compact_layout.viewport_height = 320.0;
+    compact_layout.page_height = 320.0;
+    let second = document
+        .create_revision(&compact_layout)
+        .expect("second revision is created");
+
+    let first_projection = document
+        .resolve_source_locator(&first.revision_id, locator.clone())
+        .expect("first projection resolves");
+    let second_projection = document
+        .resolve_source_locator(&second.revision_id, locator.clone())
+        .expect("second projection resolves");
+    let (first_page, first_locator) = resolved_page_and_locator(first_projection);
+    let (second_page, second_locator) = resolved_page_and_locator(second_projection);
+
+    assert_ne!(first_page, second_page);
+    assert_eq!(first_locator, locator);
+    assert_eq!(second_locator, locator);
+}
+
+fn assert_resolved_source_locator(
+    resolution: &RuntimeSourceLocatorResolution,
+    expected_match: RuntimeSourceLocatorMatchedBy,
+    expected_href: &str,
+    expected_page: usize,
+) {
+    let RuntimeSourceLocatorResolution::Resolved {
+        locator,
+        spine_idref,
+        page_index,
+        spread_index,
+        matched_by,
+        ..
+    } = resolution
+    else {
+        panic!("source locator should be resolved");
+    };
+    assert_eq!(locator.href, expected_href);
+    assert_eq!(spine_idref, "chapter");
+    assert_eq!(*page_index, expected_page);
+    assert_eq!(*spread_index, 0);
+    assert_eq!(*matched_by, expected_match);
+}
+
+fn resolved_page_and_locator(
+    resolution: RuntimeSourceLocatorResolution,
+) -> (usize, RuntimeSourceLocator) {
+    let RuntimeSourceLocatorResolution::Resolved {
+        page_index,
+        locator,
+        matched_by,
+        ..
+    } = resolution
+    else {
+        panic!("source locator should be resolved");
+    };
+    assert_eq!(matched_by, RuntimeSourceLocatorMatchedBy::SourcePoint);
+    (page_index, locator)
 }
 
 #[test]

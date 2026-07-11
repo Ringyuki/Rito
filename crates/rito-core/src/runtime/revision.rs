@@ -218,6 +218,11 @@ fn runtime_revision_interactions(
 ) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
         footnotes: prepared.interaction.footnotes.clone(),
+        completed_chapter_idrefs: prepared
+            .chapters
+            .iter()
+            .map(|chapter| chapter.source.idref.clone())
+            .collect(),
         chapter_text_indices: if full_document {
             RuntimeChapterTextIndexSource::FullDocument
         } else {

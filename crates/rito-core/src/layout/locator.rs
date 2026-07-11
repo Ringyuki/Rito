@@ -2,11 +2,19 @@ use std::collections::BTreeMap;
 
 use super::{
     content::{RuntimeBlock, RuntimeChild},
-    line::LineBox,
+    line::{LineBox, LineRun},
     page::RuntimePage,
 };
 
 type LocatorPage = RuntimePage<RuntimeBlock<LineBox>>;
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct LayoutSourceRunStart {
+    pub(crate) page_index: usize,
+    pub(crate) node_path: Vec<usize>,
+    pub(crate) text_offset: usize,
+    pub(crate) text_length: usize,
+}
 
 pub(crate) fn collect_anchor_pages(pages: &[LocatorPage]) -> BTreeMap<String, usize> {
     let mut anchors = BTreeMap::new();
@@ -16,6 +24,16 @@ pub(crate) fn collect_anchor_pages(pages: &[LocatorPage]) -> BTreeMap<String, us
         }
     }
     anchors
+}
+
+pub(crate) fn collect_source_run_starts(pages: &[LocatorPage]) -> Vec<LayoutSourceRunStart> {
+    let mut starts = Vec::new();
+    for page in pages {
+        for block in &page.content {
+            collect_block_source_run_starts(block, page.index, &mut starts);
+        }
+    }
+    starts
 }
 
 fn collect_block_anchor_pages(
@@ -29,6 +47,37 @@ fn collect_block_anchor_pages(
     for child in &block.children {
         if let RuntimeChild::Block(child) = child {
             collect_block_anchor_pages(child, page_index, anchors);
+        }
+    }
+}
+
+fn collect_block_source_run_starts(
+    block: &RuntimeBlock<LineBox>,
+    page_index: usize,
+    starts: &mut Vec<LayoutSourceRunStart>,
+) {
+    for child in &block.children {
+        match child {
+            RuntimeChild::Block(child) => {
+                collect_block_source_run_starts(child, page_index, starts);
+            }
+            RuntimeChild::Line(line) => {
+                for run in &line.runs {
+                    let LineRun::Text(run) = run else {
+                        continue;
+                    };
+                    let Some(node_path) = &run.source_path else {
+                        continue;
+                    };
+                    starts.push(LayoutSourceRunStart {
+                        page_index,
+                        node_path: node_path.clone(),
+                        text_offset: run.source_text_offset.unwrap_or(0),
+                        text_length: run.text.encode_utf16().count(),
+                    });
+                }
+            }
+            RuntimeChild::Image(_) | RuntimeChild::Hr(_) => {}
         }
     }
 }

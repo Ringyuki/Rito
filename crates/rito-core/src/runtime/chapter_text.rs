@@ -24,7 +24,10 @@ pub(super) fn runtime_chapter_text_index_entries(
     entries
 }
 
-fn build_chapter_text_index(href: &str, nodes: &[DocumentNode]) -> RuntimeChapterTextIndex {
+pub(super) fn build_chapter_text_index(
+    href: &str,
+    nodes: &[DocumentNode],
+) -> RuntimeChapterTextIndex {
     let mut builder = ChapterTextIndexBuilder {
         spans: Vec::new(),
         normalized_text: String::new(),

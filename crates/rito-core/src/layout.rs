@@ -58,7 +58,7 @@ pub(crate) use font_summary::summarize_layout_font_families;
 pub(crate) use hit_map::build_hit_map;
 pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
-pub(crate) use locator::collect_anchor_pages;
+pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
 pub use pagination_flow::{
     PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
     PaginationFlowSummary,

@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 use serde_json::{Number, Value};
 
@@ -36,6 +36,7 @@ pub(super) struct RuntimeRevision {
 pub(super) struct RuntimeRevisionInteractions {
     pub(super) footnotes: BTreeMap<String, FootnoteEntry>,
     pub(super) chapter_text_indices: RuntimeChapterTextIndexSource,
+    pub(super) completed_chapter_idrefs: BTreeSet<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

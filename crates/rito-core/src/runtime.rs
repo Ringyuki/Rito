@@ -14,6 +14,7 @@ mod page;
 mod resource;
 mod revision;
 mod search;
+mod source_locator;
 mod transfer_store;
 mod types;
 
@@ -40,6 +41,11 @@ use resource::{
     runtime_text_resource,
 };
 use search::search_revision;
+pub use source_locator::{
+    RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind,
+    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
+    RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
+};
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;
 
@@ -49,6 +55,7 @@ pub struct RuntimeDocument {
     prepared: Option<crate::epub::PreparedLoadedDocument>,
     prepared_base: Option<crate::epub::PreparedLoadedDocumentBase>,
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
+    source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     text_measurement_cache: TextMeasurementCache,
     next_revision_index: usize,
@@ -72,6 +79,7 @@ impl RuntimeDocument {
             prepared: None,
             prepared_base: None,
             full_chapter_text_indices: OnceCell::new(),
+            source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
             text_measurement_cache: TextMeasurementCache::default(),
             next_revision_index: 1,
