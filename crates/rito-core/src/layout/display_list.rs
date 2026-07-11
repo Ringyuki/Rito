@@ -1,13 +1,13 @@
 use std::collections::BTreeSet;
 
-use serde_json::{json, Map, Value};
+use serde_json::{json, Map, Number, Value};
 
 use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun},
     page::RuntimePage,
     spread::{build_spread_slots, SpreadSlot},
-    summary_json::{hash_text, number_value, rect_value},
+    summary_json::hash_text,
 };
 use crate::{
     layout::{LayoutConfig, SpreadMode},
@@ -542,6 +542,26 @@ fn absolute_rect_value(
     rect_value(offset_x + x, offset_y + y, width, height)
 }
 
+fn rect_value(x: f64, y: f64, width: f64, height: f64) -> Value {
+    json!({
+        "x": number_value(x),
+        "y": number_value(y),
+        "width": number_value(width),
+        "height": number_value(height),
+    })
+}
+
+fn number_value(value: f64) -> Value {
+    if value.is_finite()
+        && value.fract() == 0.0
+        && value >= i64::MIN as f64
+        && value < i64::MAX as f64
+    {
+        return Value::Number(Number::from(value as i64));
+    }
+    Value::Number(Number::from_f64(value).unwrap_or_else(|| Number::from(0)))
+}
+
 fn utf16_len(text: &str) -> usize {
     text.encode_utf16().count()
 }
@@ -555,7 +575,7 @@ fn hash_display_list_text(text: &str) -> String {
 mod tests {
     use serde_json::json;
 
-    use super::{build_display_list_commands, DisplayListTextMode};
+    use super::{build_display_list_commands, number_value, DisplayListTextMode};
     use crate::{
         layout::{
             content::{RuntimeBlock, RuntimeChild, RuntimeImage},
@@ -645,6 +665,62 @@ mod tests {
         assert!(values
             .iter()
             .any(|value| value["src"] == json!("Images/a.png")));
+    }
+
+    #[test]
+    fn runtime_image_commands_preserve_sub_millipixel_geometry() {
+        let image_x = 0.262_694_651_320_26;
+        let image_y = 1.123_456_789_012_3;
+        let image_width = 287.474_610_697_359_5;
+        let image_height = 227.573_300_062_383_03;
+        let page = page_with_image(RuntimeImage {
+            x: image_x,
+            y: image_y,
+            width: image_width,
+            height: image_height,
+            src: "Images/precise.jpg".to_owned(),
+            alt: Some("precise".to_owned()),
+            href: None,
+        });
+        let mut layout = layout_config();
+        layout.margin_left = 0.0;
+        layout.margin_top = 0.0;
+        let commands = build_display_list_commands(
+            &SpreadSlot {
+                index: 0,
+                left_page_index: 0,
+                right_page_index: None,
+            },
+            &[page],
+            &layout,
+            DisplayListTextMode::RuntimeCommand,
+        );
+
+        let values = display_command_values(&commands);
+        let image = values
+            .iter()
+            .find(|value| value["kind"] == json!("paintImage"))
+            .expect("image command is emitted");
+        assert_eq!(image["rect"]["x"].as_f64(), Some(image_x));
+        assert_eq!(image["rect"]["y"].as_f64(), Some(image_y));
+        assert_eq!(image["rect"]["width"].as_f64(), Some(image_width));
+        assert_eq!(image["rect"]["height"].as_f64(), Some(image_height));
+        assert_ne!(image["rect"]["x"], json!(0.263));
+        assert_ne!(image["rect"]["height"], json!(227.573));
+    }
+
+    #[test]
+    fn runtime_number_values_do_not_collapse_tiny_or_out_of_range_floats() {
+        let tiny = f64::EPSILON / 2.0;
+        let i64_upper_exclusive = i64::MAX as f64;
+
+        assert_eq!(number_value(tiny).as_f64(), Some(tiny));
+        assert_ne!(number_value(tiny), json!(0));
+        assert_eq!(
+            number_value(i64_upper_exclusive).as_f64(),
+            Some(i64_upper_exclusive)
+        );
+        assert!(number_value(i64_upper_exclusive).as_i64().is_none());
     }
 
     #[test]
@@ -877,6 +953,30 @@ mod tests {
         assert_eq!(block_clip["radius"], json!({ "rx": 0, "ry": 0 }));
     }
 
+    fn page_with_image(image: RuntimeImage) -> RuntimePage<RuntimeBlock<LineBox>> {
+        RuntimePage {
+            index: 0,
+            width: 400.0,
+            height: 600.0,
+            paint: None,
+            content: vec![RuntimeBlock {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height: 300.0,
+                semantic_tag: None,
+                anchor_id: None,
+                paint: None,
+                border_box: None,
+                page_break_before: false,
+                page_break_after: false,
+                orphans: None,
+                widows: None,
+                children: vec![RuntimeChild::Image(image)],
+            }],
+        }
+    }
+
     fn layout_config() -> LayoutConfig {
         LayoutConfig {
             viewport_width: 400.0,
@@ -897,6 +997,10 @@ mod tests {
             font_family_force: None,
             pagination_policy: None::<PaginationPolicy>,
             text_measurement: TextMeasurementMode::FixtureCompatible,
+            generic_serif_advances: Default::default(),
+            font_family_advances: Default::default(),
+            generic_serif_pair_adjustments: Default::default(),
+            font_family_pair_adjustments: Default::default(),
         }
     }
 }

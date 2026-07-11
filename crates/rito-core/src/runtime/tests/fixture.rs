@@ -57,6 +57,10 @@ pub fn malformed_chapter_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(br#"<html><body><p>broken</body></html>"#)
 }
 
+pub fn empty_chapter_fixture_epub() -> Vec<u8> {
+    fixture_epub_with_chapter(br#"<html><body></body></html>"#)
+}
+
 fn fixture_epub_with_chapter(chapter: &[u8]) -> Vec<u8> {
     fixture_epub_with_chapter_and_stylesheet(chapter, fixture_stylesheet())
 }

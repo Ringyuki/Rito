@@ -8,6 +8,7 @@ use super::{
 };
 
 mod font;
+mod generic_serif;
 
 #[cfg(test)]
 mod tests;
@@ -90,6 +91,7 @@ struct TextMeasurementCacheKey {
     font_family: Option<String>,
     font_style: Option<String>,
     font_weight: Option<u16>,
+    fallback_profile_id: u64,
 }
 
 impl TextMeasurementCacheKey {
@@ -102,6 +104,7 @@ impl TextMeasurementCacheKey {
             font_family: input.style.font_family.clone(),
             font_style: input.style.font_style.clone(),
             font_weight: input.style.font_weight,
+            fallback_profile_id: input.fonts.fallback_profile_id(),
         }
     }
 }
@@ -109,8 +112,7 @@ impl TextMeasurementCacheKey {
 pub(crate) fn measure_text(input: TextMeasurementInput<'_>) -> TextMeasurement {
     match input.policy {
         TextMeasurementPolicy::FixtureCompatible => fixture_compatible_measurement(&input),
-        TextMeasurementPolicy::FontAware => font::font_aware_measurement(&input)
-            .unwrap_or_else(|| fixture_compatible_measurement(&input)),
+        TextMeasurementPolicy::FontAware => font::font_aware_measurement(&input),
     }
 }
 
@@ -146,4 +148,81 @@ fn fixture_compatible_measurement(input: &TextMeasurementInput<'_>) -> TextMeasu
 
 fn fixture_character_width(character: char, font_size: f64) -> f64 {
     character.len_utf16() as f64 * font_size * 0.6
+}
+
+// Platform-neutral approximation for generic/system fonts unavailable to Rust.
+// Exact parity still requires shaping and painting with the same fallback font bytes.
+fn font_aware_fallback_character_width(character: char, font_size: f64, monospace: bool) -> f64 {
+    if is_zero_advance_character(character) {
+        0.0
+    } else if is_east_asian_wide_character(character) {
+        font_size
+    } else if monospace && character.is_ascii() {
+        fixture_character_width(character, font_size)
+    } else if let Some(width) = generic_serif::ascii_advance(character, font_size) {
+        width
+    } else if !monospace {
+        generic_serif::unicode_advance(character, font_size)
+            .unwrap_or_else(|| fallback_non_ascii_character_width(character, font_size))
+    } else {
+        fallback_non_ascii_character_width(character, font_size)
+    }
+}
+
+fn fallback_non_ascii_character_width(character: char, font_size: f64) -> f64 {
+    if matches!(character, ' ' | '\u{00a0}') {
+        font_size * 0.25
+    } else if character.is_ascii() {
+        font_size * 0.5
+    } else {
+        fixture_character_width(character, font_size)
+    }
+}
+
+fn font_aware_fallback_pair_adjustment(
+    left: char,
+    right: char,
+    font_size: f64,
+    monospace: bool,
+) -> f64 {
+    if monospace {
+        0.0
+    } else {
+        generic_serif::ascii_pair_adjustment(left, right, font_size)
+    }
+}
+
+fn is_zero_advance_character(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x0300..=0x036f
+            | 0x1ab0..=0x1aff
+            | 0x1dc0..=0x1dff
+            | 0x200c..=0x200d
+            | 0x20d0..=0x20ff
+            | 0x3099..=0x309a
+            | 0xfe00..=0xfe0f
+            | 0xfe20..=0xfe2f
+            | 0x1f3fb..=0x1f3ff
+            | 0xe0100..=0xe01ef
+    )
+}
+
+fn is_east_asian_wide_character(character: char) -> bool {
+    matches!(
+        character as u32,
+        0x1100..=0x11ff
+            | 0x2e80..=0xa4cf
+            | 0xa960..=0xa97f
+            | 0xac00..=0xd7ff
+            | 0xf900..=0xfaff
+            | 0xfe10..=0xfe19
+            | 0xfe30..=0xfe6f
+            | 0xff01..=0xff60
+            | 0xffe0..=0xffe6
+            | 0x16fe0..=0x18dff
+            | 0x1aff0..=0x1afff
+            | 0x1b000..=0x1b2ff
+            | 0x20000..=0x323af
+    )
 }

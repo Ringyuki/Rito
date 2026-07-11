@@ -2,6 +2,7 @@ pub const NAME: &str = "xhtml";
 pub const OWNS: &str = "XHTML parsing, source tree, source spans, and document semantics";
 
 mod parser;
+mod source_normalizer;
 
 use std::collections::BTreeMap;
 

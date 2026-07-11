@@ -5,7 +5,6 @@ use super::{
     inline_ruby::collect_ruby_segments,
     inline_segment::{InlineSegment, SegmentContext, TextSegment},
     style_values::*,
-    summary_json::number_value,
 };
 use crate::style::{StyledNode, StyledNodeKind};
 pub(super) use whitespace::WhitespaceCollapseState;
@@ -291,5 +290,5 @@ fn find_text_segment_range(out: &[InlineSegment], start: usize) -> Option<(usize
 }
 
 fn insert_number(output: &mut Map<String, Value>, key: &str, value: f64) {
-    output.insert(key.to_owned(), number_value(value));
+    output.insert(key.to_owned(), paint_number_value(value));
 }

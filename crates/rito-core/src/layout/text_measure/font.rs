@@ -1,18 +1,44 @@
-use ttf_parser::Face as TtfFace;
-
 use super::{
-    fixture_character_width, TextMeasurement, TextMeasurementCache, TextMeasurementCacheKey,
-    TextMeasurementInput, TextMeasurementStyle,
+    font_aware_fallback_character_width, font_aware_fallback_pair_adjustment, TextMeasurementCache,
+    TextMeasurementCacheKey, TextMeasurementStyle,
+};
+use std::{
+    collections::{hash_map::DefaultHasher, BTreeMap},
+    hash::{Hash, Hasher},
 };
 
+mod mac_roman;
 mod matching;
+mod measurement;
+mod shaping;
 
 pub(super) use matching::parse_font_family_list;
+pub(super) use measurement::font_aware_measurement;
+pub(crate) use shaping::TextMeasurementFontFace;
+#[cfg(test)]
+pub(super) use shaping::{
+    face_supports_character, font_runs, shaped_run_width, FontMeasurementRun,
+};
+
+// Frozen TS fixtures intentionally use a uniform 0.6em mock. Production font-aware
+// layouts select the Unicode-aware fallback even when the EPUB declares no faces.
+#[derive(Debug, Clone, Copy, Default)]
+enum FallbackMeasurementMode {
+    #[default]
+    FixtureCompatible,
+    FontAware,
+}
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct TextMeasurementFonts<'a> {
     faces: Vec<TextMeasurementFontFace<'a>>,
     cache: TextMeasurementCache,
+    fallback_mode: FallbackMeasurementMode,
+    generic_serif_advances: BTreeMap<char, f64>,
+    font_family_advances: BTreeMap<String, BTreeMap<char, f64>>,
+    generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
+    font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
+    fallback_profile_id: u64,
 }
 
 impl<'a> TextMeasurementFonts<'a> {
@@ -20,6 +46,26 @@ impl<'a> TextMeasurementFonts<'a> {
         Self {
             faces: Vec::new(),
             cache: TextMeasurementCache::default(),
+            fallback_mode: FallbackMeasurementMode::FixtureCompatible,
+            generic_serif_advances: BTreeMap::new(),
+            font_family_advances: BTreeMap::new(),
+            generic_serif_pair_adjustments: BTreeMap::new(),
+            font_family_pair_adjustments: BTreeMap::new(),
+            fallback_profile_id: 0,
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn font_aware_empty() -> Self {
+        Self {
+            faces: Vec::new(),
+            cache: TextMeasurementCache::default(),
+            fallback_mode: FallbackMeasurementMode::FontAware,
+            generic_serif_advances: BTreeMap::new(),
+            font_family_advances: BTreeMap::new(),
+            generic_serif_pair_adjustments: BTreeMap::new(),
+            font_family_pair_adjustments: BTreeMap::new(),
+            fallback_profile_id: 0,
         }
     }
 
@@ -28,14 +74,39 @@ impl<'a> TextMeasurementFonts<'a> {
         Self {
             faces,
             cache: TextMeasurementCache::default(),
+            fallback_mode: FallbackMeasurementMode::FontAware,
+            generic_serif_advances: BTreeMap::new(),
+            font_family_advances: BTreeMap::new(),
+            generic_serif_pair_adjustments: BTreeMap::new(),
+            font_family_pair_adjustments: BTreeMap::new(),
+            fallback_profile_id: 0,
         }
     }
 
     pub(crate) fn new_with_cache(
         faces: Vec<TextMeasurementFontFace<'a>>,
         cache: TextMeasurementCache,
+        generic_serif_advances: BTreeMap<char, f64>,
+        font_family_advances: BTreeMap<String, BTreeMap<char, f64>>,
+        generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
+        font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
     ) -> Self {
-        Self { faces, cache }
+        let fallback_profile_id = fallback_profile_id(
+            &generic_serif_advances,
+            &font_family_advances,
+            &generic_serif_pair_adjustments,
+            &font_family_pair_adjustments,
+        );
+        Self {
+            faces,
+            cache,
+            fallback_mode: FallbackMeasurementMode::FontAware,
+            generic_serif_advances,
+            font_family_advances,
+            generic_serif_pair_adjustments,
+            font_family_pair_adjustments,
+            fallback_profile_id,
+        }
     }
 
     pub(super) fn matching_faces<'b>(
@@ -74,180 +145,144 @@ impl<'a> TextMeasurementFonts<'a> {
     fn cache_width(&self, key: TextMeasurementCacheKey, width: f64) {
         self.cache.widths.borrow_mut().insert(key, width);
     }
-}
 
-#[derive(Clone)]
-pub(crate) struct TextMeasurementFontFace<'a> {
-    pub(crate) family: String,
-    pub(crate) style: Option<String>,
-    pub(crate) weight: Option<u16>,
-    pub(crate) bytes: &'a [u8],
-    ttf_face: Option<TtfFace<'a>>,
-    shape_face: Option<rustybuzz::Face<'a>>,
-}
-
-impl std::fmt::Debug for TextMeasurementFontFace<'_> {
-    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        formatter
-            .debug_struct("TextMeasurementFontFace")
-            .field("family", &self.family)
-            .field("style", &self.style)
-            .field("weight", &self.weight)
-            .field("bytes_len", &self.bytes.len())
-            .finish()
+    pub(super) fn fallback_profile_id(&self) -> u64 {
+        self.fallback_profile_id
     }
-}
 
-impl<'a> TextMeasurementFontFace<'a> {
-    pub(crate) fn new(
-        family: String,
-        style: Option<String>,
-        weight: Option<u16>,
-        bytes: &'a [u8],
-    ) -> Self {
-        Self {
-            family,
-            style,
-            weight,
-            bytes,
-            ttf_face: TtfFace::parse(bytes, 0).ok(),
-            shape_face: rustybuzz::Face::from_slice(bytes, 0),
+    pub(super) fn uses_fixture_compatible_fallback(&self) -> bool {
+        matches!(
+            self.fallback_mode,
+            FallbackMeasurementMode::FixtureCompatible
+        )
+    }
+
+    fn fallback_character_width(
+        &self,
+        character: char,
+        font_size: f64,
+        monospace: bool,
+        font_family: Option<&str>,
+    ) -> f64 {
+        match self.fallback_mode {
+            FallbackMeasurementMode::FixtureCompatible => {
+                super::fixture_character_width(character, font_size)
+            }
+            FallbackMeasurementMode::FontAware => {
+                if !monospace {
+                    if let Some(advance_em) = font_family
+                        .and_then(|family| self.font_family_advances.get(&normalize_family(family)))
+                        .and_then(|advances| advances.get(&character))
+                    {
+                        return advance_em * font_size;
+                    }
+                    if let Some(advance_em) = self.generic_serif_advances.get(&character) {
+                        return advance_em * font_size;
+                    }
+                }
+                font_aware_fallback_character_width(character, font_size, monospace)
+            }
+        }
+    }
+
+    fn fallback_pair_adjustment(
+        &self,
+        left: char,
+        right: char,
+        font_size: f64,
+        monospace: bool,
+        font_family: Option<&str>,
+    ) -> f64 {
+        match self.fallback_mode {
+            FallbackMeasurementMode::FixtureCompatible => 0.0,
+            FallbackMeasurementMode::FontAware => {
+                if !monospace {
+                    let pair = (left, right);
+                    let normalized_family = font_family.map(normalize_family);
+                    if let Some(adjustment_em) = host_pair_adjustment(
+                        normalized_family
+                            .as_ref()
+                            .and_then(|family| self.font_family_advances.get(family)),
+                        normalized_family
+                            .as_ref()
+                            .and_then(|family| self.font_family_pair_adjustments.get(family)),
+                        pair,
+                    ) {
+                        return adjustment_em * font_size;
+                    }
+                    if let Some(adjustment_em) = host_pair_adjustment(
+                        Some(&self.generic_serif_advances),
+                        Some(&self.generic_serif_pair_adjustments),
+                        pair,
+                    ) {
+                        return adjustment_em * font_size;
+                    }
+                }
+                font_aware_fallback_pair_adjustment(left, right, font_size, monospace)
+            }
         }
     }
 }
 
-pub(super) fn font_aware_measurement(input: &TextMeasurementInput<'_>) -> Option<TextMeasurement> {
-    if input.text.is_empty() {
-        return Some(TextMeasurement { width: 0.0 });
-    }
-    let cache_key = TextMeasurementCacheKey::new(input);
-    if let Some(width) = input.fonts.cached_width(&cache_key) {
-        return Some(TextMeasurement { width });
-    }
-    let faces = input.fonts.matching_faces(&input.style);
-    if faces.is_empty() {
-        return None;
-    }
-    let mut width = 0.0;
-    for run in font_runs(input.text, &faces) {
-        width += match run {
-            FontMeasurementRun::Shaped { text, face } => {
-                shaped_run_width(text, face, input.style.font_size)
-                    .unwrap_or_else(|| glyph_run_width(text, &[face], input.style.font_size))
-            }
-            FontMeasurementRun::Fallback(character) => {
-                fixture_character_width(character, input.style.font_size)
-            }
-        };
-    }
-    let ascii_spaces = input
-        .text
-        .chars()
-        .filter(|character| *character == ' ')
-        .count();
-    let scalar_gaps = input.text.chars().count().saturating_sub(1);
-    let width = width
-        + ascii_spaces as f64 * input.style.word_spacing
-        + scalar_gaps as f64 * input.style.letter_spacing;
-    input.fonts.cache_width(cache_key, width);
-    Some(TextMeasurement { width })
-}
-
-fn glyph_width(
-    character: char,
-    faces: &[&TextMeasurementFontFace<'_>],
-    font_size: f64,
+fn host_pair_adjustment(
+    advances: Option<&BTreeMap<char, f64>>,
+    adjustments: Option<&BTreeMap<(char, char), f64>>,
+    pair: (char, char),
 ) -> Option<f64> {
-    faces.iter().find_map(|face| {
-        let parsed = face.ttf_face.as_ref()?;
-        let glyph = parsed.glyph_index(character)?;
-        let advance = parsed.glyph_hor_advance(glyph)?;
-        Some(f64::from(advance) * font_size / f64::from(parsed.units_per_em()))
+    let advances = advances?;
+    (advances.contains_key(&pair.0) && advances.contains_key(&pair.1)).then(|| {
+        adjustments
+            .and_then(|adjustments| adjustments.get(&pair))
+            .copied()
+            .unwrap_or(0.0)
     })
 }
 
-fn glyph_run_width(text: &str, faces: &[&TextMeasurementFontFace<'_>], font_size: f64) -> f64 {
-    text.chars()
-        .map(|character| {
-            glyph_width(character, faces, font_size)
-                .unwrap_or_else(|| fixture_character_width(character, font_size))
-        })
-        .sum()
-}
-
-pub(super) enum FontMeasurementRun<'a> {
-    Shaped {
-        text: &'a str,
-        face: &'a TextMeasurementFontFace<'a>,
-    },
-    Fallback(char),
-}
-
-pub(super) fn font_runs<'a>(
-    text: &'a str,
-    faces: &[&'a TextMeasurementFontFace<'a>],
-) -> Vec<FontMeasurementRun<'a>> {
-    let mut runs = Vec::new();
-    let mut active_face: Option<&TextMeasurementFontFace<'_>> = None;
-    let mut active_start: Option<usize> = None;
-    for (index, character) in text.char_indices() {
-        let face = faces
-            .iter()
-            .copied()
-            .find(|face| face_supports_character(face, character));
-        if face.is_some_and(|face| {
-            active_face.is_some_and(|active_face| std::ptr::eq(face, active_face))
-        }) {
-            continue;
-        }
-        if let (Some(start), Some(face)) = (active_start.take(), active_face.take()) {
-            runs.push(FontMeasurementRun::Shaped {
-                text: &text[start..index],
-                face,
-            });
-        }
-        if let Some(face) = face {
-            active_start = Some(index);
-            active_face = Some(face);
-        } else {
-            runs.push(FontMeasurementRun::Fallback(character));
+fn fallback_profile_id(
+    generic_advances: &BTreeMap<char, f64>,
+    family_advances: &BTreeMap<String, BTreeMap<char, f64>>,
+    generic_pair_adjustments: &BTreeMap<(char, char), f64>,
+    family_pair_adjustments: &BTreeMap<String, BTreeMap<(char, char), f64>>,
+) -> u64 {
+    if generic_advances.is_empty()
+        && family_advances.is_empty()
+        && generic_pair_adjustments.is_empty()
+        && family_pair_adjustments.is_empty()
+    {
+        return 0;
+    }
+    let mut hasher = DefaultHasher::new();
+    0_u8.hash(&mut hasher);
+    for (character, advance) in generic_advances {
+        character.hash(&mut hasher);
+        advance.to_bits().hash(&mut hasher);
+    }
+    1_u8.hash(&mut hasher);
+    for (family, advances) in family_advances {
+        family.hash(&mut hasher);
+        for (character, advance) in advances {
+            character.hash(&mut hasher);
+            advance.to_bits().hash(&mut hasher);
         }
     }
-    if let (Some(start), Some(face)) = (active_start, active_face) {
-        runs.push(FontMeasurementRun::Shaped {
-            text: &text[start..],
-            face,
-        });
+    2_u8.hash(&mut hasher);
+    for ((left, right), adjustment) in generic_pair_adjustments {
+        left.hash(&mut hasher);
+        right.hash(&mut hasher);
+        adjustment.to_bits().hash(&mut hasher);
     }
-    runs
+    3_u8.hash(&mut hasher);
+    for (family, adjustments) in family_pair_adjustments {
+        family.hash(&mut hasher);
+        for ((left, right), adjustment) in adjustments {
+            left.hash(&mut hasher);
+            right.hash(&mut hasher);
+            adjustment.to_bits().hash(&mut hasher);
+        }
+    }
+    hasher.finish()
 }
 
-pub(super) fn face_supports_character(face: &TextMeasurementFontFace<'_>, character: char) -> bool {
-    face.ttf_face
-        .as_ref()
-        .and_then(|parsed| parsed.glyph_index(character))
-        .is_some()
-}
-
-pub(super) fn shaped_run_width(
-    text: &str,
-    measurement_face: &TextMeasurementFontFace<'_>,
-    font_size: f64,
-) -> Option<f64> {
-    let face = measurement_face.shape_face.as_ref()?;
-    let mut buffer = rustybuzz::UnicodeBuffer::new();
-    buffer.push_str(text);
-    buffer.guess_segment_properties();
-    let glyphs = rustybuzz::shape(face, &[], buffer);
-    let units_per_em = f64::from(face.units_per_em());
-    if units_per_em <= 0.0 {
-        return None;
-    }
-    Some(
-        glyphs
-            .glyph_positions()
-            .iter()
-            .map(|position| f64::from(position.x_advance) * font_size / units_per_em)
-            .sum(),
-    )
+fn normalize_family(family: &str) -> String {
+    family.trim().to_ascii_lowercase()
 }

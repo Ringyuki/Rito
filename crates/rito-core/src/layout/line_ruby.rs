@@ -2,7 +2,7 @@ use serde_json::{Map, Number, Value};
 
 use super::{
     line::{LineRun, RubyRunBox, TextRunBox},
-    summary_json::number_value,
+    style_values::paint_number_value,
 };
 
 pub(crate) fn extract_ruby_annotations(runs: Vec<LineRun>, line_y: f64) -> Vec<LineRun> {
@@ -87,7 +87,7 @@ fn ruby_paint_value(base_paint: &Value, ruby_font_size: f64) -> Value {
             .cloned()
             .unwrap_or_else(|| Value::String("serif".to_owned())),
     );
-    font.insert("sizePx".to_owned(), number_value(ruby_font_size));
+    font.insert("sizePx".to_owned(), paint_number_value(ruby_font_size));
     font.insert(
         "style".to_owned(),
         base_font

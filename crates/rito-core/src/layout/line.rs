@@ -2,6 +2,7 @@ use serde_json::{json, Map, Number, Value};
 
 use super::{
     line_break::utf16_len,
+    style_values::paint_number_value,
     summary_json::{hash_text, number_value, rect_value},
 };
 
@@ -222,7 +223,7 @@ impl TextRunBox {
             .and_then(Value::as_f64)
             .unwrap_or(0.0);
         if let Some(paint) = self.paint.as_object_mut() {
-            paint.insert(key.to_owned(), number_value(current + delta));
+            paint.insert(key.to_owned(), paint_number_value(current + delta));
         }
     }
 }
@@ -446,8 +447,10 @@ mod tests {
         };
 
         run.add_paint_spacing("wordSpacingPx", 2.5);
+        run.add_paint_spacing("letterSpacingPx", 8.0 / 29.0);
 
         assert_eq!(run.paint["wordSpacingPx"], json!(3.5));
+        assert_eq!(run.paint["letterSpacingPx"], json!(8.0 / 29.0));
     }
 
     fn text_run_with_paint(paint: serde_json::Value) -> TextRunBox {

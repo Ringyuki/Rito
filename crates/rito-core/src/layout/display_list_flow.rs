@@ -132,7 +132,7 @@ mod tests {
     use serde_json::json;
 
     use crate::layout::{
-        content::{RuntimeBlock, RuntimeChild},
+        content::{RuntimeBlock, RuntimeChild, RuntimeImage},
         create_layout_config,
         display_list_flow::summarize_display_list_flow,
         line::{LineBox, LineRun, TextRunBox},
@@ -171,6 +171,44 @@ mod tests {
             summary.spread_digests[0].command_counts.get("paintText"),
             Some(&1)
         );
+    }
+
+    #[test]
+    fn summary_hashes_keep_three_decimal_geometry_normalization() {
+        let layout = create_layout_config(LayoutConfigInput {
+            width: 400.0,
+            height: 600.0,
+            margin: MarginInput::All(0.0),
+            spread: SpreadMode::Single,
+            first_page_alone: false,
+            spread_gap: 20.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            line_height_force: None,
+            font_family_override: None,
+            font_family_force: None,
+            pagination_policy: None,
+            text_measurement: None,
+        });
+        let summarize = |height| {
+            summarize_display_list_flow(
+                &[page_with_image_height(height)],
+                &BTreeSet::new(),
+                &layout,
+            )
+        };
+
+        let first = summarize(227.573_300_062_383_03);
+        let second = summarize(227.573_400_062_383_03);
+        assert_eq!(
+            first.spread_digests[0].command_hash,
+            second.spread_digests[0].command_hash
+        );
+        assert_eq!(
+            first.spread_digests[0].render_command_hash,
+            second.spread_digests[0].render_command_hash
+        );
+        assert_eq!(first.full_detail_hash, second.full_detail_hash);
     }
 
     fn page_with_text(text: &str) -> RuntimePage<RuntimeBlock<LineBox>> {
@@ -213,6 +251,38 @@ mod tests {
                         inline_margin_right: None,
                         ruby_annotation: None,
                     })],
+                })],
+            }],
+        }
+    }
+
+    fn page_with_image_height(height: f64) -> RuntimePage<RuntimeBlock<LineBox>> {
+        RuntimePage {
+            index: 0,
+            width: 400.0,
+            height: 600.0,
+            paint: None,
+            content: vec![RuntimeBlock {
+                x: 0.0,
+                y: 0.0,
+                width: 300.0,
+                height,
+                semantic_tag: None,
+                anchor_id: None,
+                paint: None,
+                border_box: None,
+                page_break_before: false,
+                page_break_after: false,
+                orphans: None,
+                widows: None,
+                children: vec![RuntimeChild::Image(RuntimeImage {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 300.0,
+                    height,
+                    src: "Images/precise.jpg".to_owned(),
+                    alt: Some("precise".to_owned()),
+                    href: None,
                 })],
             }],
         }

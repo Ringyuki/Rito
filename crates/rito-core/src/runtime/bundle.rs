@@ -26,7 +26,11 @@ impl RuntimeDocument {
         let revision = self.create_revision_from_request(&request)?;
         let revision_id = revision.revision_id.clone();
         let bundle = self.revision_bundle(&revision_id, include_toc_targets)?;
-        let initial_frame = self.initial_frame_decision(&revision_id, initial_frame_request)?;
+        let initial_frame = if revision.spread_count == 0 {
+            None
+        } else {
+            self.initial_frame_decision(&revision_id, initial_frame_request)?
+        };
         Ok(RuntimeCreatedRevisionBundle {
             bundle,
             initial_frame,

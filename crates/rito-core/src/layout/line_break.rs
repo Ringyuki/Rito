@@ -172,12 +172,6 @@ impl<'a> Utf16Text<'a> {
         self.text
     }
 
-    fn utf16_offset_for_byte(&self, byte_index: usize) -> Option<usize> {
-        self.boundaries
-            .iter()
-            .find_map(|(offset, byte)| (*byte == byte_index).then_some(*offset))
-    }
-
     fn byte_index(&self, offset: usize) -> usize {
         self.boundaries
             .get(&offset)
@@ -202,6 +196,7 @@ impl<'a> Utf16Text<'a> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn find_word_break(
     text: &Utf16Text<'_>,
     start: usize,
@@ -209,14 +204,25 @@ pub(crate) fn find_word_break(
     options: &LineBreakOptions,
 ) -> usize {
     let offsets = line_break_offsets(text, options);
-    for position in text.boundaries_between(start, fit_pos).into_iter().rev() {
-        if offsets.contains(&position) {
-            return position;
-        }
-    }
-    fit_pos
+    find_word_break_with_offsets(start, fit_pos, &offsets)
 }
 
+pub(crate) fn find_word_break_with_offsets(
+    start: usize,
+    fit_pos: usize,
+    offsets: &BTreeSet<usize>,
+) -> usize {
+    if fit_pos <= start {
+        return fit_pos;
+    }
+    offsets
+        .range((start + 1)..=fit_pos)
+        .next_back()
+        .copied()
+        .unwrap_or(fit_pos)
+}
+
+#[cfg(test)]
 pub(crate) fn adjust_break_position<F>(
     text: &Utf16Text<'_>,
     start: usize,
@@ -229,20 +235,41 @@ pub(crate) fn adjust_break_position<F>(
 where
     F: FnMut(usize) -> f64,
 {
+    let offsets = line_break_offsets(text, options);
+    adjust_break_position_with_offsets(
+        start,
+        end,
+        candidate,
+        max_width,
+        &mut measure_width,
+        &offsets,
+    )
+}
+
+pub(crate) fn adjust_break_position_with_offsets<F>(
+    start: usize,
+    end: usize,
+    candidate: usize,
+    max_width: f64,
+    mut measure_width: F,
+    offsets: &BTreeSet<usize>,
+) -> usize
+where
+    F: FnMut(usize) -> f64,
+{
     if candidate <= start || candidate >= end {
         return candidate;
     }
 
-    let offsets = line_break_offsets(text, options);
     if offsets.contains(&candidate) {
         return candidate;
     }
 
-    if let Some(backward) = find_backward_break(start, candidate, &offsets) {
+    if let Some(backward) = find_backward_break(start, candidate, offsets) {
         return backward;
     }
 
-    find_forward_fitting_break(candidate + 1, end, max_width, &offsets, &mut measure_width)
+    find_forward_fitting_break(candidate + 1, end, max_width, offsets, &mut measure_width)
         .unwrap_or(candidate)
 }
 
@@ -333,7 +360,7 @@ pub(crate) fn split_text_units(text: &str) -> Vec<String> {
 }
 
 fn unicode_line_break_offsets(text: &Utf16Text<'_>) -> BTreeSet<usize> {
-    linebreaks(text.as_str())
+    let mut break_bytes = linebreaks(text.as_str())
         .filter_map(|(byte_index, opportunity)| {
             matches!(
                 opportunity,
@@ -341,12 +368,30 @@ fn unicode_line_break_offsets(text: &Utf16Text<'_>) -> BTreeSet<usize> {
             )
             .then_some(byte_index)
         })
-        .filter_map(|byte_index| text.utf16_offset_for_byte(byte_index))
-        .filter(|offset| *offset > 0 && *offset < text.len)
-        .collect()
+        .peekable();
+    let mut offsets = BTreeSet::new();
+    let mut utf16_offset = 0usize;
+
+    for (byte_index, character) in text.as_str().char_indices() {
+        while break_bytes
+            .peek()
+            .is_some_and(|break_byte| *break_byte <= byte_index)
+        {
+            if break_bytes.next() == Some(byte_index) && utf16_offset > 0 && utf16_offset < text.len
+            {
+                offsets.insert(utf16_offset);
+            }
+        }
+        utf16_offset += character.len_utf16();
+    }
+
+    offsets
 }
 
-fn line_break_offsets(text: &Utf16Text<'_>, options: &LineBreakOptions) -> BTreeSet<usize> {
+pub(crate) fn line_break_offsets(
+    text: &Utf16Text<'_>,
+    options: &LineBreakOptions,
+) -> BTreeSet<usize> {
     let unicode_breaks = unicode_line_break_offsets(text);
     let resolved = options.resolved_line_break(text);
     text.boundaries_between(0, text.len)

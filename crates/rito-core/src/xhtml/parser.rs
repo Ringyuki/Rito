@@ -5,8 +5,9 @@ use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
 use super::{
-    DocumentNode, ElementAttributes, ElementNode, ImageNode, ParseResult, SourceRef, TextNode,
-    XhtmlChapterSummary, XhtmlNodeCounts, XhtmlSummary,
+    source_normalizer::normalize_xhtml_source, DocumentNode, ElementAttributes, ElementNode,
+    ImageNode, ParseResult, SourceRef, TextNode, XhtmlChapterSummary, XhtmlNodeCounts,
+    XhtmlSummary,
 };
 
 pub fn parse_xhtml(source: &str) -> Result<ParseResult, String> {
@@ -598,38 +599,6 @@ const EPUB_OPS_NAMESPACE: &str = "http://www.idpf.org/2007/ops";
 const XML_NAMESPACE: &str = "http://www.w3.org/XML/1998/namespace";
 const XLINK_NAMESPACE: &str = "http://www.w3.org/1999/xlink";
 
-fn normalize_xhtml_source(source: &str) -> Cow<'_, str> {
-    let normalized = normalize_xml_declaration(source);
-    replace_nbsp(normalized)
-}
-
-fn normalize_xml_declaration(source: &str) -> Cow<'_, str> {
-    let Some(rest) = source.strip_prefix("<?xml") else {
-        return Cow::Borrowed(source);
-    };
-    let Some(end) = rest.find("?>") else {
-        return Cow::Borrowed(source);
-    };
-    let declaration = &rest[..end];
-    if !declaration.contains('\'') {
-        return Cow::Borrowed(source);
-    }
-
-    let mut output = String::with_capacity(source.len());
-    output.push_str("<?xml");
-    output.push_str(&declaration.replace('\'', "\""));
-    output.push_str("?>");
-    output.push_str(&rest[end + 2..]);
-    Cow::Owned(output)
-}
-
-fn replace_nbsp(source: Cow<'_, str>) -> Cow<'_, str> {
-    if !source.contains("&nbsp;") {
-        return source;
-    }
-    Cow::Owned(source.replace("&nbsp;", "&#160;"))
-}
-
 fn strip_doctype(source: &str) -> Cow<'_, str> {
     let Some(start) = source.find("<!DOCTYPE") else {
         return Cow::Borrowed(source);
@@ -946,5 +915,29 @@ mod tests {
         };
         assert_eq!(text.content, "c   \n  d");
         assert_eq!(text.source_text, None);
+    }
+
+    #[test]
+    fn parses_legacy_html_void_elements_without_relaxing_xml_structure() {
+        let parsed =
+            parse_xhtml(r#"<html><body><p>Before<br>After<img src="cover.jpg"></p></body></html>"#)
+                .expect("legacy void elements are normalized");
+
+        let super::DocumentNode::Block(paragraph) = &parsed.nodes[0] else {
+            panic!("expected paragraph");
+        };
+        assert!(matches!(
+            paragraph.children.as_slice(),
+            [
+                super::DocumentNode::Text(before),
+                super::DocumentNode::Text(line_break),
+                super::DocumentNode::Text(after),
+                super::DocumentNode::Image(image)
+            ] if before.content == "Before"
+                && line_break.content == "\n"
+                && after.content == "After"
+                && image.src == "cover.jpg"
+        ));
+        assert!(parse_xhtml("<html><body><p><strong>text</p></body></html>").is_err());
     }
 }

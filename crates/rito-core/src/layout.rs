@@ -1,7 +1,7 @@
 pub const NAME: &str = "layout";
 pub const OWNS: &str = "Block layout, inline layout, line breaking, pagination, pages, and spreads";
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 mod content;
 mod continuous_float;
@@ -71,6 +71,8 @@ pub(crate) use segments::{
 };
 pub(crate) use spread::build_spread_slots;
 pub use spread_flow::SpreadFlowSummary;
+#[cfg(test)]
+pub(crate) use style_values::round_json_value;
 pub use summary_types::{
     ContinuousBlockChapterSummary, ContinuousBlockSummary, InlineSegmentBlockSample,
     InlineSegmentBlockSummary, InlineSegmentChapterSummary, InlineSegmentSummary, LayoutSummary,
@@ -164,6 +166,14 @@ pub struct LayoutConfig {
     pub pagination_policy: Option<PaginationPolicy>,
     #[serde(default, skip_serializing_if = "TextMeasurementMode::is_default")]
     pub text_measurement: TextMeasurementMode,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub generic_serif_advances: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub font_family_advances: BTreeMap<String, BTreeMap<String, f64>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub generic_serif_pair_adjustments: BTreeMap<String, f64>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub font_family_pair_adjustments: BTreeMap<String, BTreeMap<String, f64>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -239,6 +249,10 @@ pub fn create_layout_config(input: LayoutConfigInput) -> LayoutConfig {
         font_family_force: input.font_family_force,
         pagination_policy: input.pagination_policy,
         text_measurement: input.text_measurement.unwrap_or_default(),
+        generic_serif_advances: BTreeMap::new(),
+        font_family_advances: BTreeMap::new(),
+        generic_serif_pair_adjustments: BTreeMap::new(),
+        font_family_pair_adjustments: BTreeMap::new(),
     }
 }
 
@@ -355,6 +369,41 @@ mod tests {
             config.text_measurement,
             TextMeasurementMode::FixtureCompatible
         );
+        assert!(config.generic_serif_pair_adjustments.is_empty());
+        assert!(config.font_family_pair_adjustments.is_empty());
+    }
+
+    #[test]
+    fn text_measurement_config_accepts_host_pair_adjustments() {
+        let mut config = create_layout_config(LayoutConfigInput {
+            width: 420.0,
+            height: 640.0,
+            margin: MarginInput::All(24.0),
+            spread: SpreadMode::Single,
+            first_page_alone: true,
+            spread_gap: 0.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            line_height_force: None,
+            font_family_override: None,
+            font_family_force: None,
+            pagination_policy: None,
+            text_measurement: Some(TextMeasurementMode::FontAware),
+        });
+        config
+            .generic_serif_pair_adjustments
+            .insert("：「".to_owned(), -0.5);
+        config.font_family_pair_adjustments.insert(
+            "title".to_owned(),
+            std::collections::BTreeMap::from([("：「".to_owned(), -0.25)]),
+        );
+
+        let value = serde_json::to_value(&config).expect("layout config serializes");
+        assert_eq!(value["genericSerifPairAdjustments"]["：「"], -0.5);
+        assert_eq!(value["fontFamilyPairAdjustments"]["title"]["：「"], -0.25);
+        let decoded: LayoutConfig =
+            serde_json::from_value(value).expect("layout config pair adjustments deserialize");
+        assert_eq!(decoded, config);
     }
 
     #[test]

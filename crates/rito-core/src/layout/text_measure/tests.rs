@@ -45,11 +45,19 @@ fn ordered_face_weights(requested: u16, source_weights: &[u16], bytes: &[u8]) ->
 }
 
 fn read_epub_font(path: &str) -> Vec<u8> {
-    let fixture = workspace_path("packages/rito/tests/fixtures/books/book-01.epub");
+    read_font_from_epub("packages/rito/tests/fixtures/books/book-01.epub", path)
+}
+
+fn read_demo_epub_font(path: &str) -> Vec<u8> {
+    read_font_from_epub("apps/reader/src/assets/demo.epub", path)
+}
+
+fn read_font_from_epub(epub_path: &str, font_path: &str) -> Vec<u8> {
+    let fixture = workspace_path(epub_path);
     let file = File::open(&fixture)
         .unwrap_or_else(|error| panic!("fixture epub opens at {}: {error}", fixture.display()));
     let mut archive = ZipArchive::new(file).expect("fixture epub is a zip archive");
-    let mut font = archive.by_name(path).expect("fixture font exists");
+    let mut font = archive.by_name(font_path).expect("fixture font exists");
     let mut bytes = Vec::new();
     font.read_to_end(&mut bytes).expect("fixture font reads");
     bytes

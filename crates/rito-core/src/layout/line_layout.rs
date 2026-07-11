@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::OnceLock,
+};
 
 use serde_json::{Map, Value};
 
@@ -7,8 +10,8 @@ use super::{
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
     line_align::apply_line_align,
     line_break::{
-        adjust_break_position, find_word_break, try_ascii_hyphenation, utf16_len, LineBreakOptions,
-        Utf16Text,
+        adjust_break_position_with_offsets, find_word_break_with_offsets, line_break_offsets,
+        try_ascii_hyphenation, utf16_len, LineBreakOptions, Utf16Text,
     },
     line_metrics::{
         effective_line_metrics, line_height_px, measure_text_slice_with_fonts, runs_width,
@@ -28,6 +31,7 @@ struct LineContext<'a> {
     preserve_ws: bool,
     allow_wrap: bool,
     line_break_options: LineBreakOptions,
+    break_offsets: OnceLock<BTreeSet<usize>>,
     base_style: Map<String, Value>,
     fonts: &'a TextMeasurementFonts<'a>,
 }
@@ -162,6 +166,7 @@ fn build_line_context<'a>(
             Some("pre" | "nowrap")
         ),
         line_break_options,
+        break_offsets: OnceLock::new(),
         base_style,
         fonts,
     }
@@ -307,21 +312,23 @@ fn find_break_position(
         }
     }
 
-    let word_break = find_word_break(text, start, lo, &context.line_break_options);
+    let break_offsets = context
+        .break_offsets
+        .get_or_init(|| line_break_offsets(text, &context.line_break_options));
+    let word_break = find_word_break_with_offsets(start, lo, break_offsets);
     if word_break == lo {
         if let Some(hyphen_break) =
             try_ascii_hyphenation(text, start, lo, &context.line_break_options, |candidate| {
                 measure_hyphenated_slice(context, text, start, candidate) <= max_width
             })
         {
-            let position = adjust_break_position(
-                text,
+            let position = adjust_break_position_with_offsets(
                 start,
                 end,
                 hyphen_break,
                 max_width,
                 |slice_end| measure_slice(context, text, start, slice_end),
-                &context.line_break_options,
+                break_offsets,
             );
             return LineBreakPosition {
                 position,
@@ -330,14 +337,13 @@ fn find_break_position(
         }
     }
     LineBreakPosition {
-        position: adjust_break_position(
-            text,
+        position: adjust_break_position_with_offsets(
             start,
             end,
             word_break,
             max_width,
             |slice_end| measure_slice(context, text, start, slice_end),
-            &context.line_break_options,
+            break_offsets,
         ),
         hyphenated: false,
     }
@@ -644,8 +650,11 @@ fn trim_end_js_whitespace(text: &Utf16Text<'_>, start: usize, mut end: usize) ->
 mod tests {
     use serde_json::{json, Map, Value};
 
-    use super::layout_greedy_lines;
-    use crate::layout::inline_segment::{InlineSegment, TextSegment};
+    use super::{build_line_context, layout_greedy_lines, layout_text};
+    use crate::layout::{
+        inline_segment::{InlineSegment, TextSegment},
+        text_measure::TextMeasurementFonts,
+    };
 
     #[test]
     fn emits_the_discretionary_hyphen_selected_by_the_breaker() {
@@ -671,5 +680,41 @@ mod tests {
 
         assert_eq!(lines[0].text(), "Nokyoushit-");
         assert_eq!(lines[1].text(), "sue");
+    }
+
+    #[test]
+    fn classifies_break_offsets_once_for_many_forced_lines() {
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(16)),
+            ("lineHeight".to_owned(), json!(1.5)),
+            ("language".to_owned(), Value::String("zh-CN".to_owned())),
+        ]);
+        let long_line =
+            "这是一段需要自动折行的中文文本，用来验证断点分类不会反复扫描整段内容。".repeat(2);
+        let text = (0..100)
+            .map(|_| long_line.as_str())
+            .collect::<Vec<_>>()
+            .join("\n");
+        let segment = InlineSegment::Text(TextSegment {
+            text,
+            style: style.clone(),
+            href: None,
+            source_path: None,
+            source_text: None,
+            source_text_offset: None,
+            ruby_annotation: None,
+            inline_margin_left: None,
+            inline_margin_right: None,
+            border_start: false,
+            border_end: false,
+        });
+        let fonts = TextMeasurementFonts::empty();
+        let segments = [segment];
+        let context = build_line_context(&segments, style, 160.0, &fonts);
+
+        let lines = layout_text(&context);
+
+        assert!(lines.len() > 100);
+        assert!(context.break_offsets.get().is_some());
     }
 }

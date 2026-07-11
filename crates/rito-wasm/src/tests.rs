@@ -335,6 +335,33 @@ fn create_view_revision_json_declares_display_policy() {
 }
 
 #[test]
+fn create_view_revision_json_preserves_host_font_metric_bits() {
+    let expected = 0.44299983978271484_f64;
+    let mut request = serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "mode": "preview"
+    });
+    request["layoutConfig"]["fontFamilyAdvances"] = serde_json::json!({
+        "main": { "1": expected }
+    });
+    let request_json = request.to_string();
+    assert!(request_json.contains("0.44299983978271484"));
+
+    let mut document = WasmRuntimeDocument::from_loaded_document(multi_chapter_document());
+    let response_json = document
+        .create_view_revision_bundle_json(&request_json)
+        .expect("preview view JSON is returned");
+    let response: Value = serde_json::from_str(&response_json).expect("preview JSON parses");
+    let actual = response["followUp"]["request"]["layoutConfig"]["fontFamilyAdvances"]["main"]["1"]
+        .as_f64()
+        .expect("host font advance is returned");
+
+    assert_eq!(actual.to_bits(), expected.to_bits());
+}
+
+#[test]
 fn create_view_revision_ritorb1_matches_json_across_revision_modes() {
     let mut json_document =
         WasmRuntimeDocument::from_loaded_document(fixture::multi_chapter_document());

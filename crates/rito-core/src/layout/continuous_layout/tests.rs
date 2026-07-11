@@ -1,9 +1,9 @@
 use serde_json::{json, Map};
 
 use super::{
-    layout_continuous_blocks, layout_continuous_floated_leaf, layout_continuous_text_block,
-    relative_visual_offset, wrap_anonymous_inline_runs, ImageSizeIndex, LineBreaking,
-    TextMeasurementFonts,
+    has_mixed_inline_content, layout_continuous_blocks, layout_continuous_floated_leaf,
+    layout_continuous_text_block, relative_visual_offset, wrap_anonymous_inline_runs,
+    ImageSizeIndex, LineBreaking, TextMeasurementFonts,
 };
 use crate::style::{StyledNode, StyledNodeKind};
 
@@ -25,6 +25,25 @@ fn wraps_inline_siblings_between_blocks_in_anonymous_blocks() {
     assert_eq!(wrapped[1].children, vec![nodes[1].clone()]);
     assert_eq!(wrapped[1].style["fontSize"], json!(16));
     assert_eq!(wrapped[1].style["marginTop"], json!(0));
+}
+
+#[test]
+fn image_followed_by_line_break_is_mixed_inline_content() {
+    let children = vec![image_node("cover.png"), text_node("\n")];
+
+    assert!(has_mixed_inline_content(&children));
+
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let blocks = layout_continuous_blocks(
+        &[node(StyledNodeKind::Block, children)],
+        320.0,
+        600.0,
+        &images,
+        LineBreaking::Greedy,
+        &fonts,
+    );
+    assert_eq!(blocks.len(), 1);
 }
 
 #[test]
@@ -147,6 +166,12 @@ fn text_node(content: &str) -> StyledNode {
     let mut text = node(StyledNodeKind::Text, vec![]);
     text.content = Some(content.to_owned());
     text
+}
+
+fn image_node(src: &str) -> StyledNode {
+    let mut image = node(StyledNodeKind::Image, vec![]);
+    image.src = Some(src.to_owned());
+    image
 }
 
 fn node(node_type: StyledNodeKind, children: Vec<StyledNode>) -> StyledNode {

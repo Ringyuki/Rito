@@ -1170,9 +1170,57 @@ fn assert_runtime_frame_command_buffer_matches_frame(
         let value: Value = serde_json::from_str(payload)
             .unwrap_or_else(|error| panic!("{case_id}: packed payload is invalid JSON: {error}"));
         assert!(
-            frame.commands.contains(&value),
+            frame
+                .commands
+                .iter()
+                .any(|command| { json_values_match_after_number_round_trip(command, &value) }),
             "packed payload should mirror runtime frame command for {case_id}: {payload}"
         );
+    }
+}
+
+fn json_values_match_after_number_round_trip(left: &Value, right: &Value) -> bool {
+    match (left, right) {
+        (Value::Number(left), Value::Number(right)) => {
+            // Stable JSON serialization can move a non-integer f64 by one ULP.
+            // Keep the full tree exact apart from that wire-format artifact.
+            if !left.is_f64() || !right.is_f64() {
+                return left == right;
+            }
+            let Some(left) = left.as_f64() else {
+                return left == right;
+            };
+            let Some(right) = right.as_f64() else {
+                return false;
+            };
+            ordered_f64_bits(left).abs_diff(ordered_f64_bits(right)) <= 1
+        }
+        (Value::Array(left), Value::Array(right)) => {
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(left, right)| json_values_match_after_number_round_trip(left, right))
+        }
+        (Value::Object(left), Value::Object(right)) => {
+            left.len() == right.len()
+                && left.iter().all(|(key, left)| {
+                    right
+                        .get(key)
+                        .is_some_and(|right| json_values_match_after_number_round_trip(left, right))
+                })
+        }
+        _ => left == right,
+    }
+}
+
+fn ordered_f64_bits(value: f64) -> u64 {
+    const SIGN_MASK: u64 = 1 << 63;
+    let bits = value.to_bits();
+    if bits & SIGN_MASK == 0 {
+        bits | SIGN_MASK
+    } else {
+        !bits
     }
 }
 

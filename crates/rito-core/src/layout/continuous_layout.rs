@@ -597,8 +597,8 @@ fn apply_relative_visual_offset(block: &mut ContinuousBlock, style: &Map<String,
     paint.insert(
         "visualOffset".to_owned(),
         Value::Object(Map::from_iter([
-            ("dx".to_owned(), number_value(dx)),
-            ("dy".to_owned(), number_value(dy)),
+            ("dx".to_owned(), paint_number_value(dx)),
+            ("dy".to_owned(), paint_number_value(dy)),
         ])),
     );
 }
@@ -1317,12 +1317,12 @@ fn has_mixed_inline_content(children: &[StyledNode]) -> bool {
     let mut has_inline = false;
     let mut has_image = false;
     for child in children {
-        let non_empty_text = child.node_type == StyledNodeKind::Text
+        let inline_text = child.node_type == StyledNodeKind::Text
             && child
                 .content
                 .as_deref()
-                .is_some_and(|content| !content.trim().is_empty());
-        if non_empty_text || child.node_type == StyledNodeKind::Inline {
+                .is_some_and(|content| content == "\n" || !content.trim().is_empty());
+        if inline_text || child.node_type == StyledNodeKind::Inline {
             has_inline = true;
         }
         if child.node_type == StyledNodeKind::Image {

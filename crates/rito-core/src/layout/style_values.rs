@@ -1,8 +1,8 @@
-use serde_json::{json, Map, Value};
+use serde_json::{json, Map, Number, Value};
 
 use super::{
     inline_segment::{InlineBorders, InlinePadding},
-    summary_json::number_value,
+    summary_json::number_value as summary_number_value,
 };
 
 pub(crate) fn summarize_segment_style(style: &Map<String, Value>) -> Map<String, Value> {
@@ -19,7 +19,7 @@ pub(crate) fn round_json_value(value: &Value) -> Value {
     match value {
         Value::Number(number) => number
             .as_f64()
-            .map(number_value)
+            .map(summary_number_value)
             .unwrap_or_else(|| value.clone()),
         Value::Array(values) => Value::Array(values.iter().map(round_json_value).collect()),
         Value::Object(object) => Value::Object(
@@ -32,6 +32,17 @@ pub(crate) fn round_json_value(value: &Value) -> Value {
     }
 }
 
+pub(crate) fn paint_number_value(value: f64) -> Value {
+    if value.is_finite()
+        && value.fract() == 0.0
+        && value >= i64::MIN as f64
+        && value < i64::MAX as f64
+    {
+        return Value::Number(Number::from(value as i64));
+    }
+    Value::Number(Number::from_f64(value).unwrap_or_else(|| Number::from(0)))
+}
+
 pub(crate) fn border_box_from_style(style: &Map<String, Value>) -> Option<Value> {
     let top = border_width(style, "borderTop");
     let right = border_width(style, "borderRight");
@@ -41,10 +52,10 @@ pub(crate) fn border_box_from_style(style: &Map<String, Value>) -> Option<Value>
         return None;
     }
     Some(json!({
-        "topWidth": number_value(top),
-        "rightWidth": number_value(right),
-        "bottomWidth": number_value(bottom),
-        "leftWidth": number_value(left),
+        "topWidth": paint_number_value(top),
+        "rightWidth": paint_number_value(right),
+        "bottomWidth": paint_number_value(bottom),
+        "leftWidth": paint_number_value(left),
     }))
 }
 
@@ -129,11 +140,11 @@ pub(crate) fn block_border_paint(style: &Map<String, Value>) -> Option<Value> {
 
 pub(crate) fn block_radius_paint(style: &Map<String, Value>) -> Option<Value> {
     if let Some(pct) = number_style(style, "borderRadiusPct") {
-        return Some(json!({ "pct": number_value(pct) }));
+        return Some(json!({ "pct": paint_number_value(pct) }));
     }
     let px = number_style(style, "borderRadius").unwrap_or(0.0);
     if px > 0.0 {
-        Some(json!({ "px": number_value(px) }))
+        Some(json!({ "px": paint_number_value(px) }))
     } else {
         None
     }
@@ -162,7 +173,7 @@ pub(crate) fn run_paint_value(style: &Map<String, Value>, is_start: bool, is_end
         non_empty_string_style(style, "backgroundColor").as_deref(),
     );
     if let Some(radius) = positive_style(style, "borderRadius") {
-        paint.insert("backgroundRadius".to_owned(), number_value(radius));
+        paint.insert("backgroundRadius".to_owned(), paint_number_value(radius));
     }
     if let Some(text_shadow) = non_empty_style_array(style, "textShadow") {
         paint.insert("textShadow".to_owned(), text_shadow);
@@ -182,8 +193,8 @@ pub(crate) fn run_paint_value(style: &Map<String, Value>, is_start: bool, is_end
 pub(crate) fn font_shorthand_value(style: &Map<String, Value>) -> Value {
     json!({
         "style": string_or_default(style, "fontStyle", "normal"),
-        "weight": number_value(number_style(style, "fontWeight").unwrap_or(400.0)),
-        "sizePx": number_value(number_style(style, "fontSize").unwrap_or(16.0)),
+        "weight": paint_number_value(number_style(style, "fontWeight").unwrap_or(400.0)),
+        "sizePx": paint_number_value(number_style(style, "fontSize").unwrap_or(16.0)),
         "family": string_or_default(style, "fontFamily", "serif"),
     })
 }
@@ -194,14 +205,14 @@ pub(crate) fn run_decoration_value(style: &Map<String, Value>) -> Option<Value> 
     match string_style(style, "textDecoration").as_deref() {
         Some("underline") => Some(json!({
             "kind": "underline",
-            "y": number_value(font_size),
-            "thickness": number_value(1.0),
+            "y": paint_number_value(font_size),
+            "thickness": paint_number_value(1.0),
             "color": color,
         })),
         Some("line-through") => Some(json!({
             "kind": "line-through",
-            "y": number_value(font_size * 0.5),
-            "thickness": number_value(1.0),
+            "y": paint_number_value(font_size * 0.5),
+            "thickness": paint_number_value(1.0),
             "color": color,
         })),
         _ => None,
@@ -217,10 +228,10 @@ pub(crate) fn run_padding_value(style: &Map<String, Value>) -> Option<Value> {
         return None;
     }
     Some(json!({
-        "top": number_value(top),
-        "right": number_value(right),
-        "bottom": number_value(bottom),
-        "left": number_value(left),
+        "top": paint_number_value(top),
+        "right": paint_number_value(right),
+        "bottom": paint_number_value(bottom),
+        "left": paint_number_value(left),
     }))
 }
 
@@ -270,7 +281,7 @@ pub(crate) fn run_border_edge_value(style: &Map<String, Value>, key: &str) -> Op
         return None;
     }
     Some(json!({
-        "widthPx": number_value(border_value_width(edge)),
+        "widthPx": paint_number_value(border_value_width(edge)),
         "paint": border_edge_value(edge)?,
     }))
 }
@@ -557,7 +568,7 @@ fn insert_optional_value(output: &mut Map<String, Value>, key: &str, value: Opti
 fn insert_non_zero_number(output: &mut Map<String, Value>, key: &str, value: Option<f64>) {
     if let Some(value) = value {
         if value != 0.0 {
-            output.insert(key.to_owned(), number_value(value));
+            output.insert(key.to_owned(), paint_number_value(value));
         }
     }
 }
@@ -599,7 +610,7 @@ const SEGMENT_STYLE_KEYS: &[&str] = &[
 mod tests {
     use serde_json::json;
 
-    use super::block_paint_from_style;
+    use super::{block_paint_from_style, run_paint_value};
 
     #[test]
     fn preserves_semantic_opacity_precision_in_block_paint() {
@@ -608,5 +619,14 @@ mod tests {
             .expect("opacity creates block paint");
 
         assert_eq!(paint["opacity"], json!(0.2525));
+    }
+
+    #[test]
+    fn preserves_runtime_run_paint_precision() {
+        let style = json!({ "fontSize": 14.12345, "letterSpacing": 0.27586206896551724 });
+        let paint = run_paint_value(style.as_object().expect("style object"), false, false);
+
+        assert_eq!(paint["font"]["sizePx"], json!(14.12345));
+        assert_eq!(paint["letterSpacingPx"], json!(0.27586206896551724));
     }
 }

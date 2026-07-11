@@ -1,11 +1,14 @@
 mod command_hash;
 mod fixture;
 
-use command_hash::{hash_json_value, normalize_runtime_commands_for_render_hash};
+use command_hash::{
+    hash_json_value, json_values_match_after_number_round_trip,
+    normalize_runtime_commands_for_render_hash,
+};
 use fixture::{
-    double_layout, fixture_epub, fixture_epub_with_stylesheet, fixture_stylesheet, layout,
-    malformed_chapter_fixture_epub, many_chapter_fixture_epub, minimal_png,
-    multi_chapter_fixture_epub,
+    double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
+    fixture_stylesheet, layout, malformed_chapter_fixture_epub, many_chapter_fixture_epub,
+    minimal_png, multi_chapter_fixture_epub,
 };
 use serde_json::Value;
 
@@ -108,8 +111,14 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
     assert!(!buffer.metadata.payload_table.is_empty());
     for payload in &buffer.metadata.payload_table {
         let value: Value = serde_json::from_str(payload).expect("command buffer payload is JSON");
+        // A stable JSON number can move by one ULP when parsed back into an f64.
+        // Keep object/array structure and non-number leaves exact while allowing
+        // only that negligible numeric wire round-trip difference.
         assert!(
-            frame.commands.contains(&value),
+            frame
+                .commands
+                .iter()
+                .any(|command| { json_values_match_after_number_round_trip(command, &value) }),
             "command buffer payload should mirror a runtime frame command"
         );
     }
@@ -398,6 +407,24 @@ fn creates_initial_preview_bundle_from_runtime_request() {
         vec!["chapter-1", "chapter-2", "chapter-3"]
     );
     assert!(!creation.bundle.font_families.is_empty());
+}
+
+#[test]
+fn creates_empty_initial_preview_bundle_without_an_initial_frame() {
+    let mut document =
+        RuntimeDocument::open(&empty_chapter_fixture_epub()).expect("empty document opens");
+
+    let creation = document
+        .create_initial_preview_revision_bundle(RuntimeInitialPreviewRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+        })
+        .expect("empty initial preview bundle is created");
+
+    assert!(creation.preview);
+    assert_eq!(creation.bundle.revision.page_count, 0);
+    assert_eq!(creation.bundle.revision.spread_count, 0);
+    assert!(creation.initial_frame.is_none());
 }
 
 #[test]

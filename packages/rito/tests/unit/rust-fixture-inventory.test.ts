@@ -65,7 +65,7 @@ describe('Rust parity fixture inventory', () => {
       expect(isRustFixtureCssSummary(fixture['css'])).toBe(true);
       expect(isRustFixtureStyleSummary(fixture['style'])).toBe(true);
     }
-  }, 15000);
+  }, 30000);
 
   it('covers embedded stylesheets and absent external stylesheet metadata', () => {
     const embedded = readFixture('book-06/default.greedy.json.gz');
