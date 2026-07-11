@@ -9,6 +9,7 @@
     "build:e2e": "pnpm run typecheck && RITO_READER_BASE=/ vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test -c playwright.config.ts",
+    "test:e2e:downloads-smoke": "playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts",
     "test:e2e:wire-ab": "RITO_WIRE_AB=1 playwright test -c playwright.config.ts tests/e2e/reader-wire-ab.e2e.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json"
   },

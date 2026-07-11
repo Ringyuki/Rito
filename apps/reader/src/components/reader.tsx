@@ -89,7 +89,10 @@ export function Reader({
       )}
 
       {reader.error && (
-        <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          data-testid="reader-error"
+          className="absolute inset-0 flex items-center justify-center"
+        >
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-6 py-4 text-sm text-destructive">
             {reader.error}
           </div>
