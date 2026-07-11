@@ -1,13 +1,11 @@
 use std::collections::BTreeSet;
 
 use crate::{
-    resources::{detect_image_dimensions, hash_bytes},
+    resources::{detect_image_dimensions, hash_bytes, resolve_resource_href_index},
     xhtml::{parse_xhtml, DocumentNode},
 };
 
-use super::{
-    archive, join_zip_path, paths::strip_relative_prefix, EpubError, EpubResult, PackageDocument,
-};
+use super::{archive, join_zip_path, EpubError, EpubResult, PackageDocument};
 
 mod open;
 
@@ -380,25 +378,7 @@ fn collect_image_refs(node: &DocumentNode, refs: &mut BTreeSet<String>) {
 }
 
 fn find_resource_index(resources: &[LoadedBinaryResource], href: &str) -> Option<usize> {
-    if let Some(index) = resources.iter().position(|resource| resource.href == href) {
-        return Some(index);
-    }
-    let normalized = strip_relative_prefix(href);
-    if normalized != href {
-        if let Some(index) = resources
-            .iter()
-            .position(|resource| resource.href == normalized)
-        {
-            return Some(index);
-        }
-    }
-    let suffix = format!("/{normalized}");
-    let mut matches = resources
-        .iter()
-        .enumerate()
-        .filter(|(_, resource)| resource.href.ends_with(&suffix));
-    let first = matches.next()?.0;
-    matches.next().is_none().then_some(first)
+    resolve_resource_href_index(resources, href, |resource| resource.href.as_str())
 }
 
 #[cfg(test)]

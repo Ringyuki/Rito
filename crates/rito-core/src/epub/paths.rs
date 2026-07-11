@@ -39,11 +39,3 @@ pub(super) fn normalize_href_path(path: &str) -> String {
     }
     parts.join("/")
 }
-
-pub(super) fn strip_relative_prefix(href: &str) -> &str {
-    let mut result = href;
-    while let Some(rest) = result.strip_prefix("../") {
-        result = rest;
-    }
-    result
-}

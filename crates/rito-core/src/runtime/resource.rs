@@ -1,4 +1,5 @@
 use crate::epub::{EpubError, LoadedBinaryResource, LoadedTextResource};
+use crate::resources::resolve_resource_href_index;
 
 use super::{RuntimeFrameResourceWarmPlan, RuntimeResource, RuntimeResourceKind};
 
@@ -48,7 +49,7 @@ fn find_binary_resource<'a>(
     resources: &'a [LoadedBinaryResource],
     href: &str,
 ) -> Option<&'a LoadedBinaryResource> {
-    find_resource_by_href(resources.iter(), href, |resource| resource.href.as_str())
+    find_resource_by_href(resources, href, |resource| resource.href.as_str())
 }
 
 pub(super) fn find_binary_resource_metadata(
@@ -62,7 +63,7 @@ pub(super) fn find_text_resource<'a>(
     resources: &'a [LoadedTextResource],
     href: &str,
 ) -> Option<&'a LoadedTextResource> {
-    find_resource_by_href(resources.iter(), href, |resource| resource.href.as_str())
+    find_resource_by_href(resources, href, |resource| resource.href.as_str())
 }
 
 pub(super) fn runtime_binary_resource(
@@ -127,43 +128,12 @@ pub(super) fn resource_not_found(kind: RuntimeResourceKind, href: &str) -> EpubE
 }
 
 fn find_resource_by_href<'a, T>(
-    resources: impl Iterator<Item = &'a T> + Clone,
+    resources: &'a [T],
     href: &str,
     resource_href: impl Fn(&T) -> &str + Copy,
 ) -> Option<&'a T> {
-    if let Some(resource) = find_exact_resource(resources.clone(), href, resource_href) {
-        return Some(resource);
-    }
-
-    let normalized = strip_relative_prefix(href);
-    if normalized != href {
-        if let Some(resource) = find_exact_resource(resources.clone(), normalized, resource_href) {
-            return Some(resource);
-        }
-    }
-
-    let suffix = format!("/{normalized}");
-    let mut matches = resources.filter(|resource| resource_href(resource).ends_with(&suffix));
-    let first = matches.next()?;
-    matches.next().is_none().then_some(first)
-}
-
-fn find_exact_resource<'a, T>(
-    resources: impl Iterator<Item = &'a T>,
-    href: &str,
-    resource_href: impl Fn(&T) -> &str,
-) -> Option<&'a T> {
-    resources
-        .into_iter()
-        .find(|resource| resource_href(resource) == href)
-}
-
-fn strip_relative_prefix(href: &str) -> &str {
-    let mut result = href;
-    while let Some(rest) = result.strip_prefix("../") {
-        result = rest;
-    }
-    result
+    let index = resolve_resource_href_index(resources, href, resource_href)?;
+    resources.get(index)
 }
 
 #[cfg(test)]
@@ -195,5 +165,39 @@ mod tests {
         assert_eq!(resource.bytes, [0xbb; 3]);
         assert_eq!(resource.width, Some(1200));
         assert_eq!(resource.height, Some(1600));
+    }
+
+    #[test]
+    fn resolves_transfer_metadata_with_display_href_semantics() {
+        let resources = vec![
+            binary_resource("Images/cover.png"),
+            binary_resource("Images/Cover One.png"),
+        ];
+
+        assert_eq!(
+            find_binary_resource_metadata(&resources, "OPS/Images/cover.png")
+                .expect("source tail resolves")
+                .href(),
+            "Images/cover.png"
+        );
+        assert_eq!(
+            find_binary_resource_metadata(&resources, "../Images/Cover%20One.png")
+                .expect("percent-encoded source resolves")
+                .href(),
+            "Images/Cover One.png"
+        );
+    }
+
+    fn binary_resource(href: &str) -> LoadedBinaryResource {
+        LoadedBinaryResource {
+            href: href.to_owned(),
+            media_type: "image/png".to_owned(),
+            byte_length: 3,
+            byte_hash: None,
+            bytes: Vec::new(),
+            width: Some(2),
+            height: Some(3),
+            dimensions_loaded: true,
+        }
     }
 }
