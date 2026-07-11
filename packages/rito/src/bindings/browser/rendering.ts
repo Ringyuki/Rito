@@ -1,9 +1,4 @@
-import { drawRubyFragment, drawTextFragment } from '../../reference/ts-core/render/backends/canvas';
-import {
-  renderFrameCommandsToCanvas,
-  type CanvasRenderingTarget,
-  type FrameCommandPaintHooks,
-} from './frame-command-renderer';
+import { renderFrameCommandsToCanvas, type CanvasRenderingTarget } from './frame-command-renderer';
 import { createCanvasImageResolver } from './image-href-resolver';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
@@ -11,11 +6,6 @@ import { browserReaderSpreads } from './reader/layout';
 import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 
 export type { CanvasRenderingTarget } from './frame-command-renderer';
-
-const FRAME_COMMAND_PAINT_HOOKS: FrameCommandPaintHooks = {
-  drawTextFragment,
-  drawRubyFragment,
-};
 
 export function renderSpreadToBoundCanvas(
   state: BrowserReaderState,
@@ -91,7 +81,6 @@ function renderFrameToCanvas(
   renderFrameCommandsToCanvas(frame.commands, ctx, {
     pixelRatio,
     resolveImage: createCanvasImageResolver(state.images),
-    hooks: FRAME_COMMAND_PAINT_HOOKS,
     ...(state.fgColor ? { foregroundColor: state.fgColor, backgroundColor: state.bgColor } : {}),
   });
 }

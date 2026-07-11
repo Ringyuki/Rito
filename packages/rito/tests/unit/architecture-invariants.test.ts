@@ -36,8 +36,6 @@ const RUNTIME = join(REFERENCE_TS_CORE, 'runtime');
 const READER_ROOT = join(SRC, 'reader');
 const BROWSER_READER_BINDING = join(SRC, 'bindings/browser/reader');
 const BROWSER_READER_BINDING_ROOT = join(BROWSER_READER_BINDING, 'reader.ts');
-const BROWSER_READER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
-const REFERENCE_IMPORT_ALLOWLIST = new Set([BROWSER_READER_RENDERING]);
 const RENDER_BACKENDS = join(RENDER, 'backends');
 const DISPLAY_LIST = join(RENDER, 'display-list');
 const RENDER_PAGE = join(RENDER, 'page');
@@ -399,7 +397,6 @@ describe('Architecture invariant: TypeScript reference core is isolated', () => 
     const hits = scan(
       [MAIN_ENTRY, ...BROWSER_READER_BINDING_FILES],
       /from\s+['"][^'"]*reference[^'"]*['"]|import\s*\(\s*['"][^'"]*reference[^'"]*['"]\s*\)/g,
-      (file) => file === BROWSER_READER_RENDERING,
     );
     expect(
       hits,
@@ -410,7 +407,6 @@ describe('Architecture invariant: TypeScript reference core is isolated', () => 
   it('only compatibility and reference code may import the reference core', () => {
     const productionFiles = walkTs(SRC).filter((file) => {
       if (file.startsWith(REFERENCE) || file.startsWith(COMPATIBILITY)) return false;
-      if (REFERENCE_IMPORT_ALLOWLIST.has(file)) return false;
       if (isLegacyTsCoreRootFile(file) && isReferenceShim(file)) return false;
       return true;
     });

@@ -1,6 +1,8 @@
 import type { CoreFrameCommand } from './core-contracts';
 import { renderCanvasBlockDecoration } from './canvas-block/renderer';
 import { traceRoundedRect } from './canvas-path';
+import { drawCanvasRubyFragment, drawCanvasTextFragment } from './canvas-text/renderer';
+import type { CanvasTextColorOverride } from './canvas-text/types';
 
 export type CanvasRenderingTarget = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type CanvasContext = CanvasRenderingContext2D;
@@ -16,44 +18,16 @@ type TranslateTransform = Extract<
 >;
 type ClipCommand = Extract<CoreFrameCommand, { readonly kind: 'clipRect' }>;
 type FrameCommandImageResolver = (src: string) => ImageBitmap | undefined;
-interface FrameCommandTextFragment {
-  readonly text: string;
-  readonly rect: TextCommand['rect'];
-  readonly paint: TextCommand['paint'];
-}
-interface FrameCommandRubyFragment {
-  readonly text: string;
-  readonly rect: RubyCommand['rect'];
-  readonly paint: RubyCommand['paint'];
-}
-interface FrameCommandColorOverride {
-  readonly foregroundColor: string;
-  readonly backgroundColor: string;
-}
-export interface FrameCommandPaintHooks {
-  readonly drawTextFragment: (
-    ctx: CanvasRenderingContext2D,
-    fragment: FrameCommandTextFragment,
-    colorOverride?: FrameCommandColorOverride,
-  ) => void;
-  readonly drawRubyFragment: (
-    ctx: CanvasRenderingContext2D,
-    fragment: FrameCommandRubyFragment,
-    colorOverride?: FrameCommandColorOverride,
-  ) => void;
-}
 
 export interface FrameCommandRenderOptions {
   readonly pixelRatio?: number;
   readonly resolveImage?: FrameCommandImageResolver;
   readonly foregroundColor?: string;
   readonly backgroundColor?: string;
-  readonly hooks: FrameCommandPaintHooks;
 }
 interface RenderState {
   readonly resolveImage: FrameCommandImageResolver;
-  readonly colorOverride?: FrameCommandColorOverride;
-  readonly hooks: FrameCommandPaintHooks;
+  readonly colorOverride?: CanvasTextColorOverride;
   commandSaveDepth: number;
 }
 
@@ -87,7 +61,6 @@ function createRenderState(options: FrameCommandRenderOptions): RenderState {
       : undefined;
   return {
     resolveImage: options.resolveImage ?? (() => undefined),
-    hooks: options.hooks,
     commandSaveDepth: 0,
     ...(colorOverride ? { colorOverride } : {}),
   };
@@ -171,7 +144,7 @@ function paintBlock(
 }
 
 function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: RenderState): void {
-  state.hooks.drawTextFragment(
+  drawCanvasTextFragment(
     ctx,
     { text: command.text, rect: command.rect, paint: command.paint },
     state.colorOverride,
@@ -179,7 +152,7 @@ function paintText(ctx: CanvasRenderingContext2D, command: TextCommand, state: R
 }
 
 function paintRuby(ctx: CanvasRenderingContext2D, command: RubyCommand, state: RenderState): void {
-  state.hooks.drawRubyFragment(
+  drawCanvasRubyFragment(
     ctx,
     { text: command.text, rect: command.rect, paint: command.paint },
     state.colorOverride,

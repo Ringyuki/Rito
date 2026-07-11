@@ -1,23 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { RitoCoreWasmFrameCommand } from '@ritojs/core-wasm';
 
-import {
-  type FrameCommandPaintHooks,
-  renderFrameCommandsToCanvas,
-} from '../../src/bindings/browser/frame-command-renderer';
+import { renderFrameCommandsToCanvas } from '../../src/bindings/browser/frame-command-renderer';
 import { createCanvasImageResolver } from '../../src/bindings/browser/image-href-resolver';
-import {
-  canvasDisplayListRenderer,
-  drawRubyFragment,
-  drawTextFragment,
-} from '../../src/reference/ts-core/render/backends/canvas';
+import { canvasDisplayListRenderer } from '../../src/reference/ts-core/render/backends/canvas';
 import type { DisplayList } from '../../src/reference/ts-core/render/display-list';
 import { createMockCanvasContext } from '../helpers/mock-canvas-context';
-
-const REFERENCE_PAINT_HOOKS: FrameCommandPaintHooks = {
-  drawTextFragment,
-  drawRubyFragment,
-};
 
 describe('browser frame-command Canvas renderer', () => {
   it('matches the reference renderer for every frame command kind', () => {
@@ -39,7 +27,6 @@ describe('browser frame-command Canvas renderer', () => {
       resolveImage: createCanvasImageResolver(images),
       foregroundColor: '#f0f0f0',
       backgroundColor: '#101010',
-      hooks: REFERENCE_PAINT_HOOKS,
     });
 
     expect(commands.map((command) => command.kind)).toEqual([
@@ -59,14 +46,9 @@ describe('browser frame-command Canvas renderer', () => {
     expect(production.records).toEqual(reference.records);
   });
 
-  it('restores executor-owned Canvas state when a paint hook throws', () => {
+  it('restores executor-owned Canvas state when text paint throws', () => {
     const mock = createMockCanvasContext();
-    const hooks: FrameCommandPaintHooks = {
-      ...REFERENCE_PAINT_HOOKS,
-      drawTextFragment: () => {
-        throw new Error('paint failed');
-      },
-    };
+    const ctx = contextThrowingOn(mock.ctx, 'fillText');
     const commands: readonly RitoCoreWasmFrameCommand[] = [
       { kind: 'pushState' },
       { kind: 'pushState' },
@@ -84,15 +66,39 @@ describe('browser frame-command Canvas renderer', () => {
     ];
 
     expect(() => {
-      renderFrameCommandsToCanvas(commands, mock.ctx, { hooks });
+      renderFrameCommandsToCanvas(commands, ctx, {});
     }).toThrow('paint failed');
     expect(mock.getCalls('save')).toHaveLength(3);
     expect(mock.getCalls('restore')).toHaveLength(3);
   });
 
+  it('restores ruby-local and executor-owned Canvas state when ruby paint throws', () => {
+    const mock = createMockCanvasContext();
+    const ctx = contextThrowingOn(mock.ctx, 'fillText');
+    const commands: readonly RitoCoreWasmFrameCommand[] = [
+      { kind: 'pushState' },
+      { kind: 'pushState' },
+      {
+        kind: 'paintRuby',
+        text: 'boom',
+        rect: { x: 0, y: 0, width: 20, height: 10 },
+        paint: {
+          color: '#000',
+          font: { style: 'normal', weight: 400, sizePx: 8, family: 'serif' },
+        },
+      },
+    ];
+
+    expect(() => {
+      renderFrameCommandsToCanvas(commands, ctx, {});
+    }).toThrow('paint failed');
+    expect(mock.getCalls('save')).toHaveLength(4);
+    expect(mock.getCalls('restore')).toHaveLength(4);
+  });
+
   it('restores block-local and executor-owned Canvas state when image paint throws', () => {
     const mock = createMockCanvasContext();
-    const ctx = contextThrowingOnDrawImage(mock.ctx);
+    const ctx = contextThrowingOn(mock.ctx, 'drawImage');
     const bitmap = { width: 20, height: 30 } as ImageBitmap;
     const commands: readonly RitoCoreWasmFrameCommand[] = [
       { kind: 'pushState' },
@@ -108,7 +114,6 @@ describe('browser frame-command Canvas renderer', () => {
 
     expect(() => {
       renderFrameCommandsToCanvas(commands, ctx, {
-        hooks: REFERENCE_PAINT_HOOKS,
         resolveImage: () => bitmap,
       });
     }).toThrow('paint failed');
@@ -162,7 +167,7 @@ describe('browser frame-command Canvas renderer', () => {
         { width: 20, height: 10, commands: [command] } as DisplayList,
         reference.ctx,
       );
-      renderFrameCommandsToCanvas([command], production.ctx, { hooks: REFERENCE_PAINT_HOOKS });
+      renderFrameCommandsToCanvas([command], production.ctx, {});
 
       expect(production.records).toEqual(reference.records);
       expect(production.getCalls('rect')).toHaveLength(expectedRect);
@@ -282,11 +287,14 @@ function representativeCommands(): readonly RitoCoreWasmFrameCommand[] {
   ];
 }
 
-function contextThrowingOnDrawImage(ctx: CanvasRenderingContext2D): CanvasRenderingContext2D {
+function contextThrowingOn(
+  ctx: CanvasRenderingContext2D,
+  method: 'drawImage' | 'fillText',
+): CanvasRenderingContext2D {
   return new Proxy(ctx, {
     get(target, property, receiver) {
       const value = Reflect.get(target, property, receiver) as unknown;
-      if (property !== 'drawImage' || typeof value !== 'function') return value;
+      if (property !== method || typeof value !== 'function') return value;
       return (...args: readonly unknown[]) => {
         Reflect.apply(value, target, args);
         throw new Error('paint failed');

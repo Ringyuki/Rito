@@ -12,6 +12,8 @@ const BROWSER_CORE_CONTRACTS = join(SRC, 'bindings/browser/core-contracts.ts');
 const BROWSER_READER_WASM_MODULE = join(BROWSER_READER_BINDING, 'wasm-module.ts');
 const BROWSER_CANVAS_PATH = join(SRC, 'bindings/browser/canvas-path.ts');
 const BROWSER_CANVAS_BLOCK = join(SRC, 'bindings/browser/canvas-block');
+const BROWSER_CANVAS_TEXT = join(SRC, 'bindings/browser/canvas-text');
+const BROWSER_THEME = join(SRC, 'bindings/browser/theme');
 const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
 const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
@@ -141,15 +143,14 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('centralizes legacy TypeScript core imports behind the browser Canvas renderer adapter', () => {
+  it('keeps browser reader bindings independent of the legacy TypeScript core', () => {
     const hits = scan(
       BROWSER_READER_BINDING_FILES,
       /(?:from\s+|import\s*\()\s*['"](?:\.\.\/){3,}(?:reference\/ts-core|layout|render|runtime|parser|style|interaction|dom|utils|model)(?:\/|['"])/g,
-      (file) => file === BROWSER_RENDERING,
     );
     expect(
       hits,
-      `Browser reader binding imported legacy TypeScript core modules outside the Canvas renderer adapter:\n${JSON.stringify(
+      `Browser reader binding imported legacy TypeScript core modules:\n${JSON.stringify(
         hits,
         null,
         2,
@@ -157,21 +158,11 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
-  it('keeps the Canvas renderer adapter limited to reference text paint hooks', () => {
+  it('keeps the Canvas renderer adapter independent of reference paint code', () => {
     const source = read(BROWSER_RENDERING);
-    const imports = [...source.matchAll(/from\s+['"]([^'"]*reference\/ts-core[^'"]*)['"]/g)]
-      .map((match) => match[1])
-      .sort();
-    expect(imports).toEqual(['../../reference/ts-core/render/backends/canvas']);
-    const hookImport = source.match(
-      /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\.\/\.\.\/reference\/ts-core\/render\/backends\/canvas['"]/,
-    );
-    const hookNames = hookImport?.[1]
-      ?.split(',')
-      .map((name) => name.trim())
-      .filter(Boolean)
-      .sort();
-    expect(hookNames).toEqual(['drawRubyFragment', 'drawTextFragment']);
+    expect(source).not.toContain('reference/ts-core');
+    expect(source).not.toContain('drawTextFragment');
+    expect(source).not.toContain('drawRubyFragment');
     expect(source).toContain("from './image-href-resolver'");
     expect(source).toContain('renderFrameCommandsToCanvas');
     expect(source).not.toContain('canvasDisplayListRenderer');
@@ -184,10 +175,29 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
       BROWSER_CANVAS_PATH,
       BROWSER_IMAGE_HREF_RESOLVER,
       ...walkTs(BROWSER_CANVAS_BLOCK),
+      ...walkTs(BROWSER_CANVAS_TEXT),
+      ...walkTs(BROWSER_THEME),
     ];
     expect(scan(helpers, /reference\/ts-core/g)).toEqual([]);
     expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-path'");
     expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-block/renderer'");
+    expect(read(BROWSER_FRAME_COMMAND_RENDERER)).toContain("from './canvas-text/renderer'");
+  });
+
+  it('keeps production Canvas paint helpers on paint-ready values', () => {
+    const paintHelpers = [
+      BROWSER_CANVAS_PATH,
+      ...walkTs(BROWSER_CANVAS_BLOCK),
+      ...walkTs(BROWSER_CANVAS_TEXT),
+    ];
+    const hits = scan(
+      paintHelpers,
+      /\.split\(|\bnew\s+RegExp\s*\(|^\s*const\s+[A-Z_]+_RE\s*=\s*\//gm,
+    );
+    expect(
+      hits,
+      `Production Canvas paint helper parsed CSS strings:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
   });
 
   it('keeps the main thread on the WASM-free runtime and the full module in the worker', () => {
