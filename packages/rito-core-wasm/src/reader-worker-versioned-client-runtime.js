@@ -17,6 +17,7 @@ import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeTransport,
 } from './reader-worker-exact-source-range-validation-runtime.js';
+import { createPageSemanticsClientMethod } from './reader-worker-page-semantics-runtime.js';
 import {
   requireFootnote,
   requireFootnoteKey,
@@ -116,6 +117,7 @@ export function createVersionedReaderClientMethods(send) {
           requirePageTargets(result, handle, expectedPageIndex, operation),
       );
     },
+    getPageSemanticsAtRevision: createPageSemanticsClientMethod(send, currentRevisionResult),
     getPageTextPositionsAtRevision: (revision, pageIndex) => {
       const expectedPageIndex = requirePageIndex(pageIndex, 'getPageTextPositionsAtRevision');
       return currentRevisionResult(

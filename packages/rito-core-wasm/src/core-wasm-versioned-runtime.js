@@ -25,6 +25,7 @@ import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
+import { createPageSemanticsDocumentMethod } from './reader-worker-page-semantics-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
@@ -146,6 +147,7 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
     getPageTargetsAtRevision(handle, pageIndex) {
       return versionedIndex(this, 'getPageTargetsAtRevision', handle, pageIndex);
     },
+    getPageSemanticsAtRevision: createPageSemanticsDocumentMethod(versionedIndex),
     getPageTextPositionsAtRevision(handle, pageIndex) {
       return versionedIndex(this, 'getPageTextPositionsAtRevision', handle, pageIndex);
     },
@@ -311,10 +313,14 @@ function versionedRequest(document, operation, handle, request, read, validateVa
   );
 }
 
-function versionedIndex(document, operation, handle, index) {
+function versionedIndex(document, operation, handle, index, validateValue) {
   const rawMethod = `${operation}Json`;
-  return versionedJson(document, operation, handle, (revision) =>
-    document._inner[rawMethod](revision.revisionId, revision.revisionVersion, index),
+  return versionedJson(
+    document,
+    operation,
+    handle,
+    (revision) => document._inner[rawMethod](revision.revisionId, revision.revisionVersion, index),
+    validateValue,
   );
 }
 

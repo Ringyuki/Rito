@@ -13,6 +13,7 @@ import type {
 } from './interaction';
 import type { RitoCoreWasmLocatorRequest, RitoCoreWasmResolvedLocator } from './navigation';
 import type {
+  RitoCoreWasmPageSemantics,
   RitoCoreWasmPageTargets,
   RitoCoreWasmPageTextPositions,
   RitoCoreWasmTextRangeGeometry,
@@ -72,6 +73,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageTargets>>;
+  getPageSemanticsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageSemantics>>;
   getPageTextPositionsAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
@@ -150,6 +155,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): RitoCoreWasmVersioned<RitoCoreWasmPageTargets>;
+  getPageSemanticsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPageSemantics>;
   getPageTextPositionsAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
@@ -269,6 +278,8 @@ export type RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest =
   RevisionRequest<'warmFrameWindowAtRevision'> & { readonly spreadIndex: number };
 export type RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest =
   RevisionRequest<'getPageTargetsAtRevision'> & { readonly pageIndex: number };
+export type RitoCoreWasmReaderWorkerGetPageSemanticsAtRevisionRequest =
+  RevisionRequest<'getPageSemanticsAtRevision'> & { readonly pageIndex: number };
 export type RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest =
   RevisionRequest<'getPageTextPositionsAtRevision'> & { readonly pageIndex: number };
 export type RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest =
@@ -317,6 +328,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetPageSemanticsAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest
@@ -365,6 +377,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
       RitoCoreWasmReaderFrameWindowWarmResult
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getPageTargetsAtRevision', RitoCoreWasmPageTargets>
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getPageSemanticsAtRevision',
+      RitoCoreWasmPageSemantics
+    >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getPageTextPositionsAtRevision',
       RitoCoreWasmPageTextPositions

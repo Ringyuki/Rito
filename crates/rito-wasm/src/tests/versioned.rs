@@ -154,6 +154,35 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 }
 
 #[test]
+fn page_semantics_raw_binding_preserves_the_versioned_envelope_and_typed_errors() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+
+    let response = parse(
+        document
+            .get_page_semantics_at_revision_json(&revision_id, 0, 0)
+            .expect("page semantics are returned"),
+    );
+
+    assert_revision(&response, &revision_id, 0);
+    assert_eq!(response["value"]["revisionId"], revision_id);
+    assert_eq!(response["value"]["pageIndex"], 0);
+    assert_eq!(response["value"]["spreadIndex"], 0);
+    assert!(response["value"]["nodes"]
+        .as_array()
+        .is_some_and(|nodes| nodes.iter().any(|node| node["role"] == "paragraph")));
+
+    let stale = document
+        .get_page_semantics_at_revision_json(&revision_id, 1, 0)
+        .expect_err("a stale semantics handle is rejected");
+    assert_eq!(stale.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
+    let invalid_page = document
+        .get_page_semantics_at_revision_json(&revision_id, 0, usize::MAX)
+        .expect_err("an invalid semantics page is rejected");
+    assert_eq!(invalid_page.code(), WasmRuntimeErrorCode::EngineError);
+}
+
+#[test]
 fn versioned_exact_text_reads_return_stamped_typed_responses() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);

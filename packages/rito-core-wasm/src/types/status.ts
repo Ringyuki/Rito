@@ -18,6 +18,7 @@ export interface RitoCoreWasmStatus {
     readonly footnotesJson: true;
     readonly chapterTextIndicesJson: true;
     readonly pageTargetsJson: true;
+    readonly pageSemanticsJson: true;
     readonly pageTextPositionsJson: true;
     readonly textRangeGeometryJson: true;
     readonly exactTextInteractionJson: true;

@@ -11,6 +11,7 @@ import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
+import { pageSemanticsResponse } from './reader-worker-page-semantics-runtime.js';
 import {
   requireFootnote,
   requireFootnoteKey,
@@ -66,6 +67,8 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'getPageTargetsAtRevision':
       return pageTargetsResponse(document, request);
+    case 'getPageSemanticsAtRevision':
+      return pageSemanticsResponse(document, request, validatedValueResponse);
     case 'getPageTextPositionsAtRevision':
       return pageTextPositionsResponse(document, request);
     case 'getTextRangeGeometryAtRevision':

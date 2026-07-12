@@ -46,6 +46,45 @@ export interface RitoCoreWasmPageTargets {
   readonly entries: readonly RitoCoreWasmPageTarget[];
 }
 
+export type RitoCoreWasmSemanticRole =
+  | 'heading'
+  | 'paragraph'
+  | 'list'
+  | 'listitem'
+  | 'image'
+  | 'link'
+  | 'blockquote'
+  | 'table'
+  | 'generic';
+
+/** Visual bounds in margin-free page-content coordinates. */
+export interface RitoCoreWasmSemanticBounds {
+  readonly x: number;
+  readonly y: number;
+  readonly width: number;
+  readonly height: number;
+}
+
+/** Recursive accessibility node authored by the retained native layout. */
+export interface RitoCoreWasmSemanticNode {
+  readonly role: RitoCoreWasmSemanticRole;
+  readonly level?: number | undefined;
+  /** Aggregate fallback text; hosts must prefer non-empty children to avoid duplicate speech. */
+  readonly text?: string | undefined;
+  /** An empty string deliberately identifies a decorative image. */
+  readonly alt?: string | undefined;
+  readonly href?: string | undefined;
+  readonly bounds: RitoCoreWasmSemanticBounds;
+  readonly children: readonly RitoCoreWasmSemanticNode[];
+}
+
+export interface RitoCoreWasmPageSemantics {
+  readonly revisionId: string;
+  readonly pageIndex: number;
+  readonly spreadIndex: number;
+  readonly nodes: readonly RitoCoreWasmSemanticNode[];
+}
+
 export interface RitoCoreWasmTextRunOffset {
   readonly start: number;
   readonly end: number;

@@ -68,6 +68,18 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = getPageSemanticsAtRevisionJson)]
+    pub fn get_page_semantics_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+        page_index: usize,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .get_page_semantics_at_revision_json(revision_id, revision_version, page_index)
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = getPageTextPositionsAtRevisionJson)]
     pub fn get_page_text_positions_at_revision_json(
         &self,
