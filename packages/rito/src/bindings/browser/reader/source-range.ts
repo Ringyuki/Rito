@@ -2,19 +2,14 @@ import type {
   ReaderExactSourceRangeRequest,
   ReaderExactSourceRangeResolution,
   ReaderExactTextRangeRect,
-  ReaderLocator,
-  ReaderSourcePoint,
 } from '../../../reader';
-import type {
-  CoreExactSourceRangeRequest,
-  CoreExactSourceRangeResponse,
-  CoreSourceLocator,
-} from '../core-contracts';
+import type { CoreExactSourceRangeRequest, CoreExactSourceRangeResponse } from '../core-contracts';
 import {
   captureInteraction,
   readCapturedInteraction,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
+import { copyReaderLocator, copyReaderSourcePoint } from './source-locator';
 import type { BrowserReaderState } from './types';
 
 type CoreResolvedRange = Extract<
@@ -57,7 +52,7 @@ function mapResolvedRange(
 ): Extract<ReaderExactSourceRangeResolution, { readonly status: 'resolved' }>['range'] {
   return {
     selectedText: range.selectedText,
-    sourceLocator: copyLocator(range.sourceLocator),
+    sourceLocator: copyReaderLocator(range.sourceLocator),
     rects: range.rects.map((rect) => {
       requireMatchingPageProjection(state, rect.pageIndex, rect.spreadIndex);
       return copyRangeRect(rect);
@@ -91,31 +86,10 @@ function copyRequest(request: ReaderExactSourceRangeRequest): CoreExactSourceRan
   return {
     href: request.href,
     sourceRange: {
-      start: copySourcePoint(request.sourceRange.start),
-      end: copySourcePoint(request.sourceRange.end),
+      start: copyReaderSourcePoint(request.sourceRange.start),
+      end: copyReaderSourcePoint(request.sourceRange.end),
     },
   };
-}
-
-function copyLocator(locator: ReaderLocator | CoreSourceLocator): ReaderLocator {
-  return {
-    href: locator.href,
-    ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
-    ...(locator.sourcePoint ? { sourcePoint: copySourcePoint(locator.sourcePoint) } : {}),
-    ...(locator.sourceRange
-      ? {
-          sourceRange: {
-            start: copySourcePoint(locator.sourceRange.start),
-            end: copySourcePoint(locator.sourceRange.end),
-          },
-        }
-      : {}),
-    ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
-  };
-}
-
-function copySourcePoint(point: ReaderSourcePoint): ReaderSourcePoint {
-  return { nodePath: [...point.nodePath], textOffset: point.textOffset };
 }
 
 function copyRangeRect(rect: CoreResolvedRange['rects'][number]): ReaderExactTextRangeRect {

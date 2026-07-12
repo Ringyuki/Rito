@@ -3,23 +3,27 @@ import type {
   ReaderInteractions,
   ReaderLocator,
   ReaderLocatorResolution,
+  ReaderPageReadingAnchor,
   ReaderPageTargets,
 } from '../../../reader';
 import type {
   CoreFootnote,
+  CorePageReadingAnchor,
   CorePageTargets,
-  CoreSourceLocator,
   CoreSourceLocatorResolution,
 } from '../core-contracts';
 import {
+  captureCommittedSourceRead,
   captureInteraction,
   captureIsCurrent,
   readCapturedInteraction,
+  readCapturedSource,
   sameRevision,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
 import { createBrowserReaderTextSelection } from './text-selection';
 import { resolveExactSourceRange } from './source-range';
+import { copyReaderLocator } from './source-locator';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
 const PAGE_TARGET_CACHE_CAPACITY = 12;
@@ -32,6 +36,7 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
       return captureInteraction(state) !== undefined;
     },
     getPageSemantics: (pageIndex) => getPageSemantics(state, pageIndex),
+    getPageReadingAnchor: (pageIndex) => getPageReadingAnchor(state, pageIndex),
     getPageTargets: (pageIndex) => getPageTargets(state, pageIndex),
     getFootnote: (key) => getFootnote(state, key),
     resolveLocator: (locator) => resolveLocator(state, locator),
@@ -57,6 +62,24 @@ async function getPageSemantics(state: BrowserReaderState, pageIndex: number) {
     spreadIndex: value.spreadIndex,
     nodes: value.nodes,
   };
+}
+
+async function getPageReadingAnchor(
+  state: BrowserReaderState,
+  pageIndex: number,
+): Promise<ReaderPageReadingAnchor | undefined> {
+  requirePageIndex(pageIndex);
+  const capture = captureCommittedSourceRead(state);
+  if (!capture) return undefined;
+  const value = await readCapturedSource(state, capture, (worker, revision) =>
+    worker.getPageReadingAnchorAtRevision(revision, pageIndex),
+  );
+  if (!value) return undefined;
+  if (value.revisionId !== capture.coreRevision.revisionId || value.pageIndex !== pageIndex) {
+    throw new Error('Reader page reading anchor response does not match its request');
+  }
+  requireMatchingSpread(state, value, 'reading anchor');
+  return toReaderPageReadingAnchor(value);
 }
 export function resetBrowserReaderInteractionCache(state: BrowserReaderState): void {
   state.interaction.pageTargets.clear();
@@ -125,10 +148,10 @@ async function resolveLocator(
   state: BrowserReaderState,
   locator: ReaderLocator,
 ): Promise<ReaderLocatorResolution | undefined> {
-  const capture = captureInteraction(state);
+  const capture = captureCommittedSourceRead(state);
   if (!capture) return undefined;
-  const value = await readCapturedInteraction(state, capture, (worker, revision) =>
-    worker.resolveSourceLocatorAtRevision(revision, copyLocator(locator)),
+  const value = await readCapturedSource(state, capture, (worker, revision) =>
+    worker.resolveSourceLocatorAtRevision(revision, copyReaderLocator(locator)),
   );
   return value ? toReaderLocatorResolution(value) : undefined;
 }
@@ -168,33 +191,19 @@ function toReaderInteractionTarget(
     bounds: { ...target.bounds },
     label: target.label,
     ...(target.href !== undefined ? { href: target.href } : {}),
-    ...(target.sourceLocator ? { sourceLocator: copyLocator(target.sourceLocator) } : {}),
-    ...(target.targetLocator ? { targetLocator: copyLocator(target.targetLocator) } : {}),
+    ...(target.sourceLocator ? { sourceLocator: copyReaderLocator(target.sourceLocator) } : {}),
+    ...(target.targetLocator ? { targetLocator: copyReaderLocator(target.targetLocator) } : {}),
     ...(target.imageSrc !== undefined ? { imageSrc: target.imageSrc } : {}),
     ...(target.imageAlt !== undefined ? { imageAlt: target.imageAlt } : {}),
     ...(target.footnoteKey !== undefined ? { footnoteKey: target.footnoteKey } : {}),
   };
 }
 
-function copyLocator(locator: ReaderLocator | CoreSourceLocator): ReaderLocator {
-  return {
-    href: locator.href,
-    ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
-    ...(locator.sourcePoint ? { sourcePoint: copySourcePoint(locator.sourcePoint) } : {}),
-    ...(locator.sourceRange
-      ? {
-          sourceRange: {
-            start: copySourcePoint(locator.sourceRange.start),
-            end: copySourcePoint(locator.sourceRange.end),
-          },
-        }
-      : {}),
-    ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
-  };
-}
-
-function copySourcePoint(point: NonNullable<ReaderLocator['sourcePoint']>) {
-  return { nodePath: [...point.nodePath], textOffset: point.textOffset };
+function toReaderPageReadingAnchor(value: CorePageReadingAnchor): ReaderPageReadingAnchor {
+  const projection = { pageIndex: value.pageIndex, spreadIndex: value.spreadIndex };
+  return value.status === 'resolved'
+    ? { status: 'resolved', ...projection, locator: copyReaderLocator(value.locator) }
+    : { status: 'unavailable', ...projection, reason: value.reason };
 }
 
 function toReaderFootnote(value: CoreFootnote) {
@@ -203,7 +212,7 @@ function toReaderFootnote(value: CoreFootnote) {
 
 function toReaderLocatorResolution(value: CoreSourceLocatorResolution): ReaderLocatorResolution {
   const common = {
-    locator: copyLocator(value.locator),
+    locator: copyReaderLocator(value.locator),
     spineIdref: value.spineIdref,
     matchedBy: value.matchedBy,
   };

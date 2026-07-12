@@ -35,9 +35,9 @@ const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
 const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resources/scheduler.ts');
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
-// Worker-scoped revision ownership, stale-result guards, exact selection, and durable
-// source-range projection are required browser orchestration capabilities.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2530;
+// Worker-scoped revision ownership, stale-result guards, exact selection, durable
+// source reads, double-page anchors, and atomic reflow are required orchestration capabilities.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2765;
 // Exact native interaction DTOs stay public without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 620;
 

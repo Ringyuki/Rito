@@ -117,9 +117,14 @@ export async function commitBrowserReaderViewResult(
   visualPreview: boolean,
   onCommitted?: () => void,
   baseCommitGeneration = currentCommitGeneration(state),
+  expectedActiveSpreadIndex?: number,
 ): Promise<boolean | 'staleSpread'> {
   if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
     return releaseDiscarded(worker, result);
+  }
+  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+    releaseDiscarded(worker, result);
+    return 'staleSpread';
   }
   const rollbackFonts = await prepareRequiredRevisionFonts(
     state,
@@ -128,22 +133,37 @@ export async function commitBrowserReaderViewResult(
     () => !shouldDiscardReflowResult(state, request, baseCommitGeneration),
   );
   if (!rollbackFonts) return false;
+  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+    rollbackFonts();
+    releaseDiscarded(worker, result);
+    return 'staleSpread';
+  }
   const commitFrame = await prepareBrowserReaderCommitFrame(state, worker, result, rollbackFonts);
   if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
     rollbackFonts();
     return releaseDiscarded(worker, result);
   }
+  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+    rollbackFonts();
+    releaseDiscarded(worker, result);
+    return 'staleSpread';
+  }
   if (visualPreview) {
-    const committed = commitVisualPreview(
-      state,
-      request,
-      worker,
-      result,
-      commitFrame,
-      baseCommitGeneration,
-    );
-    if (committed !== true) rollbackFonts();
-    return committed;
+    try {
+      const committed = commitVisualPreview(
+        state,
+        request,
+        worker,
+        result,
+        commitFrame,
+        baseCommitGeneration,
+      );
+      if (!committed) rollbackFonts();
+      return committed;
+    } catch (error) {
+      rollbackFonts();
+      throw error;
+    }
   }
   applyBrowserReaderRevisionState(state, {
     config: request.config,
@@ -153,8 +173,13 @@ export async function commitBrowserReaderViewResult(
     worker,
     initialFrame: commitFrame.frame,
   });
-  onCommitted?.();
-  for (const cb of state.layoutCommittedListeners) cb();
+  state.activeSpreadIndex = commitFrame.frame?.spreadIndex ?? clampedActiveSpread(state);
+  notifyReaderListener(state, 'reader layout commit callback', onCommitted);
+  for (const cb of state.layoutCommittedListeners) {
+    notifyReaderListener(state, 'reader layout committed listener', () => {
+      cb(state.activeSpreadIndex);
+    });
+  }
   return true;
 }
 
@@ -183,7 +208,11 @@ export function commitBrowserReaderVisualPreview(
     lineBreaking: preview.lineBreaking,
     worker: preview.worker,
   };
-  for (const cb of state.spreadContentInvalidatedListeners) cb(preview.spreadIndex);
+  for (const cb of state.spreadContentInvalidatedListeners) {
+    notifyReaderListener(state, 'reader spread invalidated listener', () => {
+      cb(preview.spreadIndex);
+    });
+  }
 }
 
 export function clearBrowserReaderVisualPreview(state: BrowserReaderState): void {
@@ -218,6 +247,22 @@ function shouldDiscardReflowResult(
   );
 }
 
+function activeSpreadChanged(
+  state: BrowserReaderState,
+  expectedActiveSpreadIndex: number | undefined,
+): boolean {
+  return (
+    expectedActiveSpreadIndex !== undefined && state.activeSpreadIndex !== expectedActiveSpreadIndex
+  );
+}
+
+function clampedActiveSpread(state: BrowserReaderState): number {
+  return Math.max(
+    0,
+    Math.min(state.activeSpreadIndex, state.revisionBundle.revision.spreadCount - 1),
+  );
+}
+
 function releaseDiscarded(
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
@@ -237,12 +282,12 @@ function commitVisualPreview(
   result: BrowserReaderRevisionResult,
   commitFrame: Awaited<ReturnType<typeof prepareBrowserReaderCommitFrame>>,
   baseCommitGeneration: number,
-): boolean | 'staleSpread' {
+): boolean {
   const displaySpreadIndex = commitFrame.displaySpreadIndex;
   if (!commitFrame.frame) return releaseDiscarded(worker, result);
   if (displaySpreadIndex !== state.activeSpreadIndex) {
     releaseDiscarded(worker, result);
-    return 'staleSpread';
+    throw new Error('Reader visual preview frame does not match its requested spread');
   }
   commitBrowserReaderVisualPreview(state, {
     config: request.config,
@@ -281,5 +326,18 @@ function applyRevisionData(state: BrowserReaderState, result: BrowserReaderRevis
   state.chapterTextIndices = createRitoCoreWasmReaderChapterTextIndexMap(bundle.chapterTextIndices);
   if (!result.preview || bundle.tocTargets.targets.length > 0 || state.tocTargets.length === 0) {
     state.tocTargets = bundle.tocTargets.targets;
+  }
+}
+
+function notifyReaderListener(
+  state: BrowserReaderState,
+  label: string,
+  listener: (() => void) | undefined,
+): void {
+  if (!listener) return;
+  try {
+    listener();
+  } catch (error) {
+    state.logger.warn(`${label} failed`, error);
   }
 }

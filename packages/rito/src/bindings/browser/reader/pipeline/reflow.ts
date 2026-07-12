@@ -14,8 +14,10 @@ import {
   reportReflowError,
   scheduleReaderMicrotask,
 } from './reflow-state';
+import { captureBrowserReaderReflowAnchor, retryStaleReflow } from './reflow-anchor';
 
 type ResolvedViewRevision = Pick<BrowserReaderViewRevisionResult, 'kind' | 'followUp'>;
+type ViewRevisionAttempt = ResolvedViewRevision | 'staleSpread' | undefined;
 type BeforeInitialFullReflow = () => Promise<boolean | undefined>;
 
 export function scheduleBrowserReaderReflow(
@@ -67,7 +69,7 @@ export async function startBrowserReaderInitialReflow(
   };
   state.reflow.active = request;
   try {
-    const resolved = await createAndCommitViewRevision(
+    const resolved = await createAndCommitStableViewRevision(
       state,
       request,
       state.foregroundWorker,
@@ -121,7 +123,7 @@ async function refreshInitialPreview(
   if (isStaleReflow(state, request)) return;
   const previousRevisionId = state.revisionBundle.revision.revisionId;
   if (!metricsChanged || previousRevisionId.length === 0) return resolved;
-  return createAndCommitViewRevision(
+  return createAndCommitStableViewRevision(
     state,
     request,
     state.foregroundWorker,
@@ -177,7 +179,7 @@ async function createQueuedRevision(
   const previousRevisionId = state.revisionBundle.revision.revisionId || undefined;
   if (previousRevisionId !== undefined) {
     const previewWorker = state.worker;
-    const resolved = await createAndCommitViewRevision(
+    const resolved = await createAndCommitStableViewRevision(
       state,
       request,
       previewWorker,
@@ -235,9 +237,10 @@ async function createAndCommitFullRevision(
     const { previousRevisionId: _previousRevisionId, ...crossWorkerRequest } = workerRequest;
     workerRequest = crossWorkerRequest;
   }
-  await createAndCommitViewRevision(state, request, worker, workerRequest, previousId);
+  await createAndCommitStableViewRevision(state, request, worker, workerRequest, previousId);
 }
-async function createAndCommitViewRevision(
+
+async function createAndCommitStableViewRevision(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,
   worker: BrowserReaderWorkerClient,
@@ -245,20 +248,46 @@ async function createAndCommitViewRevision(
   previousRevisionId: string | undefined,
   onPreviewCommitted?: () => void,
 ): Promise<ResolvedViewRevision | undefined> {
+  return retryStaleReflow(state, request, () =>
+    createAndCommitViewRevision(
+      state,
+      request,
+      worker,
+      workerRequest,
+      previousRevisionId,
+      onPreviewCommitted,
+    ),
+  );
+}
+
+async function createAndCommitViewRevision(
+  state: BrowserReaderState,
+  request: BrowserReaderQueuedReflow,
+  worker: BrowserReaderWorkerClient,
+  workerRequest: CoreViewRevisionRequest | 'preview' | 'full',
+  previousRevisionId: string | undefined,
+  onPreviewCommitted?: () => void,
+): Promise<ViewRevisionAttempt> {
+  const positionRead = captureBrowserReaderReflowAnchor(state);
+  const position = positionRead instanceof Promise ? await positionRead : positionRead;
+  if (position.status === 'stale') return 'staleSpread';
+  if (isStaleReflow(state, request)) return undefined;
   const dispatchRequest =
     typeof workerRequest === 'string'
       ? {
           layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
           lineBreaking: request.lineBreaking,
-          activeSpreadIndex: state.activeSpreadIndex,
+          activeSpreadIndex: position.activeSpreadIndex,
           mode: workerRequest,
           ...(previousRevisionId !== undefined ? { previousRevisionId } : {}),
         }
       : workerRequest;
+  const { preserveLocator: _preserveLocator, ...baseDispatchRequest } = dispatchRequest;
   const baseCommitGeneration = currentCommitGeneration(state);
   const view = await worker.createViewRevision({
-    ...dispatchRequest,
-    activeSpreadIndex: state.activeSpreadIndex,
+    ...baseDispatchRequest,
+    activeSpreadIndex: position.activeSpreadIndex,
+    ...(position.preserveLocator ? { preserveLocator: position.preserveLocator } : {}),
   });
   const visualPreview = view.display === 'visualPreview';
   const onCommitted = view.kind === 'full' ? request.onCommitted : onPreviewCommitted;
@@ -270,9 +299,9 @@ async function createAndCommitViewRevision(
     visualPreview,
     visualPreview ? undefined : onCommitted,
     baseCommitGeneration,
+    position.activeSpreadIndex,
   );
-  if (commit === 'staleSpread')
-    return view.followUp ? { kind: view.kind, followUp: view.followUp } : undefined;
+  if (commit === 'staleSpread') return 'staleSpread';
   return commit ? { kind: view.kind, followUp: view.followUp } : undefined;
 }
 

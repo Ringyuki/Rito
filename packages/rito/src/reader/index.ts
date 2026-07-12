@@ -20,6 +20,7 @@ export type {
   ReaderLocator,
   ReaderLocatorMatchedBy,
   ReaderLocatorResolution,
+  ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSemanticNode,

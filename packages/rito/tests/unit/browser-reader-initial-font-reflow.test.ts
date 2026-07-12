@@ -87,7 +87,7 @@ describe('Browser reader initial font metric reflow', () => {
 
     pending[1]?.resolve({ ...revisionResult('preview-2', 1, 1), preview: true });
     await initial;
-    await flushPromises();
+    await settleUntil(() => state.reflow.deferred !== undefined);
 
     const refreshedConfig = fixture.createRevision.mock.calls[1]?.[0];
     expect(state.revisionBundle.revision.revisionId).toBe('preview-1');
@@ -190,4 +190,9 @@ function addTitleMetrics(state: ReturnType<typeof createState>): void {
     advances: { ' ': 0.25 },
     pairAdjustments: {},
   };
+}
+
+async function settleUntil(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 10 && !predicate(); attempt += 1) await flushPromises();
+  expect(predicate()).toBe(true);
 }

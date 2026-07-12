@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
 import type {
+  CorePageReadingAnchor,
   CorePageSemantics,
   CorePageTargets,
   CoreSourceLocatorResolution,
@@ -82,6 +83,80 @@ describe('Browser reader interaction contract', () => {
       ],
     });
     expect(fixture.getPageSemanticsAtRevision).toHaveBeenCalledWith(handle(), 0);
+  });
+
+  it('exposes a copied durable page reading anchor without its revision stamp', async () => {
+    const fixture = readyFixture();
+    const value = pageReadingAnchor(0, 0);
+    fixture.getPageReadingAnchorAtRevision.mockResolvedValue({ revision: handle(), value });
+
+    const result = await createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
+
+    expect(result).toEqual({
+      status: 'resolved',
+      pageIndex: 0,
+      spreadIndex: 0,
+      locator: {
+        href: 'Text/chapter.xhtml',
+        sourcePoint: { nodePath: [0, 1], textOffset: 3 },
+        sourceRange: {
+          start: { nodePath: [0, 1], textOffset: 3 },
+          end: { nodePath: [0, 1], textOffset: 7 },
+        },
+      },
+    });
+    expect(fixture.getPageReadingAnchorAtRevision).toHaveBeenCalledWith(handle(), 0);
+    if (result?.status !== 'resolved' || value.status !== 'resolved') throw new Error('anchor');
+    expect(result.locator).not.toBe(value.locator);
+    expect(result.locator.sourcePoint?.nodePath).not.toBe(value.locator.sourcePoint?.nodePath);
+  });
+
+  it('preserves an explicit unavailable page reading anchor', async () => {
+    const fixture = readyFixture();
+    fixture.getPageReadingAnchorAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: {
+        status: 'unavailable',
+        revisionId: 'rev',
+        pageIndex: 0,
+        spreadIndex: 0,
+        reason: 'noSourceContent',
+      },
+    });
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0),
+    ).resolves.toEqual({
+      status: 'unavailable',
+      pageIndex: 0,
+      spreadIndex: 0,
+      reason: 'noSourceContent',
+    });
+    expect(fixture.getPageTargetsAtRevision).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ownership: 'inner revision', value: { ...pageReadingAnchor(0, 0), revisionId: 'forged' } },
+    { ownership: 'requested page', value: pageReadingAnchor(1, 0) },
+  ])('rejects page reading anchors with mismatched $ownership', async ({ value }) => {
+    const fixture = readyFixture();
+    fixture.getPageReadingAnchorAtRevision.mockResolvedValue({ revision: handle(), value });
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0),
+    ).rejects.toThrow('Reader page reading anchor response does not match its request');
+  });
+
+  it('rejects page reading anchors outside committed navigation', async () => {
+    const fixture = readyFixture();
+    fixture.getPageReadingAnchorAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: pageReadingAnchor(0, 1),
+    });
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0),
+    ).rejects.toThrow('Reader page reading anchor do not match committed navigation');
   });
 
   it.each([
@@ -213,6 +288,35 @@ describe('Browser reader interaction contract', () => {
     state.disposed = true;
     expect(interactions.enabled).toBe(false);
   });
+
+  it('keeps durable source reads bound to the canonical revision during a visual preview', async () => {
+    const fixture = readyFixture();
+    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    fixture.getPageReadingAnchorAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: pageReadingAnchor(0, 0),
+    });
+    fixture.resolveSourceLocatorAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: resolvedLocator(),
+    });
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const locator = { href: 'Text/chapter.xhtml', anchorId: 'target' };
+
+    await expect(interactions.getPageReadingAnchor?.(0)).resolves.toMatchObject({
+      status: 'resolved',
+      pageIndex: 0,
+      spreadIndex: 0,
+    });
+    await expect(interactions.resolveLocator(locator)).resolves.toMatchObject({
+      status: 'resolved',
+      pageIndex: 0,
+      spreadIndex: 0,
+    });
+    expect(fixture.getPageReadingAnchorAtRevision).toHaveBeenCalledWith(handle(), 0);
+    expect(fixture.resolveSourceLocatorAtRevision).toHaveBeenCalledWith(handle(), locator);
+    expect(interactions.enabled).toBe(false);
+  });
 });
 
 function readyFixture() {
@@ -281,6 +385,23 @@ function pageSemantics(pageIndex: number, spreadIndex: number): CorePageSemantic
         ],
       },
     ],
+  };
+}
+
+function pageReadingAnchor(pageIndex: number, spreadIndex: number): CorePageReadingAnchor {
+  return {
+    status: 'resolved',
+    revisionId: 'rev',
+    pageIndex,
+    spreadIndex,
+    locator: {
+      href: 'Text/chapter.xhtml',
+      sourcePoint: { nodePath: [0, 1], textOffset: 3 },
+      sourceRange: {
+        start: { nodePath: [0, 1], textOffset: 3 },
+        end: { nodePath: [0, 1], textOffset: 7 },
+      },
+    },
   };
 }
 

@@ -192,7 +192,7 @@ export interface BrowserReaderState {
   fontFamilyOverride: string | undefined;
   fontFamilyForce: boolean;
   pendingFrameLoads: Map<number, Promise<void>>;
-  layoutCommittedListeners: Set<() => void>;
+  layoutCommittedListeners: Set<(activeSpreadIndex: number) => void>;
   reflow: BrowserReaderReflowState;
   disposed: boolean;
 }

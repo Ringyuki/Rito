@@ -32,7 +32,8 @@ describe('Browser reader stale reflow races', () => {
     state.activeSpreadIndex = 1;
     activeChapterPreview
       .mockResolvedValueOnce({ chapterIndex: 0, progress: 0 })
-      .mockResolvedValueOnce(undefined);
+      .mockResolvedValueOnce({ chapterIndex: 0, progress: 0 })
+      .mockResolvedValue(undefined);
     let staleCommits = 0;
     let canonicalCommits = 0;
 
@@ -50,10 +51,14 @@ describe('Browser reader stale reflow races', () => {
     pending[0]?.resolve({ ...revisionResult('preview', 1, 1, 1), preview: true });
     await flushPromises();
     expect(state.visualPreview).toBeUndefined();
+    expect(createViewRevision).toHaveBeenCalledTimes(2);
+    pending[1]?.resolve({ ...revisionResult('current-preview', 1, 1, 2), preview: true });
+    await flushPromises();
     await vi.advanceTimersByTimeAsync(1000);
+    await flushPromises();
 
     expect(state.reflow.deferred).toBeDefined();
-    expect(createViewRevision).toHaveBeenCalledTimes(2);
+    expect(createViewRevision).toHaveBeenCalledTimes(3);
     expect(
       scheduleBrowserReaderReflow(state, BASE_READER_OPTIONS, 'single', 'greedy', () => {
         canonicalCommits += 1;
@@ -61,14 +66,14 @@ describe('Browser reader stale reflow races', () => {
     ).toBe(true);
     expect(state.reflow.deferred).toBeUndefined();
     await flushPromises();
-    expect(createViewRevision).toHaveBeenCalledTimes(3);
+    expect(createViewRevision).toHaveBeenCalledTimes(4);
 
-    pending[1]?.resolve(revisionResult('stale-full', 4, 4));
+    pending[2]?.resolve(revisionResult('stale-full', 4, 4));
     await flushPromises();
     expect(releaseRevision).toHaveBeenCalledWith('stale-full');
     expect(state.revisionBundle.revision.revisionId).toBe('rev-ready');
 
-    pending[2]?.resolve(revisionResult('canonical-full', 4, 4));
+    pending[3]?.resolve(revisionResult('canonical-full', 4, 4));
     await flushPromises();
 
     expect(state.revisionBundle.revision.revisionId).toBe('canonical-full');
@@ -106,14 +111,18 @@ describe('Browser reader stale reflow races', () => {
     );
 
     pending[0]?.reject(new Error('stale active failure'));
-    await flushPromises();
+    await settleUntil(() => createViewRevision.mock.calls.length === 2);
 
     expect(createViewRevision).toHaveBeenCalledTimes(2);
     expect(state.reflow.lastError).toBeUndefined();
     expect(state.logger.error).not.toHaveBeenCalled();
 
-    pending[1]?.resolve(revisionResult('latest-full', 4, 4));
-    await flushPromises();
+    await settleUntil(() => pending.length === 2);
+    expect(pending).toHaveLength(2);
+    const latest = pending[1];
+    if (!latest) throw new Error('Expected the latest queued revision request');
+    latest.resolve(revisionResult('latest-full', 4, 4));
+    await settleUntil(() => state.revisionBundle.revision.revisionId === 'latest-full');
 
     expect(state.revisionBundle.revision.revisionId).toBe('latest-full');
     expect(state.config.viewportWidth).toBe(1000);
@@ -172,11 +181,79 @@ describe('Browser reader stale reflow races', () => {
     scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
     await vi.advanceTimersByTimeAsync(0);
     pending[0]?.resolve(revisionResult('decode-failure', 4, 4));
-    await flushPromises();
+    await settleUntil(() => state.reflow.lastError !== undefined);
 
     expect(releaseRevision).toHaveBeenCalledWith('decode-failure');
     expect(state.revisionBundle.revision.revisionId).toBe('rev-ready');
     expect(state.reflow.lastError?.message).toContain('queued reader reflow');
+  });
+
+  it('rejects a malformed visual-preview display projection without retrying', async () => {
+    vi.useFakeTimers();
+    const pending: Deferred<BrowserReaderRevisionResult>[] = [];
+    const { worker, createViewRevision, releaseRevision, activeChapterPreview } = createWorker(
+      (deferred) => pending.push(deferred),
+    );
+    const state = createReadyState(worker);
+    state.activeSpreadIndex = 1;
+    activeChapterPreview.mockResolvedValue({ chapterIndex: 0, progress: 0 });
+
+    scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
+    await vi.advanceTimersByTimeAsync(0);
+    pending[0]?.resolve({ ...revisionResult('malformed-preview', 1, 1, 0), preview: true });
+    await flushPromises();
+    await flushPromises();
+
+    expect(createViewRevision).toHaveBeenCalledOnce();
+    expect(releaseRevision).toHaveBeenCalledWith('malformed-preview');
+    expect(state.visualPreview).toBeUndefined();
+    expect(state.reflow.lastError?.message).toContain(
+      'visual preview frame does not match its requested spread',
+    );
+  });
+
+  it('keeps a canonical commit successful when a layout listener throws', async () => {
+    vi.useFakeTimers();
+    const pending: Deferred<BrowserReaderRevisionResult>[] = [];
+    const { worker } = createWorker((deferred) => pending.push(deferred));
+    const state = createReadyState(worker);
+    state.layoutCommittedListeners.add(() => {
+      throw new Error('listener failed');
+    });
+
+    scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
+    await vi.advanceTimersByTimeAsync(0);
+    pending[0]?.resolve(revisionResult('listener-safe', 4, 4));
+    await settleUntil(() => state.revisionBundle.revision.revisionId === 'listener-safe');
+
+    expect(state.reflow.lastError).toBeUndefined();
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'reader layout committed listener failed',
+      expect.any(Error),
+    );
+  });
+
+  it('keeps a visual preview committed when an invalidation listener throws', async () => {
+    vi.useFakeTimers();
+    const pending: Deferred<BrowserReaderRevisionResult>[] = [];
+    const { worker, activeChapterPreview } = createWorker((deferred) => pending.push(deferred));
+    const state = createReadyState(worker);
+    state.activeSpreadIndex = 1;
+    activeChapterPreview.mockResolvedValue({ chapterIndex: 0, progress: 0 });
+    state.spreadContentInvalidatedListeners.add(() => {
+      throw new Error('listener failed');
+    });
+
+    scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 900 }, 'single', 'greedy');
+    await vi.advanceTimersByTimeAsync(0);
+    pending[0]?.resolve({ ...revisionResult('preview-listener-safe', 1, 1, 1), preview: true });
+    await settleUntil(() => state.visualPreview?.revision.revisionId === 'preview-listener-safe');
+
+    expect(state.reflow.lastError).toBeUndefined();
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'reader spread invalidated listener failed',
+      expect.any(Error),
+    );
   });
 });
 
@@ -184,4 +261,9 @@ function createReadyState(worker: BrowserReaderWorkerClient) {
   const state = createState(worker);
   setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'));
   return state;
+}
+
+async function settleUntil(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 10 && !predicate(); attempt += 1) await flushPromises();
+  expect(predicate()).toBe(true);
 }

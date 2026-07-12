@@ -9,6 +9,7 @@ import type {
   PaginationPolicy,
   ReaderLocator,
   ReaderLocatorResolution,
+  ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSourceRange,
@@ -127,7 +128,7 @@ export interface ReaderTextSelectionInteractions {
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */
 export interface ReaderInteractions {
-  /** False while no canonical revision is active or a visual-only preview is displayed. */
+  /** Gates visual/geometry reads; durable source reads may continue on the canonical revision. */
   readonly enabled: boolean;
   /** Exact native text selection, when supported by the backing reader. */
   readonly textSelection?: ReaderTextSelectionInteractions;
@@ -137,6 +138,8 @@ export interface ReaderInteractions {
   ): Promise<ReaderExactSourceRangeResolution | undefined>;
   /** Native document-order accessibility content for one committed page. */
   getPageSemantics?(pageIndex: number): Promise<ReaderPageSemantics | undefined>;
+  /** Durable source identity for the first readable content on one committed page. */
+  getPageReadingAnchor?(pageIndex: number): Promise<ReaderPageReadingAnchor | undefined>;
   getPageTargets(pageIndex: number): Promise<ReaderPageTargets | undefined>;
   getFootnote(key: string): Promise<FootnoteEntry | undefined>;
   resolveLocator(locator: ReaderLocator): Promise<ReaderLocatorResolution | undefined>;
@@ -226,6 +229,6 @@ export interface Reader {
   }): boolean;
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
   onSpreadContentInvalidated(cb: (spreadIndex: number) => void): () => void;
-  onLayoutCommitted(cb: () => void): () => void;
+  onLayoutCommitted(cb: (activeSpreadIndex: number) => void): () => void;
   dispose(): void;
 }

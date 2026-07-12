@@ -109,14 +109,14 @@ describe('Browser reader reflow races', () => {
     ).toBe(true);
 
     pending[0]?.resolve(revisionResult('stale-resize', 4, 4));
-    await flushPromises();
+    await settleUntil(() => createViewRevision.mock.calls.length === 2);
 
     expect(releaseRevision).toHaveBeenCalledWith('stale-resize');
     expect(createViewRevision).toHaveBeenCalledTimes(2);
     expect(createViewRevision.mock.lastCall?.[0].layoutConfig.viewportWidth).toBe(800);
 
     pending[1]?.resolve(revisionResult('canonical-layout', 4, 4));
-    await flushPromises();
+    await settleUntil(() => state.revisionBundle.revision.revisionId === 'canonical-layout');
 
     expect(state.revisionBundle.revision.revisionId).toBe('canonical-layout');
     expect(state.config.viewportWidth).toBe(800);
@@ -148,12 +148,18 @@ describe('Browser reader reflow races', () => {
     state.activeSpreadIndex = 2;
 
     pending[0]?.resolve({ ...revisionResult('stale-preview', 1, 1, 1), preview: true });
-    await flushPromises();
+    await settleUntil(() => createViewRevision.mock.calls.length === 2);
 
     expect(releaseRevision).toHaveBeenCalledWith('stale-preview');
     expect(state.visualPreview).toBeUndefined();
+    expect(createViewRevision.mock.lastCall?.[0].activeSpreadIndex).toBe(2);
+
+    pending[1]?.resolve({ ...revisionResult('current-preview', 1, 1, 2), preview: true });
+    await settleUntil(() => state.reflow.deferred !== undefined);
+
+    expect(state.visualPreview?.revision.revisionId).toBe('current-preview');
     expect(state.reflow.deferred).toBeDefined();
-    expect(createViewRevision).toHaveBeenCalledTimes(1);
+    expect(createViewRevision).toHaveBeenCalledTimes(2);
 
     await vi.advanceTimersByTimeAsync(999);
     state.activeSpreadIndex = 3;
@@ -162,7 +168,7 @@ describe('Browser reader reflow races', () => {
       expect.objectContaining({ mode: 'full', activeSpreadIndex: 3 }),
     );
 
-    pending[1]?.resolve(revisionResult('live-spread-full', 4, 4, 3));
+    pending[2]?.resolve(revisionResult('live-spread-full', 4, 4, 3));
     await flushPromises();
 
     expect(state.revisionBundle.revision.revisionId).toBe('live-spread-full');
@@ -205,4 +211,9 @@ function createReadyState(worker: BrowserReaderWorkerClient) {
   const state = createState(worker);
   setRevisionState(state, revisionSummary('rev-ready', 4, 4, 'ready'));
   return state;
+}
+
+async function settleUntil(predicate: () => boolean): Promise<void> {
+  for (let attempt = 0; attempt < 10 && !predicate(); attempt += 1) await flushPromises();
+  expect(predicate()).toBe(true);
 }

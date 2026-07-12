@@ -20,15 +20,37 @@ export async function readCapturedInteraction<T>(
     revision: CoreRevisionHandle,
   ) => Promise<CoreVersioned<T>>,
 ): Promise<T | undefined> {
-  if (!captureIsCurrent(state, capture)) return undefined;
+  return readCapturedRevision(capture, read, () => captureIsCurrent(state, capture));
+}
+
+export async function readCapturedSource<T>(
+  state: BrowserReaderState,
+  capture: BrowserReaderInteractionCapture,
+  read: (
+    worker: BrowserReaderWorkerClient,
+    revision: CoreRevisionHandle,
+  ) => Promise<CoreVersioned<T>>,
+): Promise<T | undefined> {
+  return readCapturedRevision(capture, read, () => revisionCaptureIsCurrent(state, capture));
+}
+
+async function readCapturedRevision<T>(
+  capture: BrowserReaderInteractionCapture,
+  read: (
+    worker: BrowserReaderWorkerClient,
+    revision: CoreRevisionHandle,
+  ) => Promise<CoreVersioned<T>>,
+  isCurrent: () => boolean,
+): Promise<T | undefined> {
+  if (!isCurrent()) return undefined;
   let response: CoreVersioned<T>;
   try {
     response = await read(capture.worker, capture.coreRevision);
   } catch (error) {
-    if (!captureIsCurrent(state, capture)) return undefined;
+    if (!isCurrent()) return undefined;
     throw error;
   }
-  if (!captureIsCurrent(state, capture)) return undefined;
+  if (!isCurrent()) return undefined;
   if (!sameCoreRevision(response.revision, capture.coreRevision)) {
     throw new Error('Reader interaction response does not match its revision request');
   }
@@ -38,7 +60,14 @@ export async function readCapturedInteraction<T>(
 export function captureInteraction(
   state: BrowserReaderState,
 ): BrowserReaderInteractionCapture | undefined {
-  if (state.disposed || state.visualPreview) return undefined;
+  if (state.visualPreview) return undefined;
+  return captureCommittedSourceRead(state);
+}
+
+export function captureCommittedSourceRead(
+  state: BrowserReaderState,
+): BrowserReaderInteractionCapture | undefined {
+  if (state.disposed) return undefined;
   const revision = state.revisionHandle;
   const worker = state.worker;
   if (!revision || worker.sessionId !== revision.workerSessionId) return undefined;
@@ -57,13 +86,7 @@ export function captureIsCurrent(
   state: BrowserReaderState,
   capture: BrowserReaderInteractionCapture,
 ): boolean {
-  return (
-    !state.disposed &&
-    state.visualPreview === undefined &&
-    state.worker === capture.worker &&
-    capture.worker.sessionId === capture.revision.workerSessionId &&
-    isCurrentRevisionHandle(state, capture.revision)
-  );
+  return state.visualPreview === undefined && revisionCaptureIsCurrent(state, capture);
 }
 
 export function sameRevision(
@@ -80,4 +103,16 @@ export function sameRevision(
 
 function sameCoreRevision(left: CoreRevisionHandle, right: CoreRevisionHandle): boolean {
   return left.revisionId === right.revisionId && left.revisionVersion === right.revisionVersion;
+}
+
+function revisionCaptureIsCurrent(
+  state: BrowserReaderState,
+  capture: BrowserReaderInteractionCapture,
+): boolean {
+  return (
+    !state.disposed &&
+    state.worker === capture.worker &&
+    capture.worker.sessionId === capture.revision.workerSessionId &&
+    isCurrentRevisionHandle(state, capture.revision)
+  );
 }

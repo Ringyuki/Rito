@@ -232,6 +232,7 @@ describe('Browser reader reflow scheduling', () => {
     expect(fullCommits).toBe(0);
 
     await vi.advanceTimersByTimeAsync(1000);
+    await flushPromises();
     expect(createRevision).toHaveBeenCalledTimes(2);
     expect(createRevision).toHaveBeenLastCalledWith(expect.any(Object), 'greedy', 0, 'preview');
   });
@@ -651,6 +652,7 @@ describe('Browser reader reflow scheduling', () => {
 
     expect(state.worker).toBe(foreground.worker);
     await vi.advanceTimersByTimeAsync(1000);
+    await flushPromises();
     expect(background.createViewRevision).toHaveBeenLastCalledWith({
       ...initialPreviewRequest,
       mode: 'full',

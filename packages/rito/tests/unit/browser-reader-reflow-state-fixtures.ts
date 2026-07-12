@@ -165,6 +165,23 @@ export function setRevisionState(
     revision,
     navigation,
   };
+  vi.spyOn(state.worker, 'getPageReadingAnchorAtRevision').mockImplementation(
+    (handle, pageIndex) => {
+      const spreadIndex =
+        navigation.spreads.find((spread) => spread.pageIndexes.includes(pageIndex))?.spreadIndex ??
+        0;
+      return Promise.resolve({
+        revision: handle,
+        value: {
+          status: 'unavailable',
+          revisionId: handle.revisionId,
+          pageIndex,
+          spreadIndex,
+          reason: 'noSourceContent',
+        },
+      });
+    },
+  );
 }
 
 function emptyNavigation(revision: CoreRevisionSummary): CoreRevisionNavigation {

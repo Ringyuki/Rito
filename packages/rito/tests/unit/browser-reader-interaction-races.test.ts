@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
+  CorePageReadingAnchor,
   CorePageSemantics,
   CorePageTargets,
   CoreVersioned,
@@ -71,6 +72,45 @@ describe('Browser reader interaction races', () => {
     });
 
     await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('drops an in-flight page reading anchor after its committed generation changes', async () => {
+    const fixture = readyFixture();
+    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
+    fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
+
+    setRevisionState(fixture.state, revisionSummary('rev', 20, 20));
+    deferred.resolve(versionedReadingAnchor(0, 0));
+
+    await expect(pending).resolves.toBeUndefined();
+  });
+
+  it('keeps an in-flight durable source read when only a visual preview starts', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
+    fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
+
+    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    deferred.resolve(versionedReadingAnchor(0, 0));
+
+    await expect(pending).resolves.toMatchObject({
+      status: 'resolved',
+      pageIndex: 0,
+      spreadIndex: 0,
+    });
+  });
+
+  it('does not dispatch a page reading anchor after disposal', async () => {
+    const fixture = readyFixture();
+    fixture.state.disposed = true;
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0),
+    ).resolves.toBeUndefined();
+    expect(fixture.getPageReadingAnchorAtRevision).not.toHaveBeenCalled();
   });
 
   it('hides cached targets before dispatch whenever a visual preview is active', async () => {
@@ -239,6 +279,25 @@ function versionedTargets(
   label: string,
 ): CoreVersioned<CorePageTargets> {
   return { revision: handle(), value: pageTargets(pageIndex, spreadIndex, label) };
+}
+
+function versionedReadingAnchor(
+  pageIndex: number,
+  spreadIndex: number,
+): CoreVersioned<CorePageReadingAnchor> {
+  return {
+    revision: handle(),
+    value: {
+      status: 'resolved',
+      revisionId: 'rev',
+      pageIndex,
+      spreadIndex,
+      locator: {
+        href: 'chapter.xhtml',
+        sourcePoint: { nodePath: [0], textOffset: 2 },
+      },
+    },
+  };
 }
 
 function pageTargets(pageIndex: number, spreadIndex: number, label: string): CorePageTargets {

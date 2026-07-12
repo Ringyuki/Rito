@@ -137,7 +137,7 @@ function buildLifecycleMethods(state: ReaderState, doc: EpubDocument) {
     onSpreadContentInvalidated(_cb: (spreadIndex: number) => void): () => void {
       return () => undefined;
     },
-    onLayoutCommitted(_cb: () => void): () => void {
+    onLayoutCommitted(_cb: (activeSpreadIndex: number) => void): () => void {
       return () => undefined;
     },
     dispose(): void {

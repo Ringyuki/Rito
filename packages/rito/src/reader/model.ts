@@ -199,6 +199,22 @@ export interface ReaderPageSemantics {
   readonly nodes: readonly ReaderSemanticNode[];
 }
 
+/** Revision-local projection of a durable source locator for a visible page. */
+export type ReaderPageReadingAnchor =
+  | {
+      readonly status: 'resolved';
+      readonly pageIndex: number;
+      readonly spreadIndex: number;
+      /** Persist this locator; page and spread indexes are only a current projection. */
+      readonly locator: ReaderLocator;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly pageIndex: number;
+      readonly spreadIndex: number;
+      readonly reason: 'noSourceContent' | 'sourceUnavailable';
+    };
+
 export interface TextPosition {
   readonly blockIndex: number;
   readonly lineIndex: number;

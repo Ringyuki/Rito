@@ -1,6 +1,5 @@
 import type {
   ReaderExactTextRangeRect,
-  ReaderLocator,
   ReaderSameFlowTextRangeResolution,
   ReaderTextCaret,
   ReaderTextCaretResolution,
@@ -9,7 +8,6 @@ import type {
 } from '../../../reader';
 import type {
   CoreSameFlowTextRangeResponse,
-  CoreSourceLocator,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
 } from '../core-contracts';
@@ -19,6 +17,7 @@ import {
   sameRevision,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
+import { copyReaderLocator } from './source-locator';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './types';
 
 interface BoundCaret {
@@ -143,7 +142,7 @@ function mapRangeResolution(
       focus,
       ...endpoints,
       selectedText: range.selectedText,
-      sourceLocator: copyLocator(range.sourceLocator),
+      sourceLocator: copyReaderLocator(range.sourceLocator),
       rects,
     },
   };
@@ -243,7 +242,7 @@ function sameAddress(left: CoreTextCaretAddress, right: CoreTextCaretAddress): b
 function toReaderCaret(value: CoreResolvedCaret): ReaderTextCaret {
   return {
     geometry: { ...value.geometry },
-    sourceLocator: copyLocator(value.sourceLocator),
+    sourceLocator: copyReaderLocator(value.sourceLocator),
   } as ReaderTextCaret;
 }
 
@@ -253,36 +252,6 @@ function copyCoreAddress(address: CoreTextCaretAddress): CoreTextCaretAddress {
 
 function copyRevision(revision: BrowserReaderRevisionHandle): BrowserReaderRevisionHandle {
   return { ...revision };
-}
-
-function copyLocator(locator: ReaderLocator | CoreSourceLocator): ReaderLocator {
-  return {
-    href: locator.href,
-    ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
-    ...(locator.sourcePoint
-      ? {
-          sourcePoint: {
-            nodePath: [...locator.sourcePoint.nodePath],
-            textOffset: locator.sourcePoint.textOffset,
-          },
-        }
-      : {}),
-    ...(locator.sourceRange
-      ? {
-          sourceRange: {
-            start: {
-              nodePath: [...locator.sourceRange.start.nodePath],
-              textOffset: locator.sourceRange.start.textOffset,
-            },
-            end: {
-              nodePath: [...locator.sourceRange.end.nodePath],
-              textOffset: locator.sourceRange.end.textOffset,
-            },
-          },
-        }
-      : {}),
-    ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
-  };
 }
 
 function toReaderRangeRect(rect: CoreResolvedRange['rects'][number]): ReaderExactTextRangeRect {

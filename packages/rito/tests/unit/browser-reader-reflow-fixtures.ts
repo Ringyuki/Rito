@@ -50,6 +50,9 @@ interface TestWorkerFixture {
   readonly getPageSemanticsAtRevision: Mock<
     BrowserReaderWorkerClient['getPageSemanticsAtRevision']
   >;
+  readonly getPageReadingAnchorAtRevision: Mock<
+    BrowserReaderWorkerClient['getPageReadingAnchorAtRevision']
+  >;
   readonly getPageTargetsAtRevision: Mock<BrowserReaderWorkerClient['getPageTargetsAtRevision']>;
   readonly getPageTextPositionsAtRevision: Mock<
     BrowserReaderWorkerClient['getPageTextPositionsAtRevision']
@@ -117,6 +120,20 @@ export function createWorker(
   const open = vi.fn<BrowserReaderWorkerClient['open']>();
   const getPageSemanticsAtRevision =
     vi.fn<BrowserReaderWorkerClient['getPageSemanticsAtRevision']>();
+  const getPageReadingAnchorAtRevision = vi.fn<
+    BrowserReaderWorkerClient['getPageReadingAnchorAtRevision']
+  >((revision, pageIndex) =>
+    Promise.resolve({
+      revision,
+      value: {
+        status: 'unavailable',
+        revisionId: revision.revisionId,
+        pageIndex,
+        spreadIndex: pageIndex,
+        reason: 'noSourceContent',
+      },
+    }),
+  );
   const getPageTargetsAtRevision = vi.fn<BrowserReaderWorkerClient['getPageTargetsAtRevision']>();
   const getPageTextPositionsAtRevision =
     vi.fn<BrowserReaderWorkerClient['getPageTextPositionsAtRevision']>();
@@ -149,6 +166,7 @@ export function createWorker(
     readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),
     warmFrameWindowAtRevision: vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(),
     getPageSemanticsAtRevision,
+    getPageReadingAnchorAtRevision,
     getPageTargetsAtRevision,
     getPageTextPositionsAtRevision,
     getTextRangeGeometryAtRevision,
@@ -178,6 +196,7 @@ export function createWorker(
     createViewRevision,
     warmFrameWindow,
     getPageSemanticsAtRevision,
+    getPageReadingAnchorAtRevision,
     getPageTargetsAtRevision,
     getPageTextPositionsAtRevision,
     getTextRangeGeometryAtRevision,
