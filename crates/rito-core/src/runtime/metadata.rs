@@ -7,7 +7,7 @@ use crate::{
         binary_summary_from_metadata, sort_publication_resources,
         summarize_loaded_publication_resources, PublicationResources,
     },
-    runtime::RuntimeFontFaceSummary,
+    runtime::{pinned_font_policy::RuntimePinnedFontPolicy, RuntimeFontFaceSummary},
     xhtml::ChapterSource,
 };
 
@@ -93,10 +93,21 @@ pub(super) fn chapter_sources_from_document(document: &LoadedEpubDocument) -> Ve
         .collect()
 }
 
-pub(super) fn layout_key(layout_config: &LayoutConfig) -> EpubResult<String> {
+pub(super) fn layout_key(
+    layout_config: &LayoutConfig,
+    pinned_font_policy: &RuntimePinnedFontPolicy,
+) -> EpubResult<String> {
     let json = serde_json::to_vec(layout_config)
         .map_err(|error| EpubError::new(format!("layout config does not serialize: {error}")))?;
-    Ok(short_sha256(&json))
+    if pinned_font_policy.is_empty() {
+        return Ok(short_sha256(&json));
+    }
+    let mut identity = Vec::with_capacity(json.len() + pinned_font_policy.identity().len() + 32);
+    identity.extend_from_slice(b"RITO-RUNTIME-LAYOUT-IDENTITY\0");
+    identity.extend_from_slice(&(json.len() as u64).to_be_bytes());
+    identity.extend_from_slice(&json);
+    identity.extend_from_slice(pinned_font_policy.identity());
+    Ok(short_sha256(&identity))
 }
 
 fn resolve_font_face_href(stylesheet_href: &str, src: &str) -> Option<String> {

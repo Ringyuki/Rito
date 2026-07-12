@@ -41,7 +41,8 @@ impl RuntimeDocument {
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<(RuntimeContinuationRecord, String), RuntimeContinuationError> {
         let revision_id = self.create_revision_id();
-        let layout_key = layout_key(&request.layout_config).map_err(engine_error)?;
+        let layout_key =
+            layout_key(&request.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
         let footnotes = self
             .publication_footnote_index()
             .map_err(engine_error)?
@@ -178,7 +179,8 @@ impl RuntimeDocument {
         revision.status = RuntimeRevisionStatus::Cancelled;
         revision.final_extent = None;
         revision.clear_frame_cache();
-        let key = layout_key(&revision.layout_config).map_err(engine_error)?;
+        let key =
+            layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
         Ok(revision_summary(&request.revision_id, &key, revision))
     }
 
@@ -190,7 +192,8 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| unknown_revision(revision_id))?;
-        let key = layout_key(&revision.layout_config).map_err(engine_error)?;
+        let key =
+            layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
         Ok(revision_summary(revision_id, &key, revision))
     }
 

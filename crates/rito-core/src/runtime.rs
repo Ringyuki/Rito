@@ -14,6 +14,7 @@ mod metadata;
 mod navigation;
 mod page;
 mod page_target;
+mod pinned_font_policy;
 mod publication_footnotes;
 mod resource;
 mod revision;
@@ -45,6 +46,11 @@ use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
 use page::{page_targets, page_text_positions, text_range_geometry};
+pub use pinned_font_policy::{
+    RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,
+    RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput, RuntimePinnedFontPolicySummary,
+    RUNTIME_PINNED_FONT_POLICY_SCHEMA_VERSION,
+};
 use publication_footnotes::PublicationFootnoteIndex;
 use resource::{
     find_binary_resource_metadata, find_text_resource, resource_not_found, runtime_binary_resource,
@@ -75,6 +81,7 @@ pub struct RuntimeDocument {
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     text_measurement_cache: TextMeasurementCache,
+    pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
     next_revision_index: usize,
     next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
@@ -93,6 +100,16 @@ impl RuntimeDocument {
     }
 
     pub fn from_loaded_document(document: LoadedEpubDocument) -> Self {
+        Self::from_loaded_document_and_pinned_font_policy(
+            document,
+            pinned_font_policy::RuntimePinnedFontPolicy::empty(),
+        )
+    }
+
+    fn from_loaded_document_and_pinned_font_policy(
+        document: LoadedEpubDocument,
+        pinned_font_policy: pinned_font_policy::RuntimePinnedFontPolicy,
+    ) -> Self {
         Self {
             document,
             prepared: None,
@@ -104,6 +121,7 @@ impl RuntimeDocument {
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
             text_measurement_cache: TextMeasurementCache::default(),
+            pinned_font_policy,
             next_revision_index: 1,
             next_continuation_index: 1,
             revisions: BTreeMap::new(),

@@ -95,7 +95,7 @@ impl RuntimeDocument {
                 prepared.chapters.len(),
                 Some(self.text_measurement_cache.clone()),
             );
-        let layout_key = layout_key(layout_config)?;
+        let layout_key = layout_key(layout_config, &self.pinned_font_policy)?;
         let interactions = match &partial_data {
             Some((_, footnotes)) => partial_revision_interactions(prepared, footnotes.clone()),
             None => runtime_revision_interactions(prepared, full_document),
@@ -146,7 +146,7 @@ impl RuntimeDocument {
                 prepared.chapters.len(),
                 Some(self.text_measurement_cache.clone()),
             );
-        let layout_key = layout_key(&window_layout_config)?;
+        let layout_key = layout_key(&window_layout_config, &self.pinned_font_policy)?;
         let revision = RuntimeRevision::completed(
             layout,
             window_layout_config,

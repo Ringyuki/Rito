@@ -293,7 +293,7 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let key = layout_key(&revision.layout_config)?;
+        let key = layout_key(&revision.layout_config, &self.pinned_font_policy)?;
         let summary = revision_summary(revision_id, &key, revision);
         let navigation = runtime_revision_navigation(revision_id, &self.document, revision);
         let toc_targets = if include_toc_targets {
