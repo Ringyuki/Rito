@@ -54,6 +54,12 @@ interface TestWorkerFixture {
   readonly getTextRangeGeometryAtRevision: Mock<
     BrowserReaderWorkerClient['getTextRangeGeometryAtRevision']
   >;
+  readonly resolveTextCaretAtRevision: Mock<
+    BrowserReaderWorkerClient['resolveTextCaretAtRevision']
+  >;
+  readonly resolveSameFlowTextRangeAtRevision: Mock<
+    BrowserReaderWorkerClient['resolveSameFlowTextRangeAtRevision']
+  >;
   readonly getFootnoteAtRevision: Mock<BrowserReaderWorkerClient['getFootnoteAtRevision']>;
   readonly resolveSourceLocatorAtRevision: Mock<
     BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']
@@ -108,6 +114,10 @@ export function createWorker(
     vi.fn<BrowserReaderWorkerClient['getPageTextPositionsAtRevision']>();
   const getTextRangeGeometryAtRevision =
     vi.fn<BrowserReaderWorkerClient['getTextRangeGeometryAtRevision']>();
+  const resolveTextCaretAtRevision =
+    vi.fn<BrowserReaderWorkerClient['resolveTextCaretAtRevision']>();
+  const resolveSameFlowTextRangeAtRevision =
+    vi.fn<BrowserReaderWorkerClient['resolveSameFlowTextRangeAtRevision']>();
   const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
   const resolveSourceLocatorAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']>();
@@ -131,6 +141,8 @@ export function createWorker(
     getPageTargetsAtRevision,
     getPageTextPositionsAtRevision,
     getTextRangeGeometryAtRevision,
+    resolveTextCaretAtRevision,
+    resolveSameFlowTextRangeAtRevision,
     getFootnoteAtRevision,
     resolveLocatorAtRevision: vi.fn<BrowserReaderWorkerClient['resolveLocatorAtRevision']>(),
     readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(),
@@ -156,6 +168,8 @@ export function createWorker(
     getPageTargetsAtRevision,
     getPageTextPositionsAtRevision,
     getTextRangeGeometryAtRevision,
+    resolveTextCaretAtRevision,
+    resolveSameFlowTextRangeAtRevision,
     getFootnoteAtRevision,
     resolveSourceLocatorAtRevision,
     releaseRevisionTransfers,

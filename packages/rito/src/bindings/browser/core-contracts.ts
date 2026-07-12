@@ -69,6 +69,10 @@ export type {
   RitoCoreWasmVersioned as CoreVersioned,
   RitoCoreWasmSearchRequest as CoreSearchRequest,
   RitoCoreWasmSearchResponse as CoreSearchResponse,
+  RitoCoreWasmSameFlowTextRangeRequest as CoreSameFlowTextRangeRequest,
+  RitoCoreWasmSameFlowTextRangeResponse as CoreSameFlowTextRangeResponse,
   RitoCoreWasmViewRevisionRequest as CoreViewRevisionRequest,
   RitoCoreWasmViewRevisionResponse as CoreViewRevisionResponse,
+  RitoCoreWasmTextCaretAddress as CoreTextCaretAddress,
+  RitoCoreWasmTextCaretResponse as CoreTextCaretResponse,
 } from '@ritojs/core-wasm';

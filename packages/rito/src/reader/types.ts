@@ -15,7 +15,6 @@ export type {
   Rect,
   ReaderInteractionTarget,
   ReaderInteractionTargetKind,
-  ReaderInteractions,
   ReaderLocator,
   ReaderLocatorMatchedBy,
   ReaderLocatorResolution,
@@ -31,4 +30,19 @@ export type {
   TextRange,
   TocEntry,
 } from './model';
-export type { Reader, ReaderOptions, ReaderPinnedFontPolicy, ReaderThemeOptions } from './instance';
+export type {
+  Reader,
+  ReaderExactTextRangeRect,
+  ReaderInteractions,
+  ReaderOptions,
+  ReaderPinnedFontPolicy,
+  ReaderSameFlowTextRange,
+  ReaderSameFlowTextRangeResolution,
+  ReaderThemeOptions,
+  ReaderTextCaret,
+  ReaderTextCaretGeometry,
+  ReaderTextCaretResolution,
+  ReaderTextInteractionUnavailableReason,
+  ReaderTextPoint,
+  ReaderTextSelectionInteractions,
+} from './instance';

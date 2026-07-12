@@ -173,15 +173,6 @@ export interface ReaderPageTargets {
   readonly targets: readonly ReaderInteractionTarget[];
 }
 
-/** Optional atomic capability for revision-safe semantic interaction reads. */
-export interface ReaderInteractions {
-  /** False while no canonical revision is active or a visual-only preview is displayed. */
-  readonly enabled: boolean;
-  getPageTargets(pageIndex: number): Promise<ReaderPageTargets | undefined>;
-  getFootnote(key: string): Promise<FootnoteEntry | undefined>;
-  resolveLocator(locator: ReaderLocator): Promise<ReaderLocatorResolution | undefined>;
-}
-
 export interface TextPosition {
   readonly blockIndex: number;
   readonly lineIndex: number;

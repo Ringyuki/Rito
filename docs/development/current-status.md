@@ -141,8 +141,12 @@ Those names now belong to the old TS reference tree only.
   require one `Arc`-identified logical flow, preserve unpainted soft-wrap text,
   return source locators and exact per-page rectangles, and work across
   pagination. Host-measured runs, unavailable source spans, illegal grapheme
-  interiors and unsupported transforms return typed unavailable results. WASM,
-  Browser Reader and Kit wiring remain.
+  interiors and unsupported transforms return typed unavailable results. The
+  versioned WASM/direct/Worker transport validates request echoes and response
+  semantics, and Browser Reader exposes an optional atomic `textSelection`
+  capability. Browser carets are opaque objects whose raw Rust addresses are
+  privately bound to the worker session, revision version, and commit
+  generation. Kit selection wiring remains.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform

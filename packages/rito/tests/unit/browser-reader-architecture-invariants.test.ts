@@ -26,15 +26,19 @@ const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.m
 const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/reflow.ts');
 const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
 const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
+const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
+const BROWSER_READER_TEXT_SELECTION = join(BROWSER_READER_BINDING, 'text-selection.ts');
 const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
 const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
 const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
 const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resources/scheduler.ts');
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
-// Worker-scoped revision ownership and stale-result guards are required browser orchestration.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2100;
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 470;
+// Worker-scoped revision ownership, stale-result guards, and exact selection are required
+// browser orchestration. Selection adds one explicit reader-binding capability module.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2400;
+// Exact native selection adds opaque public DTOs without exposing revision-local addresses.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 590;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -306,11 +310,16 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
 
   it('keeps semantic interaction reads exact-versioned and preview-gated', () => {
     const source = read(BROWSER_READER_INTERACTION);
+    const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
+    const textSelectionSource = read(BROWSER_READER_TEXT_SELECTION);
     expect(source).toContain('getPageTargetsAtRevision');
     expect(source).toContain('getFootnoteAtRevision');
     expect(source).toContain('resolveSourceLocatorAtRevision');
-    expect(source).toContain('isCurrentRevisionHandle');
-    expect(source).toContain('state.visualPreview');
+    expect(captureSource).toContain('isCurrentRevisionHandle');
+    expect(captureSource).toContain('state.visualPreview');
+    expect(textSelectionSource).toContain('resolveTextCaretAtRevision');
+    expect(textSelectionSource).toContain('resolveSameFlowTextRangeAtRevision');
+    expect(textSelectionSource).toContain('WeakMap<ReaderTextCaret, BoundCaret>');
   });
 
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
