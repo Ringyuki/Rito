@@ -16,6 +16,7 @@ import {
 } from '../rendering';
 import { fallbackTextMeasurer, type BrowserReaderState } from './types';
 import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
+import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -242,6 +243,7 @@ function disposeResources(state: BrowserReaderState): void {
   state.disposed = true;
   resetBrowserReaderInteractionCache(state);
   unregisterReaderFonts(state);
+  disposeBrowserReaderPinnedFonts(state.pinnedFonts);
   for (const image of state.images.values()) image.close();
   state.images.clear();
   for (const url of state.imageObjectUrls.values()) URL.revokeObjectURL(url);

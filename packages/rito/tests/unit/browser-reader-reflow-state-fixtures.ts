@@ -32,6 +32,12 @@ export function createState(
       records: [],
     })),
     documentData: new ArrayBuffer(0),
+    pinnedFonts: {
+      policy: undefined,
+      summary: emptyPinnedFontPolicySummary(),
+      registry: undefined,
+      faces: new Map(),
+    },
     canvas: {} as HTMLCanvasElement,
     ctx: {} as BrowserReaderState['ctx'],
     fontMetrics: {
@@ -131,6 +137,14 @@ export function createState(
       lastError: undefined,
     },
     disposed: false,
+  };
+}
+
+function emptyPinnedFontPolicySummary(): BrowserReaderState['pinnedFonts']['summary'] {
+  return {
+    schemaVersion: 1,
+    policyId: '01'.repeat(32),
+    faces: [],
   };
 }
 

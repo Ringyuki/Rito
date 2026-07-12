@@ -2,6 +2,18 @@ import type { BrowserReaderState } from './reader/types';
 import type { BrowserReaderResourceBytes } from './core-contracts';
 import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
 
+export function createBrowserReaderResourceState(): Pick<
+  BrowserReaderState,
+  'pendingImageLoads' | 'images' | 'imageObjectUrls' | 'registeredFontFaces'
+> {
+  return {
+    pendingImageLoads: new Map(),
+    images: new Map(),
+    imageObjectUrls: new Map(),
+    registeredFontFaces: new Map(),
+  };
+}
+
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
   const revisionId = state.revisionBundle.revision.revisionId;
   const registeredBefore = state.registeredFontFaces.size;
@@ -115,7 +127,7 @@ interface PreparedReaderFontFace {
   readonly face: FontFace;
 }
 
-interface BrowserFontFaceRegistry {
+export interface BrowserFontFaceRegistry {
   readonly add: (face: FontFace) => void;
   readonly delete: (face: FontFace) => boolean;
 }
@@ -148,12 +160,24 @@ async function prepareReaderFontFace(
   input: ReaderFontFaceInput,
 ): Promise<PreparedReaderFontFace | undefined> {
   const key = fontFaceKey(input);
-  if (state.registeredFontFaces.has(key)) return;
+  if (state.registeredFontFaces.has(key) || hasPinnedFontFamily(state, input.family)) return;
   const { bytes } = await state.worker.readResource(revisionId, 'font', input.href);
   if (!isCurrentReaderRevision(state, revisionId)) return;
   const face = new FontFace(input.family, ownedArrayBuffer(bytes), fontFaceDescriptors(input));
   await face.load();
   return { key, face };
+}
+
+function hasPinnedFontFamily(state: BrowserReaderState, family: string): boolean {
+  const expected = asciiLowerCase(family);
+  for (const alias of state.pinnedFonts.faces.keys()) {
+    if (asciiLowerCase(alias) === expected) return true;
+  }
+  return false;
+}
+
+function asciiLowerCase(value: string): string {
+  return value.replace(/[A-Z]/g, (character) => character.toLowerCase());
 }
 
 function commitReaderFontFace(
@@ -178,7 +202,7 @@ export function unregisterReaderFonts(state: BrowserReaderState): void {
   state.registeredFontFaces.clear();
 }
 
-function browserFontFaceRegistry(): BrowserFontFaceRegistry | undefined {
+export function browserFontFaceRegistry(): BrowserFontFaceRegistry | undefined {
   if (typeof document !== 'undefined' && 'fonts' in document) return document.fonts;
   return (globalThis as typeof globalThis & { readonly fonts?: BrowserFontFaceRegistry }).fonts;
 }

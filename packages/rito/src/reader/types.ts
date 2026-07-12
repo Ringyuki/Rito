@@ -31,4 +31,4 @@ export type {
   TextRange,
   TocEntry,
 } from './model';
-export type { Reader, ReaderOptions, ReaderThemeOptions } from './instance';
+export type { Reader, ReaderOptions, ReaderPinnedFontPolicy, ReaderThemeOptions } from './instance';

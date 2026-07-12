@@ -165,13 +165,16 @@ parser-restored whitespace, non-linear transforms and synthetic hyphens remain
 typed unavailable instead of inventing source coordinates. The runtime also
 owns a validated, document-lifetime pinned-font policy, and font-aware layout
 now injects its locale-ordered aliases once into the resolved family stack used
-by both Rust shaping and paint commands. Author EPUB faces remain first and a
-missing glyph can fall through the complete same-role pinned chain. This closes
-the Rust-side family identity path. Raw WASM can now open a document with
-strictly validated metadata plus separate typed-array face bytes and returns
-the canonical bytes-free Rust policy identity. Worker ownership transfer,
-pre-first-frame browser `FontFace` registration and licensed production assets
-are still required before the browser reader can enable the policy.
+by both Rust shaping and paint commands. Shapeable author EPUB faces remain
+first, host-only names are removed, pinned aliases are reserved against EPUB
+collisions, and a missing glyph can fall through the complete same-role chain.
+Pinned-policy v1 rejects variable fonts until axis coordinates become part of
+the contract. Raw WASM and Worker sessions now carry separate face buffers and
+canonical bytes-free Rust policy identities. The Browser reader retains its own
+font bytes, transfers fresh copies to every Worker, atomically registers the
+Rust aliases before initial reflow, and rolls back the complete session on any
+required-font failure. Licensed production assets, strict first-paint handling
+for shapeable embedded EPUB faces and the real-book proof remain.
 
 Interaction responses and host caches must bind to the complete revision
 handle. A visual preview must either expose its own active presentation handle
@@ -291,9 +294,9 @@ architecture rather than make an eager whole-book pipeline faster.
    equivalence.**
 5. Prove the shared pinned-font/paint-alias path on a no-embedded-font real book
    and use shape-provenance diagnostics to choose the production fallback set.
-   **The immutable policy, Rust shaping/paint family stack and direct WASM open
-   handshake are implemented; Worker transport, browser registration, licensed
-   assets and the real-book proof remain.**
+   **The immutable policy, deterministic Rust family stack, direct WASM/Worker
+   transport and pre-reflow Browser registration are implemented; licensed
+   assets, embedded-face first-paint hardening and the real-book proof remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility.
 7. Reduce browser session policy to explicit core-requested host operations.

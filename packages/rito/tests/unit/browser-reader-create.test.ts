@@ -1,11 +1,19 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createReader } from '../../src/bindings/browser/reader/reader';
+import type { BrowserReaderWorkerOpenOptions } from '../../src/bindings/browser/core-contracts';
 
 type InitialReflow =
   (typeof import('../../src/bindings/browser/reader/pipeline/reflow'))['startBrowserReaderInitialReflow'];
 
 const mocks = vi.hoisted(() => ({
   buildBrowserReaderMethods: vi.fn(() => ({})),
+  browserFontFaceRegistry: vi.fn(),
+  createBrowserReaderResourceState: vi.fn(() => ({
+    pendingImageLoads: new Map(),
+    images: new Map(),
+    imageObjectUrls: new Map(),
+    registeredFontFaces: new Map(),
+  })),
   createBrowserReaderWorkerClientFactory: vi.fn(),
   loadRuntimeCoreModule: vi.fn(),
   preloadCurrentReaderFonts: vi.fn(),
@@ -34,6 +42,8 @@ vi.mock('../../src/bindings/browser/reader/frame-cache', () => ({
 }));
 
 vi.mock('../../src/bindings/browser/resources', () => ({
+  browserFontFaceRegistry: mocks.browserFontFaceRegistry,
+  createBrowserReaderResourceState: mocks.createBrowserReaderResourceState,
   preloadCurrentReaderFonts: mocks.preloadCurrentReaderFonts,
 }));
 
@@ -48,6 +58,11 @@ describe('Browser reader creation', () => {
       ),
     });
     mocks.startBrowserReaderInitialReflow.mockResolvedValue();
+    mocks.browserFontFaceRegistry.mockReturnValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   it('returns the visible reader without waiting for publication font registration', async () => {
@@ -123,6 +138,164 @@ describe('Browser reader creation', () => {
     ).rejects.toBe(primaryError);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
+
+  it('loads and registers pinned faces before starting the initial reflow', async () => {
+    let finishLoad: (() => void) | undefined;
+    class DeferredFontFace {
+      constructor(
+        readonly family: string,
+        readonly source: ArrayBuffer,
+        readonly descriptors?: FontFaceDescriptors,
+      ) {}
+
+      load(): Promise<DeferredFontFace> {
+        return new Promise((resolve) => {
+          finishLoad = () => {
+            resolve(this);
+          };
+        });
+      }
+    }
+    vi.stubGlobal('FontFace', DeferredFontFace);
+    const add = vi.fn();
+    const remove = vi.fn(() => true);
+    mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: remove });
+    const summary = pinnedFontPolicySummary();
+    const worker = {
+      open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
+        Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
+      ),
+      dispose: vi.fn(),
+    };
+    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    const callerBytes = new Uint8Array([1, 2, 3]).buffer;
+
+    const readerPromise = createReader(readerData(), readerCanvas(), {
+      width: 800,
+      height: 600,
+      pinnedFontPolicy: {
+        schemaVersion: 1,
+        faces: [
+          {
+            bytes: callerBytes,
+            expectedSha256: summary.faces[0]?.sha256 ?? '',
+            genericRole: 'serif',
+          },
+        ],
+      },
+    });
+    await flushPromises();
+
+    expect(worker.open).toHaveBeenCalledOnce();
+    expect(mocks.startBrowserReaderInitialReflow).not.toHaveBeenCalled();
+    expect(add).not.toHaveBeenCalled();
+    expect(finishLoad).toBeDefined();
+
+    finishLoad?.();
+    await expect(readerPromise).resolves.toBeDefined();
+
+    expect(add).toHaveBeenCalledOnce();
+    expect(mocks.startBrowserReaderInitialReflow).toHaveBeenCalledOnce();
+    expect(add.mock.invocationCallOrder[0]).toBeLessThan(
+      mocks.startBrowserReaderInitialReflow.mock.invocationCallOrder[0] ?? 0,
+    );
+    const buildCalls = mocks.buildBrowserReaderMethods.mock.calls as unknown as readonly (readonly [
+      unknown,
+      unknown,
+    ])[];
+    expect(buildCalls[0]?.[1]).not.toHaveProperty('pinnedFontPolicy');
+    const openOptions = worker.open.mock.calls[0]?.[1];
+    const transferredBytes = openOptions?.pinnedFontPolicy?.faces[0]?.bytes;
+    expect(transferredBytes).not.toBe(callerBytes);
+    expect(new Uint8Array(transferredBytes ?? new ArrayBuffer(0))).toEqual(
+      new Uint8Array(callerBytes),
+    );
+  });
+
+  it('unregisters pinned faces when initial reflow fails', async () => {
+    class LoadedFontFace {
+      constructor(readonly family: string) {}
+      load(): Promise<LoadedFontFace> {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', LoadedFontFace);
+    const add = vi.fn();
+    const remove = vi.fn(() => true);
+    mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: remove });
+    const primaryError = new Error('initial pinned revision failed');
+    mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
+    const summary = pinnedFontPolicySummary();
+    const worker = {
+      open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
+        Promise.resolve({ publication: publicationWithFont(), pinnedFontPolicy: summary }),
+      ),
+      dispose: vi.fn(),
+    };
+    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+
+    await expect(
+      createReader(readerData(), readerCanvas(), {
+        width: 800,
+        height: 600,
+        pinnedFontPolicy: {
+          schemaVersion: 1,
+          faces: [
+            {
+              bytes: new Uint8Array([1, 2, 3]).buffer,
+              expectedSha256: summary.faces[0]?.sha256 ?? '',
+              genericRole: 'serif',
+            },
+          ],
+        },
+      }),
+    ).rejects.toBe(primaryError);
+
+    expect(add).toHaveBeenCalledOnce();
+    expect(remove).toHaveBeenCalledWith(add.mock.calls[0]?.[0]);
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('disposes the worker without registering faces when pinned open fails', async () => {
+    class LoadedFontFace {
+      constructor(readonly family: string) {}
+      load(): Promise<LoadedFontFace> {
+        return Promise.resolve(this);
+      }
+    }
+    vi.stubGlobal('FontFace', LoadedFontFace);
+    const add = vi.fn();
+    mocks.browserFontFaceRegistry.mockReturnValue({ add, delete: vi.fn(() => true) });
+    const openError = new Error('pinned worker open failed');
+    const worker = {
+      open: vi.fn((_data: ArrayBuffer, _options?: BrowserReaderWorkerOpenOptions) =>
+        Promise.reject(openError),
+      ),
+      dispose: vi.fn(),
+    };
+    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+
+    await expect(
+      createReader(readerData(), readerCanvas(), {
+        width: 800,
+        height: 600,
+        pinnedFontPolicy: {
+          schemaVersion: 1,
+          faces: [
+            {
+              bytes: new Uint8Array([1, 2, 3]).buffer,
+              expectedSha256: 'a'.repeat(64),
+              genericRole: 'serif',
+            },
+          ],
+        },
+      }),
+    ).rejects.toBe(openError);
+
+    expect(add).not.toHaveBeenCalled();
+    expect(worker.dispose).toHaveBeenCalledOnce();
+    expect(mocks.startBrowserReaderInitialReflow).not.toHaveBeenCalled();
+  });
 });
 
 async function flushPromises(): Promise<void> {
@@ -141,6 +314,10 @@ function readerCanvas(): HTMLCanvasElement {
       measureText: vi.fn(() => ({ width: 16 })),
     })),
   } as unknown as HTMLCanvasElement;
+}
+
+function readerData(): ArrayBuffer {
+  return new Uint8Array([4, 5, 6]).buffer;
 }
 
 function deferredVoid(): { readonly promise: Promise<void>; readonly resolve: () => void } {
@@ -179,5 +356,25 @@ function openResultWithFont() {
   return {
     publication: publicationWithFont(),
     pinnedFontPolicy: { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] },
+  };
+}
+
+function pinnedFontPolicySummary() {
+  const sha256 = 'a'.repeat(64);
+  return {
+    schemaVersion: 1 as const,
+    policyId: 'b'.repeat(64),
+    faces: [
+      {
+        sha256,
+        shapeFingerprint: sha256.slice(0, 16),
+        familyAlias: `__RitoPinned_${sha256}`,
+        byteLength: 3,
+        genericRole: 'serif' as const,
+        language: 'und',
+        style: 'normal' as const,
+        weight: 400 as const,
+      },
+    ],
   };
 }

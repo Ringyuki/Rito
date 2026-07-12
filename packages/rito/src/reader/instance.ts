@@ -14,6 +14,18 @@ import type {
   TextMeasurer,
   TocEntry,
 } from './model';
+
+export interface ReaderPinnedFontPolicy {
+  readonly schemaVersion: 1;
+  readonly faces: readonly {
+    /** Copied on open; the caller's buffer remains owned and attached. */
+    readonly bytes: ArrayBuffer;
+    readonly expectedSha256: string;
+    readonly genericRole: 'serif' | 'sansSerif' | 'monospace';
+    readonly language?: string | undefined;
+  }[];
+}
+
 export interface ReaderOptions {
   readonly width: number;
   readonly height: number;
@@ -31,6 +43,8 @@ export interface ReaderOptions {
   readonly lineHeightForce?: boolean;
   readonly fontFamily?: string;
   readonly fontFamilyForce?: boolean;
+  /** Required, immutable fallback faces shared by native shaping and Canvas paint. */
+  readonly pinnedFontPolicy?: ReaderPinnedFontPolicy;
 }
 export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;

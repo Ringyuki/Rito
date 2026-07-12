@@ -163,6 +163,35 @@ describe('Browser reader resource-backed rendering', () => {
     expect(state.registeredFontFaces.size).toBe(1);
   });
 
+  it('skips a publication FontFace that collides with a canonical pinned alias', async () => {
+    const alias = `__RitoPinned_${'a'.repeat(64)}`;
+    const caseVariant = alias.replace('RitoPinned', 'RITOPINNED');
+    const addFont = vi.fn();
+    const readResource = vi.fn();
+    vi.stubGlobal('FontFace', FakeFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const pinnedFace = new FakeFontFace(alias, new ArrayBuffer(1)) as unknown as FontFace;
+    const state = createState({
+      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      pinnedFonts: {
+        policy: undefined,
+        summary: emptyPinnedFontPolicySummary(),
+        registry: undefined,
+        faces: new Map([[alias, pinnedFace]]),
+      },
+      publication: {
+        fontFaces: [{ family: caseVariant, href: 'fonts/collision.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    await preloadReaderFonts(state);
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(addFont).not.toHaveBeenCalled();
+    expect(state.registeredFontFaces.size).toBe(0);
+  });
+
   it('retries font registration when the active revision changes during a slow load', async () => {
     const addFont = vi.fn();
     const finishLoads: Array<() => void> = [];
@@ -428,6 +457,12 @@ function createState(overrides: object = {}): BrowserReaderState {
     images: new Map(),
     pendingImageLoads: new Map(),
     registeredFontFaces: new Map(),
+    pinnedFonts: {
+      policy: undefined,
+      summary: emptyPinnedFontPolicySummary(),
+      registry: undefined,
+      faces: new Map(),
+    },
     ctx: fontMetricContext(),
     fontMetrics: {
       genericSerif: { advances: {}, pairAdjustments: {} },
@@ -442,6 +477,10 @@ function createState(overrides: object = {}): BrowserReaderState {
     },
     ...overrides,
   } as unknown as BrowserReaderState;
+}
+
+function emptyPinnedFontPolicySummary() {
+  return { schemaVersion: 1 as const, policyId: '0'.repeat(64), faces: [] };
 }
 
 function fontMetricContext(): BrowserReaderState['ctx'] {

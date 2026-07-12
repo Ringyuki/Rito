@@ -20,6 +20,7 @@ import {
   createWorkerRevisionHandle,
   currentCommitGeneration,
 } from './pipeline/revision-handle';
+import { openBrowserReaderWorker } from '../pinned-fonts';
 
 export interface BrowserReaderRevisionStateInput {
   readonly config: LayoutConfig;
@@ -45,8 +46,12 @@ export async function fullReflowWorker(
   }
   const worker = state.workerFactory();
   state.fullReflowWorker = worker;
-  state.fullReflowOpenPromise = worker
-    .open(state.documentData.slice(0))
+  state.fullReflowOpenPromise = openBrowserReaderWorker(
+    worker,
+    state.documentData.slice(0),
+    state.pinnedFonts.policy,
+    state.pinnedFonts.summary,
+  )
     .then(() => undefined)
     .catch((error: unknown) => {
       if (state.fullReflowWorker === worker) {

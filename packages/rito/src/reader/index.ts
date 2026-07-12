@@ -15,6 +15,7 @@ export type {
   PaginationPolicy,
   Reader,
   ReaderOptions,
+  ReaderPinnedFontPolicy,
   ReaderThemeOptions,
   Rect,
   ReaderInteractionTarget,

@@ -13,7 +13,7 @@ import {
 import { startBrowserReaderInitialReflow } from './pipeline/reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderInteractionState } from './interaction';
-import { preloadCurrentReaderFonts } from '../resources';
+import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
@@ -25,6 +25,14 @@ import {
 } from './types';
 import { loadRuntimeCoreModule } from './wasm-module';
 import type { BrowserReaderWorkerClient, BrowserReaderOpenResult } from '../core-contracts';
+import {
+  disposeBrowserReaderPinnedFonts,
+  openBrowserReaderWorker,
+  prepareBrowserReaderPinnedFonts,
+  readerLayoutOptions,
+  registerBrowserReaderPinnedFonts,
+  type BrowserReaderPinnedFonts,
+} from '../pinned-fonts';
 
 export async function createReader(
   data: ArrayBuffer,
@@ -34,40 +42,34 @@ export async function createReader(
   const module = await loadRuntimeCoreModule();
   const workerFactory = createBrowserReaderWorkerClientFactory(module);
   const worker = workerFactory();
+  let pinnedFonts: BrowserReaderPinnedFonts | undefined;
   try {
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
-    const spreadMode = options.spread ?? 'single';
-    const lineBreaking = options.lineBreaking ?? 'greedy';
+    const preparedPinnedFonts = prepareBrowserReaderPinnedFonts(options.pinnedFontPolicy);
     const documentData = data.slice(0);
-    const openResult = await worker.open(data);
+    const openResult = await openBrowserReaderWorker(worker, data, preparedPinnedFonts.policy);
+    pinnedFonts = await registerBrowserReaderPinnedFonts(
+      preparedPinnedFonts,
+      openResult.pinnedFontPolicy,
+    );
     const state = createInitialState(
       worker,
       workerFactory,
       module,
       documentData,
       openResult,
+      pinnedFonts,
       canvas,
       ctx,
       options,
     );
-    await startBrowserReaderInitialReflow(
-      state,
-      options,
-      spreadMode,
-      lineBreaking,
-      undefined,
-      () => {
-        void warmInitialResources(state).catch((error: unknown) => {
-          state.logger.warn('initial reader resource warm failed', error);
-        });
-      },
-      () => warmInitialResources(state),
-    );
-    const reader: Partial<Reader> = buildBrowserReaderMethods(state, options);
+    await startInitialReflow(state, options);
+    const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     return reader as Reader;
   } catch (error) {
+    if (pinnedFonts) disposeBrowserReaderPinnedFonts(pinnedFonts);
     try {
       worker.dispose();
     } catch {
@@ -87,6 +89,7 @@ function createInitialState(
   module: BrowserReaderBindingModule,
   documentData: ArrayBuffer,
   openResult: BrowserReaderOpenResult,
+  pinnedFonts: BrowserReaderPinnedFonts,
   canvas: HTMLCanvasElement | OffscreenCanvas,
   ctx: CanvasRenderingTarget,
   options: ReaderOptions,
@@ -100,6 +103,7 @@ function createInitialState(
     fullReflowOpenPromise: undefined,
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
+    pinnedFonts,
     canvas,
     ctx,
     fontMetrics: createHostFontMetrics(),
@@ -114,14 +118,11 @@ function createInitialState(
     ...emptyReaderRevisionState(),
     visualPreview: undefined,
     frames: new Map(),
-    pendingImageLoads: new Map(),
+    ...createBrowserReaderResourceState(),
     footnotes: new Map(),
     chapterTextIndices: new Map(),
     tocTargets: [],
     activeSpreadIndex: 0,
-    images: new Map(),
-    imageObjectUrls: new Map(),
-    registeredFontFaces: new Map(),
     ...emptyListenerSets(),
     ...initialTypographyOverrides(options),
     pendingFrameLoads: new Map(),
@@ -215,6 +216,26 @@ function initialTypographyOverrides(
 
 function fallbackDevicePixelRatio(): number {
   return typeof window !== 'undefined' ? window.devicePixelRatio : 1;
+}
+
+async function startInitialReflow(
+  state: BrowserReaderState,
+  options: ReaderOptions,
+): Promise<void> {
+  const warm = (): Promise<boolean> => warmInitialResources(state);
+  await startBrowserReaderInitialReflow(
+    state,
+    options,
+    options.spread ?? 'single',
+    options.lineBreaking ?? 'greedy',
+    undefined,
+    () => {
+      void warm().catch((error: unknown) => {
+        state.logger.warn('initial reader resource warm failed', error);
+      });
+    },
+    warm,
+  );
 }
 
 async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {

@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildBrowserReaderMethods } from '../../src/bindings/browser/reader/reader-methods';
 import type { ReaderOptions } from '../../src/reader';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import { createState as createCompleteState, createWorker } from './browser-reader-reflow-fixtures';
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
+  clearDeferredFullReflow: vi.fn(),
+  disposeBrowserReaderPinnedFonts: vi.fn(),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
   preloadReaderFonts: vi.fn(() => Promise.resolve(false)),
@@ -13,7 +16,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../src/bindings/browser/reader/pipeline/reflow', () => ({
+  clearDeferredFullReflow: mocks.clearDeferredFullReflow,
   scheduleBrowserReaderReflow: mocks.scheduleBrowserReaderReflow,
+}));
+
+vi.mock('../../src/bindings/browser/pinned-fonts', () => ({
+  disposeBrowserReaderPinnedFonts: mocks.disposeBrowserReaderPinnedFonts,
 }));
 
 vi.mock('../../src/bindings/browser/reader/frame-cache', () => ({
@@ -98,6 +106,17 @@ describe('Browser reader methods', () => {
     expect(size).toEqual({ width: 1441 / state.dpr, height: 1080 / state.dpr });
     expect(size.width * state.dpr).toBe(1441);
     expect(size.height * state.dpr).toBe(1080);
+  });
+
+  it('disposes the reader-owned pinned font session', () => {
+    const worker = createWorker(() => undefined);
+    const state = createCompleteState(worker.worker);
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    methods.dispose();
+
+    expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
+    expect(worker.dispose).toHaveBeenCalledOnce();
   });
 });
 
