@@ -46,7 +46,7 @@ interface TestWorkerFixture {
   readonly open: Mock<BrowserReaderWorkerClient['open']>;
   readonly createRevision: Mock<TestCreateRevision>;
   readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
-  readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindow']>;
+  readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>;
   readonly getPageSemanticsAtRevision: Mock<
     BrowserReaderWorkerClient['getPageSemanticsAtRevision']
   >;
@@ -73,8 +73,11 @@ interface TestWorkerFixture {
   readonly resolveSourceLocatorAtRevision: Mock<
     BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']
   >;
-  readonly releaseRevisionTransfers: Mock<BrowserReaderWorkerClient['releaseRevisionTransfers']>;
-  readonly releaseRevision: Mock<BrowserReaderWorkerClient['releaseRevision']>;
+  readonly releaseRevisionTransfers: Mock<
+    BrowserReaderWorkerClient['releaseRevisionTransfersAtRevision']
+  >;
+  readonly releaseRevision: Mock<(revisionId: string) => void>;
+  readonly releaseRevisionAtRevision: Mock<BrowserReaderWorkerClient['releaseRevisionAtRevision']>;
   readonly dispose: Mock<BrowserReaderWorkerClient['dispose']>;
   readonly activeChapterPreview: Mock<
     (revisionId: string, spreadIndex: number) => Promise<TestActiveChapterPreview | undefined>
@@ -99,20 +102,35 @@ export function createWorker(
     onCreateRevision(deferred);
     return deferred.promise;
   });
-  const releaseRevisionTransfers = vi.fn(() => Promise.resolve());
-  const releaseRevision = vi.fn(() => Promise.resolve());
+  const releaseRevisionTransfers = vi.fn<
+    BrowserReaderWorkerClient['releaseRevisionTransfersAtRevision']
+  >((revision) => Promise.resolve({ revision, value: 0 }));
+  const releaseRevision = vi.fn<(revisionId: string) => void>();
+  const releaseRevisionAtRevision = vi.fn<BrowserReaderWorkerClient['releaseRevisionAtRevision']>(
+    (revision) => {
+      releaseRevision(revision.revisionId);
+      return Promise.resolve({
+        revision,
+        value: { releasedRevision: true, releasedTransferCount: 0 },
+      });
+    },
+  );
   const dispose = vi.fn();
-  const warmFrameWindow = vi.fn((revisionId: string, centerSpreadIndex: number) =>
-    Promise.resolve({
-      plan: {
-        revisionId,
-        centerSpreadIndex,
-        displaySpreadIndex: centerSpreadIndex,
-        spreadIndexes: [centerSpreadIndex],
-      },
-      frames: [frameBuffer(revisionId, centerSpreadIndex)],
-      spreads: [{ spreadIndex: centerSpreadIndex, resources: [] }],
-    }),
+  const warmFrameWindow = vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(
+    (revision, centerSpreadIndex) =>
+      Promise.resolve({
+        revision,
+        value: {
+          plan: {
+            revisionId: revision.revisionId,
+            centerSpreadIndex,
+            displaySpreadIndex: centerSpreadIndex,
+            spreadIndexes: [centerSpreadIndex],
+          },
+          frames: [frameBuffer(revision.revisionId, centerSpreadIndex)],
+          spreads: [{ spreadIndex: centerSpreadIndex, resources: [] }],
+        },
+      }),
   );
   const activeChapterPreview = vi.fn((_revisionId: string, _spreadIndex: number) =>
     Promise.resolve<TestActiveChapterPreview | undefined>(undefined),
@@ -159,12 +177,13 @@ export function createWorker(
     cancelRevision: vi.fn<BrowserReaderWorkerClient['cancelRevision']>(),
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
+    getRevisionBundleAtRevision: vi.fn<BrowserReaderWorkerClient['getRevisionBundleAtRevision']>(),
     getShapeProvenanceDiagnosticAtRevision:
       vi.fn<BrowserReaderWorkerClient['getShapeProvenanceDiagnosticAtRevision']>(),
     getRevisionNavigationAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionNavigationAtRevision']>(),
     readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),
-    warmFrameWindowAtRevision: vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(),
+    warmFrameWindowAtRevision: warmFrameWindow,
     getPageSemanticsAtRevision,
     getPageReadingAnchorAtRevision,
     getPageTargetsAtRevision,
@@ -174,19 +193,22 @@ export function createWorker(
     resolveSameFlowTextRangeAtRevision,
     resolveExactSourceRangeAtRevision,
     getFootnoteAtRevision,
+    getFootnotesAtRevision: vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>(),
+    getChapterTextIndicesAtRevision:
+      vi.fn<BrowserReaderWorkerClient['getChapterTextIndicesAtRevision']>(),
+    searchAtRevision: vi.fn<BrowserReaderWorkerClient['searchAtRevision']>(),
     resolveLocatorAtRevision: vi.fn<BrowserReaderWorkerClient['resolveLocatorAtRevision']>(),
     readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(),
     resolveSourceLocatorAtRevision,
-    releaseRevisionTransfersAtRevision:
-      vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfersAtRevision']>(),
-    releaseRevisionAtRevision: vi.fn<BrowserReaderWorkerClient['releaseRevisionAtRevision']>(),
+    releaseRevisionTransfersAtRevision: releaseRevisionTransfers,
+    releaseRevisionAtRevision,
     createViewRevision,
     readResource: vi.fn(),
-    warmFrameWindow,
+    warmFrameWindow: vi.fn<BrowserReaderWorkerClient['warmFrameWindow']>(),
     resolveLocator: vi.fn(),
     search: vi.fn(),
-    releaseRevisionTransfers,
-    releaseRevision,
+    releaseRevisionTransfers: vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfers']>(),
+    releaseRevision: vi.fn<BrowserReaderWorkerClient['releaseRevision']>(),
     dispose,
   };
   return {
@@ -207,6 +229,7 @@ export function createWorker(
     resolveSourceLocatorAtRevision,
     releaseRevisionTransfers,
     releaseRevision,
+    releaseRevisionAtRevision,
     dispose,
     activeChapterPreview,
   };

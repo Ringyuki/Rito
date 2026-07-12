@@ -1,6 +1,11 @@
-import type { BrowserReaderState } from './reader/types';
+import type {
+  BrowserReaderRevisionHandle,
+  BrowserReaderState,
+  BrowserReaderWorkerRevisionHandle,
+} from './reader/types';
 import type { BrowserReaderResourceBytes } from './core-contracts';
 import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
+import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 
 export function createBrowserReaderResourceState(): Pick<
   BrowserReaderState,
@@ -16,11 +21,14 @@ export function createBrowserReaderResourceState(): Pick<
 
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
   if (state.pinnedFonts.summary.faces.length > 0) return false;
-  const revisionId = state.revisionBundle.revision.revisionId;
+  const revision = state.revisionHandle;
+  if (!revision) return false;
+  const worker = state.worker;
+  if (worker.sessionId !== revision.workerSessionId) return false;
   const registeredBefore = state.registeredFontFaces.size;
   let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
-  await registerRevisionFonts(state, revisionId);
-  if (!isCurrentReaderRevision(state, revisionId)) return false;
+  await registerRevisionFonts(state, worker, revision);
+  if (!isCurrentRevisionHandle(state, revision)) return false;
   metricsChanged =
     ensureHostFontFamilyMetrics(
       state.fontMetrics,
@@ -35,12 +43,12 @@ export async function preloadReaderFonts(state: BrowserReaderState): Promise<boo
 }
 
 export async function preloadCurrentReaderFonts(state: BrowserReaderState): Promise<boolean> {
-  let revisionId: string;
+  let revision: BrowserReaderRevisionHandle | undefined;
   let metricsChanged = false;
   do {
-    revisionId = state.revisionBundle.revision.revisionId;
+    revision = state.revisionHandle;
     metricsChanged = (await preloadReaderFonts(state)) || metricsChanged;
-  } while (!state.disposed && revisionId !== state.revisionBundle.revision.revisionId);
+  } while (!state.disposed && revision !== state.revisionHandle);
   return metricsChanged;
 }
 
@@ -133,15 +141,19 @@ export interface BrowserFontFaceRegistry {
   readonly delete: (face: FontFace) => boolean;
 }
 
-async function registerRevisionFonts(state: BrowserReaderState, revisionId: string): Promise<void> {
+async function registerRevisionFonts(
+  state: BrowserReaderState,
+  worker: BrowserReaderState['worker'],
+  revision: BrowserReaderRevisionHandle,
+): Promise<void> {
   const registry = browserFontFaceRegistry();
   if (typeof FontFace === 'undefined' || !registry) return;
   const prepared = await Promise.all(
     readerFontFaceInputs(state).map((input) =>
-      prepareReaderFontFace(state, revisionId, input).catch(() => undefined),
+      prepareReaderFontFace(state, worker, revision, input).catch(() => undefined),
     ),
   );
-  if (!isCurrentReaderRevision(state, revisionId)) return;
+  if (!isCurrentRevisionHandle(state, revision)) return;
   for (const item of prepared) {
     if (item) commitReaderFontFace(state, item, registry);
   }
@@ -157,13 +169,16 @@ function readerFontFaceInputs(state: BrowserReaderState): readonly ReaderFontFac
 
 async function prepareReaderFontFace(
   state: BrowserReaderState,
-  revisionId: string,
+  worker: BrowserReaderState['worker'],
+  revision: BrowserReaderRevisionHandle,
   input: ReaderFontFaceInput,
 ): Promise<PreparedReaderFontFace | undefined> {
   const key = fontFaceKey(input);
   if (state.registeredFontFaces.has(key) || hasPinnedFontFamily(state, input.family)) return;
-  const { bytes } = await state.worker.readResource(revisionId, 'font', input.href);
-  if (!isCurrentReaderRevision(state, revisionId)) return;
+  const { bytes } = (
+    await worker.readResourceAtRevision(coreRevisionHandle(revision), 'font', input.href)
+  ).value;
+  if (!isCurrentRevisionHandle(state, revision)) return;
   const face = new FontFace(input.family, ownedArrayBuffer(bytes), fontFaceDescriptors(input));
   await face.load();
   return { key, face };
@@ -206,10 +221,6 @@ export function unregisterReaderFonts(state: BrowserReaderState): void {
 export function browserFontFaceRegistry(): BrowserFontFaceRegistry | undefined {
   if (typeof document !== 'undefined' && 'fonts' in document) return document.fonts;
   return (globalThis as typeof globalThis & { readonly fonts?: BrowserFontFaceRegistry }).fonts;
-}
-
-function isCurrentReaderRevision(state: BrowserReaderState, revisionId: string): boolean {
-  return !state.disposed && state.revisionBundle.revision.revisionId === revisionId;
 }
 
 function fontFaceDescriptors(input: ReaderFontFaceInput): FontFaceDescriptors {
@@ -260,13 +271,14 @@ async function loadImageBytes(
 
 async function preloadImageObjectUrl(state: BrowserReaderState, href: string): Promise<void> {
   try {
-    const revisionId = state.revisionBundle.revision.revisionId;
-    const { payload, bytes } = await state.worker.readResource(revisionId, 'image', href);
-    if (
-      state.disposed ||
-      state.revisionBundle.revision.revisionId !== revisionId ||
-      state.imageObjectUrls.has(href)
-    ) {
+    const revision = state.revisionHandle;
+    if (!revision) return;
+    const worker = state.worker;
+    if (worker.sessionId !== revision.workerSessionId) return;
+    const { payload, bytes } = (
+      await worker.readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
+    ).value;
+    if (!isCurrentRevisionHandle(state, revision) || state.imageObjectUrls.has(href)) {
       return;
     }
     const url = URL.createObjectURL(
@@ -276,4 +288,13 @@ async function preloadImageObjectUrl(state: BrowserReaderState, href: string): P
   } catch {
     // Image lightbox object URLs are opportunistic; rendering uses ImageBitmap cache.
   }
+}
+
+function coreRevisionHandle(
+  revision: BrowserReaderWorkerRevisionHandle,
+): Pick<BrowserReaderWorkerRevisionHandle, 'revisionId' | 'revisionVersion'> {
+  return {
+    revisionId: revision.revisionId,
+    revisionVersion: revision.revisionVersion,
+  };
 }

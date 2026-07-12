@@ -103,16 +103,16 @@ Those names now belong to the old TS reference tree only.
 - Legacy TS core source has been quarantined under `src/reference/ts-core/**`.
 - The counted browser reader shell previously reached its 1550-line target.
   Subsequent revision/session and native-interaction hardening has grown
-  `packages/rito/src/bindings/browser/reader/**` to 15 TypeScript files / 2052
+  `packages/rito/src/bindings/browser/reader/**` to 20 TypeScript files / 3033
   physical lines, plus the static `.mjs` worker-entry facade. The temporary
-  invariant ceiling is 2100 split-counted lines because the exact-version
-  interaction adapter, visible-page LRU and preview gate are browser revision
-  lifecycle responsibilities and remain in the counted directory. The bounded
-  production switch must delete the legacy preview/deferred-full scheduler and
-  return this shell below the documented ceiling; adding a second browser-owned
-  state machine is not acceptable.
-  - `packages/rito/src/reader/**`: 6 files / 449 physical lines, under a temporary
-    470-line public-contract ceiling for stable interaction and locator types
+  invariant ceiling is 3060 split-counted lines because exact selection,
+  locator navigation and exact-version frame/resource/search ownership are
+  browser revision-lifecycle responsibilities. The bounded production switch
+  must delete the legacy preview/deferred-full scheduler and return this shell
+  below the documented ceiling; adding a second browser-owned state machine is
+  not acceptable.
+  - `packages/rito/src/reader/**`: 6 files / 615 physical lines, under a temporary
+    620-line public-contract ceiling for stable interaction and locator types
   - the hardening increment is explicit revision release, a bounded 12-frame
     LRU cache, and regression-protected preview/full handoff between two workers
   - deferred preview follow-ups carry the complete Rust-authored full request;
@@ -176,10 +176,13 @@ Those names now belong to the old TS reference tree only.
   exact versioned release. A private bounded session controller now coalesces
   target spreads with latest-request priority, permits only one continuation
   quantum in flight, yields between quanta, avoids starting another quantum
-  when a retarget is already available, refreshes complete navigation
-  snapshots, warms frames and resources at the exact accepted version, and
-  cancels/releases the latest handle after races or failures. The
-  production-reader switch is still pending.
+  when a retarget is already available, refreshes an exact partial revision
+  bundle only after the requested target becomes available, warms frames and
+  resources at the exact accepted version, and cancels/releases the latest
+  handle after races or failures. Exact aggregate bundle, search, footnote and
+  chapter-text reads now cross both in-process and Worker transports. Browser
+  frame, resource, search and destructive release paths no longer use
+  revision-ID-only operations. The production-reader switch is still pending.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
   buffers are derived from the same command model.
 - Font-aware layout now follows declared `font-family` order, treats omitted
@@ -280,13 +283,16 @@ Those names now belong to the old TS reference tree only.
      lazy chapter/image loading and resumable page-window growth. It is not yet
      selected by the browser reader; raw WASM, private JavaScript/Worker
      primitives and the coalescing session controller are available.
-   - A single large paragraph/table remains atomic, and publication-wide
-     cross-chapter footnote filtering still needs a lazy-safe indexing policy
-     before the bounded path can claim universal eager equivalence.
-   - The legacy browser shell still issues several frame/resource/search and
-     destructive release operations by revision ID only. Those paths are safe
-     only while a revision ID is immutable; they must be replaced with exact
-     session/id/version requests before same-ID bounded advances are selected.
+   - A single large paragraph/table remains atomic. Publication-wide
+     cross-chapter footnote filtering now uses a cached resource-light scan, but
+     that first-revision scan is outside the layout budget and remains a
+     first-paint latency risk.
+   - The exact Worker bridge and Browser request ownership are ready for same-ID
+     version advances. Production selection still needs a slim/incremental
+     presentation snapshot so sequential growth does not repeatedly transfer a
+     cumulatively growing full bundle. It must also gate exact interaction while
+     a continuation has invalidated the displayed version but the next snapshot
+     has not committed yet.
    - Initial paint must not require eight complete chapters, one complete large
      chapter or the complete publication.
 2. **Native interaction wiring**

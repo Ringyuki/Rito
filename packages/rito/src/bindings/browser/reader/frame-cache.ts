@@ -131,8 +131,14 @@ function loadFrameWindow(
     return Promise.reject(new Error('Reader revision owner does not match its worker session'));
   }
   const task = worker
-    .warmFrameWindow(revision.revisionId, centerSpreadIndex)
-    .then((frameWindow) => {
+    .warmFrameWindowAtRevision(
+      {
+        revisionId: revision.revisionId,
+        revisionVersion: revision.revisionVersion,
+      },
+      centerSpreadIndex,
+    )
+    .then(({ value: frameWindow }) => {
       if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
       applyBrowserReaderFrameWindow(state, revision, frameWindow);
     })

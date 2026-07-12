@@ -20,7 +20,11 @@ import type {
   BrowserReaderState,
   BrowserReaderVisualPreview,
 } from './types';
-import type { BrowserReaderRevisionResult, BrowserReaderWorkerClient } from '../core-contracts';
+import type {
+  BrowserReaderRevisionResult,
+  BrowserReaderWorkerClient,
+  CoreRevisionHandle,
+} from '../core-contracts';
 import {
   commitRevisionHandle,
   createWorkerRevisionHandle,
@@ -85,6 +89,7 @@ export function applyBrowserReaderRevisionState(
   input: BrowserReaderRevisionStateInput,
 ): void {
   const previousWorker = state.worker;
+  const previousRevision = state.revisionHandle;
   const previousRevisionId = state.revisionBundle.revision.revisionId;
   clearBrowserReaderVisualPreview(state);
   state.worker = input.worker;
@@ -105,7 +110,7 @@ export function applyBrowserReaderRevisionState(
     (previousWorker !== input.worker ||
       previousRevisionId !== input.result.bundle.revision.revisionId)
   ) {
-    releaseRevision(previousWorker, previousRevisionId);
+    if (previousRevision) releaseRevision(previousWorker, previousRevision);
   }
   disposeInactiveWorker(state, previousWorker, input.worker);
 }
@@ -240,7 +245,7 @@ export function commitBrowserReaderVisualPreview(
 export function clearBrowserReaderVisualPreview(state: BrowserReaderState): void {
   const preview = state.visualPreview;
   state.visualPreview = undefined;
-  if (preview) releaseRevision(preview.worker, preview.revision.revisionId);
+  if (preview) releaseRevision(preview.worker, preview.revision);
 }
 
 export function visualLayoutConfig(state: BrowserReaderState): LayoutConfig {
@@ -293,12 +298,17 @@ function releaseDiscarded(
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
 ): false {
-  releaseRevision(worker, result.bundle.revision.revisionId);
+  releaseRevision(worker, result.bundle.revision);
   return false;
 }
 
-function releaseRevision(worker: BrowserReaderWorkerClient, revisionId: string): void {
-  void worker.releaseRevision(revisionId).catch(() => undefined);
+function releaseRevision(worker: BrowserReaderWorkerClient, revision: CoreRevisionHandle): void {
+  void worker
+    .releaseRevisionAtRevision({
+      revisionId: revision.revisionId,
+      revisionVersion: revision.revisionVersion,
+    })
+    .catch(() => undefined);
 }
 
 function commitVisualPreview(

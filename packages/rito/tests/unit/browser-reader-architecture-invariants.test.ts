@@ -36,9 +36,9 @@ const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resource
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership, stale-result guards, exact selection, durable
-// source reads, double-page anchors, atomic reflow, and locator-driven revision
-// ownership are required orchestration capabilities.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3035;
+// source reads, double-page anchors, atomic reflow, locator navigation, and
+// exact-version frame/resource/search ownership are required orchestration capabilities.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3060;
 // Exact native interaction DTOs stay public without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 620;
 
@@ -427,6 +427,24 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ]) {
       expect(existsSync(join(BROWSER_READER_BINDING, file))).toBe(false);
     }
+  });
+
+  it('keeps revision-owned Browser reads and releases on exact-version worker methods', () => {
+    const files = [
+      ...BROWSER_READER_BINDING_FILES,
+      BROWSER_RESOURCE_ADAPTER,
+      join(SRC, 'bindings/browser/required-fonts.ts'),
+      BROWSER_REVISION_COMMIT,
+    ];
+    const hits = scan(
+      files,
+      /\.(?:readResource|warmFrameWindow|search|releaseRevision|releaseRevisionTransfers)\s*\(/g,
+    );
+
+    expect(
+      hits,
+      `Browser reader used a revisionId-only worker operation:\n${JSON.stringify(hits, null, 2)}`,
+    ).toEqual([]);
   });
 
   it('uses Rust revision font summaries instead of probing frames for fallback fonts', () => {

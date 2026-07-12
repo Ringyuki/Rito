@@ -1,6 +1,7 @@
 import type {
   BrowserReaderWorkerClient,
   CoreRequiredFontFace,
+  CoreRevisionHandle,
   CoreRevisionBundle,
 } from './core-contracts';
 import type { BrowserReaderState } from './reader/types';
@@ -26,10 +27,10 @@ export async function prepareRequiredRevisionFonts(
     const rollback = await registerRequiredRevisionFonts(state, worker, bundle, isCurrent);
     if (isCurrent()) return rollback;
     rollback();
-    releaseRevision(worker, bundle.revision.revisionId);
+    releaseRevision(worker, bundle.revision);
     return undefined;
   } catch (error) {
-    releaseRevision(worker, bundle.revision.revisionId);
+    releaseRevision(worker, bundle.revision);
     throw error;
   }
 }
@@ -51,7 +52,7 @@ async function registerRequiredRevisionFonts(
   }
   const pending = pendingRequiredFontFaces(state, manifest.faces);
   if (pending.length === 0) return noopRollback;
-  const sources = await requiredFontSources(worker, manifest.revisionId, pending);
+  const sources = await requiredFontSources(worker, bundle.revision, pending);
   const prepared = await Promise.all(
     pending.map(async ({ face, key }) => {
       const source = sources.get(face.href);
@@ -90,7 +91,7 @@ function pendingRequiredFontFaces(
 
 async function requiredFontSources(
   worker: BrowserReaderWorkerClient,
-  revisionId: string,
+  revision: CoreRevisionHandle,
   pending: readonly PendingRequiredFontFace[],
 ): Promise<Map<string, ArrayBuffer>> {
   const contracts = new Map<string, CoreRequiredFontFace>();
@@ -111,7 +112,7 @@ async function requiredFontSources(
     await Promise.all(
       [...contracts].map(
         async ([href, face]) =>
-          [href, await readRequiredFontSource(worker, revisionId, face)] as const,
+          [href, await readRequiredFontSource(worker, revision, face)] as const,
       ),
     ),
   );
@@ -119,12 +120,14 @@ async function requiredFontSources(
 
 async function readRequiredFontSource(
   worker: BrowserReaderWorkerClient,
-  revisionId: string,
+  revision: CoreRevisionHandle,
   face: CoreRequiredFontFace,
 ): Promise<ArrayBuffer> {
-  const { payload, bytes } = await worker.readResource(revisionId, 'font', face.href);
+  const { payload, bytes } = (
+    await worker.readResourceAtRevision(coreRevisionHandle(revision), 'font', face.href)
+  ).value;
   if (
-    payload.revisionId !== revisionId ||
+    payload.revisionId !== revision.revisionId ||
     payload.kind !== 'font' ||
     payload.href !== face.href ||
     payload.byteLength !== face.byteLength ||
@@ -214,6 +217,13 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 
 function noopRollback(): void {}
 
-function releaseRevision(worker: BrowserReaderWorkerClient, revisionId: string): void {
-  void worker.releaseRevision(revisionId).catch(() => undefined);
+function releaseRevision(worker: BrowserReaderWorkerClient, revision: CoreRevisionHandle): void {
+  void worker.releaseRevisionAtRevision(coreRevisionHandle(revision)).catch(() => undefined);
+}
+
+function coreRevisionHandle(revision: CoreRevisionHandle): CoreRevisionHandle {
+  return {
+    revisionId: revision.revisionId,
+    revisionVersion: revision.revisionVersion,
+  };
 }

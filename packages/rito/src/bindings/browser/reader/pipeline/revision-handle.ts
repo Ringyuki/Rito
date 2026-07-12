@@ -32,6 +32,7 @@ export function isCurrentRevisionHandle(
 ): boolean {
   const current = state.revisionHandle;
   return (
+    !state.disposed &&
     current !== undefined &&
     state.worker.sessionId === handle.workerSessionId &&
     current.workerSessionId === handle.workerSessionId &&

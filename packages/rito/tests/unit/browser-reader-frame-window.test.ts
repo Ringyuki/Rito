@@ -41,35 +41,39 @@ describe('Browser reader frame window adapter', () => {
   });
 
   it('coalesces concurrent warm requests for the same spread window', async () => {
-    let resolveWindow: ((value: ReturnType<typeof frameWindowResult>) => void) | undefined;
+    let resolveWindow: ((value: ReturnType<typeof versionedFrameWindowResult>) => void) | undefined;
     const warmFrameWindow = vi.fn(
-      (_revisionId: string, centerSpreadIndex: number) =>
-        new Promise<ReturnType<typeof frameWindowResult>>((resolve) => {
+      (
+        _revision: { readonly revisionId: string; readonly revisionVersion: number },
+        centerSpreadIndex: number,
+      ) =>
+        new Promise<ReturnType<typeof versionedFrameWindowResult>>((resolve) => {
           resolveWindow = resolve;
           expect(centerSpreadIndex).toBe(2);
         }),
     );
     const state = frameWindowState([2], () => undefined, {
-      worker: { warmFrameWindow },
+      worker: { warmFrameWindowAtRevision: warmFrameWindow },
     });
 
     const first = warmBrowserReaderFrameWindow(state, 2);
     const second = warmBrowserReaderFrameWindow(state, 2);
 
     expect(warmFrameWindow).toHaveBeenCalledOnce();
-    resolveWindow?.(frameWindowResult([2], 2));
+    expect(warmFrameWindow).toHaveBeenCalledWith({ revisionId: 'rev', revisionVersion: 0 }, 2);
+    resolveWindow?.(versionedFrameWindowResult([2], 2));
     await Promise.all([first, second]);
     expect(state.pendingFrameLoads.size).toBe(0);
   });
 
   it('rejects a stale frame window when two worker sessions use the same revision id', async () => {
-    const staleWindow = createDeferred<ReturnType<typeof frameWindowResult>>();
-    const currentWindow = createDeferred<ReturnType<typeof frameWindowResult>>();
+    const staleWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const currentWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
     const invalidated: number[] = [];
     const state = frameWindowState([0], (index) => invalidated.push(index), {
       worker: {
         sessionId: 'session-a',
-        warmFrameWindow: () => staleWindow.promise,
+        warmFrameWindowAtRevision: () => staleWindow.promise,
       },
     });
     state.frames.clear();
@@ -87,7 +91,7 @@ describe('Browser reader frame window adapter', () => {
     const staleWarm = warmBrowserReaderFrameWindow(state, 0);
     state.worker = {
       sessionId: 'session-b',
-      warmFrameWindow: () => currentWindow.promise,
+      warmFrameWindowAtRevision: () => currentWindow.promise,
     } as unknown as BrowserReaderState['worker'];
     state.revisionHandle = {
       workerSessionId: 'session-b',
@@ -99,13 +103,50 @@ describe('Browser reader frame window adapter', () => {
     state.pendingFrameLoads.clear();
     const currentWarm = warmBrowserReaderFrameWindow(state, 0);
 
-    staleWindow.resolve(frameWindowResult([0], 0, 'stale-frame', 'rev-1'));
+    staleWindow.resolve(versionedFrameWindowResult([0], 0, 'stale-frame', 'rev-1'));
     await staleWarm;
     expect(state.frames.has(0)).toBe(false);
 
-    currentWindow.resolve(frameWindowResult([0], 0, 'current-frame', 'rev-1'));
+    currentWindow.resolve(versionedFrameWindowResult([0], 0, 'current-frame', 'rev-1'));
     await currentWarm;
     expect(state.frames.get(0)?.commandHash).toBe('current-frame');
+    expect(invalidated).toEqual([0]);
+  });
+
+  it('rejects a stale frame window after the same session advances its revision version', async () => {
+    const oldWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const currentWindow = createDeferred<ReturnType<typeof versionedFrameWindowResult>>();
+    const invalidated: number[] = [];
+    const state = frameWindowState([0], (index) => invalidated.push(index), {
+      worker: {
+        warmFrameWindowAtRevision: (revision: { readonly revisionVersion: number }) =>
+          revision.revisionVersion === 0 ? oldWindow.promise : currentWindow.promise,
+      },
+    });
+    state.frames.clear();
+
+    const staleWarm = warmBrowserReaderFrameWindow(state, 0);
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, revisionVersion: 1 },
+    };
+    state.revisionHandle = {
+      workerSessionId: state.worker.sessionId,
+      revisionId: 'rev',
+      revisionVersion: 1,
+      commitGeneration: 2,
+    };
+    state.commitGeneration = 2;
+    state.pendingFrameLoads.clear();
+    const currentWarm = warmBrowserReaderFrameWindow(state, 0);
+
+    oldWindow.resolve(versionedFrameWindowResult([0], 0, 'stale-version', 'rev', 0));
+    await staleWarm;
+    expect(state.frames.has(0)).toBe(false);
+
+    currentWindow.resolve(versionedFrameWindowResult([0], 0, 'current-version', 'rev', 1));
+    await currentWarm;
+    expect(state.frames.get(0)?.commandHash).toBe('current-version');
     expect(invalidated).toEqual([0]);
   });
 
@@ -114,28 +155,34 @@ describe('Browser reader frame window adapter', () => {
     const state = frameWindowState([1], (index) => invalidated.push(index), {
       images: new Map([['cover.png', { close: vi.fn() } as unknown as ImageBitmap]]),
       worker: {
-        warmFrameWindow: () =>
+        warmFrameWindowAtRevision: (revision: {
+          readonly revisionId: string;
+          readonly revisionVersion: number;
+        }) =>
           Promise.resolve({
-            ...frameWindowResult([1], 1),
-            spreads: [
-              { spreadIndex: 0, resources: [] },
-              {
-                spreadIndex: 1,
-                resources: [
-                  {
-                    payload: {
-                      revisionId: 'rev',
-                      transferId: 'transfer-cached',
-                      kind: 'image' as const,
-                      href: 'cover.png',
-                      mediaType: 'image/png',
-                      byteLength: 4,
+            revision,
+            value: {
+              ...frameWindowResult([1], 1),
+              spreads: [
+                { spreadIndex: 0, resources: [] },
+                {
+                  spreadIndex: 1,
+                  resources: [
+                    {
+                      payload: {
+                        revisionId: 'rev',
+                        transferId: 'transfer-cached',
+                        kind: 'image' as const,
+                        href: 'cover.png',
+                        mediaType: 'image/png',
+                        byteLength: 4,
+                      },
+                      bytes: new Uint8Array([1, 2, 3, 4]),
                     },
-                    bytes: new Uint8Array([1, 2, 3, 4]),
-                  },
-                ],
-              },
-            ],
+                  ],
+                },
+              ],
+            },
           }),
       },
     });
@@ -168,33 +215,42 @@ describe('Browser reader frame window adapter', () => {
     const invalidated: number[] = [];
     const state = frameWindowState([1], (index) => invalidated.push(index), {
       worker: {
-        warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
+        warmFrameWindowAtRevision: (
+          revision: {
+            readonly revisionId: string;
+            readonly revisionVersion: number;
+          },
+          centerSpreadIndex: number,
+        ) =>
           Promise.resolve({
-            plan: {
-              revisionId: 'rev',
-              centerSpreadIndex,
-              displaySpreadIndex: centerSpreadIndex,
-              spreadIndexes: [1],
-            },
-            frames: [frameBuffer('rev', 1)],
-            spreads: [
-              {
-                spreadIndex: 1,
-                resources: [
-                  {
-                    payload: {
-                      revisionId: 'rev',
-                      transferId: 'transfer-1',
-                      kind: 'image',
-                      href: 'cover.png',
-                      mediaType: 'image/png',
-                      byteLength: 4,
-                    },
-                    bytes: new Uint8Array([1, 2, 3, 4]),
-                  },
-                ],
+            revision,
+            value: {
+              plan: {
+                revisionId: 'rev',
+                centerSpreadIndex,
+                displaySpreadIndex: centerSpreadIndex,
+                spreadIndexes: [1],
               },
-            ],
+              frames: [frameBuffer('rev', 1)],
+              spreads: [
+                {
+                  spreadIndex: 1,
+                  resources: [
+                    {
+                      payload: {
+                        revisionId: 'rev',
+                        transferId: 'transfer-1',
+                        kind: 'image',
+                        href: 'cover.png',
+                        mediaType: 'image/png',
+                        byteLength: 4,
+                      },
+                      bytes: new Uint8Array([1, 2, 3, 4]),
+                    },
+                  ],
+                },
+              ],
+            },
           }),
       },
     });
@@ -264,16 +320,25 @@ function frameWindowState(
   const overrideWorker = (overrides as { readonly worker?: object }).worker;
   const worker = {
     sessionId: 'frame-window-session',
-    warmFrameWindow: (_revisionId: string, centerSpreadIndex: number) =>
+    warmFrameWindowAtRevision: (
+      revision: {
+        readonly revisionId: string;
+        readonly revisionVersion: number;
+      },
+      centerSpreadIndex: number,
+    ) =>
       Promise.resolve({
-        plan: {
-          revisionId: 'rev',
-          centerSpreadIndex,
-          displaySpreadIndex: centerSpreadIndex,
-          spreadIndexes,
+        revision,
+        value: {
+          plan: {
+            revisionId: 'rev',
+            centerSpreadIndex,
+            displaySpreadIndex: centerSpreadIndex,
+            spreadIndexes,
+          },
+          frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
+          spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
         },
-        frames: spreadIndexes.map((spreadIndex) => frameBuffer('rev', spreadIndex)),
-        spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
       }),
     ...overrideWorker,
   };
@@ -347,6 +412,19 @@ function frameWindowResult(
       return { ...buffer, metadata: { ...buffer.metadata, commandHash } };
     }),
     spreads: spreadIndexes.map((spreadIndex) => ({ spreadIndex, resources: [] })),
+  };
+}
+
+function versionedFrameWindowResult(
+  spreadIndexes: readonly number[],
+  centerSpreadIndex: number,
+  commandHash = 'frame',
+  revisionId = 'rev',
+  revisionVersion = 0,
+) {
+  return {
+    revision: { revisionId, revisionVersion },
+    value: frameWindowResult(spreadIndexes, centerSpreadIndex, commandHash, revisionId),
   };
 }
 

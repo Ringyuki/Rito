@@ -21,6 +21,7 @@ import {
 } from '../rendering';
 import { fallbackTextMeasurer, type BrowserReaderState } from './types';
 import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
+import { captureCommittedSourceRead, readCapturedSource } from './interaction-capture';
 import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
 
 export type BrowserReaderAccessorKey =
@@ -203,16 +204,16 @@ function resourceMethods(
   return {
     async search(query, searchOptions) {
       if (query.length === 0) return [];
-      const revisionId = state.revisionBundle.revision.revisionId;
-      if (revisionId.length === 0) return [];
-      const response = await state.worker.search(revisionId, {
-        query,
-        caseSensitive: searchOptions?.caseSensitive ?? false,
-        wholeWord: searchOptions?.wholeWord ?? false,
-      });
-      if (state.disposed || state.revisionBundle.revision.revisionId !== response.revisionId) {
-        return [];
-      }
+      const capture = captureCommittedSourceRead(state);
+      if (!capture) return [];
+      const response = await readCapturedSource(state, capture, (worker, revision) =>
+        worker.searchAtRevision(revision, {
+          query,
+          caseSensitive: searchOptions?.caseSensitive ?? false,
+          wholeWord: searchOptions?.wholeWord ?? false,
+        }),
+      );
+      if (!response) return [];
       return response.results.map(toSearchResult);
     },
     getChapterTextIndices() {

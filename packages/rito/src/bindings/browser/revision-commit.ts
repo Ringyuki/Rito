@@ -44,7 +44,12 @@ export function requireBrowserReaderLocatorSelectedFrame(
   ) {
     return;
   }
-  void worker.releaseRevision(result.bundle.revision.revisionId).catch(() => undefined);
+  void worker
+    .releaseRevisionAtRevision({
+      revisionId: result.bundle.revision.revisionId,
+      revisionVersion: result.bundle.revision.revisionVersion,
+    })
+    .catch(() => undefined);
   throw new Error('Reader locator navigation full revision is missing a matching selected frame');
 }
 
@@ -70,7 +75,12 @@ export async function prepareBrowserReaderCommitFrame(
     return { displaySpreadIndex: selection.displaySpreadIndex, frame, resources };
   } catch (error) {
     onFailure?.();
-    void worker.releaseRevision(result.bundle.revision.revisionId).catch(() => undefined);
+    void worker
+      .releaseRevisionAtRevision({
+        revisionId: result.bundle.revision.revisionId,
+        revisionVersion: result.bundle.revision.revisionVersion,
+      })
+      .catch(() => undefined);
     throw error;
   }
 }

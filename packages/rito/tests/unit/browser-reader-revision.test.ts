@@ -51,6 +51,10 @@ describe('Browser reader revision lifecycle', () => {
     });
 
     expect(foreground.releaseRevision).toHaveBeenCalledWith('rev-1');
+    expect(foreground.releaseRevisionAtRevision).toHaveBeenCalledWith({
+      revisionId: 'rev-1',
+      revisionVersion: 0,
+    });
     expect(state.revisionHandle).toEqual({
       workerSessionId: background.worker.sessionId,
       revisionId: 'rev-1',
@@ -60,6 +64,36 @@ describe('Browser reader revision lifecycle', () => {
     expect(state.commitGeneration).toBe(2);
     expect(state.interaction.pageTargets.size).toBe(0);
     expect(state.interaction.pendingPageTargets.size).toBe(0);
+  });
+
+  it('does not release an accepted in-place revision advance on the same worker', () => {
+    const fixture = createWorker(() => undefined);
+    const state = createState(fixture.worker);
+    setRevisionState(state, revisionResult('bounded', 1, 1).bundle.revision);
+    const next = revisionResult('bounded', 2, 2);
+    const advanced = {
+      ...next,
+      bundle: {
+        ...next.bundle,
+        revision: { ...next.bundle.revision, revisionVersion: 1 },
+      },
+    };
+
+    applyBrowserReaderRevisionState(state, {
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      result: advanced,
+      worker: fixture.worker,
+    });
+
+    expect(fixture.releaseRevisionAtRevision).not.toHaveBeenCalled();
+    expect(state.revisionHandle).toEqual({
+      workerSessionId: fixture.worker.sessionId,
+      revisionId: 'bounded',
+      revisionVersion: 1,
+      commitGeneration: 2,
+    });
   });
 
   it('blocks a pinned candidate revision until every required face has loaded', async () => {
@@ -83,10 +117,10 @@ describe('Browser reader revision lifecycle', () => {
       requiredFace('First', 'fonts/shared.ttf', 0),
       requiredFace('Second', 'fonts/shared.ttf', 1),
     ]);
-    const readResource = vi.fn<BrowserReaderState['worker']['readResource']>(
-      (revisionId, _kind, href) => Promise.resolve(fontResource(revisionId, 'font', href)),
+    const readResource = vi.fn<BrowserReaderState['worker']['readResourceAtRevision']>(
+      (revision, _kind, href) => Promise.resolve(fontResource(revision, 'font', href)),
     );
-    Object.assign(candidate.worker, { readResource });
+    Object.assign(candidate.worker, { readResourceAtRevision: readResource });
 
     const commit = commitBrowserReaderViewResult(
       state,
@@ -132,9 +166,9 @@ describe('Browser reader revision lifecycle', () => {
     const result = withRequiredFonts(revisionResult('candidate', 1, 1), [
       requiredFace('Book', 'fonts/book.ttf', 0),
     ]);
-    const readResource = vi.fn<BrowserReaderState['worker']['readResource']>();
-    readResource.mockResolvedValue(fontResource('candidate', 'font', 'fonts/book.ttf'));
-    Object.assign(candidate.worker, { readResource });
+    const readResource = vi.fn<BrowserReaderState['worker']['readResourceAtRevision']>();
+    readResource.mockResolvedValue(fontResource(candidateRevision(), 'font', 'fonts/book.ttf'));
+    Object.assign(candidate.worker, { readResourceAtRevision: readResource });
 
     const commit = commitBrowserReaderViewResult(
       state,
@@ -180,9 +214,9 @@ describe('Browser reader revision lifecycle', () => {
       requiredFace('Book', 'fonts/book.ttf', 0),
     ]);
     Object.assign(candidate.worker, {
-      readResource: vi
-        .fn<BrowserReaderState['worker']['readResource']>()
-        .mockResolvedValue(fontResource('candidate', 'font', 'fonts/book.ttf')),
+      readResourceAtRevision: vi
+        .fn<BrowserReaderState['worker']['readResourceAtRevision']>()
+        .mockResolvedValue(fontResource(candidateRevision(), 'font', 'fonts/book.ttf')),
     });
 
     await expect(
@@ -217,9 +251,9 @@ describe('Browser reader revision lifecycle', () => {
       requiredFace('Book', 'fonts/book.ttf', 0),
     ]);
     Object.assign(candidate.worker, {
-      readResource: vi
-        .fn<BrowserReaderState['worker']['readResource']>()
-        .mockResolvedValue(fontResource('candidate', 'font', 'fonts/book.ttf')),
+      readResourceAtRevision: vi
+        .fn<BrowserReaderState['worker']['readResourceAtRevision']>()
+        .mockResolvedValue(fontResource(candidateRevision(), 'font', 'fonts/book.ttf')),
     });
 
     await expect(
@@ -257,10 +291,10 @@ describe('Browser reader revision lifecycle', () => {
       requiredFace('First', 'fonts/first.ttf', 0),
       requiredFace('Second', 'fonts/second.ttf', 1),
     ]);
-    const readResource = vi.fn<BrowserReaderState['worker']['readResource']>(
-      (revisionId, _kind, href) => Promise.resolve(fontResource(revisionId, 'font', href)),
+    const readResource = vi.fn<BrowserReaderState['worker']['readResourceAtRevision']>(
+      (revision, _kind, href) => Promise.resolve(fontResource(revision, 'font', href)),
     );
-    Object.assign(candidate.worker, { readResource });
+    Object.assign(candidate.worker, { readResourceAtRevision: readResource });
 
     await expect(
       commitBrowserReaderViewResult(state, queuedReflow(state), candidate.worker, result, false),
@@ -292,10 +326,10 @@ describe('Browser reader revision lifecycle', () => {
     const result = withRequiredFonts(revisionResult('candidate', 1, 1), [
       requiredFace('Book', 'fonts/book.ttf', 0),
     ]);
-    const resource = fontResource('candidate', 'font', 'fonts/book.ttf');
-    resource.bytes.set([4, 3, 2, 1]);
+    const resource = fontResource(candidateRevision(), 'font', 'fonts/book.ttf');
+    resource.value.bytes.set([4, 3, 2, 1]);
     Object.assign(candidate.worker, {
-      readResource: vi.fn().mockResolvedValue(resource),
+      readResourceAtRevision: vi.fn().mockResolvedValue(resource),
     });
 
     await expect(
@@ -367,21 +401,28 @@ function requiredFace(family: string, href: string, sourceOrder: number) {
 }
 
 function fontResource(
-  revisionId: string,
+  revision: { readonly revisionId: string; readonly revisionVersion: number },
   kind: 'font',
   href: string,
-): Awaited<ReturnType<BrowserReaderState['worker']['readResource']>> {
+): Awaited<ReturnType<BrowserReaderState['worker']['readResourceAtRevision']>> {
   return {
-    payload: {
-      revisionId,
-      transferId: `transfer-${href}`,
-      kind,
-      href,
-      mediaType: 'font/ttf',
-      byteLength: 4,
+    revision,
+    value: {
+      payload: {
+        revisionId: revision.revisionId,
+        transferId: `transfer-${href}`,
+        kind,
+        href,
+        mediaType: 'font/ttf',
+        byteLength: 4,
+      },
+      bytes: new Uint8Array([1, 2, 3, 4]),
     },
-    bytes: new Uint8Array([1, 2, 3, 4]),
   };
+}
+
+function candidateRevision(): { readonly revisionId: string; readonly revisionVersion: number } {
+  return { revisionId: 'candidate', revisionVersion: 0 };
 }
 
 function expectDefined<T>(value: T | undefined): T {

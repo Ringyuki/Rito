@@ -113,6 +113,97 @@ describe('Browser reader methods', () => {
     );
   });
 
+  it('binds search reads to the complete current revision handle', async () => {
+    const state = createState();
+    const revision = { revisionId: 'rev', revisionVersion: 3 };
+    const searchAtRevision = vi.fn(() =>
+      Promise.resolve({
+        revision,
+        value: {
+          revisionId: revision.revisionId,
+          query: 'needle',
+          caseSensitive: false,
+          wholeWord: false,
+          resultCount: 0,
+          results: [],
+        },
+      }),
+    );
+    state.worker = {
+      sessionId: 'search-session',
+      searchAtRevision,
+    } as unknown as BrowserReaderState['worker'];
+    state.revisionHandle = {
+      workerSessionId: 'search-session',
+      ...revision,
+      commitGeneration: 4,
+    };
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    await expect(methods.search?.('needle')).resolves.toEqual([]);
+
+    expect(searchAtRevision).toHaveBeenCalledWith(revision, {
+      query: 'needle',
+      caseSensitive: false,
+      wholeWord: false,
+    });
+  });
+
+  it('drops a delayed search result after the same session advances its version', async () => {
+    const state = createState();
+    const requested = { revisionId: 'rev', revisionVersion: 3 };
+    let resolveSearch:
+      | ((value: {
+          readonly revision: typeof requested;
+          readonly value: {
+            readonly revisionId: string;
+            readonly query: string;
+            readonly caseSensitive: boolean;
+            readonly wholeWord: boolean;
+            readonly resultCount: number;
+            readonly results: readonly [];
+          };
+        }) => void)
+      | undefined;
+    const searchAtRevision = vi.fn(
+      () =>
+        new Promise<Parameters<NonNullable<typeof resolveSearch>>[0]>((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    state.worker = {
+      sessionId: 'search-session',
+      searchAtRevision,
+    } as unknown as BrowserReaderState['worker'];
+    state.revisionHandle = {
+      workerSessionId: 'search-session',
+      ...requested,
+      commitGeneration: 4,
+    };
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    const pending = methods.search?.('needle');
+    state.revisionHandle = {
+      workerSessionId: 'search-session',
+      revisionId: 'rev',
+      revisionVersion: 4,
+      commitGeneration: 5,
+    };
+    resolveSearch?.({
+      revision: requested,
+      value: {
+        revisionId: 'rev',
+        query: 'needle',
+        caseSensitive: false,
+        wholeWord: false,
+        resultCount: 0,
+        results: [],
+      },
+    });
+
+    await expect(pending).resolves.toEqual([]);
+  });
+
   it('aligns scaled canvas CSS dimensions to whole backing pixels', () => {
     const state = createState();
     state.dpr = 1.5;

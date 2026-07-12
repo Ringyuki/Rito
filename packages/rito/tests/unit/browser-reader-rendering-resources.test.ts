@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+  getImageObjectUrl,
   preloadCurrentReaderFonts,
   preloadReaderFonts,
 } from '../../src/bindings/browser/resources';
@@ -132,7 +133,10 @@ describe('Browser reader resource-backed rendering', () => {
     vi.stubGlobal('fonts', undefined);
     const readResource = vi.fn();
     const state = createState({
-      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as unknown as BrowserReaderWorkerClient,
       publication: {
         fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
         resources: { fonts: [], images: [], stylesheets: [] },
@@ -172,7 +176,10 @@ describe('Browser reader resource-backed rendering', () => {
     vi.stubGlobal('document', { fonts: { add: addFont } });
     const pinnedFace = new FakeFontFace(alias, new ArrayBuffer(1)) as unknown as FontFace;
     const state = createState({
-      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as unknown as BrowserReaderWorkerClient,
       pinnedFonts: {
         policy: undefined,
         summary: emptyPinnedFontPolicySummary(),
@@ -198,7 +205,10 @@ describe('Browser reader resource-backed rendering', () => {
     vi.stubGlobal('FontFace', FakeFontFace);
     vi.stubGlobal('document', { fonts: { add: addFont } });
     const state = createState({
-      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as unknown as BrowserReaderWorkerClient,
       pinnedFonts: {
         policy: undefined,
         summary: { ...emptyPinnedFontPolicySummary(), faces: [{}] },
@@ -231,21 +241,15 @@ describe('Browser reader resource-backed rendering', () => {
     }
     vi.stubGlobal('FontFace', DeferredFontFace);
     vi.stubGlobal('document', { fonts: { add: addFont } });
-    const readResource = vi.fn((revisionId: string) =>
-      Promise.resolve({
-        payload: {
-          revisionId,
-          transferId: `transfer-${revisionId}`,
-          kind: 'font' as const,
-          href: 'fonts/book.woff2',
-          mediaType: 'font/woff2',
-          byteLength: 4,
-        },
-        bytes: new Uint8Array([1, 2, 3, 4]),
-      }),
+    const readResource = vi.fn(
+      (revision: { readonly revisionId: string; readonly revisionVersion: number }) =>
+        Promise.resolve(versionedResource(revision, 'font', 'fonts/book.woff2')),
     );
     const state = createState({
-      worker: { ...createWorker(), readResource } as BrowserReaderWorkerClient,
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as BrowserReaderWorkerClient,
       publication: {
         fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
         resources: { fonts: [], images: [], stylesheets: [] },
@@ -254,17 +258,34 @@ describe('Browser reader resource-backed rendering', () => {
 
     const preload = preloadCurrentReaderFonts(state);
     await flushPromises();
-    expect(readResource).toHaveBeenCalledWith('rev-1', 'font', 'fonts/book.woff2');
+    expect(readResource).toHaveBeenCalledWith(
+      { revisionId: 'rev-1', revisionVersion: 0 },
+      'font',
+      'fonts/book.woff2',
+    );
     expect(finishLoads).toHaveLength(1);
 
     state.revisionBundle = {
       ...state.revisionBundle,
-      revision: { ...state.revisionBundle.revision, revisionId: 'rev-2' },
+      revision: {
+        ...state.revisionBundle.revision,
+        revisionVersion: 1,
+      },
+    };
+    state.revisionHandle = {
+      workerSessionId: state.worker.sessionId,
+      revisionId: 'rev-1',
+      revisionVersion: 1,
+      commitGeneration: 2,
     };
     finishLoads[0]?.();
     await flushPromises();
 
-    expect(readResource).toHaveBeenLastCalledWith('rev-2', 'font', 'fonts/book.woff2');
+    expect(readResource).toHaveBeenLastCalledWith(
+      { revisionId: 'rev-1', revisionVersion: 1 },
+      'font',
+      'fonts/book.woff2',
+    );
     expect(finishLoads).toHaveLength(2);
     expect(addFont).not.toHaveBeenCalled();
 
@@ -297,21 +318,14 @@ describe('Browser reader resource-backed rendering', () => {
     }
     vi.stubGlobal('FontFace', ControlledFontFace);
     vi.stubGlobal('document', { fonts: { add: addFont } });
-    const readResource = vi.fn((_revisionId: string, _kind: string, href: string) =>
-      Promise.resolve({
-        payload: {
-          revisionId: 'rev-1',
-          transferId: `transfer-${href}`,
-          kind: 'font' as const,
-          href,
-          mediaType: 'font/woff2',
-          byteLength: 4,
-        },
-        bytes: new Uint8Array([1, 2, 3, 4]),
-      }),
+    const readResource = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+      (revision, _kind, href) => Promise.resolve(versionedResource(revision, 'font', href)),
     );
     const state = createState({
-      worker: { ...createWorker(), readResource } as BrowserReaderWorkerClient,
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as BrowserReaderWorkerClient,
       publication: {
         fontFaces: [
           { family: 'First', href: 'fonts/first.woff2' },
@@ -377,13 +391,63 @@ describe('Browser reader resource-backed rendering', () => {
     await flushPromises();
     state.revisionBundle = {
       ...state.revisionBundle,
-      revision: { ...state.revisionBundle.revision, revisionId: 'rev-2' },
+      revision: {
+        ...state.revisionBundle.revision,
+        revisionVersion: 1,
+      },
+    };
+    state.revisionHandle = {
+      workerSessionId: state.worker.sessionId,
+      revisionId: 'rev-1',
+      revisionVersion: 1,
+      commitGeneration: 2,
     };
     expectDefined(finishLoad)();
     await preload;
 
     expect(addFont).not.toHaveBeenCalled();
     expect(state.registeredFontFaces.size).toBe(0);
+  });
+
+  it('does not cache an image object URL read from a stale revision version', async () => {
+    let resolveOld: ((value: ReturnType<typeof versionedResource>) => void) | undefined;
+    const readResourceAtRevision = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+      (revision, kind, href) =>
+        revision.revisionVersion === 0
+          ? new Promise((resolve) => {
+              resolveOld = resolve;
+            })
+          : Promise.resolve(versionedResource(revision, kind, href)),
+    );
+    const createObjectURL = vi.fn(() => 'blob:current');
+    vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
+    const state = createState({
+      worker: { ...createWorker(), readResourceAtRevision } as BrowserReaderWorkerClient,
+      imageObjectUrls: new Map(),
+    });
+
+    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      revision: { ...state.revisionBundle.revision, revisionVersion: 1 },
+    };
+    state.revisionHandle = {
+      workerSessionId: state.worker.sessionId,
+      revisionId: 'rev-1',
+      revisionVersion: 1,
+      commitGeneration: 2,
+    };
+    resolveOld?.(
+      versionedResource({ revisionId: 'rev-1', revisionVersion: 0 }, 'image', 'cover.png'),
+    );
+    await flushPromises();
+
+    expect(createObjectURL).not.toHaveBeenCalled();
+    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
+    await flushPromises();
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(state.imageObjectUrls.get('cover.png')).toBe('blob:current');
   });
 
   it('uses runtime frame font metadata for single-font fallback registration', async () => {
@@ -522,46 +586,68 @@ function fontMetricContext(): BrowserReaderState['ctx'] {
 }
 
 function createWorker(
-  warmFrameWindow = vi.fn((_revisionId: string, centerSpreadIndex: number) =>
-    Promise.resolve({
-      plan: {
-        revisionId: 'rev-1',
-        centerSpreadIndex,
-        displaySpreadIndex: centerSpreadIndex,
-        spreadIndexes: [centerSpreadIndex],
-      },
-      frames: [frameBuffer('rev-1', centerSpreadIndex)],
-      spreads: [
-        {
-          spreadIndex: centerSpreadIndex,
-          resources: [
+  warmFrameWindow = vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(
+    (revision, centerSpreadIndex) =>
+      Promise.resolve({
+        revision,
+        value: {
+          plan: {
+            revisionId: revision.revisionId,
+            centerSpreadIndex,
+            displaySpreadIndex: centerSpreadIndex,
+            spreadIndexes: [centerSpreadIndex],
+          },
+          frames: [frameBuffer(revision.revisionId, centerSpreadIndex)],
+          spreads: [
             {
-              payload: {
-                revisionId: 'rev-1',
-                transferId: 'transfer-2',
-                kind: 'image',
-                href: 'cover.png',
-                mediaType: 'image/png',
-                byteLength: 4,
-              },
-              bytes: new Uint8Array([1, 2, 3, 4]),
+              spreadIndex: centerSpreadIndex,
+              resources: [
+                {
+                  payload: {
+                    revisionId: revision.revisionId,
+                    transferId: 'transfer-2',
+                    kind: 'image',
+                    href: 'cover.png',
+                    mediaType: 'image/png',
+                    byteLength: 4,
+                  },
+                  bytes: new Uint8Array([1, 2, 3, 4]),
+                },
+              ],
             },
           ],
         },
-      ],
-    }),
+      }),
   ),
 ): BrowserReaderWorkerClient {
   return {
     sessionId: 'rendering-resource-session',
-    readResource: vi.fn(() =>
-      Promise.resolve({
-        payload: { mediaType: 'image/png', transferId: 'transfer-1', byteLength: 4 },
-        bytes: new Uint8Array([1, 2, 3, 4]),
-      }),
+    readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+      (revision, kind, href) => Promise.resolve(versionedResource(revision, kind, href)),
     ),
-    warmFrameWindow,
+    warmFrameWindowAtRevision: warmFrameWindow,
   } as unknown as BrowserReaderWorkerClient;
+}
+
+function versionedResource(
+  revision: { readonly revisionId: string; readonly revisionVersion: number },
+  kind: 'font' | 'image' | 'stylesheet',
+  href: string,
+) {
+  return {
+    revision,
+    value: {
+      payload: {
+        revisionId: revision.revisionId,
+        transferId: `transfer-${revision.revisionId}-${href}`,
+        kind,
+        href,
+        mediaType: kind === 'font' ? 'font/woff2' : 'image/png',
+        byteLength: 4,
+      },
+      bytes: new Uint8Array([1, 2, 3, 4]),
+    },
+  };
 }
 
 function fakeCanvasContext(): CanvasRenderingTarget & {
