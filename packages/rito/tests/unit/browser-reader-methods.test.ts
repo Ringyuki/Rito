@@ -6,7 +6,9 @@ import { createState as createCompleteState, createWorker } from './browser-read
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
+  navigateBrowserReaderToLocator: vi.fn(() => Promise.resolve(undefined)),
   clearDeferredFullReflow: vi.fn(),
+  cancelLocatorNavigation: vi.fn(),
   disposeBrowserReaderPinnedFonts: vi.fn(),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
@@ -17,7 +19,12 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../src/bindings/browser/reader/pipeline/reflow', () => ({
   clearDeferredFullReflow: mocks.clearDeferredFullReflow,
+  navigateBrowserReaderToLocator: mocks.navigateBrowserReaderToLocator,
   scheduleBrowserReaderReflow: mocks.scheduleBrowserReaderReflow,
+}));
+
+vi.mock('../../src/bindings/browser/reader/pipeline/locator-navigation', () => ({
+  cancelLocatorNavigation: mocks.cancelLocatorNavigation,
 }));
 
 vi.mock('../../src/bindings/browser/pinned-fonts', () => ({
@@ -91,6 +98,21 @@ describe('Browser reader methods', () => {
     expect(methods.getChapterTextIndices().get('chapter')?.normalizedText).toBe('Hello');
   });
 
+  it('forwards atomic locator navigation to the browser reflow pipeline', async () => {
+    const state = createState();
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+    const locator = { href: 'chapter.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } };
+    const controller = new AbortController();
+
+    await methods.navigateToLocator?.(locator, controller.signal);
+
+    expect(mocks.navigateBrowserReaderToLocator).toHaveBeenCalledWith(
+      state,
+      locator,
+      controller.signal,
+    );
+  });
+
   it('aligns scaled canvas CSS dimensions to whole backing pixels', () => {
     const state = createState();
     state.dpr = 1.5;
@@ -115,6 +137,7 @@ describe('Browser reader methods', () => {
 
     methods.dispose();
 
+    expect(mocks.cancelLocatorNavigation).toHaveBeenCalledWith(state);
     expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });

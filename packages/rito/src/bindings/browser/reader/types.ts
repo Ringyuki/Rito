@@ -19,6 +19,8 @@ import type {
   FootnoteEntry,
   LayoutConfig,
   LogLevel,
+  ReaderLocator,
+  ReaderLocatorResolution,
   ReaderPageTargets,
   Spread,
   TextMeasurer,
@@ -124,13 +126,20 @@ export interface BrowserReaderVisualPreview {
   readonly lineBreaking: CoreLineBreaking;
   readonly worker: BrowserReaderWorkerClient;
 }
-
+export interface BrowserReaderLocatorNavigation {
+  readonly locator: ReaderLocator;
+  phase: 'probing' | 'full' | 'settling';
+  readonly promise: Promise<ReaderLocatorResolution | undefined>;
+  readonly complete: (value: ReaderLocatorResolution | undefined) => void;
+  readonly fail: (error: unknown) => void;
+}
 export interface BrowserReaderQueuedReflow {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
   readonly lineBreaking: CoreLineBreaking;
   readonly token: number;
   readonly onCommitted?: (() => void) | undefined;
+  readonly locatorNavigation?: BrowserReaderLocatorNavigation | undefined;
 }
 
 export interface BrowserReaderDeferredFullReflow {
@@ -145,6 +154,7 @@ export interface BrowserReaderReflowState {
   queued: BrowserReaderQueuedReflow | undefined;
   deferred: BrowserReaderDeferredFullReflow | undefined;
   deferredTimer: ReturnType<typeof setTimeout> | undefined;
+  locatorNavigation: BrowserReaderLocatorNavigation | undefined;
   lastError: Error | undefined;
 }
 

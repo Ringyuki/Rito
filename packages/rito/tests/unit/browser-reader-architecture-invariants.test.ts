@@ -36,8 +36,9 @@ const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resource
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership, stale-result guards, exact selection, durable
-// source reads, double-page anchors, and atomic reflow are required orchestration capabilities.
-const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 2765;
+// source reads, double-page anchors, atomic reflow, and locator-driven revision
+// ownership are required orchestration capabilities.
+const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3035;
 // Exact native interaction DTOs stay public without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 620;
 

@@ -1,7 +1,8 @@
 import type { ReaderLocator } from '../../../../reader';
 import type { CoreRevisionHandle } from '../../core-contracts';
-import { copyReaderLocator } from '../source-locator';
+import { copyReaderLocator } from '../interaction-capture';
 import type {
+  BrowserReaderLocatorNavigation,
   BrowserReaderQueuedReflow,
   BrowserReaderRevisionHandle,
   BrowserReaderState,
@@ -15,8 +16,10 @@ export type BrowserReaderReflowAnchor =
       readonly status: 'captured';
       readonly activeSpreadIndex: number;
       readonly preserveLocator?: ReaderLocator | undefined;
+      readonly locatorNavigation?: BrowserReaderLocatorNavigation | undefined;
     }
-  | { readonly status: 'stale' };
+  | { readonly status: 'stale' }
+  | { readonly status: 'superseded' };
 
 export async function retryStaleReflow<T>(
   state: BrowserReaderState,
@@ -40,7 +43,20 @@ interface ReflowAnchorCapture {
 
 export function captureBrowserReaderReflowAnchor(
   state: BrowserReaderState,
+  requestedNavigation?: BrowserReaderLocatorNavigation,
 ): BrowserReaderReflowAnchor | Promise<BrowserReaderReflowAnchor> {
+  const currentNavigation = state.reflow.locatorNavigation;
+  if (requestedNavigation && currentNavigation && requestedNavigation !== currentNavigation) {
+    return { status: 'superseded' };
+  }
+  if (requestedNavigation && requestedNavigation === currentNavigation) {
+    return {
+      status: 'captured',
+      activeSpreadIndex: state.activeSpreadIndex,
+      preserveLocator: copyReaderLocator(requestedNavigation.locator),
+      locatorNavigation: requestedNavigation,
+    };
+  }
   const capture = captureReflowAnchor(state);
   if (!capture) {
     return { status: 'captured', activeSpreadIndex: state.activeSpreadIndex };
@@ -54,7 +70,7 @@ async function loadReflowAnchor(
 ): Promise<BrowserReaderReflowAnchor> {
   for (const pageIndex of capture.pageIndexes) {
     const result = await loadPageReflowAnchor(state, capture, pageIndex);
-    if (result.status === 'stale' || result.preserveLocator) return result;
+    if (result.status !== 'captured' || result.preserveLocator) return result;
   }
   return { status: 'captured', activeSpreadIndex: capture.activeSpreadIndex };
 }

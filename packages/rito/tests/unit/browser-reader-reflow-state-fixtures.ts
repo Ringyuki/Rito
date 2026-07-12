@@ -134,6 +134,7 @@ export function createState(
       queued: undefined,
       deferred: undefined,
       deferredTimer: undefined,
+      locatorNavigation: undefined,
       lastError: undefined,
     },
     disposed: false,

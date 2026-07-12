@@ -17,7 +17,7 @@ import {
   sameRevision,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
-import { copyReaderLocator } from './source-locator';
+import { copyReaderLocator } from './interaction-capture';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './types';
 
 interface BoundCaret {

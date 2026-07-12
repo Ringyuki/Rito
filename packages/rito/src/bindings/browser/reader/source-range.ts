@@ -9,7 +9,7 @@ import {
   readCapturedInteraction,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
-import { copyReaderLocator, copyReaderSourcePoint } from './source-locator';
+import { copyReaderLocator, copyReaderSourcePoint } from './interaction-capture';
 import type { BrowserReaderState } from './types';
 
 type CoreResolvedRange = Extract<

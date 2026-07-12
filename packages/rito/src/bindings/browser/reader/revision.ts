@@ -3,7 +3,11 @@ import { applyBrowserReaderFrameWindow, cacheFrame, resetFrameCache } from './fr
 import { resetBrowserReaderInteractionCache } from './interaction';
 import { preloadVisualPreviewFrameResources } from '../resources';
 import { prepareRequiredRevisionFonts } from '../required-fonts';
-import { prepareBrowserReaderCommitFrame } from '../revision-commit';
+import {
+  prepareBrowserReaderCommitFrame,
+  requireBrowserReaderLocatorSelectedFrame as requireLocatorSelectedFrame,
+  type BrowserReaderPreparedViewCommitOptions,
+} from '../revision-commit';
 import {
   createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
@@ -11,6 +15,7 @@ import {
 import type { CoreLineBreaking } from './types';
 import type {
   BrowserReaderFrame,
+  BrowserReaderLocatorNavigation,
   BrowserReaderQueuedReflow,
   BrowserReaderState,
   BrowserReaderVisualPreview,
@@ -22,7 +27,6 @@ import {
   currentCommitGeneration,
 } from './pipeline/revision-handle';
 import { openBrowserReaderWorker } from '../pinned-fonts';
-
 export interface BrowserReaderRevisionStateInput {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
@@ -31,7 +35,6 @@ export interface BrowserReaderRevisionStateInput {
   readonly worker: BrowserReaderWorkerClient;
   readonly initialFrame?: BrowserReaderFrame | undefined;
 }
-
 export async function fullReflowWorker(
   state: BrowserReaderState,
 ): Promise<BrowserReaderWorkerClient> {
@@ -65,7 +68,6 @@ export async function fullReflowWorker(
   }
   return worker;
 }
-
 export function disposeInactiveWorker(
   state: BrowserReaderState,
   previousWorker: BrowserReaderWorkerClient,
@@ -78,7 +80,6 @@ export function disposeInactiveWorker(
     state.fullReflowOpenPromise = undefined;
   }
 }
-
 export function applyBrowserReaderRevisionState(
   state: BrowserReaderState,
   input: BrowserReaderRevisionStateInput,
@@ -108,7 +109,6 @@ export function applyBrowserReaderRevisionState(
   }
   disposeInactiveWorker(state, previousWorker, input.worker);
 }
-
 export async function commitBrowserReaderViewResult(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,
@@ -118,14 +118,16 @@ export async function commitBrowserReaderViewResult(
   onCommitted?: () => void,
   baseCommitGeneration = currentCommitGeneration(state),
   expectedActiveSpreadIndex?: number,
+  expectedLocatorNavigation?: BrowserReaderLocatorNavigation,
 ): Promise<boolean | 'staleSpread'> {
   if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
     return releaseDiscarded(worker, result);
   }
-  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+  if (navigationChanged(state, expectedActiveSpreadIndex, expectedLocatorNavigation)) {
     releaseDiscarded(worker, result);
     return 'staleSpread';
   }
+  if (expectedLocatorNavigation) requireLocatorSelectedFrame(worker, result, visualPreview);
   const rollbackFonts = await prepareRequiredRevisionFonts(
     state,
     worker,
@@ -133,7 +135,7 @@ export async function commitBrowserReaderViewResult(
     () => !shouldDiscardReflowResult(state, request, baseCommitGeneration),
   );
   if (!rollbackFonts) return false;
-  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+  if (navigationChanged(state, expectedActiveSpreadIndex, expectedLocatorNavigation)) {
     rollbackFonts();
     releaseDiscarded(worker, result);
     return 'staleSpread';
@@ -143,25 +145,41 @@ export async function commitBrowserReaderViewResult(
     rollbackFonts();
     return releaseDiscarded(worker, result);
   }
-  if (activeSpreadChanged(state, expectedActiveSpreadIndex)) {
+  if (navigationChanged(state, expectedActiveSpreadIndex, expectedLocatorNavigation)) {
     rollbackFonts();
     releaseDiscarded(worker, result);
     return 'staleSpread';
   }
-  if (visualPreview) {
+  return publishPreparedView(state, request, worker, result, {
+    visualPreview,
+    onCommitted,
+    baseCommitGeneration,
+    expectedLocatorNavigation,
+    rollbackFonts,
+    commitFrame,
+  });
+}
+function publishPreparedView(
+  state: BrowserReaderState,
+  request: BrowserReaderQueuedReflow,
+  worker: BrowserReaderWorkerClient,
+  result: BrowserReaderRevisionResult,
+  prepared: BrowserReaderPreparedViewCommitOptions,
+): boolean {
+  if (prepared.visualPreview) {
     try {
       const committed = commitVisualPreview(
         state,
         request,
         worker,
         result,
-        commitFrame,
-        baseCommitGeneration,
+        prepared.commitFrame,
+        prepared.baseCommitGeneration,
       );
-      if (!committed) rollbackFonts();
+      if (!committed) prepared.rollbackFonts();
       return committed;
     } catch (error) {
-      rollbackFonts();
+      prepared.rollbackFonts();
       throw error;
     }
   }
@@ -171,10 +189,16 @@ export async function commitBrowserReaderViewResult(
     lineBreaking: request.lineBreaking,
     result,
     worker,
-    initialFrame: commitFrame.frame,
+    initialFrame: prepared.commitFrame.frame,
   });
-  state.activeSpreadIndex = commitFrame.frame?.spreadIndex ?? clampedActiveSpread(state);
-  notifyReaderListener(state, 'reader layout commit callback', onCommitted);
+  state.activeSpreadIndex = prepared.commitFrame.frame?.spreadIndex ?? clampedActiveSpread(state);
+  if (
+    prepared.expectedLocatorNavigation !== undefined &&
+    state.reflow.locatorNavigation === prepared.expectedLocatorNavigation
+  ) {
+    prepared.expectedLocatorNavigation.phase = 'settling';
+  }
+  notifyReaderListener(state, 'reader layout commit callback', prepared.onCommitted);
   for (const cb of state.layoutCommittedListeners) {
     notifyReaderListener(state, 'reader layout committed listener', () => {
       cb(state.activeSpreadIndex);
@@ -182,7 +206,6 @@ export async function commitBrowserReaderViewResult(
   }
   return true;
 }
-
 export function commitBrowserReaderVisualPreview(
   state: BrowserReaderState,
   preview: {
@@ -214,7 +237,6 @@ export function commitBrowserReaderVisualPreview(
     });
   }
 }
-
 export function clearBrowserReaderVisualPreview(state: BrowserReaderState): void {
   const preview = state.visualPreview;
   state.visualPreview = undefined;
@@ -247,12 +269,16 @@ function shouldDiscardReflowResult(
   );
 }
 
-function activeSpreadChanged(
+function navigationChanged(
   state: BrowserReaderState,
   expectedActiveSpreadIndex: number | undefined,
+  expectedLocatorNavigation: BrowserReaderLocatorNavigation | undefined,
 ): boolean {
   return (
-    expectedActiveSpreadIndex !== undefined && state.activeSpreadIndex !== expectedActiveSpreadIndex
+    (expectedActiveSpreadIndex !== undefined &&
+      state.activeSpreadIndex !== expectedActiveSpreadIndex) ||
+    (expectedLocatorNavigation !== undefined &&
+      state.reflow.locatorNavigation !== expectedLocatorNavigation)
   );
 }
 

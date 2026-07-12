@@ -1,4 +1,4 @@
-import type { ReaderOptions } from '../../../../reader';
+import type { ReaderLocator, ReaderLocatorResolution, ReaderOptions } from '../../../../reader';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig, toCoreLayoutConfig } from '../layout';
 import { commitBrowserReaderViewResult, fullReflowWorker } from '../revision';
 import { currentCommitGeneration } from './revision-handle';
@@ -15,13 +15,33 @@ import {
   scheduleReaderMicrotask,
 } from './reflow-state';
 import { captureBrowserReaderReflowAnchor, retryStaleReflow } from './reflow-anchor';
-
+import {
+  continueLocatorNavigation,
+  failLocatorNavigation,
+  startLocatorNavigation,
+} from './locator-navigation';
 type ResolvedViewRevision = Pick<BrowserReaderViewRevisionResult, 'kind' | 'followUp'>;
 type ViewRevisionAttempt = ResolvedViewRevision | 'staleSpread' | undefined;
 type BeforeInitialFullReflow = () => Promise<boolean | undefined>;
-
+type State = BrowserReaderState;
+type Request = BrowserReaderQueuedReflow;
+type WorkerClient = BrowserReaderWorkerClient;
+export function navigateBrowserReaderToLocator(
+  state: State,
+  locator: ReaderLocator,
+  signal?: AbortSignal,
+): Promise<ReaderLocatorResolution | undefined> {
+  return startLocatorNavigation(state, locator, signal, {
+    clearDeferred: () => {
+      clearDeferredFullReflow(state);
+    },
+    scheduleDrain: () => {
+      scheduleReflowDrain(state);
+    },
+  });
+}
 export function scheduleBrowserReaderReflow(
-  state: BrowserReaderState,
+  state: State,
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
   lineBreaking: 'greedy' | 'optimal',
@@ -30,7 +50,16 @@ export function scheduleBrowserReaderReflow(
 ): boolean {
   const config = applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode));
   if (isNoOpReflow(state, config, spreadMode, lineBreaking, force)) return false;
-  const request = { config, spreadMode, lineBreaking, onCommitted, token: ++state.reflow.token };
+  const locatorNavigation = state.reflow.locatorNavigation;
+  if (locatorNavigation) locatorNavigation.phase = 'full';
+  const request: Request = {
+    config,
+    spreadMode,
+    lineBreaking,
+    onCommitted,
+    token: ++state.reflow.token,
+    ...(locatorNavigation ? { locatorNavigation } : {}),
+  };
   if (state.revisionBundle.revision.revisionId.length === 0) {
     state.config = request.config;
     state.spreadMode = spreadMode;
@@ -41,9 +70,8 @@ export function scheduleBrowserReaderReflow(
   scheduleReflowDrain(state);
   return true;
 }
-
 export async function startBrowserReaderInitialReflow(
-  state: BrowserReaderState,
+  state: State,
   options: ReaderOptions,
   spreadMode: 'single' | 'double',
   lineBreaking: 'greedy' | 'optimal',
@@ -86,10 +114,9 @@ export async function startBrowserReaderInitialReflow(
     if (!state.disposed && state.reflow.queued) scheduleReflowDrain(state);
   }
 }
-
 function continueInitialReflow(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
+  state: State,
+  request: Request,
   resolved: ResolvedViewRevision | undefined,
   beforeFullReflow: BeforeInitialFullReflow | undefined,
 ): void {
@@ -110,10 +137,9 @@ function continueInitialReflow(
         reportReflowError(state, error, 'initial reader follow-up');
     });
 }
-
 async function refreshInitialPreview(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
+  state: State,
+  request: Request,
   resolved: ResolvedViewRevision | undefined,
   beforeFullReflow: BeforeInitialFullReflow,
 ): Promise<ResolvedViewRevision | undefined> {
@@ -131,10 +157,9 @@ async function refreshInitialPreview(
     previousRevisionId,
   );
 }
-
 function scheduleInitialFollowUp(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
+  state: State,
+  request: Request,
   followUp: NonNullable<BrowserReaderViewRevisionResult['followUp']>,
 ): void {
   scheduleDeferredFullReflow(state, request, {
@@ -145,15 +170,13 @@ function scheduleInitialFollowUp(
     },
   });
 }
-
-export function clearDeferredFullReflow(state: BrowserReaderState): void {
+export function clearDeferredFullReflow(state: State): void {
   state.reflow.deferred = undefined;
   if (state.reflow.deferredTimer === undefined) return;
   clearTimeout(state.reflow.deferredTimer);
   state.reflow.deferredTimer = undefined;
 }
-
-async function drainReflowQueue(state: BrowserReaderState): Promise<void> {
+async function drainReflowQueue(state: State): Promise<void> {
   if (state.reflow.active) return;
   try {
     while (!state.disposed && state.reflow.queued) {
@@ -164,19 +187,25 @@ async function drainReflowQueue(state: BrowserReaderState): Promise<void> {
       await createQueuedRevision(state, request);
     }
   } catch (error) {
-    if (state.reflow.active?.token === state.reflow.token && !state.disposed)
-      reportReflowError(state, error, 'queued reader reflow');
+    const active = state.reflow.active;
+    if (active?.token === state.reflow.token && !state.disposed) {
+      const wrapped = reportReflowError(state, error, 'queued reader reflow');
+      if (active.locatorNavigation && state.reflow.locatorNavigation === active.locatorNavigation) {
+        failLocatorNavigation(state, active.locatorNavigation, wrapped);
+      }
+    }
   } finally {
     state.reflow.active = undefined;
     if (!state.disposed && state.reflow.queued) scheduleReflowDrain(state);
   }
 }
-
-async function createQueuedRevision(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
-): Promise<void> {
+async function createQueuedRevision(state: State, request: Request): Promise<void> {
   const previousRevisionId = state.revisionBundle.revision.revisionId || undefined;
+  if (request.locatorNavigation) {
+    const resolved = await createAndCommitFullRevision(state, request, 'full', previousRevisionId);
+    continueLocatorNavigation(state, request, resolved?.kind);
+    return;
+  }
   if (previousRevisionId !== undefined) {
     const previewWorker = state.worker;
     const resolved = await createAndCommitStableViewRevision(
@@ -195,10 +224,9 @@ async function createQueuedRevision(
   }
   await createAndCommitFullRevision(state, request, 'full', previousRevisionId);
 }
-
 function scheduleDeferredFullReflow(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
+  state: State,
+  request: Request,
   followUp: NonNullable<BrowserReaderViewRevisionResult['followUp']>,
 ): void {
   clearDeferredFullReflow(state);
@@ -223,13 +251,12 @@ function scheduleDeferredFullReflow(
       });
   }, followUp.delayMs);
 }
-
 async function createAndCommitFullRevision(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
+  state: State,
+  request: Request,
   workerRequest: CoreViewRevisionRequest | 'full',
   previousRevisionId?: string,
-): Promise<void> {
+): Promise<ResolvedViewRevision | undefined> {
   const worker = await fullReflowWorker(state);
   if (state.disposed || request.token !== state.reflow.token) return;
   const previousId = state.worker === worker ? previousRevisionId : undefined;
@@ -237,13 +264,12 @@ async function createAndCommitFullRevision(
     const { previousRevisionId: _previousRevisionId, ...crossWorkerRequest } = workerRequest;
     workerRequest = crossWorkerRequest;
   }
-  await createAndCommitStableViewRevision(state, request, worker, workerRequest, previousId);
+  return createAndCommitStableViewRevision(state, request, worker, workerRequest, previousId);
 }
-
 async function createAndCommitStableViewRevision(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
-  worker: BrowserReaderWorkerClient,
+  state: State,
+  request: Request,
+  worker: WorkerClient,
   workerRequest: CoreViewRevisionRequest | 'preview' | 'full',
   previousRevisionId: string | undefined,
   onPreviewCommitted?: () => void,
@@ -259,20 +285,20 @@ async function createAndCommitStableViewRevision(
     ),
   );
 }
-
 async function createAndCommitViewRevision(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
-  worker: BrowserReaderWorkerClient,
+  state: State,
+  request: Request,
+  worker: WorkerClient,
   workerRequest: CoreViewRevisionRequest | 'preview' | 'full',
   previousRevisionId: string | undefined,
   onPreviewCommitted?: () => void,
 ): Promise<ViewRevisionAttempt> {
-  const positionRead = captureBrowserReaderReflowAnchor(state);
+  const positionRead = captureBrowserReaderReflowAnchor(state, request.locatorNavigation);
   const position = positionRead instanceof Promise ? await positionRead : positionRead;
   if (position.status === 'stale') return 'staleSpread';
+  if (position.status === 'superseded') return undefined;
   if (isStaleReflow(state, request)) return undefined;
-  const dispatchRequest =
+  const dispatchRequest: CoreViewRevisionRequest =
     typeof workerRequest === 'string'
       ? {
           layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
@@ -300,12 +326,12 @@ async function createAndCommitViewRevision(
     visualPreview ? undefined : onCommitted,
     baseCommitGeneration,
     position.activeSpreadIndex,
+    position.locatorNavigation,
   );
   if (commit === 'staleSpread') return 'staleSpread';
   return commit ? { kind: view.kind, followUp: view.followUp } : undefined;
 }
-
-function scheduleReflowDrain(state: BrowserReaderState): void {
+function scheduleReflowDrain(state: State): void {
   if (state.disposed || state.reflow.active) return;
   if (state.revisionBundle.revision.revisionId.length === 0) void drainReflowQueue(state);
   else scheduleReaderMicrotask(state, () => void drainReflowQueue(state));

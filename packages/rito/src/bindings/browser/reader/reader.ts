@@ -180,6 +180,7 @@ function emptyReflowState(): BrowserReaderState['reflow'] {
     queued: undefined,
     deferred: undefined,
     deferredTimer: undefined,
+    locatorNavigation: undefined,
     lastError: undefined,
   };
 }

@@ -16,6 +16,7 @@ import {
   captureCommittedSourceRead,
   captureInteraction,
   captureIsCurrent,
+  copyReaderLocator,
   readCapturedInteraction,
   readCapturedSource,
   sameRevision,
@@ -23,7 +24,6 @@ import {
 } from './interaction-capture';
 import { createBrowserReaderTextSelection } from './text-selection';
 import { resolveExactSourceRange } from './source-range';
-import { copyReaderLocator } from './source-locator';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
 const PAGE_TARGET_CACHE_CAPACITY = 12;
@@ -39,7 +39,7 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
     getPageReadingAnchor: (pageIndex) => getPageReadingAnchor(state, pageIndex),
     getPageTargets: (pageIndex) => getPageTargets(state, pageIndex),
     getFootnote: (key) => getFootnote(state, key),
-    resolveLocator: (locator) => resolveLocator(state, locator),
+    resolveLocator: (locator) => resolveBrowserReaderLocator(state, locator),
     resolveExactSourceRange: (request) => resolveExactSourceRange(state, request),
     textSelection: createBrowserReaderTextSelection(state),
   };
@@ -144,7 +144,7 @@ async function getFootnote(state: BrowserReaderState, key: string) {
   return value ? toReaderFootnote(value) : undefined;
 }
 
-async function resolveLocator(
+export async function resolveBrowserReaderLocator(
   state: BrowserReaderState,
   locator: ReaderLocator,
 ): Promise<ReaderLocatorResolution | undefined> {
@@ -153,6 +153,9 @@ async function resolveLocator(
   const value = await readCapturedSource(state, capture, (worker, revision) =>
     worker.resolveSourceLocatorAtRevision(revision, copyReaderLocator(locator)),
   );
+  if (value && value.revisionId !== capture.coreRevision.revisionId) {
+    throw new Error('Reader source locator response does not match its revision request');
+  }
   return value ? toReaderLocatorResolution(value) : undefined;
 }
 

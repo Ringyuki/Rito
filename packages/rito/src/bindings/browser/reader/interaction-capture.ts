@@ -1,8 +1,10 @@
 import type {
   BrowserReaderWorkerClient,
+  CoreSourceLocator,
   CoreRevisionHandle,
   CoreVersioned,
 } from '../core-contracts';
+import type { ReaderLocator, ReaderSourcePoint } from '../../../reader';
 import { isCurrentRevisionHandle } from './pipeline/revision-handle';
 import type { BrowserReaderRevisionHandle, BrowserReaderState } from './types';
 
@@ -104,7 +106,6 @@ export function sameRevision(
 function sameCoreRevision(left: CoreRevisionHandle, right: CoreRevisionHandle): boolean {
   return left.revisionId === right.revisionId && left.revisionVersion === right.revisionVersion;
 }
-
 function revisionCaptureIsCurrent(
   state: BrowserReaderState,
   capture: BrowserReaderInteractionCapture,
@@ -115,4 +116,24 @@ function revisionCaptureIsCurrent(
     capture.worker.sessionId === capture.revision.workerSessionId &&
     isCurrentRevisionHandle(state, capture.revision)
   );
+}
+export function copyReaderLocator(locator: ReaderLocator | CoreSourceLocator): ReaderLocator {
+  return {
+    href: locator.href,
+    ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
+    ...(locator.sourcePoint ? { sourcePoint: copyReaderSourcePoint(locator.sourcePoint) } : {}),
+    ...(locator.sourceRange
+      ? {
+          sourceRange: {
+            start: copyReaderSourcePoint(locator.sourceRange.start),
+            end: copyReaderSourcePoint(locator.sourceRange.end),
+          },
+        }
+      : {}),
+    ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
+  };
+}
+
+export function copyReaderSourcePoint(point: ReaderSourcePoint): ReaderSourcePoint {
+  return { nodePath: [...point.nodePath], textOffset: point.textOffset };
 }

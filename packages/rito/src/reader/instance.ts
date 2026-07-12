@@ -191,6 +191,11 @@ export interface Reader {
   readonly dpr: number;
   readonly measurer: TextMeasurer;
   readonly interactions?: ReaderInteractions;
+  /** Atomically project a durable locator; cancellation or supersession resolves `undefined`. */
+  navigateToLocator?(
+    locator: ReaderLocator,
+    signal?: AbortSignal,
+  ): Promise<ReaderLocatorResolution | undefined>;
   renderSpread(index: number, scale?: number): void;
   renderSpreadTo(
     index: number,

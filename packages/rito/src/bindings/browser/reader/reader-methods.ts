@@ -1,7 +1,12 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { visualLayoutConfig } from './revision';
-import { scheduleBrowserReaderReflow, clearDeferredFullReflow } from './pipeline/reflow';
+import {
+  scheduleBrowserReaderReflow,
+  clearDeferredFullReflow,
+  navigateBrowserReaderToLocator,
+} from './pipeline/reflow';
+import { cancelLocatorNavigation } from './pipeline/locator-navigation';
 import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
 import { browserReaderSpreads } from './layout';
 import {
@@ -68,6 +73,7 @@ export function buildBrowserReaderMethods(
     ...resourceMethods(state),
     ...listenerMethods(state),
     dispose() {
+      cancelLocatorNavigation(state);
       clearDeferredFullReflow(state);
       state.spreadRenderedListeners.clear();
       state.spreadContentInvalidatedListeners.clear();
@@ -156,6 +162,7 @@ function navigationMethods(
   | 'findSpread'
   | 'resolveTocEntry'
   | 'findActiveTocEntry'
+  | 'navigateToLocator'
 > {
   return {
     getCanvasSize(scale = 1) {
@@ -180,6 +187,9 @@ function navigationMethods(
     },
     findActiveTocEntry(pageIndex) {
       return findRitoCoreWasmReaderActiveTocEntry(state.tocTargets, pageIndex);
+    },
+    navigateToLocator(locator, signal) {
+      return navigateBrowserReaderToLocator(state, locator, signal);
     },
   };
 }
