@@ -1,6 +1,11 @@
 import type { DisposableCollection } from '../../utils/disposable';
 import type { WiringDeps } from '../core/wiring-deps';
-import { resolveVisibleAnnotations } from '../annotation-resolution';
+import {
+  refreshNativeAnnotations,
+  resolveVisibleAnnotations,
+  scheduleNativeAnnotationsForSpread,
+  usesNativeAnnotationGeometry,
+} from '../annotation-resolution';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   disposables.add(() => {
@@ -85,11 +90,33 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
   if (!store) return;
   disposables.add(
     store.onChange((records) => {
-      deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
-        store,
-        deps.coordState,
-        deps.reader,
-      );
+      deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+      if (usesNativeAnnotationGeometry(deps.reader)) {
+        refreshNativeAnnotations(deps.reader, deps.coordState);
+        const spread = deps.reader.spreads[deps.getCurrentSpread()];
+        if (spread) {
+          scheduleNativeAnnotationsForSpread(
+            spread,
+            deps.reader,
+            deps.coordState,
+            () => {
+              deps.frameDriver.markAllOverlaysDirty();
+            },
+            (error) => {
+              deps.emitter.emit('error', {
+                message: error instanceof Error ? error.message : String(error),
+                source: 'native-annotation-geometry',
+              });
+            },
+          );
+        }
+      } else {
+        deps.coordState.resolvedAnnotations = resolveVisibleAnnotations(
+          store,
+          deps.coordState,
+          deps.reader,
+        );
+      }
       deps.emitter.emit('annotationsChange', { annotations: records });
       // Annotations are global — invalidate ALL slots
       deps.frameDriver.markAllOverlaysDirty();

@@ -149,9 +149,16 @@ Those names now belong to the old TS reference tree only.
   generation. Kit now treats this capability as authoritative, coalesces async
   pointer samples with latest-result ownership, projects exact page rectangles,
   drives copy and selection UI from native text, and creates persistent
-  annotation targets directly from the returned source range. Native annotation
-  re-projection remains pending. Legacy layout-local
-  selection remains only for Readers without the capability.
+  annotation targets directly from the returned source range. Rust now also
+  projects a durable `{ href, sourceRange }` atomically through one committed
+  revision. The WASM/Worker/Browser contract checks both lazy-pagination
+  endpoints, request identity, exact shapes and page/spread ownership; Kit uses
+  it for cached annotation overlays and hit testing without reconstructing a
+  legacy HitMap. Pending, unavailable, preview and stale results fail closed.
+  The first implementation deliberately supports one logical text flow; old
+  cross-paragraph annotations and runs without deterministic shapes remain
+  typed unavailable. Legacy layout-local selection and annotation projection
+  remain only for Readers without the native capabilities.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
@@ -282,9 +289,11 @@ Those names now belong to the old TS reference tree only.
      current spread's native targets and uses them for exact footnotes, internal
      locator navigation, external links and standalone images without falling
      back to legacy hit geometry.
-   - Exact Kit selection, selection highlights, copy, and source-range annotation
-     target creation are implemented. Migrate annotation re-projection, reading
-     positions and accessibility to native source/semantic data next.
+   - Exact Kit selection, selection highlights, copy, source-range annotation
+     target creation and revision-safe annotation re-projection are implemented.
+     Migrate reading positions and accessibility to native source/semantic data
+     next, then remove the compatibility geometry required only by legacy
+     Readers.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
      their callers use native semantic and geometry queries.
 3. **Thin session ownership**

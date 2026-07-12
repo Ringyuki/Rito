@@ -87,8 +87,22 @@ for legacy readers but is intentionally `null` for an exact native selection; us
 `hasSelection` and `selectionSourceLocator` instead. Revision invalidation, spread
 changes, render-scale changes, cancellation, and disposal discard late async results.
 Persistent annotation target creation now preserves the exact native source range;
-annotation re-projection still uses legacy HitMaps and remains limited on Rust Readers
-whose compatibility `Page.content` is empty.
+when `interactions.resolveExactSourceRange` is present, Kit also treats it as
+authoritative for annotation re-projection. It resolves selector fallbacks to a
+durable source range with a canonical manifest resource href first, then obtains
+page-content rectangles from the committed Rust revision. Preview, stale, pending,
+unavailable, and failed reads never fall back to legacy HitMaps or leave old
+rectangles installed. Geometry is cached only for the active revision and invalidated
+before a replacement layout is painted. Readers without this capability retain the
+legacy synchronous annotation path.
+Native `ResolvedAnnotationSegment.range` is intentionally `null`; consumers must
+use its exact page-content `rects` and durable selectors instead of assuming a
+legacy layout-local `TextRange` exists.
+
+The current native projection accepts ranges within one logical text flow and
+requires deterministic retained shapes. Cross-paragraph legacy annotations and
+host-measured text can therefore remain unavailable until those native capabilities
+are expanded.
 
 ## When Not To Use It
 

@@ -641,8 +641,8 @@ roadmap in this order:
    highlights, annotations, positions and accessibility; **the version-gated
    Rust core, WASM/Worker transport, opaque Browser Reader point/same-flow
    capability, and Kit exact selection/highlight/copy/source-annotation target
-   creation are implemented; native annotation re-projection, reading positions,
-   and accessibility remain;**
+   creation plus revision-safe native annotation re-projection are implemented;
+   reading positions, accessibility, and cross-logical-flow ranges remain;**
 5. reduce the browser shell to core-requested host operations;
 6. pass the real-book usability and stage-specific performance gate;
 7. build the controlled WebView/DOM harness and deliberately transition the

@@ -10,7 +10,14 @@ import { asLegacyPage, asLegacySpread } from '../compat/legacy-page';
 import { createCoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { WiringDeps } from '../core/wiring-deps';
-import { syncChapterIndices, resolveVisibleAnnotations } from '../annotation-resolution';
+import {
+  invalidateNativeAnnotationGeometry,
+  refreshNativeAnnotations,
+  resolveVisibleAnnotations,
+  scheduleNativeAnnotationsForSpread,
+  syncChapterIndices,
+  usesNativeAnnotationGeometry,
+} from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 
 export function coordinateOnSpreadRendered(
@@ -35,7 +42,9 @@ export function coordinateOnSpreadRendered(
 
   syncChapterIndices(state, reader);
   if (state.annotationStore) {
-    state.resolvedAnnotations = resolveVisibleAnnotations(state.annotationStore, state, reader);
+    if (usesNativeAnnotationGeometry(reader)) refreshNativeAnnotations(reader, state);
+    else
+      state.resolvedAnnotations = resolveVisibleAnnotations(state.annotationStore, state, reader);
   }
 
   updatePosition(spreadIndex, engines.position, state);
@@ -82,6 +91,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
         deps.getRenderScale(),
       );
       scheduleNativeTargetLoad(spread, deps);
+      scheduleNativeAnnotationLoad(spread, deps);
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
@@ -91,6 +101,10 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
         if (idx === deps.getCurrentSpread()) {
           deps.engines.selection.invalidate();
           invalidateNativeTargets(deps.coordState);
+          if (usesNativeAnnotationGeometry(deps.reader) && !deps.reader.interactions?.enabled) {
+            invalidateNativeAnnotationGeometry(deps.coordState);
+            deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+          }
           deps.canvas.style.cursor = '';
           const spread = deps.reader.spreads[idx];
           if (deps.reader.interactions?.enabled && spread) scheduleNativeTargetLoad(spread, deps);
@@ -104,8 +118,27 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
   disposables.add(() => {
     deps.coordState.nativeInteractionsAlive = false;
     invalidateNativeTargets(deps.coordState);
+    invalidateNativeAnnotationGeometry(deps.coordState);
     deps.canvas.style.cursor = '';
   });
+}
+
+function scheduleNativeAnnotationLoad(spread: Spread, deps: WiringDeps): void {
+  if (!usesNativeAnnotationGeometry(deps.reader)) return;
+  scheduleNativeAnnotationsForSpread(
+    spread,
+    deps.reader,
+    deps.coordState,
+    () => {
+      deps.frameDriver.markAllOverlaysDirty();
+    },
+    (error) => {
+      deps.emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: 'native-annotation-geometry',
+      });
+    },
+  );
 }
 
 function scheduleNativeTargetLoad(spread: Spread, deps: WiringDeps): void {

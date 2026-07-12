@@ -11,6 +11,7 @@ function createMocks(options?: {
   readonly currentSpread?: number;
   readonly totalSpreads?: number;
   readonly resolvedSpread?: number;
+  readonly nativeAnnotationGeometry?: boolean;
 }) {
   const getCanvasSize = vi.fn(() => ({ width: 800, height: 600 }));
   const setTypography = vi.fn(() => options?.setTypographyChanged ?? true);
@@ -36,6 +37,14 @@ function createMocks(options?: {
     setTheme,
     notifyActiveSpread,
     updateLayout,
+    ...(options?.nativeAnnotationGeometry
+      ? {
+          interactions: {
+            enabled: true,
+            resolveExactSourceRange: () => Promise.resolve(undefined),
+          },
+        }
+      : {}),
   };
 
   const setSize = vi.fn();
@@ -44,11 +53,38 @@ function createMocks(options?: {
   const assignSlot = vi.fn();
   const reset = vi.fn();
   const scheduleComposite = vi.fn();
-  const compositeNow = vi.fn();
+  let annotationStateAtComposite:
+    | {
+        readonly generation: number;
+        readonly cacheSize: number;
+        readonly missSize: number;
+        readonly pendingSize: number;
+        readonly resolvedCount: number;
+      }
+    | undefined;
   const setPages = vi.fn();
   const resolve = vi.fn(() => options?.resolvedSpread);
   const getCurrent = vi.fn<() => ReadingPosition | null>(() => null);
   const invalidateSelection = vi.fn();
+  const coordState = {
+    positionUpdateMode: { kind: 'capture' },
+    resolvedAnnotations: [{}],
+    nativeAnnotationGeometry: {
+      generation: 4,
+      cache: new Map([['source', {}]]),
+      misses: new Set(['missing-source']),
+      pending: new Map([['pending-source', Promise.resolve(undefined)]]),
+    },
+  };
+  const compositeNow = vi.fn(() => {
+    annotationStateAtComposite = {
+      generation: coordState.nativeAnnotationGeometry.generation,
+      cacheSize: coordState.nativeAnnotationGeometry.cache.size,
+      missSize: coordState.nativeAnnotationGeometry.misses.size,
+      pendingSize: coordState.nativeAnnotationGeometry.pending.size,
+      resolvedCount: coordState.resolvedAnnotations.length,
+    };
+  });
   const internals = {
     reader,
     currentSpread: options?.currentSpread ?? 1,
@@ -59,7 +95,7 @@ function createMocks(options?: {
       search: { setPages },
       position: { getCurrent, resolve },
     },
-    coordState: { positionUpdateMode: { kind: 'capture' } },
+    coordState,
   } as unknown as Internals;
 
   const runtime = {
@@ -93,6 +129,9 @@ function createMocks(options?: {
       resolve,
       getCurrent,
       invalidateSelection,
+    },
+    get annotationStateAtComposite() {
+      return annotationStateAtComposite;
     },
   };
 }
@@ -129,6 +168,26 @@ describe('buildLayoutActions', () => {
     });
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(spies.invalidateSelection).toHaveBeenCalledOnce();
+  });
+
+  it('invalidates native annotation geometry before compositing a replacement revision', () => {
+    const fixture = createMocks({ nativeAnnotationGeometry: true });
+    const actions = buildLayoutActions(fixture.internals, fixture.emitter, fixture.runtime);
+
+    actions.setTypography({ fontSize: 18 });
+
+    expect(fixture.annotationStateAtComposite).toEqual({
+      generation: 5,
+      cacheSize: 0,
+      missSize: 0,
+      pendingSize: 0,
+      resolvedCount: 0,
+    });
+    expect(fixture.spies.emit).toHaveBeenCalledWith('annotationHover', {
+      annotation: null,
+      x: 0,
+      y: 0,
+    });
   });
 
   it('does nothing when typography overrides do not commit synchronously', () => {

@@ -197,11 +197,14 @@ cross-page geometry. The WASM/direct/Worker transport and opaque Browser Reader
 `textSelection` capability are implemented with full session, revision, and
 commit-generation ownership. Kit now consumes it for exact selection geometry,
 copy text and source-range annotation target creation with coalesced latest-wins
-pointer reads and revision/spread cancellation. Native annotation re-projection
-still remains because Rust compatibility pages do not expose legacy HitMaps. The
-legacy interpolated diagnostic has
-not been promoted to selection-ready geometry and remains only as a fallback for
-Readers without the native capability.
+pointer reads and revision/spread cancellation. Durable source ranges now have a
+separate atomic exact-projection API across Rust, WASM/Worker and Browser Reader.
+Kit caches those revision-owned rectangles, invalidates them before a new layout
+is painted, and never falls back to compatibility HitMaps while the capability
+exists. Selector fallbacks produce a source range before asking Rust for geometry.
+The initial API is intentionally limited to a single logical text flow and exact
+retained shapes. The legacy interpolated diagnostic has not been promoted to
+selection-ready geometry and remains only for Readers without native capabilities.
 
 Remove compatibility placeholders such as empty page content and the synthetic
 `text.length * 8` measurer once their callers use the native contract.
@@ -317,8 +320,9 @@ architecture rather than make an eager whole-book pipeline faster.
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility. **Rust core,
    WASM/Worker, Browser Reader, and Kit exact selection/highlight/copy/source
-   annotation target creation are implemented; native annotation re-projection,
-   reading positions, and accessibility remain.**
+   annotation target creation and annotation re-projection are implemented;
+   reading positions and accessibility remain. Cross-logical-flow annotation
+   geometry is a follow-up capability extension.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.

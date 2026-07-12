@@ -24,7 +24,8 @@ export type ResolutionStatus =
 /** A resolved annotation segment on a specific page. */
 export interface ResolvedAnnotationSegment {
   readonly pageIndex: number;
-  readonly range: TextRange;
+  /** Legacy layout-local range. Native exact projections intentionally have none. */
+  readonly range: TextRange | null;
   readonly rects: readonly Rect[];
 }
 

@@ -1,6 +1,6 @@
 import type { Reader } from '@ritojs/core';
 import type { HitEntry, LinkRegion } from '../../interaction/index';
-import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
+import { findAnnotationHitAtPos, getAnnotationScreenCenter } from './annotation';
 import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
 import { dispatchNativeClickTarget } from './native-click';
@@ -22,10 +22,19 @@ export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): 
   if (nativeTargets && !deps.reader.interactions?.enabled) return;
 
   // 1. Annotation click (highest priority)
-  const ann = findAnnotationAtPos(pos, deps);
-  if (ann) {
-    const center = getAnnotationScreenCenter(ann, deps.canvas, deps);
-    deps.emitter.emit('annotationClick', { annotation: ann, x: center.x, y: center.y });
+  const annotationHit = findAnnotationHitAtPos(pos, deps);
+  if (annotationHit) {
+    const center = getAnnotationScreenCenter(
+      annotationHit.annotation,
+      deps.canvas,
+      deps,
+      annotationHit.segment,
+    );
+    deps.emitter.emit('annotationClick', {
+      annotation: annotationHit.annotation,
+      x: center.x,
+      y: center.y,
+    });
     return;
   }
 

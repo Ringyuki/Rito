@@ -120,6 +120,11 @@ revision during that interval. Page targets intentionally cover semantic click
 sources only. When supported, `interactions.textSelection` exposes revision-bound
 point-to-caret and same-flow range resolution. Its carets are opaque and must be
 passed back by identity; range rectangles use page-content coordinates.
+`interactions.resolveExactSourceRange`, when supported, atomically projects a
+durable `{ href, sourceRange }` through that same committed revision. `href` is
+the canonical manifest resource href, not a spine idref. It returns exact
+page-content rectangles, a typed lazy-pagination result, or a typed unavailable
+reason; callers must not substitute the legacy interpolated geometry.
 
 ### Lifecycle
 

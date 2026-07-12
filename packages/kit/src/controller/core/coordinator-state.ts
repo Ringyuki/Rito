@@ -8,6 +8,10 @@ import type {
 } from '../../interaction/index';
 import type { HitMap, LinkRegion, PositionTracker, ReadingPosition } from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
+import {
+  createNativeAnnotationGeometryState,
+  type NativeAnnotationGeometryState,
+} from '../annotation-resolution/native-geometry';
 
 export interface CoordinatorEngines {
   readonly selection: SelectionEngine;
@@ -38,6 +42,8 @@ export interface CoordinatorState {
   chapterIndices: Map<string, ChapterTextIndex>;
   /** Resolved annotations for current layout. */
   resolvedAnnotations: readonly ResolvedAnnotation[];
+  /** Revision-owned exact source-range projections and in-flight reads. */
+  nativeAnnotationGeometry: NativeAnnotationGeometryState;
   /** Active image blob URL (revoked automatically on next imageClick or dispose). */
   activeImageBlobUrl: string | null;
   /** One-shot position behavior for the next active spread notification. */
@@ -55,6 +61,7 @@ export function createCoordinatorState(): CoordinatorState {
     annotationStore: null,
     chapterIndices: new Map(),
     resolvedAnnotations: [],
+    nativeAnnotationGeometry: createNativeAnnotationGeometryState(),
     activeImageBlobUrl: null,
     positionUpdateMode: { kind: 'capture' },
   };

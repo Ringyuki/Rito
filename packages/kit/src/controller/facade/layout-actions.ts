@@ -3,6 +3,10 @@ import type { ReadingPosition } from '../../interaction/index';
 import { asLegacyPages } from '../compat/legacy-page';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
+import {
+  invalidateNativeAnnotationGeometry,
+  usesNativeAnnotationGeometry,
+} from '../annotation-resolution';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -83,6 +87,10 @@ export function commitLayoutChange(
   anchor: ReadingPosition | null = currentPosition(internals),
 ): void {
   internals.engines.selection.invalidate();
+  if (usesNativeAnnotationGeometry(internals.reader)) {
+    invalidateNativeAnnotationGeometry(internals.coordState);
+    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+  }
   const previousSpread = internals.currentSpread;
   internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   internals.currentSpread = resolveCommittedSpread(internals, anchor);

@@ -12,7 +12,7 @@ import type { Rect } from '../../painter/types';
 import { asLegacyPage } from '../compat/legacy-page';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
-import { buildChapterPageRanges } from '../annotation-resolution';
+import { buildChapterPageRanges, usesNativeAnnotationGeometry } from '../annotation-resolution';
 import { OVERLAY_COLORS } from './merger';
 
 export function buildOverlayData(
@@ -37,7 +37,10 @@ export function buildOverlayData(
   );
 
   const activeSearchRects = collectActiveSearchRects(spread, engines, state, reader, mapper);
-  const annotationLayers = collectAnnotationLayers(spread, state, mapper);
+  const annotationLayers =
+    usesNativeAnnotationGeometry(reader) && !reader.interactions?.enabled
+      ? []
+      : collectAnnotationLayers(spread, state, mapper);
 
   return { selectionRects, searchRects, activeSearchRects, annotationLayers };
 }
@@ -158,6 +161,9 @@ function resolveAdjacentAnnotations(
   reader: Reader,
   hitMaps: ReadonlyMap<number, HitMap>,
 ): readonly ResolvedAnnotation[] {
+  if (usesNativeAnnotationGeometry(reader)) {
+    return reader.interactions?.enabled ? state.resolvedAnnotations : [];
+  }
   const records = state.annotationStore?.getAll() ?? [];
   if (records.length === 0) return [];
   return resolveAnnotations(records, {

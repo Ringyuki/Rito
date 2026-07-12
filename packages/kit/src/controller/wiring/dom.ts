@@ -1,7 +1,11 @@
-import { bindClipboard } from '../../interaction/index';
+import {
+  bindClipboard,
+  type ResolvedAnnotation,
+  type ResolvedAnnotationSegment,
+} from '../../interaction/index';
 import type { DisposableCollection } from '../../utils/disposable';
 import { bindLinkCursor } from './link';
-import { findAnnotationAtPos, getAnnotationScreenCenter } from './annotation';
+import { findAnnotationHitAtPos, getAnnotationScreenCenter } from './annotation';
 import { toSpreadContent, type WiringDeps } from '../core/wiring-deps';
 import { bindPointerEvents } from './pointer';
 import { dispatchClick } from './click-dispatch';
@@ -17,7 +21,8 @@ export function wireDomHelpers(deps: WiringDeps, disposables: DisposableCollecti
 
   const convert = (e: PointerEvent) => toSpreadContent(e, canvas, coordState);
 
-  let hoveredAnnId: string | null = null;
+  let hoveredAnnotation: ResolvedAnnotation | null = null;
+  let hoveredSegment: ResolvedAnnotationSegment | null = null;
 
   // Pointer events: selection engine + single-click dispatch
   disposables.add(
@@ -33,16 +38,22 @@ export function wireDomHelpers(deps: WiringDeps, disposables: DisposableCollecti
   // Annotation hover tracking
   const onMove = (e: PointerEvent): void => {
     const pos = convert(e);
-    const ann = findAnnotationAtPos(pos, deps);
-    const newId = ann?.id ?? null;
-    if (newId === hoveredAnnId) return;
-    hoveredAnnId = newId;
-    if (!ann) {
+    const hit = findAnnotationHitAtPos(pos, deps);
+    const nextAnnotation = hit?.annotation ?? null;
+    const nextSegment = hit?.segment ?? null;
+    if (nextAnnotation === hoveredAnnotation && nextSegment === hoveredSegment) return;
+    hoveredAnnotation = nextAnnotation;
+    hoveredSegment = nextSegment;
+    if (!hit) {
       emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
       return;
     }
-    const center = getAnnotationScreenCenter(ann, canvas, deps);
-    emitter.emit('annotationHover', { annotation: ann, x: center.x, y: center.y });
+    const center = getAnnotationScreenCenter(hit.annotation, canvas, deps, hit.segment);
+    emitter.emit('annotationHover', {
+      annotation: hit.annotation,
+      x: center.x,
+      y: center.y,
+    });
   };
   canvas.addEventListener('pointermove', onMove);
   disposables.add(() => {
