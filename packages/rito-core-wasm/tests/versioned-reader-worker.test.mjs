@@ -29,6 +29,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   assert.deepEqual(continued.revision, handle(1));
 
   const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
+  const shapeDiagnosticResult = await client.getShapeProvenanceDiagnosticAtRevision(handle(1));
   const navigation = await client.getRevisionNavigationAtRevision(handle(1));
   const frame = await client.readFrameBufferAtRevision(handle(1), 0);
   const resource = await client.readResourceAtRevision(handle(1), 'image', 'cover.png');
@@ -40,6 +41,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
 
   for (const result of [
     summaryResult,
+    shapeDiagnosticResult,
     navigation,
     frame,
     resource,
@@ -151,6 +153,8 @@ function fixtureDocument() {
       continueRevisionJson: () => JSON.stringify(advance(1, false)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
         envelope(version, summary(version, 'complete')),
+      getShapeProvenanceDiagnosticAtRevisionJson: (_revisionId, version) =>
+        envelope(version, shapeDiagnostic()),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1' }),
       getFrameCommandBufferMetadataAtRevisionJson: (_revisionId, version) =>
@@ -197,6 +201,34 @@ function fixtureDocument() {
 
 function moduleFor(document) {
   return { initRitoCoreWasmEngine: async () => ({ openDocument: () => document }) };
+}
+
+function shapeDiagnostic() {
+  return {
+    schemaVersion: 1,
+    isComplete: true,
+    knownPageCount: 1,
+    totalTextRuns: 1,
+    exactTextRuns: 0,
+    unavailableTextRuns: 1,
+    totalTextUtf16CodeUnitCount: 1,
+    exactTextUtf16CodeUnitCount: 0,
+    unavailableTextUtf16CodeUnitCount: 1,
+    excludedRubyTextRunCount: 0,
+    excludedRubyTextUtf16CodeUnitCount: 0,
+    singleFontTextRuns: 0,
+    mixedFontTextRuns: 0,
+    unavailableReasonCounts: { hostMetricsFallback: 1 },
+    unavailableReasonUtf16CodeUnitCounts: { hostMetricsFallback: 1 },
+    singleFontFingerprints: {},
+    mixedFontFingerprints: {},
+    unavailableAffectedCodepoints: [
+      { codepoint: 'U+0041', count: 1, reasonCounts: { hostMetricsFallback: 1 } },
+    ],
+    unavailableAffectedCodepointOccurrenceCount: 1,
+    unavailableAffectedCodepointDistinctCount: 1,
+    unavailableAffectedCodepointOmittedCount: 0,
+  };
 }
 
 function versionedPayload(kind, version) {

@@ -15,6 +15,7 @@ const runtimeSources = [
   'reader-worker-client-runtime.js',
   'reader-worker-interaction-validation-runtime.js',
   'reader-worker-text-geometry-validation-runtime.js',
+  'shape-provenance-diagnostic-validation-runtime.js',
   'reader-worker-session-runtime.js',
   'reader-worker-versioned-client-runtime.js',
   'reader-worker-versioned-payload-runtime.js',
@@ -52,6 +53,7 @@ const typeDeclarationSources = [
   'page',
   'interaction',
   'status',
+  'shape-provenance',
 ].map((name) => new URL(`../src/types/${name}.ts`, import.meta.url));
 
 await mkdir(dist, { recursive: true });

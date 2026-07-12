@@ -20,6 +20,7 @@ import {
   requireTextRangeGeometryDiagnostic,
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
+import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send) {
   return {
@@ -77,6 +78,14 @@ export function createVersionedReaderClientMethods(send) {
         revision,
         {},
         requireMatchingRevisionSummary,
+      ),
+    getShapeProvenanceDiagnosticAtRevision: (revision) =>
+      currentRevisionResult(
+        send,
+        'getShapeProvenanceDiagnosticAtRevision',
+        revision,
+        {},
+        requireShapeProvenanceDiagnostic,
       ),
     getRevisionNavigationAtRevision: (revision) =>
       currentRevisionResult(send, 'getRevisionNavigationAtRevision', revision),

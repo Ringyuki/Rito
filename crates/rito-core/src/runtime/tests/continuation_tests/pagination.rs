@@ -5,8 +5,8 @@ use crate::runtime::tests::fixture::{
     source_locator_fixture_epub,
 };
 use crate::runtime::{
-    RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeRevisionStatus, RuntimeSourceLocator,
-    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
+    RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeRevisionHandle, RuntimeRevisionStatus,
+    RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
 };
 
 #[test]
@@ -119,6 +119,45 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
             .expect("bounded frame exists");
         assert_eq!(bounded_frame.command_hash, eager_frame.command_hash);
     }
+}
+
+#[test]
+fn shape_diagnostic_marks_ready_as_prefix_and_complete_as_final() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
+    let eager_revision = eager
+        .create_revision(&layout())
+        .expect("eager revision completes");
+    let eager_diagnostic = eager
+        .shape_provenance_diagnostic_at(&RuntimeRevisionHandle::from(&eager_revision))
+        .expect("eager diagnostic");
+    assert!(eager_diagnostic.value.is_complete);
+
+    let mut bounded = RuntimeDocument::open(&bytes).expect("bounded document opens");
+    let mut advance = bounded
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("bounded revision starts");
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Ready);
+    let ready_diagnostic = bounded
+        .shape_provenance_diagnostic_at(&RuntimeRevisionHandle::from(&advance.revision))
+        .expect("ready diagnostic");
+    assert!(!ready_diagnostic.value.is_complete);
+    assert_eq!(
+        ready_diagnostic.value.known_page_count,
+        advance.revision.known_extent.page_count
+    );
+
+    while let Some(cursor) = advance.continuation.clone() {
+        advance = bounded
+            .continue_revision(continue_request(&cursor, 1))
+            .expect("bounded continuation advances");
+    }
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    let complete_diagnostic = bounded
+        .shape_provenance_diagnostic_at(&RuntimeRevisionHandle::from(&advance.revision))
+        .expect("complete diagnostic");
+    assert!(complete_diagnostic.value.is_complete);
+    assert_eq!(complete_diagnostic.value, eager_diagnostic.value);
 }
 
 #[test]

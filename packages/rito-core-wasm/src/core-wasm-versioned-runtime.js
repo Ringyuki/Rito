@@ -12,6 +12,7 @@ import {
   requireRevisionWorkBudget,
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
+import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
@@ -163,6 +164,14 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
     },
     getRevisionSummaryAtRevision(handle) {
       return versionedNoArg(this, 'getRevisionSummaryAtRevision', handle, requireSummaryValue);
+    },
+    getShapeProvenanceDiagnosticAtRevision(handle) {
+      return versionedNoArg(
+        this,
+        'getShapeProvenanceDiagnosticAtRevision',
+        handle,
+        requireShapeProvenanceDiagnostic,
+      );
     },
     getRevisionBundleAtRevision(handle, includeTocTargets = false) {
       return versionedJson(

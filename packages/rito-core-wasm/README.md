@@ -87,6 +87,22 @@ read/release path:
 pnpm --filter @ritojs/core-wasm run smoke:wasm
 ```
 
+A private final-revision shape-coverage diagnostic can scan a local EPUB
+corpus after the real WASM artifact is built:
+
+```sh
+pnpm --filter @ritojs/core-wasm run diagnose:epub-shapes -- \
+  --dir "$HOME/Downloads" \
+  --output .output/native-shape-provenance.json
+```
+
+The runner scans only top-level `.epub` files, creates one complete
+`fontAware` revision per book, validates its exact revision handle, and reports
+exact/unavailable base-text coverage, unavailable reasons, font diagnostic IDs,
+excluded Ruby annotations, and affected codepoints. It deliberately performs
+whole-book pagination and is therefore a corpus/coverage gate, not a first-paint
+latency benchmark. Reports under `.output/` are ignored local artifacts.
+
 For repeatable local verification that does not depend on existing ignored
 `dist/` state:
 

@@ -74,6 +74,26 @@ fn versioned_raw_reads_return_stamped_envelopes() {
     assert_eq!(source["value"]["status"], "resolved");
     assert_eq!(source["value"]["matchedBy"], "anchor");
 
+    let diagnostic = parse(
+        document
+            .get_shape_provenance_diagnostic_at_revision_json(&revision_id, 0)
+            .expect("shape provenance diagnostic"),
+    );
+    assert_revision(&diagnostic, &revision_id, 0);
+    assert_eq!(diagnostic["value"]["schemaVersion"], 1);
+    assert_eq!(diagnostic["value"]["isComplete"], true);
+    assert_eq!(
+        diagnostic["value"]["totalTextUtf16CodeUnitCount"]
+            .as_u64()
+            .unwrap(),
+        diagnostic["value"]["exactTextUtf16CodeUnitCount"]
+            .as_u64()
+            .unwrap()
+            + diagnostic["value"]["unavailableTextUtf16CodeUnitCount"]
+                .as_u64()
+                .unwrap()
+    );
+
     for response in [
         document
             .get_page_targets_at_revision_json(&revision_id, 0, 0)
@@ -218,10 +238,24 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         .get_revision_summary_at_revision_json("rev-1", 0)
         .expect_err("old revision handle is stale");
     assert_eq!(stale.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
+    let stale_diagnostic = document
+        .get_shape_provenance_diagnostic_at_revision_json("rev-1", 0)
+        .expect_err("old diagnostic handle is stale");
+    assert_eq!(
+        stale_diagnostic.code(),
+        WasmRuntimeErrorCode::StaleRevisionVersion
+    );
     let unknown = document
         .get_revision_summary_at_revision_json("rev-missing", 0)
         .expect_err("missing revision is typed");
     assert_eq!(unknown.code(), WasmRuntimeErrorCode::UnknownRevision);
+    let unknown_diagnostic = document
+        .get_shape_provenance_diagnostic_at_revision_json("rev-missing", 0)
+        .expect_err("missing diagnostic revision is typed");
+    assert_eq!(
+        unknown_diagnostic.code(),
+        WasmRuntimeErrorCode::UnknownRevision
+    );
 
     let stale_release = document
         .release_revision_at_revision_json("rev-1", 0)

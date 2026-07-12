@@ -18,6 +18,7 @@ import type {
   RitoCoreWasmReaderResourceBytes,
 } from './reader-worker';
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
+import type { RitoCoreWasmShapeProvenanceDiagnostic } from './shape-provenance';
 import type { RitoCoreWasmResourcePayload } from './resource';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
@@ -47,6 +48,9 @@ export interface RitoCoreWasmReaderVersionedClient {
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
+  getShapeProvenanceDiagnosticAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>>;
   getRevisionNavigationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>>;
@@ -102,6 +106,9 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
+  getShapeProvenanceDiagnosticAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>;
   getRevisionNavigationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>;
@@ -204,6 +211,8 @@ export type RitoCoreWasmReaderWorkerContinueRevisionRequest =
 export type RitoCoreWasmReaderWorkerCancelRevisionRequest = RevisionRequest<'cancelRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionSummaryRequest =
   RevisionRequest<'getRevisionSummaryAtRevision'>;
+export type RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest =
+  RevisionRequest<'getShapeProvenanceDiagnosticAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionNavigationRequest =
   RevisionRequest<'getRevisionNavigationAtRevision'>;
 export type RitoCoreWasmReaderWorkerReadFrameBufferRequest =
@@ -243,6 +252,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerContinueRevisionRequest
   | RitoCoreWasmReaderWorkerCancelRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
+  | RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
@@ -274,6 +284,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getShapeProvenanceDiagnosticAtRevision',
+      RitoCoreWasmShapeProvenanceDiagnostic
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionNavigationAtRevision',

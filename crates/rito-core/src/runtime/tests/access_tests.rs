@@ -101,6 +101,13 @@ fn revision_access_contract_is_serde_stable_and_reports_focused_errors() {
         RuntimeRevisionAccessErrorKind::UnknownRevision
     );
     assert_eq!(unknown.to_string(), "unknown revision: rev-7");
+    assert_eq!(
+        document
+            .shape_provenance_diagnostic_at(&handle)
+            .expect_err("forged diagnostic handle is rejected")
+            .kind,
+        RuntimeRevisionAccessErrorKind::UnknownRevision
+    );
 
     let revision = document
         .create_revision(&layout())
@@ -214,6 +221,31 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
     document
         .revision_navigation_at(&handle)
         .expect("revision navigation");
+    let diagnostic = document
+        .shape_provenance_diagnostic_at(&handle)
+        .expect("shape provenance diagnostic");
+    assert_eq!(diagnostic.revision, handle);
+    assert_eq!(diagnostic.value.schema_version, 1);
+    assert!(diagnostic.value.is_complete);
+    assert_eq!(diagnostic.value.known_page_count, revision.page_count);
+    assert_eq!(
+        diagnostic.value.total_text_runs,
+        diagnostic.value.exact_text_runs + diagnostic.value.unavailable_text_runs
+    );
+    assert_eq!(
+        diagnostic.value.total_text_utf16_code_unit_count,
+        diagnostic.value.exact_text_utf16_code_unit_count
+            + diagnostic.value.unavailable_text_utf16_code_unit_count
+    );
+    assert_eq!(
+        diagnostic
+            .value
+            .unavailable_reason_utf16_code_unit_counts
+            .values()
+            .sum::<usize>(),
+        diagnostic.value.unavailable_text_utf16_code_unit_count
+    );
+    assert!(diagnostic.value.unavailable_affected_codepoints.len() <= 256);
     document
         .revision_bundle_at(&handle, true)
         .expect("revision bundle");
@@ -311,6 +343,7 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     assert_stale!(document.get_chapter_text_indices_at(&stale));
     assert_stale!(document.get_revision_summary_at(&stale));
     assert_stale!(document.revision_navigation_at(&stale));
+    assert_stale!(document.shape_provenance_diagnostic_at(&stale));
     assert_stale!(document.revision_bundle_at(&stale, false));
     assert_stale!(document.release_revision_at(&stale));
 

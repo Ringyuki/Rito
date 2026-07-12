@@ -18,6 +18,7 @@ mod publication_footnotes;
 mod resource;
 mod revision;
 mod search;
+mod shape_provenance_diagnostic;
 mod source_locator;
 mod transfer_store;
 mod types;
@@ -50,6 +51,10 @@ use resource::{
     runtime_text_resource,
 };
 use search::search_revision;
+pub use shape_provenance_diagnostic::{
+    RuntimeShapeAffectedCodepointFrequency, RuntimeShapeProvenanceDiagnostic,
+    RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
+};
 pub use source_locator::{
     RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind,
     RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,

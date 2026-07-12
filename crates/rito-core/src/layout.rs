@@ -43,6 +43,7 @@ pub(crate) mod runtime_session;
 mod search_flow;
 mod segment_details;
 mod segments;
+mod shape_provenance_diagnostic;
 mod spread;
 mod spread_flow;
 mod style_values;
@@ -74,6 +75,9 @@ pub use search_flow::{
 pub(crate) use segments::{
     append_runtime_chapter_pages, build_inline_segments, build_inline_segments_runtime,
     create_empty_runtime_layout, InlineSegmentChapterInput,
+};
+pub(crate) use shape_provenance_diagnostic::{
+    summarize_shape_provenance, ShapeAffectedCodepointStats, ShapeProvenanceStats,
 };
 pub(crate) use spread::build_spread_slots;
 pub use spread_flow::SpreadFlowSummary;

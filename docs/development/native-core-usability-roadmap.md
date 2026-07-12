@@ -141,6 +141,18 @@ add revision diagnostics for exact/unavailable run counts, font fingerprints
 and missing code points, then measure package size, duplicate Worker memory,
 font startup and pagination cost with an opt-in licensed test fallback.
 
+The private exact-version shape diagnostic and a real-WASM corpus runner now
+provide that evidence without widening the public Reader API. A 2026-07-11
+local development scan of 39 top-level EPUB files (36 unique contents) opened
+and fully paginated every book. Only 9,097 of 303,366 base-text runs in the
+unique corpus had authoritative Rust shapes (3.0%); by text volume the result
+was 141,391 of 5,894,967 UTF-16 code units (2.4%). Host-metrics fallback covered
+294,137 runs, while 10,379 Ruby annotation paint runs were explicitly excluded
+from this base-text statistic. This confirms that a shared pinned-fallback
+injection path is a usability dependency for broad exact selection, not a later
+visual polish item. Local runner timings are retained in its ignored report;
+they are uncalibrated smoke evidence, not a first-paint performance gate.
+
 Visual text and logical selection text are separate streams. Soft pagination
 wraps do not insert logical newlines, discretionary hyphens do not advance the
 source range, and selected text is not reconstructed from painted runs. Forced

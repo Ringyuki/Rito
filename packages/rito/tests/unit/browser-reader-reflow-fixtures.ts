@@ -122,6 +122,8 @@ export function createWorker(
     cancelRevision: vi.fn<BrowserReaderWorkerClient['cancelRevision']>(),
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
+    getShapeProvenanceDiagnosticAtRevision:
+      vi.fn<BrowserReaderWorkerClient['getShapeProvenanceDiagnosticAtRevision']>(),
     getRevisionNavigationAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionNavigationAtRevision']>(),
     readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),

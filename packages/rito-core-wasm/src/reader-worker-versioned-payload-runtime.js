@@ -35,6 +35,11 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'getRevisionSummaryAtRevision':
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
+    case 'getShapeProvenanceDiagnosticAtRevision':
+      return valueResponse(
+        request.kind,
+        document.getShapeProvenanceDiagnosticAtRevision(request.revision),
+      );
     case 'getRevisionNavigationAtRevision':
       return valueResponse(
         request.kind,

@@ -38,6 +38,7 @@
     "build": "node scripts/build-wasm.mjs",
     "build:placeholder": "node scripts/build-placeholder.mjs",
     "build:wasm": "node scripts/build-wasm.mjs",
+    "diagnose:epub-shapes": "node scripts/diagnose-epub-shapes.mjs",
     "smoke:wasm": "node scripts/smoke-wasm.mjs",
     "test": "node --test tests/*.test.mjs",
     "typecheck": "tsc --noEmit",
