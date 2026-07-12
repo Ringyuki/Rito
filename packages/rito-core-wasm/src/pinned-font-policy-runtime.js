@@ -3,23 +3,12 @@ import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
 const POLICY_KEYS = new Set(['schemaVersion', 'faces']);
 const FACE_INPUT_KEYS = new Set(['bytes', 'expectedSha256', 'genericRole', 'language']);
 const SUMMARY_KEYS = new Set(['schemaVersion', 'policyId', 'faces']);
-const FACE_SUMMARY_KEYS = new Set([
-  'sha256',
-  'shapeFingerprint',
-  'familyAlias',
-  'byteLength',
-  'genericRole',
-  'language',
-  'style',
-  'weight',
-]);
+const FACE_SUMMARY_KEYS = new Set(
+  'sha256 shapeFingerprint familyAlias byteLength genericRole language style weight'.split(' '),
+);
 const OPEN_KEYS = new Set(['pinnedFontPolicy']);
 const GENERIC_ROLES = new Set(['serif', 'sansSerif', 'monospace']);
-const ROLE_ORDER = new Map([
-  ['serif', 0],
-  ['sansSerif', 1],
-  ['monospace', 2],
-]);
+const ROLE_ORDER = { serif: 0, sansSerif: 1, monospace: 2 };
 const EXPECTED_HASH_RE = /^[0-9a-fA-F]{64}$/;
 const CANONICAL_HASH_RE = /^[0-9a-f]{64}$/;
 const FINGERPRINT_RE = /^[0-9a-f]{16}$/;
@@ -33,40 +22,44 @@ export function openRawDocument(RawDocument, bytes, options) {
     return { inner: new RawDocument(bytes), expectedFaces: [] };
   }
   return {
-    inner: RawDocument.openWithPinnedFontPolicy(bytes, pinned.metadataJson, pinned.faceBytes),
+    inner: RawDocument.openWithPinnedFontPolicy(
+      bytes,
+      JSON.stringify(pinned.metadata),
+      pinned.faceBytes,
+    ),
     expectedFaces: pinned.expectedFaces,
   };
 }
 export function decodePinnedFontPolicySummary(payload, expectedFaces) {
-  const summary = parsePinnedFontPolicySummary(payload, 'pinnedFontPolicy');
+  const summary = parseSummaryPayload(payload, 'pinnedFontPolicy');
+  return validatePinnedFontPolicySummary(summary, expectedFaces, 'pinnedFontPolicy');
+}
+export function validatePinnedFontPolicySummary(summary, expectedFaces, operation) {
+  const label = operation ?? 'pinnedFontPolicy';
+  requireExactOutputKeys(summary, SUMMARY_KEYS, `${label} summary`);
+  if (summary.schemaVersion !== 1) {
+    throw new Error(`${label} returned an unsupported schemaVersion`);
+  }
+  if (typeof summary.policyId !== 'string' || !CANONICAL_HASH_RE.test(summary.policyId)) {
+    throw new Error(`${label} returned an invalid policyId`);
+  }
+  if (!Array.isArray(summary.faces)) {
+    throw new Error(`${label} returned invalid faces`);
+  }
+  validateSummaryFaces(summary.faces, label);
   if (expectedFaces !== undefined) requireExpectedFaces(summary.faces, expectedFaces);
   return summary;
 }
-function preparePinnedFontPolicyOpen(options) {
+export function preparePinnedFontPolicyOpen(options, bytesKind = 'uint8array') {
   if (options === undefined) return undefined;
   const open = requireInputObject(options, 'openDocument options');
   requireOnlyInputKeys(open, OPEN_KEYS, 'openDocument options');
   if (!Object.hasOwn(open, 'pinnedFontPolicy') || open.pinnedFontPolicy === undefined) {
     return undefined;
   }
-  return preparePolicy(open.pinnedFontPolicy);
+  return preparePolicy(open.pinnedFontPolicy, bytesKind);
 }
-function parsePinnedFontPolicySummary(payload, operation = 'pinnedFontPolicy') {
-  const summary = parseSummaryPayload(payload, operation);
-  requireExactOutputKeys(summary, SUMMARY_KEYS, `${operation} summary`);
-  if (summary.schemaVersion !== 1) {
-    throw new Error(`${operation} returned an unsupported schemaVersion`);
-  }
-  if (typeof summary.policyId !== 'string' || !CANONICAL_HASH_RE.test(summary.policyId)) {
-    throw new Error(`${operation} returned an invalid policyId`);
-  }
-  if (!Array.isArray(summary.faces)) {
-    throw new Error(`${operation} returned invalid faces`);
-  }
-  validateSummaryFaces(summary.faces, operation);
-  return summary;
-}
-function preparePolicy(value) {
+function preparePolicy(value, bytesKind) {
   const policy = requireInputObject(value, 'pinned font policy');
   requireExactInputKeys(policy, POLICY_KEYS, 'pinned font policy');
   if (policy.schemaVersion !== 1) {
@@ -75,19 +68,19 @@ function preparePolicy(value) {
   if (!Array.isArray(policy.faces) || policy.faces.length === 0) {
     badRequest('pinned font policy faces must be a non-empty array');
   }
-  const prepared = policy.faces.map(prepareFace);
+  const prepared = policy.faces.map((face, index) => prepareFace(face, index, bytesKind));
   const expectedFaces = prepared.map((face) => face.expected).sort(compareSummaryFaces);
   rejectDuplicateExpectedFaces(expectedFaces);
   return {
-    metadataJson: JSON.stringify({
+    metadata: {
       schemaVersion: 1,
       faces: prepared.map((face) => face.metadata),
-    }),
+    },
     faceBytes: prepared.map((face) => face.bytes),
     expectedFaces,
   };
 }
-function prepareFace(value, index) {
+function prepareFace(value, index, bytesKind) {
   const label = `pinned font face ${String(index)}`;
   const face = requireInputObject(value, label);
   requireOnlyInputKeys(face, FACE_INPUT_KEYS, label);
@@ -98,8 +91,13 @@ function prepareFace(value, index) {
   const expectedSha256 = face.expectedSha256;
   const genericRole = face.genericRole;
   const language = Object.hasOwn(face, 'language') ? face.language : undefined;
-  if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) {
-    badRequest(`${label} bytes must be a non-empty Uint8Array`);
+  const validBytes =
+    bytesKind === 'arrayBuffer'
+      ? bytes instanceof ArrayBuffer
+      : bytesKind === 'uint8array' && bytes instanceof Uint8Array;
+  if (!validBytes || bytes.byteLength === 0) {
+    const name = bytesKind === 'arrayBuffer' ? 'ArrayBuffer' : 'Uint8Array';
+    badRequest(`${label} bytes must be a non-empty ${name}`);
   }
   if (typeof expectedSha256 !== 'string' || !EXPECTED_HASH_RE.test(expectedSha256)) {
     badRequest(`${label} expectedSha256 must contain 64 hexadecimal digits`);
@@ -210,7 +208,7 @@ function requireSummaryFaceIdentity(face, label) {
 
 function compareSummaryFaces(left, right) {
   return (
-    ROLE_ORDER.get(left.genericRole) - ROLE_ORDER.get(right.genericRole) ||
+    ROLE_ORDER[left.genericRole] - ROLE_ORDER[right.genericRole] ||
     compareStrings(left.language, right.language) ||
     compareStrings(left.sha256, right.sha256)
   );

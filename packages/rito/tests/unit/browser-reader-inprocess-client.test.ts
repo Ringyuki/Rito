@@ -174,6 +174,7 @@ function documentRuntime(overrides: Record<string, unknown> = {}): unknown {
       chapters: [],
       fontFaces: [],
     })),
+    pinnedFontPolicy: vi.fn(() => emptyPinnedFontPolicy()),
     free: vi.fn(),
     resolveLocator: vi.fn(),
     readerWorkerPayload: vi.fn((request: { readonly kind: string; readonly locator?: unknown }) => {
@@ -183,6 +184,10 @@ function documentRuntime(overrides: Record<string, unknown> = {}): unknown {
     }),
     ...overrides,
   };
+}
+
+function emptyPinnedFontPolicy() {
+  return { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] };
 }
 
 function viewRevisionRequest(): CoreViewRevisionRequest {

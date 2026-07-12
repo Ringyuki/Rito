@@ -34,7 +34,10 @@ describe('Browser reader reflow scheduling', () => {
     const state = createState(foreground.worker);
     const workerFactory = vi.fn(() => background.worker);
     Object.assign(state, { workerFactory });
-    background.open.mockResolvedValue({ publication: state.publication });
+    background.open.mockResolvedValue({
+      publication: state.publication,
+      pinnedFontPolicy: { schemaVersion: 1, policyId: '01'.repeat(32), faces: [] },
+    });
 
     await expect(fullReflowWorker(state)).resolves.toBe(background.worker);
     await expect(fullReflowWorker(state)).resolves.toBe(background.worker);

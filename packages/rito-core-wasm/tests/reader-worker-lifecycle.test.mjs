@@ -41,7 +41,10 @@ test('in-process reader allows only one document open', async () => {
     },
   });
 
-  assert.deepEqual(await firstOpen, { publication: { title: 'first' } });
+  assert.deepEqual(await firstOpen, {
+    publication: { title: 'first' },
+    pinnedFontPolicy: emptyPolicySummary(),
+  });
   await assert.rejects(client.open(new ArrayBuffer(1)), /cannot open while open/);
   assert.equal(openCalls, 1);
   client.dispose();
@@ -85,6 +88,7 @@ test('failed publication rolls back the candidate and permits one retry', async 
 
   assert.deepEqual(await client.open(Uint8Array.of(2).buffer), {
     publication: { title: 'good' },
+    pinnedFontPolicy: emptyPolicySummary(),
   });
   assert.deepEqual(await client.search('rev-1', { query: 'text' }), {
     document: 'good',
@@ -170,12 +174,17 @@ function fakeDocument(name, publicationError) {
         if (publicationError) throw publicationError;
         return { title: name };
       },
+      pinnedFontPolicy: emptyPolicySummary,
       readerWorkerPayload: (request) => ({
         kind: request.kind,
         result: { document: name },
       }),
     },
   };
+}
+
+function emptyPolicySummary() {
+  return { schemaVersion: 1, policyId: '01'.repeat(32), faces: [] };
 }
 
 function workerHandlerScope(initialize) {

@@ -6,6 +6,7 @@ import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmWorkerReaderClient,
 } from '../dist/reader-worker-client-runtime.js';
+import { readerOpenResult } from './reader-worker-test-fixture.mjs';
 import {
   crossLineOffsetsWithoutLf,
   geometryDiagnostic,
@@ -173,7 +174,7 @@ async function openClient(worker) {
   const client = createRitoCoreWasmWorkerReaderClient(worker);
   const opening = client.open(new ArrayBuffer(0));
   await Promise.resolve();
-  worker.respondLast({ kind: 'open', result: { publication: { title: 'fixture' } } });
+  worker.respondLast({ kind: 'open', result: readerOpenResult({ title: 'fixture' }) });
   await opening;
   return client;
 }

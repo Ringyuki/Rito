@@ -18,27 +18,36 @@ export async function prepareReaderSessionCache(cache, data) {
   const state = stateFor(cache);
   if (!state.requiresPublicationIdentity) return undefined;
   const identity = await publicationIdentity(data);
-  const committed = state.publicationIdentity;
+  const committed = state.sessionIdentity?.publicationIdentity;
   if (committed !== undefined && !samePublicationIdentity(committed, identity)) {
     throw new Error('Rito reader session cache cannot be shared across different publications');
   }
   return identity;
 }
 
-export function commitReaderSessionCache(cache, identity, disposeOnConflict) {
-  if (identity === undefined) return;
+export function commitReaderSessionCache(cache, publicationIdentity, policyId, disposeOnConflict) {
+  if (publicationIdentity === undefined) return;
   const state = stateFor(cache);
-  if (state.publicationIdentity === undefined) {
-    state.publicationIdentity = identity;
+  const committed = state.sessionIdentity;
+  if (committed === undefined) {
+    state.sessionIdentity = { publicationIdentity, policyId };
     return;
   }
-  if (!samePublicationIdentity(state.publicationIdentity, identity)) {
-    try {
-      disposeOnConflict?.();
-    } catch {
-      // Preserve the publication identity error after best-effort cleanup.
-    }
+  if (!samePublicationIdentity(committed.publicationIdentity, publicationIdentity)) {
+    disposeConflictingSession(disposeOnConflict);
     throw new Error('Rito reader session cache was committed by a different publication');
+  }
+  if (committed.policyId !== policyId) {
+    disposeConflictingSession(disposeOnConflict);
+    throw new Error('Rito reader session cache was committed by a different pinned font policy');
+  }
+}
+
+function disposeConflictingSession(disposeOnConflict) {
+  try {
+    disposeOnConflict?.();
+  } catch {
+    // Preserve the cache identity error after best-effort cleanup.
   }
 }
 
@@ -335,7 +344,7 @@ function stateFor(cache) {
   if (state === undefined) {
     state = {
       fullChapterTextIndices: new Map(),
-      publicationIdentity: undefined,
+      sessionIdentity: undefined,
       requiresPublicationIdentity: false,
     };
     sessionCacheState.set(cache, state);

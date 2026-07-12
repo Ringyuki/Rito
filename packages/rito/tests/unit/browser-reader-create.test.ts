@@ -63,7 +63,7 @@ describe('Browser reader creation', () => {
       return Promise.resolve();
     });
     const worker = {
-      open: vi.fn(() => Promise.resolve({ publication: publicationWithFont() })),
+      open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
     mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
@@ -111,7 +111,7 @@ describe('Browser reader creation', () => {
     const primaryError = new Error('initial revision failed');
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const worker = {
-      open: vi.fn(() => Promise.resolve({ publication: publicationWithFont() })),
+      open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(() => {
         throw new Error('cleanup failed');
       }),
@@ -172,5 +172,12 @@ function publicationWithFont() {
     },
     chapters: [],
     fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
+  };
+}
+
+function openResultWithFont() {
+  return {
+    publication: publicationWithFont(),
+    pinnedFontPolicy: { schemaVersion: 1 as const, policyId: '01'.repeat(32), faces: [] },
   };
 }

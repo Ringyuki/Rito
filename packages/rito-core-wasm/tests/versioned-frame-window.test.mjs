@@ -7,6 +7,7 @@ import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmReaderWorkerHandler,
 } from '../dist/reader-worker-client-runtime.js';
+import { pinnedFontPolicyJson } from './reader-worker-test-fixture.mjs';
 
 const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   async () => {},
@@ -109,6 +110,7 @@ function frameWindowFixture(options = {}) {
   const resources = [resource('transfer-1', 'image-1.png'), resource('transfer-2', 'image-2.png')];
   const raw = {
     publicationJson: () => JSON.stringify({ title: 'fixture' }),
+    pinnedFontPolicyJson,
     free() {},
     prefetchPlannedFrameResourcesAtRevisionJson: (_revisionId, revisionVersion) => {
       if (options.stalePrefetch) {

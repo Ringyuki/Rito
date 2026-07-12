@@ -5,6 +5,7 @@ import {
   createRitoCoreWasmInProcessReaderClient,
   createRitoCoreWasmWorkerReaderClient,
 } from '../dist/reader-worker-client-runtime.js';
+import { emptyPinnedFontPolicySummary, readerOpenResult } from './reader-worker-test-fixture.mjs';
 
 const FULL_SCOPE_KEY = 'chapter-text-v1:full';
 const CHAPTER_ENTRIES = {
@@ -472,6 +473,7 @@ function fakeModule(handleRequest) {
       openDocument: () => ({
         free() {},
         publication: () => ({ title: 'Fixture' }),
+        pinnedFontPolicy: emptyPinnedFontPolicySummary,
         readerWorkerPayload: handleRequest,
       }),
     }),
@@ -500,7 +502,7 @@ class RespondingWorker {
     if (message.kind === 'dispose') return;
     const payload =
       message.kind === 'open'
-        ? { kind: 'open', result: { publication: { title: 'Fixture' } } }
+        ? { kind: 'open', result: readerOpenResult() }
         : this.handleRequest(message);
     queueMicrotask(() => this.emit('message', { data: { id: message.id, ok: true, payload } }));
   }

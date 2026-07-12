@@ -4,6 +4,7 @@ import type { RitoCoreWasmChapterTextIndices } from './interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
 import type {
   RitoCoreWasmOpenDocumentOptions,
+  RitoCoreWasmPinnedFontGenericRole,
   RitoCoreWasmPinnedFontPolicySummary,
 } from './pinned-font';
 import type { RitoCoreWasmFrameResourceWarmPlan, RitoCoreWasmResourcePayload } from './resource';
@@ -28,8 +29,15 @@ import type {
 export interface RitoCoreWasmReaderWorkerClient extends RitoCoreWasmReaderVersionedClient {
   /** Stable identity for this client's sole worker or in-process publication session. */
   readonly sessionId: string;
-  /** Opens this client's sole publication session. Failed opens may be retried. */
-  open(data: ArrayBuffer): Promise<RitoCoreWasmReaderOpenResult>;
+  /**
+   * Opens this client's sole publication session. A real Worker takes ownership
+   * of `data` and every pinned face buffer after validation; failed validation
+   * leaves them attached. Failed engine opens may be retried with fresh buffers.
+   */
+  open(
+    data: ArrayBuffer,
+    options?: RitoCoreWasmReaderWorkerOpenOptions,
+  ): Promise<RitoCoreWasmReaderOpenResult>;
   createViewRevision(
     request: RitoCoreWasmViewRevisionRequest,
   ): Promise<RitoCoreWasmReaderViewRevisionResult>;
@@ -165,7 +173,38 @@ export interface RitoCoreWasmReaderViewRevisionResult {
   readonly result: RitoCoreWasmReaderRevisionResult;
 }
 
-export type RitoCoreWasmReaderOpenResult = { readonly publication: RitoCoreWasmPublicationInfo };
+export interface RitoCoreWasmReaderWorkerPinnedFontFaceInput {
+  /** Dedicated transferable buffer; it must not be shared with another face or the EPUB. */
+  readonly bytes: ArrayBuffer;
+  readonly expectedSha256: string;
+  readonly genericRole: RitoCoreWasmPinnedFontGenericRole;
+  readonly language?: string | undefined;
+}
+
+export interface RitoCoreWasmReaderWorkerPinnedFontPolicyInput {
+  readonly schemaVersion: 1;
+  readonly faces: readonly RitoCoreWasmReaderWorkerPinnedFontFaceInput[];
+}
+
+export interface RitoCoreWasmReaderWorkerOpenOptions {
+  readonly pinnedFontPolicy?: RitoCoreWasmReaderWorkerPinnedFontPolicyInput | undefined;
+}
+
+export interface RitoCoreWasmReaderWorkerPinnedFontFaceMetadata {
+  readonly expectedSha256: string;
+  readonly genericRole: RitoCoreWasmPinnedFontGenericRole;
+  readonly language?: string | undefined;
+}
+
+export interface RitoCoreWasmReaderWorkerPinnedFontPolicyMetadata {
+  readonly schemaVersion: 1;
+  readonly faces: readonly RitoCoreWasmReaderWorkerPinnedFontFaceMetadata[];
+}
+
+export interface RitoCoreWasmReaderOpenResult {
+  readonly publication: RitoCoreWasmPublicationInfo;
+  readonly pinnedFontPolicy: RitoCoreWasmPinnedFontPolicySummary;
+}
 
 export interface RitoCoreWasmReaderFrameBuffer {
   readonly metadata: RitoCoreWasmFrameCommandBufferMetadata;
@@ -202,7 +241,14 @@ type WorkerRequestId = { readonly id: number };
 
 export type RitoCoreWasmReaderWorkerRequest = WorkerRequestId &
   (
-    | { readonly kind: 'open'; readonly data: ArrayBuffer }
+    | {
+        readonly kind: 'open';
+        readonly data: ArrayBuffer;
+        readonly pinnedFontPolicyMetadata?:
+          | RitoCoreWasmReaderWorkerPinnedFontPolicyMetadata
+          | undefined;
+        readonly pinnedFontFaceBuffers?: readonly ArrayBuffer[] | undefined;
+      }
     | RitoCoreWasmReaderVersionedWorkerRequestPayload
     | {
         readonly kind: 'createViewRevision';

@@ -146,7 +146,10 @@ describe('Browser reader stale reflow races', () => {
     scheduleBrowserReaderReflow(state, { ...BASE_READER_OPTIONS, width: 1000 }, 'single', 'greedy');
     await flushPromises();
 
-    backgroundOpen.resolve({ publication: state.publication });
+    backgroundOpen.resolve({
+      publication: state.publication,
+      pinnedFontPolicy: { schemaVersion: 1, policyId: '01'.repeat(32), faces: [] },
+    });
     await flushPromises();
     expect(background.createViewRevision).not.toHaveBeenCalled();
 

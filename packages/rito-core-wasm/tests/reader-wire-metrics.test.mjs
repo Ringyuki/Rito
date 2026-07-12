@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
 import { normalizeRitoCoreWasmError } from '../dist/core-wasm-error-runtime.js';
 import { createRitoCoreWasmReaderWorkerHandler } from '../dist/reader-worker-client-runtime.js';
+import { pinnedFontPolicyJson, readerOpenResult } from './reader-worker-test-fixture.mjs';
 
 const RUNTIME_BUNDLE_HEADER_BYTES = 56;
 const VIEW_REQUEST = {
@@ -215,7 +216,7 @@ async function openWorkerRuntime(wire, metricsOverride) {
   assert.deepEqual(response, {
     id: 1,
     ok: true,
-    payload: { kind: 'open', result: { publication: { title: 'Fixture' } } },
+    payload: { kind: 'open', result: readerOpenResult() },
   });
   return { scope, state };
 }
@@ -238,6 +239,7 @@ function createRawDocument(state) {
   const binaryPayload = viewRevisionBundleBytes();
   return {
     publicationJson: () => JSON.stringify({ title: 'Fixture' }),
+    pinnedFontPolicyJson,
     createReaderViewRevisionBundleJson: (requestJson, omitFullIndices) =>
       rawViewPayload(
         state,

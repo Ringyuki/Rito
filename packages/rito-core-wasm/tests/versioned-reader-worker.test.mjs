@@ -8,6 +8,7 @@ import {
   createRitoCoreWasmReaderWorkerHandler,
   createRitoCoreWasmWorkerReaderClient,
 } from '../dist/reader-worker-client-runtime.js';
+import { pinnedFontPolicyJson, readerOpenResult } from './reader-worker-test-fixture.mjs';
 
 const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   async () => {},
@@ -91,7 +92,7 @@ test('worker client rejects cross-version races even when responses arrive out o
   await Promise.resolve();
   worker.respond(worker.messages[0].id, {
     kind: 'open',
-    result: { publication: { title: 'fixture' } },
+    result: readerOpenResult({ title: 'fixture' }),
   });
   await opening;
 
@@ -116,7 +117,7 @@ test('failed revision recovery state survives the worker error round trip', asyn
   await Promise.resolve();
   worker.respond(worker.messages[0].id, {
     kind: 'open',
-    result: { publication: { title: 'fixture' } },
+    result: readerOpenResult({ title: 'fixture' }),
   });
   await opening;
 
@@ -148,6 +149,7 @@ function fixtureDocument() {
   const raw = new Proxy(
     {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
+      pinnedFontPolicyJson,
       free() {},
       createBoundedRevisionJson: () => JSON.stringify(advance(0, true)),
       continueRevisionJson: () => JSON.stringify(advance(1, false)),

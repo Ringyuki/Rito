@@ -14,6 +14,7 @@ const runtimeSources = [
   'reader-bounded-session-runtime.js',
   'reader-worker-cache-runtime.js',
   'reader-worker-client-runtime.js',
+  'reader-worker-pinned-font-runtime.js',
   'reader-worker-interaction-validation-runtime.js',
   'reader-worker-text-geometry-validation-runtime.js',
   'shape-provenance-diagnostic-validation-runtime.js',

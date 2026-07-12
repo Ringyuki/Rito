@@ -1,3 +1,5 @@
+import { pinnedFontPolicyJson } from './reader-worker-test-fixture.mjs';
+
 export function handle(revisionVersion) {
   return { revisionId: 'rev-1', revisionVersion };
 }
@@ -107,6 +109,7 @@ export function rawTextGeometryDocument(calls) {
   return new Proxy(
     {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
+      pinnedFontPolicyJson,
       free() {},
       getPageTextPositionsAtRevisionJson: (_revisionId, version) =>
         envelope(version, pageTextPositions()),

@@ -5,6 +5,7 @@ import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-ru
 import { createRitoCoreWasmInProcessReaderClient } from '../dist/reader-worker-client-runtime.js';
 import { createRitoCoreWasmWorkerReaderClient } from '../dist/reader-worker-client-runtime.js';
 import { versionedReaderWorkerPayload } from '../dist/reader-worker-versioned-payload-runtime.js';
+import { pinnedFontPolicyJson, readerOpenResult } from './reader-worker-test-fixture.mjs';
 
 const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   async () => {},
@@ -202,6 +203,7 @@ function rawInteractionDocument(calls) {
   return new Proxy(
     {
       publicationJson: () => JSON.stringify({ title: 'fixture' }),
+      pinnedFontPolicyJson,
       free() {},
       getPageTargetsAtRevisionJson: (_revisionId, version, pageIndex) =>
         envelope(version, pageTargets('rev-1', pageIndex)),
@@ -319,7 +321,7 @@ async function openClient(worker) {
   const client = createRitoCoreWasmWorkerReaderClient(worker);
   const opening = client.open(new ArrayBuffer(0));
   await Promise.resolve();
-  worker.respondLast({ kind: 'open', result: { publication: { title: 'fixture' } } });
+  worker.respondLast({ kind: 'open', result: readerOpenResult({ title: 'fixture' }) });
   await opening;
   return client;
 }

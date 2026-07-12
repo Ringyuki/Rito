@@ -11,6 +11,11 @@ import {
 } from './reader-worker-cache-runtime.js';
 import { isRitoCoreWasmRevisionSummary, RitoCoreWasmError } from './core-wasm-error-runtime.js';
 import { createVersionedReaderClientMethods } from './reader-worker-versioned-client-runtime.js';
+import {
+  decodeReaderWorkerOpenRequest,
+  prepareReaderWorkerOpen,
+  validateReaderWorkerOpenResult,
+} from './reader-worker-pinned-font-runtime.js';
 
 let nextReaderSessionId = 1;
 
@@ -95,7 +100,7 @@ export function createRitoCoreWasmInProcessReaderClient(module, cache) {
           () =>
             module.initRitoCoreWasmEngine?.() ??
             Promise.reject(new Error('Rito in-process reader requires the full core module')),
-          input.data,
+          decodeReaderWorkerOpenRequest(input),
           'Rito in-process reader',
         );
       }
@@ -123,18 +128,27 @@ export function createRitoCoreWasmReaderWorkerHandler(scope, deps) {
 
 function createRitoCoreWasmReaderClient(sessionId, request, dispose, cache) {
   let phase = 'idle';
-  const open = async (data) => {
+  const open = async (data, options) => {
     if (phase !== 'idle') throw new Error(`Rito reader client cannot open while ${phase}`);
     phase = 'opening';
     try {
-      const cacheIdentity = await prepareReaderSessionCache(cache, data);
+      const prepared = prepareReaderWorkerOpen(data, options);
+      const publicationIdentity = await prepareReaderSessionCache(cache, data);
       if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
-      const openResult = await result(request, { kind: 'open', data }, 'open', [data]);
-      if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
-      commitReaderSessionCache(cache, cacheIdentity, () => {
+      const openResult = await requestReaderOpen(request, prepared, () => {
         phase = 'disposed';
         dispose();
       });
+      if (phase !== 'opening') throw new Error('Rito reader client was disposed while opening');
+      commitReaderSessionCache(
+        cache,
+        publicationIdentity,
+        openResult.pinnedFontPolicy.policyId,
+        () => {
+          phase = 'disposed';
+          dispose();
+        },
+      );
       phase = 'open';
       return openResult;
     } catch (error) {
@@ -176,6 +190,23 @@ function createRitoCoreWasmReaderClient(sessionId, request, dispose, cache) {
     ...versionedMethods,
     dispose: disposeClient,
   };
+}
+
+async function requestReaderOpen(request, prepared, disposeInvalid) {
+  const payload = await request(prepared.request, prepared.transfer);
+  try {
+    if (payload.kind !== 'open') {
+      throw new Error(`Rito reader worker returned ${payload.kind} for open`);
+    }
+    return validateReaderWorkerOpenResult(payload.result, prepared.expectedFaces);
+  } catch (error) {
+    try {
+      disposeInvalid();
+    } catch {
+      // Preserve the worker protocol failure after best-effort cleanup.
+    }
+    throw error;
+  }
 }
 
 function createReaderSessionId() {
@@ -242,7 +273,7 @@ async function handleWorkerRequest(deps, state, request) {
     return openReaderSessionDocument(
       state,
       deps.initRitoCoreWasmEngine,
-      request.data,
+      decodeReaderWorkerOpenRequest(request),
       'Rito reader worker',
     );
   }

@@ -1,3 +1,5 @@
+import { validateReaderWorkerOpenResult } from './reader-worker-pinned-font-runtime.js';
+
 export function createReaderSessionState() {
   return {
     corePromise: undefined,
@@ -6,7 +8,7 @@ export function createReaderSessionState() {
   };
 }
 
-export async function openReaderSessionDocument(state, initialize, data, label) {
+export async function openReaderSessionDocument(state, initialize, open, label) {
   if (state.phase !== 'idle') {
     throw new Error(`${label} cannot open while ${state.phase}`);
   }
@@ -17,15 +19,20 @@ export async function openReaderSessionDocument(state, initialize, data, label) 
     if (state.phase !== 'opening') {
       throw new Error(`${label} was disposed while opening`);
     }
-    candidate = core.openDocument(new Uint8Array(data));
+    candidate = core.openDocument(new Uint8Array(open.data), open.options);
     const publication = candidate.publication();
+    const pinnedFontPolicy = candidate.pinnedFontPolicy();
+    const result = validateReaderWorkerOpenResult(
+      { publication, pinnedFontPolicy },
+      open.expectedFaces,
+    );
     if (state.phase !== 'opening') {
       throw new Error(`${label} was disposed while opening`);
     }
     state.document = candidate;
     candidate = undefined;
     state.phase = 'open';
-    return { kind: 'open', result: { publication } };
+    return { kind: 'open', result };
   } catch (error) {
     try {
       candidate?.free();
