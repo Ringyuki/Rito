@@ -141,8 +141,13 @@ fn validate_face(input: RuntimePinnedFontFaceInput) -> EpubResult<RuntimePinnedF
             "pinned font face SHA-256 mismatch: expected {expected}, got {actual}"
         )));
     }
-    ttf_parser::Face::parse(&input.bytes, 0)
+    let parsed = ttf_parser::Face::parse(&input.bytes, 0)
         .map_err(|_| EpubError::new("pinned font face is not a parseable TTF/OTF face 0"))?;
+    if parsed.variation_axes().len() != 0 {
+        return Err(EpubError::new(
+            "pinned font policy v1 does not support variable font faces",
+        ));
+    }
     if rustybuzz::Face::from_slice(&input.bytes, 0).is_none() {
         return Err(EpubError::new(
             "pinned font face is not shapeable as TTF/OTF face 0",

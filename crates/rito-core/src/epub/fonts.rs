@@ -2,26 +2,34 @@ use crate::layout::{
     LayoutConfig, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
     TextMeasurementMode,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use super::{paths::normalize_href_path, LoadedEpubDocument};
 
-pub(crate) fn text_measurement_fonts_for_layout<'a>(
+pub(crate) struct TextMeasurementFontAssembly<'a> {
+    pub(crate) fonts: TextMeasurementFonts<'a>,
+    pub(crate) shapeable_publication_families: BTreeSet<String>,
+}
+
+pub(crate) fn text_measurement_font_assembly_for_layout<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
     cache: Option<TextMeasurementCache>,
     pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFonts<'a> {
+) -> TextMeasurementFontAssembly<'a> {
     match layout_config.text_measurement {
-        TextMeasurementMode::FixtureCompatible => TextMeasurementFonts::empty(),
+        TextMeasurementMode::FixtureCompatible => TextMeasurementFontAssembly {
+            fonts: TextMeasurementFonts::empty(),
+            shapeable_publication_families: BTreeSet::new(),
+        },
         TextMeasurementMode::FontAware => match cache {
-            Some(cache) => text_measurement_fonts_from_document_with_cache(
+            Some(cache) => text_measurement_font_assembly_with_cache(
                 document,
                 layout_config,
                 cache,
                 pinned_faces,
             ),
-            None => text_measurement_fonts_from_document_with_cache(
+            None => text_measurement_font_assembly_with_cache(
                 document,
                 layout_config,
                 TextMeasurementCache::default(),
@@ -31,13 +39,19 @@ pub(crate) fn text_measurement_fonts_for_layout<'a>(
     }
 }
 
-fn text_measurement_fonts_from_document_with_cache<'a>(
+fn text_measurement_font_assembly_with_cache<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
     cache: TextMeasurementCache,
     pinned_faces: Vec<TextMeasurementFontFace<'a>>,
-) -> TextMeasurementFonts<'a> {
+) -> TextMeasurementFontAssembly<'a> {
+    let pinned_active = !pinned_faces.is_empty();
+    let pinned_aliases = pinned_faces
+        .iter()
+        .map(|face| normalize_family_name(&face.family))
+        .collect::<BTreeSet<_>>();
     let mut faces = Vec::new();
+    let mut shapeable_publication_families = BTreeSet::new();
     for stylesheet in &document.stylesheets {
         for rule in crate::css::parse_font_face_rules(&stylesheet.text) {
             let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
@@ -70,21 +84,38 @@ fn text_measurement_fonts_from_document_with_cache<'a>(
                     resource.bytes.as_slice(),
                 ),
             };
+            let family = normalize_family_name(&face.family);
+            if pinned_active && pinned_aliases.contains(&family) {
+                continue;
+            }
+            if face.is_shapeable() {
+                shapeable_publication_families.insert(family);
+            } else if pinned_active {
+                continue;
+            }
             faces.push(face);
         }
     }
-    // Publication faces retain author priority. Pinned aliases follow them,
-    // and matching's reverse tie order makes the pinned face authoritative if
-    // a hostile or accidental @font-face declaration collides with its alias.
+    // Publication faces retain author priority, but an alias owned by the
+    // document-lifetime pinned policy is never eligible as a publication face.
+    // This is family-wide rather than score-based, so italic/bold declarations
+    // cannot outrank the v1 normal/400 pinned face under the same alias.
     faces.extend(pinned_faces);
-    TextMeasurementFonts::new_with_cache(
-        faces,
-        cache,
-        generic_serif_advances(layout_config),
-        font_family_advances(layout_config),
-        generic_serif_pair_adjustments(layout_config),
-        font_family_pair_adjustments(layout_config),
-    )
+    TextMeasurementFontAssembly {
+        fonts: TextMeasurementFonts::new_with_cache(
+            faces,
+            cache,
+            generic_serif_advances(layout_config),
+            font_family_advances(layout_config),
+            generic_serif_pair_adjustments(layout_config),
+            font_family_pair_adjustments(layout_config),
+        ),
+        shapeable_publication_families,
+    }
+}
+
+fn normalize_family_name(family: &str) -> String {
+    family.trim().to_ascii_lowercase()
 }
 
 fn font_family_pair_adjustments(

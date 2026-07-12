@@ -1,5 +1,7 @@
 use super::fixture::fixture_epub;
-use super::pinned_font_policy_fixtures::{face, illustration_font, policy, title_font};
+use super::pinned_font_policy_fixtures::{
+    face, illustration_font, policy, title_font, variable_title_font,
+};
 use crate::runtime::{
     RuntimeDocument, RuntimePinnedFontFaceInput, RuntimePinnedFontGenericRole,
     RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput,
@@ -110,4 +112,23 @@ fn pinned_font_policy_rejects_duplicate_selector_and_hash() {
         ),
     ]);
     assert!(RuntimeDocument::open_with_pinned_font_policy(&epub, und_duplicate).is_err());
+}
+
+#[test]
+fn pinned_font_policy_v1_rejects_variable_faces() {
+    let variable = variable_title_font();
+    let parsed = ttf_parser::Face::parse(&variable, 0).expect("variable fixture parses");
+    assert_ne!(parsed.variation_axes().len(), 0);
+
+    let error = RuntimeDocument::open_with_pinned_font_policy(
+        &fixture_epub(),
+        policy(vec![face(
+            variable,
+            RuntimePinnedFontGenericRole::Serif,
+            None,
+        )]),
+    )
+    .expect_err("variable pinned faces are rejected");
+
+    assert!(error.message().contains("does not support variable font"));
 }

@@ -48,6 +48,10 @@ pub(super) fn illustration_font() -> Vec<u8> {
     )
 }
 
+pub(super) fn variable_title_font() -> Vec<u8> {
+    append_sfnt_table(&title_font(), *b"fvar", &minimal_fvar_table())
+}
+
 pub(super) fn font_aware_layout() -> LayoutConfig {
     let mut config = layout();
     config.text_measurement = TextMeasurementMode::FontAware;
@@ -165,4 +169,75 @@ pub(super) fn short_sha256(bytes: &[u8]) -> String {
         .take(8)
         .map(|byte| format!("{byte:02x}"))
         .collect()
+}
+
+fn minimal_fvar_table() -> Vec<u8> {
+    let mut table = Vec::new();
+    table.extend_from_slice(&0x0001_0000_u32.to_be_bytes());
+    table.extend_from_slice(&16_u16.to_be_bytes());
+    table.extend_from_slice(&2_u16.to_be_bytes());
+    table.extend_from_slice(&1_u16.to_be_bytes());
+    table.extend_from_slice(&20_u16.to_be_bytes());
+    table.extend_from_slice(&0_u16.to_be_bytes());
+    table.extend_from_slice(&8_u16.to_be_bytes());
+    table.extend_from_slice(b"wght");
+    for value in [100_i32, 400, 900] {
+        table.extend_from_slice(&(value << 16).to_be_bytes());
+    }
+    table.extend_from_slice(&0_u16.to_be_bytes());
+    table.extend_from_slice(&256_u16.to_be_bytes());
+    table
+}
+
+fn append_sfnt_table(font: &[u8], tag: [u8; 4], table: &[u8]) -> Vec<u8> {
+    let count = u16::from_be_bytes([font[4], font[5]]) as usize;
+    let mut tables = (0..count)
+        .map(|index| {
+            let record = 12 + index * 16;
+            let offset = u32::from_be_bytes(font[record + 8..record + 12].try_into().unwrap());
+            let length = u32::from_be_bytes(font[record + 12..record + 16].try_into().unwrap());
+            (
+                font[record..record + 4].try_into().unwrap(),
+                u32::from_be_bytes(font[record + 4..record + 8].try_into().unwrap()),
+                font[offset as usize..offset as usize + length as usize].to_vec(),
+            )
+        })
+        .collect::<Vec<([u8; 4], u32, Vec<u8>)>>();
+    tables.push((tag, table_checksum(table), table.to_vec()));
+    tables.sort_unstable_by_key(|entry| entry.0);
+    rebuild_sfnt(&font[..4], tables)
+}
+
+fn rebuild_sfnt(scaler: &[u8], tables: Vec<([u8; 4], u32, Vec<u8>)>) -> Vec<u8> {
+    let count = tables.len();
+    let power = 1_usize << (usize::BITS - count.leading_zeros() - 1);
+    let mut output =
+        Vec::with_capacity(12 + count * 16 + tables.iter().map(|t| t.2.len()).sum::<usize>());
+    output.extend_from_slice(scaler);
+    output.extend_from_slice(&(count as u16).to_be_bytes());
+    output.extend_from_slice(&((power * 16) as u16).to_be_bytes());
+    output.extend_from_slice(&(power.trailing_zeros() as u16).to_be_bytes());
+    output.extend_from_slice(&((count * 16 - power * 16) as u16).to_be_bytes());
+    output.resize(12 + count * 16, 0);
+    for (index, (tag, checksum, bytes)) in tables.into_iter().enumerate() {
+        while output.len() % 4 != 0 {
+            output.push(0);
+        }
+        let offset = output.len();
+        output.extend_from_slice(&bytes);
+        let record = 12 + index * 16;
+        output[record..record + 4].copy_from_slice(&tag);
+        output[record + 4..record + 8].copy_from_slice(&checksum.to_be_bytes());
+        output[record + 8..record + 12].copy_from_slice(&(offset as u32).to_be_bytes());
+        output[record + 12..record + 16].copy_from_slice(&(bytes.len() as u32).to_be_bytes());
+    }
+    output
+}
+
+fn table_checksum(table: &[u8]) -> u32 {
+    table.chunks(4).fold(0_u32, |sum, chunk| {
+        let mut word = [0_u8; 4];
+        word[..chunk.len()].copy_from_slice(chunk);
+        sum.wrapping_add(u32::from_be_bytes(word))
+    })
 }

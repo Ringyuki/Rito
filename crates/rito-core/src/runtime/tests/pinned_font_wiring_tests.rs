@@ -70,7 +70,7 @@ fn resolved_family_chain_drives_author_text_list_marker_and_ruby_paint() {
     let summary = document.pinned_font_policy_summary();
     let ja_alias = alias(&summary, "ja");
     let zh_alias = alias(&summary, "zh");
-    let expected_family = format!("Author, {ja_alias}, {zh_alias}, serif");
+    let expected_family = format!("{ja_alias}, {zh_alias}, serif");
     let revision = document
         .create_revision_with_line_breaking(&font_aware_layout(), LineBreaking::Optimal)
         .unwrap();
@@ -139,13 +139,23 @@ fn missing_glyph_uses_the_next_locale_face_in_the_full_alias_chain() {
 
 #[test]
 fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
-    let font = title_font();
-    let character = shared_supported_character(&font, &font);
-    let text = xml_text(character).repeat(24);
-    let body = format!("<p>{text}</p><p>{text}</p><p>{text}</p>");
-    let bytes = content_epub("en", &body, "", None);
+    let pinned_font = title_font();
+    let author_font = illustration_font();
+    let author_character = unique_supported_character(&pinned_font, &author_font);
+    let pinned_character = unique_supported_character(&author_font, &pinned_font);
+    let pair = format!(
+        "{}{}",
+        xml_text(author_character),
+        xml_text(pinned_character)
+    );
+    let text = pair.repeat(12);
+    let body = format!(
+        r#"<p style="font-family: HostOnly, Author, serif">{text}</p><p style="font-family: HostOnly, Author, serif">{text}</p>"#
+    );
+    let stylesheet = r#"@font-face { font-family: "Author"; src: url("book.ttf"); font-style: normal; font-weight: 400; }"#;
+    let bytes = content_epub("en", &body, stylesheet, Some(&author_font));
     let input = policy(vec![face(
-        font,
+        pinned_font.clone(),
         RuntimePinnedFontGenericRole::Serif,
         Some("en"),
     )]);
@@ -155,6 +165,26 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
     let first = eager.create_revision(&effective_config).unwrap();
     let second = eager.create_revision(&effective_config).unwrap();
     assert_revision_layouts_equal(&eager, &first.revision_id, &eager, &second.revision_id);
+    let pinned_alias = alias(&eager.pinned_font_policy_summary(), "en").to_owned();
+    let expected_family = format!("Author, {pinned_alias}, serif");
+    let frame = eager.get_frame(&first.revision_id, 0).unwrap();
+    for command in frame
+        .commands
+        .iter()
+        .filter(|command| command["kind"] == "paintText")
+    {
+        assert_eq!(paint_family(command), Some(expected_family.as_str()));
+    }
+    let diagnostic = eager
+        .shape_provenance_diagnostic_at(&RuntimeRevisionHandle::from(&first))
+        .unwrap()
+        .value;
+    assert!(diagnostic.mixed_font_text_runs > 0);
+    for fingerprint in [sha256_hex(&author_font), sha256_hex(&pinned_font)] {
+        assert!(diagnostic
+            .mixed_font_fingerprints
+            .contains_key(&fingerprint[..16]));
+    }
 
     let mut window = RuntimeDocument::open_with_pinned_font_policy(&bytes, input.clone()).unwrap();
     let window_revision = window

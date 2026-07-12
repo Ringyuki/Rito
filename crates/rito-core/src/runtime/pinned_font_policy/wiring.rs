@@ -2,6 +2,7 @@ use crate::{
     layout::{LayoutConfig, TextMeasurementFontFace, TextMeasurementMode},
     style::{FontFallbackFace, FontFallbackPolicy, FontGenericRole},
 };
+use std::collections::BTreeSet;
 
 use super::{
     RuntimePinnedFontGenericRole, RuntimePinnedFontPolicy, PINNED_FONT_STYLE, PINNED_FONT_WEIGHT,
@@ -51,6 +52,7 @@ impl RuntimePinnedFontPolicy {
                     })
                     .collect(),
                 package_language,
+                available_publication_families: BTreeSet::new(),
             })
     }
 

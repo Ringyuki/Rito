@@ -1,3 +1,5 @@
+use std::collections::BTreeSet;
+
 use serde_json::{Map, Value};
 
 use super::{
@@ -22,6 +24,7 @@ fn policy(package_language: &str) -> FontFallbackPolicy<'_> {
             face(MONO_JA, FontGenericRole::Monospace, "ja"),
         ],
         package_language,
+        available_publication_families: BTreeSet::from(["author".to_owned(), "serif".to_owned()]),
     }
 }
 
@@ -77,8 +80,23 @@ fn keeps_the_family_unchanged_when_the_policy_has_no_matching_role_face() {
     let fallback = FontFallbackPolicy {
         faces: vec![face(SANS_ZH, FontGenericRole::SansSerif, "zh")],
         package_language: "zh",
+        available_publication_families: BTreeSet::from(["author".to_owned()]),
     };
     assert_eq!(rewrite_family_list("Author", "und", &fallback), "Author");
+}
+
+#[test]
+fn removes_host_only_names_and_preserves_shapeable_publication_families() {
+    let fallback = policy("zh");
+
+    assert_eq!(
+        rewrite_family_list("HostOnly, AUTHOR, serif", "zh", &fallback),
+        format!("AUTHOR, {SERIF_ZH}, {SERIF_UND}, {SERIF_JA}, serif")
+    );
+    assert_eq!(
+        rewrite_family_list("HostOnly", "zh", &fallback),
+        format!("{SERIF_ZH}, {SERIF_UND}, {SERIF_JA}, serif")
+    );
 }
 
 #[test]
@@ -91,6 +109,19 @@ fn appends_serif_chain_when_no_generic_and_is_idempotent() {
         format!("Author, {SERIF_JA}, {SERIF_UND}, {SERIF_ZH}, serif")
     );
     assert_eq!(twice, once);
+}
+
+#[test]
+fn removes_host_only_names_before_an_existing_pinned_chain() {
+    let fallback = policy("zh");
+    let input = format!("HostOnly, {SERIF_ZH}, {SERIF_UND}, {SERIF_JA}, serif");
+    let rewritten = rewrite_family_list(&input, "zh", &fallback);
+
+    assert_eq!(
+        rewritten,
+        format!("{SERIF_ZH}, {SERIF_UND}, {SERIF_JA}, serif")
+    );
+    assert_eq!(rewrite_family_list(&rewritten, "zh", &fallback), rewritten);
 }
 
 #[test]

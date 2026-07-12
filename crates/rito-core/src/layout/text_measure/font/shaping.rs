@@ -76,6 +76,10 @@ impl<'a> TextMeasurementFontFace<'a> {
     pub(in super::super) fn fingerprint(&self) -> [u8; 8] {
         self.fingerprint
     }
+
+    pub(crate) fn is_shapeable(&self) -> bool {
+        self.ttf_face.is_some() && self.shape_face.is_some() && self.shape_cmap_subtable.is_some()
+    }
 }
 
 fn font_fingerprint(bytes: &[u8]) -> [u8; 8] {

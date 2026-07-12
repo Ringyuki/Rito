@@ -18,7 +18,7 @@ pub(crate) use runtime::{
 };
 
 use super::{
-    fonts::text_measurement_fonts_for_layout, open_document, EpubPublication, EpubResult,
+    fonts::text_measurement_font_assembly_for_layout, open_document, EpubPublication, EpubResult,
     LoadedEpubDocument, ParsedLoadedChapterSource, PreparedLoadedDocument,
 };
 
@@ -141,7 +141,7 @@ pub(crate) fn build_prepared_loaded_document_with_layout_and_line_breaking(
         chapter_style_options(layout_config),
     );
     let text_measurement_fonts =
-        text_measurement_fonts_for_layout(document, layout_config, None, Vec::new());
+        text_measurement_font_assembly_for_layout(document, layout_config, None, Vec::new()).fonts;
     let built_layout = build_layout(
         &prepared.stylesheet_rules,
         &prepared.chapters,

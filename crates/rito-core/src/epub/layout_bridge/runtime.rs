@@ -5,7 +5,7 @@ use crate::{
     style::FontFallbackPolicy,
 };
 
-use super::{layout_inputs, text_measurement_fonts_for_layout};
+use super::{layout_inputs, text_measurement_font_assembly_for_layout};
 use crate::epub::{LoadedEpubDocument, PreparedLoadedDocument};
 
 pub(crate) struct PreparedRuntimeLayoutOptions<'a> {
@@ -29,14 +29,17 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
         line_breaking,
         text_measurement_cache,
         pinned_faces,
-        font_fallbacks,
+        mut font_fallbacks,
     } = options;
-    let fonts = text_measurement_fonts_for_layout(
+    let assembly = text_measurement_font_assembly_for_layout(
         document,
         layout_config,
         text_measurement_cache,
         pinned_faces,
     );
+    if let Some(policy) = font_fallbacks.as_mut() {
+        policy.set_available_publication_families(assembly.shapeable_publication_families.clone());
+    }
     let end = chapter_start
         .saturating_add(chapter_count)
         .min(prepared.chapters.len());
@@ -51,6 +54,6 @@ pub(crate) fn build_prepared_loaded_document_runtime_layout<'a>(
         &prepared.resources,
         layout_config,
         line_breaking,
-        &fonts,
+        &assembly.fonts,
     )
 }

@@ -22,6 +22,13 @@ pub(crate) struct FontFallbackFace<'a> {
 pub(crate) struct FontFallbackPolicy<'a> {
     pub(crate) faces: Vec<FontFallbackFace<'a>>,
     pub(crate) package_language: &'a str,
+    pub(crate) available_publication_families: BTreeSet<String>,
+}
+
+impl FontFallbackPolicy<'_> {
+    pub(crate) fn set_available_publication_families(&mut self, families: BTreeSet<String>) {
+        self.available_publication_families = families;
+    }
 }
 
 pub(crate) fn rewrite_font_families(nodes: &mut [StyledNode], policy: &FontFallbackPolicy<'_>) {
@@ -52,28 +59,42 @@ fn rewrite_family_list(
     element_language: &str,
     policy: &FontFallbackPolicy<'_>,
 ) -> String {
-    let mut parts = parse_family_list(family);
+    let mut parts = parse_family_list(family)
+        .into_iter()
+        .filter(|part| retain_original_family(part, policy))
+        .collect::<Vec<_>>();
     let first_generic = parts
         .iter()
         .enumerate()
         .find_map(|(index, part)| generic_kind(part).map(|kind| (index, kind)));
     let (index, role, append_generic) = match first_generic {
-        Some((_, GenericKind::Unmapped)) => return family.to_owned(),
+        Some((_, GenericKind::Unmapped)) => return serialize_family_parts(&parts),
         Some((index, GenericKind::Mapped(role))) => (index, role, false),
         None => (parts.len(), FontGenericRole::Serif, true),
     };
     let aliases = ordered_aliases(policy, role, element_language);
     if aliases.is_empty() {
-        return family.to_owned();
+        if append_generic && parts.is_empty() {
+            parts.push(FamilyPart::injected("serif"));
+        }
+        return serialize_family_parts(&parts);
     }
     if chain_precedes(&parts, index, &aliases) {
-        return family.to_owned();
+        return serialize_family_parts(&parts);
     }
     parts.splice(index..index, aliases.into_iter().map(FamilyPart::injected));
     if append_generic {
         parts.push(FamilyPart::injected("serif"));
     }
     serialize_family_parts(&parts)
+}
+
+fn retain_original_family(part: &FamilyPart, policy: &FontFallbackPolicy<'_>) -> bool {
+    generic_kind(part).is_some()
+        || (!part.quoted && policy.faces.iter().any(|face| face.alias == part.value))
+        || policy
+            .available_publication_families
+            .contains(&part.value.to_ascii_lowercase())
 }
 
 fn serialize_family_parts(parts: &[FamilyPart]) -> String {
