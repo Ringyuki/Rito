@@ -6,6 +6,14 @@ import {
   requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
 import {
+  requireTextCaretTransport,
+  requireTextPointRequest,
+} from './reader-worker-exact-text-interaction-validation-runtime.js';
+import {
+  requireSameFlowTextRangeRequest,
+  requireSameFlowTextRangeTransport,
+} from './reader-worker-exact-text-range-validation-runtime.js';
+import {
   requireFootnote,
   requireFootnoteKey,
   requireLocatorRequest,
@@ -127,6 +135,31 @@ export function createVersionedReaderClientMethods(send) {
         { request: expectedRequest },
         (result, handle, operation) =>
           requireTextRangeGeometryDiagnostic(result, handle, expectedRequest, operation),
+      );
+    },
+    resolveTextCaretAtRevision: (revision, request) => {
+      const expectedRequest = requireTextPointRequest(request, 'resolveTextCaretAtRevision');
+      return currentRevisionResult(
+        send,
+        'resolveTextCaretAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireTextCaretTransport(result, handle, expectedRequest, operation),
+      );
+    },
+    resolveSameFlowTextRangeAtRevision: (revision, request) => {
+      const expectedRequest = requireSameFlowTextRangeRequest(
+        request,
+        'resolveSameFlowTextRangeAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'resolveSameFlowTextRangeAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireSameFlowTextRangeTransport(result, handle, expectedRequest, operation),
       );
     },
     getFootnoteAtRevision: (revision, key) => {

@@ -27,6 +27,7 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
       pageTargetsJson: true,
       pageTextPositionsJson: true,
       textRangeGeometryJson: true,
+      exactTextInteractionJson: true,
       locatorJson: true,
       resourcePrefetchJson: true,
       plannedFrameResourcePrefetchJson: true,

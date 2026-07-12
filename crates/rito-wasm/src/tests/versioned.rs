@@ -154,6 +154,81 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 }
 
 #[test]
+fn versioned_exact_text_reads_return_stamped_typed_responses() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+    let targets = parse(
+        document
+            .get_page_targets_at_revision_json(&revision_id, 0, 0)
+            .expect("page targets are returned"),
+    );
+    let target = targets["value"]["entries"]
+        .as_array()
+        .and_then(|entries| entries.iter().find(|entry| entry["kind"] == "text"))
+        .expect("fixture contains a text target");
+    let bounds = &target["bounds"];
+    let point_request = json!({
+        "pageIndex": 0,
+        "x": bounds["x"].as_f64().expect("target x")
+            + bounds["width"].as_f64().expect("target width") / 2.0,
+        "y": bounds["y"].as_f64().expect("target y")
+            + bounds["height"].as_f64().expect("target height") / 2.0,
+    });
+    let caret = parse(
+        document
+            .resolve_text_caret_at_revision_json(&revision_id, 0, &point_request.to_string())
+            .expect("caret response is returned"),
+    );
+
+    assert_revision(&caret, &revision_id, 0);
+    assert_eq!(caret["value"]["pageIndex"], 0);
+    assert_eq!(caret["value"]["spreadIndex"], 0);
+    assert_eq!(caret["value"]["resolution"]["status"], "unavailable");
+    assert_eq!(caret["value"]["resolution"]["reason"], "shapeUnavailable");
+
+    let address = json!({
+        "pageIndex": 0,
+        "blockIndex": target["blockIndex"],
+        "lineIndex": target["lineIndex"],
+        "runIndex": target["runIndex"],
+        "charIndex": 0,
+        "affinity": "downstream",
+    });
+    let range = parse(
+        document
+            .resolve_same_flow_text_range_at_revision_json(
+                &revision_id,
+                0,
+                &json!({ "anchor": address, "focus": address }).to_string(),
+            )
+            .expect("same-flow range response is returned"),
+    );
+
+    assert_revision(&range, &revision_id, 0);
+    assert_eq!(range["value"]["resolution"]["status"], "unavailable");
+    assert_eq!(range["value"]["resolution"]["reason"], "shapeUnavailable");
+
+    let bad_point = document
+        .resolve_text_caret_at_revision_json(&revision_id, 0, r#"{"pageIndex":0,"x":"bad","y":0}"#)
+        .expect_err("malformed point request is rejected");
+    let bad_range = document
+        .resolve_same_flow_text_range_at_revision_json(
+            &revision_id,
+            0,
+            r#"{"anchor":{"pageIndex":0}}"#,
+        )
+        .expect_err("malformed range request is rejected");
+    assert_eq!(bad_point.code(), WasmRuntimeErrorCode::BadRequest);
+    assert!(bad_point
+        .message()
+        .contains("invalid text point request JSON"));
+    assert_eq!(bad_range.code(), WasmRuntimeErrorCode::BadRequest);
+    assert!(bad_range
+        .message()
+        .contains("invalid same-flow text range request JSON"));
+}
+
+#[test]
 fn versioned_resources_are_leased_and_released_by_exact_version() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let initial = start_bounded(&mut document);
@@ -256,6 +331,28 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         unknown_diagnostic.code(),
         WasmRuntimeErrorCode::UnknownRevision
     );
+    let request = json!({ "pageIndex": 0, "x": 24.0, "y": 24.0 }).to_string();
+    let range_request = collapsed_range_request().to_string();
+    for error in [
+        document
+            .resolve_text_caret_at_revision_json("rev-1", 0, &request)
+            .expect_err("old caret handle is stale"),
+        document
+            .resolve_same_flow_text_range_at_revision_json("rev-1", 0, &range_request)
+            .expect_err("old range handle is stale"),
+    ] {
+        assert_eq!(error.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
+    }
+    for error in [
+        document
+            .resolve_text_caret_at_revision_json("rev-missing", 0, &request)
+            .expect_err("missing caret revision is typed"),
+        document
+            .resolve_same_flow_text_range_at_revision_json("rev-missing", 0, &range_request)
+            .expect_err("missing range revision is typed"),
+    ] {
+        assert_eq!(error.code(), WasmRuntimeErrorCode::UnknownRevision);
+    }
 
     let stale_release = document
         .release_revision_at_revision_json("rev-1", 0)
@@ -278,6 +375,18 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         .get_revision_summary_at_revision_json("rev-1", 1)
         .expect_err("released revision is gone");
     assert_eq!(missing.code(), WasmRuntimeErrorCode::UnknownRevision);
+}
+
+fn collapsed_range_request() -> Value {
+    let address = json!({
+        "pageIndex": 0,
+        "blockIndex": 0,
+        "lineIndex": 0,
+        "runIndex": 0,
+        "charIndex": 0,
+        "affinity": "downstream",
+    });
+    json!({ "anchor": address, "focus": address })
 }
 
 fn start_bounded(document: &mut WasmRuntimeDocument) -> Value {

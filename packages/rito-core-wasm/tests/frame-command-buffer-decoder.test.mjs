@@ -54,6 +54,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
         pageTargetsJson: true,
         pageTextPositionsJson: true,
         textRangeGeometryJson: true,
+        exactTextInteractionJson: true,
         locatorJson: true,
         resourcePrefetchJson: true,
         plannedFrameResourcePrefetchJson: true,

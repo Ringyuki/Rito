@@ -2,6 +2,12 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
 import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
+import {
+  caretResponse,
+  pointRequest,
+  rangeRequest,
+  rangeResponse,
+} from './versioned-exact-text-interaction-fixtures.mjs';
 
 const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
   async () => {},
@@ -133,7 +139,11 @@ test('all versioned direct methods validate and echo the complete handle', () =>
                 ? bundle(version, args[0])
                 : property === 'getShapeProvenanceDiagnosticAtRevisionJson'
                   ? shapeDiagnostic()
-                  : { rawMethod: property };
+                  : property === 'resolveTextCaretAtRevisionJson'
+                    ? caretResponse({ revisionId: args[0] })
+                    : property === 'resolveSameFlowTextRangeAtRevisionJson'
+                      ? rangeResponse(JSON.parse(args[2]), { revisionId: args[0] })
+                      : { rawMethod: property };
           return JSON.stringify({
             revision: { revisionId: args[0], revisionVersion: args[1] },
             value,
@@ -155,6 +165,8 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getPageTargetsAtRevision(handle, 0),
     () => document.getPageTextPositionsAtRevision(handle, 0),
     () => document.getTextRangeGeometryAtRevision(handle, { pageIndex: 0 }),
+    () => document.resolveTextCaretAtRevision(handle, pointRequest()),
+    () => document.resolveSameFlowTextRangeAtRevision(handle, rangeRequest()),
     () => document.getFootnoteAtRevision(handle, 'chapter.xhtml#fn1'),
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),

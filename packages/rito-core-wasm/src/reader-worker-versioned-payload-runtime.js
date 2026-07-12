@@ -1,5 +1,13 @@
 import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
 import {
+  requireTextCaretResponse,
+  requireTextPointRequest,
+} from './reader-worker-exact-text-interaction-validation-runtime.js';
+import {
+  requireSameFlowTextRangeRequest,
+  requireSameFlowTextRangeResponse,
+} from './reader-worker-exact-text-range-validation-runtime.js';
+import {
   requireFootnote,
   requireFootnoteKey,
   requireLocatorRequest,
@@ -58,6 +66,10 @@ export function versionedReaderWorkerPayload(document, request) {
       return pageTextPositionsResponse(document, request);
     case 'getTextRangeGeometryAtRevision':
       return textRangeGeometryResponse(document, request);
+    case 'resolveTextCaretAtRevision':
+      return textCaretResponse(document, request);
+    case 'resolveSameFlowTextRangeAtRevision':
+      return sameFlowTextRangeResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
     case 'resolveLocatorAtRevision':
@@ -147,6 +159,28 @@ function textRangeGeometryResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     request: expectedRequest,
     geometry: requireTextRangeGeometry(value, revision, expectedRequest, operation),
+  }));
+}
+
+function textCaretResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireTextPointRequest(request.request, operation);
+  const envelope = document.resolveTextCaretAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    response: requireTextCaretResponse(value, revision, expectedRequest, operation),
+  }));
+}
+
+function sameFlowTextRangeResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireSameFlowTextRangeRequest(request.request, operation);
+  const envelope = document.resolveSameFlowTextRangeAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    response: requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
   }));
 }
 

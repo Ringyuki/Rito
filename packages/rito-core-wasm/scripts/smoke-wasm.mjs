@@ -118,6 +118,28 @@ const versionedTextGeometry = await diagnosticClient.getTextRangeGeometryAtRevis
   diagnosticHandle,
   diagnosticRangeRequest,
 );
+const firstTextRect = textGeometry.rects[0];
+const exactPointRequest = {
+  pageIndex: textPageIndex,
+  x: firstTextRect.x + firstTextRect.width / 2,
+  y: firstTextRect.y + firstTextRect.height / 2,
+};
+const versionedTextCaret = await diagnosticClient.resolveTextCaretAtRevision(
+  diagnosticHandle,
+  exactPointRequest,
+);
+const rangeAddress =
+  versionedTextCaret.value.resolution.status === 'resolved'
+    ? versionedTextCaret.value.resolution.caret.address
+    : {
+        pageIndex: textPageIndex,
+        ...diagnosticRangeRequest.start,
+        affinity: 'downstream',
+      };
+const versionedExactTextRange = await diagnosticClient.resolveSameFlowTextRangeAtRevision(
+  diagnosticHandle,
+  { anchor: rangeAddress, focus: rangeAddress },
+);
 const imageFrame = findFirstImageFrame(document, revision.revisionId, revision.spreadCount);
 const imageFrameCommandBuffer = document.readFrameCommandBuffer(
   revision.revisionId,
@@ -183,6 +205,7 @@ if (
   status.rustFacade?.npmWasmArtifact !== true ||
   status.rustFacade?.packedFrameCommandBuffer !== true ||
   status.rustFacade?.pinnedFontPolicyJson !== true ||
+  status.rustFacade?.exactTextInteractionJson !== true ||
   status.rustFacade?.resourceTransferLeases !== true
 ) {
   throw new Error(
@@ -308,6 +331,19 @@ if (
 ) {
   throw new Error('Expected exact Worker text diagnostics to match direct WASM reads.');
 }
+if (
+  stableStringify(versionedTextCaret.revision) !== stableStringify(diagnosticHandle) ||
+  versionedTextCaret.value.revisionId !== diagnosticHandle.revisionId ||
+  versionedTextCaret.value.pageIndex !== textPageIndex ||
+  !['resolved', 'unavailable', 'miss'].includes(versionedTextCaret.value.resolution.status) ||
+  stableStringify(versionedExactTextRange.revision) !== stableStringify(diagnosticHandle) ||
+  versionedExactTextRange.value.revisionId !== diagnosticHandle.revisionId ||
+  !['resolved', 'unavailable'].includes(versionedExactTextRange.value.resolution.status)
+) {
+  throw new Error(
+    'Expected exact Worker caret and same-flow range reads to preserve their handle.',
+  );
+}
 assertDecodedFrameMatchesRuntimeFrame(imageFrame, decodedImageFrameCommandBuffer);
 if (
   plannedFrameResources.plan.revisionId !== revision.revisionId ||
@@ -358,6 +394,8 @@ console.log(
     textPageIndex,
     textLength: textPositions.textLength,
     textGeometryRects: textGeometry.rects.length,
+    exactCaretStatus: versionedTextCaret.value.resolution.status,
+    exactRangeStatus: versionedExactTextRange.value.resolution.status,
     imageFrameSpreadIndex: imageFrame.spreadIndex,
     frameResourceTransfers: frameResources.payloads.length,
     searchResultCount: search.resultCount,

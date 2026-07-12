@@ -13,6 +13,14 @@ import {
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
+import {
+  requireTextCaretResponse,
+  requireTextPointRequest,
+} from './reader-worker-exact-text-interaction-validation-runtime.js';
+import {
+  requireSameFlowTextRangeRequest,
+  requireSameFlowTextRangeResponse,
+} from './reader-worker-exact-text-range-validation-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
@@ -151,6 +159,43 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
       );
     },
+    resolveTextCaretAtRevision(handle, request) {
+      const expectedRequest = requireTextPointRequest(request, 'resolveTextCaretAtRevision');
+      return versionedRequest(
+        this,
+        'resolveTextCaretAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveTextCaretAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireTextCaretResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    resolveSameFlowTextRangeAtRevision(handle, request) {
+      const expectedRequest = requireSameFlowTextRangeRequest(
+        request,
+        'resolveSameFlowTextRangeAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'resolveSameFlowTextRangeAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveSameFlowTextRangeAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
+      );
+    },
     getFootnoteAtRevision(handle, key) {
       return versionedJson(this, 'getFootnoteAtRevision', handle, (revision) =>
         this._inner.getFootnoteAtRevisionJson(revision.revisionId, revision.revisionVersion, key),
@@ -231,10 +276,14 @@ function boundedRequest(
   });
 }
 
-function versionedRequest(document, operation, handle, request, read) {
+function versionedRequest(document, operation, handle, request, read, validateValue) {
   const input = requireObjectInput(request, operation);
-  return versionedJson(document, operation, handle, (revision) =>
-    read(revision, encodeJson(input, operation)),
+  return versionedJson(
+    document,
+    operation,
+    handle,
+    (revision) => read(revision, encodeJson(input, operation)),
+    validateValue,
   );
 }
 

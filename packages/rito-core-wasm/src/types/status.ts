@@ -20,6 +20,7 @@ export interface RitoCoreWasmStatus {
     readonly pageTargetsJson: true;
     readonly pageTextPositionsJson: true;
     readonly textRangeGeometryJson: true;
+    readonly exactTextInteractionJson: true;
     readonly locatorJson: true;
     readonly resourcePrefetchJson: true;
     readonly plannedFrameResourcePrefetchJson: true;
