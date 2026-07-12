@@ -98,15 +98,15 @@ test('stop during transfer cleanup does not start another layout quantum', async
   }
 });
 
-test('stop during navigation refresh does not start frame warmup', async () => {
-  const navigationStarted = deferred();
-  const navigationAllowed = deferred();
+test('stop during bundle refresh does not start frame warmup', async () => {
+  const bundleStarted = deferred();
+  const bundleAllowed = deferred();
   let warmCount = 0;
   const client = fixtureClient({
     create: async () => versioned(advance(0, 1, true)),
     navigation: async (value, extent) => {
-      navigationStarted.resolve();
-      await navigationAllowed.promise;
+      bundleStarted.resolve();
+      await bundleAllowed.promise;
       return { revision: value, value: { revisionId: value.revisionId, ...extent } };
     },
     warm: () => {
@@ -116,11 +116,34 @@ test('stop during navigation refresh does not start frame warmup', async () => {
   const session = createRitoCoreWasmBoundedReaderSession(client);
 
   const started = session.start(startRequest(0));
-  await navigationStarted.promise;
+  await bundleStarted.promise;
   const stopping = session.cancel();
-  navigationAllowed.resolve();
+  bundleAllowed.resolve();
   await stopping;
   await assert.rejects(started, /stopped/);
 
   assert.equal(warmCount, 0);
+});
+
+test('forged bundle handles fail the snapshot and release the accepted revision', async () => {
+  const released = [];
+  let warmCount = 0;
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    bundle: async (value) => ({
+      revision: { ...value, revisionVersion: value.revisionVersion + 1 },
+      value: {},
+    }),
+    warm: () => {
+      warmCount += 1;
+    },
+    release: async (value) => released.push(value),
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
+
+  await assert.rejects(session.start(startRequest(0)), /mismatched revision handle/);
+
+  assert.deepEqual(released, [{ revisionId: 'rev-1', revisionVersion: 1 }]);
+  assert.equal(warmCount, 0);
+  assert.equal(session.currentSnapshot(), undefined);
 });

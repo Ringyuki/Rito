@@ -35,6 +35,13 @@ import {
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
 import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
+import {
+  requireChapterTextIndices,
+  requireFootnotes,
+  requireReaderRevisionBundle,
+  requireSearchRequest,
+  requireSearchResponse,
+} from './reader-worker-versioned-read-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send) {
   return {
@@ -92,6 +99,14 @@ export function createVersionedReaderClientMethods(send) {
         revision,
         {},
         requireMatchingRevisionSummary,
+      ),
+    getRevisionBundleAtRevision: (revision, includeTocTargets = false) =>
+      currentRevisionResult(
+        send,
+        'getRevisionBundleAtRevision',
+        revision,
+        { includeTocTargets: includeTocTargets === true },
+        requireReaderRevisionBundle,
       ),
     getShapeProvenanceDiagnosticAtRevision: (revision) =>
       currentRevisionResult(
@@ -195,6 +210,27 @@ export function createVersionedReaderClientMethods(send) {
         revision,
         { key: expectedKey },
         (result, handle, operation) => requireFootnote(result, handle, expectedKey, operation),
+      );
+    },
+    getFootnotesAtRevision: (revision) =>
+      currentRevisionResult(send, 'getFootnotesAtRevision', revision, {}, requireFootnotes),
+    getChapterTextIndicesAtRevision: (revision) =>
+      currentRevisionResult(
+        send,
+        'getChapterTextIndicesAtRevision',
+        revision,
+        {},
+        requireChapterTextIndices,
+      ),
+    searchAtRevision: (revision, request) => {
+      const expectedRequest = requireSearchRequest(request, 'searchAtRevision');
+      return currentRevisionResult(
+        send,
+        'searchAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireSearchResponse(result, handle, expectedRequest, operation),
       );
     },
     resolveLocatorAtRevision: (revision, locator) => {

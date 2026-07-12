@@ -7,7 +7,6 @@ import {
   requireMatchingHandle,
   requireMatchingRevisionSummary,
   requireObjectInput,
-  requireRevisionBundle,
   requireRevisionHandle,
   requireRevisionWorkBudget,
   requireVersionedValueIdentity,
@@ -27,6 +26,13 @@ import {
 } from './reader-worker-exact-source-range-validation-runtime.js';
 import { createPageSemanticsDocumentMethod } from './reader-worker-page-semantics-runtime.js';
 import { createPageReadingAnchorDocumentMethod } from './reader-worker-page-reading-anchor-runtime.js';
+import {
+  requireChapterTextIndices,
+  requireFootnotes,
+  requireReaderRevisionBundle,
+  requireSearchRequest,
+  requireSearchResponse,
+} from './reader-worker-versioned-read-validation-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
@@ -118,8 +124,16 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
       );
     },
     searchAtRevision(handle, request) {
-      return versionedRequest(this, 'searchAtRevision', handle, request, (revision, json) =>
-        this._inner.searchAtRevisionJson(revision.revisionId, revision.revisionVersion, json),
+      const expectedRequest = requireSearchRequest(request, 'searchAtRevision');
+      return versionedRequest(
+        this,
+        'searchAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.searchAtRevisionJson(revision.revisionId, revision.revisionVersion, json),
+        (value, revision, operation) =>
+          requireSearchResponse(value, revision, expectedRequest, operation),
       );
     },
     resolveLocatorAtRevision(handle, request) {
@@ -230,10 +244,15 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
       );
     },
     getFootnotesAtRevision(handle) {
-      return versionedNoArg(this, 'getFootnotesAtRevision', handle);
+      return versionedNoArg(this, 'getFootnotesAtRevision', handle, requireFootnotes);
     },
     getChapterTextIndicesAtRevision(handle) {
-      return versionedNoArg(this, 'getChapterTextIndicesAtRevision', handle);
+      return versionedNoArg(
+        this,
+        'getChapterTextIndicesAtRevision',
+        handle,
+        requireChapterTextIndices,
+      );
     },
     getRevisionSummaryAtRevision(handle) {
       return versionedNoArg(this, 'getRevisionSummaryAtRevision', handle, requireSummaryValue);
@@ -257,7 +276,7 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
             revision.revisionVersion,
             includeTocTargets === true,
           ),
-        requireRevisionBundle,
+        requireReaderRevisionBundle,
       );
     },
     getRevisionNavigationAtRevision(handle) {

@@ -1,6 +1,7 @@
 import type { RitoCoreWasmReaderFrameWindowWarmResult } from './reader-worker';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
+  RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
   RitoCoreWasmRevisionRelease,
@@ -19,9 +20,10 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
   cancelRevision(
     request: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
-  getRevisionNavigationAtRevision(
+  getRevisionBundleAtRevision(
     revision: RitoCoreWasmRevisionHandle,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionNavigation>>;
+    includeTocTargets?: boolean,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>>;
   warmFrameWindowAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
@@ -41,6 +43,8 @@ export interface RitoCoreWasmBoundedReaderStartRequest extends RitoCoreWasmBound
 export interface RitoCoreWasmBoundedReaderSnapshot {
   readonly generation: number;
   readonly revision: RitoCoreWasmRevisionSummary;
+  /** Exact-version bundle; TOC targets are included and bounded text indices may be partial. */
+  readonly bundle: RitoCoreWasmRevisionBundle;
   readonly navigation: RitoCoreWasmRevisionNavigation;
   readonly requestedSpreadIndex: number;
   readonly frameWindow?: RitoCoreWasmReaderFrameWindowWarmResult | undefined;

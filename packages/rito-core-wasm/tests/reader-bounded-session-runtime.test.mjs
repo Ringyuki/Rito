@@ -7,11 +7,84 @@ import {
   deferred,
   fixtureClient,
   handle,
+  revisionBundle,
   startRequest,
   summary,
   versioned,
   versionedSummary,
 } from './reader-bounded-session-fixture.mjs';
+
+test('bounded snapshots include the exact partial revision bundle with TOC targets', async () => {
+  const includeTocTargets = [];
+  const partialEntries = {
+    'chapter.xhtml': {
+      href: 'chapter.xhtml',
+      normalizedText: 'partial',
+      spans: [
+        {
+          nodePath: [0],
+          sourceStart: 0,
+          sourceEnd: 7,
+          normalizedStart: 0,
+          normalizedEnd: 7,
+        },
+      ],
+    },
+  };
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 1, true)),
+    bundle: async (value, extent, includeTargets) => {
+      includeTocTargets.push(includeTargets);
+      const revision = summary(value.revisionVersion, 'ready', extent.spreadCount);
+      const navigation = { revisionId: value.revisionId, ...extent };
+      return {
+        revision: value,
+        value: revisionBundle(revision, navigation, partialEntries),
+      };
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
+
+  const snapshot = await session.start(startRequest(0));
+
+  assert.deepEqual(snapshot.bundle.revision, snapshot.revision);
+  assert.equal(snapshot.navigation, snapshot.bundle.navigation);
+  assert.deepEqual(snapshot.bundle.chapterTextIndices.entries, partialEntries);
+  assert.deepEqual(includeTocTargets, [true]);
+  await session.dispose();
+});
+
+test('a target race publishes one exact bundle only for the latest snapshot request', async () => {
+  const bundleStarted = deferred();
+  const bundleAllowed = deferred();
+  let bundleCount = 0;
+  const client = fixtureClient({
+    create: async () => versioned(advance(0, 3, true)),
+    bundle: async (value, extent) => {
+      bundleCount += 1;
+      bundleStarted.resolve();
+      await bundleAllowed.promise;
+      const revision = summary(value.revisionVersion, 'ready', extent.spreadCount);
+      return {
+        revision: value,
+        value: revisionBundle(revision, { revisionId: value.revisionId, ...extent }),
+      };
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
+
+  const first = session.start(startRequest(0));
+  await bundleStarted.promise;
+  const latest = session.ensureSpread(2);
+  bundleAllowed.resolve();
+  const [firstSnapshot, latestSnapshot] = await Promise.all([first, latest]);
+
+  assert.equal(bundleCount, 1);
+  assert.equal(firstSnapshot.requestedSpreadIndex, 2);
+  assert.equal(latestSnapshot.requestedSpreadIndex, 2);
+  assert.deepEqual(firstSnapshot.bundle.revision, firstSnapshot.revision);
+  await session.dispose();
+});
 
 test('bounded session coalesces concurrent targets around the latest request', async () => {
   const created = deferred();
@@ -70,9 +143,10 @@ test('bounded session coalesces concurrent targets around the latest request', a
   );
 });
 
-test('a later lower display target reuses an already available revision', async () => {
+test('a far target reads one final bundle and a later lower target reuses it', async () => {
   const warmed = [];
   let continueCount = 0;
+  let bundleCount = 0;
   const client = fixtureClient({
     create: async () => versioned(advance(0, 3, true)),
     continue: async (request) => {
@@ -83,6 +157,14 @@ test('a later lower display target reuses an already available revision', async 
     warm: (_handle, spreadIndex) => {
       warmed.push(spreadIndex);
       return { spreadIndex };
+    },
+    bundle: async (value, extent) => {
+      bundleCount += 1;
+      const revision = summary(value.revisionVersion, 'ready', extent.spreadCount);
+      return {
+        revision: value,
+        value: revisionBundle(revision, { revisionId: value.revisionId, ...extent }),
+      };
     },
   });
   const session = createRitoCoreWasmBoundedReaderSession(client, {
@@ -98,6 +180,7 @@ test('a later lower display target reuses an already available revision', async 
   assert.equal(low.frameWindow.spreadIndex, 2);
   assert.equal(low.revision.revisionVersion, high.revision.revisionVersion);
   assert.equal(continueCount, 2);
+  assert.equal(bundleCount, 1);
   assert.deepEqual(warmed, [10, 2]);
   await session.dispose();
 });

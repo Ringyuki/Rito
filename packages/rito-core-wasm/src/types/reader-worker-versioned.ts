@@ -1,9 +1,11 @@
 import type { RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type {
+  RitoCoreWasmChapterTextIndices,
   RitoCoreWasmExactSourceRangeRequest,
   RitoCoreWasmExactSourceRangeResponse,
   RitoCoreWasmFootnote,
+  RitoCoreWasmFootnotes,
   RitoCoreWasmSameFlowTextRangeRequest,
   RitoCoreWasmSameFlowTextRangeResponse,
   RitoCoreWasmSourceLocator,
@@ -28,11 +30,13 @@ import type {
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 import type { RitoCoreWasmShapeProvenanceDiagnostic } from './shape-provenance';
 import type { RitoCoreWasmResourcePayload } from './resource';
+import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
   RitoCoreWasmCancelRevisionRequest,
   RitoCoreWasmContinueRevisionRequest,
   RitoCoreWasmRevisionAdvance,
+  RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
   RitoCoreWasmRevisionRelease,
@@ -56,6 +60,10 @@ export interface RitoCoreWasmReaderVersionedClient {
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
+  getRevisionBundleAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    includeTocTargets?: boolean,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>>;
   getShapeProvenanceDiagnosticAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>>;
@@ -106,6 +114,16 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     key: string,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmFootnote>>;
+  getFootnotesAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmFootnotes>>;
+  getChapterTextIndicesAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmChapterTextIndices>>;
+  searchAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmSearchRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmSearchResponse>>;
   resolveLocatorAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     locator: RitoCoreWasmLocatorRequest,
@@ -134,6 +152,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   getRevisionSummaryAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>;
+  getRevisionBundleAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    includeTocTargets?: boolean,
+  ): RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>;
   getShapeProvenanceDiagnosticAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>;
@@ -192,6 +214,16 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     key: string,
   ): RitoCoreWasmVersioned<RitoCoreWasmFootnote>;
+  getFootnotesAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): RitoCoreWasmVersioned<RitoCoreWasmFootnotes>;
+  getChapterTextIndicesAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): RitoCoreWasmVersioned<RitoCoreWasmChapterTextIndices>;
+  searchAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmSearchRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmSearchResponse>;
   resolveLocatorAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     locator: RitoCoreWasmLocatorRequest,
@@ -277,6 +309,10 @@ export type RitoCoreWasmReaderWorkerContinueRevisionRequest =
 export type RitoCoreWasmReaderWorkerCancelRevisionRequest = RevisionRequest<'cancelRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionSummaryRequest =
   RevisionRequest<'getRevisionSummaryAtRevision'>;
+export type RitoCoreWasmReaderWorkerGetRevisionBundleRequest =
+  RevisionRequest<'getRevisionBundleAtRevision'> & {
+    readonly includeTocTargets?: boolean | undefined;
+  };
 export type RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest =
   RevisionRequest<'getShapeProvenanceDiagnosticAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionNavigationRequest =
@@ -311,6 +347,14 @@ export type RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest =
   };
 export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
+export type RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest =
+  RevisionRequest<'getFootnotesAtRevision'>;
+export type RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest =
+  RevisionRequest<'getChapterTextIndicesAtRevision'>;
+export type RitoCoreWasmReaderWorkerSearchAtRevisionRequest =
+  RevisionRequest<'searchAtRevision'> & {
+    readonly request: RitoCoreWasmSearchRequest;
+  };
 export type RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest =
   RevisionRequest<'resolveLocatorAtRevision'> & {
     readonly locator: RitoCoreWasmLocatorRequest;
@@ -334,6 +378,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerContinueRevisionRequest
   | RitoCoreWasmReaderWorkerCancelRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
+  | RitoCoreWasmReaderWorkerGetRevisionBundleRequest
   | RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
@@ -347,6 +392,9 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerResolveSameFlowTextRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetChapterTextIndicesAtRevisionRequest
+  | RitoCoreWasmReaderWorkerSearchAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveSourceLocatorRequest
@@ -371,6 +419,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionSummaryAtRevision',
       RitoCoreWasmRevisionSummary
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getRevisionBundleAtRevision',
+      RitoCoreWasmRevisionBundle
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getShapeProvenanceDiagnosticAtRevision',
@@ -418,6 +470,12 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
       RitoCoreWasmReaderExactSourceRangeTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
+  | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnotesAtRevision', RitoCoreWasmFootnotes>
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getChapterTextIndicesAtRevision',
+      RitoCoreWasmChapterTextIndices
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<'searchAtRevision', RitoCoreWasmSearchResponse>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveLocatorAtRevision',
       RitoCoreWasmResolvedLocator

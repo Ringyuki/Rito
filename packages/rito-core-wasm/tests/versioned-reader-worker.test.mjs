@@ -30,6 +30,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   assert.deepEqual(continued.revision, handle(1));
 
   const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
+  const bundleResult = await client.getRevisionBundleAtRevision(handle(1), true);
   const shapeDiagnosticResult = await client.getShapeProvenanceDiagnosticAtRevision(handle(1));
   const navigation = await client.getRevisionNavigationAtRevision(handle(1));
   const frame = await client.readFrameBufferAtRevision(handle(1), 0);
@@ -37,16 +38,23 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   const source = await client.resolveSourceLocatorAtRevision(handle(1), {
     href: 'chapter.xhtml',
   });
+  const footnotes = await client.getFootnotesAtRevision(handle(1));
+  const chapterTextIndices = await client.getChapterTextIndicesAtRevision(handle(1));
+  const search = await client.searchAtRevision(handle(1), searchRequest());
   const transferRelease = await client.releaseRevisionTransfersAtRevision(handle(1));
   const revisionRelease = await client.releaseRevisionAtRevision(handle(1));
 
   for (const result of [
     summaryResult,
+    bundleResult,
     shapeDiagnosticResult,
     navigation,
     frame,
     resource,
     source,
+    footnotes,
+    chapterTextIndices,
+    search,
     transferRelease,
     revisionRelease,
   ]) {
@@ -54,12 +62,35 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   }
   assert.deepEqual(frame.value.bytes, Uint8Array.of(4, 5));
   assert.deepEqual(resource.value.bytes, Uint8Array.of(6, 7, 8));
+  assert.equal(bundleResult.value.chapterTextIndices.entries['chapter.xhtml'].normalizedText, 'A');
+  assert.equal(search.value.query, 'A');
+  assert.ok(
+    calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
+  );
   assert.ok(calls.some(([name, args]) => name === 'releaseRevisionAtRevision' && args[1] === 1));
   client.dispose();
 });
 
+test('in-process exact bundle reads reject a stale raw revision envelope', async () => {
+  const document = new RitoCoreWasmDocument({
+    publicationJson: () => JSON.stringify({ title: 'fixture' }),
+    pinnedFontPolicyJson,
+    free() {},
+    getRevisionBundleAtRevisionJson: () =>
+      JSON.stringify({ revision: handle(2), value: bundle(2) }),
+  });
+  const client = createRitoCoreWasmInProcessReaderClient(moduleFor(document));
+  await client.open(new ArrayBuffer(0));
+
+  await assert.rejects(
+    client.getRevisionBundleAtRevision(handle(1), true),
+    /mismatched revision handle/,
+  );
+  client.dispose();
+});
+
 test('real worker handler uses the same bounded dispatch and transfers versioned bytes', async () => {
-  const { document } = fixtureDocument();
+  const { document, calls } = fixtureDocument();
   const scope = new HandlerScope();
   createRitoCoreWasmReaderWorkerHandler(scope, {
     initRitoCoreWasmEngine: async () => ({ openDocument: () => document }),
@@ -83,6 +114,114 @@ test('real worker handler uses the same bounded dispatch and transfers versioned
   assert.equal(frame.ok, true);
   assert.deepEqual(frame.payload.revision, handle(0));
   assert.deepEqual(scope.transfers.at(-1), [frame.payload.result.bytes.buffer]);
+
+  const bundle = await scope.send({
+    id: 4,
+    kind: 'getRevisionBundleAtRevision',
+    revision: handle(0),
+    includeTocTargets: true,
+  });
+  assert.equal(bundle.ok, true);
+  assert.deepEqual(bundle.payload.revision, handle(0));
+  assert.equal(
+    bundle.payload.result.chapterTextIndices.entries['chapter.xhtml'].normalizedText,
+    'A',
+  );
+  assert.ok(
+    calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
+  );
+
+  const footnotes = await scope.send({
+    id: 5,
+    kind: 'getFootnotesAtRevision',
+    revision: handle(0),
+  });
+  const indices = await scope.send({
+    id: 6,
+    kind: 'getChapterTextIndicesAtRevision',
+    revision: handle(0),
+  });
+  const search = await scope.send({
+    id: 7,
+    kind: 'searchAtRevision',
+    revision: handle(0),
+    request: searchRequest(),
+  });
+  assert.equal(footnotes.ok, true);
+  assert.equal(indices.ok, true);
+  assert.equal(search.ok, true);
+  assert.deepEqual(search.payload.result, searchResponse(searchRequest()));
+});
+
+test('worker exact revision reads reject forged handles and embedded identities', async () => {
+  const worker = new ManualWorker();
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+  const opening = client.open(new ArrayBuffer(0));
+  await Promise.resolve();
+  worker.respond(worker.messages[0].id, {
+    kind: 'open',
+    result: readerOpenResult({ title: 'fixture' }),
+  });
+  await opening;
+
+  const bundled = client.getRevisionBundleAtRevision(handle(1), true);
+  const bundleMessage = worker.messages.at(-1);
+  assert.equal(bundleMessage.includeTocTargets, true);
+  worker.respond(bundleMessage.id, {
+    kind: 'getRevisionBundleAtRevision',
+    revision: handle(1),
+    result: bundle(1),
+  });
+  assert.deepEqual((await bundled).value.chapterTextIndices, chapterTextIndices());
+
+  const stale = client.getRevisionBundleAtRevision(handle(1));
+  worker.respond(worker.messages.at(-1).id, {
+    kind: 'getRevisionBundleAtRevision',
+    revision: handle(2),
+    result: bundle(2),
+  });
+  await assert.rejects(stale, /mismatched revision handle/);
+
+  const forgedBundle = client.getRevisionBundleAtRevision(handle(1));
+  worker.respond(worker.messages.at(-1).id, {
+    kind: 'getRevisionBundleAtRevision',
+    revision: handle(1),
+    result: bundle(2),
+  });
+  await assert.rejects(forgedBundle, /non-sequential revisionVersion/);
+
+  const forgedFootnotes = client.getFootnotesAtRevision(handle(1));
+  worker.respond(worker.messages.at(-1).id, {
+    kind: 'getFootnotesAtRevision',
+    revision: handle(1),
+    result: { revisionId: 'rev-other', entries: {} },
+  });
+  await assert.rejects(forgedFootnotes, /mismatched revisionId/);
+
+  const forgedIndices = client.getChapterTextIndicesAtRevision(handle(1));
+  worker.respond(worker.messages.at(-1).id, {
+    kind: 'getChapterTextIndicesAtRevision',
+    revision: handle(1),
+    result: {
+      ...chapterTextIndices(),
+      entries: {
+        'chapter.xhtml': {
+          ...chapterTextIndices().entries['chapter.xhtml'],
+          spans: [{ nodePath: [-1] }],
+        },
+      },
+    },
+  });
+  await assert.rejects(forgedIndices, /invalid chapter text node path/);
+
+  const forgedSearch = client.searchAtRevision(handle(1), searchRequest());
+  worker.respond(worker.messages.at(-1).id, {
+    kind: 'searchAtRevision',
+    revision: handle(1),
+    result: { ...searchResponse(searchRequest()), query: 'forged' },
+  });
+  await assert.rejects(forgedSearch, /mismatched query/);
+  client.dispose();
 });
 
 test('worker client rejects cross-version races even when responses arrive out of order', async () => {
@@ -155,10 +294,18 @@ function fixtureDocument() {
       continueRevisionJson: () => JSON.stringify(advance(1, false)),
       getRevisionSummaryAtRevisionJson: (_revisionId, version) =>
         envelope(version, summary(version, 'complete')),
+      getRevisionBundleAtRevisionJson: (_revisionId, version) =>
+        envelope(version, bundle(version, 'complete')),
       getShapeProvenanceDiagnosticAtRevisionJson: (_revisionId, version) =>
         envelope(version, shapeDiagnostic()),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1' }),
+      getFootnotesAtRevisionJson: (_revisionId, version) =>
+        envelope(version, { revisionId: 'rev-1', entries: {} }),
+      getChapterTextIndicesAtRevisionJson: (_revisionId, version) =>
+        envelope(version, chapterTextIndices()),
+      searchAtRevisionJson: (_revisionId, version, requestJson) =>
+        envelope(version, searchResponse(JSON.parse(requestJson))),
       getFrameCommandBufferMetadataAtRevisionJson: (_revisionId, version) =>
         envelope(version, { revisionId: 'rev-1', spreadIndex: 0, byteLength: 2 }),
       readFrameCommandBufferAtRevision: () => Uint8Array.of(4, 5),
@@ -235,6 +382,47 @@ function shapeDiagnostic() {
 
 function versionedPayload(kind, version) {
   return { kind, revision: handle(version), result: summary(version, 'ready') };
+}
+
+function bundle(version, status = 'ready') {
+  const revisionId = 'rev-1';
+  return {
+    revision: summary(version, status),
+    navigation: { revisionId, pageCount: 1, spreadCount: 1 },
+    tocTargets: { revisionId, targets: [] },
+    footnotes: { revisionId, entries: {} },
+    chapterTextIndices: chapterTextIndices(),
+    fontFamilies: [],
+  };
+}
+
+function chapterTextIndices() {
+  return {
+    revisionId: 'rev-1',
+    entries: {
+      'chapter.xhtml': {
+        href: 'chapter.xhtml',
+        normalizedText: 'A',
+        spans: [
+          {
+            nodePath: [0],
+            sourceStart: 0,
+            sourceEnd: 1,
+            normalizedStart: 0,
+            normalizedEnd: 1,
+          },
+        ],
+      },
+    },
+  };
+}
+
+function searchRequest() {
+  return { query: 'A', caseSensitive: true, wholeWord: false, limit: 1 };
+}
+
+function searchResponse(request) {
+  return { revisionId: 'rev-1', ...request, resultCount: 0, results: [] };
 }
 
 function envelope(version, value) {

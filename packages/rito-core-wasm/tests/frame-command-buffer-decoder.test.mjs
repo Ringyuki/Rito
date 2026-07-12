@@ -229,6 +229,11 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /prefetchPlannedFrameResources\(/);
   assert.match(declaration, /takeResourceTransfer\(transferId: string\): Uint8Array;/);
   assert.match(declaration, /warmFrameWindowAtRevision\(/);
+  assert.match(declaration, /getRevisionBundleAtRevision\(/);
+  assert.match(declaration, /getFootnotesAtRevision\(/);
+  assert.match(declaration, /getChapterTextIndicesAtRevision\(/);
+  assert.match(declaration, /searchAtRevision\(/);
+  assert.match(declaration, /readonly bundle: RitoCoreWasmRevisionBundle;/);
   assert.match(declaration, /getPageSemanticsAtRevision\(/);
   assert.match(declaration, /getPageReadingAnchorAtRevision\(/);
   assert.match(declaration, /export interface RitoCoreWasmPageSemantics/);

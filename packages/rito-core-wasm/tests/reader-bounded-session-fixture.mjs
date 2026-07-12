@@ -1,10 +1,12 @@
 export function fixtureClient(overrides) {
   const extents = new Map();
+  const revisions = new Map();
   const track = async (operation, ...args) => {
     const response = await operation(...args);
     const value = response?.value?.revision ?? response?.value;
     if (value?.knownExtent !== undefined) {
       extents.set(response.revision.revisionVersion, value.knownExtent);
+      revisions.set(response.revision.revisionVersion, value);
     }
     return response;
   };
@@ -16,10 +18,19 @@ export function fixtureClient(overrides) {
         ? (value) =>
             track(async () => versionedSummary(summary(value.revisionVersion + 1, 'cancelled', 0)))
         : (...args) => track(overrides.cancel, ...args),
-    getRevisionNavigationAtRevision: async (value) => {
+    getRevisionBundleAtRevision: async (value, includeTocTargets) => {
       const extent = extents.get(value.revisionVersion);
-      if (overrides.navigation !== undefined) return overrides.navigation(value, extent);
-      return { revision: value, value: { revisionId: value.revisionId, ...extent } };
+      if (overrides.bundle !== undefined) {
+        return overrides.bundle(value, extent, includeTocTargets);
+      }
+      const navigation =
+        overrides.navigation === undefined
+          ? { revision: value, value: { revisionId: value.revisionId, ...extent } }
+          : await overrides.navigation(value, extent, includeTocTargets);
+      return {
+        revision: navigation.revision,
+        value: revisionBundle(revisions.get(value.revisionVersion), navigation.value),
+      };
     },
     warmFrameWindowAtRevision: async (value, spreadIndex) => ({
       revision: value,
@@ -37,6 +48,17 @@ export function fixtureClient(overrides) {
         value: { releasedRevision: true, releasedTransferCount: 0 },
       };
     },
+  };
+}
+
+export function revisionBundle(revision, navigation, chapterTextEntries = {}) {
+  return {
+    revision,
+    navigation,
+    tocTargets: { revisionId: revision.revisionId, targets: [] },
+    footnotes: { revisionId: revision.revisionId, entries: {} },
+    chapterTextIndices: { revisionId: revision.revisionId, entries: chapterTextEntries },
+    fontFamilies: [],
   };
 }
 

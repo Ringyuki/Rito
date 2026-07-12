@@ -83,6 +83,57 @@ test('direct versioned reads reject matching envelopes with forged embedded revi
   );
 });
 
+test('direct exact aggregate reads reject forged identities and request echoes', () => {
+  const footnotes = new RitoCoreWasmDocument({
+    getFootnotesAtRevisionJson: () =>
+      JSON.stringify({
+        revision: handle(1),
+        value: { revisionId: 'rev-other', entries: {} },
+      }),
+  });
+  assert.throws(() => footnotes.getFootnotesAtRevision(handle(1)), /mismatched revisionId/);
+
+  const indices = new RitoCoreWasmDocument({
+    getChapterTextIndicesAtRevisionJson: () =>
+      JSON.stringify({
+        revision: handle(1),
+        value: {
+          revisionId: 'rev-1',
+          entries: {
+            'chapter.xhtml': {
+              href: 'chapter.xhtml',
+              normalizedText: 'A',
+              spans: [{ nodePath: [-1] }],
+            },
+          },
+        },
+      }),
+  });
+  assert.throws(
+    () => indices.getChapterTextIndicesAtRevision(handle(1)),
+    /invalid chapter text node path/,
+  );
+
+  const search = new RitoCoreWasmDocument({
+    searchAtRevisionJson: (_revisionId, _version, requestJson) =>
+      JSON.stringify({
+        revision: handle(1),
+        value: {
+          revisionId: 'rev-1',
+          ...JSON.parse(requestJson),
+          query: 'forged',
+          resultCount: 0,
+          results: [],
+        },
+      }),
+  });
+  assert.throws(() => search.searchAtRevision(handle(1), searchRequest()), /mismatched query/);
+  assert.throws(
+    () => search.searchAtRevision(handle(1), { query: 'A', caseSensitive: false }),
+    /wholeWord must be a boolean/,
+  );
+});
+
 test('worker client rejects forged bounded and summary results behind a matching envelope', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
@@ -205,6 +256,10 @@ function handle(revisionVersion) {
 
 function budget() {
   return { maxTopLevelNodes: 1 };
+}
+
+function searchRequest() {
+  return { query: 'A', caseSensitive: false, wholeWord: false, limit: 1 };
 }
 
 async function openClient(worker) {

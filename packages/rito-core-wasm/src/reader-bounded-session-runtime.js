@@ -1,3 +1,5 @@
+import { requireReaderRevisionBundle } from './reader-worker-versioned-read-validation-runtime.js';
+
 export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   const yieldControl = options.yieldControl ?? defaultYieldControl;
   let phase = 'idle';
@@ -5,6 +7,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   let requestedSpreadIndex = 0;
   let startRequest;
   let revision;
+  let revisionBundle;
   let continuation;
   let snapshot;
   let releasedTransferRevision;
@@ -76,7 +79,10 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       }
       while (phase === 'running') {
         if (stopRequested !== undefined) return cleanupLatest();
-        if (snapshot === undefined || snapshot.requestedSpreadIndex !== requestedSpreadIndex) {
+        if (
+          requestedTargetAvailable() &&
+          (snapshot === undefined || snapshot.requestedSpreadIndex !== requestedSpreadIndex)
+        ) {
           await refreshSnapshot();
           continue;
         }
@@ -104,16 +110,12 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
 
   async function refreshSnapshot() {
     const handle = revisionHandle(revision);
-    const navigation = await client.getRevisionNavigationAtRevision(handle);
-    requireSameHandle(navigation.revision, handle, 'revision navigation');
-    if (navigation.value?.revisionId !== handle.revisionId) {
-      throw new Error('revision navigation returned a mismatched revisionId');
-    }
+    const bundle = revisionBundle ?? (await readRevisionBundle(handle));
     if (
-      navigation.value.pageCount !== revision.knownExtent.pageCount ||
-      navigation.value.spreadCount !== revision.knownExtent.spreadCount
+      bundle.navigation.pageCount !== revision.knownExtent.pageCount ||
+      bundle.navigation.spreadCount !== revision.knownExtent.spreadCount
     ) {
-      throw new Error('revision navigation returned an extent inconsistent with its revision');
+      throw new Error('revision bundle returned an extent inconsistent with its revision');
     }
     if (stopRequested !== undefined) return;
     const target = requestedSpreadIndex;
@@ -126,10 +128,20 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     snapshot = {
       generation,
       revision,
-      navigation: navigation.value,
+      bundle,
+      navigation: bundle.navigation,
       requestedSpreadIndex: target,
       ...(frameWindow !== undefined ? { frameWindow } : {}),
     };
+  }
+
+  async function readRevisionBundle(handle) {
+    const bundled = await client.getRevisionBundleAtRevision(handle, true);
+    requireSameHandle(bundled.revision, handle, 'revision bundle');
+    const bundle = requireReaderRevisionBundle(bundled.value, handle, 'revision bundle');
+    requireSameRevisionSummary(bundle.revision, revision, 'revision bundle');
+    revisionBundle = bundle;
+    return bundle;
   }
 
   function acceptAdvance(envelope, previous) {
@@ -154,6 +166,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   function acceptRevision() {
     generation += 1;
     snapshot = undefined;
+    revisionBundle = undefined;
     releasedTransferRevision = undefined;
     options.onAcceptedRevision?.({ generation, revision });
   }
@@ -195,6 +208,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       }
     }
     revision = undefined;
+    revisionBundle = undefined;
     continuation = undefined;
     snapshot = undefined;
     phase = stopRequested === 'dispose' ? 'disposed' : 'stopped';
@@ -266,6 +280,24 @@ function requireSameHandle(actual, expected, operation) {
   if (!sameHandle(actual, expected)) {
     throw new Error(`${operation} returned a mismatched revision handle`);
   }
+}
+
+function requireSameRevisionSummary(actual, expected, operation) {
+  if (
+    actual.layoutKey !== expected.layoutKey ||
+    actual.status !== expected.status ||
+    !sameExtent(actual.knownExtent, expected.knownExtent) ||
+    !sameExtent(actual.finalExtent, expected.finalExtent) ||
+    actual.pageCount !== expected.pageCount ||
+    actual.spreadCount !== expected.spreadCount
+  ) {
+    throw new Error(`${operation} returned a summary inconsistent with its accepted revision`);
+  }
+}
+
+function sameExtent(left, right) {
+  if (left === undefined || right === undefined) return left === right;
+  return left.pageCount === right.pageCount && left.spreadCount === right.spreadCount;
 }
 
 function sameHandle(left, right) {

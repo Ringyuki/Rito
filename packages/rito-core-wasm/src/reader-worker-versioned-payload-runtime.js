@@ -28,6 +28,13 @@ import {
   requireTextRangeGeometry,
   requireTextRangeGeometryRequest,
 } from './reader-worker-text-geometry-validation-runtime.js';
+import {
+  requireChapterTextIndices,
+  requireFootnotes,
+  requireReaderRevisionBundle,
+  requireSearchRequest,
+  requireSearchResponse,
+} from './reader-worker-versioned-read-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -49,6 +56,8 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'getRevisionSummaryAtRevision':
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
+    case 'getRevisionBundleAtRevision':
+      return revisionBundleResponse(document, request);
     case 'getShapeProvenanceDiagnosticAtRevision':
       return valueResponse(
         request.kind,
@@ -84,6 +93,12 @@ export function versionedReaderWorkerPayload(document, request) {
       return exactSourceRangeResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
+    case 'getFootnotesAtRevision':
+      return exactReadResponse(document, request, requireFootnotes);
+    case 'getChapterTextIndicesAtRevision':
+      return exactReadResponse(document, request, requireChapterTextIndices);
+    case 'searchAtRevision':
+      return searchResponse(document, request);
     case 'resolveLocatorAtRevision':
       return locatorResponse(document, request);
     case 'readResourceAtRevision':
@@ -214,6 +229,37 @@ function footnoteResponse(document, request) {
   const envelope = document.getFootnoteAtRevision(revision, key);
   return validatedValueResponse(operation, revision, envelope, (value) =>
     requireFootnote(value, revision, key, operation),
+  );
+}
+
+function revisionBundleResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const envelope = document.getRevisionBundleAtRevision(
+    revision,
+    request.includeTocTargets === true,
+  );
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requireReaderRevisionBundle(value, revision, operation),
+  );
+}
+
+function exactReadResponse(document, request, validate) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const envelope = document[operation](revision);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    validate(value, revision, operation),
+  );
+}
+
+function searchResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireSearchRequest(request.request, operation);
+  const envelope = document.searchAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requireSearchResponse(value, revision, expectedRequest, operation),
   );
 }
 

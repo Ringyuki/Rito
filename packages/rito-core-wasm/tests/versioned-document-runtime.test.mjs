@@ -132,18 +132,7 @@ test('all versioned direct methods validate and echo the complete handle', () =>
         return (...args) => {
           calls.push([property, args]);
           const version = args[1];
-          const value =
-            property === 'getRevisionSummaryAtRevisionJson'
-              ? summary(version, 'ready', args[0])
-              : property === 'getRevisionBundleAtRevisionJson'
-                ? bundle(version, args[0])
-                : property === 'getShapeProvenanceDiagnosticAtRevisionJson'
-                  ? shapeDiagnostic()
-                  : property === 'resolveTextCaretAtRevisionJson'
-                    ? caretResponse({ revisionId: args[0] })
-                    : property === 'resolveSameFlowTextRangeAtRevisionJson'
-                      ? rangeResponse(JSON.parse(args[2]), { revisionId: args[0] })
-                      : { rawMethod: property };
+          const value = versionedValue(property, args, version);
           return JSON.stringify({
             revision: { revisionId: args[0], revisionVersion: args[1] },
             value,
@@ -159,7 +148,12 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getResourcePayloadAtRevision(handle, 'image', 'cover.png'),
     () => document.prefetchResourcesAtRevision(handle, { resources: [] }),
     () => document.prefetchPlannedFrameResourcesAtRevision(handle, 0),
-    () => document.searchAtRevision(handle, { query: 'x' }),
+    () =>
+      document.searchAtRevision(handle, {
+        query: 'x',
+        caseSensitive: false,
+        wholeWord: false,
+      }),
     () => document.resolveLocatorAtRevision(handle, { href: 'chapter.xhtml' }),
     () => document.resolveSourceLocatorAtRevision(handle, { href: 'chapter.xhtml' }),
     () => document.getPageTargetsAtRevision(handle, 0),
@@ -186,6 +180,9 @@ test('all versioned direct methods validate and echo the complete handle', () =>
   const bytes = document.readFrameCommandBufferAtRevision(handle, 0);
   assert.deepEqual(bytes, { revision: handle, value: Uint8Array.of(1, 2, 3) });
   assert.ok(calls.every(([, args]) => args[0] === 'rev-7' && args[1] === 4));
+  assert.ok(
+    calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
+  );
 });
 
 test('versioned direct methods reject invalid input and mismatched raw envelopes', () => {
@@ -281,6 +278,30 @@ function bundle(version, revisionId = 'rev-1') {
     chapterTextIndices: { revisionId, entries: {} },
     fontFamilies: [],
   };
+}
+
+function versionedValue(property, args, version) {
+  const revisionId = args[0];
+  if (property === 'getRevisionSummaryAtRevisionJson') {
+    return summary(version, 'ready', revisionId);
+  }
+  if (property === 'getRevisionBundleAtRevisionJson') return bundle(version, revisionId);
+  if (property === 'getShapeProvenanceDiagnosticAtRevisionJson') return shapeDiagnostic();
+  if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
+  if (property === 'resolveSameFlowTextRangeAtRevisionJson') {
+    return rangeResponse(JSON.parse(args[2]), { revisionId });
+  }
+  if (property === 'getFootnotesAtRevisionJson') {
+    return { revisionId, entries: {} };
+  }
+  if (property === 'getChapterTextIndicesAtRevisionJson') {
+    return { revisionId, entries: {} };
+  }
+  if (property === 'searchAtRevisionJson') {
+    const request = JSON.parse(args[2]);
+    return { revisionId, ...request, resultCount: 0, results: [] };
+  }
+  return { rawMethod: property };
 }
 
 function budget() {
