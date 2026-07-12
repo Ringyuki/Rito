@@ -74,7 +74,7 @@ export type {
 } from './position';
 
 export { createA11yMirror } from './dom/a11y-mirror';
-export type { A11yMirror } from './dom/a11y-mirror';
+export type { A11yMirror, A11yMirrorOptions } from './dom/a11y-mirror';
 export { bindClipboard } from './dom/clipboard';
 export { bindLinkCursor } from './dom/link-cursor';
 export { bindPointerEvents } from './dom/pointer-events';

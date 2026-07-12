@@ -16,10 +16,10 @@ export type SemanticRole =
 /** A node in the semantic tree for accessibility consumers. */
 export interface SemanticNode {
   readonly role: SemanticRole;
-  readonly level?: number;
-  readonly text?: string;
-  readonly alt?: string;
-  readonly href?: string;
+  readonly level?: number | undefined;
+  readonly text?: string | undefined;
+  readonly alt?: string | undefined;
+  readonly href?: string | undefined;
   readonly bounds: Rect;
   readonly children: readonly SemanticNode[];
 }

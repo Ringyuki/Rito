@@ -320,9 +320,10 @@ architecture rather than make an eager whole-book pipeline faster.
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility. **Rust core,
    WASM/Worker, Browser Reader, and Kit exact selection/highlight/copy/source
-   annotation target creation and annotation re-projection are implemented;
-   reading positions and accessibility remain. Cross-logical-flow annotation
-   geometry is a follow-up capability extension.**
+   annotation target creation, annotation re-projection and visible-spread
+   accessibility are implemented; portable reading positions remain.
+   Cross-logical-flow annotation geometry and richer list/table semantic
+   retention are follow-up capability extensions.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.

@@ -1,7 +1,5 @@
-import type { Reader } from '@ritojs/core';
 import { wireA11y } from '../wiring/a11y';
-import type { ControllerOptions } from '../types';
-import type { CoordinatorState } from '../core/coordinator-state';
+import type { WiringDeps } from '../core/wiring-deps';
 import type { Internals, Disposables, LifecycleSlice, RuntimeComponents } from './types';
 
 export function syncCanvasSize(internals: Internals, runtime: RuntimeComponents): void {
@@ -31,20 +29,17 @@ function shouldResizeSurface(
 export function buildLifecycle(
   disposables: Disposables,
   runtime: RuntimeComponents,
-  coordState: CoordinatorState,
-  opts: ControllerOptions,
-  canvas: HTMLCanvasElement,
-  reader: Reader,
+  deps: WiringDeps,
 ): LifecycleSlice {
   return {
     mount(container: HTMLElement): void {
       container.appendChild(runtime.surface.canvas);
-      wireA11y(opts, canvas, reader, disposables);
+      wireA11y(deps, disposables);
     },
     dispose(): void {
-      if (coordState.activeImageBlobUrl) {
-        URL.revokeObjectURL(coordState.activeImageBlobUrl);
-        coordState.activeImageBlobUrl = null;
+      if (deps.coordState.activeImageBlobUrl) {
+        URL.revokeObjectURL(deps.coordState.activeImageBlobUrl);
+        deps.coordState.activeImageBlobUrl = null;
       }
       disposables.disposeAll();
       runtime.frameDriver.dispose();

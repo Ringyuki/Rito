@@ -27,9 +27,7 @@ describe('controller navigation surface', () => {
       {} as KeyboardManager,
       createInteractionModeManager('gesture'),
       nav,
-      {},
       {} as HTMLCanvasElement,
-      createReaderStub(),
     );
 
     expect(Object.keys(controller)).toEqual(

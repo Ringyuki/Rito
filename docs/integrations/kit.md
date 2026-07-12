@@ -99,6 +99,14 @@ Native `ResolvedAnnotationSegment.range` is intentionally `null`; consumers must
 use its exact page-content `rects` and durable selectors instead of assuming a
 legacy layout-local `TextRange` exists.
 
+When `interactions.getPageSemantics` is present, the optional accessibility mirror
+also becomes native-authoritative. Kit loads both visible pages against the active
+committed revision, rejects late or mismatched results, clears the mirror during
+visual previews, and routes accessible link activation through native page targets
+instead of allowing raw EPUB-relative browser navigation. An empty image `alt` is
+treated as decorative; a missing `alt` remains an image with unknown alternative
+text. Readers without the capability retain the legacy layout-derived mirror.
+
 The current native projection accepts ranges within one logical text flow and
 requires deterministic retained shapes. Cross-paragraph legacy annotations and
 host-measured text can therefore remain unavailable until those native capabilities

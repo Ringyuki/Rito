@@ -12,11 +12,16 @@ export interface A11yMirror {
   dispose(): void;
 }
 
+export interface A11yMirrorOptions {
+  /** Intercepts keyboard or pointer activation after the href passes sanitization. */
+  readonly onLinkActivate?: (node: SemanticNode) => boolean | undefined;
+}
+
 /**
  * Create an A11y mirror as a child of the given parent element.
  * The mirror is visually hidden but accessible to screen readers.
  */
-export function createA11yMirror(parent: HTMLElement): A11yMirror {
+export function createA11yMirror(parent: HTMLElement, options: A11yMirrorOptions = {}): A11yMirror {
   const container = document.createElement('div');
   container.setAttribute('aria-live', 'polite');
   container.setAttribute('role', 'document');
@@ -26,7 +31,7 @@ export function createA11yMirror(parent: HTMLElement): A11yMirror {
   return {
     container,
     update(tree) {
-      container.replaceChildren(...tree.map(renderNode));
+      container.replaceChildren(...tree.map((node) => renderNode(node, options)));
     },
     dispose() {
       container.remove();
@@ -34,13 +39,13 @@ export function createA11yMirror(parent: HTMLElement): A11yMirror {
   };
 }
 
-function renderNode(node: SemanticNode): HTMLElement {
-  const element = createNodeElement(node);
-  appendSemanticContent(element, node);
+function renderNode(node: SemanticNode, options: A11yMirrorOptions): HTMLElement {
+  const element = createNodeElement(node, options);
+  appendSemanticContent(element, node, options);
   return element;
 }
 
-function createNodeElement(node: SemanticNode): HTMLElement {
+function createNodeElement(node: SemanticNode, options: A11yMirrorOptions): HTMLElement {
   switch (node.role) {
     case 'heading':
       return document.createElement(`h${String(clampHeadingLevel(node.level))}`);
@@ -53,7 +58,7 @@ function createNodeElement(node: SemanticNode): HTMLElement {
     case 'image':
       return createImage(node.alt);
     case 'link':
-      return createLinkElement(node.href);
+      return createLinkElement(node, options.onLinkActivate);
     case 'blockquote':
       return document.createElement('blockquote');
     case 'table': {
@@ -66,10 +71,14 @@ function createNodeElement(node: SemanticNode): HTMLElement {
   }
 }
 
-function appendSemanticContent(element: HTMLElement, node: SemanticNode): void {
+function appendSemanticContent(
+  element: HTMLElement,
+  node: SemanticNode,
+  options: A11yMirrorOptions,
+): void {
   if (node.role === 'image') return;
   if (node.children.length > 0) {
-    element.append(...node.children.map(renderNode));
+    element.append(...node.children.map((child) => renderNode(child, options)));
   } else if (node.text) {
     element.textContent = node.text;
   }
@@ -81,16 +90,29 @@ function clampHeadingLevel(level: number | undefined): number {
 
 function createImage(alt: string | undefined): HTMLElement {
   const element = document.createElement('span');
+  if (alt === '') {
+    element.setAttribute('role', 'presentation');
+    element.setAttribute('aria-hidden', 'true');
+    return element;
+  }
   element.setAttribute('role', 'img');
-  element.setAttribute('aria-label', alt ?? '');
+  if (alt !== undefined) element.setAttribute('aria-label', alt);
   return element;
 }
 
-function createLinkElement(href: string | undefined): HTMLElement {
-  const safeHref = sanitizeA11yHref(href);
+function createLinkElement(
+  node: SemanticNode,
+  onActivate: A11yMirrorOptions['onLinkActivate'],
+): HTMLElement {
+  const safeHref = sanitizeA11yHref(node.href);
   if (!safeHref) return document.createElement('span');
   const anchor = document.createElement('a');
   anchor.setAttribute('href', safeHref);
+  if (onActivate) {
+    anchor.addEventListener('click', (event) => {
+      if (onActivate(node) !== false) event.preventDefault();
+    });
+  }
   return anchor;
 }
 

@@ -1,5 +1,4 @@
-import type { Reader } from '@ritojs/core';
-import type { ControllerOptions, ReaderController } from '../types';
+import type { ReaderController } from '../types';
 import type {
   Internals,
   Emitter,
@@ -18,6 +17,7 @@ import { buildAnnotationActions } from './annotation-actions';
 import { buildPositionActions } from './position-actions';
 import { buildMisc } from './misc-actions';
 import { buildNavigationActions } from './navigation-actions';
+import { buildWiringDeps } from '../core/wiring-deps';
 
 export type { Internals } from './types';
 export { syncCanvasSize } from './lifecycle';
@@ -30,14 +30,13 @@ export function buildController(
   keyboard: Keyboard,
   modeManager: ModeManager,
   nav: Nav,
-  opts: ControllerOptions,
   canvas: HTMLCanvasElement,
-  reader: Reader,
 ): ReaderController {
   const controller = {} as ReaderController;
+  const lifecycleDeps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav);
   defineSlice(
     controller,
-    buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
+    buildLifecycle(disposables, runtime, lifecycleDeps),
     buildNavigationActions(nav),
     buildLayoutActions(internals, emitter, runtime),
     buildSearchActions(internals, emitter, nav, runtime),

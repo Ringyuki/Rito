@@ -79,9 +79,7 @@ export function createController(
       keyboard,
       modeManager,
       nav,
-      controllerOptions,
       canvas,
-      reader,
     );
   } catch (error: unknown) {
     runtime.frameDriver.dispose();

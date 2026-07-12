@@ -159,6 +159,17 @@ Those names now belong to the old TS reference tree only.
   cross-paragraph annotations and runs without deterministic shapes remain
   typed unavailable. Legacy layout-local selection and annotation projection
   remain only for Readers without the native capabilities.
+- Rust core now also derives a revision-bound, document-order accessibility tree
+  from retained page layout. The exact-version WASM/direct/Worker path validates
+  recursive roles, heading levels, link/image fields, finite page-content bounds,
+  revision/page ownership and unknown fields. Soft-wrap whitespace is restored
+  only from a proven shared logical text flow, while fully clipped text is omitted.
+  Browser Reader exposes the tree through optional `getPageSemantics`; Kit treats
+  its presence as authoritative, clears it during previews and revision changes,
+  discards stale reads, distinguishes decorative from unknown-alt images, and
+  routes mirrored link activation back through revision-bound native targets.
+  Retained layout can still flatten some list/table container detail, and there is
+  not yet a cross-page semantic identity model.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
@@ -290,10 +301,10 @@ Those names now belong to the old TS reference tree only.
      locator navigation, external links and standalone images without falling
      back to legacy hit geometry.
    - Exact Kit selection, selection highlights, copy, source-range annotation
-     target creation and revision-safe annotation re-projection are implemented.
-     Migrate reading positions and accessibility to native source/semantic data
-     next, then remove the compatibility geometry required only by legacy
-     Readers.
+     target creation, revision-safe annotation re-projection and visible-spread
+     accessibility are implemented. Migrate reading positions to portable native
+     source anchors next, then remove the compatibility geometry required only by
+     legacy Readers.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
      their callers use native semantic and geometry queries.
 3. **Thin session ownership**

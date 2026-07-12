@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createA11yMirror } from '../src/interaction/dom/a11y-mirror';
 import type { SemanticNode } from '../src/interaction/core';
 
@@ -51,5 +51,38 @@ describe('createA11yMirror', () => {
     expect(mirror.container.querySelectorAll('a')).toHaveLength(1);
     expect(mirror.container.querySelector('a')?.getAttribute('href')).toBe('https://example.com');
     expect(mirror.container.textContent).toBe('safeunsafe');
+  });
+
+  it('distinguishes decorative images from images with unknown alternatives', () => {
+    const mirror = createA11yMirror(document.body);
+    mirror.update([
+      { role: 'image', alt: '', bounds, children: [] },
+      { role: 'image', bounds, children: [] },
+    ]);
+
+    const [decorative, unknown] = mirror.container.querySelectorAll('span');
+    expect(decorative?.getAttribute('role')).toBe('presentation');
+    expect(decorative?.getAttribute('aria-hidden')).toBe('true');
+    expect(unknown?.getAttribute('role')).toBe('img');
+    expect(unknown?.hasAttribute('aria-label')).toBe(false);
+  });
+
+  it('intercepts safe link activation when the host supplies a handler', () => {
+    const onLinkActivate = vi.fn();
+    const node: SemanticNode = {
+      role: 'link',
+      text: 'target',
+      href: '#target',
+      bounds,
+      children: [],
+    };
+    const mirror = createA11yMirror(document.body, { onLinkActivate });
+    mirror.update([node]);
+    const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+
+    mirror.container.querySelector('a')?.dispatchEvent(event);
+
+    expect(event.defaultPrevented).toBe(true);
+    expect(onLinkActivate).toHaveBeenCalledWith(node);
   });
 });
