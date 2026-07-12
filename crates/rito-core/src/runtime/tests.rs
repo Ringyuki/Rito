@@ -26,12 +26,13 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
     RuntimePrefetchRequest, RuntimePreviewRevisionBundleRequest, RuntimeResourceKind,
-    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSourceLocator,
-    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
-    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
-    RuntimeSourceRange, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay,
-    RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
-    RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
+    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSemanticNode,
+    RuntimeSemanticRole, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
+    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
+    RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
+    RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
+    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
+    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::{LineBreaking, SpreadMode};
@@ -47,6 +48,51 @@ fn source_locator(href: &str) -> RuntimeSourceLocator {
         source_point: None,
         source_range: None,
         progression: None,
+    }
+}
+
+fn collect_semantic_nodes<'a>(
+    nodes: &'a [RuntimeSemanticNode],
+    output: &mut Vec<&'a RuntimeSemanticNode>,
+) {
+    for node in nodes {
+        output.push(node);
+        collect_semantic_nodes(&node.children, output);
+    }
+}
+
+fn assert_semantic_node_invariants(node: &RuntimeSemanticNode) {
+    match node.role {
+        RuntimeSemanticRole::Heading => {
+            assert!(matches!(node.level, Some(1..=6)));
+            assert!(node.alt.is_none());
+            assert!(node.href.is_none());
+        }
+        RuntimeSemanticRole::Image => {
+            assert!(node.level.is_none());
+            assert!(node.href.is_none());
+        }
+        RuntimeSemanticRole::Link => {
+            assert!(node.level.is_none());
+            assert!(node.alt.is_none());
+            assert!(node
+                .href
+                .as_ref()
+                .is_some_and(|href| !href.trim().is_empty()));
+        }
+        RuntimeSemanticRole::Paragraph
+        | RuntimeSemanticRole::List
+        | RuntimeSemanticRole::ListItem
+        | RuntimeSemanticRole::Blockquote
+        | RuntimeSemanticRole::Table
+        | RuntimeSemanticRole::Generic => {
+            assert!(node.level.is_none());
+            assert!(node.alt.is_none());
+            assert!(node.href.is_none());
+        }
+    }
+    for child in &node.children {
+        assert_semantic_node_invariants(child);
     }
 }
 
@@ -1694,6 +1740,63 @@ fn exposes_typed_page_targets_with_canonical_footnote_and_image_semantics() {
 }
 
 #[test]
+fn exposes_typed_page_semantics_owned_by_the_requested_revision_page() {
+    let mut document =
+        RuntimeDocument::open(&interaction_target_fixture_epub()).expect("document opens");
+    let layout = layout();
+    let revision = document
+        .create_revision(&layout)
+        .expect("revision is created");
+    let pages = (0..revision.page_count)
+        .map(|page_index| {
+            document
+                .get_page_semantics(&revision.revision_id, page_index)
+                .expect("page semantics are available")
+        })
+        .collect::<Vec<_>>();
+    let semantics = &pages[0];
+    let missing = document
+        .get_page_semantics(&revision.revision_id, revision.page_count)
+        .expect_err("a page outside the revision is rejected");
+    let unknown = document
+        .get_page_semantics("rev-missing", 0)
+        .expect_err("an unknown revision is rejected");
+
+    assert_eq!(semantics.revision_id, revision.revision_id);
+    assert_eq!(semantics.page_index, 0);
+    assert_eq!(semantics.spread_index, 0);
+    let mut nodes = Vec::new();
+    for (page_index, semantics) in pages.iter().enumerate() {
+        assert_eq!(semantics.revision_id, revision.revision_id);
+        assert_eq!(semantics.page_index, page_index);
+        collect_semantic_nodes(&semantics.nodes, &mut nodes);
+        for node in &semantics.nodes {
+            assert_semantic_node_invariants(node);
+        }
+    }
+    assert!(nodes
+        .iter()
+        .any(|node| node.role == RuntimeSemanticRole::Paragraph));
+    assert!(nodes.iter().any(|node| {
+        node.role == RuntimeSemanticRole::Link && node.href.as_deref() == Some("#intro")
+    }));
+    assert!(nodes.iter().any(|node| {
+        node.role == RuntimeSemanticRole::Image && node.alt.as_deref() == Some("standalone cover")
+    }));
+    for node in nodes {
+        assert!(node.bounds.x >= 0.0);
+        assert!(node.bounds.y >= 0.0);
+        assert!(node.bounds.x + node.bounds.width <= layout.page_width);
+        assert!(node.bounds.y + node.bounds.height <= layout.page_height);
+    }
+    assert_eq!(
+        missing.message(),
+        format!("unknown page index: {}", revision.page_count)
+    );
+    assert_eq!(unknown.message(), "unknown revision: rev-missing");
+}
+
+#[test]
 fn double_spread_page_targets_keep_page_content_coordinates() {
     let mut document =
         RuntimeDocument::open(&source_locator_fixture_epub()).expect("document opens");
@@ -1709,9 +1812,17 @@ fn double_spread_page_targets_keep_page_content_coordinates() {
     let right = document
         .get_page_targets(&revision.revision_id, 2)
         .expect("right page targets");
+    let left_semantics = document
+        .get_page_semantics(&revision.revision_id, 1)
+        .expect("left page semantics");
+    let right_semantics = document
+        .get_page_semantics(&revision.revision_id, 2)
+        .expect("right page semantics");
 
     assert_eq!(left.spread_index, 1);
     assert_eq!(right.spread_index, 1);
+    assert_eq!(left_semantics.spread_index, 1);
+    assert_eq!(right_semantics.spread_index, 1);
     assert!(!left.entries.is_empty());
     assert!(!right.entries.is_empty());
     for target in left.entries.iter().chain(&right.entries) {
@@ -1719,6 +1830,16 @@ fn double_spread_page_targets_keep_page_content_coordinates() {
         assert!(target.bounds.x + target.bounds.width <= layout.page_width);
         assert!(target.bounds.y >= 0.0);
         assert!(target.bounds.y + target.bounds.height <= layout.page_height);
+    }
+    let mut semantic_nodes = Vec::new();
+    collect_semantic_nodes(&left_semantics.nodes, &mut semantic_nodes);
+    collect_semantic_nodes(&right_semantics.nodes, &mut semantic_nodes);
+    assert!(!semantic_nodes.is_empty());
+    for node in semantic_nodes {
+        assert!(node.bounds.x >= 0.0);
+        assert!(node.bounds.x + node.bounds.width <= layout.page_width);
+        assert!(node.bounds.y >= 0.0);
+        assert!(node.bounds.y + node.bounds.height <= layout.page_height);
     }
 }
 

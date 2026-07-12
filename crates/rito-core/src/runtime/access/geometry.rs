@@ -1,9 +1,9 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
     RuntimeDocument, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResponse,
-    RuntimePageTargets, RuntimePageTextPositions, RuntimeSameFlowTextRangeRequest,
-    RuntimeSameFlowTextRangeResponse, RuntimeTextCaretResponse, RuntimeTextPointRequest,
-    RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
+    RuntimePageSemantics, RuntimePageTargets, RuntimePageTextPositions,
+    RuntimeSameFlowTextRangeRequest, RuntimeSameFlowTextRangeResponse, RuntimeTextCaretResponse,
+    RuntimeTextPointRequest, RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
 };
 
 impl RuntimeDocument {
@@ -24,6 +24,16 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimePageTargets>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, |document, revision_id| {
             document.get_page_targets(revision_id, page_index)
+        })
+    }
+
+    pub fn get_page_semantics_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        page_index: usize,
+    ) -> Result<RuntimeVersioned<RuntimePageSemantics>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.get_page_semantics(revision_id, page_index)
         })
     }
 

@@ -13,6 +13,7 @@ mod frame;
 mod metadata;
 mod navigation;
 mod page;
+mod page_semantics;
 mod page_target;
 mod pinned_font_policy;
 mod publication_footnotes;
@@ -48,6 +49,10 @@ use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
 use page::{page_targets, page_text_positions, text_range_geometry};
+use page_semantics::page_semantics;
+pub use page_semantics::{
+    RuntimePageSemantics, RuntimeSemanticBounds, RuntimeSemanticNode, RuntimeSemanticRole,
+};
 pub use pinned_font_policy::{
     RuntimePinnedFontFaceInput, RuntimePinnedFontFaceSummary, RuntimePinnedFontGenericRole,
     RuntimePinnedFontLanguageTag, RuntimePinnedFontPolicyInput, RuntimePinnedFontPolicySummary,
@@ -251,6 +256,18 @@ impl RuntimeDocument {
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
         page_targets(&self.document, revision_id, revision, page_index)
+    }
+
+    pub fn get_page_semantics(
+        &self,
+        revision_id: &str,
+        page_index: usize,
+    ) -> EpubResult<RuntimePageSemantics> {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        page_semantics(revision_id, revision, page_index)
     }
 
     pub fn get_page_text_positions(

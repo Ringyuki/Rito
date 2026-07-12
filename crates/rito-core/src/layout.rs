@@ -43,6 +43,7 @@ pub(crate) mod runtime_session;
 mod search_flow;
 mod segment_details;
 mod segments;
+mod semantic_tree;
 mod shape_provenance_diagnostic;
 mod spread;
 mod spread_flow;
@@ -79,6 +80,7 @@ pub(crate) use segments::{
     append_runtime_chapter_pages, build_inline_segments, build_inline_segments_runtime,
     create_empty_runtime_layout, InlineSegmentChapterInput,
 };
+pub(crate) use semantic_tree::{build_page_semantic_tree, LayoutSemanticNode, LayoutSemanticRole};
 pub(crate) use shape_provenance_diagnostic::{
     summarize_shape_provenance, ShapeAffectedCodepointStats, ShapeProvenanceStats,
 };

@@ -9,9 +9,9 @@ use crate::{
         RuntimeExactSourceRangeRequest, RuntimeInitialFrameRequest, RuntimeLocatorRequest,
         RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
         RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-        RuntimeSameFlowTextRangeRequest, RuntimeSearchRequest, RuntimeSourceLocator,
-        RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeTextPointRequest,
-        RuntimeTextRangeGeometryRequest, RuntimeVersioned,
+        RuntimeSameFlowTextRangeRequest, RuntimeSearchRequest, RuntimeSemanticRole,
+        RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
+        RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest, RuntimeVersioned,
     },
 };
 
@@ -110,6 +110,13 @@ fn revision_access_contract_is_serde_stable_and_reports_focused_errors() {
             .kind,
         RuntimeRevisionAccessErrorKind::UnknownRevision
     );
+    assert_eq!(
+        document
+            .get_page_semantics_at(&handle, 0)
+            .expect_err("forged page-semantics handle is rejected")
+            .kind,
+        RuntimeRevisionAccessErrorKind::UnknownRevision
+    );
 
     let revision = document
         .create_revision(&layout())
@@ -197,6 +204,26 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
         .entries
         .iter()
         .any(|target| target.kind == RuntimePageTargetKind::Footnote));
+    let semantics = document
+        .get_page_semantics_at(&handle, result.page_index)
+        .expect("page semantics");
+    assert_eq!(semantics.revision, handle);
+    assert_eq!(semantics.value.revision_id, handle.revision_id);
+    assert_eq!(semantics.value.page_index, result.page_index);
+    assert_eq!(semantics.value.spread_index, result.spread_index);
+    assert!(semantics
+        .value
+        .nodes
+        .iter()
+        .any(|node| node.role == RuntimeSemanticRole::Paragraph));
+    let wrong_page = document
+        .get_page_semantics_at(&handle, revision.page_count)
+        .expect_err("page outside this revision is rejected");
+    assert_eq!(
+        wrong_page.kind,
+        RuntimeRevisionAccessErrorKind::OperationFailed
+    );
+    assert!(wrong_page.message.contains("unknown page index"));
     document
         .get_page_text_positions_at(&handle, result.page_index)
         .expect("text positions");
@@ -374,6 +401,7 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
         }
     ));
     assert_stale!(document.get_page_targets_at(&stale, 0));
+    assert_stale!(document.get_page_semantics_at(&stale, 0));
     assert_stale!(document.get_page_text_positions_at(&stale, 0));
     assert_stale!(document.get_text_range_geometry_at(
         &stale,
