@@ -173,8 +173,15 @@ the contract. Raw WASM and Worker sessions now carry separate face buffers and
 canonical bytes-free Rust policy identities. The Browser reader retains its own
 font bytes, transfers fresh copies to every Worker, atomically registers the
 Rust aliases before initial reflow, and rolls back the complete session on any
-required-font failure. Licensed production assets, strict first-paint handling
-for shapeable embedded EPUB faces and the real-book proof remain.
+required-font failure. Pinned revisions also expose a strict, revision-bound
+manifest of the static EPUB faces Rust actually accepted whose families the
+current layout references. Browser commit verifies their byte fingerprints,
+waits for the complete conservative set, registers it atomically, rejects
+mismatched Worker manifests, and permanently disables the declared-face legacy
+loader for the pinned session. Exact used-face provenance and document-scoped
+family aliases remain before multiple readers can share the global
+`FontFaceSet` deterministically. Licensed production assets and the real-book
+proof also remain.
 
 Interaction responses and host caches must bind to the complete revision
 handle. A visual preview must either expose its own active presentation handle

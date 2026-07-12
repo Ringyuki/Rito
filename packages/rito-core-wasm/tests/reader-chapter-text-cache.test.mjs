@@ -345,6 +345,42 @@ test('invalid chapter text transports release the created revision', async () =>
   client.dispose();
 });
 
+test('invalid required font manifests release the created revision', async () => {
+  const requests = [];
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule((request) => {
+      requests.push(request);
+      if (request.kind === 'releaseRevisionAtRevision') {
+        return {
+          kind: request.kind,
+          revision: request.revision,
+          result: { releasedRevision: true, releasedTransferCount: 0 },
+        };
+      }
+      const payload = viewPayload({
+        revisionId: 'revision-fonts',
+        entries: CHAPTER_ENTRIES,
+        scopeKey: FULL_SCOPE_KEY,
+      });
+      payload.result.result.bundle.requiredFontFaces = {
+        schemaVersion: 1,
+        revisionId: 'other-revision',
+        faces: [],
+      };
+      return payload;
+    }),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  await assert.rejects(client.createViewRevision(VIEW_REQUEST), /requiredFontFaces identity/);
+  assert.deepEqual(requests.at(-1), {
+    id: 0,
+    kind: 'releaseRevisionAtRevision',
+    revision: { revisionId: 'revision-fonts', revisionVersion: 0 },
+  });
+  client.dispose();
+});
+
 test('invalid revision versions never fall back to id-only cleanup', async () => {
   const requests = [];
   const client = createRitoCoreWasmInProcessReaderClient(

@@ -19,39 +19,60 @@ const INITIAL_FONT_WEIGHT: u16 = 400;
 impl TextMeasurementFontFace<'_> {
     pub(super) fn match_score(&self, style: &TextMeasurementStyle) -> FontFaceMatchScore {
         FontFaceMatchScore {
-            style_distance: font_style_distance(style.font_style.as_deref(), self.style.as_deref()),
+            style_distance: font_style_distance(
+                normalized_font_style(style.font_style.as_deref()),
+                self.normalized_style(),
+            ),
             weight_score: font_weight_score(
-                style.font_weight.unwrap_or(INITIAL_FONT_WEIGHT),
-                self.weight.unwrap_or(INITIAL_FONT_WEIGHT),
+                normalized_font_weight(style.font_weight),
+                self.normalized_weight(),
             ),
         }
     }
+
+    pub(crate) fn normalized_style(&self) -> &'static str {
+        normalized_font_style(self.style.as_deref())
+    }
+
+    pub(crate) fn normalized_weight(&self) -> u16 {
+        normalized_font_weight(self.weight)
+    }
 }
 
-fn font_style_distance(requested: Option<&str>, candidate: Option<&str>) -> u8 {
-    // The supported computed-style subset normalizes requested oblique text to italic.
-    let requested = font_style_keyword(requested.unwrap_or(INITIAL_FONT_STYLE));
-    let candidate = font_style_keyword(candidate.unwrap_or(INITIAL_FONT_STYLE));
-    if requested.eq_ignore_ascii_case(candidate) {
+fn font_style_distance(requested: &str, candidate: &str) -> u8 {
+    if requested == candidate {
         return 0;
     }
-    if requested.eq_ignore_ascii_case("normal") {
-        return if candidate.eq_ignore_ascii_case("oblique") {
-            1
-        } else {
-            2
-        };
+    if requested == "normal" {
+        return if candidate == "oblique" { 1 } else { 2 };
     }
-    if requested.eq_ignore_ascii_case("italic") && candidate.eq_ignore_ascii_case("oblique")
-        || requested.eq_ignore_ascii_case("oblique") && candidate.eq_ignore_ascii_case("italic")
+    if requested == "italic" && candidate == "oblique"
+        || requested == "oblique" && candidate == "italic"
     {
         return 1;
     }
     2
 }
 
-fn font_style_keyword(value: &str) -> &str {
-    value.split_ascii_whitespace().next().unwrap_or(value)
+fn normalized_font_style(value: Option<&str>) -> &'static str {
+    let keyword = value
+        .unwrap_or(INITIAL_FONT_STYLE)
+        .split_ascii_whitespace()
+        .next()
+        .unwrap_or(INITIAL_FONT_STYLE);
+    if keyword.eq_ignore_ascii_case("italic") {
+        "italic"
+    } else if keyword.eq_ignore_ascii_case("oblique") {
+        "oblique"
+    } else {
+        "normal"
+    }
+}
+
+fn normalized_font_weight(value: Option<u16>) -> u16 {
+    value
+        .filter(|weight| (1..=1000).contains(weight))
+        .unwrap_or(INITIAL_FONT_WEIGHT)
 }
 
 fn font_weight_score(requested: u16, candidate: u16) -> FontWeightMatchScore {
@@ -85,7 +106,7 @@ fn font_weight_score(requested: u16, candidate: u16) -> FontWeightMatchScore {
     }
 }
 
-pub(in super::super) fn parse_font_family_list(value: &str) -> Vec<String> {
+pub(crate) fn parse_font_family_list(value: &str) -> Vec<String> {
     let mut families = Vec::new();
     let mut current = String::new();
     let mut quote: Option<char> = None;

@@ -2,6 +2,7 @@ use crate::layout::{
     LayoutConfig, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
     TextMeasurementMode,
 };
+use crate::resources::hash_bytes;
 use std::collections::{BTreeMap, BTreeSet};
 
 use super::{paths::normalize_href_path, LoadedEpubDocument};
@@ -9,6 +10,18 @@ use super::{paths::normalize_href_path, LoadedEpubDocument};
 pub(crate) struct TextMeasurementFontAssembly<'a> {
     pub(crate) fonts: TextMeasurementFonts<'a>,
     pub(crate) shapeable_publication_families: BTreeSet<String>,
+    pub(crate) shapeable_publication_faces: Vec<ShapeablePublicationFontFace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ShapeablePublicationFontFace {
+    pub(crate) family: String,
+    pub(crate) href: String,
+    pub(crate) style: String,
+    pub(crate) weight: u16,
+    pub(crate) shape_fingerprint: String,
+    pub(crate) byte_length: usize,
+    pub(crate) source_order: usize,
 }
 
 pub(crate) fn text_measurement_font_assembly_for_layout<'a>(
@@ -21,6 +34,7 @@ pub(crate) fn text_measurement_font_assembly_for_layout<'a>(
         TextMeasurementMode::FixtureCompatible => TextMeasurementFontAssembly {
             fonts: TextMeasurementFonts::empty(),
             shapeable_publication_families: BTreeSet::new(),
+            shapeable_publication_faces: Vec::new(),
         },
         TextMeasurementMode::FontAware => match cache {
             Some(cache) => text_measurement_font_assembly_with_cache(
@@ -52,8 +66,12 @@ fn text_measurement_font_assembly_with_cache<'a>(
         .collect::<BTreeSet<_>>();
     let mut faces = Vec::new();
     let mut shapeable_publication_families = BTreeSet::new();
+    let mut shapeable_publication_faces = Vec::new();
+    let mut source_order = 0;
     for stylesheet in &document.stylesheets {
         for rule in crate::css::parse_font_face_rules(&stylesheet.text) {
+            let rule_source_order = source_order;
+            source_order += 1;
             let Some(href) = resolve_font_face_href(&stylesheet.href, &rule.src) else {
                 continue;
             };
@@ -88,8 +106,22 @@ fn text_measurement_font_assembly_with_cache<'a>(
             if pinned_active && pinned_aliases.contains(&family) {
                 continue;
             }
+            if pinned_active && !face.is_static_shapeable() {
+                continue;
+            }
             if face.is_shapeable() {
                 shapeable_publication_families.insert(family);
+                if pinned_active {
+                    shapeable_publication_faces.push(ShapeablePublicationFontFace {
+                        family: face.family.clone(),
+                        href: resource.href.clone(),
+                        style: face.normalized_style().to_owned(),
+                        weight: face.normalized_weight(),
+                        shape_fingerprint: hash_bytes(&resource.bytes),
+                        byte_length: resource.bytes.len(),
+                        source_order: rule_source_order,
+                    });
+                }
             } else if pinned_active {
                 continue;
             }
@@ -111,6 +143,7 @@ fn text_measurement_font_assembly_with_cache<'a>(
             font_family_pair_adjustments(layout_config),
         ),
         shapeable_publication_families,
+        shapeable_publication_faces,
     }
 }
 

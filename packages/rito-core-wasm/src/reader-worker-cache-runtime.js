@@ -1,3 +1,5 @@
+import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
+
 const FULL_CHAPTER_TEXT_INDICES_SCOPE_KEY = 'chapter-text-v1:full';
 const sessionCacheState = new WeakMap();
 
@@ -201,6 +203,7 @@ export function hydrateReaderViewRevision(cache, view, requestedScopeKey) {
   if (revisionId !== revision.revisionId) {
     throw new Error('Reader chapter text indices revision does not match the revision bundle');
   }
+  requireRequiredFontFaces(bundle.requiredFontFaces, revisionId, 'Reader view revision');
 
   if (view.kind === 'preview') {
     if (Object.hasOwn(transport, 'scopeKey')) {

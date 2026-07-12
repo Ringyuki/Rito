@@ -192,6 +192,31 @@ describe('Browser reader resource-backed rendering', () => {
     expect(state.registeredFontFaces.size).toBe(0);
   });
 
+  it('does not register declared publication faces after pinned policy activation', async () => {
+    const addFont = vi.fn();
+    const readResource = vi.fn();
+    vi.stubGlobal('FontFace', FakeFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const state = createState({
+      worker: { ...createWorker(), readResource } as unknown as BrowserReaderWorkerClient,
+      pinnedFonts: {
+        policy: undefined,
+        summary: { ...emptyPinnedFontPolicySummary(), faces: [{}] },
+        registry: undefined,
+        faces: new Map(),
+      },
+      publication: {
+        fontFaces: [{ family: 'DeclaredOnly', href: 'fonts/declared.ttf' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+
+    expect(readResource).not.toHaveBeenCalled();
+    expect(addFont).not.toHaveBeenCalled();
+  });
+
   it('retries font registration when the active revision changes during a slow load', async () => {
     const addFont = vi.fn();
     const finishLoads: Array<() => void> = [];

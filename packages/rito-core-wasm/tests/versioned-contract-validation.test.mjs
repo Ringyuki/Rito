@@ -66,6 +66,21 @@ test('direct versioned reads reject matching envelopes with forged embedded revi
     () => document.getRevisionBundleAtRevision(handle(1)),
     /navigation returned a mismatched revisionId/,
   );
+
+  const fontBundle = bundle(1);
+  fontBundle.requiredFontFaces = {
+    schemaVersion: 1,
+    revisionId: 'rev-other',
+    faces: [],
+  };
+  const fontDocument = new RitoCoreWasmDocument({
+    getRevisionBundleAtRevisionJson: () =>
+      JSON.stringify({ revision: handle(1), value: fontBundle }),
+  });
+  assert.throws(
+    () => fontDocument.getRevisionBundleAtRevision(handle(1)),
+    /requiredFontFaces identity/,
+  );
 });
 
 test('worker client rejects forged bounded and summary results behind a matching envelope', async () => {

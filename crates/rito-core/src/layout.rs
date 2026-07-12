@@ -94,7 +94,7 @@ pub use summary_types::{
 pub(crate) use text_geometry::build_text_range_geometry;
 pub use text_geometry::{TextRangeGeometry, TextRangeRect};
 pub(crate) use text_measure::{
-    TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
+    parse_font_family_list, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
 };
 pub(crate) use text_position::build_text_position_page;
 pub use text_position::{

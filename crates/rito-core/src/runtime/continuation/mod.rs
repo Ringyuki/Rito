@@ -48,18 +48,19 @@ impl RuntimeDocument {
             .map_err(engine_error)?
             .footnotes
             .clone();
+        self.ensure_layout_font_resources(&request.layout_config)
+            .map_err(engine_error)?;
+        let required_font_face_catalog =
+            self.required_font_face_catalog_for_layout(&request.layout_config);
         let layout =
             create_empty_runtime_layout(self.document.chapters.len(), &request.layout_config);
         let revision = RuntimeRevision::warming(
             layout,
             request.layout_config.clone(),
+            required_font_face_catalog,
             initial_revision_interactions(footnotes),
         );
         self.revisions.insert(revision_id.clone(), revision);
-        if let Err(error) = self.ensure_layout_font_resources(&request.layout_config) {
-            self.revisions.remove(&revision_id);
-            return Err(engine_error(error));
-        }
         let continuation = RuntimeContinuationRecord::new(
             revision_id,
             layout_key.clone(),

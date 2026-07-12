@@ -92,7 +92,7 @@ impl RuntimeDocument {
         let font_fallbacks = self
             .pinned_font_policy
             .family_fallbacks_for_layout(layout_config, &self.document.package.metadata.language);
-        let layout = crate::epub::build_prepared_loaded_document_runtime_layout(
+        let built = crate::epub::build_prepared_loaded_document_runtime_layout(
             &self.document,
             prepared,
             layout_config,
@@ -105,12 +105,19 @@ impl RuntimeDocument {
                 font_fallbacks,
             },
         );
+        let required_font_face_catalog =
+            self.required_font_face_catalog_from_faces(built.shapeable_publication_faces);
         let layout_key = layout_key(layout_config, &self.pinned_font_policy)?;
         let interactions = match &partial_data {
             Some((_, footnotes)) => partial_revision_interactions(prepared, footnotes.clone()),
             None => runtime_revision_interactions(prepared, full_document),
         };
-        let revision = RuntimeRevision::completed(layout, layout_config.clone(), interactions);
+        let revision = RuntimeRevision::completed(
+            built.layout,
+            layout_config.clone(),
+            required_font_face_catalog,
+            interactions,
+        );
         let summary = revision_summary(&revision_id, &layout_key, &revision);
         self.revisions.insert(revision_id, revision);
         Ok(summary)
@@ -154,7 +161,7 @@ impl RuntimeDocument {
             &self.document.package.metadata.language,
         );
         let chapter_count = prepared.chapters.len();
-        let layout = crate::epub::build_prepared_loaded_document_runtime_layout(
+        let built = crate::epub::build_prepared_loaded_document_runtime_layout(
             &self.document,
             &prepared,
             &window_layout_config,
@@ -167,10 +174,13 @@ impl RuntimeDocument {
                 font_fallbacks,
             },
         );
+        let required_font_face_catalog =
+            self.required_font_face_catalog_from_faces(built.shapeable_publication_faces);
         let layout_key = layout_key(&window_layout_config, &self.pinned_font_policy)?;
         let revision = RuntimeRevision::completed(
-            layout,
+            built.layout,
             window_layout_config,
+            required_font_face_catalog,
             partial_revision_interactions(&prepared, footnotes),
         );
         let summary = revision_summary(&revision_id, &layout_key, &revision);

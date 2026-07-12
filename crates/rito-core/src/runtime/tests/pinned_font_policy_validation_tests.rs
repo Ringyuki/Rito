@@ -118,7 +118,7 @@ fn pinned_font_policy_rejects_duplicate_selector_and_hash() {
 fn pinned_font_policy_v1_rejects_variable_faces() {
     let variable = variable_title_font();
     let parsed = ttf_parser::Face::parse(&variable, 0).expect("variable fixture parses");
-    assert_ne!(parsed.variation_axes().len(), 0);
+    assert!(!parsed.variation_axes().is_empty());
 
     let error = RuntimeDocument::open_with_pinned_font_policy(
         &fixture_epub(),

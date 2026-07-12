@@ -84,6 +84,23 @@ export interface RitoCoreWasmRevisionBundle {
   readonly footnotes: RitoCoreWasmFootnotes;
   readonly chapterTextIndices: RitoCoreWasmChapterTextIndices;
   readonly fontFamilies: readonly string[];
+  readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
+}
+
+export interface RitoCoreWasmRequiredFontFaces {
+  readonly schemaVersion: 1;
+  readonly revisionId: string;
+  readonly faces: readonly RitoCoreWasmRequiredFontFace[];
+}
+
+export interface RitoCoreWasmRequiredFontFace {
+  readonly family: string;
+  readonly href: string;
+  readonly style: 'normal' | 'italic' | 'oblique';
+  readonly weight: number;
+  readonly shapeFingerprint: string;
+  readonly byteLength: number;
+  readonly sourceOrder: number;
 }
 
 export interface RitoCoreWasmInitialPreviewRevisionRequest {

@@ -1,6 +1,7 @@
 use crate::epub::{EpubError, EpubResult};
 use crate::layout::summarize_layout_font_families;
 
+use super::revision_fonts::required_font_faces_for_revision;
 use super::{
     frame::revision_summary,
     metadata::layout_key,
@@ -259,6 +260,11 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        let font_families = summarize_layout_font_families(&revision_record.layout.pages);
+        let required_font_faces = revision_record
+            .required_font_face_catalog
+            .as_deref()
+            .map(|catalog| required_font_faces_for_revision(revision_id, catalog, &font_families));
         Ok(RuntimeRevisionBundle {
             revision,
             navigation,
@@ -276,7 +282,8 @@ impl RuntimeDocument {
                     RuntimeViewRevisionMetadata::OmitFullChapterTextIndices => Default::default(),
                 },
             },
-            font_families: summarize_layout_font_families(&revision_record.layout.pages),
+            font_families,
+            required_font_faces,
         })
     }
 

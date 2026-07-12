@@ -32,6 +32,7 @@ pub(super) struct RuntimeRevision {
     pub(super) final_extent: Option<RuntimeRevisionExtent>,
     pub(super) layout: BuiltLayout,
     pub(super) layout_config: LayoutConfig,
+    pub(super) required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
     pub(super) interactions: RuntimeRevisionInteractions,
     pub(super) frame_cache: BTreeMap<usize, RuntimeCachedFrame>,
     pub(super) frame_cache_order: VecDeque<usize>,
@@ -60,6 +61,7 @@ impl RuntimeRevision {
     pub(super) fn completed(
         layout: BuiltLayout,
         layout_config: LayoutConfig,
+        required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
     ) -> Self {
         let extent = revision_extent(&layout);
@@ -70,6 +72,7 @@ impl RuntimeRevision {
             final_extent: Some(extent),
             layout,
             layout_config,
+            required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),
@@ -79,6 +82,7 @@ impl RuntimeRevision {
     pub(super) fn warming(
         layout: BuiltLayout,
         layout_config: LayoutConfig,
+        required_font_face_catalog: Option<Vec<super::RuntimeRequiredFontFace>>,
         interactions: RuntimeRevisionInteractions,
     ) -> Self {
         Self {
@@ -91,6 +95,7 @@ impl RuntimeRevision {
             final_extent: None,
             layout,
             layout_config,
+            required_font_face_catalog,
             interactions,
             frame_cache: BTreeMap::new(),
             frame_cache_order: VecDeque::new(),

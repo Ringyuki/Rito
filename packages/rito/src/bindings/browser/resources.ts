@@ -15,6 +15,7 @@ export function createBrowserReaderResourceState(): Pick<
 }
 
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
+  if (state.pinnedFonts.summary.faces.length > 0) return false;
   const revisionId = state.revisionBundle.revision.revisionId;
   const registeredBefore = state.registeredFontFaces.size;
   let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);

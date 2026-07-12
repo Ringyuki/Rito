@@ -306,6 +306,30 @@ pub struct RuntimeRevisionBundle {
     pub footnotes: RuntimeFootnotes,
     pub chapter_text_indices: RuntimeChapterTextIndices,
     pub font_families: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_font_faces: Option<RuntimeRequiredFontFaces>,
+}
+
+pub const RUNTIME_REQUIRED_FONT_FACES_SCHEMA_VERSION: u32 = 1;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRequiredFontFaces {
+    pub schema_version: u32,
+    pub revision_id: String,
+    pub faces: Vec<RuntimeRequiredFontFace>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeRequiredFontFace {
+    pub family: String,
+    pub href: String,
+    pub style: String,
+    pub weight: u16,
+    pub shape_fingerprint: String,
+    pub byte_length: usize,
+    pub source_order: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

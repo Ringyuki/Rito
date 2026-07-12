@@ -4,7 +4,8 @@ use super::{
     fixture::fixture_epub,
     pinned_font_policy_fixtures::{
         content_epub, face, font_aware_layout, illustration_font, policy, sha256_hex,
-        shared_supported_character, title_font, unique_supported_character, xml_text,
+        shared_supported_character, short_sha256, title_font, unique_supported_character,
+        variable_title_font, xml_text,
     },
 };
 use crate::{
@@ -12,7 +13,8 @@ use crate::{
     runtime::{
         frame::chapter_window_layout_config, RuntimeBoundedRevisionRequest,
         RuntimeContinueRevisionRequest, RuntimeDocument, RuntimePinnedFontGenericRole,
-        RuntimeRevisionAdvance, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
+        RuntimeRequiredFontFace, RuntimeRevisionAdvance, RuntimeRevisionHandle,
+        RuntimeRevisionWorkBudget,
     },
 };
 
@@ -138,6 +140,96 @@ fn missing_glyph_uses_the_next_locale_face_in_the_full_alias_chain() {
 }
 
 #[test]
+fn required_font_faces_are_pinned_only_normalized_and_layout_scoped() {
+    let publication_font = illustration_font();
+    let pinned_font = title_font();
+    let character = shared_supported_character(&publication_font, &pinned_font);
+    let body = format!(
+        r#"<p style="font-family: 'Used, Display', serif; font-style: italic; font-weight: 700">{}</p>"#,
+        xml_text(character)
+    );
+    let stylesheet = r#"
+        @font-face { font-family: Unused; src: url("book.ttf"); }
+        @font-face { font-family: "Used, Display"; src: url("book.ttf"); font-style: ITALIC; font-weight: bold; }
+    "#;
+    let bytes = content_epub("en", &body, stylesheet, Some(&publication_font));
+    let config = font_aware_layout();
+    let mut legacy = RuntimeDocument::open(&bytes).unwrap();
+    let legacy_revision = legacy.create_revision(&config).unwrap();
+    let legacy_bundle = legacy
+        .revision_bundle(&legacy_revision.revision_id, false)
+        .unwrap();
+
+    assert_eq!(legacy_bundle.required_font_faces, None);
+    assert!(serde_json::to_value(&legacy_bundle)
+        .unwrap()
+        .get("requiredFontFaces")
+        .is_none());
+
+    let mut pinned = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            pinned_font,
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .unwrap();
+    let revision = pinned.create_revision(&config).unwrap();
+    let required = pinned
+        .revision_bundle(&revision.revision_id, false)
+        .unwrap()
+        .required_font_faces
+        .expect("pinned revision carries its required fonts");
+
+    assert_eq!(required.schema_version, 1);
+    assert_eq!(required.revision_id, revision.revision_id);
+    assert_eq!(
+        required.faces,
+        vec![RuntimeRequiredFontFace {
+            family: "Used, Display".to_owned(),
+            href: "book.ttf".to_owned(),
+            style: "italic".to_owned(),
+            weight: 700,
+            shape_fingerprint: short_sha256(&publication_font),
+            byte_length: publication_font.len(),
+            source_order: 1,
+        }]
+    );
+}
+
+#[test]
+fn required_font_faces_exclude_variable_and_unshapeable_publication_faces() {
+    let pinned_font = illustration_font();
+    for publication_font in [variable_title_font(), b"not-a-shapeable-font".to_vec()] {
+        let bytes = content_epub(
+            "en",
+            r#"<p style="font-family: Candidate, serif">A</p>"#,
+            r#"@font-face { font-family: Candidate; src: url("book.ttf"); }"#,
+            Some(&publication_font),
+        );
+        let mut document = RuntimeDocument::open_with_pinned_font_policy(
+            &bytes,
+            policy(vec![face(
+                pinned_font.clone(),
+                RuntimePinnedFontGenericRole::Serif,
+                Some("en"),
+            )]),
+        )
+        .unwrap();
+        let revision = document.create_revision(&font_aware_layout()).unwrap();
+        let required = document
+            .revision_bundle(&revision.revision_id, false)
+            .unwrap()
+            .required_font_faces
+            .expect("pinned revision carries an empty manifest");
+
+        assert_eq!(required.revision_id, revision.revision_id);
+        assert!(required.faces.is_empty());
+    }
+}
+
+#[test]
 fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
     let pinned_font = title_font();
     let author_font = illustration_font();
@@ -214,6 +306,16 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
         &bounded,
         &completed.revision.revision_id,
     );
+    let expected_faces = required_faces(&eager, &first.revision_id);
+    assert_eq!(expected_faces.len(), 1);
+    assert_eq!(expected_faces[0].family, "Author");
+    for faces in [
+        required_faces(&eager, &second.revision_id),
+        required_faces(&window, &window_revision.revision_id),
+        required_faces(&bounded, &completed.revision.revision_id),
+    ] {
+        assert_eq!(faces, expected_faces);
+    }
 }
 
 fn alias<'a>(
@@ -261,4 +363,14 @@ fn assert_revision_layouts_equal(
         left.revisions[left_id].layout.pages,
         right.revisions[right_id].layout.pages
     );
+}
+
+fn required_faces(document: &RuntimeDocument, revision_id: &str) -> Vec<RuntimeRequiredFontFace> {
+    let required = document
+        .revision_bundle(revision_id, false)
+        .unwrap()
+        .required_font_faces
+        .expect("pinned revision carries its required fonts");
+    assert_eq!(required.revision_id, revision_id);
+    required.faces
 }

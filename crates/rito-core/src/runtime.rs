@@ -18,6 +18,7 @@ mod pinned_font_policy;
 mod publication_footnotes;
 mod resource;
 mod revision;
+mod revision_fonts;
 mod search;
 mod shape_provenance_diagnostic;
 mod source_locator;

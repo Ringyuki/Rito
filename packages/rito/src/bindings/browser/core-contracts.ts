@@ -59,6 +59,7 @@ export type {
   RitoCoreWasmResourceKind as CoreResourceKind,
   RitoCoreWasmResourcePayload as CoreResourcePayload,
   RitoCoreWasmRevisionBundle as CoreRevisionBundle,
+  RitoCoreWasmRequiredFontFace as CoreRequiredFontFace,
   RitoCoreWasmRevisionFrameSelection as CoreRevisionFrameSelection,
   RitoCoreWasmRevisionNavigation as CoreRevisionNavigation,
   RitoCoreWasmRevisionHandle as CoreRevisionHandle,

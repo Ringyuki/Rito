@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
 use rito_core::runtime::{
-    encode_runtime_bundle, RuntimeChapterTextIndex, RuntimeFootnotes, RuntimeRevisionNavigation,
-    RuntimeRevisionSummary, RuntimeTocTargets, RuntimeViewRevisionDisplay,
-    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind, RuntimeViewRevisionMetadata,
+    encode_runtime_bundle, RuntimeChapterTextIndex, RuntimeFootnotes, RuntimeRequiredFontFaces,
+    RuntimeRevisionNavigation, RuntimeRevisionSummary, RuntimeTocTargets,
+    RuntimeViewRevisionDisplay, RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind,
+    RuntimeViewRevisionMetadata,
 };
 use serde::Serialize;
 
@@ -54,6 +55,8 @@ struct WasmReaderRuntimeRevisionBundle<'a> {
     footnotes: &'a RuntimeFootnotes,
     chapter_text_indices: WasmReaderChapterTextIndices<'a>,
     font_families: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    required_font_faces: Option<&'a RuntimeRequiredFontFaces>,
 }
 
 #[derive(Serialize)]
@@ -158,6 +161,7 @@ fn reader_view_revision_projection(
                     scope_key: FULL_CHAPTER_TEXT_SCOPE_KEY,
                 },
                 font_families: &bundle.font_families,
+                required_font_faces: bundle.required_font_faces.as_ref(),
             },
             frame_selection: result.frame_selection.as_ref(),
             initial_frame_window: result.initial_frame_window.as_ref(),

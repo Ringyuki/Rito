@@ -330,13 +330,14 @@ in place:
   finish platform decode, then invalidate only if that exact preview remains
   active. Navigation, replacement, and disposal suppress stale completion;
   image-dominated previews retain their blocking first-paint behavior.
-- Browser font registration now uses source-ordered Rust `@font-face` summaries
-  and Rust revision-bundle `fontFamilies` metadata. Font data may load in
-  parallel, but successful faces are added to `document.fonts` in that source
-  order; individual failures and stale revisions do not commit. The browser
+- Pinned Browser font registration now uses a revision-bound Rust manifest
+  derived from the exact static, shapeable EPUB faces admitted to measurement
+  and referenced by that layout. Font data may load in parallel, but the whole
+  set is added to `document.fonts` atomically in Rust source order before the
+  candidate revision commits; failure and staleness roll back. The browser
   shell no longer warms/probes frames or scans decoded display-list commands to
-  infer font policy. Image and font preload failures are best-effort, matching
-  the old TS loader behavior.
+  infer font policy. Legacy readers keep the old best-effort declared-face
+  loader; pinned readers never register manifest-external declarations.
 - Layout image sizing, eager EPUB resource reads, and runtime resource transfer
   use one Rust href resolver. Exact raw source/key matches retain precedence;
   remaining matching removes URL query/fragment suffixes before canonical path
@@ -1056,9 +1057,10 @@ Required cleanup:
    - The unused browser-worker `warmup` command has been removed. Runtime
      loading is expressed by the package loader, and document work begins at
      `open`; there is no separate worker protocol branch with no reader state.
-   - Font fallback policy no longer probes frame windows in TypeScript:
-     Rust revision bundles report font families used by text/ruby content, and
-     the browser shell only registers platform `FontFace` instances.
+   - Font fallback policy no longer probes frame windows in TypeScript. Pinned
+     Rust revision bundles report the eligible EPUB faces whose families occur
+     in text/ruby paint, and the browser shell only executes their
+     revision-bound, fingerprint-verified `FontFace` readiness transaction.
    - Rust runtime and WASM boundary tests keep shared fixture builders and
      render-hash normalization helpers in focused test modules, so production
      assertions are not buried under fixture setup.

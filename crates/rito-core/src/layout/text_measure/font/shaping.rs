@@ -80,6 +80,14 @@ impl<'a> TextMeasurementFontFace<'a> {
     pub(crate) fn is_shapeable(&self) -> bool {
         self.ttf_face.is_some() && self.shape_face.is_some() && self.shape_cmap_subtable.is_some()
     }
+
+    pub(crate) fn is_static_shapeable(&self) -> bool {
+        self.is_shapeable()
+            && self
+                .ttf_face
+                .as_ref()
+                .is_some_and(|face| face.variation_axes().is_empty())
+    }
 }
 
 fn font_fingerprint(bytes: &[u8]) -> [u8; 8] {

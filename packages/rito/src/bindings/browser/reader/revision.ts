@@ -1,8 +1,9 @@
 import type { LayoutConfig } from '../../../reader';
 import { applyBrowserReaderFrameWindow, cacheFrame, resetFrameCache } from './frame-cache';
-import { decodeBrowserReaderFrame } from './frame';
 import { resetBrowserReaderInteractionCache } from './interaction';
-import { preloadFrameResourceBytes, preloadVisualPreviewFrameResources } from '../resources';
+import { preloadVisualPreviewFrameResources } from '../resources';
+import { prepareRequiredRevisionFonts } from '../required-fonts';
+import { prepareBrowserReaderCommitFrame } from '../revision-commit';
 import {
   createRitoCoreWasmReaderChapterTextIndexMap,
   createRitoCoreWasmReaderFootnoteMap,
@@ -29,10 +30,6 @@ export interface BrowserReaderRevisionStateInput {
   readonly result: BrowserReaderRevisionResult;
   readonly worker: BrowserReaderWorkerClient;
   readonly initialFrame?: BrowserReaderFrame | undefined;
-}
-
-export function activePreviewWorker(state: BrowserReaderState): BrowserReaderWorkerClient {
-  return state.worker;
 }
 
 export async function fullReflowWorker(
@@ -112,10 +109,6 @@ export function applyBrowserReaderRevisionState(
   disposeInactiveWorker(state, previousWorker, input.worker);
 }
 
-export function notifyBrowserReaderLayoutCommitted(state: BrowserReaderState): void {
-  for (const cb of state.layoutCommittedListeners) cb();
-}
-
 export async function commitBrowserReaderViewResult(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,
@@ -128,12 +121,29 @@ export async function commitBrowserReaderViewResult(
   if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
     return releaseDiscarded(worker, result);
   }
-  const commitFrame = await prepareCommitFrame(state, worker, result);
+  const rollbackFonts = await prepareRequiredRevisionFonts(
+    state,
+    worker,
+    result.bundle,
+    () => !shouldDiscardReflowResult(state, request, baseCommitGeneration),
+  );
+  if (!rollbackFonts) return false;
+  const commitFrame = await prepareBrowserReaderCommitFrame(state, worker, result, rollbackFonts);
   if (shouldDiscardReflowResult(state, request, baseCommitGeneration)) {
+    rollbackFonts();
     return releaseDiscarded(worker, result);
   }
   if (visualPreview) {
-    return commitVisualPreview(state, request, worker, result, commitFrame, baseCommitGeneration);
+    const committed = commitVisualPreview(
+      state,
+      request,
+      worker,
+      result,
+      commitFrame,
+      baseCommitGeneration,
+    );
+    if (committed !== true) rollbackFonts();
+    return committed;
   }
   applyBrowserReaderRevisionState(state, {
     config: request.config,
@@ -144,7 +154,7 @@ export async function commitBrowserReaderViewResult(
     initialFrame: commitFrame.frame,
   });
   onCommitted?.();
-  notifyBrowserReaderLayoutCommitted(state);
+  for (const cb of state.layoutCommittedListeners) cb();
   return true;
 }
 
@@ -220,37 +230,12 @@ function releaseRevision(worker: BrowserReaderWorkerClient, revisionId: string):
   void worker.releaseRevision(revisionId).catch(() => undefined);
 }
 
-async function prepareCommitFrame(
-  state: BrowserReaderState,
-  worker: BrowserReaderWorkerClient,
-  result: BrowserReaderRevisionResult,
-) {
-  try {
-    const selection = result.selectedFrame;
-    if (!selection || selection.spreadIndex >= result.bundle.revision.spreadCount) return {};
-    const frame = decodeBrowserReaderFrame(
-      state.decodeFrameCommandBuffer,
-      result.bundle.revision.revisionId,
-      selection.spreadIndex,
-      selection.frame,
-    );
-    const resources = result.frameWindow?.spreads.find(
-      (spread) => spread.spreadIndex === selection.spreadIndex,
-    )?.resources;
-    if (frame.imageDominated && resources) await preloadFrameResourceBytes(state, resources);
-    return { displaySpreadIndex: selection.displaySpreadIndex, frame, resources };
-  } catch (error) {
-    releaseDiscarded(worker, result);
-    throw error;
-  }
-}
-
 function commitVisualPreview(
   state: BrowserReaderState,
   request: BrowserReaderQueuedReflow,
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
-  commitFrame: Awaited<ReturnType<typeof prepareCommitFrame>>,
+  commitFrame: Awaited<ReturnType<typeof prepareBrowserReaderCommitFrame>>,
   baseCommitGeneration: number,
 ): boolean | 'staleSpread' {
   const displaySpreadIndex = commitFrame.displaySpreadIndex;

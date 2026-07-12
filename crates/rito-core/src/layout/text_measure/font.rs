@@ -14,7 +14,7 @@ mod measurement;
 mod runs;
 mod shaping;
 
-pub(super) use matching::parse_font_family_list;
+pub(crate) use matching::parse_font_family_list;
 pub(super) use measurement::{font_aware_measurement, font_aware_shape};
 #[cfg(test)]
 pub(super) use runs::{font_runs, FontMeasurementRun};

@@ -1,6 +1,6 @@
 import type { ReaderOptions } from '../../../../reader';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig, toCoreLayoutConfig } from '../layout';
-import { activePreviewWorker, commitBrowserReaderViewResult, fullReflowWorker } from '../revision';
+import { commitBrowserReaderViewResult, fullReflowWorker } from '../revision';
 import { currentCommitGeneration } from './revision-handle';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import type {
@@ -176,7 +176,7 @@ async function createQueuedRevision(
 ): Promise<void> {
   const previousRevisionId = state.revisionBundle.revision.revisionId || undefined;
   if (previousRevisionId !== undefined) {
-    const previewWorker = activePreviewWorker(state);
+    const previewWorker = state.worker;
     const resolved = await createAndCommitViewRevision(
       state,
       request,

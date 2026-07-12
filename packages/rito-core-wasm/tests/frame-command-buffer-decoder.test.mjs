@@ -165,6 +165,16 @@ test('generated type surface does not expose publication and layout as generic J
   assert.doesNotMatch(declaration, /readonly initialFrame\?: RitoCoreWasmInitialFrameDecision/);
   assert.doesNotMatch(declaration, /initialFrameResourcePayloads/);
   assert.match(revisionBundle, /readonly fontFamilies: readonly string\[];/);
+  assert.match(revisionBundle, /readonly requiredFontFaces\?: RitoCoreWasmRequiredFontFaces/);
+  const requiredFonts = interfaceBody(declaration, 'RitoCoreWasmRequiredFontFaces');
+  const requiredFace = interfaceBody(declaration, 'RitoCoreWasmRequiredFontFace');
+  assert.match(requiredFonts, /readonly schemaVersion: 1;/);
+  assert.match(requiredFonts, /readonly revisionId: string;/);
+  assert.match(requiredFonts, /readonly faces: readonly RitoCoreWasmRequiredFontFace\[];/);
+  for (const field of ['family', 'href', 'style', 'weight', 'shapeFingerprint', 'byteLength']) {
+    assert.match(requiredFace, new RegExp(`readonly ${field}:`));
+  }
+  assert.match(requiredFace, /readonly sourceOrder: number;/);
   assert.doesNotMatch(revisionBundleResponse, /displaySpreadIndex/);
   assert.match(frameResourceWarmPlan, /readonly displaySpreadIndex: number;/);
   assert.match(declaration, /createFullRevisionBundle\(/);

@@ -6,6 +6,7 @@ import {
 } from './reader-worker-versioned-payload-runtime.js';
 import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
 import { decodePinnedFontPolicySummary, openRawDocument } from './pinned-font-policy-runtime.js';
+import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
   async function initRitoCoreWasmEngine(initInput) {
@@ -407,6 +408,7 @@ function requireViewRevisionPayload(value, operation) {
   if (typeof revision.revisionId !== 'string' || revision.revisionId.length === 0) {
     throw new Error(`${operation} returned a view revision without a revisionId`);
   }
+  requireRequiredFontFaces(bundle.requiredFontFaces, revision.revisionId, operation);
   if (typeof result.preview !== 'boolean') {
     throw new Error(`${operation} returned a view revision without a preview flag`);
   }

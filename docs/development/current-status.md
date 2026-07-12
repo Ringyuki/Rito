@@ -151,9 +151,13 @@ Those names now belong to the old TS reference tree only.
   face descriptors as `normal 400`, applies CSS style/weight matching before
   glyph fallback, and checks equal-descriptor composite faces in reverse source
   order. A missing glyph advances to the next family rather than a weaker face
-  from the selected family. Browser font loads may prepare concurrently, but
-  successful faces are committed to `document.fonts` in the Rust-authored
-  source order; failures and stale reader revisions remain isolated.
+  from the selected family. Pinned revisions now carry a revision-bound manifest
+  containing the static, Rust-shapeable EPUB faces whose families that layout
+  references. The browser reads those resources from the candidate revision,
+  verifies their Rust-authored byte fingerprints, waits for every `FontFace` to
+  load, then commits them atomically in Rust source order before the revision
+  becomes visible. Failure or staleness rolls back only that candidate. Legacy
+  readers retain their opportunistic, best-effort loader.
 - Image-size lookup, eager document reads, and runtime resource transfers now
   share one ambiguity-aware href resolver. An exact raw source/key match wins;
   remaining matching strips URL query/fragment suffixes before path lookup,

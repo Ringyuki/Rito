@@ -17,6 +17,7 @@ const BROWSER_THEME = join(SRC, 'bindings/browser/theme');
 const BROWSER_FRAME_COMMAND_RENDERER = join(SRC, 'bindings/browser/frame-command-renderer.ts');
 const BROWSER_IMAGE_HREF_RESOLVER = join(SRC, 'bindings/browser/image-href-resolver.ts');
 const BROWSER_RENDERING = join(SRC, 'bindings/browser/rendering.ts');
+const BROWSER_REVISION_COMMIT = join(SRC, 'bindings/browser/revision-commit.ts');
 const BROWSER_READER_METHODS = join(BROWSER_READER_BINDING, 'reader-methods.ts');
 const BROWSER_READER_FACADE = join(BROWSER_READER_BINDING, 'reader.ts');
 const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
@@ -315,12 +316,14 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {
     const reflowSource = read(BROWSER_READER_REFLOW);
     const revisionSource = read(BROWSER_READER_REVISION);
+    const revisionCommitSource = read(BROWSER_REVISION_COMMIT);
     expect(reflowSource).not.toContain('warmFrameWindow');
     expect(reflowSource).toContain('commitBrowserReaderViewResult');
     expect(reflowSource).not.toContain('decodeBrowserReaderFrame');
     expect(revisionSource).not.toContain('warmFrameWindow');
-    expect(revisionSource).toContain('decodeBrowserReaderFrame');
-    expect(revisionSource).toContain('result.selectedFrame');
+    expect(revisionSource).toContain('prepareBrowserReaderCommitFrame');
+    expect(revisionCommitSource).toContain('decodeBrowserReaderFrame');
+    expect(revisionCommitSource).toContain('result.selectedFrame');
   });
 
   it('does not keep a TypeScript resource scheduler layer for frame windows', () => {

@@ -1,4 +1,5 @@
 import { RitoCoreWasmError } from './core-wasm-error-runtime.js';
+import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
 
 export function requireObjectInput(value, operation) {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
@@ -116,6 +117,7 @@ export function requireRevisionBundle(value, revision, operation) {
   for (const field of ['navigation', 'tocTargets', 'footnotes', 'chapterTextIndices']) {
     requireMatchingRevisionId(bundle[field], revision, `${operation} ${field}`);
   }
+  requireRequiredFontFaces(bundle.requiredFontFaces, revision.revisionId, operation);
   return bundle;
 }
 

@@ -80,6 +80,13 @@ fn pinned_face_wins_an_alias_collision_with_a_publication_font_face() {
     assert!(!diagnostic
         .single_font_fingerprints
         .contains_key(&sha256_hex(&publication_font)[..16]));
+    assert!(document
+        .revision_bundle(&revision.revision_id, false)
+        .unwrap()
+        .required_font_faces
+        .unwrap()
+        .faces
+        .is_empty());
 }
 
 #[test]

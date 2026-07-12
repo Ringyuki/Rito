@@ -14,12 +14,12 @@ mod generic_serif;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use font::{TextMeasurementFontFace, TextMeasurementFonts};
+pub(crate) use font::{parse_font_family_list, TextMeasurementFontFace, TextMeasurementFonts};
 
 #[cfg(test)]
 use font::{
-    face_supports_character, font_runs, parse_font_family_list, reset_shape_run_call_count,
-    shape_run, shape_run_call_count, shaped_run_width, FontMeasurementRun,
+    face_supports_character, font_runs, reset_shape_run_call_count, shape_run,
+    shape_run_call_count, shaped_run_width, FontMeasurementRun,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]

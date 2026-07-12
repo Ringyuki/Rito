@@ -17,6 +17,7 @@ const runtimeSources = [
   'core-wasm-versioned-runtime.js',
   'core-wasm-versioned-mutation-runtime.js',
   'core-wasm-versioned-validation-runtime.js',
+  'required-font-faces-validation-runtime.js',
   'reader-compat-runtime.js',
   'reader-bounded-session-runtime.js',
   'reader-worker-cache-runtime.js',

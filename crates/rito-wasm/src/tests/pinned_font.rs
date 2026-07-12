@@ -1,10 +1,14 @@
 use std::path::Path;
 
 use rito_core::epub::open_runtime_document_owned;
+use rito_core::layout::TextMeasurementMode;
+use rito_core::runtime::decode_runtime_bundle;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
+
+use super::fixture::layout;
 
 #[test]
 fn legacy_open_reports_an_empty_canonical_policy() {
@@ -105,6 +109,53 @@ fn core_rejects_hash_mismatch_and_unparseable_font_bytes() {
     assert!(bad_hash.message().contains("SHA-256 mismatch"));
     assert_eq!(bad_font.code(), WasmRuntimeErrorCode::EngineError);
     assert!(bad_font.message().contains("not a parseable"));
+}
+
+#[test]
+fn reader_json_and_ritorb1_preserve_required_font_faces() {
+    let (epub, font) = demo_epub_and_font();
+    let metadata = metadata(&sha256_hex(&font), None);
+    let mut json_document = open(epub.clone(), metadata.clone(), vec![font.clone()]);
+    let mut binary_document = open(epub, metadata, vec![font]);
+    let mut config = layout();
+    config.text_measurement = TextMeasurementMode::FontAware;
+    let request = json!({
+        "layoutConfig": config,
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "mode": "full",
+    })
+    .to_string();
+    let json: Value = serde_json::from_str(
+        &json_document
+            .create_reader_view_revision_bundle_json(&request, true)
+            .expect("reader JSON is returned"),
+    )
+    .expect("reader JSON parses");
+    let binary = binary_document
+        .create_reader_view_revision_bundle_bytes(&request, true)
+        .expect("reader RITORB1 is returned");
+    let binary = decode_runtime_bundle(&binary).expect("reader RITORB1 decodes");
+
+    for bundle in [
+        &json["result"]["bundle"],
+        &binary.payload["result"]["bundle"],
+    ] {
+        let required = &bundle["requiredFontFaces"];
+        assert_eq!(required["schemaVersion"], 1);
+        assert_eq!(required["revisionId"], bundle["revision"]["revisionId"]);
+        let face = required["faces"]
+            .as_array()
+            .and_then(|faces| faces.first())
+            .expect("demo revision requires an embedded font face");
+        assert!(face["family"]
+            .as_str()
+            .is_some_and(|value| !value.is_empty()));
+        assert!(face["shapeFingerprint"]
+            .as_str()
+            .is_some_and(|value| value.len() == 16));
+        assert!(face["byteLength"].as_u64().is_some_and(|value| value > 0));
+    }
 }
 
 fn open(epub: Vec<u8>, metadata: Value, fonts: Vec<Vec<u8>>) -> WasmRuntimeDocument {

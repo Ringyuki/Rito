@@ -26,7 +26,7 @@ pub use document::{
     open_document, open_runtime_document, open_runtime_document_owned, LoadedBinaryResource,
     LoadedChapter, LoadedEpubDocument, LoadedTextResource,
 };
-pub(crate) use fonts::text_measurement_font_assembly_for_layout;
+pub(crate) use fonts::{text_measurement_font_assembly_for_layout, ShapeablePublicationFontFace};
 pub(crate) use layout_bridge::{
     build_prepared_loaded_document_runtime_layout, prepare_runtime_layout_chapter,
     PreparedRuntimeLayoutChapter, PreparedRuntimeLayoutOptions,
