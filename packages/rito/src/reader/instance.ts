@@ -9,6 +9,7 @@ import type {
   PaginationPolicy,
   ReaderLocator,
   ReaderLocatorResolution,
+  ReaderPageSemantics,
   ReaderPageTargets,
   ReaderSourceRange,
   Rect,
@@ -134,6 +135,8 @@ export interface ReaderInteractions {
   resolveExactSourceRange?(
     request: ReaderExactSourceRangeRequest,
   ): Promise<ReaderExactSourceRangeResolution | undefined>;
+  /** Native document-order accessibility content for one committed page. */
+  getPageSemantics?(pageIndex: number): Promise<ReaderPageSemantics | undefined>;
   getPageTargets(pageIndex: number): Promise<ReaderPageTargets | undefined>;
   getFootnote(key: string): Promise<FootnoteEntry | undefined>;
   resolveLocator(locator: ReaderLocator): Promise<ReaderLocatorResolution | undefined>;

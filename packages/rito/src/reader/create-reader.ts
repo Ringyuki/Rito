@@ -1,4 +1,4 @@
-import type { Reader, ReaderOptions } from './types';
+import type { Reader, ReaderOptions } from './instance';
 export async function createReader(
   data: ArrayBuffer,
   canvas: HTMLCanvasElement | OffscreenCanvas,

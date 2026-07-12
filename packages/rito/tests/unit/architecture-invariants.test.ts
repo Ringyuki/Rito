@@ -383,7 +383,6 @@ describe('Architecture invariant: TypeScript reference core is isolated', () => 
       'reader/instance.ts',
       'reader/layout-config.ts',
       'reader/model.ts',
-      'reader/types.ts',
     ]);
   });
 

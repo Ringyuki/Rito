@@ -173,6 +173,32 @@ export interface ReaderPageTargets {
   readonly targets: readonly ReaderInteractionTarget[];
 }
 
+/** Document-order accessibility content with page-local geometry. */
+export interface ReaderSemanticNode {
+  readonly role:
+    | 'heading'
+    | 'paragraph'
+    | 'list'
+    | 'listitem'
+    | 'image'
+    | 'link'
+    | 'blockquote'
+    | 'table'
+    | 'generic';
+  readonly bounds: Rect;
+  readonly level?: number | undefined;
+  readonly text?: string | undefined;
+  readonly alt?: string | undefined;
+  readonly href?: string | undefined;
+  readonly children: readonly ReaderSemanticNode[];
+}
+
+export interface ReaderPageSemantics {
+  readonly pageIndex: number;
+  readonly spreadIndex: number;
+  readonly nodes: readonly ReaderSemanticNode[];
+}
+
 export interface TextPosition {
   readonly blockIndex: number;
   readonly lineIndex: number;

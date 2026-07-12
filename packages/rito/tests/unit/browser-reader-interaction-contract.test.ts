@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
 import type {
+  CorePageSemantics,
   CorePageTargets,
   CoreSourceLocatorResolution,
 } from '../../src/bindings/browser/core-contracts';
@@ -44,6 +45,67 @@ describe('Browser reader interaction contract', () => {
     });
     expect(result?.targets[0]).not.toHaveProperty('blockIndex');
     expect(result?.targets[0]).not.toHaveProperty('text');
+  });
+
+  it('exposes recursive native page semantics without the revision stamp', async () => {
+    const fixture = readyFixture();
+    fixture.getPageSemanticsAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: pageSemantics(0, 0),
+    });
+    const interactions = createBrowserReaderInteractions(fixture.state);
+
+    await expect(interactions.getPageSemantics?.(0)).resolves.toEqual({
+      pageIndex: 0,
+      spreadIndex: 0,
+      nodes: [
+        {
+          role: 'heading',
+          level: 2,
+          bounds: { x: 4, y: 8, width: 120, height: 24 },
+          children: [
+            {
+              role: 'link',
+              href: '#target',
+              text: 'Chapter',
+              bounds: { x: 4, y: 8, width: 80, height: 24 },
+              children: [],
+            },
+            {
+              role: 'image',
+              alt: '',
+              bounds: { x: 84, y: 8, width: 40, height: 24 },
+              children: [],
+            },
+          ],
+        },
+      ],
+    });
+    expect(fixture.getPageSemanticsAtRevision).toHaveBeenCalledWith(handle(), 0);
+  });
+
+  it.each([
+    { ownership: 'inner revision', value: { ...pageSemantics(0, 0), revisionId: 'forged' } },
+    { ownership: 'requested page', value: pageSemantics(1, 0) },
+  ])('rejects page semantics with mismatched $ownership', async ({ value }) => {
+    const fixture = readyFixture();
+    fixture.getPageSemanticsAtRevision.mockResolvedValue({ revision: handle(), value });
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageSemantics?.(0),
+    ).rejects.toThrow('Reader page semantics response does not match its request');
+  });
+
+  it('rejects page semantics outside committed navigation', async () => {
+    const fixture = readyFixture();
+    fixture.getPageSemanticsAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: pageSemantics(0, 1),
+    });
+
+    await expect(
+      createBrowserReaderInteractions(fixture.state).getPageSemantics?.(0),
+    ).rejects.toThrow('Reader page semantics do not match committed navigation');
   });
 
   it('uses committed navigation as the authoritative page-to-spread projection', async () => {
@@ -187,6 +249,36 @@ function pageTargets(pageIndex: number, spreadIndex: number): CorePageTargets {
         },
         targetLocator: { href: 'Text/chapter.xhtml', anchorId: 'fn1' },
         footnoteKey: 'Text/chapter.xhtml#fn1',
+      },
+    ],
+  };
+}
+
+function pageSemantics(pageIndex: number, spreadIndex: number): CorePageSemantics {
+  return {
+    revisionId: 'rev',
+    pageIndex,
+    spreadIndex,
+    nodes: [
+      {
+        role: 'heading',
+        level: 2,
+        bounds: { x: 4, y: 8, width: 120, height: 24 },
+        children: [
+          {
+            role: 'link',
+            href: '#target',
+            text: 'Chapter',
+            bounds: { x: 4, y: 8, width: 80, height: 24 },
+            children: [],
+          },
+          {
+            role: 'image',
+            alt: '',
+            bounds: { x: 84, y: 8, width: 40, height: 24 },
+            children: [],
+          },
+        ],
       },
     ],
   };

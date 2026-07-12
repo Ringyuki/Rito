@@ -26,6 +26,7 @@ export type {
   RitoCoreWasmLayoutConfig as CoreLayoutConfig,
   RitoCoreWasmLineBreaking as CoreLineBreaking,
   RitoCoreWasmFootnote as CoreFootnote,
+  RitoCoreWasmPageSemantics as CorePageSemantics,
   RitoCoreWasmPageTargets as CorePageTargets,
   RitoCoreWasmPlannedFrameResourcePrefetchResponse as CorePlannedFrameResourcePrefetchResponse,
   RitoCoreWasmPublicationInfo as CorePublicationInfo,

@@ -23,16 +23,15 @@ import { resolveExactSourceRange } from './source-range';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
 const PAGE_TARGET_CACHE_CAPACITY = 12;
-
 export function createBrowserReaderInteractionState(): BrowserReaderInteractionState {
   return { pageTargets: new Map(), pendingPageTargets: new Map() };
 }
-
 export function createBrowserReaderInteractions(state: BrowserReaderState): ReaderInteractions {
   return {
     get enabled() {
       return captureInteraction(state) !== undefined;
     },
+    getPageSemantics: (pageIndex) => getPageSemantics(state, pageIndex),
     getPageTargets: (pageIndex) => getPageTargets(state, pageIndex),
     getFootnote: (key) => getFootnote(state, key),
     resolveLocator: (locator) => resolveLocator(state, locator),
@@ -41,6 +40,24 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
   };
 }
 
+async function getPageSemantics(state: BrowserReaderState, pageIndex: number) {
+  requirePageIndex(pageIndex);
+  const capture = captureInteraction(state);
+  if (!capture) return undefined;
+  const value = await readCapturedInteraction(state, capture, (worker, revision) =>
+    worker.getPageSemanticsAtRevision(revision, pageIndex),
+  );
+  if (!value) return undefined;
+  if (value.revisionId !== capture.coreRevision.revisionId || value.pageIndex !== pageIndex) {
+    throw new Error('Reader page semantics response does not match its request');
+  }
+  requireMatchingSpread(state, value, 'semantics');
+  return {
+    pageIndex: value.pageIndex,
+    spreadIndex: value.spreadIndex,
+    nodes: value.nodes,
+  };
+}
 export function resetBrowserReaderInteractionCache(state: BrowserReaderState): void {
   state.interaction.pageTargets.clear();
   state.interaction.pendingPageTargets.clear();
@@ -56,7 +73,7 @@ async function getPageTargets(
 
   const cached = state.interaction.pageTargets.get(pageIndex);
   if (cached && sameRevision(cached.revision, capture.revision)) {
-    touchPageTargets(state, pageIndex, cached);
+    cachePageTargets(state, pageIndex, cached);
     return cached.value;
   }
   if (cached) state.interaction.pageTargets.delete(pageIndex);
@@ -122,12 +139,16 @@ function requirePageIndex(pageIndex: number): void {
   }
 }
 
-function requireMatchingSpread(state: BrowserReaderState, value: CorePageTargets): void {
+function requireMatchingSpread(
+  state: BrowserReaderState,
+  value: Pick<CorePageTargets, 'pageIndex' | 'spreadIndex'>,
+  subject = 'targets',
+): void {
   const spread = state.revisionBundle.navigation.spreads.find((candidate) =>
     candidate.pageIndexes.includes(value.pageIndex),
   );
   if (!spread || spread.spreadIndex !== value.spreadIndex) {
-    throw new Error('Reader page targets do not match committed navigation');
+    throw new Error(`Reader page ${subject} do not match committed navigation`);
   }
 }
 
@@ -159,30 +180,21 @@ function copyLocator(locator: ReaderLocator | CoreSourceLocator): ReaderLocator 
   return {
     href: locator.href,
     ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
-    ...(locator.sourcePoint
-      ? {
-          sourcePoint: {
-            nodePath: [...locator.sourcePoint.nodePath],
-            textOffset: locator.sourcePoint.textOffset,
-          },
-        }
-      : {}),
+    ...(locator.sourcePoint ? { sourcePoint: copySourcePoint(locator.sourcePoint) } : {}),
     ...(locator.sourceRange
       ? {
           sourceRange: {
-            start: {
-              nodePath: [...locator.sourceRange.start.nodePath],
-              textOffset: locator.sourceRange.start.textOffset,
-            },
-            end: {
-              nodePath: [...locator.sourceRange.end.nodePath],
-              textOffset: locator.sourceRange.end.textOffset,
-            },
+            start: copySourcePoint(locator.sourceRange.start),
+            end: copySourcePoint(locator.sourceRange.end),
           },
         }
       : {}),
     ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
   };
+}
+
+function copySourcePoint(point: NonNullable<ReaderLocator['sourcePoint']>) {
+  return { nodePath: [...point.nodePath], textOffset: point.textOffset };
 }
 
 function toReaderFootnote(value: CoreFootnote) {
@@ -195,36 +207,24 @@ function toReaderLocatorResolution(value: CoreSourceLocatorResolution): ReaderLo
     spineIdref: value.spineIdref,
     matchedBy: value.matchedBy,
   };
-  return value.status === 'resolved'
-    ? {
-        status: 'resolved',
-        ...common,
-        pageIndex: value.pageIndex,
-        spreadIndex: value.spreadIndex,
-      }
-    : { status: 'pending', ...common, reason: value.reason };
-}
-
-function touchPageTargets(
-  state: BrowserReaderState,
-  pageIndex: number,
-  entry: BrowserReaderState['interaction']['pageTargets'] extends Map<number, infer Value>
-    ? Value
-    : never,
-): void {
-  state.interaction.pageTargets.delete(pageIndex);
-  state.interaction.pageTargets.set(pageIndex, entry);
+  if (value.status === 'pending') return { status: 'pending', ...common, reason: value.reason };
+  return {
+    status: 'resolved',
+    ...common,
+    pageIndex: value.pageIndex,
+    spreadIndex: value.spreadIndex,
+  };
 }
 
 function cachePageTargets(
   state: BrowserReaderState,
   pageIndex: number,
-  entry: Parameters<typeof touchPageTargets>[2],
+  entry: NonNullable<ReturnType<typeof state.interaction.pageTargets.get>>,
 ): void {
-  touchPageTargets(state, pageIndex, entry);
-  while (state.interaction.pageTargets.size > PAGE_TARGET_CACHE_CAPACITY) {
-    const oldest = state.interaction.pageTargets.keys().next().value;
-    if (oldest === undefined) break;
-    state.interaction.pageTargets.delete(oldest);
-  }
+  const cache = state.interaction.pageTargets;
+  cache.delete(pageIndex);
+  cache.set(pageIndex, entry);
+  if (cache.size <= PAGE_TARGET_CACHE_CAPACITY) return;
+  const oldest = cache.keys().next().value;
+  if (oldest !== undefined) cache.delete(oldest);
 }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { CorePageTargets, CoreVersioned } from '../../src/bindings/browser/core-contracts';
+import type {
+  CorePageSemantics,
+  CorePageTargets,
+  CoreVersioned,
+} from '../../src/bindings/browser/core-contracts';
 import {
   createBrowserReaderInteractions,
   resetBrowserReaderInteractionCache,
@@ -48,6 +52,26 @@ describe('Browser reader interaction races', () => {
       expect(fixture.state.interaction.pageTargets.size).toBe(0);
     },
   );
+
+  it('drops an in-flight semantic response after its committed generation changes', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageSemantics>>();
+    fixture.getPageSemanticsAtRevision.mockReturnValue(deferred.promise);
+    const pending = createBrowserReaderInteractions(fixture.state).getPageSemantics?.(0);
+
+    setRevisionState(fixture.state, revisionSummary('rev', 20, 20));
+    deferred.resolve({
+      revision: handle(),
+      value: {
+        revisionId: 'rev',
+        pageIndex: 0,
+        spreadIndex: 0,
+        nodes: [],
+      },
+    });
+
+    await expect(pending).resolves.toBeUndefined();
+  });
 
   it('hides cached targets before dispatch whenever a visual preview is active', async () => {
     const fixture = readyFixture();
