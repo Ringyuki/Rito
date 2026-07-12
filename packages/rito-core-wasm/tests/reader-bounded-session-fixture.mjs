@@ -18,23 +18,29 @@ export function fixtureClient(overrides) {
         ? (value) =>
             track(async () => versionedSummary(summary(value.revisionVersion + 1, 'cancelled', 0)))
         : (...args) => track(overrides.cancel, ...args),
-    getRevisionBundleAtRevision: async (value, includeTocTargets) => {
+    getRevisionPresentationAtRevision: async (value) => {
       const extent = extents.get(value.revisionVersion);
-      if (overrides.bundle !== undefined) {
-        return overrides.bundle(value, extent, includeTocTargets);
+      if (overrides.presentation !== undefined) {
+        return overrides.presentation(value, extent, revisions.get(value.revisionVersion));
       }
       const navigation =
         overrides.navigation === undefined
-          ? { revision: value, value: { revisionId: value.revisionId, ...extent } }
-          : await overrides.navigation(value, extent, includeTocTargets);
+          ? { revision: value, value: revisionNavigation(value.revisionId, extent) }
+          : await overrides.navigation(value, extent);
       return {
         revision: navigation.revision,
-        value: revisionBundle(revisions.get(value.revisionVersion), navigation.value),
+        value: revisionPresentation(revisions.get(value.revisionVersion), navigation.value),
       };
     },
     warmFrameWindowAtRevision: async (value, spreadIndex) => ({
       revision: value,
       value: overrides.warm?.(value, spreadIndex) ?? { spreadIndex },
+    }),
+    resolveSourceLocatorAtRevision: async (value, locator) => ({
+      revision: value,
+      value:
+        (await overrides.locator?.(value, locator, extents.get(value.revisionVersion))) ??
+        sourceResolution(value, locator, extents.get(value.revisionVersion)),
     }),
     releaseRevisionTransfersAtRevision: async (value) => {
       await overrides.releaseTransfers?.(value);
@@ -51,14 +57,48 @@ export function fixtureClient(overrides) {
   };
 }
 
-export function revisionBundle(revision, navigation, chapterTextEntries = {}) {
+export function revisionPresentation(revision, navigation) {
   return {
     revision,
     navigation,
     tocTargets: { revisionId: revision.revisionId, targets: [] },
-    footnotes: { revisionId: revision.revisionId, entries: {} },
-    chapterTextIndices: { revisionId: revision.revisionId, entries: chapterTextEntries },
     fontFamilies: [],
+  };
+}
+
+export function revisionNavigation(revisionId, extent) {
+  return {
+    revisionId,
+    ...extent,
+    spreads: Array.from({ length: extent.spreadCount }, (_, spreadIndex) => ({
+      spreadIndex,
+      pageIndexes: [spreadIndex],
+      leftPageIndex: spreadIndex,
+    })),
+    chapters: [],
+    chapterMap: {},
+  };
+}
+
+export function sourceResolution(revision, locator, extent, spreadIndex = 0) {
+  if (extent.spreadCount === 0) {
+    return {
+      status: 'pending',
+      revisionId: revision.revisionId,
+      locator,
+      spineIdref: 'chapter',
+      reason: 'noPageProjection',
+      matchedBy: 'href',
+    };
+  }
+  return {
+    status: 'resolved',
+    revisionId: revision.revisionId,
+    locator,
+    spineIdref: 'chapter',
+    pageIndex: spreadIndex,
+    spreadIndex,
+    matchedBy: 'href',
   };
 }
 
@@ -110,8 +150,10 @@ export function handle(revisionVersion) {
 
 export function deferred() {
   let resolve;
-  const promise = new Promise((settle) => {
+  let reject;
+  const promise = new Promise((settle, fail) => {
     resolve = settle;
+    reject = fail;
   });
-  return { promise, resolve };
+  return { promise, reject, resolve };
 }

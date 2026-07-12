@@ -21,7 +21,17 @@ export function requireLocatorRequest(value, operation) {
 }
 
 export function requireSourceLocatorRequest(value, operation) {
-  return requireSourceLocator(value, operation);
+  return cloneSourceLocator(requireSourceLocator(value, operation));
+}
+
+export function requireSourceLocatorTransport(value, revision, request, operation) {
+  const transport = requireRecord(value, `${operation} result`);
+  requireExactFields(transport, new Set(['request', 'resolution']), `${operation} result`);
+  const echoed = requireSourceLocatorRequest(transport.request, operation);
+  if (!sameSourceLocator(echoed, request)) {
+    throw new Error(`${operation} returned a mismatched source locator request`);
+  }
+  return requireSourceLocatorResolution(transport.resolution, revision, operation);
 }
 
 export function requirePageTargets(value, revision, pageIndex, operation) {
@@ -172,6 +182,53 @@ function requireSourcePoint(value, operation) {
     throw new Error(`${operation} returned an invalid source node path`);
   }
   requireCount(point.textOffset, `${operation} source text offset`);
+}
+
+function cloneSourceLocator(locator) {
+  return {
+    href: locator.href,
+    ...(locator.anchorId !== undefined ? { anchorId: locator.anchorId } : {}),
+    ...(locator.sourcePoint !== undefined
+      ? { sourcePoint: cloneSourcePoint(locator.sourcePoint) }
+      : {}),
+    ...(locator.sourceRange !== undefined
+      ? {
+          sourceRange: {
+            start: cloneSourcePoint(locator.sourceRange.start),
+            end: cloneSourcePoint(locator.sourceRange.end),
+          },
+        }
+      : {}),
+    ...(locator.progression !== undefined ? { progression: locator.progression } : {}),
+  };
+}
+
+function cloneSourcePoint(point) {
+  return { nodePath: [...point.nodePath], textOffset: point.textOffset };
+}
+
+function sameSourceLocator(left, right) {
+  return (
+    left.href === right.href &&
+    left.anchorId === right.anchorId &&
+    left.progression === right.progression &&
+    sameSourcePoint(left.sourcePoint, right.sourcePoint) &&
+    sameSourceRange(left.sourceRange, right.sourceRange)
+  );
+}
+
+function sameSourceRange(left, right) {
+  if (left === undefined || right === undefined) return left === right;
+  return sameSourcePoint(left.start, right.start) && sameSourcePoint(left.end, right.end);
+}
+
+function sameSourcePoint(left, right) {
+  if (left === undefined || right === undefined) return left === right;
+  return (
+    left.textOffset === right.textOffset &&
+    left.nodePath.length === right.nodePath.length &&
+    left.nodePath.every((part, index) => part === right.nodePath[index])
+  );
 }
 
 function requireExactFields(value, allowedFields, operation) {

@@ -302,6 +302,17 @@ pub struct RuntimeCreatedRevisionBundle {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct RuntimeRevisionPresentation {
+    pub revision: RuntimeRevisionSummary,
+    pub navigation: RuntimeRevisionNavigation,
+    pub toc_targets: RuntimeTocTargets,
+    pub font_families: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required_font_faces: Option<RuntimeRequiredFontFaces>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionBundle {
     pub revision: RuntimeRevisionSummary,
     pub navigation: RuntimeRevisionNavigation,

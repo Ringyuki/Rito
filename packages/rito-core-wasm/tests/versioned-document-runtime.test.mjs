@@ -167,6 +167,7 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getRevisionSummaryAtRevision(handle),
     () => document.getShapeProvenanceDiagnosticAtRevision(handle),
     () => document.getRevisionBundleAtRevision(handle, true),
+    () => document.getRevisionPresentationAtRevision(handle),
     () => document.getRevisionNavigationAtRevision(handle),
     () => document.releaseRevisionTransfersAtRevision(handle),
     () => document.releaseRevisionAtRevision(handle),
@@ -280,12 +281,31 @@ function bundle(version, revisionId = 'rev-1') {
   };
 }
 
+function presentation(version, revisionId = 'rev-1') {
+  const revision = summary(version, 'ready', revisionId);
+  return {
+    revision,
+    navigation: {
+      revisionId,
+      ...revision.knownExtent,
+      spreads: [{ spreadIndex: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      chapters: [],
+      chapterMap: {},
+    },
+    tocTargets: { revisionId, targets: [] },
+    fontFamilies: [],
+  };
+}
+
 function versionedValue(property, args, version) {
   const revisionId = args[0];
   if (property === 'getRevisionSummaryAtRevisionJson') {
     return summary(version, 'ready', revisionId);
   }
   if (property === 'getRevisionBundleAtRevisionJson') return bundle(version, revisionId);
+  if (property === 'getRevisionPresentationAtRevisionJson') {
+    return presentation(version, revisionId);
+  }
   if (property === 'getShapeProvenanceDiagnosticAtRevisionJson') return shapeDiagnostic();
   if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
   if (property === 'resolveSameFlowTextRangeAtRevisionJson') {

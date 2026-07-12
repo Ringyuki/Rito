@@ -1,7 +1,7 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    RuntimeDocument, RuntimeRevisionBundle, RuntimeRevisionNavigation, RuntimeRevisionSummary,
-    RuntimeShapeProvenanceDiagnostic,
+    RuntimeDocument, RuntimeRevisionBundle, RuntimeRevisionNavigation, RuntimeRevisionPresentation,
+    RuntimeRevisionSummary, RuntimeShapeProvenanceDiagnostic,
 };
 
 impl RuntimeDocument {
@@ -31,6 +31,13 @@ impl RuntimeDocument {
                 .revision_bundle_navigation(revision_id, false)
                 .map(|(_, navigation, _)| navigation)
         })
+    }
+
+    pub fn revision_presentation_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+    ) -> Result<RuntimeVersioned<RuntimeRevisionPresentation>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, RuntimeDocument::revision_presentation)
     }
 
     pub fn shape_provenance_diagnostic_at(

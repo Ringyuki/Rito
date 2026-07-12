@@ -81,6 +81,44 @@ test('direct versioned reads reject matching envelopes with forged embedded revi
     () => fontDocument.getRevisionBundleAtRevision(handle(1)),
     /requiredFontFaces identity/,
   );
+
+  const forgedPresentation = presentation(1);
+  forgedPresentation.chapterTextIndices = { revisionId: 'rev-1', entries: {} };
+  const presentationDocument = new RitoCoreWasmDocument({
+    getRevisionPresentationAtRevisionJson: () =>
+      JSON.stringify({ revision: handle(1), value: forgedPresentation }),
+  });
+  assert.throws(
+    () => presentationDocument.getRevisionPresentationAtRevision(handle(1)),
+    /unexpected presentation field: chapterTextIndices/,
+  );
+
+  const malformedPresentations = [
+    { ...presentation(1), navigation: { ...presentation(1).navigation, spreads: [{}] } },
+    {
+      ...presentation(1),
+      navigation: {
+        ...presentation(1).navigation,
+        chapters: [{ idref: 'chapter', href: 'chapter.xhtml', linear: true }],
+        chapterMap: {
+          chapter: { startPage: 0, endPage: 2, pageCount: 3, blockCount: 1 },
+        },
+      },
+    },
+    {
+      ...presentation(1),
+      tocTargets: {
+        revisionId: 'rev-1',
+        targets: [{ entry: {}, pageIndex: 0, spreadIndex: 0 }],
+      },
+    },
+  ];
+  for (const value of malformedPresentations) {
+    const invalid = new RitoCoreWasmDocument({
+      getRevisionPresentationAtRevisionJson: () => JSON.stringify({ revision: handle(1), value }),
+    });
+    assert.throws(() => invalid.getRevisionPresentationAtRevision(handle(1)));
+  }
 });
 
 test('direct exact aggregate reads reject forged identities and request echoes', () => {
@@ -246,6 +284,22 @@ function bundle(version) {
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, entries: {} },
     chapterTextIndices: { revisionId, entries: {} },
+    fontFamilies: [],
+  };
+}
+
+function presentation(version) {
+  return {
+    revision: summary(version, 'ready'),
+    navigation: {
+      revisionId: 'rev-1',
+      pageCount: 1,
+      spreadCount: 1,
+      spreads: [{ spreadIndex: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      chapters: [],
+      chapterMap: {},
+    },
+    tocTargets: { revisionId: 'rev-1', targets: [] },
     fontFamilies: [],
   };
 }

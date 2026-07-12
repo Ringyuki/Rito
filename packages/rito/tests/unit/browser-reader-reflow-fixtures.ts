@@ -178,6 +178,8 @@ export function createWorker(
     getRevisionSummaryAtRevision:
       vi.fn<BrowserReaderWorkerClient['getRevisionSummaryAtRevision']>(),
     getRevisionBundleAtRevision: vi.fn<BrowserReaderWorkerClient['getRevisionBundleAtRevision']>(),
+    getRevisionPresentationAtRevision:
+      vi.fn<BrowserReaderWorkerClient['getRevisionPresentationAtRevision']>(),
     getShapeProvenanceDiagnosticAtRevision:
       vi.fn<BrowserReaderWorkerClient['getShapeProvenanceDiagnosticAtRevision']>(),
     getRevisionNavigationAtRevision:

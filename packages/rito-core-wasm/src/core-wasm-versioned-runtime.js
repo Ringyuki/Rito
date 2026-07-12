@@ -11,6 +11,7 @@ import {
   requireRevisionWorkBudget,
   requireVersionedValueIdentity,
 } from './core-wasm-versioned-validation-runtime.js';
+import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import { requireShapeProvenanceDiagnostic } from './shape-provenance-diagnostic-validation-runtime.js';
 import {
   requireTextCaretResponse,
@@ -277,6 +278,19 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
             includeTocTargets === true,
           ),
         requireReaderRevisionBundle,
+      );
+    },
+    getRevisionPresentationAtRevision(handle) {
+      return versionedJson(
+        this,
+        'getRevisionPresentationAtRevision',
+        handle,
+        (revision) =>
+          this._inner.getRevisionPresentationAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+          ),
+        requireRevisionPresentation,
       );
     },
     getRevisionNavigationAtRevision(handle) {

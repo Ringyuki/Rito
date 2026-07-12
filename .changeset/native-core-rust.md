@@ -12,3 +12,7 @@ implementation subpaths. Kit reading positions now persist native source locator
 Reader-owned revision transition. Exact revision bundles, search, footnotes and chapter text
 indices now cross both in-process and Worker transports, and Browser frame/resource/search/release
 operations bind the complete revision version in preparation for bounded incremental pagination.
+Bounded sessions now publish a slim exact-version presentation without cumulative footnote or
+chapter-text payloads, can grow directly to a durable source locator, and can explicitly drain to a
+complete revision. Locator transport echoes its normalized request, and recoverable locator/frame
+reads fail only their target instead of releasing a healthy session.

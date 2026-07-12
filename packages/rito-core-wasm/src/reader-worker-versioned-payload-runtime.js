@@ -1,4 +1,5 @@
 import { requireRevisionHandle } from './core-wasm-versioned-validation-runtime.js';
+import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
   requireTextCaretResponse,
   requireTextPointRequest,
@@ -58,6 +59,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return valueResponse(request.kind, document.getRevisionSummaryAtRevision(request.revision));
     case 'getRevisionBundleAtRevision':
       return revisionBundleResponse(document, request);
+    case 'getRevisionPresentationAtRevision':
+      return exactReadResponse(document, request, requireRevisionPresentation);
     case 'getShapeProvenanceDiagnosticAtRevision':
       return valueResponse(
         request.kind,
@@ -278,9 +281,10 @@ function sourceLocatorResponse(document, request) {
   const revision = requireRevisionHandle(request.revision, operation);
   const locator = requireSourceLocatorRequest(request.locator, operation);
   const envelope = document.resolveSourceLocatorAtRevision(revision, locator);
-  return validatedValueResponse(operation, revision, envelope, (value) =>
-    requireSourceLocatorResolution(value, revision, operation),
-  );
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: locator,
+    resolution: requireSourceLocatorResolution(value, revision, operation),
+  }));
 }
 
 function validatedValueResponse(kind, expected, envelope, validate) {

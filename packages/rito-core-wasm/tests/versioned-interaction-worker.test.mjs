@@ -186,7 +186,13 @@ test('worker client rejects matching envelopes with forged interaction results',
           sourcePoint: { nodePath: [0], textOffset: 1 },
         }),
       kind: 'resolveSourceLocatorAtRevision',
-      result: { ...sourceLocatorResolution('rev-1'), matchedBy: 'guess' },
+      result: {
+        request: {
+          href: 'chapter.xhtml',
+          sourcePoint: { nodePath: [0], textOffset: 1 },
+        },
+        resolution: { ...sourceLocatorResolution('rev-1'), matchedBy: 'guess' },
+      },
       pattern: /invalid source locator match kind/,
     },
   ];
@@ -196,6 +202,46 @@ test('worker client rejects matching envelopes with forged interaction results',
     worker.respondLast({ kind: fixture.kind, revision: handle(1), result: fixture.result });
     await assert.rejects(pending, fixture.pattern);
   }
+  client.dispose();
+});
+
+test('source locator worker echo rejects swaps while allowing canonical resolution', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+
+  const swapped = client.resolveSourceLocatorAtRevision(handle(1), { href: 'wanted.xhtml' });
+  worker.respondLast({
+    kind: 'resolveSourceLocatorAtRevision',
+    revision: handle(1),
+    result: {
+      request: { href: 'other.xhtml' },
+      resolution: sourceLocatorResolution('rev-1', { href: 'other.xhtml' }),
+    },
+  });
+  await assert.rejects(swapped, /mismatched source locator request/);
+
+  const requested = { href: 'chapter.xhtml#intro' };
+  const canonical = client.resolveSourceLocatorAtRevision(handle(1), requested);
+  worker.respondLast({
+    kind: 'resolveSourceLocatorAtRevision',
+    revision: handle(1),
+    result: {
+      request: requested,
+      resolution: {
+        status: 'resolved',
+        revisionId: 'rev-1',
+        locator: { href: 'chapter.xhtml', anchorId: 'intro' },
+        spineIdref: 'chapter',
+        pageIndex: 4,
+        spreadIndex: 2,
+        matchedBy: 'anchor',
+      },
+    },
+  });
+  assert.deepEqual((await canonical).value.locator, {
+    href: 'chapter.xhtml',
+    anchorId: 'intro',
+  });
   client.dispose();
 });
 

@@ -174,13 +174,19 @@ Those names now belong to the old TS reference tree only.
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
   exact versioned release. A private bounded session controller now coalesces
-  target spreads with latest-request priority, permits only one continuation
+  spread, source-locator and completion targets with latest-request priority,
+  permits only one continuation
   quantum in flight, yields between quanta, avoids starting another quantum
-  when a retarget is already available, refreshes an exact partial revision
-  bundle only after the requested target becomes available, warms frames and
+  when a retarget is already available, refreshes an exact slim presentation
+  only after the requested target becomes available, warms frames and
   resources at the exact accepted version, and cancels/releases the latest
-  handle after races or failures. Exact aggregate bundle, search, footnote and
-  chapter-text reads now cross both in-process and Worker transports. Browser
+  handle after races or failures. The presentation carries revision,
+  navigation, TOC and font contracts while deliberately omitting cumulative
+  footnote and chapter-text aggregates. Exact aggregate bundle, search,
+  footnote and chapter-text reads still cross both in-process and Worker
+  transports for explicit consumers. Source-locator responses echo their
+  normalized request, stale target failures are discarded, and recoverable
+  locator/frame reads no longer destroy a healthy session. Browser
   frame, resource, search and destructive release paths no longer use
   revision-ID-only operations. The production-reader switch is still pending.
 - Display commands are typed in Rust, and JSON fixture views plus packed command
@@ -287,12 +293,11 @@ Those names now belong to the old TS reference tree only.
      cross-chapter footnote filtering now uses a cached resource-light scan, but
      that first-revision scan is outside the layout budget and remains a
      first-paint latency risk.
-   - The exact Worker bridge and Browser request ownership are ready for same-ID
-     version advances. Production selection still needs a slim/incremental
-     presentation snapshot so sequential growth does not repeatedly transfer a
-     cumulatively growing full bundle. It must also gate exact interaction while
-     a continuation has invalidated the displayed version but the next snapshot
-     has not committed yet.
+   - The exact Worker bridge, slim presentation snapshot and Browser request
+     ownership are ready for same-ID version advances. Production selection
+     must still gate exact interaction from the instant growth starts until the
+     next presentation commits, and Browser/Kit must treat the known extent as
+     partial rather than final.
    - Initial paint must not require eight complete chapters, one complete large
      chapter or the complete publication.
 2. **Native interaction wiring**

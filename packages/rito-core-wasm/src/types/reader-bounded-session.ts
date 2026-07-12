@@ -1,9 +1,10 @@
 import type { RitoCoreWasmReaderFrameWindowWarmResult } from './reader-worker';
+import type { RitoCoreWasmSourceLocator, RitoCoreWasmSourceLocatorResolution } from './interaction';
 import type {
   RitoCoreWasmBoundedRevisionRequest,
-  RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
+  RitoCoreWasmRevisionPresentation,
   RitoCoreWasmRevisionRelease,
   RitoCoreWasmRevisionSummary,
   RitoCoreWasmRevisionTransferRelease,
@@ -20,14 +21,17 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
   cancelRevision(
     request: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionSummary>>;
-  getRevisionBundleAtRevision(
+  getRevisionPresentationAtRevision(
     revision: RitoCoreWasmRevisionHandle,
-    includeTocTargets?: boolean,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>>;
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>>;
   warmFrameWindowAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     spreadIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmReaderFrameWindowWarmResult>>;
+  resolveSourceLocatorAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    locator: RitoCoreWasmSourceLocator,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmSourceLocatorResolution>>;
   releaseRevisionTransfersAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmRevisionTransferRelease>;
@@ -43,12 +47,28 @@ export interface RitoCoreWasmBoundedReaderStartRequest extends RitoCoreWasmBound
 export interface RitoCoreWasmBoundedReaderSnapshot {
   readonly generation: number;
   readonly revision: RitoCoreWasmRevisionSummary;
-  /** Exact-version bundle; TOC targets are included and bounded text indices may be partial. */
-  readonly bundle: RitoCoreWasmRevisionBundle;
+  /** Exact-version paint/navigation metadata without cumulative interaction aggregates. */
+  readonly presentation: RitoCoreWasmRevisionPresentation;
   readonly navigation: RitoCoreWasmRevisionNavigation;
-  readonly requestedSpreadIndex: number;
+  readonly target: RitoCoreWasmBoundedReaderSnapshotTarget;
+  /** Center spread whose exact-version frame window accompanies this snapshot. */
+  readonly presentationSpreadIndex: number;
   readonly frameWindow?: RitoCoreWasmReaderFrameWindowWarmResult | undefined;
 }
+
+export type RitoCoreWasmBoundedReaderSnapshotTarget =
+  | {
+      readonly kind: 'spread';
+      readonly spreadIndex: number;
+    }
+  | {
+      readonly kind: 'locator';
+      readonly locator: RitoCoreWasmSourceLocator;
+      readonly resolution: RitoCoreWasmSourceLocatorResolution;
+    }
+  | {
+      readonly kind: 'complete';
+    };
 
 export interface RitoCoreWasmBoundedReaderAcceptedRevision {
   readonly generation: number;
@@ -63,8 +83,17 @@ export interface RitoCoreWasmBoundedReaderSessionOptions {
 }
 
 export interface RitoCoreWasmBoundedReaderSession {
+  /**
+   * The session exclusively owns every accepted revision. Consumers must use
+   * `cancel`/`dispose` and must never release a snapshot revision directly.
+   */
   start(request: RitoCoreWasmBoundedReaderStartRequest): Promise<RitoCoreWasmBoundedReaderSnapshot>;
+  /** Callers must close exact-read gates before requesting growth. */
   ensureSpread(spreadIndex: number): Promise<RitoCoreWasmBoundedReaderSnapshot>;
+  /** Callers must close exact-read gates before requesting growth. */
+  ensureLocator(locator: RitoCoreWasmSourceLocator): Promise<RitoCoreWasmBoundedReaderSnapshot>;
+  /** Callers must close exact-read gates before requesting completion. */
+  complete(): Promise<RitoCoreWasmBoundedReaderSnapshot>;
   currentSnapshot(): RitoCoreWasmBoundedReaderSnapshot | undefined;
   cancel(): Promise<void>;
   dispose(): Promise<void>;

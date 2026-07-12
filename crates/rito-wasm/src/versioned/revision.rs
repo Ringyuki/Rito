@@ -40,6 +40,18 @@ impl WasmRuntimeDocument {
         serialize_json(&response)
     }
 
+    pub fn get_revision_presentation_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+    ) -> Result<String, WasmRuntimeError> {
+        let response = self
+            .document
+            .revision_presentation_at(&revision_handle(revision_id, revision_version))
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        serialize_json(&response)
+    }
+
     pub fn get_revision_navigation_at_revision_json(
         &self,
         revision_id: &str,

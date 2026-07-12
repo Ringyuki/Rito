@@ -88,6 +88,21 @@ export interface RitoCoreWasmRevisionBundle {
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
 }
 
+/**
+ * Paint-ready metadata for one exact revision version.
+ *
+ * Unlike `RitoCoreWasmRevisionBundle`, this deliberately omits cumulative
+ * interaction aggregates so bounded growth does not retransmit chapter text
+ * indices and publication-wide footnotes on every visible snapshot.
+ */
+export interface RitoCoreWasmRevisionPresentation {
+  readonly revision: RitoCoreWasmRevisionSummary;
+  readonly navigation: RitoCoreWasmRevisionNavigation;
+  readonly tocTargets: RitoCoreWasmTocTargets;
+  readonly fontFamilies: readonly string[];
+  readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
+}
+
 export interface RitoCoreWasmRequiredFontFaces {
   readonly schemaVersion: 1;
   readonly revisionId: string;

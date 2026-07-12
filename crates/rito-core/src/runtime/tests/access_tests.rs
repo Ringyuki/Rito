@@ -308,6 +308,50 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
 }
 
 #[test]
+fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let initial = document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("bounded revision starts");
+    let handle = handle_for(&initial.revision);
+
+    let presentation = document
+        .revision_presentation_at(&handle)
+        .expect("current presentation resolves");
+    let bundle = document
+        .revision_bundle_at(&handle, true)
+        .expect("current bundle resolves");
+
+    assert_eq!(presentation.revision, handle);
+    assert_eq!(presentation.value.revision, initial.revision);
+    assert_eq!(presentation.value.navigation, bundle.value.navigation);
+    assert_eq!(presentation.value.toc_targets, bundle.value.toc_targets);
+    assert_eq!(presentation.value.font_families, bundle.value.font_families);
+    assert_eq!(
+        presentation.value.required_font_faces,
+        bundle.value.required_font_faces
+    );
+
+    let serialized = serde_json::to_value(&presentation.value)
+        .expect("revision presentation serializes")
+        .as_object()
+        .expect("revision presentation is an object")
+        .clone();
+    for field in ["revision", "navigation", "tocTargets", "fontFamilies"] {
+        assert!(serialized.contains_key(field), "missing {field}");
+    }
+    assert!(!serialized.contains_key("footnotes"));
+    assert!(!serialized.contains_key("chapterTextIndices"));
+}
+
+#[test]
 fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     let mut document =
         RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("multi-chapter document opens");
@@ -439,6 +483,7 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     assert_stale!(document.get_chapter_text_indices_at(&stale));
     assert_stale!(document.get_revision_summary_at(&stale));
     assert_stale!(document.revision_navigation_at(&stale));
+    assert_stale!(document.revision_presentation_at(&stale));
     assert_stale!(document.shape_provenance_diagnostic_at(&stale));
     assert_stale!(document.revision_bundle_at(&stale, false));
     assert_stale!(document.release_revision_at(&stale));

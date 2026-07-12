@@ -5,6 +5,7 @@ import {
   requireRevisionHandle,
   requireRevisionWorkBudget,
 } from './core-wasm-versioned-validation-runtime.js';
+import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
 import {
   requireTextCaretTransport,
   requireTextPointRequest,
@@ -27,7 +28,7 @@ import {
   requirePageTargets,
   requireResolvedLocator,
   requireSourceLocatorRequest,
-  requireSourceLocatorResolution,
+  requireSourceLocatorTransport,
 } from './reader-worker-interaction-validation-runtime.js';
 import {
   requirePageTextPositions,
@@ -107,6 +108,14 @@ export function createVersionedReaderClientMethods(send) {
         revision,
         { includeTocTargets: includeTocTargets === true },
         requireReaderRevisionBundle,
+      ),
+    getRevisionPresentationAtRevision: (revision) =>
+      currentRevisionResult(
+        send,
+        'getRevisionPresentationAtRevision',
+        revision,
+        {},
+        requireRevisionPresentation,
       ),
     getShapeProvenanceDiagnosticAtRevision: (revision) =>
       currentRevisionResult(
@@ -256,7 +265,8 @@ export function createVersionedReaderClientMethods(send) {
         'resolveSourceLocatorAtRevision',
         revision,
         { locator: expectedLocator },
-        (result, handle, operation) => requireSourceLocatorResolution(result, handle, operation),
+        (result, handle, operation) =>
+          requireSourceLocatorTransport(result, handle, expectedLocator, operation),
       );
     },
     releaseRevisionTransfersAtRevision: (revision) =>

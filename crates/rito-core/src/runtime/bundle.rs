@@ -10,11 +10,11 @@ use super::{
     RuntimeCreatedRevisionBundle, RuntimeCreatedViewRevision, RuntimeDocument, RuntimeFootnotes,
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimePreviewRevisionBundleRequest,
-    RuntimeRevisionBundle, RuntimeRevisionRequest, RuntimeSourceLocator,
-    RuntimeSourceLocatorResolution, RuntimeTocTargets, RuntimeViewRevisionDisplay,
-    RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind, RuntimeViewRevisionMetadata,
-    RuntimeViewRevisionMode, RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
-    DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT,
+    RuntimeRevisionBundle, RuntimeRevisionPresentation, RuntimeRevisionRequest,
+    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeTocTargets,
+    RuntimeViewRevisionDisplay, RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind,
+    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
+    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS, DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT,
 };
 
 impl RuntimeDocument {
@@ -316,21 +316,15 @@ impl RuntimeDocument {
         include_toc_targets: bool,
         metadata: RuntimeViewRevisionMetadata,
     ) -> EpubResult<RuntimeRevisionBundle> {
-        let (revision, navigation, toc_targets) =
-            self.revision_bundle_navigation(revision_id, include_toc_targets)?;
+        let presentation = self.revision_presentation_with_toc(revision_id, include_toc_targets)?;
         let revision_record = self
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        let font_families = summarize_layout_font_families(&revision_record.layout.pages);
-        let required_font_faces = revision_record
-            .required_font_face_catalog
-            .as_deref()
-            .map(|catalog| required_font_faces_for_revision(revision_id, catalog, &font_families));
         Ok(RuntimeRevisionBundle {
-            revision,
-            navigation,
-            toc_targets,
+            revision: presentation.revision,
+            navigation: presentation.navigation,
+            toc_targets: presentation.toc_targets,
             footnotes: RuntimeFootnotes {
                 revision_id: revision_id.to_owned(),
                 entries: revision_record.interactions.footnotes.clone(),
@@ -344,6 +338,38 @@ impl RuntimeDocument {
                     RuntimeViewRevisionMetadata::OmitFullChapterTextIndices => Default::default(),
                 },
             },
+            font_families: presentation.font_families,
+            required_font_faces: presentation.required_font_faces,
+        })
+    }
+
+    pub fn revision_presentation(
+        &self,
+        revision_id: &str,
+    ) -> EpubResult<RuntimeRevisionPresentation> {
+        self.revision_presentation_with_toc(revision_id, true)
+    }
+
+    fn revision_presentation_with_toc(
+        &self,
+        revision_id: &str,
+        include_toc_targets: bool,
+    ) -> EpubResult<RuntimeRevisionPresentation> {
+        let (revision, navigation, toc_targets) =
+            self.revision_bundle_navigation(revision_id, include_toc_targets)?;
+        let revision_record = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        let font_families = summarize_layout_font_families(&revision_record.layout.pages);
+        let required_font_faces = revision_record
+            .required_font_face_catalog
+            .as_deref()
+            .map(|catalog| required_font_faces_for_revision(revision_id, catalog, &font_families));
+        Ok(RuntimeRevisionPresentation {
+            revision,
+            navigation,
+            toc_targets,
             font_families,
             required_font_faces,
         })

@@ -154,6 +154,41 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 }
 
 #[test]
+fn versioned_revision_presentation_is_slim_and_exact() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+    let presentation = parse(
+        document
+            .get_revision_presentation_at_revision_json(&revision_id, 0)
+            .expect("revision presentation is returned"),
+    );
+    let bundle = parse(
+        document
+            .get_revision_bundle_at_revision_json(&revision_id, 0, true)
+            .expect("revision bundle is returned"),
+    );
+
+    assert_revision(&presentation, &revision_id, 0);
+    let value = presentation["value"]
+        .as_object()
+        .expect("presentation value is an object");
+    for field in ["revision", "navigation", "tocTargets", "fontFamilies"] {
+        assert!(value.contains_key(field), "missing {field}");
+    }
+    assert!(!value.contains_key("footnotes"));
+    assert!(!value.contains_key("chapterTextIndices"));
+    for field in [
+        "revision",
+        "navigation",
+        "tocTargets",
+        "fontFamilies",
+        "requiredFontFaces",
+    ] {
+        assert_eq!(presentation["value"][field], bundle["value"][field]);
+    }
+}
+
+#[test]
 fn page_semantics_raw_binding_preserves_the_versioned_envelope_and_typed_errors() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);
@@ -426,6 +461,13 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         stale_diagnostic.code(),
         WasmRuntimeErrorCode::StaleRevisionVersion
     );
+    let stale_presentation = document
+        .get_revision_presentation_at_revision_json("rev-1", 0)
+        .expect_err("old presentation handle is stale");
+    assert_eq!(
+        stale_presentation.code(),
+        WasmRuntimeErrorCode::StaleRevisionVersion
+    );
     let unknown = document
         .get_revision_summary_at_revision_json("rev-missing", 0)
         .expect_err("missing revision is typed");
@@ -435,6 +477,13 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         .expect_err("missing diagnostic revision is typed");
     assert_eq!(
         unknown_diagnostic.code(),
+        WasmRuntimeErrorCode::UnknownRevision
+    );
+    let unknown_presentation = document
+        .get_revision_presentation_at_revision_json("rev-missing", 0)
+        .expect_err("missing presentation revision is typed");
+    assert_eq!(
+        unknown_presentation.code(),
         WasmRuntimeErrorCode::UnknownRevision
     );
     let request = json!({ "pageIndex": 0, "x": 24.0, "y": 24.0 }).to_string();

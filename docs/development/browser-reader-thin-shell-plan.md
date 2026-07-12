@@ -378,14 +378,17 @@ The raw WASM surface and the private JavaScript control plane are staging
 boundaries. They do not by themselves authorize selecting bounded revisions in
 the production browser Reader. The cross-chapter footnote index is now
 lazy-state-safe, but its first full-spine scan remains outside the work budget.
-The switch still requires a slim/incremental presentation snapshot, explicit
-interaction gating while a continuation invalidates the displayed version,
-large-node work bounds and browser race tests.
+The slim presentation snapshot and source-locator/completion controller targets
+are implemented. The switch still requires explicit interaction gating from the
+moment growth begins until the next presentation commits, large-node work
+bounds and browser race tests.
 
 The private controller now implements the single-pump, target-coalescing,
 task-yielding and latest-handle cleanup rules above, including an exact-version
-frame/resource window. Exact revision bundles, search, footnotes and chapter
-text indices now cross both in-process and Worker transports. Browser frame,
+frame/resource window. It now publishes exact slim presentation metadata and
+can grow to a source locator or drain to completion. Exact revision bundles,
+search, footnotes and chapter text indices still cross both in-process and
+Worker transports for explicit consumers. Browser frame,
 resource, search and release operations have also moved off revision-ID-only
 methods. The temporary reader-shell ceiling is 3060 split-counted lines (3033
 physical lines); bounded production integration must delete or collapse the

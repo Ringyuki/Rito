@@ -39,6 +39,7 @@ import type {
   RitoCoreWasmRevisionBundle,
   RitoCoreWasmRevisionHandle,
   RitoCoreWasmRevisionNavigation,
+  RitoCoreWasmRevisionPresentation,
   RitoCoreWasmRevisionRelease,
   RitoCoreWasmRevisionReleaseResult,
   RitoCoreWasmRevisionSummary,
@@ -64,6 +65,9 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     includeTocTargets?: boolean,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>>;
+  getRevisionPresentationAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>>;
   getShapeProvenanceDiagnosticAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>>;
@@ -156,6 +160,9 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     includeTocTargets?: boolean,
   ): RitoCoreWasmVersioned<RitoCoreWasmRevisionBundle>;
+  getRevisionPresentationAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+  ): RitoCoreWasmVersioned<RitoCoreWasmRevisionPresentation>;
   getShapeProvenanceDiagnosticAtRevision(
     revision: RitoCoreWasmRevisionHandle,
   ): RitoCoreWasmVersioned<RitoCoreWasmShapeProvenanceDiagnostic>;
@@ -257,6 +264,12 @@ export interface RitoCoreWasmReaderTextRangeGeometryDiagnostic {
   readonly geometry: RitoCoreWasmTextRangeGeometry;
 }
 
+/** Private Worker echo binding a canonical source resolution to its exact request. */
+export interface RitoCoreWasmReaderSourceLocatorTransport {
+  readonly request: RitoCoreWasmSourceLocator;
+  readonly resolution: RitoCoreWasmSourceLocatorResolution;
+}
+
 /** Private Worker echo that binds a caret response to one exact point request. */
 export interface RitoCoreWasmReaderTextCaretTransport {
   readonly request: RitoCoreWasmTextPointRequest;
@@ -313,6 +326,8 @@ export type RitoCoreWasmReaderWorkerGetRevisionBundleRequest =
   RevisionRequest<'getRevisionBundleAtRevision'> & {
     readonly includeTocTargets?: boolean | undefined;
   };
+export type RitoCoreWasmReaderWorkerGetRevisionPresentationRequest =
+  RevisionRequest<'getRevisionPresentationAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest =
   RevisionRequest<'getShapeProvenanceDiagnosticAtRevision'>;
 export type RitoCoreWasmReaderWorkerGetRevisionNavigationRequest =
@@ -379,6 +394,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerCancelRevisionRequest
   | RitoCoreWasmReaderWorkerGetRevisionSummaryRequest
   | RitoCoreWasmReaderWorkerGetRevisionBundleRequest
+  | RitoCoreWasmReaderWorkerGetRevisionPresentationRequest
   | RitoCoreWasmReaderWorkerGetShapeProvenanceDiagnosticRequest
   | RitoCoreWasmReaderWorkerGetRevisionNavigationRequest
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
@@ -423,6 +439,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getRevisionBundleAtRevision',
       RitoCoreWasmRevisionBundle
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getRevisionPresentationAtRevision',
+      RitoCoreWasmRevisionPresentation
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getShapeProvenanceDiagnosticAtRevision',
@@ -486,7 +506,7 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveSourceLocatorAtRevision',
-      RitoCoreWasmSourceLocatorResolution
+      RitoCoreWasmReaderSourceLocatorTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'releaseRevisionTransfersAtRevision', number>
   | RitoCoreWasmReaderWorkerVersionedResponse<

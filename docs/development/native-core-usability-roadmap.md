@@ -302,12 +302,13 @@ architecture rather than make an eager whole-book pipeline faster.
    Worker version gates plus the bounded session pump are implemented.**
 2. Implement bounded initial layout and resumable window growth. **Core and raw
    WASM paths, opt-in Worker primitives and the coalescing session controller
-   are implemented. Exact partial bundles and aggregate reads now cross the
-   Worker boundary, and Browser frame/resource/search/release calls use complete
-   revision handles. A slim incremental presentation snapshot, interaction
-   gating during version advances, browser/Kit partial-extent integration and
-   sub-node budgets remain. The cross-chapter footnote index is lazy-state-safe,
-   but its first full-spine scan is still outside the layout budget.**
+   are implemented. Exact aggregate reads cross the Worker boundary, Browser
+   frame/resource/search/release calls use complete revision handles, and the
+   controller publishes a slim presentation while supporting source-locator
+   growth and explicit completion. Interaction gating during version advances,
+   browser/Kit partial-extent integration and sub-node budgets remain. The
+   cross-chapter footnote index is lazy-state-safe, but its first full-spine
+   scan is still outside the layout budget.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader. **Implemented through the public Reader and Kit
    click path, including preview gating and exact locator re-resolution.**

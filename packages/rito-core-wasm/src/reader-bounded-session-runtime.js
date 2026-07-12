@@ -1,13 +1,35 @@
-import { requireReaderRevisionBundle } from './reader-worker-versioned-read-validation-runtime.js';
+import { requireRevisionPresentation } from './revision-presentation-validation-runtime.js';
+import {
+  defaultYieldControl,
+  evaluateBoundedReaderTarget,
+  isActiveRevision,
+  isNextFailedRevision,
+  isRecoverableTargetReadError,
+  locatorTarget,
+  requireAcceptedHandle,
+  requireBoundedReaderStartRequest,
+  requireSameHandle,
+  requireSameRevisionSummary,
+  requireSpreadIndex,
+  revisionHandle,
+  sameHandle,
+  sameTargetEvaluation,
+  spreadTarget,
+} from './reader-bounded-session-support-runtime.js';
 
 export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   const yieldControl = options.yieldControl ?? defaultYieldControl;
   let phase = 'idle';
   let generation = 0;
-  let requestedSpreadIndex = 0;
+  let targetSequence = 0;
+  let requestedTarget;
+  let presentationSpreadIndex = 0;
+  let targetEvaluation;
+  let targetFailure;
+  let snapshotTargetToken;
   let startRequest;
   let revision;
-  let revisionBundle;
+  let revisionPresentation;
   let continuation;
   let snapshot;
   let releasedTransferRevision;
@@ -17,8 +39,9 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
 
   const start = (request) => {
     if (phase !== 'idle') throw new Error(`bounded reader session cannot start while ${phase}`);
-    startRequest = requireStartRequest(request);
-    requestedSpreadIndex = requireSpreadIndex(request.targetSpreadIndex ?? 0);
+    startRequest = requireBoundedReaderStartRequest(request);
+    presentationSpreadIndex = requireSpreadIndex(request.targetSpreadIndex ?? 0);
+    requestedTarget = spreadTarget(presentationSpreadIndex, ++targetSequence);
     phase = 'running';
     return waitForSnapshot();
   };
@@ -27,9 +50,33 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     if (phase !== 'running') {
       throw new Error(`bounded reader session cannot ensure a spread while ${phase}`);
     }
-    requestedSpreadIndex = requireSpreadIndex(spreadIndex);
+    requestedTarget = spreadTarget(requireSpreadIndex(spreadIndex), ++targetSequence);
+    targetEvaluation = undefined;
+    targetFailure = undefined;
     return waitForSnapshot();
   };
+
+  const ensureLocator = (locator) => {
+    requireRunning('ensure a locator');
+    requestedTarget = locatorTarget(locator, ++targetSequence);
+    targetEvaluation = undefined;
+    targetFailure = undefined;
+    return waitForSnapshot();
+  };
+
+  const complete = () => {
+    requireRunning('complete');
+    requestedTarget = { kind: 'complete', token: ++targetSequence };
+    targetEvaluation = undefined;
+    targetFailure = undefined;
+    return waitForSnapshot();
+  };
+
+  function requireRunning(operation) {
+    if (phase !== 'running') {
+      throw new Error(`bounded reader session cannot ${operation} while ${phase}`);
+    }
+  }
 
   const currentSnapshot = () => snapshot;
 
@@ -59,10 +106,11 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     while (phase === 'running') {
       await drain();
       if (terminalError !== undefined) throw terminalError;
+      if (targetFailure?.token === requestedTarget?.token) throw targetFailure.error;
       if (snapshotMatchesRequest()) return snapshot;
     }
     if (terminalError !== undefined) throw terminalError;
-    throw new Error('bounded reader session stopped before the requested spread was available');
+    throw new Error('bounded reader session stopped before the requested target was available');
   }
 
   function drain() {
@@ -79,22 +127,25 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       }
       while (phase === 'running') {
         if (stopRequested !== undefined) return cleanupLatest();
-        if (
-          requestedTargetAvailable() &&
-          (snapshot === undefined || snapshot.requestedSpreadIndex !== requestedSpreadIndex)
-        ) {
-          await refreshSnapshot();
+        const evaluation = await evaluateRequestedTarget();
+        if (evaluation === undefined) {
+          if (targetFailure?.token === requestedTarget?.token) return;
           continue;
         }
-        if (requestedTargetAvailable()) return;
+        if (stopRequested !== undefined) return cleanupLatest();
+        if (evaluation.available && !snapshotMatchesEvaluation(evaluation)) {
+          await refreshSnapshot(evaluation);
+          if (targetFailure?.token === requestedTarget?.token) return;
+          continue;
+        }
+        if (evaluation.available) return;
         await yieldControl();
         if (stopRequested !== undefined) return cleanupLatest();
         const previous = revision;
         await releaseRevisionTransfers(previous);
         if (stopRequested !== undefined) return cleanupLatest();
-        if (snapshot?.requestedSpreadIndex !== requestedSpreadIndex && requestedTargetAvailable()) {
-          continue;
-        }
+        const latestEvaluation = await evaluateRequestedTarget();
+        if (latestEvaluation === undefined || latestEvaluation.available) continue;
         acceptAdvance(
           await client.continueRevision({
             ...continuation,
@@ -108,40 +159,83 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     }
   }
 
-  async function refreshSnapshot() {
+  async function evaluateRequestedTarget() {
+    const target = requestedTarget;
     const handle = revisionHandle(revision);
-    const bundle = revisionBundle ?? (await readRevisionBundle(handle));
-    if (
-      bundle.navigation.pageCount !== revision.knownExtent.pageCount ||
-      bundle.navigation.spreadCount !== revision.knownExtent.spreadCount
-    ) {
-      throw new Error('revision bundle returned an extent inconsistent with its revision');
+    if (sameTargetEvaluation(targetEvaluation, target, handle)) return targetEvaluation;
+    let evaluation;
+    try {
+      evaluation = await evaluateBoundedReaderTarget(
+        client,
+        target,
+        revision,
+        presentationSpreadIndex,
+      );
+    } catch (error) {
+      if (!isCurrentTarget(target, handle)) return undefined;
+      if (target.kind === 'locator' && isRecoverableTargetReadError(error)) {
+        targetFailure = { token: target.token, error };
+        return undefined;
+      }
+      throw error;
     }
-    if (stopRequested !== undefined) return;
-    const target = requestedSpreadIndex;
+    if (!isCurrentTarget(target, handle)) return undefined;
+    targetEvaluation = evaluation;
+    return targetEvaluation;
+  }
+
+  async function refreshSnapshot(evaluation) {
+    const { handle } = evaluation;
+    const presentation = revisionPresentation ?? (await readRevisionPresentation(handle));
+    if (
+      presentation.navigation.pageCount !== revision.knownExtent.pageCount ||
+      presentation.navigation.spreadCount !== revision.knownExtent.spreadCount
+    ) {
+      throw new Error('revision presentation returned an extent inconsistent with its revision');
+    }
+    if (stopRequested !== undefined || !isCurrentEvaluation(evaluation)) return;
+    const target = evaluation.spreadIndex;
     let frameWindow;
-    if (requestedTargetAvailable() && revision.knownExtent.spreadCount > target) {
-      const frame = await client.warmFrameWindowAtRevision(handle, target);
+    if (revision.knownExtent.spreadCount > target) {
+      let frame;
+      try {
+        frame = await client.warmFrameWindowAtRevision(handle, target);
+      } catch (error) {
+        if (!isCurrentEvaluation(evaluation)) return;
+        if (isRecoverableTargetReadError(error)) {
+          targetFailure = { token: evaluation.token, error };
+          return;
+        }
+        throw error;
+      }
       requireSameHandle(frame.revision, handle, 'frame window');
       frameWindow = frame.value;
     }
+    if (stopRequested !== undefined || !isCurrentEvaluation(evaluation)) return;
     snapshot = {
       generation,
       revision,
-      bundle,
-      navigation: bundle.navigation,
-      requestedSpreadIndex: target,
+      presentation,
+      navigation: presentation.navigation,
+      target: evaluation.snapshotTarget,
+      presentationSpreadIndex: target,
       ...(frameWindow !== undefined ? { frameWindow } : {}),
     };
+    presentationSpreadIndex = target;
+    snapshotTargetToken = evaluation.token;
   }
 
-  async function readRevisionBundle(handle) {
-    const bundled = await client.getRevisionBundleAtRevision(handle, true);
-    requireSameHandle(bundled.revision, handle, 'revision bundle');
-    const bundle = requireReaderRevisionBundle(bundled.value, handle, 'revision bundle');
-    requireSameRevisionSummary(bundle.revision, revision, 'revision bundle');
-    revisionBundle = bundle;
-    return bundle;
+  async function readRevisionPresentation(handle) {
+    const presented = await client.getRevisionPresentationAtRevision(handle);
+    requireSameHandle(presented.revision, handle, 'revision presentation');
+    const presentation = requireRevisionPresentation(
+      presented.value,
+      handle,
+      'revision presentation',
+    );
+    requireSameRevisionSummary(presentation.revision, revision, 'revision presentation');
+    revisionPresentation = presentation;
+    return presentation;
   }
 
   function acceptAdvance(envelope, previous) {
@@ -166,7 +260,10 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   function acceptRevision() {
     generation += 1;
     snapshot = undefined;
-    revisionBundle = undefined;
+    snapshotTargetToken = undefined;
+    targetEvaluation = undefined;
+    targetFailure = undefined;
+    revisionPresentation = undefined;
     releasedTransferRevision = undefined;
     options.onAcceptedRevision?.({ generation, revision });
   }
@@ -208,9 +305,12 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       }
     }
     revision = undefined;
-    revisionBundle = undefined;
+    revisionPresentation = undefined;
+    targetEvaluation = undefined;
+    targetFailure = undefined;
     continuation = undefined;
     snapshot = undefined;
+    snapshotTargetToken = undefined;
     phase = stopRequested === 'dispose' ? 'disposed' : 'stopped';
   }
 
@@ -222,105 +322,36 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
     releasedTransferRevision = handle;
   }
 
-  function requestedTargetAvailable() {
+  function isCurrentTarget(target, handle) {
     return (
-      revision.status === 'complete' || revision.knownExtent.spreadCount > requestedSpreadIndex
+      phase === 'running' &&
+      requestedTarget === target &&
+      stopRequested === undefined &&
+      sameHandle(revision, handle)
     );
   }
 
-  function snapshotMatchesRequest() {
+  function isCurrentEvaluation(evaluation) {
+    return (
+      requestedTarget?.token === evaluation.token &&
+      sameHandle(revision, evaluation.handle) &&
+      targetEvaluation === evaluation
+    );
+  }
+
+  function snapshotMatchesEvaluation(evaluation) {
     return (
       snapshot !== undefined &&
-      snapshot.requestedSpreadIndex === requestedSpreadIndex &&
-      requestedTargetAvailable() &&
-      (snapshot.revision.knownExtent.spreadCount <= requestedSpreadIndex ||
+      snapshotTargetToken === evaluation.token &&
+      evaluation.available &&
+      (snapshot.revision.knownExtent.spreadCount <= evaluation.spreadIndex ||
         snapshot.frameWindow !== undefined)
     );
   }
 
-  return { start, ensureSpread, currentSnapshot, cancel, dispose };
-}
-
-function requireStartRequest(request) {
-  if (request === null || typeof request !== 'object' || Array.isArray(request)) {
-    throw new TypeError('bounded reader start request must be an object');
+  function snapshotMatchesRequest() {
+    return snapshot !== undefined && snapshotTargetToken === requestedTarget?.token;
   }
-  return {
-    layoutConfig: request.layoutConfig,
-    ...(request.lineBreaking !== undefined ? { lineBreaking: request.lineBreaking } : {}),
-    budget: { maxTopLevelNodes: request.budget?.maxTopLevelNodes },
-  };
-}
 
-function requireSpreadIndex(value) {
-  if (!Number.isSafeInteger(value) || value < 0) {
-    throw new RangeError('spread index must be a non-negative safe integer');
-  }
-  return value;
-}
-
-function requireAcceptedHandle(envelope, previous, operation) {
-  if (envelope?.revision === undefined || envelope?.value === undefined) {
-    throw new Error(`${operation} returned no versioned value`);
-  }
-  if (previous === undefined) {
-    if (envelope.revision.revisionVersion !== 0) {
-      throw new Error(`${operation} did not start at revision version zero`);
-    }
-    return;
-  }
-  const expected = {
-    revisionId: previous.revisionId,
-    revisionVersion: previous.revisionVersion + 1,
-  };
-  requireSameHandle(envelope.revision, expected, operation);
-}
-
-function requireSameHandle(actual, expected, operation) {
-  if (!sameHandle(actual, expected)) {
-    throw new Error(`${operation} returned a mismatched revision handle`);
-  }
-}
-
-function requireSameRevisionSummary(actual, expected, operation) {
-  if (
-    actual.layoutKey !== expected.layoutKey ||
-    actual.status !== expected.status ||
-    !sameExtent(actual.knownExtent, expected.knownExtent) ||
-    !sameExtent(actual.finalExtent, expected.finalExtent) ||
-    actual.pageCount !== expected.pageCount ||
-    actual.spreadCount !== expected.spreadCount
-  ) {
-    throw new Error(`${operation} returned a summary inconsistent with its accepted revision`);
-  }
-}
-
-function sameExtent(left, right) {
-  if (left === undefined || right === undefined) return left === right;
-  return left.pageCount === right.pageCount && left.spreadCount === right.spreadCount;
-}
-
-function sameHandle(left, right) {
-  return left?.revisionId === right?.revisionId && left?.revisionVersion === right?.revisionVersion;
-}
-
-function revisionHandle(revision) {
-  return { revisionId: revision.revisionId, revisionVersion: revision.revisionVersion };
-}
-
-function isActiveRevision(revision) {
-  return revision?.status === 'warming' || revision?.status === 'ready';
-}
-
-function isNextFailedRevision(candidate, previous) {
-  return (
-    candidate?.status === 'failed' &&
-    previous !== undefined &&
-    candidate.revisionId === previous.revisionId &&
-    candidate.revisionVersion === previous.revisionVersion + 1
-  );
-}
-
-function defaultYieldControl() {
-  return new Promise((resolve) => globalThis.setTimeout(resolve, 0));
+  return { start, ensureSpread, ensureLocator, complete, currentSnapshot, cancel, dispose };
 }

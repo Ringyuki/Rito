@@ -31,6 +31,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
 
   const summaryResult = await client.getRevisionSummaryAtRevision(handle(1));
   const bundleResult = await client.getRevisionBundleAtRevision(handle(1), true);
+  const presentationResult = await client.getRevisionPresentationAtRevision(handle(1));
   const shapeDiagnosticResult = await client.getShapeProvenanceDiagnosticAtRevision(handle(1));
   const navigation = await client.getRevisionNavigationAtRevision(handle(1));
   const frame = await client.readFrameBufferAtRevision(handle(1), 0);
@@ -47,6 +48,7 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   for (const result of [
     summaryResult,
     bundleResult,
+    presentationResult,
     shapeDiagnosticResult,
     navigation,
     frame,
@@ -63,6 +65,8 @@ test('in-process bounded worker primitives preserve exact revision handles', asy
   assert.deepEqual(frame.value.bytes, Uint8Array.of(4, 5));
   assert.deepEqual(resource.value.bytes, Uint8Array.of(6, 7, 8));
   assert.equal(bundleResult.value.chapterTextIndices.entries['chapter.xhtml'].normalizedText, 'A');
+  assert.equal('chapterTextIndices' in presentationResult.value, false);
+  assert.equal('footnotes' in presentationResult.value, false);
   assert.equal(search.value.query, 'A');
   assert.ok(
     calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
@@ -131,6 +135,16 @@ test('real worker handler uses the same bounded dispatch and transfers versioned
     calls.some(([name, args]) => name === 'getRevisionBundleAtRevisionJson' && args[2] === true),
   );
 
+  const presentationResult = await scope.send({
+    id: 8,
+    kind: 'getRevisionPresentationAtRevision',
+    revision: handle(0),
+  });
+  assert.equal(presentationResult.ok, true);
+  assert.deepEqual(presentationResult.payload.revision, handle(0));
+  assert.equal('chapterTextIndices' in presentationResult.payload.result, false);
+  assert.equal('footnotes' in presentationResult.payload.result, false);
+
   const footnotes = await scope.send({
     id: 5,
     kind: 'getFootnotesAtRevision',
@@ -173,6 +187,15 @@ test('worker exact revision reads reject forged handles and embedded identities'
     result: bundle(1),
   });
   assert.deepEqual((await bundled).value.chapterTextIndices, chapterTextIndices());
+
+  const presented = client.getRevisionPresentationAtRevision(handle(1));
+  const presentationMessage = worker.messages.at(-1);
+  worker.respond(presentationMessage.id, {
+    kind: 'getRevisionPresentationAtRevision',
+    revision: handle(1),
+    result: presentation(1),
+  });
+  assert.deepEqual((await presented).value, presentation(1));
 
   const stale = client.getRevisionBundleAtRevision(handle(1));
   worker.respond(worker.messages.at(-1).id, {
@@ -296,6 +319,8 @@ function fixtureDocument() {
         envelope(version, summary(version, 'complete')),
       getRevisionBundleAtRevisionJson: (_revisionId, version) =>
         envelope(version, bundle(version, 'complete')),
+      getRevisionPresentationAtRevisionJson: (_revisionId, version) =>
+        envelope(version, presentation(version, 'complete')),
       getShapeProvenanceDiagnosticAtRevisionJson: (_revisionId, version) =>
         envelope(version, shapeDiagnostic()),
       getRevisionNavigationAtRevisionJson: (_revisionId, version) =>
@@ -392,6 +417,23 @@ function bundle(version, status = 'ready') {
     tocTargets: { revisionId, targets: [] },
     footnotes: { revisionId, entries: {} },
     chapterTextIndices: chapterTextIndices(),
+    fontFamilies: [],
+  };
+}
+
+function presentation(version, status = 'ready') {
+  const revisionId = 'rev-1';
+  return {
+    revision: summary(version, status),
+    navigation: {
+      revisionId,
+      pageCount: 1,
+      spreadCount: 1,
+      spreads: [{ spreadIndex: 0, pageIndexes: [0], leftPageIndex: 0 }],
+      chapters: [],
+      chapterMap: {},
+    },
+    tocTargets: { revisionId, targets: [] },
     fontFamilies: [],
   };
 }
