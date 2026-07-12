@@ -22,6 +22,7 @@ mod revision_fonts;
 mod search;
 mod shape_provenance_diagnostic;
 mod source_locator;
+mod text_interaction;
 mod transfer_store;
 mod types;
 
@@ -66,6 +67,11 @@ pub use source_locator::{
     RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind,
     RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
     RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
+};
+pub use text_interaction::{
+    RuntimeExactTextRangeRect, RuntimeSameFlowTextRange, RuntimeSameFlowTextRangeRequest,
+    RuntimeSameFlowTextRangeResolution, RuntimeSameFlowTextRangeResponse, RuntimeTextCaret,
+    RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
 };
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;

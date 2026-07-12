@@ -42,6 +42,20 @@ fn derives_variable_width_caret_stops_without_retaining_a_second_table() {
 }
 
 #[test]
+fn derives_large_caret_tables_with_one_stop_per_unique_edge() {
+    let clusters = (0..10_000)
+        .map(|offset| cluster(offset, offset + 1, 1.0))
+        .collect();
+    let shape = exact(RunShapeDirection::LeftToRight, clusters);
+
+    let stops = shape.caret_stops();
+
+    assert_eq!(stops.len(), 10_001);
+    assert_eq!(stops.first().map(|stop| stop.logical_offset), Some(0));
+    assert_eq!(stops.last().map(|stop| stop.logical_offset), Some(10_000));
+}
+
+#[test]
 fn closes_the_last_caret_with_the_exact_run_advance() {
     let shape = exact_with_advance(
         RunShapeDirection::LeftToRight,

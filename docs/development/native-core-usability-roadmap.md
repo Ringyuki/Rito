@@ -190,8 +190,12 @@ code must never hit-test old canonical pages against a newer preview frame.
 
 The Rust target DTO, exact-version Worker transport, Browser Reader cache and
 visual-preview gate are implemented. Kit consumes native current-spread link,
-footnote and standalone-image targets without legacy hit-map fallback. Precise
-selection and range-backed interaction remain in the next slice.
+footnote and standalone-image targets without legacy hit-map fallback. Rust
+core now also resolves exact cluster carets and same-logical-flow ranges through
+version-gated APIs, including selected source text, durable source locators and
+cross-page geometry. WASM/Worker transport, Browser capability wiring and Kit
+selection remain in the next slices; the legacy interpolated diagnostic has not
+been promoted to selection-ready geometry.
 
 Remove compatibility placeholders such as empty page content and the synthetic
 `text.length * 8` measurer once their callers use the native contract.
@@ -305,7 +309,9 @@ architecture rather than make an eager whole-book pipeline faster.
    transport and pre-reflow Browser registration are implemented; licensed
    assets, embedded-face first-paint hardening and the real-book proof remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
-   highlights, annotations, positions and accessibility.
+   highlights, annotations, positions and accessibility. **Rust core point and
+   same-flow range resolution are implemented; WASM, Reader and Kit promotion
+   remain.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.

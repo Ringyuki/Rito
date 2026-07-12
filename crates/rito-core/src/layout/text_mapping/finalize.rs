@@ -70,6 +70,15 @@ impl LogicalTextFlow {
     pub(super) fn is_utf16_boundary(&self, target: u32) -> bool {
         is_utf16_boundary(self.text(), target)
     }
+
+    pub(crate) fn slice_utf16(&self, start: u32, end: u32) -> Option<&str> {
+        if start > end || end > self.utf16_len {
+            return None;
+        }
+        let start = utf16_offset_to_byte(self.text(), start)?;
+        let end = utf16_offset_to_byte(self.text(), end)?;
+        self.text().get(start..end)
+    }
 }
 
 pub(crate) fn finalize_inline_text_flow(segments: &mut [InlineSegment]) {
@@ -277,6 +286,23 @@ fn is_utf16_boundary(text: &str, target: u32) -> bool {
         }
     }
     false
+}
+
+fn utf16_offset_to_byte(text: &str, target: u32) -> Option<usize> {
+    if target == 0 {
+        return Some(0);
+    }
+    let mut offset = 0_u32;
+    for (byte, character) in text.char_indices() {
+        offset += character.len_utf16() as u32;
+        if offset == target {
+            return Some(byte + character.len_utf8());
+        }
+        if offset > target {
+            return None;
+        }
+    }
+    (offset == target).then_some(text.len())
 }
 
 fn utf16_len(text: &str) -> usize {

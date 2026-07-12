@@ -135,6 +135,14 @@ Those names now belong to the old TS reference tree only.
   targets; keep page-content bounds; preserve the source EPUB href; and carry
   separate canonical source and internal-destination locators. The legacy
   hit-map diagnostic JSON and golden hashes remain unchanged.
+- Rust core now exposes version-gated exact text interaction independently of
+  the legacy interpolated geometry diagnostic. Point hit testing chooses only
+  retained shaped cluster edges, and same-flow ranges revalidate both carets,
+  require one `Arc`-identified logical flow, preserve unpainted soft-wrap text,
+  return source locators and exact per-page rectangles, and work across
+  pagination. Host-measured runs, unavailable source spans, illegal grapheme
+  interiors and unsupported transforms return typed unavailable results. WASM,
+  Browser Reader and Kit wiring remain.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform

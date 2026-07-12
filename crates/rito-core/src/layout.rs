@@ -58,11 +58,13 @@ mod visual_geometry;
 
 use serde::{Deserialize, Serialize};
 
+pub(crate) use content::{RuntimeBlock, RuntimeChild};
 pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
 pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};
 pub(crate) use font_summary::summarize_layout_font_families;
 pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
 pub(crate) use hit_target::{build_hit_targets, LayoutHitTarget};
+pub(crate) use line::{LineBox, LineRun, TextRunBox};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
 pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
 pub use pagination_flow::{
@@ -93,6 +95,9 @@ pub use summary_types::{
 };
 pub(crate) use text_geometry::build_text_range_geometry;
 pub use text_geometry::{TextRangeGeometry, TextRangeRect};
+#[cfg(test)]
+pub(crate) use text_mapping::fixture_logical_text_flow;
+pub(crate) use text_mapping::{LogicalTextFlow, LogicalTextSource, RunTextMapping, TextFlowSlice};
 pub(crate) use text_measure::{
     parse_font_family_list, TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts,
 };
@@ -101,6 +106,12 @@ pub use text_position::{
     RuntimeTextPositionPage, TextPositionFlowPageDigest, TextPositionFlowSummary,
     TextPositionFlowTotals, TextRunOffset,
 };
+pub(crate) use text_shape::{ExactRunShape, RunShape, RunShapeCaretAffinity, RunShapeCaretStop};
+#[cfg(test)]
+pub(crate) use text_shape::{
+    RunShapeCluster, RunShapeDirection, RunShapeProvenance, RunShapeUnavailableReason,
+};
+pub(crate) use visual_geometry::{VisualGeometry, VisualRect};
 
 pub(crate) type LayoutRuntimePage = page::RuntimePage<content::RuntimeBlock<line::LineBox>>;
 

@@ -2,14 +2,16 @@ use serde_json::json;
 
 use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
 use crate::{
+    interaction::{TextCaretAddress, TextCaretAffinity},
     layout::{LineBreaking, SearchTextPosition},
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
         RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
         RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionAccessErrorKind,
-        RuntimeRevisionHandle, RuntimeRevisionWorkBudget, RuntimeSearchRequest,
-        RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
-        RuntimeTextRangeGeometryRequest, RuntimeVersioned,
+        RuntimeRevisionHandle, RuntimeRevisionWorkBudget, RuntimeSameFlowTextRangeRequest,
+        RuntimeSearchRequest, RuntimeSourceLocator, RuntimeSourceLocatorPendingReason,
+        RuntimeSourceLocatorResolution, RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest,
+        RuntimeVersioned,
     },
 };
 
@@ -209,6 +211,33 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
         )
         .expect("range geometry");
     document
+        .resolve_text_caret_at(
+            &handle,
+            RuntimeTextPointRequest {
+                page_index: result.page_index,
+                x: 0.0,
+                y: 0.0,
+            },
+        )
+        .expect("exact caret capability");
+    let address = TextCaretAddress {
+        page_index: result.page_index,
+        block_index: 0,
+        line_index: 0,
+        run_index: 0,
+        char_index: 0,
+        affinity: TextCaretAffinity::Downstream,
+    };
+    document
+        .resolve_same_flow_text_range_at(
+            &handle,
+            RuntimeSameFlowTextRangeRequest {
+                anchor: address,
+                focus: address,
+            },
+        )
+        .expect("same-flow range capability");
+    document
         .get_footnote_at(&handle, "chapter.xhtml#fn1")
         .expect("footnote");
     document.get_footnotes_at(&handle).expect("footnotes");
@@ -336,6 +365,29 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
             page_index: 0,
             start: position,
             end: position
+        }
+    ));
+    assert_stale!(document.resolve_text_caret_at(
+        &stale,
+        RuntimeTextPointRequest {
+            page_index: 0,
+            x: 0.0,
+            y: 0.0
+        }
+    ));
+    let address = TextCaretAddress {
+        page_index: 0,
+        block_index: 0,
+        line_index: 0,
+        run_index: 0,
+        char_index: 0,
+        affinity: TextCaretAffinity::Downstream,
+    };
+    assert_stale!(document.resolve_same_flow_text_range_at(
+        &stale,
+        RuntimeSameFlowTextRangeRequest {
+            anchor: address,
+            focus: address
         }
     ));
     assert_stale!(document.get_footnote_at(&stale, "missing"));

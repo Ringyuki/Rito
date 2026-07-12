@@ -2,6 +2,10 @@ use serde_json::Value;
 
 use super::content::RuntimeBlock;
 
+mod affine;
+
+use affine::AffineTransform;
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct VisualRect {
     pub(crate) x: f64,
@@ -22,19 +26,10 @@ impl VisualRect {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-struct AffineTransform {
-    a: f64,
-    b: f64,
-    c: f64,
-    d: f64,
-    e: f64,
-    f: f64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct VisualGeometry {
     matrix: AffineTransform,
     clip: Option<VisualRect>,
+    interaction_supported: bool,
 }
 
 impl VisualGeometry {
@@ -42,6 +37,7 @@ impl VisualGeometry {
         Self {
             matrix: AffineTransform::IDENTITY,
             clip: None,
+            interaction_supported: true,
         }
     }
 
@@ -80,11 +76,11 @@ impl VisualGeometry {
         }
 
         let mut clip = self.clip;
-        if paint
+        let clips_to_bounds = paint
             .get("clipToBounds")
             .and_then(Value::as_bool)
-            .unwrap_or(false)
-        {
+            .unwrap_or(false);
+        if clips_to_bounds {
             let own_clip = matrix.transform_rect(VisualRect::new(
                 absolute_x,
                 absolute_y,
@@ -96,7 +92,13 @@ impl VisualGeometry {
                 None => own_clip,
             });
         }
-        Self { matrix, clip }
+        Self {
+            matrix,
+            clip,
+            interaction_supported: self.interaction_supported
+                && matrix.is_axis_aligned_and_invertible()
+                && !(clips_to_bounds && paint.get("radius").is_some()),
+        }
     }
 
     pub(crate) fn resolve_rect(self, rect: VisualRect) -> Option<VisualRect> {
@@ -107,115 +109,52 @@ impl VisualGeometry {
             None => Some(transformed),
         }
     }
+
+    pub(crate) fn supports_axis_aligned_interaction(self) -> bool {
+        self.interaction_supported && self.matrix.is_axis_aligned_and_invertible()
+    }
+
+    pub(crate) fn inverse_point(self, x: f64, y: f64) -> Option<(f64, f64)> {
+        self.matrix.inverse_axis_aligned_point(x, y)
+    }
+
+    pub(crate) fn resolve_vertical_segment(
+        self,
+        x: f64,
+        y: f64,
+        height: f64,
+    ) -> Option<VisualRect> {
+        if !self.supports_axis_aligned_interaction() {
+            return None;
+        }
+        let top = self.matrix.transform_point(x, y);
+        let bottom = self.matrix.transform_point(x, y + height);
+        let x = (top.0 + bottom.0) / 2.0;
+        let y = top.1.min(bottom.1);
+        let bottom = top.1.max(bottom.1);
+        match self.clip {
+            Some(clip)
+                if x < clip.x
+                    || x > clip.x + clip.width
+                    || bottom <= clip.y
+                    || y >= clip.y + clip.height =>
+            {
+                None
+            }
+            Some(clip) => {
+                let clipped_y = y.max(clip.y);
+                let clipped_bottom = bottom.min(clip.y + clip.height);
+                (clipped_bottom > clipped_y)
+                    .then(|| VisualRect::new(x, clipped_y, 0.0, clipped_bottom - clipped_y))
+            }
+            None => Some(VisualRect::new(x, y, 0.0, bottom - y)),
+        }
+    }
 }
 
 impl Default for VisualRect {
     fn default() -> Self {
         Self::new(0.0, 0.0, 0.0, 0.0)
-    }
-}
-
-impl AffineTransform {
-    const IDENTITY: Self = Self {
-        a: 1.0,
-        b: 0.0,
-        c: 0.0,
-        d: 1.0,
-        e: 0.0,
-        f: 0.0,
-    };
-
-    fn translation(dx: f64, dy: f64) -> Self {
-        Self {
-            e: dx,
-            f: dy,
-            ..Self::IDENTITY
-        }
-    }
-
-    fn from_json(value: &Value, box_width: f64, box_height: f64) -> Option<Self> {
-        let transform = value.as_object()?;
-        match transform.get("kind")?.as_str()? {
-            "rotate" => {
-                let radians = transform.get("rad")?.as_f64()?;
-                let (sin, cos) = radians.sin_cos();
-                Some(Self {
-                    a: cos,
-                    b: sin,
-                    c: -sin,
-                    d: cos,
-                    e: 0.0,
-                    f: 0.0,
-                })
-            }
-            "scale" => Some(Self {
-                a: transform.get("sx")?.as_f64()?,
-                b: 0.0,
-                c: 0.0,
-                d: transform.get("sy")?.as_f64()?,
-                e: 0.0,
-                f: 0.0,
-            }),
-            "translate" => Some(Self::translation(
-                resolve_length_pct(transform.get("x")?, box_width)?,
-                resolve_length_pct(transform.get("y")?, box_height)?,
-            )),
-            _ => None,
-        }
-    }
-
-    fn multiply(self, right: Self) -> Self {
-        Self {
-            a: self.a * right.a + self.c * right.b,
-            b: self.b * right.a + self.d * right.b,
-            c: self.a * right.c + self.c * right.d,
-            d: self.b * right.c + self.d * right.d,
-            e: self.a * right.e + self.c * right.f + self.e,
-            f: self.b * right.e + self.d * right.f + self.f,
-        }
-    }
-
-    fn transform_rect(self, rect: VisualRect) -> VisualRect {
-        let points = [
-            self.transform_point(rect.x, rect.y),
-            self.transform_point(rect.x + rect.width, rect.y),
-            self.transform_point(rect.x, rect.y + rect.height),
-            self.transform_point(rect.x + rect.width, rect.y + rect.height),
-        ];
-        let left = points
-            .iter()
-            .map(|point| point.0)
-            .fold(f64::INFINITY, f64::min);
-        let top = points
-            .iter()
-            .map(|point| point.1)
-            .fold(f64::INFINITY, f64::min);
-        let right = points
-            .iter()
-            .map(|point| point.0)
-            .fold(f64::NEG_INFINITY, f64::max);
-        let bottom = points
-            .iter()
-            .map(|point| point.1)
-            .fold(f64::NEG_INFINITY, f64::max);
-        VisualRect::new(left, top, right - left, bottom - top)
-    }
-
-    fn transform_point(self, x: f64, y: f64) -> (f64, f64) {
-        (
-            self.a * x + self.c * y + self.e,
-            self.b * x + self.d * y + self.f,
-        )
-    }
-}
-
-fn resolve_length_pct(value: &Value, basis: f64) -> Option<f64> {
-    let value = value.as_object()?;
-    let number = value.get("value")?.as_f64()?;
-    match value.get("unit")?.as_str()? {
-        "percent" => Some(number / 100.0 * basis),
-        "px" => Some(number),
-        _ => None,
     }
 }
 
@@ -231,73 +170,4 @@ fn intersect_rects(left: VisualRect, right: VisualRect) -> Option<VisualRect> {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::{VisualGeometry, VisualRect};
-    use crate::layout::content::RuntimeBlock;
-
-    #[test]
-    fn applies_offset_transform_and_clip_in_parent_space() {
-        let block = RuntimeBlock::<()> {
-            x: 10.0,
-            y: 20.0,
-            width: 100.0,
-            height: 50.0,
-            semantic_tag: None,
-            anchor_id: None,
-            paint: Some(json!({
-                "visualOffset": { "dx": 5, "dy": -2 },
-                "transform": [{ "kind": "scale", "sx": 2, "sy": 1 }],
-                "clipToBounds": true,
-            })),
-            border_box: None,
-            page_break_before: false,
-            page_break_after: false,
-            orphans: None,
-            widows: None,
-            children: Vec::new(),
-        };
-        let visual = VisualGeometry::page().enter_block(&block, 10.0, 20.0);
-
-        assert_eq!(
-            visual.resolve_rect(VisualRect::new(10.0, 20.0, 20.0, 10.0)),
-            Some(VisualRect::new(-35.0, 18.0, 40.0, 10.0))
-        );
-        assert_eq!(
-            visual.resolve_rect(VisualRect::new(-100.0, -100.0, 10.0, 10.0)),
-            None
-        );
-    }
-
-    #[test]
-    fn resolves_percentage_translation_against_block_size() {
-        let block = RuntimeBlock::<()> {
-            x: 0.0,
-            y: 0.0,
-            width: 80.0,
-            height: 40.0,
-            semantic_tag: None,
-            anchor_id: None,
-            paint: Some(json!({
-                "transform": [{
-                    "kind": "translate",
-                    "x": { "unit": "percent", "value": 25 },
-                    "y": { "unit": "px", "value": 3 },
-                }],
-            })),
-            border_box: None,
-            page_break_before: false,
-            page_break_after: false,
-            orphans: None,
-            widows: None,
-            children: Vec::new(),
-        };
-        let visual = VisualGeometry::page().enter_block(&block, 0.0, 0.0);
-
-        assert_eq!(
-            visual.resolve_rect(VisualRect::new(1.0, 2.0, 3.0, 4.0)),
-            Some(VisualRect::new(21.0, 5.0, 3.0, 4.0))
-        );
-    }
-}
+mod tests;

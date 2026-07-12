@@ -1,6 +1,16 @@
 pub const NAME: &str = "interaction";
 pub const OWNS: &str = "Hit maps, locators, selection, search, anchors, annotations, and footnotes";
 
+mod text;
+
+pub(crate) use text::{
+    resolve_same_flow_text_range, resolve_text_caret, ExactTextRangeRect, LayoutExactTextRange,
+    LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret, LayoutTextCaretResolution,
+};
+pub use text::{
+    TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,
+};
+
 use serde::{Deserialize, Serialize};
 
 #[cfg(test)]

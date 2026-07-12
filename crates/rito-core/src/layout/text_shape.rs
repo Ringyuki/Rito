@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 mod direction;
 
 pub(crate) use direction::requires_bidi_itemization;
@@ -8,9 +10,6 @@ pub(crate) enum RunShapeDirection {
     RightToLeft,
 }
 
-// Caret DTOs are staged with the retained cluster contract and are consumed by
-// the following point/range interaction slice. Keep the allowance local.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RunShapeCaretAffinity {
     Upstream,
@@ -72,7 +71,6 @@ pub(crate) struct RunShapeCluster {
     pub(crate) advance: f32,
 }
 
-#[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct RunShapeCaretStop {
     pub(crate) logical_offset: u32,
@@ -184,15 +182,14 @@ impl ExactRunShape {
     /// Derives the transient caret table from compact cluster advances. A
     /// ligature/complex cluster contributes only its two real cluster edges;
     /// no interior stops are synthesized by interpolation.
-    #[allow(dead_code)]
     pub(crate) fn caret_stops(&self) -> Vec<RunShapeCaretStop> {
         build_caret_stops(self)
     }
 }
 
-#[allow(dead_code)]
 fn build_caret_stops(shape: &ExactRunShape) -> Vec<RunShapeCaretStop> {
     let mut stops = Vec::with_capacity(shape.clusters.len().saturating_add(1));
+    let mut seen = HashSet::with_capacity(shape.clusters.len().saturating_add(1));
     let mut cursor = 0.0_f64;
     for (index, cluster) in shape.clusters.iter().enumerate() {
         let visual_start = cursor;
@@ -207,6 +204,7 @@ fn build_caret_stops(shape: &ExactRunShape) -> Vec<RunShapeCaretStop> {
         };
         push_unique_stop(
             &mut stops,
+            &mut seen,
             RunShapeCaretStop {
                 logical_offset: cluster.logical_start,
                 visual_offset: start_x as f32,
@@ -215,6 +213,7 @@ fn build_caret_stops(shape: &ExactRunShape) -> Vec<RunShapeCaretStop> {
         );
         push_unique_stop(
             &mut stops,
+            &mut seen,
             RunShapeCaretStop {
                 logical_offset: cluster.logical_end,
                 visual_offset: end_x as f32,
@@ -226,18 +225,14 @@ fn build_caret_stops(shape: &ExactRunShape) -> Vec<RunShapeCaretStop> {
     stops
 }
 
-#[allow(dead_code)]
-fn push_unique_stop(stops: &mut Vec<RunShapeCaretStop>, stop: RunShapeCaretStop) {
-    if stops.iter().any(|existing| {
-        existing.logical_offset == stop.logical_offset
-            && approximately_equal(
-                f64::from(existing.visual_offset),
-                f64::from(stop.visual_offset),
-            )
-    }) {
-        return;
+fn push_unique_stop(
+    stops: &mut Vec<RunShapeCaretStop>,
+    seen: &mut HashSet<(u32, u32)>,
+    stop: RunShapeCaretStop,
+) {
+    if seen.insert((stop.logical_offset, stop.visual_offset.to_bits())) {
+        stops.push(stop);
     }
-    stops.push(stop);
 }
 
 fn utf16_slice(text: &str, start: usize, end: usize) -> &str {
@@ -263,11 +258,6 @@ fn utf16_slice(text: &str, start: usize, end: usize) -> &str {
         }
     });
     &text[start_byte..end_byte]
-}
-
-#[allow(dead_code)]
-fn approximately_equal(left: f64, right: f64) -> bool {
-    (left - right).abs() <= 0.000_001_f64.max(right.abs() * 1e-9)
 }
 
 #[cfg(test)]

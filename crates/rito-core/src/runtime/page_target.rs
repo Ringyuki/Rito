@@ -79,7 +79,7 @@ fn runtime_page_target(
     }
 }
 
-fn chapter_for_page<'a>(
+pub(super) fn chapter_for_page<'a>(
     document: &'a LoadedEpubDocument,
     revision: &RuntimeRevision,
     page_index: usize,

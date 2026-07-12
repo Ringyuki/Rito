@@ -1,7 +1,8 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    RuntimeDocument, RuntimePageTargets, RuntimePageTextPositions, RuntimeTextRangeGeometry,
-    RuntimeTextRangeGeometryRequest,
+    RuntimeDocument, RuntimePageTargets, RuntimePageTextPositions, RuntimeSameFlowTextRangeRequest,
+    RuntimeSameFlowTextRangeResponse, RuntimeTextCaretResponse, RuntimeTextPointRequest,
+    RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
 };
 
 impl RuntimeDocument {
@@ -32,6 +33,27 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeTextRangeGeometry>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, |document, revision_id| {
             document.get_text_range_geometry(revision_id, request)
+        })
+    }
+
+    pub fn resolve_text_caret_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeTextPointRequest,
+    ) -> Result<RuntimeVersioned<RuntimeTextCaretResponse>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.resolve_text_caret_for_revision(revision_id, request)
+        })
+    }
+
+    pub fn resolve_same_flow_text_range_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeSameFlowTextRangeRequest,
+    ) -> Result<RuntimeVersioned<RuntimeSameFlowTextRangeResponse>, RuntimeRevisionAccessError>
+    {
+        self.versioned_read(handle, |document, revision_id| {
+            document.resolve_same_flow_text_range_for_revision(revision_id, request)
         })
     }
 }

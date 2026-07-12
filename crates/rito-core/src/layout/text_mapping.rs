@@ -175,6 +175,37 @@ impl TextFlowSlice {
 }
 
 #[cfg(test)]
+type FixtureLogicalTextSpan = (u32, u32, Option<(Vec<usize>, usize)>);
+
+#[cfg(test)]
+pub(crate) fn fixture_logical_text_flow(
+    text: &str,
+    spans: Vec<FixtureLogicalTextSpan>,
+) -> Arc<LogicalTextFlow> {
+    let spans = spans
+        .into_iter()
+        .map(|(logical_start, logical_end, source)| LogicalTextSpan {
+            logical_start,
+            logical_end,
+            source: source.map_or(
+                LogicalTextSource::Unavailable(TextMappingUnavailableReason::PseudoContent),
+                |(node_path, source_start)| LogicalTextSource::ExactLinear {
+                    node_path: node_path.into_boxed_slice(),
+                    source_start,
+                },
+            ),
+        })
+        .collect::<Vec<_>>();
+    let flow = Arc::new(LogicalTextFlow {
+        text: text.to_owned().into_boxed_str(),
+        utf16_len: text.encode_utf16().count() as u32,
+        spans: spans.into_boxed_slice(),
+    });
+    assert_eq!(flow.validate(), Ok(()));
+    flow
+}
+
+#[cfg(test)]
 mod line_tests;
 #[cfg(test)]
 mod tests;
