@@ -9,6 +9,7 @@ mod document;
 mod error;
 mod frame;
 mod interaction;
+mod pinned_font;
 mod resource;
 mod revision;
 mod versioned;

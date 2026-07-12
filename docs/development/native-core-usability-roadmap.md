@@ -167,9 +167,11 @@ owns a validated, document-lifetime pinned-font policy, and font-aware layout
 now injects its locale-ordered aliases once into the resolved family stack used
 by both Rust shaping and paint commands. Author EPUB faces remain first and a
 missing glyph can fall through the complete same-role pinned chain. This closes
-the Rust-side family identity path; WASM/Worker asset transfer, pre-first-frame
-browser `FontFace` registration and licensed production assets are still
-required before the browser reader can enable the policy.
+the Rust-side family identity path. Raw WASM can now open a document with
+strictly validated metadata plus separate typed-array face bytes and returns
+the canonical bytes-free Rust policy identity. Worker ownership transfer,
+pre-first-frame browser `FontFace` registration and licensed production assets
+are still required before the browser reader can enable the policy.
 
 Interaction responses and host caches must bind to the complete revision
 handle. A visual preview must either expose its own active presentation handle
@@ -289,9 +291,9 @@ architecture rather than make an eager whole-book pipeline faster.
    equivalence.**
 5. Prove the shared pinned-font/paint-alias path on a no-embedded-font real book
    and use shape-provenance diagnostics to choose the production fallback set.
-   **The immutable policy and Rust shaping/paint family stack are implemented;
-   Worker transport, browser registration, licensed assets and the real-book
-   proof remain.**
+   **The immutable policy, Rust shaping/paint family stack and direct WASM open
+   handshake are implemented; Worker transport, browser registration, licensed
+   assets and the real-book proof remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility.
 7. Reduce browser session policy to explicit core-requested host operations.

@@ -59,7 +59,7 @@ impl WasmRuntimeDocument {
         }
     }
 
-    fn from_runtime_document(document: RuntimeDocument) -> Self {
+    pub(crate) fn from_runtime_document(document: RuntimeDocument) -> Self {
         Self {
             document,
             transfers: RuntimeResourceTransferStore::new(),

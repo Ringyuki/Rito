@@ -38,6 +38,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
       engine: 'rust',
       rustFacade: {
         publicationJson: true,
+        pinnedFontPolicyJson: true,
         createFullRevisionBundleJson: true,
         createInitialPreviewRevisionBundleJson: true,
         createActiveChapterPreviewRevisionBundleJson: true,

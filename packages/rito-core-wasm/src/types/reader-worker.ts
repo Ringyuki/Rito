@@ -2,6 +2,10 @@ import type { RitoCoreWasmJsonObject, RitoCoreWasmResourceKind } from './common'
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type { RitoCoreWasmChapterTextIndices } from './interaction';
 import type { RitoCoreWasmPublicationInfo, RitoCoreWasmTocEntry } from './publication';
+import type {
+  RitoCoreWasmOpenDocumentOptions,
+  RitoCoreWasmPinnedFontPolicySummary,
+} from './pinned-font';
 import type { RitoCoreWasmFrameResourceWarmPlan, RitoCoreWasmResourcePayload } from './resource';
 import type { RitoCoreWasmSearchRequest, RitoCoreWasmSearchResponse } from './search';
 import type { RitoCoreWasmReaderRuntimeWire } from './runtime-bundle';
@@ -123,6 +127,7 @@ export interface RitoCoreWasmReaderWorkerLike {
 export interface RitoCoreWasmReaderDocumentRuntime extends RitoCoreWasmReaderVersionedDocumentRuntime {
   free(): void;
   publication(): RitoCoreWasmPublicationInfo;
+  pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;
   createViewRevisionBundle(
     request: RitoCoreWasmViewRevisionRequest,
   ): RitoCoreWasmViewRevisionResponse;
@@ -135,7 +140,10 @@ export interface RitoCoreWasmReaderDocumentRuntime extends RitoCoreWasmReaderVer
 }
 
 export interface RitoCoreWasmReaderEngineRuntime {
-  openDocument(bytes: Uint8Array): RitoCoreWasmReaderDocumentRuntime;
+  openDocument(
+    bytes: Uint8Array,
+    options?: RitoCoreWasmOpenDocumentOptions,
+  ): RitoCoreWasmReaderDocumentRuntime;
 }
 
 export interface RitoCoreWasmReaderBindingRuntimeModule {

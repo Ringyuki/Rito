@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
@@ -46,6 +47,14 @@ const revision = revisionBundle.bundle.revision;
 const fontAwareRevision = fontAwareRevisionBundle.bundle.revision;
 const optimalRevision = optimalRevisionBundle.bundle.revision;
 const navigation = revisionBundle.bundle.navigation;
+const legacyPinnedFontPolicy = document.pinnedFontPolicy();
+const pinnedFontPolicy = openWithFirstPublicationFont(
+  engine,
+  document,
+  epubBytes,
+  publication,
+  revision.revisionId,
+);
 releaseBundleInitialFrameResources(document, revisionBundle);
 releaseBundleInitialFrameResources(document, fontAwareRevisionBundle);
 releaseBundleInitialFrameResources(document, optimalRevisionBundle);
@@ -173,11 +182,15 @@ if (
   status.rustFacade?.wasmBindgen !== true ||
   status.rustFacade?.npmWasmArtifact !== true ||
   status.rustFacade?.packedFrameCommandBuffer !== true ||
+  status.rustFacade?.pinnedFontPolicyJson !== true ||
   status.rustFacade?.resourceTransferLeases !== true
 ) {
   throw new Error(
     `Expected generated WASM package status to expose experimental runtime capabilities.`,
   );
+}
+if (legacyPinnedFontPolicy.faces.length !== 0 || pinnedFontPolicy.faces.length !== 1) {
+  throw new Error('Expected legacy and pinned document opens to expose canonical font policies.');
 }
 if (
   typeof publication.package?.metadata?.title !== 'string' ||
@@ -351,6 +364,33 @@ console.log(
     resourceByteLength: resource.byteLength,
   }),
 );
+
+function openWithFirstPublicationFont(engine, source, epubBytes, publication, revisionId) {
+  const font = publication.resources.fonts[0];
+  if (!font) throw new Error('Expected fixture EPUB to include an embedded font.');
+  const payload = source.getResourcePayload(revisionId, 'font', font.href);
+  const bytes = source.takeResourceTransfer(payload.transferId);
+  const expectedSha256 = createHash('sha256').update(bytes).digest('hex');
+  const document = engine.openDocument(new Uint8Array(epubBytes), {
+    pinnedFontPolicy: {
+      schemaVersion: 1,
+      faces: [{ bytes, expectedSha256, genericRole: 'serif' }],
+    },
+  });
+  try {
+    const summary = document.pinnedFontPolicy();
+    if (
+      summary.faces[0]?.sha256 !== expectedSha256 ||
+      summary.faces[0]?.byteLength !== bytes.byteLength ||
+      summary.faces[0]?.language !== 'und'
+    ) {
+      throw new Error('Expected pinned font summary to bind to the supplied face bytes.');
+    }
+    return summary;
+  } finally {
+    document.free();
+  }
+}
 
 function findFirstImageFrame(document, revisionId, spreadCount) {
   for (let spreadIndex = 0; spreadIndex < spreadCount; spreadIndex += 1) {

@@ -25,6 +25,8 @@ The Rust `rito-wasm` crate now has a testable internal runtime facade for:
 - structured footnote JSON,
 - href/anchor locator JSON,
 - revision-scoped search JSON,
+- document-lifetime pinned fallback font policy metadata with face bytes kept
+  on a separate typed-array path,
 - JSON resource payloads without bytes, and
 - transfer-id based resource prefetch, frame-resource prefetch, compatible byte
   reads/releases, and consuming byte takes for production delivery.
@@ -75,12 +77,17 @@ normalized to `RitoCoreWasmError` by the generated wrapper. The packed-buffer
 decoder exposes command-count/resource tables and reconstructs display-list
 command objects from `RITOFCB2` records and payload tables, so consumers can
 validate the byte path without fetching the debug frame JSON command list.
+`openDocument(bytes, { pinnedFontPolicy })` preserves the legacy one-argument
+path, validates every declared face before entering WASM, sends face bytes
+outside JSON, and exposes the accepted bytes-free Rust identity through
+`document.pinnedFontPolicy()`.
 
 After building, a narrow fixture smoke test is available. It opens a fixture
 EPUB, creates a line-breaking-aware revision, reads a paint-ready frame,
 verifies the packed `RITOFCB2` command buffer through
 `decodeRitoFrameCommandBuffer()`, checks page targets/search/text geometry,
-frame-resource prefetch, consumes one image transfer, and verifies the legacy
+frame-resource prefetch, consumes one image transfer, reopens with a real
+embedded font through the pinned policy path, and verifies the legacy
 read/release path:
 
 ```sh

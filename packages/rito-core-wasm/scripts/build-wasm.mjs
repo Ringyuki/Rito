@@ -12,6 +12,7 @@ const dist = resolve(packageRoot, 'dist');
 const wasmInput = resolve(repoRoot, 'target/wasm32-unknown-unknown/release/rito_wasm.wasm');
 const runtimeSources = [
   'core-wasm-error-runtime.js',
+  'pinned-font-policy-runtime.js',
   'core-wasm-document-runtime.js',
   'core-wasm-versioned-runtime.js',
   'core-wasm-versioned-mutation-runtime.js',
@@ -61,6 +62,7 @@ const typeDeclarationSources = [
   'interaction',
   'status',
   'shape-provenance',
+  'pinned-font',
 ].map((name) => resolve(packageRoot, `src/types/${name}.ts`));
 
 ensureWasmBindgen();
@@ -152,7 +154,10 @@ function documentDeclarations() {
   requireDocumentDeclarationContract(classDeclarations);
   return [
     'export interface RitoCoreWasmEngine {',
-    '  openDocument(bytes: Uint8Array): RitoCoreWasmDocument;',
+    '  openDocument(',
+    '    bytes: Uint8Array,',
+    '    options?: RitoCoreWasmOpenDocumentOptions,',
+    '  ): RitoCoreWasmDocument;',
     '}',
     'export declare function initRitoCoreWasmEngine(',
     '  initInput?:',
@@ -167,6 +172,7 @@ function documentDeclarations() {
 function requireDocumentDeclarationContract(declaration) {
   for (const required of [
     'publication(): RitoCoreWasmPublicationInfo;',
+    'pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
     'request: RitoCoreWasmFullRevisionBundleRequest,',
     'takeResourceTransfer(transferId: string): Uint8Array;',
   ]) {
@@ -202,6 +208,7 @@ function createStatusFunctionSource() {
     "    engine: 'rust',",
     '    rustFacade: {',
     '      publicationJson: true,',
+    '      pinnedFontPolicyJson: true,',
     '      createFullRevisionBundleJson: true,',
     '      createInitialPreviewRevisionBundleJson: true,',
     '      createActiveChapterPreviewRevisionBundleJson: true,',

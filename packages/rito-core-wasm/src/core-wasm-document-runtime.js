@@ -5,6 +5,7 @@ import {
   warmVersionedReaderFrameWindow,
 } from './reader-worker-versioned-payload-runtime.js';
 import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
+import { decodePinnedFontPolicySummary, openRawDocument } from './pinned-font-policy-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
   async function initRitoCoreWasmEngine(initInput) {
@@ -16,18 +17,19 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
       });
     }
     return {
-      openDocument(bytes) {
-        return callRitoCoreWasm(
-          'openDocument',
-          () => new RitoCoreWasmDocument(new RawRitoWasmDocument(bytes)),
-        );
+      openDocument(bytes, options) {
+        return callRitoCoreWasm('openDocument', () => {
+          const opened = openRawDocument(RawRitoWasmDocument, bytes, options);
+          return new RitoCoreWasmDocument(opened.inner, opened.expectedFaces);
+        });
       },
     };
   }
 
   class RitoCoreWasmDocument {
-    constructor(inner) {
+    constructor(inner, expectedPinnedFontFaces) {
       this._inner = inner;
+      this._expectedPinnedFontFaces = expectedPinnedFontFaces;
     }
 
     free() {
@@ -37,6 +39,15 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     publication() {
       return callRitoCoreWasm('publication', () =>
         parseObjectPayload(this._inner.publicationJson(), 'publication'),
+      );
+    }
+
+    pinnedFontPolicy() {
+      return callRitoCoreWasm('pinnedFontPolicy', () =>
+        decodePinnedFontPolicySummary(
+          this._inner.pinnedFontPolicyJson(),
+          this._expectedPinnedFontFaces,
+        ),
       );
     }
 

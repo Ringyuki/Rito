@@ -4,6 +4,7 @@ use wasm_bindgen::prelude::*;
 
 use crate::{WasmRuntimeDocument, WasmRuntimeError};
 
+mod pinned_font;
 mod resource;
 mod versioned;
 

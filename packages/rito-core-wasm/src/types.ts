@@ -14,3 +14,4 @@ export type * from './types/page';
 export type * from './types/interaction';
 export type * from './types/status';
 export type * from './types/shape-provenance';
+export type * from './types/pinned-font';

@@ -15,6 +15,7 @@ function revisionCreationDeclarations() {
   return [
     '  free(): void;',
     '  publication(): RitoCoreWasmPublicationInfo;',
+    '  pinnedFontPolicy(): RitoCoreWasmPinnedFontPolicySummary;',
     '  createFullRevisionBundle(',
     '    request: RitoCoreWasmFullRevisionBundleRequest,',
     '  ): RitoCoreWasmRevisionBundleResponse;',

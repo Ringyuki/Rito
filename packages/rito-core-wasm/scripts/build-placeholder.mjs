@@ -5,6 +5,7 @@ import { documentClassDeclarations } from './document-declarations.mjs';
 const dist = new URL('../dist/', import.meta.url);
 const runtimeSources = [
   'core-wasm-error-runtime.js',
+  'pinned-font-policy-runtime.js',
   'core-wasm-document-runtime.js',
   'core-wasm-versioned-runtime.js',
   'core-wasm-versioned-mutation-runtime.js',
@@ -54,6 +55,7 @@ const typeDeclarationSources = [
   'interaction',
   'status',
   'shape-provenance',
+  'pinned-font',
 ].map((name) => new URL(`../src/types/${name}.ts`, import.meta.url));
 
 await mkdir(dist, { recursive: true });
@@ -123,6 +125,7 @@ function indexEntry() {
     "    engine: 'rust',",
     '    rustFacade: {',
     '      publicationJson: true,',
+    '      pinnedFontPolicyJson: true,',
     '      createFullRevisionBundleJson: true,',
     '      createInitialPreviewRevisionBundleJson: true,',
     '      createActiveChapterPreviewRevisionBundleJson: true,',
@@ -158,7 +161,10 @@ function indexEntry() {
 function placeholderEngineDeclaration() {
   return [
     'export interface RitoCoreWasmEngine {',
-    '  openDocument(bytes: Uint8Array): RitoCoreWasmDocument;',
+    '  openDocument(',
+    '    bytes: Uint8Array,',
+    '    options?: RitoCoreWasmOpenDocumentOptions,',
+    '  ): RitoCoreWasmDocument;',
     '}',
     'export declare function initRitoCoreWasmEngine(): Promise<RitoCoreWasmEngine>;',
     documentClassDeclarations({ typeOnly: true }),

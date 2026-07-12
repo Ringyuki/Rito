@@ -1,5 +1,6 @@
 mod continuation;
 mod fixture;
+mod pinned_font;
 mod versioned;
 
 use fixture::{
