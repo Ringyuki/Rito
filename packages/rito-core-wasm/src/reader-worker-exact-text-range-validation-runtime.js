@@ -73,7 +73,7 @@ function requireResolvedRange(value, request, operation) {
   if (typeof range.selectedText !== 'string') {
     throw new Error(`${operation} returned invalid selectedText`);
   }
-  requireWellFormedUtf16(range.selectedText, `${operation} selectedText`);
+  requireWellFormedExactTextUtf16(range.selectedText, `${operation} selectedText`);
   const sourceLocator = requireSourceLocatorRequest(range.sourceLocator, `${operation} range`);
   if (
     sourceLocator.sourceRange === undefined ||
@@ -97,14 +97,24 @@ function requireResolvedRange(value, request, operation) {
 }
 
 function requireRangeRects(values, start, end, operation) {
-  const rects = values.map((value) => requireRangeRect(value, operation));
-  let previous;
+  const rects = requireExactTextRangeRects(values, operation);
   const firstPage = Math.min(start.pageIndex, end.pageIndex);
   const lastPage = Math.max(start.pageIndex, end.pageIndex);
   for (const rect of rects) {
     if (rect.pageIndex < firstPage || rect.pageIndex > lastPage) {
       throw new Error(`${operation} returned an exact range rect outside its endpoint pages`);
     }
+  }
+  return rects;
+}
+
+export function requireExactTextRangeRects(values, operation) {
+  if (!Array.isArray(values)) {
+    throw new Error(`${operation} returned malformed exact range rects`);
+  }
+  const rects = values.map((value) => requireRangeRect(value, operation));
+  let previous;
+  for (const rect of rects) {
     if (previous && compareRectPosition(previous, rect) >= 0) {
       throw new Error(`${operation} returned unordered exact range rects`);
     }
@@ -165,7 +175,7 @@ function compareRectPosition(left, right) {
   return 0;
 }
 
-function requireWellFormedUtf16(text, operation) {
+export function requireWellFormedExactTextUtf16(text, operation) {
   for (let index = 0; index < text.length; index += 1) {
     const code = text.charCodeAt(index);
     if (code >= 0xd800 && code <= 0xdbff) {

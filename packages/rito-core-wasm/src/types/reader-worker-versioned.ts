@@ -1,6 +1,8 @@
 import type { RitoCoreWasmResourceKind } from './common';
 import type { RitoCoreWasmFrameCommandBufferMetadata } from './frame';
 import type {
+  RitoCoreWasmExactSourceRangeRequest,
+  RitoCoreWasmExactSourceRangeResponse,
   RitoCoreWasmFootnote,
   RitoCoreWasmSameFlowTextRangeRequest,
   RitoCoreWasmSameFlowTextRangeResponse,
@@ -86,6 +88,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmSameFlowTextRangeRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmSameFlowTextRangeResponse>>;
+  resolveExactSourceRangeAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmExactSourceRangeRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmExactSourceRangeResponse>>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -160,6 +166,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmSameFlowTextRangeRequest,
   ): RitoCoreWasmVersioned<RitoCoreWasmSameFlowTextRangeResponse>;
+  resolveExactSourceRangeAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmExactSourceRangeRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmExactSourceRangeResponse>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -207,6 +217,12 @@ export interface RitoCoreWasmReaderTextCaretTransport {
 export interface RitoCoreWasmReaderSameFlowTextRangeTransport {
   readonly request: RitoCoreWasmSameFlowTextRangeRequest;
   readonly response: RitoCoreWasmSameFlowTextRangeResponse;
+}
+
+/** Private Worker echo binding exact source projection to its durable request. */
+export interface RitoCoreWasmReaderExactSourceRangeTransport {
+  readonly request: RitoCoreWasmExactSourceRangeRequest;
+  readonly response: RitoCoreWasmExactSourceRangeResponse;
 }
 
 export interface RitoCoreWasmReaderVersionedErrorMetadata {
@@ -267,6 +283,10 @@ export type RitoCoreWasmReaderWorkerResolveSameFlowTextRangeAtRevisionRequest =
   RevisionRequest<'resolveSameFlowTextRangeAtRevision'> & {
     readonly request: RitoCoreWasmSameFlowTextRangeRequest;
   };
+export type RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest =
+  RevisionRequest<'resolveExactSourceRangeAtRevision'> & {
+    readonly request: RitoCoreWasmExactSourceRangeRequest;
+  };
 export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
 export type RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest =
@@ -301,6 +321,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveSameFlowTextRangeAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
@@ -359,6 +380,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveSameFlowTextRangeAtRevision',
       RitoCoreWasmReaderSameFlowTextRangeTransport
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'resolveExactSourceRangeAtRevision',
+      RitoCoreWasmReaderExactSourceRangeTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
   | RitoCoreWasmReaderWorkerVersionedResponse<

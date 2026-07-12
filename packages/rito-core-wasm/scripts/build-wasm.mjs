@@ -26,6 +26,7 @@ const runtimeSources = [
   'reader-worker-interaction-validation-runtime.js',
   'reader-worker-exact-text-interaction-validation-runtime.js',
   'reader-worker-exact-text-range-validation-runtime.js',
+  'reader-worker-exact-source-range-validation-runtime.js',
   'reader-worker-text-geometry-validation-runtime.js',
   'shape-provenance-diagnostic-validation-runtime.js',
   'reader-worker-session-runtime.js',

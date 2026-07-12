@@ -21,6 +21,10 @@ import {
   requireSameFlowTextRangeRequest,
   requireSameFlowTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
+import {
+  requireExactSourceRangeRequest,
+  requireExactSourceRangeResponse,
+} from './reader-worker-exact-source-range-validation-runtime.js';
 
 export function installRitoCoreWasmVersionedDocumentMethods(Document) {
   const methods = {
@@ -194,6 +198,26 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
         (value, revision, operation) =>
           requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    resolveExactSourceRangeAtRevision(handle, request) {
+      const expectedRequest = requireExactSourceRangeRequest(
+        request,
+        'resolveExactSourceRangeAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'resolveExactSourceRangeAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveExactSourceRangeAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireExactSourceRangeResponse(value, revision, expectedRequest, operation),
       );
     },
     getFootnoteAtRevision(handle, key) {

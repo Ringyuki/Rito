@@ -50,6 +50,13 @@ export interface RitoCoreWasmSourceRange {
   readonly end: RitoCoreWasmSourcePoint;
 }
 
+/** Durable exact range read against one retained Rust layout revision. */
+export interface RitoCoreWasmExactSourceRangeRequest {
+  /** Canonical manifest href without a fragment. */
+  readonly href: string;
+  readonly sourceRange: RitoCoreWasmSourceRange;
+}
+
 export interface RitoCoreWasmSourceLocator {
   readonly href: string;
   readonly anchorId?: string | undefined;
@@ -137,6 +144,28 @@ export interface RitoCoreWasmExactTextRangeRect {
   readonly runIndex: number;
   readonly startCharIndex: number;
   readonly endCharIndex: number;
+}
+
+export interface RitoCoreWasmExactSourceRange {
+  readonly selectedText: string;
+  readonly sourceLocator: RitoCoreWasmSourceLocator;
+  readonly rects: readonly RitoCoreWasmExactTextRangeRect[];
+}
+
+export type RitoCoreWasmExactSourceRangeResolution =
+  | { readonly status: 'resolved'; readonly range: RitoCoreWasmExactSourceRange }
+  | {
+      readonly status: 'pending';
+      readonly reason: 'notPaginated' | 'noPageProjection';
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: RitoCoreWasmTextInteractionUnavailableReason;
+    };
+
+export interface RitoCoreWasmExactSourceRangeResponse {
+  readonly revisionId: string;
+  readonly resolution: RitoCoreWasmExactSourceRangeResolution;
 }
 
 export interface RitoCoreWasmSameFlowTextRange {

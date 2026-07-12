@@ -8,6 +8,10 @@ import {
   requireSameFlowTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
+  requireExactSourceRangeRequest,
+  requireExactSourceRangeResponse,
+} from './reader-worker-exact-source-range-validation-runtime.js';
+import {
   requireFootnote,
   requireFootnoteKey,
   requireLocatorRequest,
@@ -70,6 +74,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return textCaretResponse(document, request);
     case 'resolveSameFlowTextRangeAtRevision':
       return sameFlowTextRangeResponse(document, request);
+    case 'resolveExactSourceRangeAtRevision':
+      return exactSourceRangeResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
     case 'resolveLocatorAtRevision':
@@ -181,6 +187,17 @@ function sameFlowTextRangeResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     request: expectedRequest,
     response: requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
+  }));
+}
+
+function exactSourceRangeResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireExactSourceRangeRequest(request.request, operation);
+  const envelope = document.resolveExactSourceRangeAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    response: requireExactSourceRangeResponse(value, revision, expectedRequest, operation),
   }));
 }
 

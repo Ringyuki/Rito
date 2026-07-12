@@ -14,6 +14,10 @@ import {
   requireSameFlowTextRangeTransport,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
+  requireExactSourceRangeRequest,
+  requireExactSourceRangeTransport,
+} from './reader-worker-exact-source-range-validation-runtime.js';
+import {
   requireFootnote,
   requireFootnoteKey,
   requireLocatorRequest,
@@ -160,6 +164,20 @@ export function createVersionedReaderClientMethods(send) {
         { request: expectedRequest },
         (result, handle, operation) =>
           requireSameFlowTextRangeTransport(result, handle, expectedRequest, operation),
+      );
+    },
+    resolveExactSourceRangeAtRevision: (revision, request) => {
+      const expectedRequest = requireExactSourceRangeRequest(
+        request,
+        'resolveExactSourceRangeAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'resolveExactSourceRangeAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireExactSourceRangeTransport(result, handle, expectedRequest, operation),
       );
     },
     getFootnoteAtRevision: (revision, key) => {

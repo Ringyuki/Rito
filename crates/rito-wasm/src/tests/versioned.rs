@@ -208,6 +208,38 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert_eq!(range["value"]["resolution"]["status"], "unavailable");
     assert_eq!(range["value"]["resolution"]["reason"], "shapeUnavailable");
 
+    let source_point = &target["sourceLocator"]["sourcePoint"];
+    let source_offset = source_point["textOffset"]
+        .as_u64()
+        .expect("source text offset");
+    let source_range_request = json!({
+        "href": target["sourceLocator"]["href"],
+        "sourceRange": {
+            "start": source_point,
+            "end": {
+                "nodePath": source_point["nodePath"],
+                "textOffset": source_offset + 1,
+            },
+        },
+    });
+    let source_range = parse(
+        document
+            .resolve_exact_source_range_at_revision_json(
+                &revision_id,
+                0,
+                &source_range_request.to_string(),
+            )
+            .expect("exact source range response is returned"),
+    );
+
+    assert_revision(&source_range, &revision_id, 0);
+    assert_eq!(source_range["value"]["revisionId"], revision_id);
+    assert_eq!(source_range["value"]["resolution"]["status"], "unavailable");
+    assert_eq!(
+        source_range["value"]["resolution"]["reason"],
+        "shapeUnavailable"
+    );
+
     let bad_point = document
         .resolve_text_caret_at_revision_json(&revision_id, 0, r#"{"pageIndex":0,"x":"bad","y":0}"#)
         .expect_err("malformed point request is rejected");
@@ -218,6 +250,13 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
             r#"{"anchor":{"pageIndex":0}}"#,
         )
         .expect_err("malformed range request is rejected");
+    let bad_source_range = document
+        .resolve_exact_source_range_at_revision_json(
+            &revision_id,
+            0,
+            r#"{"href":"chapter.xhtml","source_range":{"start":{},"end":{}}}"#,
+        )
+        .expect_err("non-camel-case source range request is rejected");
     assert_eq!(bad_point.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_point
         .message()
@@ -226,6 +265,10 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert!(bad_range
         .message()
         .contains("invalid same-flow text range request JSON"));
+    assert_eq!(bad_source_range.code(), WasmRuntimeErrorCode::BadRequest);
+    assert!(bad_source_range
+        .message()
+        .contains("invalid exact source range request JSON"));
 }
 
 #[test]
@@ -333,6 +376,7 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
     );
     let request = json!({ "pageIndex": 0, "x": 24.0, "y": 24.0 }).to_string();
     let range_request = collapsed_range_request().to_string();
+    let source_range_request = exact_source_range_request().to_string();
     for error in [
         document
             .resolve_text_caret_at_revision_json("rev-1", 0, &request)
@@ -340,6 +384,9 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         document
             .resolve_same_flow_text_range_at_revision_json("rev-1", 0, &range_request)
             .expect_err("old range handle is stale"),
+        document
+            .resolve_exact_source_range_at_revision_json("rev-1", 0, &source_range_request)
+            .expect_err("old exact source range handle is stale"),
     ] {
         assert_eq!(error.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
     }
@@ -350,6 +397,9 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         document
             .resolve_same_flow_text_range_at_revision_json("rev-missing", 0, &range_request)
             .expect_err("missing range revision is typed"),
+        document
+            .resolve_exact_source_range_at_revision_json("rev-missing", 0, &source_range_request)
+            .expect_err("missing exact source range revision is typed"),
     ] {
         assert_eq!(error.code(), WasmRuntimeErrorCode::UnknownRevision);
     }
@@ -387,6 +437,16 @@ fn collapsed_range_request() -> Value {
         "affinity": "downstream",
     });
     json!({ "anchor": address, "focus": address })
+}
+
+fn exact_source_range_request() -> Value {
+    json!({
+        "href": "chapter.xhtml",
+        "sourceRange": {
+            "start": { "nodePath": [0], "textOffset": 0 },
+            "end": { "nodePath": [0], "textOffset": 1 },
+        },
+    })
 }
 
 fn start_bounded(document: &mut WasmRuntimeDocument) -> Value {

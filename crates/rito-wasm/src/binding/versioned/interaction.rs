@@ -40,6 +40,22 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = resolveExactSourceRangeAtRevisionJson)]
+    pub fn resolve_exact_source_range_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        request_json: &str,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .resolve_exact_source_range_at_revision_json(
+                revision_id,
+                revision_version,
+                request_json,
+            )
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = getPageTargetsAtRevisionJson)]
     pub fn get_page_targets_at_revision_json(
         &self,
