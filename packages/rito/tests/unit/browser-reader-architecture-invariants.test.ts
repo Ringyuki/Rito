@@ -32,6 +32,7 @@ const BROWSER_READER_TEXT_SELECTION = join(BROWSER_READER_BINDING, 'text-selecti
 const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
 const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
 const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
+const BROWSER_READER_SESSION_HOST = join(SRC, 'bindings/browser/reader-session-host.ts');
 const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resources/scheduler.ts');
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
@@ -292,6 +293,21 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(stateBody).toContain('revisionBundle: CoreRevisionBundle');
     expect(stateBody).not.toContain('revision: CoreRevisionSummary');
     expect(stateBody).not.toContain('navigation: CoreRevisionNavigation');
+  });
+
+  it('centralizes bounded session ownership and exact-read gating in the Browser host', () => {
+    const contracts = read(BROWSER_CORE_CONTRACTS);
+    const state = read(BROWSER_READER_TYPES);
+    const host = read(BROWSER_READER_SESSION_HOST);
+    const handles = read(join(BROWSER_READER_BINDING, 'pipeline/revision-handle.ts'));
+
+    expect(contracts).toContain('createRitoCoreWasmBoundedReaderSession');
+    expect(state).toContain('boundedSessions: BrowserReaderBoundedSessionSlots');
+    expect(host).toContain('slots.current');
+    expect(host).toContain('slots.candidate');
+    expect(host).toContain('suspendBrowserReaderExactReads');
+    expect(host).toContain('Promise.allSettled');
+    expect(handles).toContain('boundedOwnerAllowsRead');
   });
 
   it('keeps reader-methods as the Reader API facade', () => {

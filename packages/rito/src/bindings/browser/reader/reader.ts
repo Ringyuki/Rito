@@ -18,11 +18,11 @@ import { buildBrowserReaderMethods } from './reader-methods';
 import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
-  createLogger,
   type BrowserReaderBindingModule,
   type BrowserReaderState,
   type BrowserReaderWorkerClientFactory,
 } from './types';
+import { createBrowserHostLogger } from '../host-runtime';
 import { loadRuntimeCoreModule } from './wasm-module';
 import type { BrowserReaderWorkerClient, BrowserReaderOpenResult } from '../core-contracts';
 import {
@@ -108,7 +108,7 @@ function createInitialState(
     ctx,
     fontMetrics: createHostFontMetrics(),
     publication: openResult.publication,
-    logger: createLogger(options.logLevel ?? 'warn'),
+    logger: createBrowserHostLogger(options.logLevel ?? 'warn'),
     config: makeBrowserReaderLayoutConfig(options, spreadMode),
     spreadMode,
     lineBreaking: options.lineBreaking ?? 'greedy',
@@ -135,12 +135,19 @@ function createInitialState(
 
 function emptyReaderRevisionState(): Pick<
   BrowserReaderState,
-  'revisionBundle' | 'revisionHandle' | 'commitGeneration' | 'interaction'
+  | 'revisionBundle'
+  | 'revisionHandle'
+  | 'commitGeneration'
+  | 'boundedSessions'
+  | 'disposeTask'
+  | 'interaction'
 > {
   return {
     revisionBundle: emptyRevisionBundle(),
     revisionHandle: undefined,
     commitGeneration: 0,
+    boundedSessions: { current: undefined, candidate: undefined },
+    disposeTask: undefined,
     interaction: createBrowserReaderInteractionState(),
   };
 }

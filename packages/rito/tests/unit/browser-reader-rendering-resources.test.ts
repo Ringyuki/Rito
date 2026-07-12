@@ -564,6 +564,8 @@ function createState(overrides: object = {}): BrowserReaderState {
       commitGeneration: 1,
     },
     commitGeneration: 1,
+    boundedSessions: { current: undefined, candidate: undefined },
+    disposeTask: undefined,
     frames: new Map(),
     pendingFrameLoads: new Map(),
     images: new Map(),

@@ -386,6 +386,8 @@ function frameWindowState(
       commitGeneration: 1,
     },
     commitGeneration: 1,
+    boundedSessions: { current: undefined, candidate: undefined },
+    disposeTask: undefined,
     decodeFrameCommandBuffer: vi.fn(() => ({ commands: [] })),
     activeSpreadIndex: 0,
     registeredFontFaces: new Map(),

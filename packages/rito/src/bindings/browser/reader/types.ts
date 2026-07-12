@@ -18,14 +18,19 @@ import type {
   ChapterTextIndex,
   FootnoteEntry,
   LayoutConfig,
-  LogLevel,
   ReaderLocator,
   ReaderLocatorResolution,
   ReaderPageTargets,
   Spread,
-  TextMeasurer,
   TocEntry,
 } from '../../../reader';
+import type { BrowserHostLogger } from '../host-runtime';
+import type {
+  BrowserReaderBoundedSessionOwner,
+  BrowserReaderBoundedSessionSlots,
+} from '../reader-session-host';
+
+export type { BrowserReaderBoundedSessionOwner, BrowserReaderBoundedSessionSlots };
 
 export type { CoreJsonObject, CoreLayoutConfig, CoreLineBreaking, CorePublicationInfo };
 
@@ -79,41 +84,7 @@ export interface TocTarget {
   readonly spreadIndex: number;
 }
 
-export interface Logger {
-  readonly debug: (message: string, ...args: readonly unknown[]) => void;
-  readonly info: (message: string, ...args: readonly unknown[]) => void;
-  readonly warn: (message: string, ...args: readonly unknown[]) => void;
-  readonly error: (message: string, ...args: readonly unknown[]) => void;
-}
-
-const LOG_LEVEL_PRIORITY: Readonly<Record<LogLevel, number>> = {
-  debug: 0,
-  info: 1,
-  warn: 2,
-  error: 3,
-  silent: 4,
-};
-
-const noop = (): void => {};
-
-export function createLogger(level: LogLevel = 'warn'): Logger {
-  const threshold = LOG_LEVEL_PRIORITY[level];
-  return {
-    debug: threshold <= LOG_LEVEL_PRIORITY.debug ? consoleMethod('debug') : noop,
-    info: threshold <= LOG_LEVEL_PRIORITY.info ? consoleMethod('info') : noop,
-    warn: threshold <= LOG_LEVEL_PRIORITY.warn ? consoleMethod('warn') : noop,
-    error: threshold <= LOG_LEVEL_PRIORITY.error ? consoleMethod('error') : noop,
-  };
-}
-
-function consoleMethod(
-  method: 'debug' | 'info' | 'warn' | 'error',
-): (message: string, ...args: readonly unknown[]) => void {
-  return (message, ...args): void => {
-    // eslint-disable-next-line no-console
-    console[method](`[rito] ${message}`, ...args);
-  };
-}
+export type Logger = BrowserHostLogger;
 
 export interface BrowserReaderVisualPreview {
   readonly revision: BrowserReaderWorkerRevisionHandle;
@@ -183,6 +154,8 @@ export interface BrowserReaderState {
   revisionBundle: CoreRevisionBundle;
   revisionHandle: BrowserReaderRevisionHandle | undefined;
   commitGeneration: number;
+  readonly boundedSessions: BrowserReaderBoundedSessionSlots;
+  disposeTask: Promise<void> | undefined;
   visualPreview: BrowserReaderVisualPreview | undefined;
   readonly interaction: BrowserReaderInteractionState;
   frames: Map<number, BrowserReaderFrame>;
@@ -206,12 +179,6 @@ export interface BrowserReaderState {
   reflow: BrowserReaderReflowState;
   disposed: boolean;
 }
-
-export const fallbackTextMeasurer: TextMeasurer = {
-  measureText(text) {
-    return { width: text.length * 8, height: 16 };
-  },
-};
 
 export type BrowserReaderFootnoteMap = ReadonlyMap<string, FootnoteEntry>;
 export type BrowserReaderChapterTextIndexMap = ReadonlyMap<string, ChapterTextIndex>;

@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildBrowserReaderMethods } from '../../src/bindings/browser/reader/reader-methods';
 import type { ReaderOptions } from '../../src/reader';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
-import { createState as createCompleteState, createWorker } from './browser-reader-reflow-fixtures';
+import {
+  createDeferred,
+  createState as createCompleteState,
+  createWorker,
+} from './browser-reader-reflow-fixtures';
+import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browser/reader/types';
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
@@ -232,7 +237,75 @@ describe('Browser reader methods', () => {
     expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
+
+  it('drains bounded sessions before disposing their workers', async () => {
+    const current = createWorker(() => undefined, 'current-bounded-worker');
+    const candidate = createWorker(() => undefined, 'candidate-bounded-worker');
+    const currentDrain = createDeferred<undefined>();
+    const candidateDrain = createDeferred<undefined>();
+    const state = createCompleteState(current.worker);
+    state.boundedSessions.current = boundedOwner(current.worker, currentDrain.promise);
+    state.boundedSessions.candidate = boundedOwner(candidate.worker, candidateDrain.promise);
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    methods.dispose();
+    methods.dispose();
+
+    expect(state.disposed).toBe(true);
+    expect(state.boundedSessions).toEqual({ current: undefined, candidate: undefined });
+    expect(current.dispose).not.toHaveBeenCalled();
+    expect(candidate.dispose).not.toHaveBeenCalled();
+
+    currentDrain.resolve(undefined);
+    await Promise.resolve();
+    expect(current.dispose).not.toHaveBeenCalled();
+    candidateDrain.resolve(undefined);
+    await state.disposeTask;
+
+    expect(current.dispose).toHaveBeenCalledOnce();
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('still closes workers when bounded cleanup rejects', async () => {
+    const worker = createWorker(() => undefined, 'rejected-bounded-worker');
+    const state = createCompleteState(worker.worker);
+    state.boundedSessions.current = boundedOwner(
+      worker.worker,
+      Promise.reject(new Error('cleanup failed')),
+    );
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    methods.dispose();
+    await state.disposeTask;
+
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'bounded reader dispose failed',
+      expect.objectContaining({ message: 'cleanup failed' }),
+    );
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
 });
+
+function boundedOwner(
+  worker: BrowserReaderState['worker'],
+  dispose: Promise<void>,
+): BrowserReaderBoundedSessionOwner {
+  return {
+    controller: {
+      start: vi.fn(),
+      ensureSpread: vi.fn(),
+      ensureLocator: vi.fn(),
+      complete: vi.fn(),
+      currentSnapshot: vi.fn(),
+      cancel: vi.fn(),
+      dispose: vi.fn(() => dispose),
+    },
+    worker,
+    acceptedRevision: undefined,
+    gateGeneration: 0,
+    readsSuspended: false,
+  };
+}
 
 function readerOptions(): ReaderOptions {
   return {
@@ -295,6 +368,8 @@ function createState(): BrowserReaderState {
     footnotes: new Map(),
     chapterTextIndices: new Map(),
     activeSpreadIndex: 0,
+    boundedSessions: { current: undefined, candidate: undefined },
+    disposeTask: undefined,
     spreadRenderedListeners: new Set(),
     spreadContentInvalidatedListeners: new Set(),
     layoutCommittedListeners: new Set(),

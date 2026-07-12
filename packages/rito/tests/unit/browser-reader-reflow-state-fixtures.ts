@@ -107,6 +107,8 @@ export function createState(
     },
     revisionHandle: undefined,
     commitGeneration: 0,
+    boundedSessions: { current: undefined, candidate: undefined },
+    disposeTask: undefined,
     visualPreview: undefined,
     interaction: { pageTargets: new Map(), pendingPageTargets: new Map() },
     frames: new Map(),

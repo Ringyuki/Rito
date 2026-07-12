@@ -19,10 +19,12 @@ import {
   renderSpreadToBoundCanvas,
   renderSpreadToContext,
 } from '../rendering';
-import { fallbackTextMeasurer, type BrowserReaderState } from './types';
+import type { BrowserReaderState } from './types';
+import { fallbackBrowserTextMeasurer } from '../host-runtime';
 import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
 import { captureCommittedSourceRead, readCapturedSource } from './interaction-capture';
 import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
+import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -66,7 +68,7 @@ export function buildBrowserReaderMethods(
   };
 
   return {
-    measurer: fallbackTextMeasurer,
+    measurer: fallbackBrowserTextMeasurer,
     interactions: createBrowserReaderInteractions(state),
     ...renderingMethods(state),
     ...layoutMethods(state, () => layoutOptions, reflow),
@@ -74,6 +76,7 @@ export function buildBrowserReaderMethods(
     ...resourceMethods(state),
     ...listenerMethods(state),
     dispose() {
+      if (state.disposed) return;
       cancelLocatorNavigation(state);
       clearDeferredFullReflow(state);
       state.spreadRenderedListeners.clear();
@@ -251,6 +254,7 @@ function listenerMethods(
 }
 
 function disposeResources(state: BrowserReaderState): void {
+  if (state.disposed) return;
   state.disposed = true;
   resetBrowserReaderInteractionCache(state);
   unregisterReaderFonts(state);
@@ -259,9 +263,7 @@ function disposeResources(state: BrowserReaderState): void {
   state.images.clear();
   for (const url of state.imageObjectUrls.values()) URL.revokeObjectURL(url);
   state.imageObjectUrls.clear();
-  const workers = new Set([state.worker, state.foregroundWorker]);
-  if (state.fullReflowWorker) workers.add(state.fullReflowWorker);
-  for (const worker of workers) worker.dispose();
+  disposeBrowserReaderSessionHosts(state);
 }
 
 function toSearchResult(result: {

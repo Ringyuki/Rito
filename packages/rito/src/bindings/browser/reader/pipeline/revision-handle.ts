@@ -1,4 +1,5 @@
 import type { BrowserReaderWorkerClient } from '../../core-contracts';
+import { boundedOwnerAllowsRead } from '../../reader-session-host';
 import type {
   BrowserReaderRevisionHandle,
   BrowserReaderState,
@@ -31,6 +32,7 @@ export function isCurrentRevisionHandle(
   handle: BrowserReaderRevisionHandle,
 ): boolean {
   const current = state.revisionHandle;
+  const owner = state.boundedSessions.current;
   return (
     !state.disposed &&
     current !== undefined &&
@@ -38,7 +40,8 @@ export function isCurrentRevisionHandle(
     current.workerSessionId === handle.workerSessionId &&
     current.revisionId === handle.revisionId &&
     current.revisionVersion === handle.revisionVersion &&
-    current.commitGeneration === handle.commitGeneration
+    current.commitGeneration === handle.commitGeneration &&
+    boundedOwnerAllowsRead(owner, state.worker, handle)
   );
 }
 
