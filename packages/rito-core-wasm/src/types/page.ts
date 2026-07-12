@@ -54,16 +54,26 @@ export interface RitoCoreWasmTextRunOffset {
   readonly runIndex: number;
 }
 
+/**
+ * Internal diagnostic projection of visual page text; not a precise selection contract.
+ * Worker validation can verify its text/offset structure, not shaped caret legality.
+ */
 export interface RitoCoreWasmPageTextPositions {
   readonly revisionId: string;
   readonly pageIndex: number;
   readonly spreadIndex: number;
   readonly text: string;
   readonly textLength: number;
+  /** Diagnostic checksum only; exact revision/request envelopes own identity. */
   readonly textHash: string;
   readonly offsets: readonly RitoCoreWasmTextRunOffset[];
 }
 
+/**
+ * Internal diagnostic request. Character geometry is currently approximate;
+ * charIndex is a UTF-16 count but this legacy request cannot prove shaped
+ * caret legality or reject an interior grapheme/ligature position.
+ */
 export interface RitoCoreWasmTextRangeGeometryRequest {
   readonly pageIndex: number;
   readonly start: RitoCoreWasmSearchTextPosition;
@@ -82,6 +92,11 @@ export interface RitoCoreWasmTextRangeRect {
   readonly endCharIndex: number;
 }
 
+/**
+ * Internal diagnostic geometry; run slices currently use approximate interpolation.
+ * Worker validation can bind the normalized request and require endpoint
+ * coverage, but this legacy DTO carries no run text, run lengths or caret stops.
+ */
 export interface RitoCoreWasmTextRangeGeometry {
   readonly revisionId: string;
   readonly pageIndex: number;

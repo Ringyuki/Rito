@@ -9,6 +9,11 @@ import {
   requireSourceLocatorRequest,
   requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
+import {
+  requirePageTextPositions,
+  requireTextRangeGeometry,
+  requireTextRangeGeometryRequest,
+} from './reader-worker-text-geometry-validation-runtime.js';
 
 export function versionedReaderWorkerPayload(document, request) {
   switch (request.kind) {
@@ -44,6 +49,10 @@ export function versionedReaderWorkerPayload(document, request) {
       );
     case 'getPageTargetsAtRevision':
       return pageTargetsResponse(document, request);
+    case 'getPageTextPositionsAtRevision':
+      return pageTextPositionsResponse(document, request);
+    case 'getTextRangeGeometryAtRevision':
+      return textRangeGeometryResponse(document, request);
     case 'getFootnoteAtRevision':
       return footnoteResponse(document, request);
     case 'resolveLocatorAtRevision':
@@ -113,6 +122,27 @@ function pageTargetsResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) =>
     requirePageTargets(value, revision, pageIndex, operation),
   );
+}
+
+function pageTextPositionsResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const pageIndex = requirePageIndex(request.pageIndex, operation);
+  const envelope = document.getPageTextPositionsAtRevision(revision, pageIndex);
+  return validatedValueResponse(operation, revision, envelope, (value) =>
+    requirePageTextPositions(value, revision, pageIndex, operation),
+  );
+}
+
+function textRangeGeometryResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireTextRangeGeometryRequest(request.request, operation);
+  const envelope = document.getTextRangeGeometryAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    geometry: requireTextRangeGeometry(value, revision, expectedRequest, operation),
+  }));
 }
 
 function footnoteResponse(document, request) {

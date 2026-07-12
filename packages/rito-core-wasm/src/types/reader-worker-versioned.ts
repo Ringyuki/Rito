@@ -6,7 +6,12 @@ import type {
   RitoCoreWasmSourceLocatorResolution,
 } from './interaction';
 import type { RitoCoreWasmLocatorRequest, RitoCoreWasmResolvedLocator } from './navigation';
-import type { RitoCoreWasmPageTargets } from './page';
+import type {
+  RitoCoreWasmPageTargets,
+  RitoCoreWasmPageTextPositions,
+  RitoCoreWasmTextRangeGeometry,
+  RitoCoreWasmTextRangeGeometryRequest,
+} from './page';
 import type {
   RitoCoreWasmReaderFrameBuffer,
   RitoCoreWasmReaderFrameWindowWarmResult,
@@ -57,6 +62,14 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageTargets>>;
+  getPageTextPositionsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageTextPositions>>;
+  getTextRangeGeometryAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmTextRangeGeometryRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmReaderTextRangeGeometryDiagnostic>>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -112,6 +125,14 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): RitoCoreWasmVersioned<RitoCoreWasmPageTargets>;
+  getPageTextPositionsAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPageTextPositions>;
+  getTextRangeGeometryAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmTextRangeGeometryRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmTextRangeGeometry>;
   getFootnoteAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     key: string,
@@ -135,6 +156,18 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
   releaseRevisionAtRevision(revision: RitoCoreWasmRevisionHandle): RitoCoreWasmRevisionRelease;
   takeResourceTransfer(transferId: string): Uint8Array;
   releaseResourceTransfer(transferId: string): boolean;
+}
+
+/**
+ * Private Worker transport for legacy, approximate range geometry.
+ *
+ * The normalized request echo binds a response to one exact diagnostic read.
+ * It does not make the geometry suitable for selection: the legacy geometry
+ * DTO has no shaped caret stops or per-run UTF-16 boundary table.
+ */
+export interface RitoCoreWasmReaderTextRangeGeometryDiagnostic {
+  readonly request: RitoCoreWasmTextRangeGeometryRequest;
+  readonly geometry: RitoCoreWasmTextRangeGeometry;
 }
 
 export interface RitoCoreWasmReaderVersionedErrorMetadata {
@@ -179,6 +212,12 @@ export type RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest =
   RevisionRequest<'warmFrameWindowAtRevision'> & { readonly spreadIndex: number };
 export type RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest =
   RevisionRequest<'getPageTargetsAtRevision'> & { readonly pageIndex: number };
+export type RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest =
+  RevisionRequest<'getPageTextPositionsAtRevision'> & { readonly pageIndex: number };
+export type RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest =
+  RevisionRequest<'getTextRangeGeometryAtRevision'> & {
+    readonly request: RitoCoreWasmTextRangeGeometryRequest;
+  };
 export type RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest =
   RevisionRequest<'getFootnoteAtRevision'> & { readonly key: string };
 export type RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest =
@@ -208,6 +247,8 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerReadFrameBufferRequest
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveLocatorAtRevisionRequest
   | RitoCoreWasmReaderWorkerReadResourceAtRevisionRequest
@@ -247,6 +288,14 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
       RitoCoreWasmReaderFrameWindowWarmResult
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getPageTargetsAtRevision', RitoCoreWasmPageTargets>
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getPageTextPositionsAtRevision',
+      RitoCoreWasmPageTextPositions
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getTextRangeGeometryAtRevision',
+      RitoCoreWasmReaderTextRangeGeometryDiagnostic
+    >
   | RitoCoreWasmReaderWorkerVersionedResponse<'getFootnoteAtRevision', RitoCoreWasmFootnote>
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveLocatorAtRevision',

@@ -15,6 +15,11 @@ import {
   requireSourceLocatorRequest,
   requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
+import {
+  requirePageTextPositions,
+  requireTextRangeGeometryDiagnostic,
+  requireTextRangeGeometryRequest,
+} from './reader-worker-text-geometry-validation-runtime.js';
 
 export function createVersionedReaderClientMethods(send) {
   return {
@@ -88,6 +93,31 @@ export function createVersionedReaderClientMethods(send) {
         { pageIndex: expectedPageIndex },
         (result, handle, operation) =>
           requirePageTargets(result, handle, expectedPageIndex, operation),
+      );
+    },
+    getPageTextPositionsAtRevision: (revision, pageIndex) => {
+      const expectedPageIndex = requirePageIndex(pageIndex, 'getPageTextPositionsAtRevision');
+      return currentRevisionResult(
+        send,
+        'getPageTextPositionsAtRevision',
+        revision,
+        { pageIndex: expectedPageIndex },
+        (result, handle, operation) =>
+          requirePageTextPositions(result, handle, expectedPageIndex, operation),
+      );
+    },
+    getTextRangeGeometryAtRevision: (revision, request) => {
+      const expectedRequest = requireTextRangeGeometryRequest(
+        request,
+        'getTextRangeGeometryAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'getTextRangeGeometryAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireTextRangeGeometryDiagnostic(result, handle, expectedRequest, operation),
       );
     },
     getFootnoteAtRevision: (revision, key) => {

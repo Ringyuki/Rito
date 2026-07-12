@@ -21,6 +21,7 @@ const runtimeSources = [
   'reader-worker-cache-runtime.js',
   'reader-worker-client-runtime.js',
   'reader-worker-interaction-validation-runtime.js',
+  'reader-worker-text-geometry-validation-runtime.js',
   'reader-worker-session-runtime.js',
   'reader-worker-versioned-client-runtime.js',
   'reader-worker-versioned-payload-runtime.js',

@@ -48,6 +48,12 @@ interface TestWorkerFixture {
   readonly createViewRevision: Mock<BrowserReaderWorkerClient['createViewRevision']>;
   readonly warmFrameWindow: Mock<BrowserReaderWorkerClient['warmFrameWindow']>;
   readonly getPageTargetsAtRevision: Mock<BrowserReaderWorkerClient['getPageTargetsAtRevision']>;
+  readonly getPageTextPositionsAtRevision: Mock<
+    BrowserReaderWorkerClient['getPageTextPositionsAtRevision']
+  >;
+  readonly getTextRangeGeometryAtRevision: Mock<
+    BrowserReaderWorkerClient['getTextRangeGeometryAtRevision']
+  >;
   readonly getFootnoteAtRevision: Mock<BrowserReaderWorkerClient['getFootnoteAtRevision']>;
   readonly resolveSourceLocatorAtRevision: Mock<
     BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']
@@ -98,6 +104,10 @@ export function createWorker(
   );
   const open = vi.fn<BrowserReaderWorkerClient['open']>();
   const getPageTargetsAtRevision = vi.fn<BrowserReaderWorkerClient['getPageTargetsAtRevision']>();
+  const getPageTextPositionsAtRevision =
+    vi.fn<BrowserReaderWorkerClient['getPageTextPositionsAtRevision']>();
+  const getTextRangeGeometryAtRevision =
+    vi.fn<BrowserReaderWorkerClient['getTextRangeGeometryAtRevision']>();
   const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
   const resolveSourceLocatorAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveSourceLocatorAtRevision']>();
@@ -117,6 +127,8 @@ export function createWorker(
     readFrameBufferAtRevision: vi.fn<BrowserReaderWorkerClient['readFrameBufferAtRevision']>(),
     warmFrameWindowAtRevision: vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(),
     getPageTargetsAtRevision,
+    getPageTextPositionsAtRevision,
+    getTextRangeGeometryAtRevision,
     getFootnoteAtRevision,
     resolveLocatorAtRevision: vi.fn<BrowserReaderWorkerClient['resolveLocatorAtRevision']>(),
     readResourceAtRevision: vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(),
@@ -140,6 +152,8 @@ export function createWorker(
     createViewRevision,
     warmFrameWindow,
     getPageTargetsAtRevision,
+    getPageTextPositionsAtRevision,
+    getTextRangeGeometryAtRevision,
     getFootnoteAtRevision,
     resolveSourceLocatorAtRevision,
     releaseRevisionTransfers,

@@ -13,6 +13,7 @@ if (!existsSync(entryUrl) || !existsSync(wasmUrl)) {
 }
 
 const {
+  createRitoCoreWasmInProcessReaderClient,
   decodeRitoFrameCommandBuffer,
   getRitoCoreWasmStatus,
   initRitoCoreWasmEngine,
@@ -86,11 +87,28 @@ const decodedTextFrameCommandBuffer = decodeRitoFrameCommandBuffer(
   textFrameCommandBuffer,
 );
 const textPositions = document.getPageTextPositions(revision.revisionId, textPageIndex);
-const textGeometry = document.getTextRangeGeometry(revision.revisionId, {
+const diagnosticRangeRequest = {
   pageIndex: textPageIndex,
   start: search.results[0].matchRange.start,
   end: search.results[0].matchRange.end,
+};
+const textGeometry = document.getTextRangeGeometry(revision.revisionId, diagnosticRangeRequest);
+const diagnosticClient = createRitoCoreWasmInProcessReaderClient({
+  initRitoCoreWasmEngine: async () => ({ openDocument: () => document }),
 });
+await diagnosticClient.open(new ArrayBuffer(0));
+const diagnosticHandle = {
+  revisionId: revision.revisionId,
+  revisionVersion: revision.revisionVersion,
+};
+const versionedTextPositions = await diagnosticClient.getPageTextPositionsAtRevision(
+  diagnosticHandle,
+  textPageIndex,
+);
+const versionedTextGeometry = await diagnosticClient.getTextRangeGeometryAtRevision(
+  diagnosticHandle,
+  diagnosticRangeRequest,
+);
 const imageFrame = findFirstImageFrame(document, revision.revisionId, revision.spreadCount);
 const imageFrameCommandBuffer = document.readFrameCommandBuffer(
   revision.revisionId,
@@ -267,6 +285,16 @@ if (
 ) {
   throw new Error('Expected search text range geometry to return at least one rect.');
 }
+if (
+  stableStringify(versionedTextPositions.revision) !== stableStringify(diagnosticHandle) ||
+  stableStringify(versionedTextPositions.value) !== stableStringify(textPositions) ||
+  stableStringify(versionedTextGeometry.revision) !== stableStringify(diagnosticHandle) ||
+  stableStringify(versionedTextGeometry.value.request) !==
+    stableStringify(diagnosticRangeRequest) ||
+  stableStringify(versionedTextGeometry.value.geometry) !== stableStringify(textGeometry)
+) {
+  throw new Error('Expected exact Worker text diagnostics to match direct WASM reads.');
+}
 assertDecodedFrameMatchesRuntimeFrame(imageFrame, decodedImageFrameCommandBuffer);
 if (
   plannedFrameResources.plan.revisionId !== revision.revisionId ||
@@ -298,6 +326,7 @@ if (!document.releaseResourceTransfer(legacyResource.transferId)) {
 if (document.pendingResourceTransferCount() !== 0) {
   throw new Error('Expected no pending resource transfers after take and release.');
 }
+diagnosticClient.dispose();
 
 console.log(
   JSON.stringify({
