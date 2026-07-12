@@ -1,4 +1,5 @@
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
+import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 const FULL_CHAPTER_TEXT_INDICES_SCOPE_KEY = 'chapter-text-v1:full';
 const sessionCacheState = new WeakMap();
@@ -60,6 +61,7 @@ export function knownFullChapterTextIndicesScopeKey(cache) {
 }
 
 export async function createCachedReaderViewRevision(cache, viewRequest, wire, send) {
+  requirePreserveLocator(viewRequest, 'Reader view revision request');
   const knownScopeKey = knownFullChapterTextIndicesScopeKey(cache);
   const payload = await send({
     kind: 'createViewRevision',
@@ -96,6 +98,15 @@ function requireMatchingFollowUpPolicy(viewRequest, view) {
   if ((viewRequest.lineBreaking ?? 'greedy') !== (followUp?.request?.lineBreaking ?? 'greedy')) {
     throw new Error('Reader view revision follow-up lineBreaking does not match its request');
   }
+  requirePreserveLocator(followUp.request, 'Reader view revision follow-up request');
+  if (!jsonValueEqual(viewRequest.preserveLocator, followUp.request.preserveLocator)) {
+    throw new Error('Reader view revision follow-up preserveLocator does not match its request');
+  }
+}
+
+function requirePreserveLocator(request, operation) {
+  if (request?.preserveLocator === undefined) return;
+  requireSourceLocatorRequest(request.preserveLocator, operation);
 }
 
 function layoutConfigEqual(left, right) {

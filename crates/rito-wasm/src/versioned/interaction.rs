@@ -91,6 +91,19 @@ impl WasmRuntimeDocument {
         serialize_json(&response)
     }
 
+    pub fn get_page_reading_anchor_at_revision_json(
+        &mut self,
+        revision_id: &str,
+        revision_version: u32,
+        page_index: usize,
+    ) -> Result<String, WasmRuntimeError> {
+        let response = self
+            .document
+            .get_page_reading_anchor_at(&revision_handle(revision_id, revision_version), page_index)
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        serialize_json(&response)
+    }
+
     pub fn get_page_text_positions_at_revision_json(
         &self,
         revision_id: &str,

@@ -12,6 +12,7 @@ import {
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
 import { pageSemanticsResponse } from './reader-worker-page-semantics-runtime.js';
+import { pageReadingAnchorResponse } from './reader-worker-page-reading-anchor-runtime.js';
 import {
   requireFootnote,
   requireFootnoteKey,
@@ -69,6 +70,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return pageTargetsResponse(document, request);
     case 'getPageSemanticsAtRevision':
       return pageSemanticsResponse(document, request, validatedValueResponse);
+    case 'getPageReadingAnchorAtRevision':
+      return pageReadingAnchorResponse(document, request, validatedValueResponse);
     case 'getPageTextPositionsAtRevision':
       return pageTextPositionsResponse(document, request);
     case 'getTextRangeGeometryAtRevision':

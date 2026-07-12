@@ -12,6 +12,7 @@ import type {
   RitoCoreWasmTextPointRequest,
 } from './interaction';
 import type { RitoCoreWasmLocatorRequest, RitoCoreWasmResolvedLocator } from './navigation';
+import type { RitoCoreWasmPageReadingAnchor } from './reading-anchor';
 import type {
   RitoCoreWasmPageSemantics,
   RitoCoreWasmPageTargets,
@@ -77,6 +78,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageSemantics>>;
+  getPageReadingAnchorAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmPageReadingAnchor>>;
   getPageTextPositionsAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
@@ -159,6 +164,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
   ): RitoCoreWasmVersioned<RitoCoreWasmPageSemantics>;
+  getPageReadingAnchorAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    pageIndex: number,
+  ): RitoCoreWasmVersioned<RitoCoreWasmPageReadingAnchor>;
   getPageTextPositionsAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     pageIndex: number,
@@ -280,6 +289,8 @@ export type RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest =
   RevisionRequest<'getPageTargetsAtRevision'> & { readonly pageIndex: number };
 export type RitoCoreWasmReaderWorkerGetPageSemanticsAtRevisionRequest =
   RevisionRequest<'getPageSemanticsAtRevision'> & { readonly pageIndex: number };
+export type RitoCoreWasmReaderWorkerGetPageReadingAnchorAtRevisionRequest =
+  RevisionRequest<'getPageReadingAnchorAtRevision'> & { readonly pageIndex: number };
 export type RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest =
   RevisionRequest<'getPageTextPositionsAtRevision'> & { readonly pageIndex: number };
 export type RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest =
@@ -329,6 +340,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerWarmFrameWindowAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageTargetsAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageSemanticsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerGetPageReadingAnchorAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest
@@ -380,6 +392,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getPageSemanticsAtRevision',
       RitoCoreWasmPageSemantics
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'getPageReadingAnchorAtRevision',
+      RitoCoreWasmPageReadingAnchor
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'getPageTextPositionsAtRevision',

@@ -6,6 +6,8 @@ mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;
+mod reading_anchor_tests;
+mod reading_anchor_view_tests;
 mod text_interaction_tests;
 
 use command_hash::{
@@ -676,6 +678,7 @@ fn view_revision_response_declares_display_policy() {
             line_breaking: LineBreaking::Optimal,
             active_spread_index: 0,
             previous_revision_id: None,
+            preserve_locator: None,
             mode: RuntimeViewRevisionMode::Preview,
         })
         .expect("initial preview view resolves");
@@ -685,6 +688,7 @@ fn view_revision_response_declares_display_policy() {
             line_breaking: LineBreaking::Optimal,
             active_spread_index: 1,
             previous_revision_id: Some(initial.revision.bundle.revision.revision_id.clone()),
+            preserve_locator: None,
             mode: RuntimeViewRevisionMode::Preview,
         })
         .expect("active preview view resolves");
@@ -694,6 +698,7 @@ fn view_revision_response_declares_display_policy() {
             line_breaking: LineBreaking::Optimal,
             active_spread_index: 1,
             previous_revision_id: Some(initial.revision.bundle.revision.revision_id.clone()),
+            preserve_locator: None,
             mode: RuntimeViewRevisionMode::Full,
         })
         .expect("full view resolves");
@@ -719,6 +724,7 @@ fn view_revision_response_declares_display_policy() {
             line_breaking: LineBreaking::Optimal,
             active_spread_index: 0,
             previous_revision_id: Some(initial_revision_id.clone()),
+            preserve_locator: None,
             mode: RuntimeViewRevisionMode::Full,
         })
     );
@@ -732,6 +738,7 @@ fn view_revision_response_declares_display_policy() {
             line_breaking: LineBreaking::Optimal,
             active_spread_index: 1,
             previous_revision_id: Some(initial_revision_id),
+            preserve_locator: None,
             mode: RuntimeViewRevisionMode::Full,
         })
     );
@@ -747,6 +754,7 @@ fn omitted_full_view_metadata_materializes_chapter_text_indices_on_demand() {
         line_breaking: LineBreaking::Greedy,
         active_spread_index: 0,
         previous_revision_id: None,
+        preserve_locator: None,
         mode: RuntimeViewRevisionMode::Full,
     };
     let first = document
@@ -797,6 +805,7 @@ fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
                 line_breaking: LineBreaking::Greedy,
                 active_spread_index: 0,
                 previous_revision_id: None,
+                preserve_locator: None,
                 mode: RuntimeViewRevisionMode::Preview,
             },
             RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,
@@ -817,6 +826,7 @@ fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
                 line_breaking: LineBreaking::Greedy,
                 active_spread_index: usize::MAX,
                 previous_revision_id: Some(preview.revision.bundle.revision.revision_id.clone()),
+                preserve_locator: None,
                 mode: RuntimeViewRevisionMode::Preview,
             },
             RuntimeViewRevisionMetadata::OmitFullChapterTextIndices,

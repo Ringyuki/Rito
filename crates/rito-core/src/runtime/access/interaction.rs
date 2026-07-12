@@ -1,8 +1,8 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
     ResolvedRuntimeLocator, RuntimeChapterTextIndices, RuntimeDocument, RuntimeFootnote,
-    RuntimeFootnotes, RuntimeLocatorRequest, RuntimeSearchRequest, RuntimeSearchResponse,
-    RuntimeSourceLocator, RuntimeSourceLocatorResolution,
+    RuntimeFootnotes, RuntimeLocatorRequest, RuntimePageReadingAnchor, RuntimeSearchRequest,
+    RuntimeSearchResponse, RuntimeSourceLocator, RuntimeSourceLocatorResolution,
 };
 
 impl RuntimeDocument {
@@ -33,6 +33,16 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeSourceLocatorResolution>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, |document, revision_id| {
             document.resolve_source_locator(revision_id, locator)
+        })
+    }
+
+    pub fn get_page_reading_anchor_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        page_index: usize,
+    ) -> Result<RuntimeVersioned<RuntimePageReadingAnchor>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, revision_id| {
+            document.get_page_reading_anchor(revision_id, page_index)
         })
     }
 

@@ -71,6 +71,20 @@ pub fn source_locator_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(chapter.as_bytes())
 }
 
+pub fn long_source_text_fixture_epub() -> Vec<u8> {
+    let text = "Portable reading anchor text with stable source ownership. ".repeat(160);
+    let chapter = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p>{text}</p></body></html>"#
+    );
+    fixture_epub_with_chapter(chapter.as_bytes())
+}
+
+pub fn image_only_fixture_epub() -> Vec<u8> {
+    fixture_epub_with_chapter(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="cover"/></body></html>"#,
+    )
+}
+
 pub fn fixture_epub_with_stylesheet(stylesheet: &str) -> Vec<u8> {
     fixture_epub_with_chapter_and_stylesheet(
         br##"<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><link rel="stylesheet" href="style.css"/></head><body><p id="intro">Hello runtime<a epub:type="noteref" href="#fn1">1</a></p><aside epub:type="footnote" id="fn1"><p>Runtime note</p></aside><img src="Images/cover.png" alt="cover"/></body></html>"##,

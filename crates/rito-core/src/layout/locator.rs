@@ -4,6 +4,7 @@ use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun},
     page::RuntimePage,
+    visual_geometry::{VisualGeometry, VisualRect},
 };
 
 type LocatorPage = RuntimePage<RuntimeBlock<LineBox>>;
@@ -30,7 +31,14 @@ pub(crate) fn collect_source_run_starts(pages: &[LocatorPage]) -> Vec<LayoutSour
     let mut starts = Vec::new();
     for page in pages {
         for block in &page.content {
-            collect_block_source_run_starts(block, page.index, &mut starts);
+            collect_block_source_run_starts(
+                block,
+                page.index,
+                0.0,
+                0.0,
+                VisualGeometry::page(),
+                &mut starts,
+            );
         }
     }
     starts
@@ -54,26 +62,47 @@ fn collect_block_anchor_pages(
 fn collect_block_source_run_starts(
     block: &RuntimeBlock<LineBox>,
     page_index: usize,
+    offset_x: f64,
+    offset_y: f64,
+    parent_visual: VisualGeometry,
     starts: &mut Vec<LayoutSourceRunStart>,
 ) {
+    let block_x = offset_x + block.x;
+    let block_y = offset_y + block.y;
+    let visual = parent_visual.enter_block(block, block_x, block_y);
     for child in &block.children {
         match child {
             RuntimeChild::Block(child) => {
-                collect_block_source_run_starts(child, page_index, starts);
+                collect_block_source_run_starts(
+                    child, page_index, block_x, block_y, visual, starts,
+                );
             }
             RuntimeChild::Line(line) => {
+                let line_x = block_x + line.x;
+                let line_y = block_y + line.y;
                 for run in &line.runs {
                     let LineRun::Text(run) = run else {
                         continue;
                     };
-                    let Some(node_path) = &run.source_path else {
+                    if visual
+                        .resolve_rect(VisualRect::new(
+                            line_x + run.x,
+                            line_y + run.y,
+                            run.width,
+                            run.height,
+                        ))
+                        .is_none()
+                    {
+                        continue;
+                    }
+                    let Some(source) = run.text_mapping.exact_source_slice() else {
                         continue;
                     };
                     starts.push(LayoutSourceRunStart {
                         page_index,
-                        node_path: node_path.clone(),
-                        text_offset: run.source_text_offset.unwrap_or(0),
-                        text_length: run.text.encode_utf16().count(),
+                        node_path: source.node_path,
+                        text_offset: source.source_start,
+                        text_length: source.source_length,
                     });
                 }
             }

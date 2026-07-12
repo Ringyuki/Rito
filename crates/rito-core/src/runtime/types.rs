@@ -241,6 +241,9 @@ pub struct RuntimeViewRevisionRequest {
     pub active_spread_index: usize,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub previous_revision_id: Option<String>,
+    /// Durable source identity to project before publishing the replacement view.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preserve_locator: Option<RuntimeSourceLocator>,
     pub mode: RuntimeViewRevisionMode,
 }
 

@@ -59,6 +59,13 @@ pub(crate) enum RunTextMapping {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct ExactTextSourceSlice {
+    pub(crate) node_path: Vec<usize>,
+    pub(crate) source_start: usize,
+    pub(crate) source_length: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum TextMappingCandidateSource {
     ExactLinear {
         node_path: Vec<usize>,
@@ -146,6 +153,30 @@ impl RunTextMapping {
 
     pub(crate) fn truncate(&self, utf16_len: usize) -> Self {
         self.subslice(0, utf16_len)
+    }
+
+    pub(crate) fn exact_source_slice(&self) -> Option<ExactTextSourceSlice> {
+        let Self::Exact(slice) = self else {
+            return None;
+        };
+        if slice.validate().is_err() {
+            return None;
+        }
+        let span = slice.flow.spans.get(slice.span_index as usize)?;
+        let LogicalTextSource::ExactLinear {
+            node_path,
+            source_start,
+        } = &span.source
+        else {
+            return None;
+        };
+        let relative_start = usize::try_from(slice.logical_start - span.logical_start).ok()?;
+        let source_length = usize::try_from(slice.logical_end - slice.logical_start).ok()?;
+        Some(ExactTextSourceSlice {
+            node_path: node_path.to_vec(),
+            source_start: source_start.checked_add(relative_start)?,
+            source_length,
+        })
     }
 
     /// Returns logical break whitespace retained between consecutive painted

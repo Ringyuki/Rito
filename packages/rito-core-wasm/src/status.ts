@@ -26,6 +26,7 @@ export function createRitoCoreWasmStatus(npmWasmArtifact: boolean): RitoCoreWasm
       chapterTextIndicesJson: true,
       pageTargetsJson: true,
       pageSemanticsJson: true,
+      pageReadingAnchorJson: true,
       pageTextPositionsJson: true,
       textRangeGeometryJson: true,
       exactTextInteractionJson: true,

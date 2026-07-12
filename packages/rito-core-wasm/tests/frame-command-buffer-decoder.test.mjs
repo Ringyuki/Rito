@@ -53,6 +53,7 @@ test('getRitoCoreWasmStatus reports the experimental Rust boundary', () => {
         chapterTextIndicesJson: true,
         pageTargetsJson: true,
         pageSemanticsJson: true,
+        pageReadingAnchorJson: true,
         pageTextPositionsJson: true,
         textRangeGeometryJson: true,
         exactTextInteractionJson: true,
@@ -229,7 +230,10 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /takeResourceTransfer\(transferId: string\): Uint8Array;/);
   assert.match(declaration, /warmFrameWindowAtRevision\(/);
   assert.match(declaration, /getPageSemanticsAtRevision\(/);
+  assert.match(declaration, /getPageReadingAnchorAtRevision\(/);
   assert.match(declaration, /export interface RitoCoreWasmPageSemantics/);
+  assert.match(declaration, /export type RitoCoreWasmPageReadingAnchor/);
+  assert.match(declaration, /readonly preserveLocator\?: RitoCoreWasmSourceLocator/);
   assert.match(declaration, /\| 'listitem'/);
   assert.match(declaration, /metadata: RitoFrameCommandBufferMetadata/);
   assert.match(declaration, /\) => DecodedRitoFrameCommandBuffer;/);

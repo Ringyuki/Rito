@@ -12,6 +12,11 @@ const VIEW_REQUEST = {
   layoutConfig: { pageWidth: 320, pageHeight: 480 },
   activeSpreadIndex: 0,
 };
+const PRESERVE_LOCATOR = {
+  href: 'Text/chapter.xhtml',
+  sourcePoint: { nodePath: [1, 2, 0], textOffset: 8 },
+  progression: 0.25,
+};
 const VIEW_RESPONSE = {
   kind: 'full',
   display: 'revision',
@@ -146,6 +151,24 @@ for (const lineBreaking of [undefined, 'greedy', 'optimal']) {
   });
 }
 
+test('view revision JSON adapter preserves and validates a follow-up source locator', () => {
+  const response = {
+    ...PREVIEW_VIEW_RESPONSE,
+    followUp: {
+      ...PREVIEW_VIEW_RESPONSE.followUp,
+      request: { ...PREVIEW_VIEW_RESPONSE.followUp.request, preserveLocator: PRESERVE_LOCATOR },
+    },
+  };
+  const document = new RitoCoreWasmDocument({
+    createViewRevisionBundleJson: () => JSON.stringify(response),
+  });
+
+  assert.deepEqual(
+    document.createViewRevisionBundle(VIEW_REQUEST).followUp.request.preserveLocator,
+    PRESERVE_LOCATOR,
+  );
+});
+
 function previewResponseWithLineBreaking(lineBreaking) {
   const request = { ...PREVIEW_VIEW_RESPONSE.followUp.request };
   if (lineBreaking === undefined) delete request.lineBreaking;
@@ -165,6 +188,10 @@ const INVALID_FOLLOW_UPS = [
   ['negative active spread', followUpWithRequest({ activeSpreadIndex: -1 })],
   ['unsafe active spread', followUpWithRequest({ activeSpreadIndex: Number.MAX_SAFE_INTEGER + 1 })],
   ['empty previous revision', followUpWithRequest({ previousRevisionId: '' })],
+  [
+    'malformed preserve locator',
+    followUpWithRequest({ preserveLocator: { ...PRESERVE_LOCATOR, unknown: true } }),
+  ],
 ];
 
 for (const [name, followUp] of INVALID_FOLLOW_UPS) {
@@ -179,7 +206,7 @@ for (const [name, followUp] of INVALID_FOLLOW_UPS) {
 
     assert.throws(() => document.createViewRevisionBundle(VIEW_REQUEST), {
       message:
-        /createViewRevisionBundle (?:follow-up.*non-object|returned an invalid view revision follow-up)/,
+        /createViewRevisionBundle (?:follow-up.*(?:non-object|unknown field)|returned an invalid view revision follow-up)/,
     });
   });
 }

@@ -7,6 +7,7 @@ import {
 import { decodeRitoRuntimeBundle } from './runtime-bundle-decoder-runtime.js';
 import { decodePinnedFontPolicySummary, openRawDocument } from './pinned-font-policy-runtime.js';
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
+import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmDocument) {
   async function initRitoCoreWasmEngine(initInput) {
@@ -87,6 +88,7 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     }
 
     createViewRevisionBundle(request) {
+      requireViewRevisionPreserveLocator(request, 'createViewRevisionBundle');
       return callRitoCoreWasm('createViewRevisionBundle', () =>
         decodeJsonViewRevisionBundle(
           this._inner.createViewRevisionBundleJson(encodeJson(request, 'createViewRevisionBundle')),
@@ -96,6 +98,7 @@ export function createRitoCoreWasmDocumentRuntime(initRitoCoreWasm, RawRitoWasmD
     }
 
     createViewRevisionBundleBytes(request) {
+      requireViewRevisionPreserveLocator(request, 'createViewRevisionBundleBytes');
       return callRitoCoreWasm('createViewRevisionBundleBytes', () =>
         decodeBinaryViewRevisionBundle(
           this._inner.createViewRevisionBundleBytes(
@@ -270,6 +273,7 @@ function readerWorkerPayload(document, request) {
 }
 
 function createReaderViewRevision(document, request, wire, collectWireMetrics, knownScopeKey) {
+  requireViewRevisionPreserveLocator(request, 'createReaderViewRevision');
   const omitFullIndices = knownScopeKey === 'chapter-text-v1:full';
   const measured = collectWireMetrics
     ? createMeasuredReaderViewRevisionBundle(document, request, wire, omitFullIndices)
@@ -424,6 +428,9 @@ function requireViewRevisionFollowUp(value, operation) {
   }
   const request = requireObjectPayload(followUp.request, `${operation} follow-up request`);
   requireObjectPayload(request.layoutConfig, `${operation} follow-up request layoutConfig`);
+  if (request.preserveLocator !== undefined) {
+    requireSourceLocatorRequest(request.preserveLocator, `${operation} follow-up request`);
+  }
   if (
     request.mode !== 'full' ||
     (request.lineBreaking !== undefined &&
@@ -436,6 +443,11 @@ function requireViewRevisionFollowUp(value, operation) {
   ) {
     throw new Error(`${operation} returned an invalid view revision follow-up`);
   }
+}
+
+function requireViewRevisionPreserveLocator(request, operation) {
+  if (request?.preserveLocator === undefined) return;
+  requireSourceLocatorRequest(request.preserveLocator, operation);
 }
 
 function requireNonNegativeInteger(value, field) {

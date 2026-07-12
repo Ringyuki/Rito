@@ -1,4 +1,7 @@
-use crate::layout::collect_anchor_pages;
+use crate::{
+    epub::{EpubError, EpubResult},
+    layout::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart},
+};
 
 use super::{
     navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument,
@@ -28,6 +31,12 @@ pub(super) enum ExactSourceRangePageWindow {
     Pending(RuntimeSourceLocatorPendingReason),
 }
 
+struct PageReadingAnchorCapture {
+    spread_index: usize,
+    source_starts: Vec<LayoutSourceRunStart>,
+    chapter_index: Option<usize>,
+}
+
 pub(super) fn canonical_runtime_source_locator(
     document: &crate::epub::LoadedEpubDocument,
     locator: RuntimeSourceLocator,
@@ -35,7 +44,121 @@ pub(super) fn canonical_runtime_source_locator(
     canonicalize_source_locator(document, locator).map(|canonical| canonical.locator)
 }
 
+fn unavailable_page_reading_anchor(
+    revision_id: &str,
+    page_index: usize,
+    spread_index: usize,
+    reason: RuntimePageReadingAnchorUnavailableReason,
+) -> RuntimePageReadingAnchor {
+    RuntimePageReadingAnchor::Unavailable {
+        revision_id: revision_id.to_owned(),
+        page_index,
+        spread_index,
+        reason,
+    }
+}
+
 impl RuntimeDocument {
+    pub fn get_page_reading_anchor(
+        &mut self,
+        revision_id: &str,
+        page_index: usize,
+    ) -> EpubResult<RuntimePageReadingAnchor> {
+        let capture = self.capture_page_reading_source(revision_id, page_index)?;
+        if capture.source_starts.is_empty() {
+            return Ok(unavailable_page_reading_anchor(
+                revision_id,
+                page_index,
+                capture.spread_index,
+                RuntimePageReadingAnchorUnavailableReason::NoSourceContent,
+            ));
+        }
+        let Some(chapter_index) = capture.chapter_index else {
+            return Ok(unavailable_page_reading_anchor(
+                revision_id,
+                page_index,
+                capture.spread_index,
+                RuntimePageReadingAnchorUnavailableReason::SourceUnavailable,
+            ));
+        };
+        let Some(locator) = self.page_reading_locator(chapter_index, capture.source_starts) else {
+            return Ok(unavailable_page_reading_anchor(
+                revision_id,
+                page_index,
+                capture.spread_index,
+                RuntimePageReadingAnchorUnavailableReason::SourceUnavailable,
+            ));
+        };
+        Ok(RuntimePageReadingAnchor::Resolved {
+            revision_id: revision_id.to_owned(),
+            page_index,
+            spread_index: capture.spread_index,
+            locator,
+        })
+    }
+
+    fn capture_page_reading_source(
+        &self,
+        revision_id: &str,
+        page_index: usize,
+    ) -> EpubResult<PageReadingAnchorCapture> {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
+        if page_index >= revision.known_extent.page_count {
+            return Err(EpubError::new(format!("unknown page index: {page_index}")));
+        }
+        let page = revision
+            .layout
+            .pages
+            .get(page_index)
+            .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
+        let chapter_index =
+            super::page_target::chapter_for_page(&self.document, revision, page_index).and_then(
+                |chapter| {
+                    self.document
+                        .chapters
+                        .iter()
+                        .position(|candidate| candidate.idref == chapter.idref)
+                },
+            );
+        Ok(PageReadingAnchorCapture {
+            spread_index: spread_index_for_page(revision, page_index),
+            source_starts: collect_source_run_starts(std::slice::from_ref(page)),
+            chapter_index,
+        })
+    }
+
+    fn page_reading_locator(
+        &mut self,
+        chapter_index: usize,
+        source_starts: Vec<LayoutSourceRunStart>,
+    ) -> Option<RuntimeSourceLocator> {
+        self.ensure_source_chapter_index(chapter_index).ok()?;
+        let chapter = &self.document.chapters[chapter_index];
+        let source_index = self
+            .source_chapter_indices
+            .get(&chapter.idref)
+            .expect("source chapter index was ensured");
+        let (source_point, source_offset) = source_starts.into_iter().find_map(|start| {
+            let source_point = RuntimeSourcePoint {
+                node_path: start.node_path,
+                text_offset: start.text_offset,
+            };
+            source_point_offset(source_index, &source_point).map(|offset| (source_point, offset))
+        })?;
+        let text_length = normalized_text_length(&source_index.text);
+        let progression = (text_length > 0).then_some(source_offset as f64 / text_length as f64);
+        Some(RuntimeSourceLocator {
+            href: source_index.text.href.clone(),
+            anchor_id: None,
+            source_point: Some(source_point),
+            source_range: None,
+            progression,
+        })
+    }
+
     pub fn resolve_source_locator(
         &mut self,
         revision_id: &str,

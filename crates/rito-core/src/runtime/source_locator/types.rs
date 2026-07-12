@@ -41,6 +41,42 @@ pub struct RuntimeSourceLocator {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub enum RuntimePageReadingAnchorUnavailableReason {
+    /// The page has no visible text slice with exact parsed-source ownership.
+    NoSourceContent,
+    /// Exact source ownership exists, but its canonical source index is unavailable.
+    SourceUnavailable,
+}
+
+/// A revision-local projection of a durable reading locator.
+///
+/// `page_index` and `spread_index` describe only the captured revision. Persist
+/// `locator`, then resolve it against a new revision with
+/// `RuntimeDocument::resolve_source_locator_at`; never persist these page fields
+/// as a substitute for source identity.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimePageReadingAnchor {
+    Resolved {
+        revision_id: String,
+        page_index: usize,
+        spread_index: usize,
+        locator: RuntimeSourceLocator,
+    },
+    Unavailable {
+        revision_id: String,
+        page_index: usize,
+        spread_index: usize,
+        reason: RuntimePageReadingAnchorUnavailableReason,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub enum RuntimeSourceLocatorMatchedBy {
     SourceRange,
     SourcePoint,

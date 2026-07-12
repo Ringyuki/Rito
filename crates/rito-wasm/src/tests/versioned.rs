@@ -183,6 +183,40 @@ fn page_semantics_raw_binding_preserves_the_versioned_envelope_and_typed_errors(
 }
 
 #[test]
+fn page_reading_anchor_raw_binding_preserves_source_identity_and_typed_errors() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let revision_id = revision_id(&mut document);
+
+    let response = parse(
+        document
+            .get_page_reading_anchor_at_revision_json(&revision_id, 0, 0)
+            .expect("page reading anchor is returned"),
+    );
+
+    assert_revision(&response, &revision_id, 0);
+    assert_eq!(response["value"]["status"], "resolved");
+    assert_eq!(response["value"]["revisionId"], revision_id);
+    assert_eq!(response["value"]["pageIndex"], 0);
+    assert_eq!(response["value"]["spreadIndex"], 0);
+    assert_eq!(response["value"]["locator"]["href"], "chapter.xhtml");
+    assert!(response["value"]["locator"]["sourcePoint"]["nodePath"]
+        .as_array()
+        .is_some());
+    assert!(response["value"]["locator"]["sourcePoint"]["textOffset"]
+        .as_u64()
+        .is_some());
+
+    let stale = document
+        .get_page_reading_anchor_at_revision_json(&revision_id, 1, 0)
+        .expect_err("a stale reading-anchor handle is rejected");
+    assert_eq!(stale.code(), WasmRuntimeErrorCode::StaleRevisionVersion);
+    let invalid_page = document
+        .get_page_reading_anchor_at_revision_json(&revision_id, 0, usize::MAX)
+        .expect_err("an invalid reading-anchor page is rejected");
+    assert_eq!(invalid_page.code(), WasmRuntimeErrorCode::EngineError);
+}
+
+#[test]
 fn versioned_exact_text_reads_return_stamped_typed_responses() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);

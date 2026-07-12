@@ -1,5 +1,6 @@
 import type { RitoCoreWasmLayoutConfig, RitoCoreWasmLineBreaking } from './common';
 import type { RitoCoreWasmChapterTextIndices, RitoCoreWasmFootnotes } from './interaction';
+import type { RitoCoreWasmSourceLocator } from './interaction';
 import type { RitoCoreWasmTocEntry } from './publication';
 import type { RitoCoreWasmPlannedFrameResourcePrefetchResponse } from './resource';
 
@@ -138,6 +139,8 @@ export interface RitoCoreWasmViewRevisionRequest {
   readonly lineBreaking?: RitoCoreWasmLineBreaking | undefined;
   readonly activeSpreadIndex: number;
   readonly previousRevisionId?: string | undefined;
+  /** Durable source identity to preserve while replacing the current revision. */
+  readonly preserveLocator?: RitoCoreWasmSourceLocator | undefined;
   readonly mode: RitoCoreWasmViewRevisionMode;
 }
 

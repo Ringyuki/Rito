@@ -134,6 +134,11 @@ function requireTargetSemantics(target, operation) {
 
 function requireSourceLocator(value, operation) {
   const locator = requireRecord(value, `${operation} source locator`);
+  requireExactFields(
+    locator,
+    new Set(['href', 'anchorId', 'sourcePoint', 'sourceRange', 'progression']),
+    `${operation} source locator`,
+  );
   if (typeof locator.href !== 'string' || locator.href.length === 0) {
     throw new Error(`${operation} returned an invalid source locator href`);
   }
@@ -141,6 +146,7 @@ function requireSourceLocator(value, operation) {
   if (locator.sourcePoint !== undefined) requireSourcePoint(locator.sourcePoint, operation);
   if (locator.sourceRange !== undefined) {
     const range = requireRecord(locator.sourceRange, `${operation} source range`);
+    requireExactFields(range, new Set(['start', 'end']), `${operation} source range`);
     requireSourcePoint(range.start, operation);
     requireSourcePoint(range.end, operation);
   }
@@ -161,10 +167,19 @@ function requireOptionalLocatorString(locator, field, operation) {
 
 function requireSourcePoint(value, operation) {
   const point = requireRecord(value, `${operation} source point`);
+  requireExactFields(point, new Set(['nodePath', 'textOffset']), `${operation} source point`);
   if (!Array.isArray(point.nodePath) || point.nodePath.some((part) => !isCount(part))) {
     throw new Error(`${operation} returned an invalid source node path`);
   }
   requireCount(point.textOffset, `${operation} source text offset`);
+}
+
+function requireExactFields(value, allowedFields, operation) {
+  for (const field of Reflect.ownKeys(value)) {
+    if (typeof field !== 'string' || !allowedFields.has(field)) {
+      throw new Error(`${operation} returned unknown field ${String(field)}`);
+    }
+  }
 }
 
 export function requireFootnote(value, revision, key, operation) {

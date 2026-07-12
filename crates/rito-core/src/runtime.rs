@@ -69,9 +69,10 @@ pub use shape_provenance_diagnostic::{
     RUNTIME_SHAPE_PROVENANCE_DIAGNOSTIC_SCHEMA_VERSION,
 };
 pub use source_locator::{
-    RuntimeSourceLocator, RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind,
-    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
-    RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
+    RuntimePageReadingAnchor, RuntimePageReadingAnchorUnavailableReason, RuntimeSourceLocator,
+    RuntimeSourceLocatorError, RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
+    RuntimeSourceRange,
 };
 pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,

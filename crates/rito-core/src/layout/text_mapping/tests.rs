@@ -45,6 +45,27 @@ fn exact_subslices_share_the_compact_flow() {
     ));
 }
 
+#[test]
+fn exact_source_slice_starts_at_the_visible_utf16_subslice() {
+    let mut segments = vec![mapped_segment("A𠮷B")];
+    finalize_inline_text_flow(&mut segments);
+    let InlineSegment::Text(segment) = &segments[0] else {
+        panic!("text segment expected");
+    };
+    let TextSegmentMapping::Resolved(mapping) = &segment.mapping else {
+        panic!("resolved mapping expected");
+    };
+    let visible = mapping.subslice(1, 3);
+
+    let source = visible
+        .exact_source_slice()
+        .expect("visible exact slice retains source ownership");
+
+    assert_eq!(source.node_path, vec![1, 2]);
+    assert_eq!(source.source_start, 1);
+    assert_eq!(source.source_length, 2);
+}
+
 fn mapped_segment(text: &str) -> InlineSegment {
     InlineSegment::Text(TextSegment {
         text: text.to_owned(),

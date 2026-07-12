@@ -108,9 +108,15 @@ test('preview chapter text indices retain their inline public shape', async () =
 });
 
 test('reader accepts reordered follow-up defaults normalized by Rust serde', async () => {
+  const preserveLocator = {
+    href: 'Text/chapter.xhtml',
+    sourcePoint: { nodePath: [1, 0], textOffset: 3 },
+    progression: 0.2,
+  };
   const request = {
     ...VIEW_REQUEST,
     mode: 'preview',
+    preserveLocator,
     layoutConfig: { ...VIEW_REQUEST.layoutConfig, textMeasurement: 'fixtureCompatible' },
   };
   const followUp = {
@@ -137,6 +143,7 @@ test('reader accepts reordered follow-up defaults normalized by Rust serde', asy
   client.dispose();
 
   assert.deepEqual(view.followUp, followUp);
+  assert.deepEqual(view.followUp.request.preserveLocator, preserveLocator);
 });
 
 test('reader accepts empty metric maps omitted from a Rust follow-up', async () => {
@@ -221,6 +228,16 @@ for (const [name, requestOverrides, message] of [
     /follow-up layoutConfig does not match/,
   ],
   ['line breaking', { lineBreaking: 'optimal' }, /follow-up lineBreaking does not match/],
+  [
+    'preserve locator',
+    {
+      preserveLocator: {
+        href: 'Text/other.xhtml',
+        sourcePoint: { nodePath: [1, 0], textOffset: 1 },
+      },
+    },
+    /follow-up preserveLocator does not match/,
+  ],
 ]) {
   test(`reader rejects a follow-up with mismatched ${name} and releases its revision`, async () => {
     const requests = [];
