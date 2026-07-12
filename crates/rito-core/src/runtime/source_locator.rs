@@ -1,7 +1,8 @@
 use crate::layout::collect_anchor_pages;
 
 use super::{
-    navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument, RuntimeRevision,
+    navigation::spread_index_for_page, RuntimeChapterTextIndex, RuntimeDocument,
+    RuntimeExactSourceRangeRequest, RuntimeRevision,
 };
 
 mod href;
@@ -14,6 +15,18 @@ use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
 use projection::{project_source_offset, project_source_point, SourceProjection};
 pub use types::*;
+
+pub(super) struct PreparedExactSourceRange {
+    pub(super) locator: RuntimeSourceLocator,
+    pub(super) spine_idref: String,
+    pub(super) source_range: RuntimeSourceRange,
+    pub(super) selected_text: String,
+}
+
+pub(super) enum ExactSourceRangePageWindow {
+    Ready { first_page: usize, last_page: usize },
+    Pending(RuntimeSourceLocatorPendingReason),
+}
 
 pub(super) fn canonical_runtime_source_locator(
     document: &crate::epub::LoadedEpubDocument,
@@ -48,6 +61,106 @@ impl RuntimeDocument {
             canonical,
             source_index,
         ))
+    }
+
+    pub(super) fn prepare_exact_source_range(
+        &mut self,
+        request: RuntimeExactSourceRangeRequest,
+    ) -> Result<PreparedExactSourceRange, RuntimeSourceLocatorError> {
+        let canonical = canonicalize_source_locator(
+            &self.document,
+            RuntimeSourceLocator {
+                href: request.href,
+                anchor_id: None,
+                source_point: None,
+                source_range: Some(request.source_range),
+                progression: None,
+            },
+        )?;
+        self.ensure_source_chapter_index(canonical.chapter_index)?;
+        let source_index = self
+            .source_chapter_indices
+            .get(&canonical.spine_idref)
+            .expect("source chapter index was ensured");
+        validate_source_selectors(&canonical.locator, source_index)?;
+        let source_range = canonical
+            .locator
+            .source_range
+            .clone()
+            .expect("exact source range request installs a sourceRange");
+        let start = require_source_point_offset(source_index, &source_range.start)?;
+        let end = require_source_point_offset(source_index, &source_range.end)?;
+        let selected_text = utf16_slice(&source_index.text.normalized_text, start, end)
+            .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?
+            .to_owned();
+        Ok(PreparedExactSourceRange {
+            locator: canonical.locator,
+            spine_idref: canonical.spine_idref,
+            source_range,
+            selected_text,
+        })
+    }
+
+    pub(super) fn exact_source_range_page_window(
+        &self,
+        revision_id: &str,
+        prepared: &PreparedExactSourceRange,
+    ) -> Result<ExactSourceRangePageWindow, RuntimeSourceLocatorError> {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .ok_or_else(|| RuntimeSourceLocatorError::unknown_revision(revision_id))?;
+        let source_index = self
+            .source_chapter_indices
+            .get(&prepared.spine_idref)
+            .expect("source chapter index was prepared");
+        let Some(chapter_range) = revision
+            .layout
+            .summary
+            .pagination_flow
+            .chapter_map
+            .get(&prepared.spine_idref)
+        else {
+            return Ok(ExactSourceRangePageWindow::Pending(
+                unavailable_projection_reason(revision, &prepared.spine_idref),
+            ));
+        };
+        if chapter_range.start_page >= revision.known_extent.page_count {
+            return Ok(ExactSourceRangePageWindow::Pending(
+                RuntimeSourceLocatorPendingReason::NotPaginated,
+            ));
+        }
+        let last_page = chapter_range
+            .end_page
+            .min(revision.known_extent.page_count - 1);
+        let Some(pages) = revision
+            .layout
+            .pages
+            .get(chapter_range.start_page..=last_page)
+        else {
+            return Ok(ExactSourceRangePageWindow::Pending(
+                unavailable_projection_reason(revision, &prepared.spine_idref),
+            ));
+        };
+        for point in [&prepared.source_range.start, &prepared.source_range.end] {
+            match project_source_point(pages, source_index, point) {
+                SourceProjection::Page(_) => {}
+                SourceProjection::BeyondSealedExtent => {
+                    return Ok(ExactSourceRangePageWindow::Pending(
+                        RuntimeSourceLocatorPendingReason::NotPaginated,
+                    ));
+                }
+                SourceProjection::NoPageProjection => {
+                    return Ok(ExactSourceRangePageWindow::Pending(
+                        unavailable_projection_reason(revision, &prepared.spine_idref),
+                    ));
+                }
+            }
+        }
+        Ok(ExactSourceRangePageWindow::Ready {
+            first_page: chapter_range.start_page,
+            last_page,
+        })
     }
 }
 
@@ -247,4 +360,33 @@ fn normalized_text_length(index: &RuntimeChapterTextIndex) -> usize {
         .last()
         .map(|span| span.normalized_end)
         .unwrap_or(0)
+}
+
+fn utf16_slice(text: &str, start: usize, end: usize) -> Option<&str> {
+    if start > end {
+        return None;
+    }
+    let mut utf16_offset = 0usize;
+    let mut start_byte = (start == 0).then_some(0);
+    let mut end_byte = (end == 0).then_some(0);
+    for (byte, character) in text.char_indices() {
+        if utf16_offset == start {
+            start_byte = Some(byte);
+        }
+        if utf16_offset == end {
+            end_byte = Some(byte);
+            break;
+        }
+        utf16_offset += character.len_utf16();
+        if utf16_offset > end {
+            return None;
+        }
+    }
+    if utf16_offset == start {
+        start_byte = Some(text.len());
+    }
+    if utf16_offset == end {
+        end_byte = Some(text.len());
+    }
+    text.get(start_byte?..end_byte?)
 }

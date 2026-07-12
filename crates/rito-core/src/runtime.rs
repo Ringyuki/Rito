@@ -69,9 +69,11 @@ pub use source_locator::{
     RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
 };
 pub use text_interaction::{
-    RuntimeExactTextRangeRect, RuntimeSameFlowTextRange, RuntimeSameFlowTextRangeRequest,
-    RuntimeSameFlowTextRangeResolution, RuntimeSameFlowTextRangeResponse, RuntimeTextCaret,
-    RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
+    RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
+    RuntimeExactSourceRangeResponse, RuntimeExactTextRangeRect, RuntimeSameFlowTextRange,
+    RuntimeSameFlowTextRangeRequest, RuntimeSameFlowTextRangeResolution,
+    RuntimeSameFlowTextRangeResponse, RuntimeTextCaret, RuntimeTextCaretResolution,
+    RuntimeTextCaretResponse, RuntimeTextPointRequest,
 };
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;

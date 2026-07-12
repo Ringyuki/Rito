@@ -2,7 +2,47 @@ use serde::{Deserialize, Serialize};
 
 use crate::interaction::{TextCaretAddress, TextCaretGeometry, TextInteractionUnavailableReason};
 
-use super::super::RuntimeSourceLocator;
+use super::super::{RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceRange};
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeExactSourceRangeRequest {
+    pub href: String,
+    pub source_range: RuntimeSourceRange,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeExactSourceRangeResponse {
+    pub revision_id: String,
+    pub resolution: RuntimeExactSourceRangeResolution,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimeExactSourceRangeResolution {
+    Resolved {
+        range: Box<RuntimeExactSourceRange>,
+    },
+    Pending {
+        reason: RuntimeSourceLocatorPendingReason,
+    },
+    Unavailable {
+        reason: TextInteractionUnavailableReason,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeExactSourceRange {
+    pub selected_text: String,
+    pub source_locator: RuntimeSourceLocator,
+    pub rects: Vec<RuntimeExactTextRangeRect>,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

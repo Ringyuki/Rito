@@ -1,9 +1,10 @@
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{
-        resolve_same_flow_text_range, resolve_text_caret, ExactTextRangeRect, LayoutExactTextRange,
-        LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret,
-        LayoutTextCaretResolution, TextInteractionUnavailableReason,
+        resolve_exact_source_range, resolve_same_flow_text_range, resolve_text_caret,
+        ExactTextRangeRect, LayoutExactTextRange, LayoutExactTextRangeResolution,
+        LayoutSourcePoint, LayoutTextCaret, LayoutTextCaretResolution,
+        TextInteractionUnavailableReason,
     },
 };
 
@@ -11,12 +12,82 @@ mod types;
 
 pub use types::*;
 
+use super::source_locator::{ExactSourceRangePageWindow, PreparedExactSourceRange};
 use super::{
     navigation::spread_index_for_page, page_target::chapter_for_page, RuntimeDocument,
     RuntimeRevision, RuntimeSourceLocator, RuntimeSourcePoint, RuntimeSourceRange,
 };
 
 impl RuntimeDocument {
+    pub(super) fn resolve_exact_source_range_for_revision(
+        &mut self,
+        revision_id: &str,
+        request: RuntimeExactSourceRangeRequest,
+    ) -> Result<RuntimeExactSourceRangeResponse, super::RuntimeSourceLocatorError> {
+        let prepared = self.prepare_exact_source_range(request)?;
+        let window = self.exact_source_range_page_window(revision_id, &prepared)?;
+        let resolution = match window {
+            ExactSourceRangePageWindow::Pending(reason) => {
+                RuntimeExactSourceRangeResolution::Pending { reason }
+            }
+            ExactSourceRangePageWindow::Ready {
+                first_page,
+                last_page,
+            } => self.resolve_prepared_exact_source_range(
+                revision_id,
+                prepared,
+                first_page,
+                last_page,
+            ),
+        };
+        Ok(RuntimeExactSourceRangeResponse {
+            revision_id: revision_id.to_owned(),
+            resolution,
+        })
+    }
+
+    fn resolve_prepared_exact_source_range(
+        &self,
+        revision_id: &str,
+        prepared: PreparedExactSourceRange,
+        first_page: usize,
+        last_page: usize,
+    ) -> RuntimeExactSourceRangeResolution {
+        let revision = self
+            .revisions
+            .get(revision_id)
+            .expect("exact source range page window validated the revision");
+        let start = layout_source_point(&prepared.source_range.start);
+        let end = layout_source_point(&prepared.source_range.end);
+        let resolution =
+            resolve_exact_source_range(&revision.layout.pages, first_page, last_page, &start, &end);
+        match resolution {
+            LayoutExactTextRangeResolution::Resolved(range)
+                if range.selected_text == prepared.selected_text =>
+            {
+                RuntimeExactSourceRangeResolution::Resolved {
+                    range: Box::new(RuntimeExactSourceRange {
+                        selected_text: range.selected_text,
+                        source_locator: prepared.locator,
+                        rects: range
+                            .rects
+                            .into_iter()
+                            .map(|rect| runtime_range_rect(revision, rect))
+                            .collect(),
+                    }),
+                }
+            }
+            LayoutExactTextRangeResolution::Resolved(_) => {
+                RuntimeExactSourceRangeResolution::Unavailable {
+                    reason: TextInteractionUnavailableReason::SourceUnavailable,
+                }
+            }
+            LayoutExactTextRangeResolution::Unavailable(reason) => {
+                RuntimeExactSourceRangeResolution::Unavailable { reason }
+            }
+        }
+    }
+
     pub(super) fn resolve_text_caret_for_revision(
         &self,
         revision_id: &str,
@@ -75,6 +146,13 @@ impl RuntimeDocument {
         self.revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
+    }
+}
+
+fn layout_source_point(point: &RuntimeSourcePoint) -> LayoutSourcePoint {
+    LayoutSourcePoint {
+        node_path: point.node_path.clone(),
+        text_offset: point.text_offset,
     }
 }
 

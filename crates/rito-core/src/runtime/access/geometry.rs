@@ -1,11 +1,22 @@
 use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned};
 use crate::runtime::{
-    RuntimeDocument, RuntimePageTargets, RuntimePageTextPositions, RuntimeSameFlowTextRangeRequest,
+    RuntimeDocument, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResponse,
+    RuntimePageTargets, RuntimePageTextPositions, RuntimeSameFlowTextRangeRequest,
     RuntimeSameFlowTextRangeResponse, RuntimeTextCaretResponse, RuntimeTextPointRequest,
     RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
 };
 
 impl RuntimeDocument {
+    pub fn resolve_exact_source_range_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeExactSourceRangeRequest,
+    ) -> Result<RuntimeVersioned<RuntimeExactSourceRangeResponse>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, revision_id| {
+            document.resolve_exact_source_range_for_revision(revision_id, request)
+        })
+    }
+
     pub fn get_page_targets_at(
         &self,
         handle: &RuntimeRevisionHandle,

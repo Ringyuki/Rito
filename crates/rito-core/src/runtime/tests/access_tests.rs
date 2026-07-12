@@ -6,12 +6,12 @@ use crate::{
     layout::{LineBreaking, SearchTextPosition},
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
-        RuntimeInitialFrameRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
-        RuntimePrefetchRequest, RuntimeResourceKind, RuntimeRevisionAccessErrorKind,
-        RuntimeRevisionHandle, RuntimeRevisionWorkBudget, RuntimeSameFlowTextRangeRequest,
-        RuntimeSearchRequest, RuntimeSourceLocator, RuntimeSourceLocatorPendingReason,
-        RuntimeSourceLocatorResolution, RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest,
-        RuntimeVersioned,
+        RuntimeExactSourceRangeRequest, RuntimeInitialFrameRequest, RuntimeLocatorRequest,
+        RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
+        RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
+        RuntimeSameFlowTextRangeRequest, RuntimeSearchRequest, RuntimeSourceLocator,
+        RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeTextPointRequest,
+        RuntimeTextRangeGeometryRequest, RuntimeVersioned,
     },
 };
 
@@ -357,6 +357,22 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
         }
     ));
     assert_stale!(document.resolve_source_locator_at(&stale, source_locator("chapter-1.xhtml")));
+    assert_stale!(document.resolve_exact_source_range_at(
+        &stale,
+        RuntimeExactSourceRangeRequest {
+            href: "chapter-1.xhtml".to_owned(),
+            source_range: crate::runtime::RuntimeSourceRange {
+                start: crate::runtime::RuntimeSourcePoint {
+                    node_path: vec![0],
+                    text_offset: 0
+                },
+                end: crate::runtime::RuntimeSourcePoint {
+                    node_path: vec![0],
+                    text_offset: 1
+                }
+            }
+        }
+    ));
     assert_stale!(document.get_page_targets_at(&stale, 0));
     assert_stale!(document.get_page_text_positions_at(&stale, 0));
     assert_stale!(document.get_text_range_geometry_at(
