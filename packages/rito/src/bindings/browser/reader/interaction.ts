@@ -85,6 +85,9 @@ async function loadPageTargets(
     worker.getPageTargetsAtRevision(revision, pageIndex),
   );
   if (!value) return undefined;
+  if (value.revisionId !== capture.coreRevision.revisionId || value.pageIndex !== pageIndex) {
+    throw new Error('Reader page targets response does not match its request');
+  }
   requireMatchingSpread(state, value);
   const result = toReaderPageTargets(value);
   if (!captureIsCurrent(state, capture)) return undefined;

@@ -9,6 +9,7 @@ import {
   createWorker,
   revisionSummary,
   setRevisionState,
+  spreadNavigationSlot,
 } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader interaction contract', () => {
@@ -43,6 +44,55 @@ describe('Browser reader interaction contract', () => {
     });
     expect(result?.targets[0]).not.toHaveProperty('blockIndex');
     expect(result?.targets[0]).not.toHaveProperty('text');
+  });
+
+  it('uses committed navigation as the authoritative page-to-spread projection', async () => {
+    const fixture = createWorker(() => undefined, 'interaction-session');
+    const state = createState(fixture.worker);
+    setRevisionState(state, revisionSummary('rev', 2, 1), {
+      revisionId: 'rev',
+      pageCount: 2,
+      spreadCount: 1,
+      spreads: [spreadNavigationSlot(0, 0, 1)],
+      chapters: [],
+      chapterMap: {},
+    });
+    fixture.getPageTargetsAtRevision.mockResolvedValue({
+      revision: handle(),
+      value: pageTargets(1, 0),
+    });
+
+    await expect(createBrowserReaderInteractions(state).getPageTargets(1)).resolves.toMatchObject({
+      pageIndex: 1,
+      spreadIndex: 0,
+    });
+  });
+
+  it.each([
+    {
+      ownership: 'inner revision',
+      value: { ...pageTargets(0, 0), revisionId: 'forged' },
+      message: 'Reader page targets response does not match its request',
+    },
+    {
+      ownership: 'requested page',
+      value: pageTargets(1, 0),
+      message: 'Reader page targets response does not match its request',
+    },
+    {
+      ownership: 'committed spread',
+      value: pageTargets(0, 1),
+      message: 'Reader page targets do not match committed navigation',
+    },
+  ])('rejects a page-target response with mismatched $ownership', async ({ value, message }) => {
+    const fixture = readyFixture();
+    fixture.getPageTargetsAtRevision.mockResolvedValue({ revision: handle(), value });
+
+    await expect(createBrowserReaderInteractions(fixture.state).getPageTargets(0)).rejects.toThrow(
+      message,
+    );
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+    expect(fixture.state.interaction.pendingPageTargets.size).toBe(0);
   });
 
   it('fetches footnotes and maps resolved and pending locator projections', async () => {

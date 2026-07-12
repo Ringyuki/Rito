@@ -129,6 +129,31 @@ describe('Browser reader interaction races', () => {
     expect(fixture.state.interaction.pageTargets.size).toBe(0);
   });
 
+  it('rejects crossed same-revision page responses without caching either value', async () => {
+    const fixture = readyFixture();
+    const pageZeroRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    const pageOneRead = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision
+      .mockReturnValueOnce(pageZeroRead.promise)
+      .mockReturnValueOnce(pageOneRead.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const pageZeroTask = interactions.getPageTargets(0);
+    const pageOneTask = interactions.getPageTargets(1);
+    const pageZeroExpectation = expect(pageZeroTask).rejects.toThrow(
+      'Reader page targets response does not match its request',
+    );
+    const pageOneExpectation = expect(pageOneTask).rejects.toThrow(
+      'Reader page targets response does not match its request',
+    );
+
+    pageZeroRead.resolve(versionedTargets(1, 1, 'page-one'));
+    pageOneRead.resolve(versionedTargets(0, 0, 'page-zero'));
+
+    await Promise.all([pageZeroExpectation, pageOneExpectation]);
+    expect(fixture.state.interaction.pageTargets.size).toBe(0);
+    expect(fixture.state.interaction.pendingPageTargets.size).toBe(0);
+  });
+
   it('bounds page targets with LRU recency', async () => {
     const fixture = readyFixture();
     fixture.getPageTargetsAtRevision.mockImplementation((revision, pageIndex) =>
