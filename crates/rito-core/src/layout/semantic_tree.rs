@@ -2,6 +2,7 @@ use super::{
     content::{RuntimeBlock, RuntimeChild, RuntimeImage},
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
     page::RuntimePage,
+    text_mapping::RunTextMapping,
     visual_geometry::{VisualGeometry, VisualRect},
 };
 
@@ -52,11 +53,20 @@ fn block_node(
         visual.resolve_rect(VisualRect::new(block_x, block_y, block.width, block.height))?;
     let mut children = Vec::new();
     let mut text = String::new();
+    let mut text_cursor = SemanticTextCursor::default();
 
     for child in &block.children {
         match child {
             RuntimeChild::Line(line) => {
-                collect_line_semantics(line, block_x, block_y, visual, &mut children, &mut text);
+                collect_line_semantics(
+                    line,
+                    block_x,
+                    block_y,
+                    visual,
+                    &mut text_cursor,
+                    &mut children,
+                    &mut text,
+                );
             }
             RuntimeChild::Block(child) => {
                 if let Some(child) = block_node(child, block_x, block_y, visual) {
@@ -90,6 +100,7 @@ fn collect_line_semantics(
     block_x: f64,
     block_y: f64,
     visual: VisualGeometry,
+    text_cursor: &mut SemanticTextCursor,
     children: &mut Vec<LayoutSemanticNode>,
     text: &mut String,
 ) {
@@ -98,8 +109,10 @@ fn collect_line_semantics(
     for run in &line.runs {
         match run {
             LineRun::Text(run) => {
-                text.push_str(&run.text);
-                if let Some(node) = text_node(run, line_x, line_y, visual) {
+                if let Some(node) = text_node(run, line_x, line_y, visual, text_cursor) {
+                    if let Some(run_text) = node.text.as_deref() {
+                        text.push_str(run_text);
+                    }
                     children.push(node);
                 }
             }
@@ -121,8 +134,11 @@ fn text_node(
     line_x: f64,
     line_y: f64,
     visual: VisualGeometry,
+    text_cursor: &mut SemanticTextCursor,
 ) -> Option<LayoutSemanticNode> {
-    let bounds = child_bounds(run.x, run.y, run.width, run.height, line_x, line_y, visual)?;
+    let bounds = child_bounds(run.x, run.y, run.width, run.height, line_x, line_y, visual);
+    let text = text_cursor.observe(run, bounds.is_some());
+    let bounds = bounds?;
     let href = non_empty_value(run.href.as_ref());
     Some(LayoutSemanticNode {
         role: if href.is_some() {
@@ -131,12 +147,36 @@ fn text_node(
             LayoutSemanticRole::Generic
         },
         level: None,
-        text: non_empty_text(&run.text),
+        text,
         alt: None,
         href,
         bounds,
         children: Vec::new(),
     })
+}
+
+#[derive(Default)]
+struct SemanticTextCursor {
+    previous_mapping: Option<RunTextMapping>,
+}
+
+impl SemanticTextCursor {
+    fn observe(&mut self, run: &TextRunBox, visible: bool) -> Option<String> {
+        let gap = self
+            .previous_mapping
+            .as_ref()
+            .and_then(|previous| run.text_mapping.line_break_gap_after(previous));
+        self.previous_mapping = Some(run.text_mapping.clone());
+        if !visible {
+            return None;
+        }
+        let mut text = String::with_capacity(gap.map_or(0, str::len) + run.text.len());
+        if let Some(gap) = gap {
+            text.push_str(gap);
+        }
+        text.push_str(&run.text);
+        non_empty_text(&text)
+    }
 }
 
 fn atom_node(

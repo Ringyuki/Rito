@@ -1,9 +1,16 @@
-use serde_json::json;
+use std::sync::Arc;
+
+use serde_json::{json, Map, Value};
 
 use crate::layout::{
     content::{RuntimeBlock, RuntimeChild},
+    inline_segment::{InlineSegment, TextSegment},
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
-    text_mapping::RunTextMapping,
+    line_layout::layout_greedy_lines,
+    text_mapping::{
+        finalize_inline_text_flow, fixture_logical_text_flow, LogicalTextFlow, RunTextMapping,
+        TextFlowSlice, TextMappingCandidate, TextSegmentMapping, TextSourceBasis,
+    },
     text_shape::fixture_run_shape,
     visual_geometry::VisualRect,
 };
@@ -72,6 +79,62 @@ pub(super) fn text_at(value: &str, x: f64, y: f64, width: f64) -> LineRun {
         ruby_annotation: None,
         shape: fixture_run_shape(width),
     })
+}
+
+pub(super) fn exact_flow(text: &str) -> Arc<LogicalTextFlow> {
+    let length = text.encode_utf16().count() as u32;
+    fixture_logical_text_flow(text, vec![(0, length, Some((vec![0], 0)))])
+}
+
+pub(super) fn exact_lines(text: &str, width: f64) -> Vec<RuntimeChild<LineBox>> {
+    let mut segments = vec![InlineSegment::Text(TextSegment {
+        text: text.to_owned(),
+        mapping: TextSegmentMapping::Candidate(TextMappingCandidate::new(
+            text.to_owned(),
+            Some(vec![0]),
+            0,
+            TextSourceBasis::ParsedText,
+            text,
+        )),
+        style: Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            ("language".to_owned(), Value::String("en-us".to_owned())),
+        ]),
+        href: None,
+        source_path: Some(vec![0]),
+        source_text: Some(text.to_owned()),
+        source_text_offset: None,
+        ruby_annotation: None,
+        inline_margin_left: None,
+        inline_margin_right: None,
+        border_start: false,
+        border_end: false,
+    })];
+    finalize_inline_text_flow(&mut segments);
+    layout_greedy_lines(&segments, width)
+        .into_iter()
+        .map(RuntimeChild::Line)
+        .collect()
+}
+
+pub(super) fn exact_text(
+    value: &str,
+    flow: &Arc<LogicalTextFlow>,
+    logical_start: u32,
+    logical_end: u32,
+) -> LineRun {
+    let mut run = text(value, None);
+    let LineRun::Text(text_run) = &mut run else {
+        unreachable!();
+    };
+    text_run.text_mapping = RunTextMapping::Exact(TextFlowSlice {
+        flow: Arc::clone(flow),
+        span_index: 0,
+        logical_start,
+        logical_end,
+    });
+    run
 }
 
 pub(super) fn atom(image_src: Option<&str>, alt: Option<&str>, href: Option<&str>) -> LineRun {

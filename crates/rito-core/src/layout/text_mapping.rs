@@ -147,6 +147,31 @@ impl RunTextMapping {
     pub(crate) fn truncate(&self, utf16_len: usize) -> Self {
         self.subslice(0, utf16_len)
     }
+
+    /// Returns logical break whitespace retained between consecutive painted
+    /// slices.
+    ///
+    /// Line layout deliberately omits break whitespace and forced newlines
+    /// from painted runs. Consumers that preserve logical reading order can
+    /// recover that gap only when both runs prove ownership of the same
+    /// finalized text flow. Non-whitespace holes are not line-break metadata
+    /// and must never be smuggled back into visible or accessible content.
+    pub(crate) fn line_break_gap_after<'a>(&'a self, previous: &Self) -> Option<&'a str> {
+        let (Self::Exact(current), Self::Exact(previous)) = (self, previous) else {
+            return None;
+        };
+        debug_assert!(current.validate().is_ok());
+        debug_assert!(previous.validate().is_ok());
+        if !Arc::ptr_eq(&current.flow, &previous.flow)
+            || previous.logical_end > current.logical_start
+        {
+            return None;
+        }
+        let gap = current
+            .flow
+            .slice_utf16(previous.logical_end, current.logical_start)?;
+        gap.chars().all(char::is_whitespace).then_some(gap)
+    }
 }
 
 impl TextFlowSlice {

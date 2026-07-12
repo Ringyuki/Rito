@@ -2,6 +2,7 @@ use serde_json::json;
 
 mod fixtures;
 mod roles;
+mod text;
 
 use fixtures::{assert_rect, atom, block, line, line_at, text, text_at};
 
