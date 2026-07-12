@@ -192,8 +192,8 @@ export interface ReaderController {
 
   restorePosition(): Promise<number | undefined>;
   savePosition(): Promise<void>;
-  /** Navigate to a serialized ReadingPosition using the current layout. */
-  goToPosition(position: ReadingPosition): number | undefined;
+  /** Resolve and navigate to a serialized source-anchored ReadingPosition. */
+  goToPosition(position: ReadingPosition): Promise<number | undefined>;
 
   setInteractionMode(mode: InteractionMode): void;
   readonly interactionMode: InteractionMode;

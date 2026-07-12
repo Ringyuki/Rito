@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Page, Spread } from '@ritojs/core';
 import { createCoordinatorState } from '../src/controller/core';
 import { coordinateOnSpreadRendered } from '../src/controller/wiring/spread';
+import { createPositionTracker } from '../src/interaction/position/tracker';
 
 const page: Page = {
   index: 0,
@@ -62,7 +63,7 @@ describe('coordinateOnSpreadRendered position updates', () => {
       project: vi.fn(),
       setCurrent: vi.fn(),
     };
-    state.positionUpdateMode = { kind: 'skip' };
+    state.positionUpdateMode = { kind: 'skip', spreadIndex: 0 };
 
     coordinateOnSpreadRendered(
       0,
@@ -76,6 +77,34 @@ describe('coordinateOnSpreadRendered position updates', () => {
     expect(tracker.update).not.toHaveBeenCalled();
     expect(tracker.project).not.toHaveBeenCalled();
     expect(tracker.setCurrent).not.toHaveBeenCalled();
+    expect(state.positionUpdateMode).toEqual({ kind: 'capture' });
+  });
+
+  it('does not let a stale bound skip supersede a newer portable intent', () => {
+    const state = createCoordinatorState();
+    const tracker = createPositionTracker(
+      () =>
+        ({
+          pages: [page],
+          spreads: [spread],
+          chapterMap: new Map(),
+        }) as never,
+    );
+    const staleIntent = tracker.claimIntent();
+    const portableIntent = tracker.claimPortableIntent();
+    state.positionUpdateMode = { kind: 'skip', spreadIndex: 0, intent: staleIntent };
+
+    coordinateOnSpreadRendered(
+      0,
+      spread,
+      { selection: { setSpread: vi.fn() }, search: {}, position: tracker } as never,
+      createReader() as never,
+      state,
+      1,
+    );
+
+    expect(tracker.owns(portableIntent)).toBe(true);
+    expect(tracker.getCurrent()).toBeNull();
     expect(state.positionUpdateMode).toEqual({ kind: 'capture' });
   });
 });

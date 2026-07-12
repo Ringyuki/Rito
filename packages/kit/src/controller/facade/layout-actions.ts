@@ -59,7 +59,10 @@ function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeC
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
   runtime.frameDriver.scheduleComposite();
-  internals.coordState.positionUpdateMode = { kind: 'skip' };
+  internals.coordState.positionUpdateMode = {
+    kind: 'skip',
+    spreadIndex: internals.currentSpread,
+  };
   internals.reader.notifyActiveSpread(internals.currentSpread);
 }
 
@@ -84,28 +87,51 @@ export function commitLayoutChange(
   internals: Internals,
   emitter: Emitter,
   runtime: RuntimeComponents,
-  anchor: ReadingPosition | null = currentPosition(internals),
+  anchor?: ReadingPosition | null,
+  committedSpreadIndex?: number,
 ): void {
-  internals.engines.selection.invalidate();
-  if (usesNativeAnnotationGeometry(internals.reader)) {
-    invalidateNativeAnnotationGeometry(internals.coordState);
-    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
-  }
+  const tracker = internals.engines.position;
+  const positionPlan = tracker?.prepareLayoutCommit(
+    anchor,
+    committedSpreadIndex ?? internals.currentSpread,
+  );
+  const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
+  const clearedNativeAnnotationHover = usesNativeAnnotationGeometry(internals.reader);
+  if (clearedNativeAnnotationHover) invalidateNativeAnnotationGeometry(internals.coordState);
   const previousSpread = internals.currentSpread;
-  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
-  internals.currentSpread = resolveCommittedSpread(internals, anchor);
+  internals.currentSpread =
+    committedSpreadIndex === undefined
+      ? resolveCommittedSpread(internals, preserved)
+      : clampSpreadIndex(internals, committedSpreadIndex);
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
   runtime.pool.assignSlot('curr', internals.currentSpread);
   runtime.td.reset();
+  const committedSpread = internals.currentSpread;
+  if (positionPlan?.kind === 'portable') {
+    internals.coordState.positionUpdateMode = { kind: 'skip', spreadIndex: committedSpread };
+  } else if (preserved && positionPlan) {
+    internals.coordState.positionUpdateMode = {
+      kind: 'preserve',
+      position: preserved,
+      intent: positionPlan.intent,
+    };
+  } else {
+    internals.coordState.positionUpdateMode = { kind: 'capture' };
+  }
+  internals.reader.notifyActiveSpread(committedSpread);
+  internals.engines.selection.invalidate();
+  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   runtime.frameDriver.compositeNow();
+
+  if (clearedNativeAnnotationHover) {
+    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+  }
   emitter.emit('layoutChange', {
     spreads: internals.reader.spreads,
     totalSpreads: internals.reader.totalSpreads,
   });
-  emitSpreadChangeIfNeeded(internals, emitter, previousSpread);
-  if (anchor) internals.coordState.positionUpdateMode = { kind: 'preserve', position: anchor };
-  internals.reader.notifyActiveSpread(internals.currentSpread);
+  emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
 }
 
 export function requireRenderScale(scale: number): void {
@@ -115,21 +141,25 @@ export function requireRenderScale(scale: number): void {
 }
 
 function resolveCommittedSpread(internals: Internals, anchor: ReadingPosition | null): number {
-  const maxSpreadIndex = Math.max(0, internals.reader.totalSpreads - 1);
   const resolved = anchor ? internals.engines.position?.resolve(anchor) : undefined;
-  return Math.max(0, Math.min(resolved ?? internals.currentSpread, maxSpreadIndex));
+  return clampSpreadIndex(internals, resolved ?? internals.currentSpread);
+}
+
+function clampSpreadIndex(internals: Internals, spreadIndex: number): number {
+  return Math.max(0, Math.min(spreadIndex, internals.reader.totalSpreads - 1));
 }
 
 function currentPosition(internals: Internals): ReadingPosition | null {
-  return internals.engines.position?.getCurrent() ?? null;
+  return internals.engines.position?.getPreservableCurrent() ?? null;
 }
 
-function emitSpreadChangeIfNeeded(
+function emitCommittedSpreadChangeIfCurrent(
   internals: Internals,
   emitter: Emitter,
   previousSpread: number,
+  committedSpread: number,
 ): void {
-  if (internals.currentSpread === previousSpread) return;
-  const spread = internals.reader.spreads[internals.currentSpread];
-  if (spread) emitter.emit('spreadChange', { spreadIndex: internals.currentSpread, spread });
+  if (internals.currentSpread !== committedSpread || committedSpread === previousSpread) return;
+  const spread = internals.reader.spreads[committedSpread];
+  if (spread) emitter.emit('spreadChange', { spreadIndex: committedSpread, spread });
 }

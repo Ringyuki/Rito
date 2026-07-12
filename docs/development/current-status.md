@@ -296,15 +296,20 @@ Those names now belong to the old TS reference tree only.
      Reader now exposes an optional atomic interaction capability backed by the
      complete Worker/session, revision-version and browser-generation handle;
      page targets are cached in a bounded revision-scoped LRU, and visual
-     previews explicitly disable all reads. Kit now atomically installs the
+     previews disable geometry/target reads while durable locator reads remain
+     bound to the underlying canonical revision. Kit now atomically installs the
      current spread's native targets and uses them for exact footnotes, internal
      locator navigation, external links and standalone images without falling
      back to legacy hit geometry.
    - Exact Kit selection, selection highlights, copy, source-range annotation
-     target creation, revision-safe annotation re-projection and visible-spread
-     accessibility are implemented. Migrate reading positions to portable native
-     source anchors next, then remove the compatibility geometry required only by
-     legacy Readers.
+     target creation, revision-safe annotation re-projection, visible-spread
+     accessibility, and portable source-anchored reading positions are
+     implemented. Reader-owned locator navigation now takes over preview/deferred
+     work with a full Rust revision, commits the selected frame before notifying
+     Kit, and verifies the exact page/spread projection before completing restore
+     or `goToPosition`.
+   - Image-only or blank pages still need a durable source-anchor fallback. After
+     that, remove compatibility geometry required only by legacy Readers.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
      their callers use native semantic and geometry queries.
 3. **Thin session ownership**

@@ -67,6 +67,7 @@ export {
 } from './position';
 export type {
   PositionLayout,
+  PositionIntent,
   PositionProjection,
   PositionTracker,
   ReadingLocator,

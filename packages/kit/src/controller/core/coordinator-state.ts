@@ -6,7 +6,13 @@ import type {
   ResolvedAnnotation,
   ChapterTextIndex,
 } from '../../interaction/index';
-import type { HitMap, LinkRegion, PositionTracker, ReadingPosition } from '../../interaction/index';
+import type {
+  HitMap,
+  LinkRegion,
+  PositionIntent,
+  PositionTracker,
+  ReadingPosition,
+} from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import {
   createNativeAnnotationGeometryState,
@@ -21,10 +27,20 @@ export interface CoordinatorEngines {
 
 export type PositionUpdateMode =
   | { readonly kind: 'capture' }
-  | { readonly kind: 'preserve'; readonly position: ReadingPosition }
-  | { readonly kind: 'skip' };
+  | {
+      readonly kind: 'preserve';
+      readonly position: ReadingPosition;
+      readonly intent?: PositionIntent;
+    }
+  | {
+      readonly kind: 'skip';
+      readonly spreadIndex: number;
+      readonly intent?: PositionIntent;
+    };
 
 export interface CoordinatorState {
+  /** Invalidates an outer spread coordination pass when callbacks re-enter with a newer spread. */
+  spreadCoordinationGeneration: number;
   hitMaps: Map<number, HitMap>;
   /** Link regions stored per-page (page-content coords). */
   linksByPage: Map<number, readonly LinkRegion[]>;
@@ -52,6 +68,7 @@ export interface CoordinatorState {
 
 export function createCoordinatorState(): CoordinatorState {
   return {
+    spreadCoordinationGeneration: 0,
     hitMaps: new Map(),
     linksByPage: new Map(),
     nativeTargetsByPage: new Map(),

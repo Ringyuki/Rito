@@ -4,6 +4,7 @@ import { createSearchEngine } from '../../interaction/index';
 import { createAnnotationStore } from '../../interaction/index';
 import type { AnnotationStore } from '../../interaction/index';
 import { createPositionTracker } from '../../interaction/index';
+import type { PositionLocatorNavigator } from '../../interaction/position/native';
 import { asLegacyPages, asLegacySpreads } from '../compat/legacy-page';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
 import type { ControllerOptions } from '../types';
@@ -23,13 +24,20 @@ export function createEngines(
   coordState.annotationStore = store;
   if (opts.annotationStorage) void store.init(opts.annotationStorage);
 
-  const position = createPositionTracker(() => ({
-    spreads: asLegacySpreads(reader.spreads),
-    pages: asLegacyPages(reader.pages),
-    chapterMap: reader.chapterMap,
-    manifestHrefMap: reader.manifestHrefMap,
-    chapterTextIndices: reader.getChapterTextIndices(),
-  }));
+  const navigateToLocator: PositionLocatorNavigator | undefined =
+    reader.navigateToLocator?.bind(reader);
+
+  const position = createPositionTracker(
+    () => ({
+      spreads: asLegacySpreads(reader.spreads),
+      pages: asLegacyPages(reader.pages),
+      chapterMap: reader.chapterMap,
+      manifestHrefMap: reader.manifestHrefMap,
+      chapterTextIndices: reader.getChapterTextIndices(),
+    }),
+    () => reader.interactions,
+    navigateToLocator,
+  );
   return { selection, search, position };
 }
 

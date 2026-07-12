@@ -321,9 +321,12 @@ architecture rather than make an eager whole-book pipeline faster.
    highlights, annotations, positions and accessibility. **Rust core,
    WASM/Worker, Browser Reader, and Kit exact selection/highlight/copy/source
    annotation target creation, annotation re-projection and visible-spread
-   accessibility are implemented; portable reading positions remain.
-   Cross-logical-flow annotation geometry and richer list/table semantic
-   retention are follow-up capability extensions.**
+   accessibility are implemented. Portable source reading positions now cover
+   capture, persistence, legacy archive migration, reflow projection and
+   revision-safe restore/go-to. Reader-owned locator intents now atomically take
+   over initial-preview/deferred work, select the target Rust frame and verify its
+   final exact projection. Cross-logical-flow annotation geometry and richer
+   list/table semantic retention are follow-up capability extensions.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.
@@ -332,6 +335,8 @@ architecture rather than make an eager whole-book pipeline faster.
 
 ## Explicitly Deferred
 
+- Add a core source fallback for image-only or blank pages. Such pages currently
+  return an explicit unavailable reading anchor and are not persisted by index.
 - Expanding `RITORB1` or making it the default without new end-to-end evidence.
 - Broad CSS/display work that does not block the usability gate.
 - Micro-optimizing eager whole-book layout instead of implementing bounded

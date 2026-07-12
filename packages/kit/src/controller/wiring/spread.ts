@@ -27,7 +27,8 @@ export function coordinateOnSpreadRendered(
   reader: Reader,
   state: CoordinatorState,
   renderScale: number,
-): void {
+): boolean {
+  const generation = ++state.spreadCoordinationGeneration;
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
 
@@ -37,6 +38,7 @@ export function coordinateOnSpreadRendered(
     reader.measurer,
     mapper,
   );
+  if (generation !== state.spreadCoordinationGeneration) return false;
   rebuildHitMaps(spread, state);
   rebuildLinksByPage(spread, state);
 
@@ -48,6 +50,7 @@ export function coordinateOnSpreadRendered(
   }
 
   updatePosition(spreadIndex, engines.position, state);
+  return generation === state.spreadCoordinationGeneration;
 }
 
 function updatePosition(
@@ -57,9 +60,21 @@ function updatePosition(
 ): void {
   const mode = state.positionUpdateMode;
   state.positionUpdateMode = { kind: 'capture' };
-  if (!tracker || mode.kind === 'skip') return;
+  if (!tracker) return;
+  if (mode.kind === 'skip') {
+    if (
+      mode.spreadIndex === spreadIndex &&
+      (mode.intent === undefined || tracker.owns(mode.intent))
+    ) {
+      return;
+    }
+    tracker.update(spreadIndex);
+    return;
+  }
   if (mode.kind === 'preserve') {
-    tracker.setCurrent(tracker.project(mode.position));
+    const projected = tracker.project(mode.position);
+    if (mode.intent) tracker.commit(mode.intent, projected);
+    else tracker.setCurrent(projected);
     return;
   }
   tracker.update(spreadIndex);
@@ -82,7 +97,8 @@ function rebuildLinksByPage(spread: Spread, state: CoordinatorState): void {
 export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableCollection): void {
   disposables.add(
     deps.reader.onSpreadRendered((idx, spread) => {
-      coordinateOnSpreadRendered(
+      if (idx !== deps.getCurrentSpread()) return;
+      const coordinated = coordinateOnSpreadRendered(
         idx,
         spread,
         deps.engines,
@@ -90,9 +106,12 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
         deps.coordState,
         deps.getRenderScale(),
       );
-      scheduleNativeTargetLoad(spread, deps);
-      scheduleNativeAnnotationLoad(spread, deps);
-      deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
+      if (!coordinated || idx !== deps.getCurrentSpread()) return;
+      const currentSpread = deps.reader.spreads[idx];
+      if (!currentSpread) return;
+      scheduleNativeTargetLoad(currentSpread, deps);
+      scheduleNativeAnnotationLoad(currentSpread, deps);
+      deps.frameDriver.markOverlayDirty(idx);
     }),
   );
   if (typeof deps.reader.onSpreadContentInvalidated === 'function') {

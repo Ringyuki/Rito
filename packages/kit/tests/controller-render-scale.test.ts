@@ -108,7 +108,7 @@ describe('createController', () => {
     expect(controller.renderScale).toBe(1.4);
   });
 
-  it('navigates to a reading position through the current layout', () => {
+  it('navigates to a reading position through the current layout', async () => {
     vi.stubGlobal(
       'requestAnimationFrame',
       vi.fn(() => 1),
@@ -167,7 +167,7 @@ describe('createController', () => {
     };
 
     const controller = createController(reader as never, canvas);
-    const resolved = controller.goToPosition({
+    const resolved = await controller.goToPosition({
       projection: { spreadIndex: 0, pageIndex: 0 },
       progress: 0,
       timestamp: 0,

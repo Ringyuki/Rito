@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReadingPosition } from '../src/interaction/index';
+import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
 import type { Internals } from '../src/controller/core/internals';
-import { buildLayoutActions } from '../src/controller/facade/layout-actions';
+import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 
 function createMocks(options?: {
@@ -65,6 +66,16 @@ function createMocks(options?: {
   const setPages = vi.fn();
   const resolve = vi.fn(() => options?.resolvedSpread);
   const getCurrent = vi.fn<() => ReadingPosition | null>(() => null);
+  const getPreservableCurrent = vi.fn<() => ReadingPosition | null>(() => getCurrent());
+  const positionIntent = { generation: 4 };
+  const claimPositionIntent = vi.fn(() => positionIntent);
+  const prepareLayoutCommit = vi.fn(
+    (position: ReadingPosition | null | undefined): LayoutPositionPlan => ({
+      kind: 'legacy',
+      intent: claimPositionIntent(),
+      position: position === undefined ? getPreservableCurrent() : position,
+    }),
+  );
   const invalidateSelection = vi.fn();
   const coordState = {
     positionUpdateMode: { kind: 'capture' },
@@ -93,7 +104,13 @@ function createMocks(options?: {
     engines: {
       selection: { invalidate: invalidateSelection },
       search: { setPages },
-      position: { getCurrent, resolve },
+      position: {
+        getCurrent,
+        getPreservableCurrent,
+        resolve,
+        claimIntent: claimPositionIntent,
+        prepareLayoutCommit,
+      },
     },
     coordState,
   } as unknown as Internals;
@@ -128,6 +145,10 @@ function createMocks(options?: {
       setPages,
       resolve,
       getCurrent,
+      getPreservableCurrent,
+      claimPositionIntent,
+      prepareLayoutCommit,
+      positionIntent,
       invalidateSelection,
     },
     get annotationStateAtComposite() {
@@ -263,11 +284,155 @@ describe('buildLayoutActions', () => {
     expect(actions.setTypography({ fontSize: 20 })).toBe(true);
 
     expect(spies.resolve).toHaveBeenCalledWith(anchor);
+    expect(spies.claimPositionIntent).toHaveBeenCalledOnce();
     expect(internals.currentSpread).toBe(2);
     expect(internals.coordState.positionUpdateMode).toEqual({
       kind: 'preserve',
       position: anchor,
+      intent: spies.positionIntent,
     });
+  });
+
+  it('uses the native frame spread committed atomically with a replacement revision', () => {
+    const { reader, internals, runtime, emitter, spies } = createMocks({
+      currentSpread: 1,
+      totalSpreads: 4,
+      resolvedSpread: 0,
+    });
+    const committedSpread = reader.spreads[3];
+    if (!committedSpread) throw new Error('test spread missing');
+    Object.assign(committedSpread, { left: { index: 3 } });
+    const sourceLocator = {
+      href: 'Text/chapter.xhtml',
+      sourcePoint: { nodePath: [0, 1], textOffset: 12 },
+    };
+    const anchor: ReadingPosition = {
+      sourceLocator,
+      projection: { spreadIndex: 1, pageIndex: 1 },
+      progress: 0.25,
+      timestamp: 1,
+    };
+    spies.getCurrent.mockReturnValue(anchor);
+    spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
+
+    commitLayoutChange(internals, emitter, runtime, undefined, 3);
+
+    expect(spies.resolve).not.toHaveBeenCalled();
+    expect(internals.currentSpread).toBe(3);
+    expect(internals.coordState.positionUpdateMode).toEqual({ kind: 'skip', spreadIndex: 3 });
+    expect(spies.notifyActiveSpread).toHaveBeenCalledWith(3);
+  });
+
+  it('installs position state before layout events and suppresses a stale spread event', () => {
+    const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
+    const order: string[] = [];
+    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
+    fixture.spies.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
+      order.push(`notify:${String(spreadIndex)}`);
+      expect(fixture.internals.coordState.positionUpdateMode).toEqual({
+        kind: 'skip',
+        spreadIndex: 1,
+      });
+      expect(fixture.spies.setPages).not.toHaveBeenCalled();
+      expect(fixture.spies.compositeNow).not.toHaveBeenCalled();
+    });
+    fixture.spies.emit.mockImplementation((event: string) => {
+      order.push(event);
+      if (event !== 'layoutChange') return;
+      expect(fixture.spies.setPages).toHaveBeenCalledWith(fixture.reader.pages);
+      expect(fixture.spies.compositeNow).toHaveBeenCalledOnce();
+      fixture.internals.currentSpread = 2;
+    });
+
+    commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
+
+    expect(fixture.internals.currentSpread).toBe(2);
+    expect(order).toEqual(['notify:1', 'layoutChange']);
+    expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
+  });
+
+  it('does not overwrite navigation triggered while clearing active search results', () => {
+    const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
+    const order: string[] = [];
+    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
+    fixture.spies.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
+      order.push(`notify:${String(spreadIndex)}`);
+      expect(fixture.internals.currentSpread).toBe(1);
+      expect(fixture.internals.coordState.positionUpdateMode).toEqual({
+        kind: 'skip',
+        spreadIndex: 1,
+      });
+    });
+    fixture.spies.invalidateSelection.mockImplementation(() => {
+      order.push('selection');
+      expect(fixture.spies.notifyActiveSpread).toHaveBeenCalledWith(1);
+    });
+    fixture.spies.setPages.mockImplementation(() => {
+      order.push('search');
+      expect(fixture.internals.currentSpread).toBe(1);
+      fixture.internals.currentSpread = 2;
+    });
+    fixture.spies.compositeNow.mockImplementation(() => {
+      order.push('composite');
+    });
+    fixture.spies.emit.mockImplementation((event: string) => {
+      order.push(event);
+    });
+
+    commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
+
+    expect(fixture.internals.currentSpread).toBe(2);
+    expect(order).toEqual(['notify:1', 'selection', 'search', 'composite', 'layoutChange']);
+    expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
+  });
+
+  it('clears native annotation state before hover listeners can redirect', () => {
+    const fixture = createMocks({
+      currentSpread: 0,
+      totalSpreads: 3,
+      nativeAnnotationGeometry: true,
+    });
+    const order: string[] = [];
+    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
+    fixture.spies.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
+      order.push(`notify:${String(spreadIndex)}`);
+    });
+    fixture.spies.emit.mockImplementation((event: string) => {
+      order.push(event);
+      if (event !== 'annotationHover') return;
+      expect(fixture.internals.currentSpread).toBe(1);
+      expect(fixture.internals.coordState.positionUpdateMode).toEqual({
+        kind: 'skip',
+        spreadIndex: 1,
+      });
+      expect(fixture.internals.coordState.resolvedAnnotations).toEqual([]);
+      expect(fixture.internals.coordState.nativeAnnotationGeometry.cache.size).toBe(0);
+      expect(fixture.spies.notifyActiveSpread).toHaveBeenCalledWith(1);
+      fixture.internals.currentSpread = 2;
+    });
+
+    commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
+
+    expect(fixture.internals.currentSpread).toBe(2);
+    expect(order).toEqual(['notify:1', 'annotationHover', 'layoutChange']);
+    expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
+  });
+
+  it('does not preserve a stale current position after a preview navigation starts', () => {
+    const { internals, runtime, emitter, spies } = createMocks({ currentSpread: 1 });
+    spies.getCurrent.mockReturnValue({
+      sourceLocator: { href: 'old.xhtml', progression: 0.5 },
+      projection: { spreadIndex: 1, pageIndex: 1 },
+      progress: 0.5,
+      timestamp: 1,
+    });
+    spies.getPreservableCurrent.mockReturnValue(null);
+
+    buildLayoutActions(internals, emitter, runtime).setTypography({ fontSize: 20 });
+
+    expect(spies.prepareLayoutCommit).toHaveBeenCalledWith(null, 1);
+    expect(spies.resolve).not.toHaveBeenCalled();
+    expect(internals.coordState.positionUpdateMode).toEqual({ kind: 'capture' });
   });
 
   it('refreshes immediately when spread mode commits synchronously', () => {

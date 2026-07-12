@@ -8,11 +8,11 @@ import type { Emitter, Internals, Nav, RuntimeComponents, SearchActionsSlice } f
 
 export function buildSearchActions(
   internals: Internals,
-  emitter: Emitter,
+  _emitter: Emitter,
   nav: Nav,
-  runtime: RuntimeComponents,
+  _runtime: RuntimeComponents,
 ): SearchActionsSlice {
-  const searchNavDeps = createSearchNavDeps(internals, emitter, nav, runtime);
+  const searchNavDeps = createSearchNavDeps(internals, nav);
   const searchState = { serial: 0 };
 
   return {
@@ -75,29 +75,10 @@ function clearSearch(internals: Internals, state: SearchState): void {
   internals.engines.search.clear();
 }
 
-function createSearchNavDeps(
-  internals: Internals,
-  emitter: Emitter,
-  nav: Nav,
-  runtime: RuntimeComponents,
-): SearchNavDeps {
-  const contentRenderer = (idx: number, ctx: OffscreenCanvasRenderingContext2D): boolean => {
-    return internals.reader.renderSpreadTo(idx, ctx);
-  };
-
+function createSearchNavDeps(internals: Internals, nav: Nav): SearchNavDeps {
   return {
     reader: internals.reader,
     nav,
-    pool: runtime.pool,
-    frameDriver: runtime.frameDriver,
-    contentRenderer,
     getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (i) => {
-      internals.currentSpread = i;
-    },
-    emitSpreadChange: (i) => {
-      const spread = internals.reader.spreads[i];
-      if (spread) emitter.emit('spreadChange', { spreadIndex: i, spread });
-    },
   };
 }

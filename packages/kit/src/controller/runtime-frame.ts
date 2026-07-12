@@ -87,7 +87,9 @@ export function wireSettledEvents(
     } else {
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
     }
-    emitter.emit('transitionEnd', { direction: event.direction });
+    if (!transitionDriver.isAnimating) {
+      emitter.emit('transitionEnd', { direction: event.direction });
+    }
     frameDriver.scheduleComposite();
   });
 }
@@ -125,6 +127,7 @@ function restoreCanceledTransition(
   if (internals.currentSpread === outgoing) return;
   internals.currentSpread = outgoing;
   reader.notifyActiveSpread(outgoing);
+  if (internals.currentSpread !== outgoing) return;
   const spread = reader.spreads[outgoing];
   if (spread) emitter.emit('spreadChange', { spreadIndex: outgoing, spread });
 }

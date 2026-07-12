@@ -28,6 +28,7 @@ import {
   wirePositionTracker,
   wireSpreadRendered,
 } from './wiring/index';
+import { createPositionPersistence } from './position-persistence';
 import { wireTouchGestures } from './wiring/touch';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -102,17 +103,7 @@ function bootstrapRuntime(
   const surface = createDisplaySurface(canvas);
   const pool = createPageBufferPool();
   const transitionDriver = createTransitionDriver(options.transition);
-  const coordState = createCoordinatorState();
-  const engines = createEngines(reader, options, coordState);
-  const internals: Internals = {
-    reader,
-    currentSpread: 0,
-    renderScale: options.renderScale ?? 1,
-    options,
-    engines,
-    coordState,
-    restoreCompleted: false,
-  };
+  const internals = createControllerInternals(reader, options);
 
   const { contentRenderer, frameDriver } = createRuntimeFrameParts(
     reader,
@@ -143,6 +134,21 @@ function bootstrapRuntime(
   return { internals, runtime, nav, contentRenderer };
 }
 
+function createControllerInternals(reader: Reader, options: ControllerOptions): Internals {
+  const coordState = createCoordinatorState();
+  return {
+    reader,
+    currentSpread: 0,
+    renderScale: options.renderScale ?? 1,
+    options,
+    engines: createEngines(reader, options, coordState),
+    coordState,
+    positionPersistence: createPositionPersistence(options.positionStorage),
+    pendingPositionAction: undefined,
+    restoreCompleted: false,
+  };
+}
+
 function createRuntimeNavigation(
   internals: Internals,
   emitter: Emitter,
@@ -163,6 +169,12 @@ function createRuntimeNavigation(
     frameDriver,
     pool,
     contentRenderer,
+    onNavigationIntent: () => {
+      internals.engines.position?.claimIntent();
+    },
+    onNavigationCancelled: () => {
+      internals.engines.position?.update(internals.currentSpread);
+    },
   });
 }
 
@@ -181,8 +193,8 @@ function wireRuntimeEvents(
   wireSpreadRendered(deps, disposables);
   if (typeof internals.reader.onLayoutCommitted === 'function') {
     disposables.add(
-      internals.reader.onLayoutCommitted(() => {
-        commitLayoutChange(internals, emitter, runtime);
+      internals.reader.onLayoutCommitted((activeSpreadIndex) => {
+        commitLayoutChange(internals, emitter, runtime, undefined, activeSpreadIndex);
         nav.notifyLayoutCommitted();
         scheduleControllerPrerender(internals, runtime, contentRenderer);
       }),

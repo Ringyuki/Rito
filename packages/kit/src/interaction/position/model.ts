@@ -1,3 +1,4 @@
+import type { ReaderLocator } from '@ritojs/core';
 import type { ChapterRange, Page, Spread } from '../layout-types';
 import type { ChapterTextIndex } from '../anchors/chapter-text-index';
 import type { SourcePoint } from '../anchors/model';
@@ -26,6 +27,9 @@ export interface PositionProjection {
 
 /** A serializable source-anchored reading position plus its current layout projection. */
 export interface ReadingPosition {
+  /** Canonical native source identity. Page and spread indices are revision-local projections. */
+  readonly sourceLocator?: ReaderLocator;
+  /** Legacy TypeScript-layout locator, retained for backwards-compatible persisted positions. */
   readonly locator?: ReadingLocator;
   readonly projection: PositionProjection;
   readonly progress: number;

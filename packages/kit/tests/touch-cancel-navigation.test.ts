@@ -31,6 +31,53 @@ describe('touch navigation lifecycle', () => {
     scenario.disposables.disposeAll();
   });
 
+  it('does not emit stale canceled-transition events after notification redirects', () => {
+    const scenario = createScenario();
+    const moved = beginSwipe(scenario, 200, 100);
+    cancelSwipe(scenario, moved, 20);
+    scenario.spreadChange.mockClear();
+    const lifecycle: string[] = [];
+    scenario.transitionStart.mockImplementation(() => {
+      lifecycle.push('start');
+    });
+    scenario.transitionEnd.mockImplementation(() => {
+      lifecycle.push('end');
+    });
+    scenario.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
+      if (spreadIndex === 0) scenario.nav.goToSpread(1);
+    });
+
+    scenario.td.forceSettle();
+
+    expect(scenario.internals.currentSpread).toBe(1);
+    expect(scenario.spreadChange).toHaveBeenCalledOnce();
+    expect(scenario.spreadChange).toHaveBeenCalledWith(expect.objectContaining({ spreadIndex: 1 }));
+    expect(lifecycle).toEqual(['start']);
+    expect(scenario.td.isAnimating).toBe(true);
+
+    settle(scenario.td);
+    expect(lifecycle).toEqual(['start', 'end']);
+    scenario.disposables.disposeAll();
+  });
+
+  it('balances the canceled transition lifecycle when notification redirects by snap', () => {
+    const scenario = createScenario();
+    const moved = beginSwipe(scenario, 200, 100);
+    cancelSwipe(scenario, moved, 20);
+    scenario.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
+      if (spreadIndex === 0) scenario.nav.jumpToSpread(1);
+    });
+
+    scenario.td.forceSettle();
+
+    expect(scenario.internals.currentSpread).toBe(1);
+    expect(scenario.td.isAnimating).toBe(false);
+    expect(scenario.transitionStart).toHaveBeenCalledOnce();
+    expect(scenario.transitionEnd).toHaveBeenCalledOnce();
+    expect(scenario.transitionEnd).toHaveBeenCalledWith({ direction: 'forward' });
+    scenario.disposables.disposeAll();
+  });
+
   it('commits a ready swipe on touchend and rotates the page pool', () => {
     const scenario = createScenario();
     const moved = beginSwipe(scenario, 250, 50);

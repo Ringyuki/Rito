@@ -2,18 +2,11 @@ import type { Reader } from '@ritojs/core';
 import type { SearchResult } from '../../interaction/index';
 import type { createSearchEngine } from '../../interaction/index';
 import type { createNavigation } from '../navigation/index';
-import type { PageBufferPool, ContentRenderer } from '../../painter/buffer-pool';
-import type { FrameDriver } from '../../driver/frame-driver';
 
 export interface SearchNavDeps {
   reader: Reader;
   nav: ReturnType<typeof createNavigation>;
-  pool: PageBufferPool;
-  frameDriver: FrameDriver;
-  contentRenderer: ContentRenderer;
   getCurrentSpread: () => number;
-  setCurrentSpread: (idx: number) => void;
-  emitSpreadChange: (idx: number) => void;
 }
 
 export function goToSearchResult(result: SearchResult, deps: SearchNavDeps): void {
@@ -28,15 +21,8 @@ export function goToSearchResult(result: SearchResult, deps: SearchNavDeps): voi
     deps.nav.goToSpread(spreadIdx);
   } else {
     // Far jump — skip animation, snap directly
-    deps.pool.jump(spreadIdx);
-    if (!deps.pool.ensureContent('curr', deps.contentRenderer)) {
-      deps.nav.goToSpread(spreadIdx);
-      return;
-    }
-    deps.setCurrentSpread(spreadIdx);
-    deps.emitSpreadChange(spreadIdx);
-    deps.reader.notifyActiveSpread(spreadIdx);
-    deps.frameDriver.scheduleComposite();
+    const outcome = deps.nav.jumpToSpreadIfReady(spreadIdx);
+    if (outcome === 'not-ready') deps.nav.goToSpread(spreadIdx);
   }
 }
 

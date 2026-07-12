@@ -5,6 +5,7 @@ import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
 import type { ControllerOptions, ReaderControllerEvents } from '../types';
 import type { Internals } from './internals';
 import type { NavigationActions } from '../navigation/index';
+import type { PositionPersistence } from '../position-persistence';
 
 export interface WiringDeps {
   reader: Reader;
@@ -17,6 +18,7 @@ export interface WiringDeps {
   getCurrentSpread: () => number;
   setCurrentSpread: (idx: number) => void;
   getRenderScale: () => number;
+  positionPersistence: PositionPersistence;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
   /**
@@ -54,6 +56,7 @@ export function buildWiringDeps(
       internals.currentSpread = i;
     },
     getRenderScale: () => internals.renderScale,
+    positionPersistence: internals.positionPersistence,
     goToSpread: (i) => {
       nav.goToSpread(i);
     },

@@ -28,6 +28,7 @@ export interface TouchNavigationScenario {
   readonly internals: Internals;
   readonly poolHarness: PoolHarness;
   readonly notifyActiveSpread: Mock;
+  readonly spreadChange: Mock;
   readonly transitionEnd: Mock;
   readonly transitionStart: Mock;
   readonly disposables: ReturnType<typeof createDisposableCollection>;
@@ -45,8 +46,10 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
   const poolHarness = createPoolHarness(() => contentReady);
   const frameDriver = { scheduleComposite: vi.fn() } as unknown as FrameDriver;
   const emitter = createEmitter<ReaderControllerEvents>();
+  const spreadChange = vi.fn();
   const transitionEnd = vi.fn();
   const transitionStart = vi.fn();
+  emitter.on('spreadChange', spreadChange);
   emitter.on('transitionEnd', transitionEnd);
   emitter.on('transitionStart', transitionStart);
   const internals = { reader, currentSpread: 0 } as unknown as Internals;
@@ -96,6 +99,7 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     internals,
     poolHarness,
     notifyActiveSpread,
+    spreadChange,
     transitionEnd,
     transitionStart,
     disposables,
@@ -172,6 +176,11 @@ function createPoolHarness(isContentReady: () => boolean): PoolHarness {
     ensureContent: vi.fn(() => isContentReady()),
     rotateForward,
     rotateBackward,
+    jump: vi.fn((spreadIndex: number) => {
+      slots.prev = null;
+      slots.curr = spreadIndex;
+      slots.next = null;
+    }),
   } as unknown as PageBufferPool;
   return { pool, slots, rotateForward, rotateBackward };
 }
