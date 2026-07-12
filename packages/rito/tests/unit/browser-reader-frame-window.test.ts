@@ -4,6 +4,7 @@ import {
   loadFrame,
   warmBrowserReaderFrameWindow,
 } from '../../src/bindings/browser/reader/frame-cache';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { preloadFrameResourceBytes } from '../../src/bindings/browser/resources';
 import type {
   BrowserReaderFrame,
@@ -15,6 +16,17 @@ import { createDeferred } from './browser-reader-reflow-fixtures';
 describe('Browser reader frame window adapter', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('keeps cached frames paintable while the exact-read gate is closed', async () => {
+    const warmed: number[] = [];
+    const state = frameWindowState([0], (index) => warmed.push(index));
+
+    closeExactRevisionReadGate(state);
+
+    expect(loadFrame(state, 0)).toBeDefined();
+    await warmBrowserReaderFrameWindow(state, 0);
+    expect(warmed).toEqual([]);
   });
 
   it('applies the runtime-provided frame window plan for spread warming', async () => {

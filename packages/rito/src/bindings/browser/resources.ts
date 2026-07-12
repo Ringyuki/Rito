@@ -3,7 +3,7 @@ import type {
   BrowserReaderState,
   BrowserReaderWorkerRevisionHandle,
 } from './reader/types';
-import type { BrowserReaderResourceBytes } from './core-contracts';
+import type { BrowserReaderResourceBytes, CoreRevisionHandle } from './core-contracts';
 import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 
@@ -24,7 +24,8 @@ export async function preloadReaderFonts(state: BrowserReaderState): Promise<boo
   const revision = state.revisionHandle;
   if (!revision) return false;
   const worker = state.worker;
-  if (worker.sessionId !== revision.workerSessionId) return false;
+  if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
+    return false;
   const registeredBefore = state.registeredFontFaces.size;
   let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
   await registerRevisionFonts(state, worker, revision);
@@ -274,7 +275,8 @@ async function preloadImageObjectUrl(state: BrowserReaderState, href: string): P
     const revision = state.revisionHandle;
     if (!revision) return;
     const worker = state.worker;
-    if (worker.sessionId !== revision.workerSessionId) return;
+    if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
+      return;
     const { payload, bytes } = (
       await worker.readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
     ).value;
@@ -290,9 +292,7 @@ async function preloadImageObjectUrl(state: BrowserReaderState, href: string): P
   }
 }
 
-function coreRevisionHandle(
-  revision: BrowserReaderWorkerRevisionHandle,
-): Pick<BrowserReaderWorkerRevisionHandle, 'revisionId' | 'revisionVersion'> {
+function coreRevisionHandle(revision: BrowserReaderWorkerRevisionHandle): CoreRevisionHandle {
   return {
     revisionId: revision.revisionId,
     revisionVersion: revision.revisionVersion,

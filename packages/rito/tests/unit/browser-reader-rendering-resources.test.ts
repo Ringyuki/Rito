@@ -6,6 +6,7 @@ import {
 } from '../../src/bindings/browser/resources';
 import { renderSpreadToContext } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { CanvasRenderingTarget } from '../../src/bindings/browser/frame-command-renderer';
 import type {
   BrowserReaderFrame,
@@ -19,6 +20,28 @@ afterEach(() => {
 });
 
 describe('Browser reader resource-backed rendering', () => {
+  it('does not dispatch exact resource reads while the revision gate is closed', async () => {
+    const readResourceAtRevision = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>();
+    vi.stubGlobal('FontFace', FakeFontFace);
+    vi.stubGlobal('document', { fonts: { add: vi.fn() } });
+    const state = createState({
+      worker: { ...createWorker(), readResourceAtRevision } as BrowserReaderWorkerClient,
+      imageObjectUrls: new Map(),
+      publication: {
+        chapters: [],
+        fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+
+    closeExactRevisionReadGate(state);
+
+    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
+    await flushPromises();
+    expect(readResourceAtRevision).not.toHaveBeenCalled();
+  });
+
   it('renders a current-spread visual preview without reading canonical frames', () => {
     const warmFrameWindow = vi.fn();
     const worker = createWorker(warmFrameWindow);

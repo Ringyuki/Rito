@@ -42,6 +42,12 @@ export function isCurrentRevisionHandle(
   );
 }
 
+export function closeExactRevisionReadGate(state: BrowserReaderState): void {
+  if (!state.revisionHandle) return;
+  state.commitGeneration += 1;
+  state.revisionHandle = undefined;
+}
+
 export function currentCommitGeneration(state: BrowserReaderState): number {
-  return state.revisionHandle?.commitGeneration ?? 0;
+  return state.commitGeneration;
 }

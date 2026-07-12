@@ -9,6 +9,7 @@ import {
   createBrowserReaderInteractions,
   resetBrowserReaderInteractionCache,
 } from '../../src/bindings/browser/reader/interaction';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import {
   createDeferred,
@@ -19,6 +20,21 @@ import {
 } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader interaction races', () => {
+  it('closes exact reads before an in-place revision advance', async () => {
+    const fixture = readyFixture();
+    const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
+    fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
+    const interactions = createBrowserReaderInteractions(fixture.state);
+    const pending = interactions.getPageTargets(0);
+
+    closeExactRevisionReadGate(fixture.state);
+    deferred.resolve(versionedTargets(0, 0, 'stale'));
+
+    await expect(pending).resolves.toBeUndefined();
+    await expect(interactions.getPageTargets(1)).resolves.toBeUndefined();
+    expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
+  });
+
   it('coalesces same-page reads for one exact revision', async () => {
     const fixture = readyFixture();
     const deferred = createDeferred<CoreVersioned<CorePageTargets>>();

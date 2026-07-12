@@ -43,7 +43,7 @@ export async function ensureFrameLoaded(
     return undefined;
   }
   const revision = state.revisionHandle;
-  if (!revision) return undefined;
+  if (!revision || !isCurrentRevisionHandle(state, revision)) return undefined;
   await loadFrameWindow(state, revision, spreadIndex);
   return loadFrame(state, spreadIndex);
 }
@@ -111,7 +111,7 @@ export async function warmBrowserReaderFrameWindow(
   centerSpreadIndex: number,
 ): Promise<void> {
   const revision = state.revisionHandle;
-  if (!revision) return;
+  if (!revision || !isCurrentRevisionHandle(state, revision)) return;
   try {
     await loadFrameWindow(state, revision, centerSpreadIndex);
   } catch {
@@ -124,6 +124,7 @@ function loadFrameWindow(
   revision: BrowserReaderRevisionHandle,
   centerSpreadIndex: number,
 ): Promise<void> {
+  if (!isCurrentRevisionHandle(state, revision)) return Promise.resolve();
   const pending = state.pendingFrameLoads.get(centerSpreadIndex);
   if (pending) return pending;
   const worker = state.worker;
