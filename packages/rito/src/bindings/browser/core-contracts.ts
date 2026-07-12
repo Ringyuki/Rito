@@ -16,6 +16,8 @@ export {
 
 export type {
   RitoCoreWasmChapterTextIndices as CoreChapterTextIndices,
+  RitoCoreWasmExactSourceRangeRequest as CoreExactSourceRangeRequest,
+  RitoCoreWasmExactSourceRangeResponse as CoreExactSourceRangeResponse,
   RitoCoreWasmFootnotes as CoreFootnotes,
   RitoCoreWasmFrameCommand as CoreFrameCommand,
   RitoCoreWasmFrameCommandBufferMetadata as CoreFrameCommandBufferMetadata,

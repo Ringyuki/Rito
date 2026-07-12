@@ -19,6 +19,7 @@ import {
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
 import { createBrowserReaderTextSelection } from './text-selection';
+import { resolveExactSourceRange } from './source-range';
 import type { BrowserReaderInteractionState, BrowserReaderState } from './types';
 
 const PAGE_TARGET_CACHE_CAPACITY = 12;
@@ -35,6 +36,7 @@ export function createBrowserReaderInteractions(state: BrowserReaderState): Read
     getPageTargets: (pageIndex) => getPageTargets(state, pageIndex),
     getFootnote: (key) => getFootnote(state, key),
     resolveLocator: (locator) => resolveLocator(state, locator),
+    resolveExactSourceRange: (request) => resolveExactSourceRange(state, request),
     textSelection: createBrowserReaderTextSelection(state),
   };
 }

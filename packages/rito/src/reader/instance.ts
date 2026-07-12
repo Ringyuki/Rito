@@ -10,6 +10,7 @@ import type {
   ReaderLocator,
   ReaderLocatorResolution,
   ReaderPageTargets,
+  ReaderSourceRange,
   Rect,
   SearchOptions,
   SearchResult,
@@ -75,6 +76,29 @@ export interface ReaderExactTextRangeRect extends Rect {
   readonly spreadIndex: number;
 }
 
+/** Durable source range to project through the current committed native revision. */
+export interface ReaderExactSourceRangeRequest {
+  readonly href: string;
+  readonly sourceRange: ReaderSourceRange;
+}
+
+export interface ReaderExactSourceRange {
+  readonly selectedText: string;
+  readonly sourceLocator: ReaderLocator;
+  readonly rects: readonly ReaderExactTextRangeRect[];
+}
+
+export type ReaderExactSourceRangeResolution =
+  | { readonly status: 'resolved'; readonly range: ReaderExactSourceRange }
+  | {
+      readonly status: 'pending';
+      readonly reason: 'notPaginated' | 'noPageProjection';
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: ReaderTextInteractionUnavailableReason;
+    };
+
 export interface ReaderSameFlowTextRange {
   readonly anchor: ReaderTextCaret;
   readonly focus: ReaderTextCaret;
@@ -106,6 +130,10 @@ export interface ReaderInteractions {
   readonly enabled: boolean;
   /** Exact native text selection, when supported by the backing reader. */
   readonly textSelection?: ReaderTextSelectionInteractions;
+  /** Projects a durable source range through the active committed native revision. */
+  resolveExactSourceRange?(
+    request: ReaderExactSourceRangeRequest,
+  ): Promise<ReaderExactSourceRangeResolution | undefined>;
   getPageTargets(pageIndex: number): Promise<ReaderPageTargets | undefined>;
   getFootnote(key: string): Promise<FootnoteEntry | undefined>;
   resolveLocator(locator: ReaderLocator): Promise<ReaderLocatorResolution | undefined>;

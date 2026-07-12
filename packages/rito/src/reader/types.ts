@@ -32,6 +32,9 @@ export type {
 } from './model';
 export type {
   Reader,
+  ReaderExactSourceRange,
+  ReaderExactSourceRangeRequest,
+  ReaderExactSourceRangeResolution,
   ReaderExactTextRangeRect,
   ReaderInteractions,
   ReaderOptions,
