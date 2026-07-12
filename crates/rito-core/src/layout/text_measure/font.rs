@@ -7,17 +7,22 @@ use std::{
     hash::{Hash, Hasher},
 };
 
+mod cluster_safety;
 mod mac_roman;
 mod matching;
 mod measurement;
+mod runs;
 mod shaping;
 
 pub(super) use matching::parse_font_family_list;
-pub(super) use measurement::font_aware_measurement;
+pub(super) use measurement::{font_aware_measurement, font_aware_shape};
+#[cfg(test)]
+pub(super) use runs::{font_runs, FontMeasurementRun};
 pub(crate) use shaping::TextMeasurementFontFace;
 #[cfg(test)]
 pub(super) use shaping::{
-    face_supports_character, font_runs, shaped_run_width, FontMeasurementRun,
+    face_supports_character, reset_shape_run_call_count, shape_run, shape_run_call_count,
+    shaped_run_width,
 };
 
 // Frozen TS fixtures intentionally use a uniform 0.6em mock. Production font-aware

@@ -19,7 +19,8 @@ use super::{
     },
     line_prefix::{find_fitting_prefix, should_probe_bounded},
     style_values::{border_width, number_style, run_paint_value, string_style},
-    text_measure::{TextMeasurementFonts, TextMeasurementStyle},
+    text_measure::{shape_text_with_style, TextMeasurementFonts, TextMeasurementStyle},
+    text_shape::{RunShape, RunShapeUnavailableReason},
 };
 
 #[cfg(test)]
@@ -419,6 +420,7 @@ fn append_trailing_hyphen(context: &LineContext<'_>, break_pos: usize, runs: &mu
     };
     run.text.push('-');
     run.width = measure_text_slice_with_fonts(&run.text, &range.style, context.fonts);
+    run.shape = RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, run.width);
 }
 
 fn measure_hyphenated_slice(
@@ -634,6 +636,8 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         base_font_size(input.context),
     );
     let height = line_height_px(&input.range.style);
+    let shape = shape_text_with_style(&input.text, &input.range.style, input.context.fonts);
+    debug_assert!((shape.advance() - input.width).abs() < 0.000_001);
     TextRunBox {
         text: input.text,
         x: input.x,
@@ -649,6 +653,7 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         source_text_offset: input.source_text_offset,
         inline_margin_right: None,
         ruby_annotation: input.range.ruby_annotation.clone(),
+        shape,
     }
 }
 

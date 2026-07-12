@@ -19,6 +19,8 @@ sha2 = "0.10"
 rustybuzz = "0.20"
 ttf-parser = "0.25"
 unicode-linebreak = "0.1"
+unicode-bidi = "0.3"
+unicode-segmentation = "1.12"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 
 [dev-dependencies]

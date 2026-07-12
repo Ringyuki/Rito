@@ -51,12 +51,27 @@ fn text_measurement_fonts_from_document_with_cache<'a>(
             else {
                 continue;
             };
-            faces.push(TextMeasurementFontFace::new(
-                rule.family,
-                rule.style,
-                rule.weight.as_deref().and_then(parse_font_face_weight),
-                resource.bytes.as_slice(),
-            ));
+            let weight = rule.weight.as_deref().and_then(parse_font_face_weight);
+            let face = match resource
+                .byte_hash
+                .as_deref()
+                .and_then(parse_font_fingerprint)
+            {
+                Some(fingerprint) => TextMeasurementFontFace::new_with_fingerprint(
+                    rule.family,
+                    rule.style,
+                    weight,
+                    resource.bytes.as_slice(),
+                    fingerprint,
+                ),
+                None => TextMeasurementFontFace::new(
+                    rule.family,
+                    rule.style,
+                    weight,
+                    resource.bytes.as_slice(),
+                ),
+            };
+            faces.push(face);
         }
     }
     TextMeasurementFonts::new_with_cache(
@@ -166,9 +181,33 @@ fn parse_font_face_weight(value: &str) -> Option<u16> {
     }
 }
 
+fn parse_font_fingerprint(value: &str) -> Option<[u8; 8]> {
+    if value.len() != 16 {
+        return None;
+    }
+    let mut fingerprint = [0_u8; 8];
+    for (index, byte) in fingerprint.iter_mut().enumerate() {
+        *byte = u8::from_str_radix(&value[index * 2..index * 2 + 2], 16).ok()?;
+    }
+    Some(fingerprint)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{parse_font_face_weight, resolve_font_face_href, valid_pair_adjustment};
+    use super::{
+        parse_font_face_weight, parse_font_fingerprint, resolve_font_face_href,
+        valid_pair_adjustment,
+    };
+
+    #[test]
+    fn parses_cached_resource_hash_as_font_fingerprint() {
+        assert_eq!(
+            parse_font_fingerprint("0011223344556677"),
+            Some([0x00, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77])
+        );
+        assert_eq!(parse_font_fingerprint("0011"), None);
+        assert_eq!(parse_font_fingerprint("00112233445566zz"), None);
+    }
 
     #[test]
     fn resolves_font_face_href_relative_to_stylesheet() {

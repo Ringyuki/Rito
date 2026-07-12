@@ -51,6 +51,7 @@ mod summary_types;
 mod text_geometry;
 mod text_measure;
 mod text_position;
+mod text_shape;
 mod visual_geometry;
 
 use serde::{Deserialize, Serialize};

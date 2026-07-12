@@ -4,8 +4,12 @@ use super::super::{
 };
 use super::{
     parse_font_family_list,
-    shaping::{font_runs, glyph_run_width, shaped_run_width, FontMeasurementRun},
+    runs::{font_runs, FontMeasurementRun},
+    shaping::{glyph_run_width, shape_run_checked, shaped_run_width, ShapeRunFailure},
     TextMeasurementFontFace, TextMeasurementFonts,
+};
+use crate::layout::text_shape::{
+    RunShape, RunShapeCluster, RunShapeFaceSpan, RunShapeProvenance, RunShapeUnavailableReason,
 };
 
 pub(in super::super) fn font_aware_measurement(
@@ -49,6 +53,181 @@ pub(in super::super) fn font_aware_measurement(
         + scalar_gaps as f64 * input.style.letter_spacing;
     input.fonts.cache_width(cache_key, width);
     TextMeasurement { width }
+}
+
+pub(in super::super) fn font_aware_shape(input: &TextMeasurementInput<'_>) -> RunShape {
+    if crate::layout::text_shape::requires_bidi_itemization(input.text) {
+        return unavailable_shape(input, RunShapeUnavailableReason::MixedDirection);
+    }
+    let faces = input.fonts.matching_faces(&input.style);
+    if faces.is_empty() {
+        let reason = if input.fonts.uses_fixture_compatible_fallback() {
+            RunShapeUnavailableReason::FixtureCompatibleMeasurement
+        } else {
+            RunShapeUnavailableReason::HostMetricsFallback
+        };
+        return unavailable_shape(input, reason);
+    }
+
+    let mut logical_cursor = 0usize;
+    let mut exact_runs = Vec::new();
+    for run in font_runs(input.text, &faces) {
+        match run {
+            FontMeasurementRun::Shaped { text, face } => {
+                let logical_start = logical_cursor;
+                logical_cursor += text.encode_utf16().count();
+                let shape = match shape_run_checked(text, face, input.style.font_size) {
+                    Ok(shape) => shape,
+                    Err(ShapeRunFailure::RustybuzzUnavailable) => {
+                        return unavailable_shape(
+                            input,
+                            RunShapeUnavailableReason::RustybuzzUnavailable,
+                        );
+                    }
+                    Err(ShapeRunFailure::NonGraphemeSafeClusters { .. }) => {
+                        return unavailable_shape(
+                            input,
+                            RunShapeUnavailableReason::NonGraphemeSafeClusters,
+                        );
+                    }
+                };
+                exact_runs.push((logical_start, logical_cursor, face.fingerprint(), shape));
+            }
+            FontMeasurementRun::Fallback(_) => {
+                return unavailable_shape(input, RunShapeUnavailableReason::HostMetricsFallback);
+            }
+        }
+    }
+
+    let expected_advance = exact_shape_advance(input, &exact_runs);
+    let Some(direction) = exact_runs.first().map(|(_, _, _, shape)| shape.direction) else {
+        return RunShape::unavailable(
+            RunShapeUnavailableReason::RustybuzzUnavailable,
+            expected_advance,
+        );
+    };
+    if exact_runs
+        .iter()
+        .any(|(_, _, _, shape)| shape.direction != direction)
+    {
+        return RunShape::unavailable(RunShapeUnavailableReason::MixedDirection, expected_advance);
+    }
+
+    let first_fingerprint = exact_runs[0].2;
+    let single_face = exact_runs
+        .iter()
+        .all(|(_, _, fingerprint, _)| *fingerprint == first_fingerprint);
+    if matches!(
+        direction,
+        crate::layout::text_shape::RunShapeDirection::RightToLeft
+    ) {
+        exact_runs.reverse();
+    }
+
+    let mut mixed = (!single_face).then(|| (Vec::new(), Vec::new()));
+    let mut clusters = Vec::<RunShapeCluster>::new();
+    for (logical_start, logical_end, fingerprint, shape) in exact_runs {
+        let Ok(logical_start) = u32::try_from(logical_start) else {
+            return RunShape::unavailable(
+                RunShapeUnavailableReason::RustybuzzUnavailable,
+                expected_advance,
+            );
+        };
+        let Ok(logical_end) = u32::try_from(logical_end) else {
+            return RunShape::unavailable(
+                RunShapeUnavailableReason::RustybuzzUnavailable,
+                expected_advance,
+            );
+        };
+        if let Some((fingerprints, face_spans)) = &mut mixed {
+            let font_index = intern_fingerprint(fingerprints, fingerprint);
+            let Ok(font_index) = u32::try_from(font_index) else {
+                return RunShape::unavailable(
+                    RunShapeUnavailableReason::RustybuzzUnavailable,
+                    expected_advance,
+                );
+            };
+            face_spans.push(RunShapeFaceSpan {
+                logical_start,
+                logical_end,
+                font_index,
+            });
+        }
+        for mut cluster in shape.clusters {
+            let Some(logical_cluster_start) = cluster.logical_start.checked_add(logical_start)
+            else {
+                return RunShape::unavailable(
+                    RunShapeUnavailableReason::RustybuzzUnavailable,
+                    expected_advance,
+                );
+            };
+            let Some(logical_cluster_end) = cluster.logical_end.checked_add(logical_start) else {
+                return RunShape::unavailable(
+                    RunShapeUnavailableReason::RustybuzzUnavailable,
+                    expected_advance,
+                );
+            };
+            cluster.logical_start = logical_cluster_start;
+            cluster.logical_end = logical_cluster_end;
+            clusters.push(cluster);
+        }
+    }
+
+    let provenance = match mixed {
+        None => RunShapeProvenance::single(first_fingerprint),
+        Some((fingerprints, mut face_spans)) => {
+            face_spans.sort_unstable_by_key(|span| span.logical_start);
+            RunShapeProvenance::mixed(fingerprints, face_spans)
+        }
+    };
+    RunShape::exact(provenance, direction, expected_advance, clusters).apply_spacing(
+        input.text,
+        input.style.word_spacing,
+        input.style.letter_spacing,
+        expected_advance,
+    )
+}
+
+type ExactFontRun = (usize, usize, [u8; 8], super::shaping::ShapedFontRun);
+
+fn exact_shape_advance(input: &TextMeasurementInput<'_>, runs: &[ExactFontRun]) -> f64 {
+    let cache_key = TextMeasurementCacheKey::new(input);
+    if let Some(width) = input.fonts.cached_width(&cache_key) {
+        return width;
+    }
+    let ascii_spaces = input
+        .text
+        .chars()
+        .filter(|character| *character == ' ')
+        .count();
+    let scalar_gaps = input.text.chars().count().saturating_sub(1);
+    let width = runs
+        .iter()
+        .map(|(_, _, _, shape)| shape.advance)
+        .sum::<f64>()
+        + ascii_spaces as f64 * input.style.word_spacing
+        + scalar_gaps as f64 * input.style.letter_spacing;
+    input.fonts.cache_width(cache_key, width);
+    width
+}
+
+fn unavailable_shape(
+    input: &TextMeasurementInput<'_>,
+    reason: RunShapeUnavailableReason,
+) -> RunShape {
+    RunShape::unavailable(reason, font_aware_measurement(input).width)
+}
+
+fn intern_fingerprint(fingerprints: &mut Vec<[u8; 8]>, fingerprint: [u8; 8]) -> usize {
+    if let Some(index) = fingerprints
+        .iter()
+        .position(|candidate| *candidate == fingerprint)
+    {
+        index
+    } else {
+        fingerprints.push(fingerprint);
+        fingerprints.len() - 1
+    }
 }
 
 fn uses_generic_monospace(style: &TextMeasurementStyle) -> bool {
@@ -99,22 +278,25 @@ fn font_run_width(
                     glyph_run_width(text, &[face], font_size, fonts, monospace, fallback_family)
                 })
             }
-            FontMeasurementRun::Fallback(character) => {
-                let adjustment = previous_fallback
-                    .map(|left| {
-                        fonts.fallback_pair_adjustment(
-                            left,
-                            character,
-                            font_size,
-                            monospace,
-                            fallback_family,
-                        )
-                    })
-                    .unwrap_or(0.0);
-                previous_fallback = Some(character);
-                fonts.fallback_character_width(character, font_size, monospace, fallback_family)
-                    + adjustment
-            }
+            FontMeasurementRun::Fallback(text) => text
+                .chars()
+                .map(|character| {
+                    let adjustment = previous_fallback
+                        .map(|left| {
+                            fonts.fallback_pair_adjustment(
+                                left,
+                                character,
+                                font_size,
+                                monospace,
+                                fallback_family,
+                            )
+                        })
+                        .unwrap_or(0.0);
+                    previous_fallback = Some(character);
+                    fonts.fallback_character_width(character, font_size, monospace, fallback_family)
+                        + adjustment
+                })
+                .sum(),
         })
         .sum()
 }

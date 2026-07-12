@@ -628,6 +628,7 @@ mod tests {
                             source_text_offset: Some(0),
                             inline_margin_right: None,
                             ruby_annotation: None,
+                            shape: crate::layout::text_shape::fixture_run_shape(48.0),
                         })],
                     }),
                     RuntimeChild::Image(RuntimeImage {
@@ -764,6 +765,7 @@ mod tests {
                             source_text_offset: Some(7),
                             inline_margin_right: None,
                             ruby_annotation: None,
+                            shape: crate::layout::text_shape::fixture_run_shape(40.0),
                         }),
                         LineRun::Ruby(RubyRunBox {
                             text: "ruby".to_owned(),

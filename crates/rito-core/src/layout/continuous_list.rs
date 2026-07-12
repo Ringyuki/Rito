@@ -2,6 +2,7 @@ use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun, TextRunBox},
     style_values::{number_style, run_paint_value, string_or_default},
+    text_shape::{RunShape, RunShapeUnavailableReason},
 };
 use crate::style::StyledNode;
 
@@ -68,6 +69,10 @@ pub(crate) fn add_continuous_list_marker(
             source_text_offset: None,
             inline_margin_right: None,
             ruby_annotation: None,
+            shape: RunShape::unavailable(
+                RunShapeUnavailableReason::SyntheticLayoutText,
+                LIST_MARKER_AREA_WIDTH,
+            ),
         }),
     );
 }

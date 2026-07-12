@@ -9,7 +9,6 @@ use super::{
     assert_width, font_metric_sample, read_demo_epub_font, read_epub_font,
     supported_character_after,
 };
-
 #[test]
 fn font_aware_policy_uses_matching_font_advances() {
     let bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");

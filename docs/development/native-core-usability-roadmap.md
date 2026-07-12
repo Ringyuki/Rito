@@ -121,6 +121,32 @@ provides point-to-caret hit testing, exact shaped character boundaries,
 selected text and precise range geometry. Linear interpolation across a
 variable-width run is not an acceptable final selection implementation.
 
+Exact text interaction also requires shaping provenance from the same font
+bytes used to paint the run. EPUB-provided fonts can satisfy that invariant
+inside Rust. A browser-supplied table of generic/system-font character and pair
+widths cannot reconstruct glyph clusters, ligature carets, script direction or
+legal grapheme boundaries. Such a run must report text geometry as unavailable
+until the reader either uses a pinned fallback font visible to both Rust and
+Canvas, or gains an equally explicit host-shaping contract. It must never fall
+back to per-character width interpolation. Ligatures without authoritative
+internal caret data are selectable only as atomic clusters.
+
+The default deterministic path should use pinned fallback font assets shared by
+Rust shaping and a uniquely aliased browser `FontFace`; a font present only in
+Rust, while Canvas still resolves `serif` or a platform family independently,
+does not close the contract. Host/DOM shaping remains a possible explicit
+platform-dependent mode and a useful reference harness, not the default native
+layout policy. Before choosing a production CJK asset or Unicode-shard scheme,
+add revision diagnostics for exact/unavailable run counts, font fingerprints
+and missing code points, then measure package size, duplicate Worker memory,
+font startup and pagination cost with an opt-in licensed test fallback.
+
+Visual text and logical selection text are separate streams. Soft pagination
+wraps do not insert logical newlines, discretionary hyphens do not advance the
+source range, and selected text is not reconstructed from painted runs. Forced
+breaks and source-node boundaries require explicit logical provenance retained
+through line breaking.
+
 Interaction responses and host caches must bind to the complete revision
 handle. A visual preview must either expose its own active presentation handle
 or explicitly disable interaction until the canonical revision commits; host
@@ -232,13 +258,18 @@ architecture rather than make an eager whole-book pipeline faster.
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader. **Implemented through the public Reader and Kit
    click path, including preview gating and exact locator re-resolution.**
-4. Add precise native point/range geometry, then migrate Kit selection,
+4. Retain exact shaping clusters/caret stops and logical text provenance in
+   Rust layout; wire the existing versioned text diagnostics through the Worker
+   without presenting their legacy interpolated geometry as selection-ready.
+5. Prove the shared pinned-font/paint-alias path on a no-embedded-font real book
+   and use shape-provenance diagnostics to choose the production fallback set.
+6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility.
-5. Reduce browser session policy to explicit core-requested host operations.
-6. Establish the real-book usability and stage-specific performance gate.
-7. Build the pinned WebView/DOM reference harness.
-8. Declare the baseline transition, then resume broad rendering and performance
-   work.
+7. Reduce browser session policy to explicit core-requested host operations.
+8. Establish the real-book usability and stage-specific performance gate.
+9. Build the pinned WebView/DOM reference harness.
+10. Declare the baseline transition, then resume broad rendering and performance
+    work.
 
 ## Explicitly Deferred
 

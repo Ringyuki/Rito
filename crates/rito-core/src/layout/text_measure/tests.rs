@@ -14,6 +14,9 @@ use super::{
 mod fixture_policy;
 mod font_face_selection;
 mod font_policy;
+mod shape_policy;
+mod shape_provenance;
+mod shape_safety;
 
 fn assert_width(actual: f64, expected: f64) {
     assert!(

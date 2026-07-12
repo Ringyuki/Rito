@@ -1,6 +1,22 @@
+use super::{cluster_safety::constrain_clusters_to_graphemes, mac_roman, TextMeasurementFonts};
+use crate::layout::text_shape::{RunShapeCluster, RunShapeDirection};
+use sha2::{Digest, Sha256};
 use ttf_parser::Face as TtfFace;
 
-use super::{mac_roman, TextMeasurementFonts};
+#[cfg(test)]
+thread_local! {
+    static SHAPE_RUN_CALL_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+pub(in super::super) fn reset_shape_run_call_count() {
+    SHAPE_RUN_CALL_COUNT.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+pub(in super::super) fn shape_run_call_count() -> usize {
+    SHAPE_RUN_CALL_COUNT.with(std::cell::Cell::get)
+}
 
 #[derive(Clone)]
 pub(crate) struct TextMeasurementFontFace<'a> {
@@ -8,6 +24,7 @@ pub(crate) struct TextMeasurementFontFace<'a> {
     pub(crate) style: Option<String>,
     pub(crate) weight: Option<u16>,
     pub(crate) bytes: &'a [u8],
+    fingerprint: [u8; 8],
     pub(super) ttf_face: Option<TtfFace<'a>>,
     shape_face: Option<rustybuzz::Face<'a>>,
     shape_cmap_subtable: Option<u16>,
@@ -32,6 +49,16 @@ impl<'a> TextMeasurementFontFace<'a> {
         weight: Option<u16>,
         bytes: &'a [u8],
     ) -> Self {
+        Self::new_with_fingerprint(family, style, weight, bytes, font_fingerprint(bytes))
+    }
+
+    pub(crate) fn new_with_fingerprint(
+        family: String,
+        style: Option<String>,
+        weight: Option<u16>,
+        bytes: &'a [u8],
+        fingerprint: [u8; 8],
+    ) -> Self {
         let ttf_face = TtfFace::parse(bytes, 0).ok();
         let shape_cmap_subtable = ttf_face.as_ref().and_then(preferred_shape_cmap_subtable);
         Self {
@@ -39,58 +66,35 @@ impl<'a> TextMeasurementFontFace<'a> {
             style,
             weight,
             bytes,
+            fingerprint,
             ttf_face,
             shape_face: rustybuzz::Face::from_slice(bytes, 0),
             shape_cmap_subtable,
         }
     }
+
+    pub(in super::super) fn fingerprint(&self) -> [u8; 8] {
+        self.fingerprint
+    }
 }
 
-pub(in super::super) enum FontMeasurementRun<'a> {
-    Shaped {
-        text: &'a str,
-        face: &'a TextMeasurementFontFace<'a>,
-    },
-    Fallback(char),
+fn font_fingerprint(bytes: &[u8]) -> [u8; 8] {
+    let digest = Sha256::digest(bytes);
+    let mut fingerprint = [0_u8; 8];
+    fingerprint.copy_from_slice(&digest[..8]);
+    fingerprint
 }
 
-pub(in super::super) fn font_runs<'a>(
-    text: &'a str,
-    faces: &[&'a TextMeasurementFontFace<'a>],
-) -> Vec<FontMeasurementRun<'a>> {
-    let mut runs = Vec::new();
-    let mut active_face: Option<&TextMeasurementFontFace<'_>> = None;
-    let mut active_start: Option<usize> = None;
-    for (index, character) in text.char_indices() {
-        let face = faces
-            .iter()
-            .copied()
-            .find(|face| face_supports_character(face, character));
-        if face.is_some_and(|face| {
-            active_face.is_some_and(|active_face| std::ptr::eq(face, active_face))
-        }) {
-            continue;
-        }
-        if let (Some(start), Some(face)) = (active_start.take(), active_face.take()) {
-            runs.push(FontMeasurementRun::Shaped {
-                text: &text[start..index],
-                face,
-            });
-        }
-        if let Some(face) = face {
-            active_start = Some(index);
-            active_face = Some(face);
-        } else {
-            runs.push(FontMeasurementRun::Fallback(character));
-        }
-    }
-    if let (Some(start), Some(face)) = (active_start, active_face) {
-        runs.push(FontMeasurementRun::Shaped {
-            text: &text[start..],
-            face,
-        });
-    }
-    runs
+pub(in super::super) struct ShapedFontRun {
+    pub(in super::super) direction: RunShapeDirection,
+    pub(in super::super) clusters: Vec<RunShapeCluster>,
+    pub(in super::super) advance: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) enum ShapeRunFailure {
+    RustybuzzUnavailable,
+    NonGraphemeSafeClusters { advance: f64 },
 }
 
 pub(in super::super) fn face_supports_character(
@@ -186,20 +190,134 @@ pub(in super::super) fn shaped_run_width(
     measurement_face: &TextMeasurementFontFace<'_>,
     font_size: f64,
 ) -> Option<f64> {
-    let face = measurement_face.shape_face.as_ref()?;
+    measurement_advance(shape_run_checked(text, measurement_face, font_size))
+}
+
+#[cfg(test)]
+pub(in super::super) fn shape_run(
+    text: &str,
+    measurement_face: &TextMeasurementFontFace<'_>,
+    font_size: f64,
+) -> Option<ShapedFontRun> {
+    shape_run_checked(text, measurement_face, font_size).ok()
+}
+
+pub(super) fn shape_run_checked(
+    text: &str,
+    measurement_face: &TextMeasurementFontFace<'_>,
+    font_size: f64,
+) -> Result<ShapedFontRun, ShapeRunFailure> {
+    #[cfg(test)]
+    SHAPE_RUN_CALL_COUNT.with(|count| count.set(count.get() + 1));
+    let face = measurement_face
+        .shape_face
+        .as_ref()
+        .ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
     let mut buffer = rustybuzz::UnicodeBuffer::new();
     buffer.push_str(text);
     buffer.guess_segment_properties();
+    let direction = match buffer.direction() {
+        rustybuzz::Direction::LeftToRight => RunShapeDirection::LeftToRight,
+        rustybuzz::Direction::RightToLeft => RunShapeDirection::RightToLeft,
+        _ => return Err(ShapeRunFailure::RustybuzzUnavailable),
+    };
     let glyphs = rustybuzz::shape(face, &[], buffer);
     let units_per_em = f64::from(face.units_per_em());
     if units_per_em <= 0.0 {
-        return None;
+        return Err(ShapeRunFailure::RustybuzzUnavailable);
     }
-    Some(
-        glyphs
-            .glyph_positions()
+    let infos = glyphs.glyph_infos();
+    let positions = glyphs.glyph_positions();
+    let cluster_ends = logical_cluster_ends(text, infos);
+    let mut clusters = Vec::new();
+    let mut glyph_start = 0usize;
+    let mut visual_cursor = 0.0;
+    while glyph_start < infos.len() {
+        let cluster = infos[glyph_start].cluster;
+        let mut glyph_end = glyph_start + 1;
+        while glyph_end < infos.len() && infos[glyph_end].cluster == cluster {
+            glyph_end += 1;
+        }
+        let advance = positions[glyph_start..glyph_end]
             .iter()
             .map(|position| f64::from(position.x_advance) * font_size / units_per_em)
-            .sum(),
-    )
+            .sum::<f64>();
+        let logical_start = byte_to_utf16_offset(text, cluster as usize)
+            .ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
+        let logical_end = *cluster_ends
+            .get(&cluster)
+            .ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
+        clusters.push(RunShapeCluster {
+            logical_start: logical_start
+                .try_into()
+                .map_err(|_| ShapeRunFailure::RustybuzzUnavailable)?,
+            logical_end: logical_end
+                .try_into()
+                .map_err(|_| ShapeRunFailure::RustybuzzUnavailable)?,
+            advance: advance as f32,
+        });
+        visual_cursor += advance;
+        glyph_start = glyph_end;
+    }
+    let clusters = constrain_clusters_to_graphemes(text, clusters, direction).ok_or(
+        ShapeRunFailure::NonGraphemeSafeClusters {
+            advance: visual_cursor,
+        },
+    )?;
+    Ok(ShapedFontRun {
+        direction,
+        clusters,
+        advance: visual_cursor,
+    })
+}
+
+fn measurement_advance(result: Result<ShapedFontRun, ShapeRunFailure>) -> Option<f64> {
+    match result {
+        Ok(shape) => Some(shape.advance),
+        Err(ShapeRunFailure::NonGraphemeSafeClusters { advance }) => Some(advance),
+        Err(ShapeRunFailure::RustybuzzUnavailable) => None,
+    }
+}
+
+fn logical_cluster_ends(
+    text: &str,
+    infos: &[rustybuzz::GlyphInfo],
+) -> std::collections::BTreeMap<u32, usize> {
+    let starts = infos
+        .iter()
+        .map(|info| info.cluster)
+        .collect::<std::collections::BTreeSet<_>>();
+    let mut ends = std::collections::BTreeMap::new();
+    let mut starts = starts.into_iter().peekable();
+    while let Some(start) = starts.next() {
+        let end_byte = starts.peek().copied().unwrap_or(text.len() as u32) as usize;
+        if let Some(end) = byte_to_utf16_offset(text, end_byte) {
+            ends.insert(start, end);
+        }
+    }
+    ends
+}
+
+fn byte_to_utf16_offset(text: &str, byte_offset: usize) -> Option<usize> {
+    if !text.is_char_boundary(byte_offset) {
+        return None;
+    }
+    Some(text[..byte_offset].encode_utf16().count())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{measurement_advance, ShapeRunFailure};
+
+    #[test]
+    fn unsafe_retention_keeps_the_raw_rustybuzz_measurement_advance() {
+        let raw_advance = 42.25;
+
+        assert_eq!(
+            measurement_advance(Err(ShapeRunFailure::NonGraphemeSafeClusters {
+                advance: raw_advance,
+            })),
+            Some(raw_advance)
+        );
+    }
 }

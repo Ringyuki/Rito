@@ -4,6 +4,7 @@ use super::{
     line_break::utf16_len,
     style_values::paint_number_value,
     summary_json::{hash_text, number_value, rect_value},
+    text_shape::RunShape,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -175,6 +176,7 @@ pub(crate) struct TextRunBox {
     pub(crate) source_text_offset: Option<usize>,
     pub(crate) inline_margin_right: Option<f64>,
     pub(crate) ruby_annotation: Option<String>,
+    pub(crate) shape: RunShape,
 }
 
 impl TextRunBox {
@@ -225,6 +227,17 @@ impl TextRunBox {
         if let Some(paint) = self.paint.as_object_mut() {
             paint.insert(key.to_owned(), paint_number_value(current + delta));
         }
+        let (word_spacing_delta, letter_spacing_delta) = match key {
+            "wordSpacingPx" => (delta, 0.0),
+            "letterSpacingPx" => (0.0, delta),
+            _ => return,
+        };
+        self.shape.apply_spacing_delta_in_place(
+            &self.text,
+            word_spacing_delta,
+            letter_spacing_delta,
+            self.width,
+        );
     }
 }
 
@@ -351,6 +364,7 @@ mod tests {
                     source_text_offset: Some(0),
                     inline_margin_right: Some(2.0),
                     ruby_annotation: None,
+                    shape: crate::layout::text_shape::fixture_run_shape(30.0),
                 }),
                 LineRun::Atom(AtomRunBox {
                     x: 40.0,
@@ -417,6 +431,7 @@ mod tests {
                 source_text_offset: None,
                 inline_margin_right: None,
                 ruby_annotation: None,
+                shape: crate::layout::text_shape::fixture_run_shape(8.0),
             })],
         }
         .offset_with_runs(5.0, -2.0);
@@ -444,6 +459,7 @@ mod tests {
             source_text_offset: None,
             inline_margin_right: None,
             ruby_annotation: None,
+            shape: crate::layout::text_shape::fixture_run_shape(20.0),
         };
 
         run.add_paint_spacing("wordSpacingPx", 2.5);
@@ -469,6 +485,7 @@ mod tests {
             source_text_offset: None,
             inline_margin_right: None,
             ruby_annotation: None,
+            shape: crate::layout::text_shape::fixture_run_shape(30.0),
         }
     }
 }

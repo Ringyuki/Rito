@@ -258,6 +258,7 @@ fn line_box(text: &str, y: f64) -> LineBox {
             source_text_offset: None,
             inline_margin_right: None,
             ruby_annotation: None,
+            shape: crate::layout::text_shape::fixture_run_shape(40.0),
         })],
     }
 }

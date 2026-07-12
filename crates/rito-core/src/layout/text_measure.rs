@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use super::{
     line_break::utf16_len,
     style_values::{number_style, string_style},
+    text_shape::{RunShape, RunShapeUnavailableReason},
 };
 
 mod font;
@@ -17,8 +18,8 @@ pub(crate) use font::{TextMeasurementFontFace, TextMeasurementFonts};
 
 #[cfg(test)]
 use font::{
-    face_supports_character, font_runs, parse_font_family_list, shaped_run_width,
-    FontMeasurementRun,
+    face_supports_character, font_runs, parse_font_family_list, reset_shape_run_call_count,
+    shape_run, shape_run_call_count, shaped_run_width, FontMeasurementRun,
 };
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -114,6 +115,29 @@ pub(crate) fn measure_text(input: TextMeasurementInput<'_>) -> TextMeasurement {
         TextMeasurementPolicy::FixtureCompatible => fixture_compatible_measurement(&input),
         TextMeasurementPolicy::FontAware => font::font_aware_measurement(&input),
     }
+}
+
+pub(crate) fn shape_text(input: TextMeasurementInput<'_>) -> RunShape {
+    match input.policy {
+        TextMeasurementPolicy::FixtureCompatible => RunShape::unavailable(
+            RunShapeUnavailableReason::FixtureCompatibleMeasurement,
+            fixture_compatible_measurement(&input).width,
+        ),
+        TextMeasurementPolicy::FontAware => font::font_aware_shape(&input),
+    }
+}
+
+pub(crate) fn shape_text_with_style(
+    text: &str,
+    style: &Map<String, Value>,
+    fonts: &TextMeasurementFonts<'_>,
+) -> RunShape {
+    shape_text(TextMeasurementInput {
+        text,
+        style: TextMeasurementStyle::from_style(style),
+        policy: TextMeasurementPolicy::FontAware,
+        fonts,
+    })
 }
 
 #[cfg(test)]

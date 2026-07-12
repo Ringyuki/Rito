@@ -300,6 +300,7 @@ mod tests {
             source_text_offset: None,
             inline_margin_right: None,
             ruby_annotation: None,
+            shape: crate::layout::text_shape::fixture_run_shape(10.0),
         }
     }
 }

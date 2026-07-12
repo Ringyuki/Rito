@@ -17,7 +17,8 @@ use super::{
     style_values::{
         border_width, number_style, run_border_edge_value, run_paint_value, string_style,
     },
-    text_measure::TextMeasurementFonts,
+    text_measure::{shape_text_with_style, TextMeasurementFonts},
+    text_shape::{RunShape, RunShapeUnavailableReason},
 };
 use serde_json::Value;
 
@@ -545,11 +546,18 @@ fn build_text_run(
     is_start: bool,
 ) -> TextRunBox {
     let font_size = number_style(&segment.style, "fontSize").unwrap_or(16.0);
+    let width = measure_text_slice_with_fonts(&context.current_text, &segment.style, context.fonts);
+    let shape = if context.has_trailing_hyphen {
+        RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, width)
+    } else {
+        shape_text_with_style(&context.current_text, &segment.style, context.fonts)
+    };
+    debug_assert!((shape.advance() - width).abs() < 0.000_001);
     TextRunBox {
         text: context.current_text.clone(),
         x: context.x,
         y: kp_vertical_align_offset(&segment.style, context.line_height, context.base_font_size),
-        width: measure_text_slice_with_fonts(&context.current_text, &segment.style, context.fonts),
+        width,
         height: line_height_px(&segment.style),
         font_size,
         paint: run_paint_value(&segment.style, is_start, false),
@@ -563,6 +571,7 @@ fn build_text_run(
             .map(|_| context.current_source_offset),
         inline_margin_right: None,
         ruby_annotation: segment.ruby_annotation.clone(),
+        shape,
     }
 }
 
@@ -696,6 +705,7 @@ fn trim_last_run(context: &mut RunBuildContext<'_>) {
     };
     run.text = trimmed.to_owned();
     run.width = measure_text_slice_with_fonts(&run.text, &segment.style, context.fonts);
+    run.shape = shape_text_with_style(&run.text, &segment.style, context.fonts);
 }
 
 fn mark_segment_started(started_segments: &mut Vec<usize>, segment_index: usize) -> bool {
