@@ -2,7 +2,7 @@ use serde_json::{Map, Value};
 
 use crate::style::StyledNode;
 
-use super::super::style_values::string_style;
+use super::super::{style_values::string_style, text_mapping::TextSourceBasis};
 
 #[derive(Debug, Default)]
 pub(in crate::layout) struct WhitespaceCollapseState {
@@ -13,6 +13,7 @@ pub(super) struct NormalizedText {
     pub(super) text: String,
     pub(super) source_text: String,
     pub(super) source_text_offset: usize,
+    pub(super) source_basis: TextSourceBasis,
 }
 
 pub(super) fn normalize_text_for_white_space(
@@ -25,6 +26,7 @@ pub(super) fn normalize_text_for_white_space(
         string_style(style, "whiteSpace").as_deref(),
         Some("pre" | "pre-wrap")
     );
+    let restored_parser_whitespace = preserve && node.source_text.is_some();
     let source_text = if preserve {
         node.source_text.as_deref().unwrap_or(content)
     } else {
@@ -48,6 +50,11 @@ pub(super) fn normalize_text_for_white_space(
         text: text.to_owned(),
         source_text: source_text.to_owned(),
         source_text_offset,
+        source_basis: if restored_parser_whitespace {
+            TextSourceBasis::RestoredParserWhitespace
+        } else {
+            TextSourceBasis::ParsedText
+        },
     }
 }
 

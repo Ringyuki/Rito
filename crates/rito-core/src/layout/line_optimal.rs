@@ -17,6 +17,7 @@ use super::{
     style_values::{
         border_width, number_style, run_border_edge_value, run_paint_value, string_style,
     },
+    text_mapping::RunTextMapping,
     text_measure::{shape_text_with_style, TextMeasurementFonts},
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
@@ -547,6 +548,14 @@ fn build_text_run(
 ) -> TextRunBox {
     let font_size = number_style(&segment.style, "fontSize").unwrap_or(16.0);
     let width = measure_text_slice_with_fonts(&context.current_text, &segment.style, context.fonts);
+    let source_base = segment.source_text_offset.unwrap_or(0);
+    let relative_start = context.current_source_offset.saturating_sub(source_base);
+    let relative_end = relative_start + current_text_source_advance(context);
+    let text_mapping = if context.has_trailing_hyphen {
+        RunTextMapping::synthetic()
+    } else {
+        segment.run_text_mapping(relative_start, relative_end)
+    };
     let shape = if context.has_trailing_hyphen {
         RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, width)
     } else {
@@ -555,6 +564,7 @@ fn build_text_run(
     debug_assert!((shape.advance() - width).abs() < 0.000_001);
     TextRunBox {
         text: context.current_text.clone(),
+        text_mapping,
         x: context.x,
         y: kp_vertical_align_offset(&segment.style, context.line_height, context.base_font_size),
         width,
@@ -704,6 +714,7 @@ fn trim_last_run(context: &mut RunBuildContext<'_>) {
         return;
     };
     run.text = trimmed.to_owned();
+    run.text_mapping = run.text_mapping.truncate(utf16_len(&run.text));
     run.width = measure_text_slice_with_fonts(&run.text, &segment.style, context.fonts);
     run.shape = shape_text_with_style(&run.text, &segment.style, context.fonts);
 }
@@ -2167,6 +2178,7 @@ mod tests {
     fn text_segment(text: &str) -> InlineSegment {
         InlineSegment::Text(TextSegment {
             text: text.to_owned(),
+            mapping: crate::layout::text_mapping::TextSegmentMapping::synthetic(),
             style: style(),
             href: None,
             source_path: None,
@@ -2183,6 +2195,7 @@ mod tests {
     fn source_text_segment(text: &str) -> InlineSegment {
         InlineSegment::Text(TextSegment {
             text: text.to_owned(),
+            mapping: crate::layout::text_mapping::TextSegmentMapping::synthetic(),
             style: style(),
             href: None,
             source_path: Some(vec![1, 0]),
@@ -2199,6 +2212,7 @@ mod tests {
     fn sourced_segment(text: &str, source_path: Vec<usize>) -> InlineSegment {
         InlineSegment::Text(TextSegment {
             text: text.to_owned(),
+            mapping: crate::layout::text_mapping::TextSegmentMapping::synthetic(),
             style: style(),
             href: None,
             source_path: Some(source_path),

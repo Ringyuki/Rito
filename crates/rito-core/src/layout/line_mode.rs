@@ -38,6 +38,7 @@ mod tests {
     use super::layout_lines;
     use crate::layout::{
         inline_segment::{InlineSegment, TextSegment},
+        text_mapping::TextSegmentMapping,
         LineBreaking,
     };
 
@@ -64,6 +65,7 @@ mod tests {
     fn text_segment(text: &str) -> InlineSegment {
         InlineSegment::Text(TextSegment {
             text: text.to_owned(),
+            mapping: TextSegmentMapping::synthetic(),
             style: Map::from_iter([
                 ("fontSize".to_owned(), json!(10)),
                 ("lineHeight".to_owned(), json!(1.2)),

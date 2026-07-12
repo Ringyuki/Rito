@@ -615,6 +615,7 @@ mod tests {
                         height: 20.0,
                         runs: vec![LineRun::Text(TextRunBox {
                             text: "Hello".to_owned(),
+                            text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
                             x: 0.0,
                             y: 0.0,
                             width: 48.0,
@@ -752,6 +753,7 @@ mod tests {
                     runs: vec![
                         LineRun::Text(TextRunBox {
                             text: "Base".to_owned(),
+                            text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
                             x: 4.0,
                             y: 5.0,
                             width: 40.0,

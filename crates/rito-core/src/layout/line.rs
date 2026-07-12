@@ -4,6 +4,7 @@ use super::{
     line_break::utf16_len,
     style_values::paint_number_value,
     summary_json::{hash_text, number_value, rect_value},
+    text_mapping::RunTextMapping,
     text_shape::RunShape,
 };
 
@@ -163,6 +164,7 @@ impl LineRun {
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct TextRunBox {
     pub(crate) text: String,
+    pub(crate) text_mapping: RunTextMapping,
     pub(crate) x: f64,
     pub(crate) y: f64,
     pub(crate) width: f64,
@@ -351,6 +353,7 @@ mod tests {
             runs: vec![
                 LineRun::Text(TextRunBox {
                     text: "Hello".to_owned(),
+                    text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
                     x: 1.0,
                     y: 2.0,
                     width: 30.0,
@@ -418,6 +421,7 @@ mod tests {
             height: 20.0,
             runs: vec![LineRun::Text(TextRunBox {
                 text: "A".to_owned(),
+                text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
                 x: 2.0,
                 y: 3.0,
                 width: 8.0,
@@ -446,6 +450,7 @@ mod tests {
     fn text_run_accumulates_paint_spacing() {
         let mut run = TextRunBox {
             text: "A B".to_owned(),
+            text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
             x: 0.0,
             y: 0.0,
             width: 20.0,
@@ -469,9 +474,22 @@ mod tests {
         assert_eq!(run.paint["letterSpacingPx"], json!(8.0 / 29.0));
     }
 
+    #[test]
+    fn retained_text_mapping_does_not_change_normalized_render_geometry() {
+        let mut run = text_run_with_paint(json!({ "color": "#123456" }));
+        let normalized = run.normalized();
+
+        run.text_mapping = crate::layout::text_mapping::RunTextMapping::Unavailable(
+            crate::layout::text_mapping::TextMappingUnavailableReason::NonLinearTextTransform,
+        );
+
+        assert_eq!(run.normalized(), normalized);
+    }
+
     fn text_run_with_paint(paint: serde_json::Value) -> TextRunBox {
         TextRunBox {
             text: "Hello".to_owned(),
+            text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
             x: 1.0,
             y: 0.0,
             width: 30.0,

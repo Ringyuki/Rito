@@ -213,6 +213,7 @@ fn empty_block() -> RuntimeBlock<LineBox> {
 fn text_run(text: &str, shape: RunShape) -> LineRun {
     LineRun::Text(TextRunBox {
         text: text.to_owned(),
+        text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
         x: 0.0,
         y: 0.0,
         width: 1.0,

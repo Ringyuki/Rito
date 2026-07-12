@@ -1,6 +1,9 @@
 use serde_json::{Map, Value};
 
-use super::image_size::ImageSizeIndex;
+use super::{
+    image_size::ImageSizeIndex,
+    text_mapping::{RunTextMapping, TextSegmentMapping},
+};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct SegmentContext<'a> {
@@ -72,6 +75,7 @@ impl InlineSegment {
 #[derive(Debug, Clone)]
 pub(crate) struct TextSegment {
     pub(crate) text: String,
+    pub(crate) mapping: TextSegmentMapping,
     pub(crate) style: Map<String, Value>,
     pub(crate) href: Option<String>,
     pub(crate) source_path: Option<Vec<usize>>,
@@ -82,6 +86,12 @@ pub(crate) struct TextSegment {
     pub(crate) inline_margin_right: Option<f64>,
     pub(crate) border_start: bool,
     pub(crate) border_end: bool,
+}
+
+impl TextSegment {
+    pub(crate) fn run_text_mapping(&self, start: usize, end: usize) -> RunTextMapping {
+        self.mapping.run_mapping(start, end)
+    }
 }
 
 #[derive(Debug, Clone)]

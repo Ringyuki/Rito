@@ -5,6 +5,7 @@ use super::{
     inline_ruby::collect_ruby_segments,
     inline_segment::{InlineSegment, SegmentContext, TextSegment},
     style_values::*,
+    text_mapping::{finalize_inline_text_flow, TextMappingCandidate, TextSegmentMapping},
 };
 use crate::style::{StyledNode, StyledNodeKind};
 pub(super) use whitespace::WhitespaceCollapseState;
@@ -12,6 +13,8 @@ use whitespace::{normalize_text_for_white_space, reset_whitespace_after_atom};
 
 pub(crate) use super::inline_summary::normalize_inline_segment;
 
+#[cfg(test)]
+mod mapping_tests;
 #[cfg(test)]
 mod tests;
 mod whitespace;
@@ -23,6 +26,7 @@ pub(crate) fn flatten_inline_content(
     let mut segments = Vec::new();
     let mut whitespace = WhitespaceCollapseState::default();
     collect_segments(nodes, &mut segments, &context, &mut whitespace);
+    finalize_inline_text_flow(&mut segments);
     segments
 }
 
@@ -67,14 +71,24 @@ fn collect_text_segment(
     if normalized.text.is_empty() {
         return;
     }
+    let display_text = apply_text_transform(&normalized.text, &style);
+    let source_path = node
+        .source_ref
+        .as_ref()
+        .map(|source| source.node_path.clone());
+    let mapping = TextSegmentMapping::Candidate(TextMappingCandidate::new(
+        normalized.text.clone(),
+        source_path.clone(),
+        normalized.source_text_offset,
+        normalized.source_basis,
+        &display_text,
+    ));
     out.push(InlineSegment::Text(TextSegment {
-        text: apply_text_transform(&normalized.text, &style),
+        text: display_text,
+        mapping,
         style,
         href: context.href.clone(),
-        source_path: node
-            .source_ref
-            .as_ref()
-            .map(|source| source.node_path.clone()),
+        source_path,
         source_text: node.source_ref.as_ref().map(|_| normalized.source_text),
         source_text_offset: (normalized.source_text_offset > 0)
             .then_some(normalized.source_text_offset),

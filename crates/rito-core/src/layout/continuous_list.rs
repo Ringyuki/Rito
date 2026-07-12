@@ -2,6 +2,7 @@ use super::{
     content::{RuntimeBlock, RuntimeChild},
     line::{LineBox, LineRun, TextRunBox},
     style_values::{number_style, run_paint_value, string_or_default},
+    text_mapping::RunTextMapping,
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
 use crate::style::StyledNode;
@@ -56,6 +57,7 @@ pub(crate) fn add_continuous_list_marker(
         0,
         LineRun::Text(TextRunBox {
             text: marker_text,
+            text_mapping: RunTextMapping::synthetic(),
             x: -LIST_MARKER_AREA_WIDTH,
             y: marker_y,
             width: LIST_MARKER_AREA_WIDTH,

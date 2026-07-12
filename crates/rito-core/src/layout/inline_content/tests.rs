@@ -2,7 +2,13 @@ use serde_json::{Map, Value};
 
 use super::flatten_inline_content;
 use crate::{
-    layout::inline_segment::{InlineSegment, SegmentContext},
+    layout::{
+        inline_segment::{InlineSegment, SegmentContext, TextSegment},
+        text_mapping::{
+            LogicalTextSource, RunTextMapping, TextFlowSlice, TextMappingUnavailableReason,
+            TextSegmentMapping,
+        },
+    },
     style::{StyledNode, StyledNodeKind},
     xhtml::SourceRef,
 };
@@ -25,6 +31,16 @@ fn collapses_spaces_across_nested_inline_boundaries() {
     );
     assert_eq!(text[1].source_text.as_deref(), Some(" b"));
     assert_eq!(text[1].source_text_offset, Some(1));
+    let second = exact_slice(text[1]);
+    assert_eq!(second.flow.text(), "a b");
+    assert_eq!((second.logical_start, second.logical_end), (2, 3));
+    assert!(matches!(
+        &second.flow.spans()[1].source,
+        LogicalTextSource::ExactLinear {
+            source_start: 1,
+            ..
+        }
+    ));
 }
 
 #[test]
@@ -37,6 +53,43 @@ fn restores_parser_source_text_for_pre_wrap() {
     assert_eq!(text[0].text, "a   \n  b");
     assert_eq!(text[0].source_text.as_deref(), Some("a   \n  b"));
     assert_eq!(text[0].source_text_offset, None);
+    assert_unavailable(
+        text[0],
+        TextMappingUnavailableReason::RestoredParserWhitespace,
+    );
+}
+
+#[test]
+fn parser_preserved_pre_text_keeps_an_exact_linear_mapping() {
+    let segments = flatten_inline_content(
+        &[text_node("a   \n  b", None, 0, "pre-wrap")],
+        SegmentContext::default(),
+    );
+    let text = text_segments(&segments);
+
+    assert_eq!(exact_slice(text[0]).flow.text(), "a   \n  b");
+}
+
+#[test]
+fn restored_parser_whitespace_remains_a_barrier_inside_a_mixed_flow() {
+    let nodes = vec![
+        text_node("x", None, 0, "normal"),
+        text_node("a b", Some("a   \n  b"), 1, "pre-wrap"),
+        text_node("y", None, 2, "normal"),
+    ];
+    let segments = flatten_inline_content(&nodes, SegmentContext::default());
+    let text = text_segments(&segments);
+    let flow = &exact_slice(text[0]).flow;
+
+    assert_eq!(flow.text(), "xa   \n  by");
+    assert_unavailable(
+        text[1],
+        TextMappingUnavailableReason::RestoredParserWhitespace,
+    );
+    assert!(matches!(
+        flow.spans()[1].source,
+        LogicalTextSource::Unavailable(TextMappingUnavailableReason::RestoredParserWhitespace)
+    ));
 }
 
 #[test]
@@ -58,6 +111,30 @@ fn atoms_and_forced_breaks_reset_whitespace_collapse() {
             .map(|segment| segment.text.as_str())
             .collect::<Vec<_>>(),
         ["a ", " b ", "\n", " c"]
+    );
+}
+
+#[test]
+fn flow_keeps_forced_breaks_and_treats_atoms_as_zero_text() {
+    let nodes = vec![
+        text_node("a", None, 0, "normal"),
+        image_node(),
+        text_node("b", None, 2, "normal"),
+        text_node("\n", None, 3, "normal"),
+        text_node("c", None, 4, "normal"),
+    ];
+    let segments = flatten_inline_content(&nodes, SegmentContext::default());
+    let text = text_segments(&segments);
+    let flow = &exact_slice(text[0]).flow;
+
+    assert_eq!(flow.text(), "ab\nc");
+    assert_eq!(flow.spans().len(), 4);
+    assert_eq!(
+        (
+            exact_slice(text[2]).logical_start,
+            exact_slice(text[2]).logical_end
+        ),
+        (2, 3)
     );
 }
 
@@ -94,9 +171,24 @@ fn rejects_text_transforms_that_change_utf16_source_length() {
 
     assert_eq!(text[0].text, "ß");
     assert_eq!(text[0].source_text.as_deref(), Some("ß"));
+    assert_eq!(exact_slice(text[0]).flow.text(), "ß");
 }
 
-fn text_segments(segments: &[InlineSegment]) -> Vec<&crate::layout::inline_segment::TextSegment> {
+#[test]
+fn boundary_preserving_transform_maps_to_source_spelling() {
+    let mut node = text_node("hello", None, 0, "normal");
+    node.style.insert(
+        "textTransform".to_owned(),
+        Value::String("uppercase".to_owned()),
+    );
+    let segments = flatten_inline_content(&[node], SegmentContext::default());
+    let text = text_segments(&segments);
+
+    assert_eq!(text[0].text, "HELLO");
+    assert_eq!(exact_slice(text[0]).flow.text(), "hello");
+}
+
+fn text_segments(segments: &[InlineSegment]) -> Vec<&TextSegment> {
     segments
         .iter()
         .filter_map(|segment| match segment {
@@ -104,6 +196,20 @@ fn text_segments(segments: &[InlineSegment]) -> Vec<&crate::layout::inline_segme
             InlineSegment::Atom(_) => None,
         })
         .collect()
+}
+
+fn exact_slice(segment: &TextSegment) -> &TextFlowSlice {
+    let TextSegmentMapping::Resolved(RunTextMapping::Exact(slice)) = &segment.mapping else {
+        panic!("exact text mapping expected");
+    };
+    slice
+}
+
+fn assert_unavailable(segment: &TextSegment, expected: TextMappingUnavailableReason) {
+    assert_eq!(
+        segment.mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(expected))
+    );
 }
 
 fn text_node(

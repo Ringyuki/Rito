@@ -4,6 +4,7 @@ use super::{
     line::LineBox,
     line_mode::layout_lines_with_fonts,
     style_values::{border_width, number_style, positive_style, string_or_default},
+    text_mapping::TextSegmentMapping,
     text_measure::TextMeasurementFonts,
 };
 use crate::{
@@ -437,6 +438,7 @@ fn measure_continuous_minimum_width(
                 for chunk in split_continuous_breakable_chunks(&text.text) {
                     let chunk_segment = InlineSegment::Text(TextSegment {
                         text: chunk,
+                        mapping: TextSegmentMapping::synthetic(),
                         style: text.style.clone(),
                         href: None,
                         source_path: None,

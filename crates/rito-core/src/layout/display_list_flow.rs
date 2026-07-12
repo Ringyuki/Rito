@@ -237,6 +237,7 @@ mod tests {
                     height: 20.0,
                     runs: vec![LineRun::Text(TextRunBox {
                         text: text.to_owned(),
+                        text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
                         x: 0.0,
                         y: 0.0,
                         width: 160.0,

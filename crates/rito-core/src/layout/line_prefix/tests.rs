@@ -8,12 +8,14 @@ use crate::layout::{
     line::LineRun,
     line_break::{utf16_len, Utf16Text},
     line_layout::{layout_greedy_lines, layout_greedy_lines_with_fonts},
+    text_mapping::TextSegmentMapping,
     text_measure::{TextMeasurementCache, TextMeasurementFonts},
 };
 
 fn text_segment(text: String, style: Map<String, Value>) -> InlineSegment {
     InlineSegment::Text(TextSegment {
         text,
+        mapping: TextSegmentMapping::synthetic(),
         style,
         href: None,
         source_path: None,
@@ -115,6 +117,7 @@ fn font_aware_long_unicode_paragraph_uses_bounded_prefix_probes() {
     ]);
     let segment = InlineSegment::Text(TextSegment {
         text: text.clone(),
+        mapping: TextSegmentMapping::synthetic(),
         style,
         href: None,
         source_path: Some(vec![4, 2]),
@@ -177,6 +180,7 @@ fn astral_unicode_runs_keep_utf16_source_offsets() {
     ]);
     let segment = InlineSegment::Text(TextSegment {
         text: text.clone(),
+        mapping: TextSegmentMapping::synthetic(),
         style,
         href: None,
         source_path: Some(vec![3, 1]),

@@ -19,6 +19,7 @@ use super::{
     },
     line_prefix::{find_fitting_prefix, should_probe_bounded},
     style_values::{border_width, number_style, run_paint_value, string_style},
+    text_mapping::RunTextMapping,
     text_measure::{shape_text_with_style, TextMeasurementFonts, TextMeasurementStyle},
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
@@ -56,6 +57,7 @@ struct LineStyleRange {
     inline_margin_right: Option<f64>,
     border_start: bool,
     border_end: bool,
+    text_mapping: RunTextMapping,
 }
 
 #[derive(Debug, Clone)]
@@ -123,6 +125,7 @@ fn build_line_context<'a>(
                     inline_margin_right: None,
                     border_start: false,
                     border_end: false,
+                    text_mapping: RunTextMapping::synthetic(),
                 });
                 offset += 1;
             }
@@ -145,6 +148,7 @@ fn build_line_context<'a>(
                     inline_margin_right: text.inline_margin_right,
                     border_start: text.border_start,
                     border_end: text.border_end,
+                    text_mapping: text.run_text_mapping(0, utf16_len(&text.text)),
                 });
                 offset = end;
             }
@@ -420,6 +424,7 @@ fn append_trailing_hyphen(context: &LineContext<'_>, break_pos: usize, runs: &mu
     };
     run.text.push('-');
     run.width = measure_text_slice_with_fonts(&run.text, &range.style, context.fonts);
+    run.text_mapping = RunTextMapping::synthetic();
     run.shape = RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, run.width);
 }
 
@@ -550,8 +555,12 @@ fn build_line_runs(
             .as_ref()
             .map(|_| range.source_text_offset.unwrap_or(0) + pos - range.start);
         let width = measure_text_slice_with_fonts(&run_text, &range.style, context.fonts);
+        let text_mapping = range
+            .text_mapping
+            .subslice(pos - range.start, range_end - range.start);
         let mut run = build_text_run(BuildTextRunInput {
             text: run_text,
+            text_mapping,
             x: x + spacing.margin_left + spacing.inset_left,
             line_height: context.line_height,
             width,
@@ -618,6 +627,7 @@ fn range_spacing(range: &LineStyleRange, edges: &RangeEdges, global_pos: usize) 
 
 struct BuildTextRunInput<'a> {
     text: String,
+    text_mapping: RunTextMapping,
     x: f64,
     line_height: f64,
     width: f64,
@@ -640,6 +650,7 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
     debug_assert!((shape.advance() - input.width).abs() < 0.000_001);
     TextRunBox {
         text: input.text,
+        text_mapping: input.text_mapping,
         x: input.x,
         y,
         width: input.width,
@@ -716,6 +727,7 @@ mod tests {
     use super::{build_line_context, layout_greedy_lines, layout_text};
     use crate::layout::{
         inline_segment::{InlineSegment, TextSegment},
+        text_mapping::TextSegmentMapping,
         text_measure::TextMeasurementFonts,
     };
 
@@ -723,6 +735,7 @@ mod tests {
     fn emits_the_discretionary_hyphen_selected_by_the_breaker() {
         let segment = InlineSegment::Text(TextSegment {
             text: "Nokyoushitsue".to_owned(),
+            mapping: TextSegmentMapping::synthetic(),
             style: Map::from_iter([
                 ("fontSize".to_owned(), json!(10)),
                 ("lineHeight".to_owned(), json!(1.2)),
@@ -760,6 +773,7 @@ mod tests {
             .join("\n");
         let segment = InlineSegment::Text(TextSegment {
             text,
+            mapping: TextSegmentMapping::synthetic(),
             style: style.clone(),
             href: None,
             source_path: None,

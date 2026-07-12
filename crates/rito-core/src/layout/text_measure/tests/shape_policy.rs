@@ -11,6 +11,7 @@ use crate::layout::{
     line_align::apply_line_align,
     line_layout::layout_greedy_lines_with_fonts,
     line_optimal::layout_optimal_lines_with_fonts,
+    text_mapping::TextSegmentMapping,
     text_shape::{RunShape, RunShapeDirection, RunShapeProvenance, RunShapeUnavailableReason},
 };
 
@@ -268,6 +269,7 @@ fn justification_updates_retained_cluster_advances_with_run_width() {
 fn text_segment(text: &str, family: &str) -> InlineSegment {
     InlineSegment::Text(TextSegment {
         text: text.to_owned(),
+        mapping: TextSegmentMapping::synthetic(),
         style: Map::from_iter([
             ("fontSize".to_owned(), json!(20)),
             ("lineHeight".to_owned(), json!(1.2)),

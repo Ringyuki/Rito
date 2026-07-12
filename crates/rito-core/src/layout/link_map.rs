@@ -394,6 +394,7 @@ mod tests {
     fn link_text_run(text: &str, x: f64) -> TextRunBox {
         TextRunBox {
             text: text.to_owned(),
+            text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
             x,
             y: 0.0,
             width: 10.0,
