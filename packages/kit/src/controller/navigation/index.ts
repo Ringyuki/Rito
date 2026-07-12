@@ -19,6 +19,7 @@ export interface NavigationDeps {
 
 export interface NavigationActions {
   goToSpread(index: number): void;
+  startGestureNavigation(index: number, onTransitionStart: () => void): GestureNavigationToken;
   nextSpread(): void;
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
@@ -30,11 +31,23 @@ export interface NavigationActions {
   notifyLayoutCommitted(): void;
 }
 
+/** Cancels a gesture navigation only while it is still waiting for content. */
+export interface GestureNavigationToken {
+  cancel(): void;
+}
+
+interface GestureNavigationRequest {
+  readonly onTransitionStart: () => void;
+  started: boolean;
+  cancelled: boolean;
+}
+
 interface PendingNavigation {
   readonly target: number;
   readonly direction: 'forward' | 'backward';
   readonly previous: number;
   readonly continuityDx: number;
+  readonly gesture?: GestureNavigationRequest;
 }
 
 interface NavigationState {
@@ -51,6 +64,9 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     goToSpread(index) {
       startNavigation(state, deps, index);
     },
+    startGestureNavigation(index, onTransitionStart) {
+      return startGestureNavigation(state, deps, index, onTransitionStart);
+    },
     nextSpread() {
       startNavigation(state, deps, deps.getCurrentSpread() + 1);
     },
@@ -62,7 +78,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     },
     jumpToSpread(index) {
       state.pendingTocEntry = undefined;
-      state.pendingNavigation = undefined;
+      replacePendingNavigation(state, undefined);
       jumpToSpread(deps, index);
     },
     notifyContentReady(spreadIndex) {
@@ -76,17 +92,40 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
 
 function startNavigation(state: NavigationState, deps: NavigationDeps, index: number): void {
   state.pendingTocEntry = undefined;
-  state.pendingNavigation = goToSpread(deps, index);
+  replacePendingNavigation(state, goToSpread(deps, index));
+}
+
+function startGestureNavigation(
+  state: NavigationState,
+  deps: NavigationDeps,
+  index: number,
+  onTransitionStart: () => void,
+): GestureNavigationToken {
+  state.pendingTocEntry = undefined;
+  const request: GestureNavigationRequest = {
+    onTransitionStart,
+    started: false,
+    cancelled: false,
+  };
+  replacePendingNavigation(state, goToSpread(deps, index, request));
+  return {
+    cancel(): void {
+      if (request.started) return;
+      request.cancelled = true;
+      if (state.pendingNavigation?.gesture === request) state.pendingNavigation = undefined;
+    },
+  };
 }
 
 function navigateToTocEntry(state: NavigationState, deps: NavigationDeps, entry: TocEntry): void {
   const resolved = deps.getReader()?.resolveTocEntry(entry);
   if (!resolved) {
+    replacePendingNavigation(state, undefined);
     state.pendingTocEntry = entry;
     return;
   }
   state.pendingTocEntry = undefined;
-  state.pendingNavigation = goToSpread(deps, resolved.spreadIndex);
+  replacePendingNavigation(state, goToSpread(deps, resolved.spreadIndex));
 }
 
 function retryPendingTocNavigation(state: NavigationState, deps: NavigationDeps): void {
@@ -95,7 +134,7 @@ function retryPendingTocNavigation(state: NavigationState, deps: NavigationDeps)
   const resolved = deps.getReader()?.resolveTocEntry(entry);
   if (!resolved) return;
   state.pendingTocEntry = undefined;
-  state.pendingNavigation = goToSpread(deps, resolved.spreadIndex);
+  replacePendingNavigation(state, goToSpread(deps, resolved.spreadIndex));
 }
 
 function continuePendingNavigation(
@@ -105,9 +144,14 @@ function continuePendingNavigation(
 ): void {
   const pending = state.pendingNavigation;
   if (!pending || pending.target !== spreadIndex) return;
+  if (pending.gesture?.cancelled) {
+    state.pendingNavigation = undefined;
+    return;
+  }
   if (!ensureIncomingSlot(deps, pending.target, pending.direction)) return;
   const reader = deps.getReader();
   if (!reader) return;
+  state.pendingNavigation = undefined;
   emitNavigationStart(
     deps,
     reader,
@@ -115,8 +159,8 @@ function continuePendingNavigation(
     pending.direction,
     pending.previous,
     pending.continuityDx,
+    pending.gesture,
   );
-  state.pendingNavigation = undefined;
 }
 
 function jumpToSpread(deps: NavigationDeps, index: number): void {
@@ -133,7 +177,11 @@ function jumpToSpread(deps: NavigationDeps, index: number): void {
   deps.frameDriver.scheduleComposite();
 }
 
-function goToSpread(deps: NavigationDeps, index: number): PendingNavigation | undefined {
+function goToSpread(
+  deps: NavigationDeps,
+  index: number,
+  gesture?: GestureNavigationRequest,
+): PendingNavigation | undefined {
   const reader = deps.getReader();
   if (!reader) return undefined;
   const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
@@ -147,9 +195,9 @@ function goToSpread(deps: NavigationDeps, index: number): PendingNavigation | un
   const direction = clamped > previous ? 'forward' : 'backward';
   if (!ensureIncomingSlot(deps, clamped, direction)) {
     deps.frameDriver.scheduleComposite();
-    return { target: clamped, direction, previous, continuityDx };
+    return { target: clamped, direction, previous, continuityDx, ...(gesture ? { gesture } : {}) };
   }
-  emitNavigationStart(deps, reader, clamped, direction, previous, continuityDx);
+  emitNavigationStart(deps, reader, clamped, direction, previous, continuityDx, gesture);
   return undefined;
 }
 
@@ -178,12 +226,27 @@ function emitNavigationStart(
   direction: 'forward' | 'backward',
   previous: number,
   continuityDx: number,
+  gesture?: GestureNavigationRequest,
 ): void {
+  if (gesture?.cancelled) return;
   const spread = reader.spreads[target];
   deps.setCurrentSpread(target);
   if (spread) deps.emitter.emit('spreadChange', { spreadIndex: target, spread });
   reader.notifyActiveSpread(target);
   deps.td.goToTarget(direction, previous, target, continuityDx);
+  if (gesture) {
+    gesture.started = true;
+    gesture.onTransitionStart();
+  }
   deps.emitter.emit('transitionStart', { direction });
   deps.frameDriver.scheduleComposite();
+}
+
+function replacePendingNavigation(
+  state: NavigationState,
+  next: PendingNavigation | undefined,
+): void {
+  const previous = state.pendingNavigation;
+  if (previous?.gesture && !previous.gesture.started) previous.gesture.cancelled = true;
+  state.pendingNavigation = next;
 }

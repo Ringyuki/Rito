@@ -69,7 +69,7 @@ export function stepBoundaryElastic(
     return {
       nextMode: { kind: 'idle' },
       instruction: { kind: 'single', slot: 'curr' },
-      settled: { direction: 'forward', committed: false, targetSpread: mode.slotSpread },
+      settled: { direction: mode.direction, committed: false, targetSpread: mode.slotSpread },
     };
   }
   return {
@@ -116,7 +116,11 @@ export function forceSettleMode(mode: TransitionMode): {
     case 'boundary-elastic':
       return {
         residualDx: mode.dx,
-        settled: { direction: 'forward', committed: false, targetSpread: mode.slotSpread },
+        settled: {
+          direction: mode.direction,
+          committed: false,
+          targetSpread: mode.slotSpread,
+        },
       };
   }
 }

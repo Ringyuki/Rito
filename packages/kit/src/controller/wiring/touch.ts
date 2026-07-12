@@ -90,8 +90,8 @@ function createGestureDeps(
   return {
     td: runtime.td,
     frameDriver: runtime.frameDriver,
-    goToSpread: (index) => {
-      nav.goToSpread(index);
+    startGestureNavigation: (index, onTransitionStart) => {
+      return nav.startGestureNavigation(index, onTransitionStart);
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,

@@ -17,6 +17,7 @@ import { buildSelectionAccessors } from './selection-accessors';
 import { buildAnnotationActions } from './annotation-actions';
 import { buildPositionActions } from './position-actions';
 import { buildMisc } from './misc-actions';
+import { buildNavigationActions } from './navigation-actions';
 
 export type { Internals } from './types';
 export { syncCanvasSize } from './lifecycle';
@@ -35,7 +36,7 @@ export function buildController(
 ): ReaderController {
   const controller = {
     ...buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
-    ...nav,
+    ...buildNavigationActions(nav),
     ...buildLayoutActions(internals, emitter, runtime),
     ...buildSearchActions(internals, emitter, nav, runtime),
     ...buildSelectionAccessors(internals),

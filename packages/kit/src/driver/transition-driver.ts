@@ -1,4 +1,5 @@
 import {
+  cancelTrackingMode,
   goToTargetMode,
   interruptMode,
   releaseTrackingMode,
@@ -48,6 +49,9 @@ export interface TransitionDriver {
    * Transitions to 'settling' or 'boundary-elastic'.
    */
   releaseTracking(): 'commit' | 'cancel';
+
+  /** Cancel an owned drag/settle and settle back to its outgoing spread. */
+  cancelTracking(): boolean;
 
   /** Programmatic navigation (keyboard, TOC). Goes directly to settling. */
   goToTarget(
@@ -122,7 +126,12 @@ function createTrackingActions(
   state: TransitionDriverState,
 ): Pick<
   TransitionDriver,
-  'startTracking' | 'updateTracking' | 'releaseTracking' | 'goToTarget' | 'interrupt'
+  | 'startTracking'
+  | 'updateTracking'
+  | 'releaseTracking'
+  | 'cancelTracking'
+  | 'goToTarget'
+  | 'interrupt'
 > {
   return {
     startTracking(direction, outgoingSpread, incomingSpread, timestamp): void {
@@ -133,6 +142,9 @@ function createTrackingActions(
     },
     releaseTracking(): 'commit' | 'cancel' {
       return releaseTrackingMode(state);
+    },
+    cancelTracking(): boolean {
+      return cancelTrackingMode(state);
     },
     goToTarget(direction, outgoingSpread, incomingSpread, initialDx = 0): void {
       goToTargetMode(state, direction, outgoingSpread, incomingSpread, initialDx);
