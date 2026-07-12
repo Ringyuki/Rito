@@ -1,6 +1,7 @@
 pub const NAME: &str = "style";
 pub const OWNS: &str = "Cascade, inheritance, computed style, and paint-ready style aggregates";
 
+mod font_fallback;
 mod pseudo;
 mod selector;
 mod tree;
@@ -17,6 +18,9 @@ use crate::{
     xhtml::{DocumentNode, ElementAttributes, ElementNode, ImageNode, SourceRef},
 };
 
+pub(crate) use font_fallback::{
+    rewrite_font_families, FontFallbackFace, FontFallbackPolicy, FontGenericRole,
+};
 use pseudo::inject_pseudo_elements;
 use selector::{matches_selector, SelectorTarget};
 pub use tree::{StyledNode, StyledNodeKind};

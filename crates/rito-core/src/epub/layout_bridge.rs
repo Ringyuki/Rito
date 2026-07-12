@@ -3,10 +3,18 @@ use std::collections::BTreeMap;
 use crate::{
     layout::{
         create_layout_config, BuiltLayout, InlineSegmentChapterInput, LayoutConfig,
-        LayoutConfigInput, LineBreaking, MarginInput, SpreadMode, TextMeasurementCache,
-        TextMeasurementFonts,
+        LayoutConfigInput, LineBreaking, MarginInput, SpreadMode, TextMeasurementFonts,
     },
-    style::{ChapterStyleOptions, ParsedStyleChapterInput, StyledNode, StylesheetRuleMap},
+    style::{
+        rewrite_font_families, ChapterStyleOptions, FontFallbackPolicy, ParsedStyleChapterInput,
+        StyledNode, StylesheetRuleMap,
+    },
+};
+
+mod runtime;
+
+pub(crate) use runtime::{
+    build_prepared_loaded_document_runtime_layout, PreparedRuntimeLayoutOptions,
 };
 
 use super::{
@@ -74,12 +82,14 @@ pub(crate) struct PreparedRuntimeLayoutChapter {
 pub(crate) fn prepare_runtime_layout_chapter(
     prepared: &PreparedLoadedDocument,
     layout_config: &LayoutConfig,
+    font_fallbacks: Option<&FontFallbackPolicy<'_>>,
 ) -> Option<PreparedRuntimeLayoutChapter> {
     let input = layout_inputs(
         &prepared.stylesheet_rules,
         &prepared.chapters,
         &prepared.filtered_footnote_nodes,
         layout_config,
+        font_fallbacks,
     )
     .into_iter()
     .next()?;
@@ -130,7 +140,8 @@ pub(crate) fn build_prepared_loaded_document_with_layout_and_line_breaking(
         viewport,
         chapter_style_options(layout_config),
     );
-    let text_measurement_fonts = text_measurement_fonts_for_layout(document, layout_config, None);
+    let text_measurement_fonts =
+        text_measurement_fonts_for_layout(document, layout_config, None, Vec::new());
     let built_layout = build_layout(
         &prepared.stylesheet_rules,
         &prepared.chapters,
@@ -158,76 +169,6 @@ pub(crate) fn build_prepared_loaded_document_with_layout_and_line_breaking(
     };
 
     Ok(BuiltEpubPublication { publication })
-}
-
-pub(crate) fn build_prepared_loaded_document_layout_prefix_with_cache_and_line_breaking(
-    document: &LoadedEpubDocument,
-    prepared: &PreparedLoadedDocument,
-    layout_config: &LayoutConfig,
-    line_breaking: LineBreaking,
-    chapter_limit: usize,
-    text_measurement_cache: Option<TextMeasurementCache>,
-) -> BuiltLayout {
-    let text_measurement_fonts =
-        text_measurement_fonts_for_layout(document, layout_config, text_measurement_cache);
-    let chapter_count = chapter_limit.min(prepared.chapters.len());
-    build_runtime_layout(
-        &prepared.stylesheet_rules,
-        &prepared.chapters[..chapter_count],
-        &prepared.filtered_footnote_nodes,
-        &prepared.resources,
-        layout_config,
-        line_breaking,
-        &text_measurement_fonts,
-    )
-}
-
-pub(crate) fn build_prepared_loaded_document_layout_window_with_cache_and_line_breaking(
-    document: &LoadedEpubDocument,
-    prepared: &PreparedLoadedDocument,
-    layout_config: &LayoutConfig,
-    line_breaking: LineBreaking,
-    chapter_start: usize,
-    chapter_count: usize,
-    text_measurement_cache: Option<TextMeasurementCache>,
-) -> BuiltLayout {
-    let text_measurement_fonts =
-        text_measurement_fonts_for_layout(document, layout_config, text_measurement_cache);
-    let end = chapter_start
-        .saturating_add(chapter_count)
-        .min(prepared.chapters.len());
-    build_runtime_layout(
-        &prepared.stylesheet_rules,
-        &prepared.chapters[chapter_start..end],
-        &prepared.filtered_footnote_nodes,
-        &prepared.resources,
-        layout_config,
-        line_breaking,
-        &text_measurement_fonts,
-    )
-}
-
-fn build_runtime_layout(
-    stylesheet_rules: &StylesheetRuleMap,
-    chapters: &[ParsedLoadedChapterSource],
-    filtered_footnote_nodes: &BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
-    resources: &crate::resources::PublicationResources,
-    layout_config: &LayoutConfig,
-    line_breaking: LineBreaking,
-    text_measurement_fonts: &TextMeasurementFonts<'_>,
-) -> BuiltLayout {
-    crate::layout::build_inline_segments_runtime(
-        layout_inputs(
-            stylesheet_rules,
-            chapters,
-            filtered_footnote_nodes,
-            layout_config,
-        ),
-        resources,
-        layout_config,
-        line_breaking,
-        text_measurement_fonts,
-    )
 }
 
 fn default_publication_layout_config() -> LayoutConfig {
@@ -263,6 +204,7 @@ fn build_layout(
             chapters,
             filtered_footnote_nodes,
             layout_config,
+            None,
         ),
         resources,
         layout_config,
@@ -276,6 +218,7 @@ fn layout_inputs<'a>(
     chapters: &'a [ParsedLoadedChapterSource],
     filtered_footnote_nodes: &'a BTreeMap<String, Vec<crate::xhtml::DocumentNode>>,
     layout_config: &LayoutConfig,
+    font_fallbacks: Option<&FontFallbackPolicy<'_>>,
 ) -> Vec<InlineSegmentChapterInput<'a>> {
     let viewport = Some(crate::css::CssViewport {
         width: layout_config.viewport_width,
@@ -291,25 +234,31 @@ fn layout_inputs<'a>(
                 chapter.parsed.embedded_stylesheets.as_deref(),
                 layout_config.root_font_size,
             );
-            let resolved = crate::style::resolve_chapter_style_nodes(
+            let mut resolved = crate::style::resolve_chapter_style_nodes(
                 &chapter.parsed.nodes,
                 &rules,
                 chapter.parsed.body_attributes.as_ref(),
                 viewport,
                 chapter_style_options(layout_config),
             );
+            if let Some(font_fallbacks) = font_fallbacks {
+                rewrite_font_families(&mut resolved.styled_nodes, font_fallbacks);
+            }
             let pagination_styled_nodes =
                 filtered_footnote_nodes
                     .get(&chapter.source.idref)
                     .map(|nodes| {
-                        crate::style::resolve_chapter_style_nodes(
+                        let mut resolved = crate::style::resolve_chapter_style_nodes(
                             nodes,
                             &rules,
                             chapter.parsed.body_attributes.as_ref(),
                             viewport,
                             chapter_style_options(layout_config),
-                        )
-                        .styled_nodes
+                        );
+                        if let Some(font_fallbacks) = font_fallbacks {
+                            rewrite_font_families(&mut resolved.styled_nodes, font_fallbacks);
+                        }
+                        resolved.styled_nodes
                     });
             InlineSegmentChapterInput {
                 idref: &chapter.source.idref,

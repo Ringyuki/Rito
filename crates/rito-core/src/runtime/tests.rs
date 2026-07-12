@@ -5,6 +5,7 @@ mod fixture;
 mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;
+mod pinned_font_wiring_tests;
 
 use command_hash::{
     hash_json_value, json_values_match_after_number_round_trip,

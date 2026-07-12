@@ -86,15 +86,25 @@ impl RuntimeDocument {
         let prepared = partial_prepared
             .or(self.prepared.as_ref())
             .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
-        let layout =
-            crate::epub::build_prepared_loaded_document_layout_prefix_with_cache_and_line_breaking(
-                &self.document,
-                prepared,
-                layout_config,
+        let pinned_faces = self
+            .pinned_font_policy
+            .measurement_faces_for_layout(layout_config);
+        let font_fallbacks = self
+            .pinned_font_policy
+            .family_fallbacks_for_layout(layout_config, &self.document.package.metadata.language);
+        let layout = crate::epub::build_prepared_loaded_document_runtime_layout(
+            &self.document,
+            prepared,
+            layout_config,
+            crate::epub::PreparedRuntimeLayoutOptions {
+                chapter_start: 0,
+                chapter_count: prepared.chapters.len(),
                 line_breaking,
-                prepared.chapters.len(),
-                Some(self.text_measurement_cache.clone()),
-            );
+                text_measurement_cache: Some(self.text_measurement_cache.clone()),
+                pinned_faces,
+                font_fallbacks,
+            },
+        );
         let layout_key = layout_key(layout_config, &self.pinned_font_policy)?;
         let interactions = match &partial_data {
             Some((_, footnotes)) => partial_revision_interactions(prepared, footnotes.clone()),
@@ -136,16 +146,27 @@ impl RuntimeDocument {
         let prepared =
             self.prepare_cached_document_window(chapter_start, chapter_count, &targets)?;
         let window_layout_config = chapter_window_layout_config(layout_config);
-        let layout =
-            crate::epub::build_prepared_loaded_document_layout_window_with_cache_and_line_breaking(
-                &self.document,
-                &prepared,
-                &window_layout_config,
+        let pinned_faces = self
+            .pinned_font_policy
+            .measurement_faces_for_layout(&window_layout_config);
+        let font_fallbacks = self.pinned_font_policy.family_fallbacks_for_layout(
+            &window_layout_config,
+            &self.document.package.metadata.language,
+        );
+        let chapter_count = prepared.chapters.len();
+        let layout = crate::epub::build_prepared_loaded_document_runtime_layout(
+            &self.document,
+            &prepared,
+            &window_layout_config,
+            crate::epub::PreparedRuntimeLayoutOptions {
+                chapter_start: 0,
+                chapter_count,
                 line_breaking,
-                0,
-                prepared.chapters.len(),
-                Some(self.text_measurement_cache.clone()),
-            );
+                text_measurement_cache: Some(self.text_measurement_cache.clone()),
+                pinned_faces,
+                font_fallbacks,
+            },
+        );
         let layout_key = layout_key(&window_layout_config, &self.pinned_font_policy)?;
         let revision = RuntimeRevision::completed(
             layout,

@@ -6,29 +6,27 @@ use std::collections::BTreeMap;
 
 use super::{paths::normalize_href_path, LoadedEpubDocument};
 
-pub(super) fn text_measurement_fonts_from_document<'a>(
-    document: &'a LoadedEpubDocument,
-    layout_config: &LayoutConfig,
-) -> TextMeasurementFonts<'a> {
-    text_measurement_fonts_from_document_with_cache(
-        document,
-        layout_config,
-        TextMeasurementCache::default(),
-    )
-}
-
 pub(crate) fn text_measurement_fonts_for_layout<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
     cache: Option<TextMeasurementCache>,
+    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
 ) -> TextMeasurementFonts<'a> {
     match layout_config.text_measurement {
         TextMeasurementMode::FixtureCompatible => TextMeasurementFonts::empty(),
         TextMeasurementMode::FontAware => match cache {
-            Some(cache) => {
-                text_measurement_fonts_from_document_with_cache(document, layout_config, cache)
-            }
-            None => text_measurement_fonts_from_document(document, layout_config),
+            Some(cache) => text_measurement_fonts_from_document_with_cache(
+                document,
+                layout_config,
+                cache,
+                pinned_faces,
+            ),
+            None => text_measurement_fonts_from_document_with_cache(
+                document,
+                layout_config,
+                TextMeasurementCache::default(),
+                pinned_faces,
+            ),
         },
     }
 }
@@ -37,6 +35,7 @@ fn text_measurement_fonts_from_document_with_cache<'a>(
     document: &'a LoadedEpubDocument,
     layout_config: &LayoutConfig,
     cache: TextMeasurementCache,
+    pinned_faces: Vec<TextMeasurementFontFace<'a>>,
 ) -> TextMeasurementFonts<'a> {
     let mut faces = Vec::new();
     for stylesheet in &document.stylesheets {
@@ -74,6 +73,10 @@ fn text_measurement_fonts_from_document_with_cache<'a>(
             faces.push(face);
         }
     }
+    // Publication faces retain author priority. Pinned aliases follow them,
+    // and matching's reverse tie order makes the pinned face authoritative if
+    // a hostile or accidental @font-face declaration collides with its alias.
+    faces.extend(pinned_faces);
     TextMeasurementFonts::new_with_cache(
         faces,
         cache,

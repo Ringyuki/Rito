@@ -159,6 +159,18 @@ source range, and selected text is not reconstructed from painted runs. Forced
 breaks and source-node boundaries require explicit logical provenance retained
 through line breaking.
 
+Rust layout now retains an Arc-backed logical text flow and exact UTF-16 run
+slices through greedy/optimal line breaking and pagination. Generated content,
+parser-restored whitespace, non-linear transforms and synthetic hyphens remain
+typed unavailable instead of inventing source coordinates. The runtime also
+owns a validated, document-lifetime pinned-font policy, and font-aware layout
+now injects its locale-ordered aliases once into the resolved family stack used
+by both Rust shaping and paint commands. Author EPUB faces remain first and a
+missing glyph can fall through the complete same-role pinned chain. This closes
+the Rust-side family identity path; WASM/Worker asset transfer, pre-first-frame
+browser `FontFace` registration and licensed production assets are still
+required before the browser reader can enable the policy.
+
 Interaction responses and host caches must bind to the complete revision
 handle. A visual preview must either expose its own active presentation handle
 or explicitly disable interaction until the canonical revision commits; host
@@ -273,8 +285,13 @@ architecture rather than make an eager whole-book pipeline faster.
 4. Retain exact shaping clusters/caret stops and logical text provenance in
    Rust layout; wire the existing versioned text diagnostics through the Worker
    without presenting their legacy interpolated geometry as selection-ready.
+   **Implemented, including conservative unavailable barriers and render-golden
+   equivalence.**
 5. Prove the shared pinned-font/paint-alias path on a no-embedded-font real book
    and use shape-provenance diagnostics to choose the production fallback set.
+   **The immutable policy and Rust shaping/paint family stack are implemented;
+   Worker transport, browser registration, licensed assets and the real-book
+   proof remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility.
 7. Reduce browser session policy to explicit core-requested host operations.

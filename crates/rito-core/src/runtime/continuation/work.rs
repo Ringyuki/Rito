@@ -66,10 +66,14 @@ impl RuntimeDocument {
         record: &mut RuntimeContinuationRecord,
         remaining: usize,
     ) -> RuntimeChapterLayoutAdvance {
+        let pinned_faces = self
+            .pinned_font_policy
+            .measurement_faces_for_layout(&record.layout_config);
         let fonts = text_measurement_fonts_for_layout(
             &self.document,
             &record.layout_config,
             Some(self.text_measurement_cache.clone()),
+            pinned_faces,
         );
         let budget = LayoutWorkBudget::new(
             NonZeroUsize::new(remaining).expect("remaining work is non-zero"),
@@ -92,12 +96,20 @@ impl RuntimeDocument {
         self.document
             .ensure_chapter_image_dimensions_loaded(chapter_index, 1)?;
         let prepared = self.prepare_cached_document_window(chapter_index, 1, &footnote_targets)?;
+        let font_fallbacks = self.pinned_font_policy.family_fallbacks_for_layout(
+            &record.layout_config,
+            &self.document.package.metadata.language,
+        );
         let PreparedRuntimeLayoutChapter {
             idref,
             styled_nodes,
             page_paint,
-        } = prepare_runtime_layout_chapter(&prepared, &record.layout_config)
-            .ok_or_else(|| EpubError::new("prepared runtime chapter is unavailable"))?;
+        } = prepare_runtime_layout_chapter(
+            &prepared,
+            &record.layout_config,
+            font_fallbacks.as_ref(),
+        )
+        .ok_or_else(|| EpubError::new("prepared runtime chapter is unavailable"))?;
         Ok(RuntimeChapterContinuation {
             idref,
             session: RuntimeChapterLayoutSession::new(
