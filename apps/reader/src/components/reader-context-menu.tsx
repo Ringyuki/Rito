@@ -60,13 +60,13 @@ export function ReaderContextMenu({
   }, [reader.controller, reader.selection.text]);
 
   const handleHighlight = useCallback(() => {
-    if (!reader.selection.range) return;
+    if (!reader.selection.hasSelection) return;
     reader.annotations.add({
       kind: 'highlight',
       color: ANNOTATION_COLORS[0].value,
     });
     reader.controller?.clearSelection();
-  }, [reader.annotations, reader.controller, reader.selection.range]);
+  }, [reader.annotations, reader.controller, reader.selection.hasSelection]);
 
   const handleSearchSelection = useCallback(() => {
     if (!reader.selection.text) return;

@@ -48,12 +48,14 @@ function createMocks(options?: {
   const setPages = vi.fn();
   const resolve = vi.fn(() => options?.resolvedSpread);
   const getCurrent = vi.fn<() => ReadingPosition | null>(() => null);
+  const invalidateSelection = vi.fn();
   const internals = {
     reader,
     currentSpread: options?.currentSpread ?? 1,
     renderScale: 1,
     options: {},
     engines: {
+      selection: { invalidate: invalidateSelection },
       search: { setPages },
       position: { getCurrent, resolve },
     },
@@ -90,6 +92,7 @@ function createMocks(options?: {
       setPages,
       resolve,
       getCurrent,
+      invalidateSelection,
     },
   };
 }
@@ -125,6 +128,7 @@ describe('buildLayoutActions', () => {
       totalSpreads: reader.totalSpreads,
     });
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
+    expect(spies.invalidateSelection).toHaveBeenCalledOnce();
   });
 
   it('does nothing when typography overrides do not commit synchronously', () => {

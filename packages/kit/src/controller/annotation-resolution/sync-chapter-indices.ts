@@ -11,6 +11,10 @@ import type { CoordinatorState } from '../core/coordinator-state';
 export function syncChapterIndices(state: CoordinatorState, reader: Reader): void {
   const sourceIndices = reader.getChapterTextIndices();
   const target = new Map<string, ChapterTextIndex>();
-  for (const [key, value] of sourceIndices) target.set(key, value);
+  for (const value of sourceIndices.values()) {
+    // Keep a single canonical namespace: durable resource hrefs. Mixing idrefs
+    // and hrefs in one Map can alias two legal EPUB identities.
+    target.set(value.href, value);
+  }
   state.chapterIndices = target;
 }

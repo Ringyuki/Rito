@@ -39,7 +39,7 @@ export function AnnotationToolbar({ selection, annotations, controller, zoomScal
   const left = anchor.x * zoomScale;
 
   const submit = (color: string, noteText?: string) => {
-    if (!controller || !selection.range) return;
+    if (!controller || !selection.hasSelection) return;
     annotations.add({
       kind: 'highlight',
       color,

@@ -1,0 +1,45 @@
+import type {
+  ReaderLocator,
+  ReaderSameFlowTextRange,
+  ReaderTextPoint,
+  ReaderTextSelectionInteractions,
+} from '@ritojs/core';
+
+export type NativeSelectionCapability = ReaderTextSelectionInteractions;
+export type NativeSelectionPoint = ReaderTextPoint;
+export type NativeSelectionState = 'idle' | 'selecting' | 'selected' | 'disposed';
+export type NativeSelectionFocusDirection = 'forward' | 'backward';
+
+/** Exact native selection data. Rectangles remain in page-content coordinates. */
+export interface NativeSelectionSnapshot {
+  readonly range: ReaderSameFlowTextRange;
+  readonly text: string;
+  readonly rects: ReaderSameFlowTextRange['rects'];
+  readonly sourceLocator: ReaderLocator;
+  readonly focusDirection: NativeSelectionFocusDirection;
+  readonly focusCaret: {
+    readonly pageIndex: number;
+    readonly geometry: ReaderSameFlowTextRange['focus']['geometry'];
+  };
+}
+
+export interface NativeSelectionChange {
+  readonly state: NativeSelectionState;
+  readonly snapshot: NativeSelectionSnapshot | null;
+}
+
+export interface NativeSelectionEngineOptions {
+  readonly onError?: ((error: unknown) => void) | undefined;
+}
+
+export interface NativeSelectionEngine {
+  handlePointerDown(point: NativeSelectionPoint): void;
+  handlePointerMove(point: NativeSelectionPoint): void;
+  handlePointerUp(point: NativeSelectionPoint): void;
+  clear(): void;
+  invalidate(): void;
+  dispose(): void;
+  getState(): NativeSelectionState;
+  getSnapshot(): NativeSelectionSnapshot | null;
+  onChange(listener: (change: NativeSelectionChange) => void): () => void;
+}

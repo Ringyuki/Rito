@@ -79,6 +79,17 @@ overlay canvas, and interaction bindings are attached under that container.
 - pointer/touch/keyboard wiring
 - optional storage-backed position and annotations
 
+When the Reader exposes `interactions.textSelection`, Kit treats that capability
+as authoritative: pointer samples are resolved asynchronously against the committed
+Rust revision, exact rectangles drive the overlay, selected source text drives copy,
+and the returned source range anchors annotations. `selectionRange` remains available
+for legacy readers but is intentionally `null` for an exact native selection; use
+`hasSelection` and `selectionSourceLocator` instead. Revision invalidation, spread
+changes, render-scale changes, cancellation, and disposal discard late async results.
+Persistent annotation target creation now preserves the exact native source range;
+annotation re-projection still uses legacy HitMaps and remains limited on Rust Readers
+whose compatibility `Page.content` is empty.
+
 ## When Not To Use It
 
 Skip `@ritojs/kit` when:

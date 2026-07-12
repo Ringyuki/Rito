@@ -34,21 +34,26 @@ export function buildController(
   canvas: HTMLCanvasElement,
   reader: Reader,
 ): ReaderController {
-  const controller = {
-    ...buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
-    ...buildNavigationActions(nav),
-    ...buildLayoutActions(internals, emitter, runtime),
-    ...buildSearchActions(internals, emitter, nav, runtime),
-    ...buildSelectionAccessors(internals),
-    ...buildAnnotationActions(internals),
-    ...buildPositionActions(internals, nav),
-    ...buildMisc(emitter, modeManager, keyboard, (update) => {
+  const controller = {} as ReaderController;
+  defineSlice(
+    controller,
+    buildLifecycle(disposables, runtime, internals.coordState, opts, canvas, reader),
+    buildNavigationActions(nav),
+    buildLayoutActions(internals, emitter, runtime),
+    buildSearchActions(internals, emitter, nav, runtime),
+    buildSelectionAccessors(internals),
+    buildAnnotationActions(internals),
+    buildPositionActions(internals, nav),
+    buildMisc(emitter, modeManager, keyboard, (update) => {
       runtime.td.configure(update);
     }),
-  } as unknown as ReaderController;
-  Object.defineProperties(
-    controller,
-    Object.getOwnPropertyDescriptors(buildReaderProxies(internals)),
+    buildReaderProxies(internals),
   );
   return controller;
+}
+
+function defineSlice(target: object, ...slices: readonly object[]): void {
+  for (const slice of slices) {
+    Object.defineProperties(target, Object.getOwnPropertyDescriptors(slice));
+  }
 }

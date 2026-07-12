@@ -11,6 +11,7 @@ import type {
 } from '../../interaction/index';
 import { resolveAnnotations } from '../../interaction/index';
 import type { CoordinatorState } from '../core/coordinator-state';
+import { buildChapterPageRanges } from './chapter-identity';
 
 /**
  * Resolve all records in the store against the current layout.
@@ -27,7 +28,8 @@ export function resolveVisibleAnnotations(
   const context: ResolutionContext = {
     chapterIndices: state.chapterIndices,
     hitMaps: state.hitMaps,
-    chapterPageRanges: reader.chapterMap,
+    chapterPageRanges: buildChapterPageRanges(reader),
+    chapterHrefMap: reader.manifestHrefMap,
     measurer: reader.measurer,
   };
 

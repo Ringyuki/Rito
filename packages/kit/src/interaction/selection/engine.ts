@@ -13,15 +13,16 @@
  * Returned rects from `getRects()` are also in spread-content space.
  */
 
+import type { ReaderLocator, ReaderTextSelectionInteractions } from '@ritojs/core';
 import type { LayoutConfig, Rect, Spread } from '../layout-types';
 import type { TextMeasurer } from '../layout-types';
 import { buildHitMap, resolveCharPosition } from '../core/hit-map';
-import { getFirstTextPosition, getLastTextPosition } from '../core/text-traversal';
 import type { TextPosition, TextRange } from '../core/types';
 import { compareTextPositions } from '../core/text-traversal';
-import { getSelectedText } from './range';
 import type { AnchoredPosition, SpreadContext } from './spread';
 import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
+import { createNativeSelectionAdapter } from './native-adapter';
+import { getLegacySelectionText } from './legacy-text';
 
 export type SelectionState = 'idle' | 'selecting' | 'selected';
 
@@ -48,24 +49,51 @@ export interface SelectionSnapshot {
   readonly end: PagedPosition;
 }
 
+/** Controller-owned projection between spread-content and page-content spaces. */
+export interface NativeSelectionProjection {
+  spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
+  pageContentToSpread(pageIndex: number, rect: Rect): Rect;
+}
+
 export interface SelectionEngine {
   handlePointerDown(input: PointerInput): void;
   handlePointerMove(input: PointerInput): void;
   handlePointerUp(input: PointerInput): void;
-  setSpread(spread: Spread, config: LayoutConfig, measurer: TextMeasurer): void;
+  setSpread(
+    spread: Spread,
+    config: LayoutConfig,
+    measurer: TextMeasurer,
+    nativeProjection?: NativeSelectionProjection,
+  ): void;
   /** Returns the selection range in document order (start <= end). */
   getSelection(): TextRange | null;
   /** Returns a snapshot with both pointer-semantic and document-order endpoints. */
   getSnapshot(): SelectionSnapshot | null;
+  /** Whether either the legacy or exact native path owns a non-collapsed selection. */
+  hasSelection(): boolean;
   getText(): string;
+  /** Durable source identity, available for exact native selections. */
+  getSourceLocator(): ReaderLocator | null;
   getRects(): readonly Rect[];
+  /** Exact focus caret in spread-content coordinates when available. */
+  getFocusRect(): Rect | null;
+  /** Which document-order edge currently follows the pointer. */
+  getFocusEdge(): 'start' | 'end' | null;
   getState(): SelectionState;
   clear(): void;
+  /** Cancel revision-bound work while retaining the engine for the next spread. */
+  invalidate(): void;
+  /** Permanently cancel work and detach listeners. */
+  dispose(): void;
   onSelectionChange(cb: (range: TextRange | null) => void): () => void;
+  onError(cb: (error: unknown) => void): () => void;
 }
 
 /** Create a new SelectionEngine instance. */
-export function createSelectionEngine(): SelectionEngine {
+export function createSelectionEngine(
+  nativeCapability?: ReaderTextSelectionInteractions,
+): SelectionEngine {
+  if (nativeCapability) return createNativeSelectionAdapter(nativeCapability);
   const s = createState();
   return buildEngine(s);
 }
@@ -148,8 +176,10 @@ function handleMove(s: EngineState, input: PointerInput): void {
   notify(s);
 }
 
-function handleUp(s: EngineState): void {
+function handleUp(s: EngineState, input: PointerInput): void {
   if (s.state !== 'selecting') return;
+  const finalPosition = resolve(input, s);
+  if (finalPosition) s.focus = finalPosition;
   if (s.anchor && s.focus && isSamePosition(s.anchor, s.focus)) {
     clearState(s);
     notify(s);
@@ -167,17 +197,17 @@ function clearState(s: EngineState): void {
 }
 
 function buildEngine(s: EngineState): SelectionEngine {
-  const engine: SelectionEngine = {
+  return {
     handlePointerDown(input) {
       handleDown(s, input, () => {
-        engine.clear();
+        clearEngine(s);
       });
     },
     handlePointerMove(input) {
       handleMove(s, input);
     },
-    handlePointerUp() {
-      handleUp(s);
+    handlePointerUp(input) {
+      handleUp(s, input);
     },
     setSpread(spread, config, measurer) {
       s.ctx = {
@@ -187,53 +217,56 @@ function buildEngine(s: EngineState): SelectionEngine {
         rightHitMap: spread.right ? buildHitMap(spread.right) : undefined,
       };
       s.spread = spread;
-      engine.clear();
+      clearEngine(s);
     },
     getSelection: () => getRange(s),
     getSnapshot: () => getSnapshotFromState(s),
-    getText: () => getTextFromState(s),
+    hasSelection: () =>
+      s.anchor !== undefined && s.focus !== undefined && !isSamePosition(s.anchor, s.focus),
+    getText: () => getLegacySelectionText(s.spread, s.anchor, s.focus, getRange(s)),
+    getSourceLocator: () => null,
     getRects: () => getRectsFromState(s),
+    getFocusRect: () => null,
+    getFocusEdge: () => getFocusEdgeFromState(s),
     getState: () => s.state,
+    ...buildLifecycleMethods(s),
+  };
+}
+
+function buildLifecycleMethods(
+  s: EngineState,
+): Pick<SelectionEngine, 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'> {
+  return {
     clear() {
-      const had = s.anchor !== undefined;
+      clearEngine(s);
+    },
+    invalidate() {
+      clearEngine(s);
+    },
+    dispose() {
       clearState(s);
-      if (had) notify(s);
+      s.ctx = undefined;
+      s.spread = undefined;
+      s.listeners.clear();
     },
     onSelectionChange: (cb) => {
       s.listeners.add(cb);
       return () => s.listeners.delete(cb);
     },
+    onError: () => () => undefined,
   };
-  return engine;
 }
 
-function getTextFromState(s: EngineState): string {
-  const range = getRange(s);
-  if (!range || !s.spread || !s.anchor || !s.focus) return '';
+function clearEngine(s: EngineState): void {
+  const had = s.anchor !== undefined;
+  clearState(s);
+  if (had) notify(s);
+}
 
-  // Same page — straightforward
-  if (s.anchor.pageIndex === s.focus.pageIndex) {
-    const page = s.anchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
-    if (!page) return '';
-    return getSelectedText(page, range);
-  }
-
-  // Cross-page: concatenate text from both pages
-  const [startAnchor, endAnchor] =
-    s.anchor.pageIndex < s.focus.pageIndex ? [s.anchor, s.focus] : [s.focus, s.anchor];
-  const startPage = startAnchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
-  const endPage = endAnchor.pageIndex === s.spread.left?.index ? s.spread.left : s.spread.right;
-  let text = '';
-  const startEnd = startPage ? getLastTextPosition(startPage) : undefined;
-  if (startPage && startEnd)
-    text += getSelectedText(startPage, {
-      start: startAnchor.position,
-      end: startEnd,
-    });
-  const endStart = endPage ? getFirstTextPosition(endPage) : undefined;
-  if (endPage && endStart)
-    text += getSelectedText(endPage, { start: endStart, end: endAnchor.position });
-  return text;
+function getFocusEdgeFromState(s: EngineState): 'start' | 'end' | null {
+  const snapshot = getSnapshotFromState(s);
+  if (!snapshot) return null;
+  return snapshot.focus === snapshot.start ? 'start' : 'end';
 }
 
 function getRectsFromState(s: EngineState): readonly Rect[] {

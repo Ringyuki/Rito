@@ -1,7 +1,10 @@
 import type { AnnotationRecord, AnnotationRecordPatch } from '../../interaction/index';
 import type { AddAnnotationInput } from '../types';
 import type { Internals, AnnotationActionsSlice } from './types';
-import { buildAnnotationTargetFromSnapshot } from '../annotation-resolution/target-builder';
+import {
+  buildAnnotationTargetFromLocator,
+  buildAnnotationTargetFromSnapshot,
+} from '../annotation-resolution/target-builder';
 
 export function buildAnnotationActions(internals: Internals): AnnotationActionsSlice {
   return {
@@ -30,10 +33,13 @@ function addAnnotationImpl(
   const store = internals.coordState.annotationStore;
   if (!store) return undefined;
 
+  const sourceLocator = internals.engines.selection.getSourceLocator();
   const snapshot = internals.engines.selection.getSnapshot();
-  if (!snapshot) return undefined;
-
-  const target = buildAnnotationTargetFromSnapshot(snapshot, internals);
+  const target = sourceLocator
+    ? buildAnnotationTargetFromLocator(sourceLocator, internals)
+    : snapshot
+      ? buildAnnotationTargetFromSnapshot(snapshot, internals)
+      : undefined;
   if (!target) return undefined;
 
   const record = store.add({

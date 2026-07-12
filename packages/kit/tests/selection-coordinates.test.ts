@@ -61,6 +61,18 @@ describe('Selection engine coordinate behavior', () => {
       expect(engine.getState()).toBe('selected');
       expect(engine.getRects().length).toBeGreaterThan(0);
     });
+
+    it('uses pointerUp as the final selection sample', () => {
+      const page = makePage([makeBlock([makeLine([makeRun('Hello world', 0)], 0)])], 0);
+      const engine = createSelectionEngine();
+      engine.setSpread({ index: 0, left: page }, config, measurer);
+
+      engine.handlePointerDown({ x: 0, y: 10 });
+      engine.handlePointerMove({ x: 20, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      expect(engine.getText()).toBe('Hello');
+    });
   });
 
   describe('non-zero margin config (needs synthetic content config)', () => {

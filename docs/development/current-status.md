@@ -146,7 +146,12 @@ Those names now belong to the old TS reference tree only.
   semantics, and Browser Reader exposes an optional atomic `textSelection`
   capability. Browser carets are opaque objects whose raw Rust addresses are
   privately bound to the worker session, revision version, and commit
-  generation. Kit selection wiring remains.
+  generation. Kit now treats this capability as authoritative, coalesces async
+  pointer samples with latest-result ownership, projects exact page rectangles,
+  drives copy and selection UI from native text, and creates persistent
+  annotation targets directly from the returned source range. Native annotation
+  re-projection remains pending. Legacy layout-local
+  selection remains only for Readers without the capability.
 - The private JavaScript facade and Worker transport preserve complete revision
   handles for bounded advances and version-gated reads, reject skipped or
   mismatched versions, round-trip failed-revision cleanup state, and perform
@@ -277,8 +282,9 @@ Those names now belong to the old TS reference tree only.
      current spread's native targets and uses them for exact footnotes, internal
      locator navigation, external links and standalone images without falling
      back to legacy hit geometry.
-   - Migrate Kit selection, highlights, annotations, reading positions and
-     accessibility after precise native point/caret and range geometry lands.
+   - Exact Kit selection, selection highlights, copy, and source-range annotation
+     target creation are implemented. Migrate annotation re-projection, reading
+     positions and accessibility to native source/semantic data next.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
      their callers use native semantic and geometry queries.
 3. **Thin session ownership**

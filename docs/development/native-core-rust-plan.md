@@ -639,8 +639,10 @@ roadmap in this order:
    Worker and the public Reader;
 4. add precise native point/range geometry, then migrate Kit selection,
    highlights, annotations, positions and accessibility; **the version-gated
-   Rust core, WASM/Worker transport, and opaque Browser Reader point/same-flow
-   capability are implemented, while Kit wiring remains;**
+   Rust core, WASM/Worker transport, opaque Browser Reader point/same-flow
+   capability, and Kit exact selection/highlight/copy/source-annotation target
+   creation are implemented; native annotation re-projection, reading positions,
+   and accessibility remain;**
 5. reduce the browser shell to core-requested host operations;
 6. pass the real-book usability and stage-specific performance gate;
 7. build the controlled WebView/DOM harness and deliberately transition the
@@ -825,8 +827,9 @@ active usability roadmap.
    - Exact Rust point-to-caret and same-flow range resolution now rejects
      host-shaped, source-unavailable and transform-unsupported runs instead of
      interpolating them. Its strict WASM/Worker transport and revision-bound
-     Browser Reader capability are implemented; switch Kit selection only
-     through that capability.
+     Browser Reader capability are implemented. Kit uses that capability
+     authoritatively with async cancellation and source-range annotations;
+     Readers without it retain the legacy selection engine.
 7. **React reader switch - done**
    - `@ritojs/react` imports root `@ritojs/core`.
    - `@ritojs/kit` consumes the same root reader surface.

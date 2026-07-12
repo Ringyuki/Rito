@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import type { ReaderLocator } from '@ritojs/core';
 import type { ReaderController, TextRange } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
@@ -11,6 +12,7 @@ interface Rect {
 
 export interface SelectionState {
   readonly range: TextRange | null;
+  readonly sourceLocator: ReaderLocator | null;
   readonly text: string;
   /** Selection rects in spread-content space (legacy — prefer viewportRects). */
   readonly rects: readonly Rect[];
@@ -21,27 +23,35 @@ export interface SelectionState {
   readonly hasSelection: boolean;
 }
 
+const EMPTY_SELECTION_STATE: SelectionState = {
+  range: null,
+  sourceLocator: null,
+  text: '',
+  rects: [],
+  viewportRects: [],
+  focusRect: null,
+  hasSelection: false,
+};
+
 export function useSelection(controller: ReaderController | null): SelectionState & {
   clear: () => void;
 } {
-  const [state, setState] = useState<SelectionState>({
-    range: null,
-    text: '',
-    rects: [],
-    viewportRects: [],
-    focusRect: null,
-    hasSelection: false,
-  });
+  const [state, setState] = useState(EMPTY_SELECTION_STATE);
+
+  useEffect(() => {
+    setState(EMPTY_SELECTION_STATE);
+  }, [controller]);
 
   useControllerEvent(
     controller,
     'selectionChange',
-    ({ range, text, rects, viewportRects, focusRect }) => {
-      setState({ range, text, rects, viewportRects, focusRect, hasSelection: range !== null });
+    ({ range, sourceLocator, text, rects, viewportRects, focusRect, hasSelection }) => {
+      setState({ range, sourceLocator, text, rects, viewportRects, focusRect, hasSelection });
     },
   );
 
   const clear = useCallback(() => {
+    setState(EMPTY_SELECTION_STATE);
     controller?.clearSelection();
   }, [controller]);
 

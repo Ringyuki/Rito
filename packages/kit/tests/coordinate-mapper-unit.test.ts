@@ -45,6 +45,10 @@ describe('CoordinateMapper', () => {
       expect(p?.x).toBe(40);
     });
 
+    it('displayToPageContent composes display scaling, margins, and page resolution', () => {
+      expect(mapper.displayToPageContent(80, 60)).toEqual({ pageIndex: 0, x: 40, y: 20 });
+    });
+
     it('spreadContentToPage returns null for out-of-bounds', () => {
       expect(mapper.spreadContentToPage(-5, 0)).toBeNull();
       expect(mapper.spreadContentToPage(800, 0)).toBeNull();
@@ -56,6 +60,18 @@ describe('CoordinateMapper', () => {
       expect(vp.y).toBe(60);
       expect(vp.width).toBe(50);
       expect(vp.height).toBe(15);
+    });
+
+    it('pageContentToSpread is strict about the visible page', () => {
+      expect(mapper.pageContentToSpread(0, { x: 10, y: 20, width: 50, height: 15 })).toEqual({
+        x: 10,
+        y: 20,
+        width: 50,
+        height: 15,
+      });
+      expect(() => mapper.pageContentToSpread(99, { x: 10, y: 20, width: 50, height: 15 })).toThrow(
+        /does not contain page 99/,
+      );
     });
 
     it('viewportToDisplay is identity at scale=1', () => {
@@ -89,6 +105,10 @@ describe('CoordinateMapper', () => {
       const p = mapper.cssToSpreadContent(120, 90);
       expect(p.x).toBe(40);
       expect(p.y).toBe(20);
+    });
+
+    it('displayToPageContent uses the same scaled conversion', () => {
+      expect(mapper.displayToPageContent(120, 90)).toEqual({ pageIndex: 0, x: 40, y: 20 });
     });
 
     it('viewportToDisplay multiplies by scale', () => {
@@ -167,6 +187,15 @@ describe('CoordinateMapper', () => {
       expect(p?.x).toBe(50);
     });
 
+    it('displayToPageContent resolves a right-page display point in one step', () => {
+      const rightViewportOrigin = pageWidth + 20 + 40;
+      expect(mapper.displayToPageContent(rightViewportOrigin + 50, 60)).toEqual({
+        pageIndex: 1,
+        x: 50,
+        y: 20,
+      });
+    });
+
     it('spreadContentToPage returns null for gap region', () => {
       const p = mapper.spreadContentToPage(contentWidth + 10, 20);
       expect(p).toBeNull();
@@ -176,6 +205,15 @@ describe('CoordinateMapper', () => {
       const vp = mapper.pageContentToViewport(1, { x: 10, y: 20, width: 50, height: 15 });
       expect(vp.x).toBe(10 + pageWidth + 20 + 40);
       expect(vp.y).toBe(60);
+    });
+
+    it('pageContentToSpread offsets a right-page native rect exactly once', () => {
+      expect(mapper.pageContentToSpread(1, { x: 50, y: 10, width: 20, height: 15 })).toEqual({
+        x: contentWidth + contentGap + 50,
+        y: 10,
+        width: 20,
+        height: 15,
+      });
     });
 
     it('selectionConfig uses content dimensions', () => {
@@ -192,4 +230,49 @@ describe('CoordinateMapper', () => {
       expect(result?.x).toBe(50);
     });
   });
+
+  describe('zero-gap double-page seam', () => {
+    const config = createLayoutConfig({
+      width: 600,
+      height: 400,
+      margin: 0,
+      spread: 'double',
+      spreadGap: 0,
+    });
+    const spread: Spread = { index: 0, left: makePage(0), right: makePage(1) };
+    const mapper = createCoordinateMapper(config, spread, 1);
+
+    it('assigns the shared seam to the right page at local x=0', () => {
+      expect(mapper.spreadContentToPage(config.pageWidth, 10)).toEqual({
+        pageIndex: 1,
+        x: 0,
+        y: 10,
+      });
+      expect(mapper.displayToPageContent(config.pageWidth, 10)).toEqual({
+        pageIndex: 1,
+        x: 0,
+        y: 10,
+      });
+    });
+
+    it('keeps both outer content edges inclusive', () => {
+      expect(mapper.spreadContentToPage(0, 10)?.pageIndex).toBe(0);
+      expect(mapper.spreadContentToPage(config.viewportWidth, 10)).toEqual({
+        pageIndex: 1,
+        x: config.pageWidth,
+        y: 10,
+      });
+    });
+  });
+
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid renderScale %s',
+    (renderScale) => {
+      const config = createLayoutConfig({ width: 800, height: 600, margin: 40 });
+      const spread: Spread = { index: 0, left: makePage(0) };
+      expect(() => createCoordinateMapper(config, spread, renderScale)).toThrow(
+        /renderScale must be a positive finite number/,
+      );
+    },
+  );
 });

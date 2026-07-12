@@ -47,7 +47,9 @@ export function buildLayoutActions(
 }
 
 function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
+  requireRenderScale(scale);
   if (scale === internals.renderScale) return;
+  internals.engines.selection.invalidate();
   internals.renderScale = scale;
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
@@ -80,6 +82,7 @@ export function commitLayoutChange(
   runtime: RuntimeComponents,
   anchor: ReadingPosition | null = currentPosition(internals),
 ): void {
+  internals.engines.selection.invalidate();
   const previousSpread = internals.currentSpread;
   internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   internals.currentSpread = resolveCommittedSpread(internals, anchor);
@@ -95,6 +98,12 @@ export function commitLayoutChange(
   emitSpreadChangeIfNeeded(internals, emitter, previousSpread);
   if (anchor) internals.coordState.positionUpdateMode = { kind: 'preserve', position: anchor };
   internals.reader.notifyActiveSpread(internals.currentSpread);
+}
+
+export function requireRenderScale(scale: number): void {
+  if (!Number.isFinite(scale) || scale <= 0) {
+    throw new RangeError('Reader controller renderScale must be a positive finite number');
+  }
 }
 
 function resolveCommittedSpread(internals: Internals, anchor: ReadingPosition | null): number {

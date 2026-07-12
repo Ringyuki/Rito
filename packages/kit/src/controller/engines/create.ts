@@ -13,7 +13,9 @@ export function createEngines(
   opts: ControllerOptions,
   coordState: CoordinatorState,
 ): CoordinatorEngines {
-  const selection = createSelectionEngine();
+  // Capability presence is authoritative. A temporarily disabled native revision
+  // must not fall back to approximate layout-local hit testing.
+  const selection = createSelectionEngine(reader.interactions?.textSelection);
   const search = createSearchEngine();
   search.setPages(asLegacyPages(reader.pages));
 

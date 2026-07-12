@@ -3,7 +3,18 @@ import type { WiringDeps } from '../core/wiring-deps';
 import { resolveVisibleAnnotations } from '../annotation-resolution';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
+  disposables.add(() => {
+    deps.engines.selection.dispose();
+  });
   wireSelectionEvents(deps, disposables);
+  disposables.add(
+    deps.engines.selection.onError((error) => {
+      deps.emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: 'native-text-selection',
+      });
+    }),
+  );
   wireSearchEvents(deps, disposables);
   wireAnnotationStoreEvents(deps, disposables);
 }
@@ -18,10 +29,12 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
         ? rawRects.map((r) => mapper.spreadContentRectToViewport(r))
         : rawRects;
 
-      const focusRect = computeFocusRect(engines.selection, viewportRects);
+      const focusRect = computeFocusRect(engines.selection, viewportRects, mapper);
 
       emitter.emit('selectionChange', {
         range,
+        sourceLocator: engines.selection.getSourceLocator(),
+        hasSelection: engines.selection.hasSelection(),
         text: engines.selection.getText(),
         rects: rawRects,
         viewportRects,
@@ -36,10 +49,14 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
 function computeFocusRect(
   selection: WiringDeps['engines']['selection'],
   viewportRects: readonly { x: number; y: number; width: number; height: number }[],
+  mapper: WiringDeps['coordState']['mapper'],
 ): { x: number; y: number; width: number; height: number } | null {
+  const exactFocus = selection.getFocusRect();
+  if (exactFocus) {
+    return mapper ? mapper.spreadContentRectToViewport(exactFocus) : exactFocus;
+  }
   if (viewportRects.length === 0) return null;
-  const snapshot = selection.getSnapshot();
-  const isForward = !snapshot || snapshot.anchor === snapshot.start;
+  const isForward = selection.getFocusEdge() !== 'start';
   const fr = isForward ? viewportRects[viewportRects.length - 1] : viewportRects[0];
   if (!fr) return null;
   return { x: isForward ? fr.x + fr.width : fr.x, y: fr.y, width: 0, height: fr.height };

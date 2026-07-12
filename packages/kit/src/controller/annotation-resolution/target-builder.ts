@@ -10,12 +10,15 @@ import {
   createAnnotationTarget,
   sourcePointToOffset,
   type AnnotationTarget,
+  type ChapterTextIndex,
   type HitEntry,
   type HitMap,
   type SelectionSnapshot,
   type SourceRef,
 } from '../../interaction/index';
+import type { ReaderLocator } from '@ritojs/core';
 import type { Internals } from '../core/internals';
+import { chapterHrefForIdref, findChapterSpineIndex } from './chapter-identity';
 
 /**
  * Build an AnnotationTarget from a SelectionSnapshot.
@@ -73,6 +76,45 @@ export function buildAnnotationTargetFromSnapshot(
   });
 }
 
+/** Build a persistent annotation target directly from the native source range. */
+export function buildAnnotationTargetFromLocator(
+  locator: ReaderLocator,
+  internals: Internals,
+): AnnotationTarget | undefined {
+  const sourceRange = locator.sourceRange;
+  if (!sourceRange) return undefined;
+  const chapterIndex = findChapterIndex(locator.href, internals);
+  if (!chapterIndex) return undefined;
+  const startOffset = sourcePointToOffset(chapterIndex, sourceRange.start);
+  const endOffset = sourcePointToOffset(chapterIndex, sourceRange.end);
+  if (startOffset === undefined || endOffset === undefined) return undefined;
+  const target = createAnnotationTarget({
+    href: locator.href,
+    chapterIndex,
+    chapterSpineIndex: findSpineIndex(locator.href, internals),
+    startOffset,
+    endOffset,
+  });
+  if (!target) return undefined;
+  return {
+    ...target,
+    selectors: {
+      ...target.selectors,
+      sourceRange: {
+        type: 'SourceRangeSelector',
+        start: {
+          nodePath: [...sourceRange.start.nodePath],
+          textOffset: sourceRange.start.textOffset,
+        },
+        end: {
+          nodePath: [...sourceRange.end.nodePath],
+          textOffset: sourceRange.end.textOffset,
+        },
+      },
+    },
+  };
+}
+
 /** Resolve a HitEntry + charIndex to a normalized chapter offset. */
 function resolveEntryOffset(
   sourceRef: SourceRef,
@@ -101,9 +143,9 @@ function findHitEntry(
 
 /** Find which chapter href a page belongs to using the reader's chapterMap. */
 function findChapterHref(pageIndex: number, internals: Internals): string | undefined {
-  for (const [href, range] of internals.reader.chapterMap) {
+  for (const [idref, range] of internals.reader.chapterMap) {
     if (pageIndex >= range.startPage && pageIndex <= range.endPage) {
-      return href;
+      return chapterHrefForIdref(internals.reader, idref);
     }
   }
   return undefined;
@@ -111,10 +153,15 @@ function findChapterHref(pageIndex: number, internals: Internals): string | unde
 
 /** Find the spine index for a chapter href. */
 function findSpineIndex(href: string, internals: Internals): number {
-  let idx = 0;
-  for (const [h] of internals.reader.chapterMap) {
-    if (h === href) return idx;
-    idx++;
+  return findChapterSpineIndex(internals.reader, href);
+}
+
+function findChapterIndex(href: string, internals: Internals): ChapterTextIndex | undefined {
+  const direct = internals.coordState.chapterIndices.get(href);
+  if (direct) return direct;
+  const canonicalHref = internals.reader.manifestHrefMap.get(href);
+  if (canonicalHref) {
+    return internals.coordState.chapterIndices.get(canonicalHref);
   }
-  return 0;
+  return undefined;
 }

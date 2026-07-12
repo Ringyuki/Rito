@@ -107,6 +107,16 @@ The `Reader` component mounts the controller's managed DOM surface into a contai
 It does not own pagination logic itself, and it does not call `controller.resize()` for you.
 The controller remains the source of truth.
 
+## `useSelection`
+
+Use `selection.hasSelection` as the selection-presence signal. For Readers with
+native exact text interaction, `selection.range` is intentionally `null` because
+opaque Rust carets cannot be represented as the legacy layout-local `TextRange`.
+`selection.sourceLocator` carries the durable source range, while `text`,
+`viewportRects`, and `focusRect` remain ready for copy and selection UI. The hook
+clears all selection state when its controller is replaced so data cannot leak
+between books.
+
 ## Guidance
 
 - Use `@ritojs/react` if you want fast app integration and React state bindings.

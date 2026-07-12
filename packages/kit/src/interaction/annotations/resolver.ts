@@ -44,6 +44,8 @@ export interface ResolutionContext {
   readonly hitMaps: ReadonlyMap<number, HitMap>;
   /** Page index range per chapter href. */
   readonly chapterPageRanges: ReadonlyMap<string, { startPage: number; endPage: number }>;
+  /** Optional legacy spine idref → canonical href bridge. */
+  readonly chapterHrefMap?: ReadonlyMap<string, string>;
   readonly measurer: TextMeasurer;
 }
 
@@ -60,7 +62,9 @@ export function resolveAnnotations(
 
 function resolveOne(record: AnnotationRecord, context: ResolutionContext): ResolvedAnnotation {
   const { href, selectors } = record.target;
-  const chapterIndex = context.chapterIndices.get(href);
+  const alias = context.chapterHrefMap?.get(href);
+  const chapterIndex =
+    context.chapterIndices.get(href) ?? (alias ? context.chapterIndices.get(alias) : undefined);
   if (!chapterIndex) return orphaned(record);
 
   // 1. Try SourceRangeSelector (authoritative)

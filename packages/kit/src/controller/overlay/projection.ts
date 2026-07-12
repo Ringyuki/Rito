@@ -12,6 +12,7 @@ import type { Rect } from '../../painter/types';
 import { asLegacyPage } from '../compat/legacy-page';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
 import type { CoordinatorEngines, CoordinatorState } from '../core/coordinator-state';
+import { buildChapterPageRanges } from '../annotation-resolution';
 import { OVERLAY_COLORS } from './merger';
 
 export function buildOverlayData(
@@ -129,17 +130,7 @@ export function buildAdjacentOverlayData(
     hitMaps.set(page.index, buildHitMap(asLegacyPage(page)));
   }
 
-  // Resolve annotations against the ephemeral hitMaps
-  const store = state.annotationStore;
-  let resolvedAnnotations: readonly ResolvedAnnotation[] = [];
-  if (store && store.getAll().length > 0) {
-    resolvedAnnotations = resolveAnnotations(store.getAll(), {
-      chapterIndices: state.chapterIndices,
-      hitMaps,
-      chapterPageRanges: reader.chapterMap,
-      measurer: reader.measurer,
-    });
-  }
+  const resolvedAnnotations = resolveAdjacentAnnotations(state, reader, hitMaps);
 
   // Build ephemeral state for projection
   const ephemeralState: Pick<CoordinatorState, 'hitMaps' | 'resolvedAnnotations'> = {
@@ -160,6 +151,22 @@ export function buildAdjacentOverlayData(
   const annotationLayers = collectAnnotationLayersFromResolved(spread, resolvedAnnotations, mapper);
 
   return { selectionRects: [], searchRects, activeSearchRects, annotationLayers };
+}
+
+function resolveAdjacentAnnotations(
+  state: CoordinatorState,
+  reader: Reader,
+  hitMaps: ReadonlyMap<number, HitMap>,
+): readonly ResolvedAnnotation[] {
+  const records = state.annotationStore?.getAll() ?? [];
+  if (records.length === 0) return [];
+  return resolveAnnotations(records, {
+    chapterIndices: state.chapterIndices,
+    hitMaps,
+    chapterPageRanges: buildChapterPageRanges(reader),
+    chapterHrefMap: reader.manifestHrefMap,
+    measurer: reader.measurer,
+  });
 }
 
 function collectActiveSearchRectsFromHitMaps(

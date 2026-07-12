@@ -117,8 +117,9 @@ When present, `interactions` exposes typed page-content targets plus exact-revis
 footnote and source-locator reads. Its `enabled` flag is false while a visual-only
 preview is displayed; callers must not reuse targets from the previous canonical
 revision during that interval. Page targets intentionally cover semantic click
-sources only. Precise native selection remains a separate text-position and range-
-geometry capability.
+sources only. When supported, `interactions.textSelection` exposes revision-bound
+point-to-caret and same-flow range resolution. Its carets are opaque and must be
+passed back by identity; range rectangles use page-content coordinates.
 
 ### Lifecycle
 

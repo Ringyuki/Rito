@@ -24,7 +24,12 @@ export function coordinateOnSpreadRendered(
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
 
-  engines.selection.setSpread(asLegacySpread(spread), mapper.selectionConfig, reader.measurer);
+  engines.selection.setSpread(
+    asLegacySpread(spread),
+    mapper.selectionConfig,
+    reader.measurer,
+    mapper,
+  );
   rebuildHitMaps(spread, state);
   rebuildLinksByPage(spread, state);
 
@@ -84,6 +89,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
     disposables.add(
       deps.reader.onSpreadContentInvalidated((idx) => {
         if (idx === deps.getCurrentSpread()) {
+          deps.engines.selection.invalidate();
           invalidateNativeTargets(deps.coordState);
           deps.canvas.style.cursor = '';
           const spread = deps.reader.spreads[idx];

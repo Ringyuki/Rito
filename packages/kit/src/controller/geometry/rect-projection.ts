@@ -1,6 +1,20 @@
 import type { Rect } from '../../interaction/index';
 import type { LayoutGeometry, PageGeometry } from './coordinate-mapper';
 
+export function pageContentRectToSpread(
+  pageMap: ReadonlyMap<number, PageGeometry>,
+  pageIndex: number,
+  rect: Rect,
+): Rect {
+  const pg = requirePage(pageMap, pageIndex);
+  return {
+    x: rect.x + pg.spreadContentOriginX,
+    y: rect.y,
+    width: rect.width,
+    height: rect.height,
+  };
+}
+
 export function spreadContentRectToViewport(g: LayoutGeometry, rect: Rect): Rect {
   return {
     x: rect.x + g.marginLeft,
@@ -49,4 +63,10 @@ export function toScreen(
     width: rect.width * renderScale,
     height: rect.height * renderScale,
   };
+}
+
+function requirePage(pageMap: ReadonlyMap<number, PageGeometry>, pageIndex: number): PageGeometry {
+  const page = pageMap.get(pageIndex);
+  if (!page) throw new RangeError(`Coordinate mapper does not contain page ${String(pageIndex)}`);
+  return page;
 }

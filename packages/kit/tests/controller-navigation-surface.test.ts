@@ -5,14 +5,22 @@ import type { Internals, Nav, RuntimeComponents } from '../src/controller/facade
 import { createInteractionModeManager } from '../src/controller/interaction-mode';
 import type { ReaderControllerEvents } from '../src/controller/types';
 import type { KeyboardManager } from '../src/keyboard/types';
+import type { SelectionEngine } from '../src/interaction';
 import { createDisposableCollection } from '../src/utils/disposable';
 import { createEmitter } from '../src/utils/event-emitter';
 
 describe('controller navigation surface', () => {
   it('does not expose navigation coordination methods at runtime', () => {
     const nav = createNavigationStub();
+    const selectionMocks = {
+      hasSelection: vi.fn<SelectionEngine['hasSelection']>(() => false),
+      getText: vi.fn<SelectionEngine['getText']>(() => ''),
+      getSelection: vi.fn<SelectionEngine['getSelection']>(() => null),
+      getSourceLocator: vi.fn<SelectionEngine['getSourceLocator']>(() => null),
+    };
+    const internals = createInternalsStub(selectionMocks);
     const controller = buildController(
-      createInternalsStub(),
+      internals,
       createEmitter<ReaderControllerEvents>(),
       createDisposableCollection(),
       createRuntimeStub(),
@@ -40,6 +48,19 @@ describe('controller navigation surface', () => {
     ]) {
       expect(controller).not.toHaveProperty(internalMethod);
     }
+
+    selectionMocks.hasSelection.mockReturnValue(true);
+    selectionMocks.getText.mockReturnValue('live selection');
+    selectionMocks.getSourceLocator.mockReturnValue({
+      href: 'chapter.xhtml',
+      sourceRange: {
+        start: { nodePath: [0], textOffset: 1 },
+        end: { nodePath: [0], textOffset: 2 },
+      },
+    });
+    expect(controller.hasSelection).toBe(true);
+    expect(controller.selectionText).toBe('live selection');
+    expect(controller.selectionSourceLocator?.href).toBe('chapter.xhtml');
   });
 });
 
@@ -67,14 +88,19 @@ function createReaderStub(): Reader {
   } as unknown as Reader;
 }
 
-function createInternalsStub(): Internals {
+function createInternalsStub(
+  selection: Pick<
+    SelectionEngine,
+    'hasSelection' | 'getText' | 'getSelection' | 'getSourceLocator'
+  >,
+): Internals {
   return {
     reader: createReaderStub(),
     currentSpread: 0,
     renderScale: 1,
     options: {},
     engines: {
-      selection: { getText: vi.fn(() => ''), getSelection: vi.fn(() => null) },
+      selection,
       search: { getResults: vi.fn(() => []), getActiveIndex: vi.fn(() => -1) },
       position: null,
     },

@@ -1,4 +1,11 @@
-import type { FootnoteEntry, PackageMetadata, Page, Spread, TocEntry } from '@ritojs/core';
+import type {
+  FootnoteEntry,
+  PackageMetadata,
+  Page,
+  ReaderLocator,
+  Spread,
+  TocEntry,
+} from '@ritojs/core';
 import type { Reader } from '@ritojs/core';
 import type {
   AnnotationRecord,
@@ -40,7 +47,12 @@ export interface ControllerOptions {
 export interface ReaderControllerEvents {
   spreadChange: { spreadIndex: number; spread: Spread };
   selectionChange: {
+    /** Legacy layout-local range. Null for an exact native selection. */
     range: TextRange | null;
+    /** Durable source locator for an exact native selection. */
+    sourceLocator: ReaderLocator | null;
+    /** Explicit because a native selection intentionally has no legacy TextRange. */
+    hasSelection: boolean;
     text: string;
     /** Selection rects in spread-content space (legacy — prefer viewportRects). */
     rects: readonly Rect[];
@@ -166,8 +178,12 @@ export interface ReaderController {
   readonly searchActiveIndex: number;
 
   clearSelection(): void;
+  readonly hasSelection: boolean;
   readonly selectionText: string;
+  /** Legacy layout-local range. Null when the native exact selector is authoritative. */
   readonly selectionRange: TextRange | null;
+  /** Durable source locator for a native exact selection. */
+  readonly selectionSourceLocator: ReaderLocator | null;
 
   addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
   removeAnnotation(id: string): boolean;

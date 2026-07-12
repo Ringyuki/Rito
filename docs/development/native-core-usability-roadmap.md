@@ -195,9 +195,13 @@ core now also resolves exact cluster carets and same-logical-flow ranges through
 version-gated APIs, including selected source text, durable source locators and
 cross-page geometry. The WASM/direct/Worker transport and opaque Browser Reader
 `textSelection` capability are implemented with full session, revision, and
-commit-generation ownership; Kit selection remains in the next slice. The
-legacy interpolated diagnostic has not been promoted to selection-ready
-geometry.
+commit-generation ownership. Kit now consumes it for exact selection geometry,
+copy text and source-range annotation target creation with coalesced latest-wins
+pointer reads and revision/spread cancellation. Native annotation re-projection
+still remains because Rust compatibility pages do not expose legacy HitMaps. The
+legacy interpolated diagnostic has
+not been promoted to selection-ready geometry and remains only as a fallback for
+Readers without the native capability.
 
 Remove compatibility placeholders such as empty page content and the synthetic
 `text.length * 8` measurer once their callers use the native contract.
@@ -312,8 +316,9 @@ architecture rather than make an eager whole-book pipeline faster.
    assets, embedded-face first-paint hardening and the real-book proof remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility. **Rust core,
-   WASM/Worker, and the Browser Reader point/same-flow capability are
-   implemented; Kit promotion remains.**
+   WASM/Worker, Browser Reader, and Kit exact selection/highlight/copy/source
+   annotation target creation are implemented; native annotation re-projection,
+   reading positions, and accessibility remain.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.

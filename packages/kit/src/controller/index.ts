@@ -10,7 +10,7 @@ import { createCoordinatorState } from './core/index';
 import { buildWiringDeps } from './core/wiring-deps';
 import { createEngines } from './engines/index';
 import { buildController, syncCanvasSize, type Internals } from './facade';
-import { commitLayoutChange } from './facade/layout-actions';
+import { commitLayoutChange, requireRenderScale } from './facade/layout-actions';
 import type { RuntimeComponents } from './facade/types';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
 import { createNavigation } from './navigation/index';
@@ -49,6 +49,7 @@ export function createController(
   options?: ControllerOptions,
 ): ReaderController {
   const controllerOptions = options ?? {};
+  requireRenderScale(controllerOptions.renderScale ?? 1);
   const emitter = createEmitter<ReaderControllerEvents>();
   const disposables = createDisposableCollection();
   const { internals, runtime, nav, contentRenderer } = bootstrapRuntime(

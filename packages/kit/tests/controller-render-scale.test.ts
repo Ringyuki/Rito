@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createController } from '../src/controller';
+import { requireRenderScale } from '../src/controller/facade/layout-actions';
 
 beforeAll(() => {
   if (typeof globalThis['OffscreenCanvas'] === 'undefined') {
@@ -28,6 +29,15 @@ afterEach(() => {
 });
 
 describe('createController', () => {
+  it.each([0, -1, Number.NaN, Number.POSITIVE_INFINITY])(
+    'rejects invalid renderScale %s',
+    (scale) => {
+      expect(() => {
+        requireRenderScale(scale);
+      }).toThrow(RangeError);
+    },
+  );
+
   it('applies the initial renderScale before the first mount/render cycle', () => {
     vi.stubGlobal(
       'requestAnimationFrame',
@@ -93,6 +103,9 @@ describe('createController', () => {
     expect(canvas.style.height).toBe('360px');
     expect(canvas.width).toBe(960);
     expect(canvas.height).toBe(720);
+
+    controller.setRenderScale(1.4);
+    expect(controller.renderScale).toBe(1.4);
   });
 
   it('navigates to a reading position through the current layout', () => {

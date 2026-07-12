@@ -67,7 +67,11 @@ describe('native target spread lifecycle', () => {
       reader,
       coordState: state,
       canvas,
-      engines: { selection: { setSpread: vi.fn() }, search: {}, position: null },
+      engines: {
+        selection: { setSpread: vi.fn(), invalidate: vi.fn() },
+        search: {},
+        position: null,
+      },
       emitter: createEmitter<ReaderControllerEvents>(),
       frameDriver: { markOverlayDirty: vi.fn(), markContentDirty: vi.fn() },
       getCurrentSpread: () => 0,
