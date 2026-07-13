@@ -1,5 +1,9 @@
 use std::num::NonZeroUsize;
 
+/// Signals that resumable text work has exhausted the current quantum.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::layout) struct TextWorkYield;
+
 /// Upper bounds for text work performed by one layout quantum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::layout) struct TextWorkBudget {

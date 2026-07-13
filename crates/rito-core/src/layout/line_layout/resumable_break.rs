@@ -7,7 +7,7 @@ use crate::layout::{
     },
     line_prefix::try_find_fitting_prefix,
     text_measure::TextMeasurementFonts,
-    text_work::{AtomicTextOperationKind, TextWorkMeter, TextWorkPermitResult},
+    text_work::{AtomicTextOperationKind, TextWorkMeter, TextWorkPermitResult, TextWorkYield},
 };
 
 mod hyphenation;
@@ -20,9 +20,6 @@ use super::{LineBreakPosition, LineContext};
 
 #[cfg(test)]
 use crate::layout::line_prefix::record_prefix_probe;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct TextWorkYield;
 
 #[derive(Debug, Default)]
 pub(super) struct PendingBreakSession {

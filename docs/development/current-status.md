@@ -372,6 +372,14 @@ Those names now belong to the old TS reference tree only.
      text, paint and retained shape data. Runtime display commands still encode
      their own `sourceText` payload; deduplicating that wire representation is a
      separate protocol optimization.
+   - Greedy line finalization now retains a shared Rust state machine after run
+     construction. Width/effective-height accumulation and vertical run shifts
+     consume work one run at a time, survive a yielded quantum and commit
+     position, height and the completed `LineBox` only after finalization
+     succeeds. Optimal's eager path drains the same finalizer while preserving
+     its distinct paint-bound width rule. Alignment, justification, shape
+     spacing, ruby grouping and mapping assembly still form the unmetered legacy
+     tail of that state machine.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
      margin-collapse preparation, justification/alignment/mapping assembly,
@@ -532,13 +540,14 @@ The revision/locator contract, bounded production switch and principal native
 interaction slices are complete. Greedy leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,
-leading-space, trailing-trim and ASCII-hyphen candidate state across public
-quanta, and one public request shares its text-work meter across chapter
-boundaries. Exact ordered text-work traces remain unchanged, while a captured
-font layout-profile token prevents restore under inconsistent logical font
-inputs. The footnote index performs one spine parse instead of two. The next
-bounded-layout slice should meter inline/context preparation, container startup
-and the remaining justification and mapping work before making Liang point
+leading-space, trailing-trim, ASCII-hyphen candidate and line-finalization
+geometry/vertical-shift state across public quanta, and one public request
+shares its text-work meter across chapter boundaries. Exact ordered text-work
+traces remain unchanged, while a captured font layout-profile token prevents
+restore under inconsistent logical font inputs. The footnote index performs
+one spine parse instead of two. The next bounded-layout slice should meter
+inline/context preparation, container startup and the remaining alignment,
+justification, shape-spacing and mapping work before making Liang point
 generation itself resumable and extending the same discipline through
 decorated/floated containers, tables and Optimal layout. Individual font calls
 and the Liang dictionary call remain indivisible; the oversized-operation

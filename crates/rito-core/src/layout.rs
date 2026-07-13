@@ -28,6 +28,7 @@ mod line;
 mod line_align;
 mod line_break;
 mod line_break_input;
+mod line_finalize;
 mod line_layout;
 mod line_metrics;
 mod line_mode;

@@ -9,10 +9,7 @@ use super::{
     inline_segment::{AtomSegment, InlineSegment},
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
     line_break::{utf16_len, LineBreakOptions, Utf16Text},
-    line_metrics::{
-        effective_line_metrics, line_height_px, measure_text_slice_with_fonts, runs_width,
-        shift_runs_y, vertical_align_offset,
-    },
+    line_metrics::{line_height_px, measure_text_slice_with_fonts, vertical_align_offset},
     line_prefix::should_probe_bounded,
     style_values::{border_width, number_style, run_paint_value, string_style},
     text_mapping::RunTextMapping,
@@ -187,7 +184,6 @@ fn line_atom(segment: &AtomSegment) -> LineAtom {
 
 struct SingleLineLayout {
     runs: Vec<LineRun>,
-    width: f64,
     next_pos: usize,
     ends_with_forced_break: bool,
 }
@@ -566,6 +562,57 @@ mod tests {
         assert_eq!(actual, expected);
         assert_eq!(actual_trace.events, expected_trace.events);
         assert_eq!(actual_trace.line_break_scans.len(), 1);
+    }
+
+    #[test]
+    fn finalization_yields_without_committing_or_publishing_a_partial_line() {
+        let base_style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            ("whiteSpace".to_owned(), Value::String("nowrap".to_owned())),
+        ]);
+        let raised_style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            (
+                "verticalAlign".to_owned(),
+                Value::String("super".to_owned()),
+            ),
+        ]);
+        let segments = vec![
+            text_segment("a".to_owned(), base_style),
+            text_segment("b".to_owned(), raised_style),
+        ];
+        let fonts = TextMeasurementFonts::empty();
+        let expected = layout_greedy_lines_with_fonts(&segments, 72.0, &fonts);
+        let mut session = GreedyLineLayoutSession::new(&segments, 72.0, &fonts);
+
+        let mut build_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(6).expect("text limit is non-zero"),
+            NonZeroUsize::new(4).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut build_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
+        let mut partial_finalize_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(3).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut partial_finalize_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
+        let mut finish_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        let actual = session.advance_with_text_work(usize::MAX, &mut finish_work, &fonts);
+
+        assert_eq!(actual, expected);
+        assert!(session.is_complete());
     }
 
     #[test]

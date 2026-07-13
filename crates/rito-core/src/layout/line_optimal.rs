@@ -6,14 +6,12 @@ use super::{
     hyphenation::find_hyphenation_points,
     inline_segment::{AtomSegment, InlineSegment, TextSegment},
     line::{AtomRunBox, LineBox, LineRun, TextRunBox},
-    line_align::apply_line_align,
     line_break::{
         contains_cjk, split_line_break_segments, split_text_units, utf16_len, LineBreakOptions,
     },
+    line_finalize::{finalize_line_eager, LineWidthMetric},
     line_layout::layout_greedy_lines_with_fonts,
-    line_metrics::{
-        effective_line_metrics, line_height_px, measure_text_slice_with_fonts, shift_runs_y,
-    },
+    line_metrics::{line_height_px, measure_text_slice_with_fonts},
     style_values::{
         border_width, number_style, run_border_edge_value, run_paint_value, string_style,
     },
@@ -336,19 +334,17 @@ fn append_runs_as_line(
         }
         return;
     }
-    let line_width = runs.iter().map(LineRun::right).fold(0.0_f64, f64::max);
-    let (height, y_shift) = effective_line_metrics(&runs, line_height);
-    let runs = shift_runs_y(runs, y_shift);
-    state.lines.push(apply_line_align(
+    let line = finalize_line_eager(
         runs,
-        line_width,
+        LineWidthMetric::Right,
         state.y,
-        height,
+        line_height,
         max_width,
         base_style,
         is_last_line,
-    ));
-    state.y += height;
+    );
+    state.y += line.height;
+    state.lines.push(line);
 }
 
 struct RunBuildContext<'a> {

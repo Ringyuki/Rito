@@ -7,9 +7,7 @@ use crate::layout::{
 };
 
 use super::super::resumable_break::PendingBreakSession;
-use super::super::{
-    find_range, number_style, runs_width, utf16_len, LineContext, SingleLineLayout,
-};
+use super::super::{find_range, number_style, utf16_len, LineContext, SingleLineLayout};
 use super::run_builder::PendingRunBuilder;
 use super::{require_atomic, require_character_work, TextWorkYield};
 
@@ -123,7 +121,6 @@ impl PendingActiveLine {
         self.append_hyphen(context, work, fonts)?;
         let runs = self.runs.take().expect("completed line runs exist");
         Ok(SingleLineLayout {
-            width: runs_width(&runs),
             runs,
             next_pos: self.line_text_end.expect("line end is resolved"),
             ends_with_forced_break: self.ends_with_forced_break,

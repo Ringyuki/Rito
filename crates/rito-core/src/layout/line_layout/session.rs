@@ -1,17 +1,14 @@
 use std::num::NonZeroUsize;
 
-use super::{
-    build_line_context, consume_newline, effective_line_metrics, number_style, shift_runs_y,
-    LineContext,
-};
+use super::{build_line_context, consume_newline, number_style, LineContext};
 use crate::layout::{
     line::LineBox,
-    line_align::apply_line_align,
+    line_finalize::{LineWidthMetric, PendingLineFinalizer},
     text_measure::TextMeasurementFonts,
-    text_work::{AtomicTextOperationKind, TextWorkBudget, TextWorkMeter, TextWorkPermitResult},
+    text_work::{
+        AtomicTextOperationKind, TextWorkBudget, TextWorkMeter, TextWorkPermitResult, TextWorkYield,
+    },
 };
-
-use super::resumable_break::TextWorkYield;
 
 mod pending_line;
 mod run_builder;
@@ -27,7 +24,7 @@ pub(crate) struct GreedyLineLayoutSession {
     indent: f64,
     complete: bool,
     font_profile_id: u64,
-    pending_line: Option<PendingLineLayout>,
+    pending_line: Option<PendingGreedyLine>,
 }
 
 impl GreedyLineLayoutSession {
@@ -106,42 +103,47 @@ impl GreedyLineLayoutSession {
             self.complete = true;
             return PendingLineAdvance::Complete;
         };
-        let pending = self.pending_line.get_or_insert_with(|| {
-            PendingLineLayout::new(self.pos, self.is_first_line, self.indent, context)
+        let mut pending = self.pending_line.take().unwrap_or_else(|| {
+            PendingGreedyLine::Building(Box::new(PendingLineLayout::new(
+                self.pos,
+                self.is_first_line,
+                self.indent,
+                context,
+            )))
         });
-        let advance = match pending.advance(context, work, fonts) {
-            Ok(advance) => advance,
-            Err(TextWorkYield) => return PendingLineAdvance::Yield,
-        };
-        match advance {
-            PendingLineResult::Exhausted { pos } => {
-                self.pos = pos;
-                self.complete = true;
-                self.pending_line = None;
-                PendingLineAdvance::Complete
-            }
-            PendingLineResult::Line(line) => {
-                self.pending_line = None;
-                let next_pos = consume_newline(&context.text, line.next_pos);
-                let complete = next_pos >= context.text.len;
-                let is_last_line = complete || line.ends_with_forced_break;
-                let (height, y_shift) = effective_line_metrics(&line.runs, context.line_height);
-                let shifted = shift_runs_y(line.runs, y_shift);
-                let output = apply_line_align(
-                    shifted,
-                    line.width,
-                    self.y,
-                    height,
-                    context.max_width,
-                    &context.base_style,
-                    is_last_line,
-                );
-                self.pos = next_pos;
-                self.complete = complete;
-                self.y += height;
-                self.is_first_line = false;
-                PendingLineAdvance::Line(output)
-            }
+        loop {
+            pending = match pending {
+                PendingGreedyLine::Building(mut building) => {
+                    match building.advance(context, work, fonts) {
+                        Err(TextWorkYield) => {
+                            self.pending_line = Some(PendingGreedyLine::Building(building));
+                            return PendingLineAdvance::Yield;
+                        }
+                        Ok(PendingLineResult::Exhausted { pos }) => {
+                            self.pos = pos;
+                            self.complete = true;
+                            return PendingLineAdvance::Complete;
+                        }
+                        Ok(PendingLineResult::Line(line)) => PendingGreedyLine::Finalizing(
+                            PendingGreedyLineFinalization::new(line, self.y, context),
+                        ),
+                    }
+                }
+                PendingGreedyLine::Finalizing(mut finalizing) => {
+                    let output = match finalizing.finalizer.advance(work, &context.base_style) {
+                        Ok(output) => output,
+                        Err(TextWorkYield) => {
+                            self.pending_line = Some(PendingGreedyLine::Finalizing(finalizing));
+                            return PendingLineAdvance::Yield;
+                        }
+                    };
+                    self.pos = finalizing.next_pos;
+                    self.complete = finalizing.complete;
+                    self.y += output.height;
+                    self.is_first_line = false;
+                    return PendingLineAdvance::Line(output);
+                }
+            };
         }
     }
 
@@ -163,6 +165,39 @@ enum PendingLineAdvance {
     Line(LineBox),
     Yield,
     Complete,
+}
+
+#[derive(Debug)]
+enum PendingGreedyLine {
+    Building(Box<PendingLineLayout>),
+    Finalizing(PendingGreedyLineFinalization),
+}
+
+#[derive(Debug)]
+struct PendingGreedyLineFinalization {
+    finalizer: PendingLineFinalizer,
+    next_pos: usize,
+    complete: bool,
+}
+
+impl PendingGreedyLineFinalization {
+    fn new(line: super::SingleLineLayout, y: f64, context: &LineContext) -> Self {
+        let next_pos = consume_newline(&context.text, line.next_pos);
+        let complete = next_pos >= context.text.len;
+        let is_last_line = complete || line.ends_with_forced_break;
+        Self {
+            finalizer: PendingLineFinalizer::new(
+                line.runs,
+                LineWidthMetric::AdvanceRight,
+                y,
+                context.line_height,
+                context.max_width,
+                is_last_line,
+            ),
+            next_pos,
+            complete,
+        }
+    }
 }
 
 pub(super) fn require_character_work(
