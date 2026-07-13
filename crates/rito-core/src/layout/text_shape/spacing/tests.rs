@@ -1,7 +1,13 @@
-use super::{apply_spacing_delta, reset_scalar_visits, scalar_visits};
-use crate::layout::text_shape::{
-    ExactRunShape, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
-    RunShapeUnavailableReason,
+use super::{reset_scalar_visits, scalar_visits, PendingShapeSpacing};
+use crate::layout::{
+    text_shape::{RunShape, RunShapeDirection, RunShapeUnavailableReason},
+    text_work::TextWorkYield,
+};
+
+mod support;
+
+use support::{
+    apply_spacing_bounded, apply_spacing_reference, assert_shape_bits_eq, cluster, exact, meter,
 };
 
 #[test]
@@ -34,7 +40,7 @@ fn matches_the_prefix_scan_reference_bit_for_bit() {
 
     for (text, direction, clusters) in cases {
         let baseline = exact(direction, clusters);
-        let actual = baseline.clone().apply_spacing(text, 0.1, 0.0, 123.456_789);
+        let actual = apply_spacing_bounded(baseline.clone(), text, 0.1, 0.0, 123.456_789, 1);
         let expected = apply_spacing_reference(baseline, text, 0.1, 0.0, 123.456_789);
 
         assert_shape_bits_eq(&actual, &expected);
@@ -58,9 +64,7 @@ fn keeps_visual_letter_gap_placement_bit_exact_for_both_directions() {
 
     for (text, direction, clusters) in cases {
         let baseline = exact(direction, clusters);
-        let actual = baseline
-            .clone()
-            .apply_spacing(text, 0.1, 8.0 / 29.0, 14.125);
+        let actual = apply_spacing_bounded(baseline.clone(), text, 0.1, 8.0 / 29.0, 14.125, 1);
         let expected = apply_spacing_reference(baseline, text, 0.1, 8.0 / 29.0, 14.125);
 
         assert_shape_bits_eq(&actual, &expected);
@@ -83,119 +87,114 @@ fn scans_each_scalar_once_per_spacing_pass_in_both_directions() {
         let clusters = offsets
             .map(|offset| cluster(offset as u32, offset as u32 + 1, 1.0))
             .collect();
-        let RunShape::Exact(mut shape) = exact(direction, clusters) else {
-            unreachable!();
-        };
+        let mut shape = exact(direction, clusters);
+        let mut pending = PendingShapeSpacing::new(0.25, 0.0, SCALAR_COUNT as f64, None);
+        let mut work = meter(usize::MAX);
 
         reset_scalar_visits();
-        assert!(apply_spacing_delta(&mut shape, &text, 0.25, 0.0));
+        pending
+            .advance(&mut shape, &text, &mut work)
+            .expect("unbounded spacing completes");
 
-        assert_eq!(scalar_visits(), SCALAR_COUNT);
+        assert_eq!(scalar_visits(), (SCALAR_COUNT, 0));
     }
 }
 
-fn apply_spacing_reference(
-    mut shape: RunShape,
-    text: &str,
-    word_spacing_delta: f64,
-    letter_spacing_delta: f64,
-    expected_advance: f64,
-) -> RunShape {
-    let RunShape::Exact(exact) = &mut shape else {
-        return shape;
-    };
-    let scalar_gaps = text.chars().count().saturating_sub(1);
-    let cluster_gaps = exact.clusters.len().saturating_sub(1);
-    if letter_spacing_delta != 0.0 && scalar_gaps != cluster_gaps {
-        return RunShape::unavailable(
-            RunShapeUnavailableReason::NonClusterSafeSpacing,
-            expected_advance,
-        );
-    }
-    for (visual_index, cluster) in exact.clusters.iter_mut().enumerate() {
-        let mut advance = f64::from(cluster.advance);
-        let cluster_text = utf16_slice_reference(
-            text,
-            cluster.logical_start as usize,
-            cluster.logical_end as usize,
-        );
-        advance += cluster_text
-            .chars()
-            .filter(|character| *character == ' ')
-            .count() as f64
-            * word_spacing_delta;
-        if visual_index < cluster_gaps {
-            advance += letter_spacing_delta;
-        }
-        cluster.advance = advance as f32;
-    }
-    exact.advance = expected_advance;
-    shape
+#[test]
+fn unsafe_letter_spacing_yields_without_partially_mutating_clusters() {
+    let text = "a\u{301}";
+    let original = exact(RunShapeDirection::LeftToRight, vec![cluster(0, 2, 17.25)]);
+    let mut actual = original.clone();
+    let mut pending = PendingShapeSpacing::new(0.0, 2.5, 19.75, None);
+    let mut first = meter(1);
+
+    assert_eq!(
+        pending.advance(&mut actual, text, &mut first),
+        Err(TextWorkYield)
+    );
+    assert_shape_bits_eq(&actual, &original);
+
+    let mut second = meter(1);
+    pending
+        .advance(&mut actual, text, &mut second)
+        .expect("second scalar completes the safety decision");
+    assert!(matches!(
+        actual,
+        RunShape::Unavailable(shape)
+            if shape.reason == RunShapeUnavailableReason::NonClusterSafeSpacing
+                && shape.advance.to_bits() == 19.75_f64.to_bits()
+    ));
 }
 
-fn utf16_slice_reference(text: &str, start: usize, end: usize) -> &str {
-    let mut utf16_offset = 0usize;
-    let mut start_byte = None;
-    let mut end_byte = None;
-    for (byte, character) in text.char_indices() {
-        if utf16_offset == start {
-            start_byte = Some(byte);
+#[test]
+fn astral_scalar_resumes_without_repeating_or_livelocking() {
+    let text = "😀a";
+    for (direction, clusters) in [
+        (
+            RunShapeDirection::LeftToRight,
+            vec![cluster(0, 2, 7.25), cluster(2, 3, 8.5)],
+        ),
+        (
+            RunShapeDirection::RightToLeft,
+            vec![cluster(2, 3, 8.5), cluster(0, 2, 7.25)],
+        ),
+    ] {
+        let baseline = exact(direction, clusters);
+        let expected = apply_spacing_reference(baseline.clone(), text, 0.5, 0.25, 16.0);
+        let mut actual = baseline;
+        let mut pending = PendingShapeSpacing::new(0.5, 0.25, 16.0, None);
+        let mut yields = 0;
+
+        loop {
+            let mut work = meter(1);
+            match pending.advance(&mut actual, text, &mut work) {
+                Ok(()) => break,
+                Err(TextWorkYield) => yields += 1,
+            }
+            assert!(yields < 20, "astral spacing must not livelock");
         }
-        if utf16_offset == end {
-            end_byte = Some(byte);
-            break;
-        }
-        utf16_offset += character.len_utf16();
+
+        assert!(yields >= 5);
+        assert_shape_bits_eq(&actual, &expected);
     }
-    let start_byte = start_byte.unwrap_or(text.len());
-    let end_byte = end_byte.unwrap_or({
-        if utf16_offset == end {
-            text.len()
-        } else {
-            start_byte
-        }
-    });
-    &text[start_byte..end_byte]
 }
 
-fn assert_shape_bits_eq(actual: &RunShape, expected: &RunShape) {
-    match (actual, expected) {
-        (RunShape::Exact(actual), RunShape::Exact(expected)) => {
-            assert_eq!(actual.advance.to_bits(), expected.advance.to_bits());
-            assert_eq!(actual.direction, expected.direction);
-            assert_eq!(actual.provenance, expected.provenance);
-            assert_eq!(actual.clusters.len(), expected.clusters.len());
-            for (actual, expected) in actual.clusters.iter().zip(&expected.clusters) {
-                assert_eq!(actual.logical_start, expected.logical_start);
-                assert_eq!(actual.logical_end, expected.logical_end);
-                assert_eq!(actual.advance.to_bits(), expected.advance.to_bits());
+#[test]
+fn unavailable_shapes_update_advance_without_scanning_text() {
+    let mut shape = RunShape::unavailable(RunShapeUnavailableReason::HostMetricsFallback, 1.0);
+    let mut pending = PendingShapeSpacing::new(2.0, 3.0, 19.0, None);
+    let mut work = meter(1);
+    assert_eq!(work.take_utf16_units(1), 1);
+
+    reset_scalar_visits();
+    pending
+        .advance(&mut shape, &"😀 ".repeat(10_000), &mut work)
+        .expect("unavailable shape spacing is constant work");
+
+    assert_eq!(shape.advance().to_bits(), 19.0_f64.to_bits());
+    assert_eq!(scalar_visits(), (0, 0));
+}
+
+#[test]
+fn malformed_utf16_cluster_boundary_degrades_without_panicking() {
+    for mut shape in [
+        exact(RunShapeDirection::LeftToRight, vec![cluster(0, 1, 7.25)]),
+        exact(RunShapeDirection::LeftToRight, Vec::new()),
+        exact(RunShapeDirection::RightToLeft, vec![cluster(0, 1, 7.25)]),
+    ] {
+        let mut pending = PendingShapeSpacing::new(1.0, 0.0, 8.25, None);
+
+        loop {
+            let mut work = meter(1);
+            if pending.advance(&mut shape, "😀", &mut work).is_ok() {
+                break;
             }
         }
-        (RunShape::Unavailable(actual), RunShape::Unavailable(expected)) => {
-            assert_eq!(actual.reason, expected.reason);
-            assert_eq!(actual.advance.to_bits(), expected.advance.to_bits());
-        }
-        _ => panic!("shape availability differs"),
-    }
-}
 
-fn exact(direction: RunShapeDirection, clusters: Vec<RunShapeCluster>) -> RunShape {
-    let advance = clusters
-        .iter()
-        .map(|cluster| f64::from(cluster.advance))
-        .sum();
-    RunShape::Exact(Box::new(ExactRunShape {
-        advance,
-        direction,
-        provenance: RunShapeProvenance::single([1; 8]),
-        clusters,
-    }))
-}
-
-fn cluster(logical_start: u32, logical_end: u32, advance: f32) -> RunShapeCluster {
-    RunShapeCluster {
-        logical_start,
-        logical_end,
-        advance,
+        assert!(matches!(
+            shape,
+            RunShape::Unavailable(unavailable)
+                if unavailable.reason == RunShapeUnavailableReason::NonClusterSafeSpacing
+        ));
     }
 }

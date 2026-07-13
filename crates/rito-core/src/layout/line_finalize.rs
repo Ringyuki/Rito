@@ -4,14 +4,15 @@ use serde_json::{Map, Value};
 
 use super::{
     line::{LineBox, LineRun},
-    line_align::apply_justify_plan,
     line_ruby::extract_ruby_annotations,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
 
+mod distribute;
 mod geometry;
 mod justify;
 
+use distribute::PendingJustifyDistribution;
 use geometry::PendingLineGeometry;
 use justify::{JustifyMode, PendingJustifyAnalysis};
 
@@ -34,6 +35,7 @@ pub(crate) struct PendingLineFinalizer {
     shift_x_index: usize,
     x_offset: f64,
     justify: Option<PendingJustifyAnalysis>,
+    distribution: Option<PendingJustifyDistribution>,
     stage: LineFinalizeStage,
 }
 
@@ -43,6 +45,7 @@ enum LineFinalizeStage {
     ShiftY,
     ResolveAlign,
     AnalyzeJustify,
+    DistributeJustify,
     ShiftX,
     LegacyRuby,
     Complete,
@@ -69,6 +72,7 @@ impl PendingLineFinalizer {
             shift_x_index: 0,
             x_offset: 0.0,
             justify: None,
+            distribution: None,
             stage: LineFinalizeStage::Geometry,
         }
     }
@@ -84,6 +88,7 @@ impl PendingLineFinalizer {
                 LineFinalizeStage::ShiftY => self.advance_shift_y(work)?,
                 LineFinalizeStage::ResolveAlign => self.resolve_align(base_style),
                 LineFinalizeStage::AnalyzeJustify => self.advance_justify(work)?,
+                LineFinalizeStage::DistributeJustify => self.advance_distribution(work)?,
                 LineFinalizeStage::ShiftX => self.advance_shift_x(work)?,
                 LineFinalizeStage::LegacyRuby => return Ok(self.finish_ruby()),
                 LineFinalizeStage::Complete => {
@@ -149,7 +154,7 @@ impl PendingLineFinalizer {
             .and_then(Value::as_str)
             .unwrap_or("auto");
         let mode = JustifyMode::from_css(text_justify);
-        if extra <= 0.0 || mode.is_none() {
+        if !extra.is_finite() || extra <= 0.0 || mode.is_none() {
             self.stage = LineFinalizeStage::LegacyRuby;
             return;
         }
@@ -168,7 +173,21 @@ impl PendingLineFinalizer {
             .advance(&self.runs, work)?;
         self.justify = None;
         let extra = self.max_width - self.geometry.line_width;
-        self.runs = apply_justify_plan(std::mem::take(&mut self.runs), extra, plan);
+        self.distribution = PendingJustifyDistribution::new(plan, extra);
+        self.stage = if self.distribution.is_some() {
+            LineFinalizeStage::DistributeJustify
+        } else {
+            LineFinalizeStage::LegacyRuby
+        };
+        Ok(())
+    }
+
+    fn advance_distribution(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        self.distribution
+            .as_mut()
+            .expect("justify distribution is initialized")
+            .advance(&mut self.runs, work)?;
+        self.distribution = None;
         self.stage = LineFinalizeStage::LegacyRuby;
         Ok(())
     }
@@ -199,6 +218,11 @@ impl PendingLineFinalizer {
     #[cfg(test)]
     pub(crate) fn is_analyzing_justify(&self) -> bool {
         self.stage == LineFinalizeStage::AnalyzeJustify
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_distributing_justify(&self) -> bool {
+        self.stage == LineFinalizeStage::DistributeJustify
     }
 }
 

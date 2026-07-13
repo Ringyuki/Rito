@@ -100,6 +100,15 @@ impl GreedyLineLayoutSession {
         )
     }
 
+    #[cfg(test)]
+    pub(super) fn is_distributing_justify(&self) -> bool {
+        matches!(
+            &self.pending_line,
+            Some(PendingGreedyLine::Finalizing(finalizing))
+                if finalizing.finalizer.is_distributing_justify()
+        )
+    }
+
     fn advance_next_line(
         &mut self,
         work: &mut TextWorkMeter,

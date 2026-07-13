@@ -356,7 +356,9 @@ Those names now belong to the old TS reference tree only.
    - Exact real-font post-processing no longer rescans the text prefix for
      every retained cluster. Rustybuzz byte clusters are converted to UTF-16 in
      one source pass, grapheme endpoints use a compact sorted index and spacing
-     consumes LTR or RTL clusters with one directional cursor. Operation-count
+     consumes LTR or RTL clusters with one directional cursor. That spacing
+     cursor now retains UTF-16 scalar and cluster-commit state across layout
+     quanta. Operation-count
      regressions cover 10,000-cluster lines, and bit-level oracles preserve the
      former spacing, merge and malformed-cluster semantics. Rustybuzz itself
      remains an indivisible operation.
@@ -380,13 +382,16 @@ Those names now belong to the old TS reference tree only.
      same finalizer while preserving its distinct paint-bound width rule.
      Justify gap analysis also resumes per run and per UTF-16 scalar, including
      an astral scalar split across quanta, and moves its completed per-run plan
-     without a second scan. Justify distribution and retained-shape spacing,
-     ruby grouping and mapping assembly still form the unmetered tail of that
+     without a second scan. Distribution then resumes per run; retained exact
+     shape spacing resumes per UTF-16 scalar and cluster commit, while malformed
+     cluster partitions fail closed. The current inter-character plan still
+     counts Unicode scalars where the TypeScript baseline counts extended
+     graphemes, so that parity correction remains explicit follow-up work. Ruby
+     grouping and mapping assembly still form the unmetered tail of the line
      state machine.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
-     margin-collapse preparation, justify distribution/shape spacing/mapping
-     assembly,
+     margin-collapse preparation, ruby grouping and mapping assembly,
      atomic Liang point generation, visually decorated or floated containers,
      tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
@@ -518,8 +523,7 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
    flattening/context preparation, container startup and remaining line
-   post-processing such as justify distribution, shape spacing and mapping
-   assembly, then
+   post-processing such as ruby grouping and mapping assembly, then
    make the currently atomic Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
@@ -551,9 +555,9 @@ shares its text-work meter across chapter boundaries. Exact ordered text-work
 traces remain unchanged, while a captured font layout-profile token prevents
 restore under inconsistent logical font inputs. The footnote index performs
 one spine parse instead of two. The next bounded-layout slice should meter
-inline/context preparation, container startup and the remaining justify
-distribution, shape-spacing and mapping work before making Liang point
-generation itself resumable and extending the same discipline through
+inline/context preparation, container startup and the remaining ruby-grouping
+and mapping work before making Liang point generation itself resumable and
+extending the same discipline through
 decorated/floated containers, tables and Optimal layout. Individual font calls
 and the Liang dictionary call remain indivisible; the oversized-operation
 escape means the public quantum is not yet a complete wall-clock hard bound.

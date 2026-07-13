@@ -1,169 +1,121 @@
-use super::{ExactRunShape, RunShapeCluster, RunShapeDirection};
+use super::{RunShape, RunShapeUnavailableReason};
+use crate::layout::text_work::{TextWorkMeter, TextWorkYield};
 
-pub(super) fn apply_spacing_delta(
-    shape: &mut ExactRunShape,
-    text: &str,
+mod cursor;
+
+use cursor::{ClusterSpacingOutcome, PendingClusterSpacing, PendingScalarCount};
+
+#[cfg(test)]
+use cursor::{reset_scalar_visits, scalar_visits};
+
+#[derive(Debug)]
+pub(in crate::layout) struct PendingShapeSpacing {
     word_spacing_delta: f64,
     letter_spacing_delta: f64,
-) -> bool {
-    let cluster_gaps = shape.clusters.len().saturating_sub(1);
-    if letter_spacing_delta != 0.0 && text.chars().count().saturating_sub(1) != cluster_gaps {
-        return false;
-    }
-
-    // Exact retained shapes have already been constrained to a complete,
-    // direction-monotone UTF-16 grapheme partition. That lets each directional
-    // cursor consume the source once without retaining another boundary table.
-    match shape.direction {
-        RunShapeDirection::LeftToRight => apply_left_to_right(
-            &mut shape.clusters,
-            text.chars(),
-            cluster_gaps,
-            word_spacing_delta,
-            letter_spacing_delta,
-        ),
-        RunShapeDirection::RightToLeft => apply_right_to_left(
-            &mut shape.clusters,
-            text.chars().rev(),
-            cluster_gaps,
-            word_spacing_delta,
-            letter_spacing_delta,
-        ),
-    }
-    true
+    expected_advance: f64,
+    known_spacing_gaps: Option<usize>,
+    stage: ShapeSpacingStage,
 }
 
-fn apply_left_to_right(
-    clusters: &mut [RunShapeCluster],
-    mut characters: impl Iterator<Item = char>,
-    cluster_gaps: usize,
-    word_spacing_delta: f64,
-    letter_spacing_delta: f64,
-) {
-    let mut logical_cursor = 0usize;
-    for (visual_index, cluster) in clusters.iter_mut().enumerate() {
-        debug_assert_eq!(cluster.logical_start as usize, logical_cursor);
-        let spaces = consume_forward(
-            &mut characters,
-            &mut logical_cursor,
-            cluster.logical_end as usize,
-        );
-        update_cluster_advance(
-            cluster,
-            spaces,
-            visual_index,
-            cluster_gaps,
-            word_spacing_delta,
-            letter_spacing_delta,
-        );
-    }
-    debug_assert!(characters.next().is_none());
+#[derive(Debug)]
+enum ShapeSpacingStage {
+    Initialize,
+    CheckSafety(PendingScalarCount),
+    Apply(PendingClusterSpacing),
+    Complete,
 }
 
-fn apply_right_to_left(
-    clusters: &mut [RunShapeCluster],
-    mut characters: impl Iterator<Item = char>,
-    cluster_gaps: usize,
-    word_spacing_delta: f64,
-    letter_spacing_delta: f64,
-) {
-    let mut logical_cursor = clusters
-        .first()
-        .map_or(0, |cluster| cluster.logical_end as usize);
-    for (visual_index, cluster) in clusters.iter_mut().enumerate() {
-        debug_assert_eq!(cluster.logical_end as usize, logical_cursor);
-        let spaces = consume_backward(
-            &mut characters,
-            &mut logical_cursor,
-            cluster.logical_start as usize,
-        );
-        update_cluster_advance(
-            cluster,
-            spaces,
-            visual_index,
-            cluster_gaps,
+impl PendingShapeSpacing {
+    pub(in crate::layout) fn new(
+        word_spacing_delta: f64,
+        letter_spacing_delta: f64,
+        expected_advance: f64,
+        known_spacing_gaps: Option<usize>,
+    ) -> Self {
+        Self {
             word_spacing_delta,
             letter_spacing_delta,
-        );
+            expected_advance,
+            known_spacing_gaps,
+            stage: ShapeSpacingStage::Initialize,
+        }
     }
-    debug_assert_eq!(logical_cursor, 0);
-    debug_assert!(characters.next().is_none());
-}
 
-fn consume_forward(
-    characters: &mut impl Iterator<Item = char>,
-    logical_cursor: &mut usize,
-    logical_end: usize,
-) -> usize {
-    let mut spaces = 0usize;
-    while *logical_cursor < logical_end {
-        let Some(character) = characters.next() else {
-            debug_assert!(false, "exact shape extends beyond its source text");
-            break;
+    pub(in crate::layout) fn advance(
+        &mut self,
+        shape: &mut RunShape,
+        text: &str,
+        work: &mut TextWorkMeter,
+    ) -> Result<(), TextWorkYield> {
+        loop {
+            match &mut self.stage {
+                ShapeSpacingStage::Initialize => self.initialize(shape, text),
+                ShapeSpacingStage::CheckSafety(count) => {
+                    count.advance(text, work)?;
+                    let scalar_gaps = count.scalar_count().saturating_sub(1);
+                    self.finish_safety_check(shape, text, scalar_gaps);
+                }
+                ShapeSpacingStage::Apply(spacing) => {
+                    let RunShape::Exact(exact) = shape else {
+                        unreachable!("only exact shapes retain cluster spacing state")
+                    };
+                    let outcome = spacing.advance(
+                        &mut exact.clusters,
+                        text,
+                        self.word_spacing_delta,
+                        self.letter_spacing_delta,
+                        work,
+                    )?;
+                    if outcome == ClusterSpacingOutcome::Unsafe {
+                        self.mark_unsafe(shape);
+                    } else {
+                        exact.advance = self.expected_advance;
+                        self.stage = ShapeSpacingStage::Complete;
+                    }
+                }
+                ShapeSpacingStage::Complete => return Ok(()),
+            }
+        }
+    }
+
+    fn initialize(&mut self, shape: &mut RunShape, text: &str) {
+        let RunShape::Exact(exact) = shape else {
+            let RunShape::Unavailable(unavailable) = shape else {
+                unreachable!()
+            };
+            unavailable.advance = self.expected_advance;
+            self.stage = ShapeSpacingStage::Complete;
+            return;
         };
-        #[cfg(test)]
-        record_scalar_visit();
-        *logical_cursor += character.len_utf16();
-        spaces += usize::from(character == ' ');
+        if self.letter_spacing_delta == 0.0 {
+            self.stage = ShapeSpacingStage::Apply(PendingClusterSpacing::new(exact, text));
+            return;
+        }
+        if let Some(spacing_gaps) = self.known_spacing_gaps {
+            self.finish_safety_check(shape, text, spacing_gaps);
+            return;
+        }
+        self.stage = ShapeSpacingStage::CheckSafety(PendingScalarCount::default());
     }
-    debug_assert_eq!(*logical_cursor, logical_end);
-    spaces
-}
 
-fn consume_backward(
-    characters: &mut impl Iterator<Item = char>,
-    logical_cursor: &mut usize,
-    logical_start: usize,
-) -> usize {
-    let mut spaces = 0usize;
-    while *logical_cursor > logical_start {
-        let Some(character) = characters.next() else {
-            debug_assert!(false, "exact shape extends beyond its source text");
-            break;
+    fn finish_safety_check(&mut self, shape: &mut RunShape, text: &str, scalar_gaps: usize) {
+        let RunShape::Exact(exact) = shape else {
+            unreachable!("shape availability cannot change during a safety scan")
         };
-        #[cfg(test)]
-        record_scalar_visit();
-        *logical_cursor = logical_cursor.saturating_sub(character.len_utf16());
-        spaces += usize::from(character == ' ');
+        if scalar_gaps != exact.clusters.len().saturating_sub(1) {
+            self.mark_unsafe(shape);
+            return;
+        }
+        self.stage = ShapeSpacingStage::Apply(PendingClusterSpacing::new(exact, text));
     }
-    debug_assert_eq!(*logical_cursor, logical_start);
-    spaces
-}
 
-fn update_cluster_advance(
-    cluster: &mut RunShapeCluster,
-    spaces: usize,
-    visual_index: usize,
-    cluster_gaps: usize,
-    word_spacing_delta: f64,
-    letter_spacing_delta: f64,
-) {
-    let mut advance = f64::from(cluster.advance);
-    advance += spaces as f64 * word_spacing_delta;
-    if visual_index < cluster_gaps {
-        advance += letter_spacing_delta;
+    fn mark_unsafe(&mut self, shape: &mut RunShape) {
+        *shape = RunShape::unavailable(
+            RunShapeUnavailableReason::NonClusterSafeSpacing,
+            self.expected_advance,
+        );
+        self.stage = ShapeSpacingStage::Complete;
     }
-    cluster.advance = advance as f32;
-}
-
-#[cfg(test)]
-std::thread_local! {
-    static SCALAR_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
-}
-
-#[cfg(test)]
-fn record_scalar_visit() {
-    SCALAR_VISITS.set(SCALAR_VISITS.get().saturating_add(1));
-}
-
-#[cfg(test)]
-pub(super) fn reset_scalar_visits() {
-    SCALAR_VISITS.set(0);
-}
-
-#[cfg(test)]
-pub(super) fn scalar_visits() -> usize {
-    SCALAR_VISITS.get()
 }
 
 #[cfg(test)]

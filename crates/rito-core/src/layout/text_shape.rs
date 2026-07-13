@@ -1,9 +1,13 @@
 use std::collections::HashSet;
+use std::num::NonZeroUsize;
+
+use super::text_work::{TextWorkBudget, TextWorkMeter};
 
 mod direction;
 mod spacing;
 
 pub(crate) use direction::requires_bidi_itemization;
+pub(in crate::layout) use spacing::PendingShapeSpacing;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum RunShapeDirection {
@@ -143,23 +147,18 @@ impl RunShape {
         letter_spacing_delta: f64,
         expected_advance: f64,
     ) {
-        match self {
-            Self::Exact(shape) => {
-                if !spacing::apply_spacing_delta(
-                    shape,
-                    text,
-                    word_spacing_delta,
-                    letter_spacing_delta,
-                ) {
-                    *self = Self::unavailable(
-                        RunShapeUnavailableReason::NonClusterSafeSpacing,
-                        expected_advance,
-                    );
-                    return;
-                }
-                shape.advance = expected_advance;
+        let mut pending = PendingShapeSpacing::new(
+            word_spacing_delta,
+            letter_spacing_delta,
+            expected_advance,
+            None,
+        );
+        loop {
+            let budget = TextWorkBudget::new(NonZeroUsize::MAX, NonZeroUsize::MAX);
+            let mut work = TextWorkMeter::new(budget);
+            if pending.advance(self, text, &mut work).is_ok() {
+                return;
             }
-            Self::Unavailable(shape) => shape.advance = expected_advance,
         }
     }
 }

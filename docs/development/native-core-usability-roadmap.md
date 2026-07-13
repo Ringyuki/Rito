@@ -58,7 +58,11 @@ The remaining usability work is narrower but still release-blocking:
    eagerly drains that shared finalizer with its existing width rule. Justify
    gap analysis resumes per run and per UTF-16 scalar, retains a partially
    consumed astral scalar safely and hands off its per-run plan without a
-   second scan. Every recursive session shares one 32-node descendant
+   second scan. Distribution then resumes per run and retained-shape spacing
+   per UTF-16 scalar plus cluster commit. The current Rust inter-character
+   count is still scalar-based while the TypeScript baseline uses extended
+   graphemes, so that parity correction remains pending. Every recursive
+   session shares one 32-node descendant
    quantum and the text-work meter, and one public request keeps that meter
    across chapter boundaries. A later request starts
    with a fresh meter. Each session also captures a process-local logical font
@@ -69,8 +73,8 @@ The remaining usability work is narrower but still release-blocking:
    Exact-shape post-processing now avoids per-cluster text-prefix rescans for
    Rustybuzz byte-to-UTF-16 ranges, grapheme constraints and spacing, with
    10,000-cluster operation-count guards and bit-level compatibility oracles.
-   Inline/context preparation, container startup, justify distribution/shape
-   spacing, ruby grouping, mapping assembly, atomic Liang point
+   Inline/context preparation, container startup, ruby grouping, mapping
+   assembly, atomic Liang point
    generation, visually decorated or floated containers,
    Optimal paragraphs and tables therefore still prevent a complete wall-clock
    hard bound. A test-only ordered, text-hashed trace covers prefix probes,
@@ -122,8 +126,8 @@ It already:
 - requests the resources needed by active and warm windows.
 
 The remaining bounded-layout work is to meter incremental inline/context
-preparation, container startup and the justify-distribution, shape-spacing,
-ruby-grouping and mapping-assembly tail, then make the currently atomic Liang
+preparation, container startup and the ruby-grouping and mapping-assembly tail,
+then make the currently atomic Liang
 point calculation bounded and cover
 visually decorated and floated containers, auto-layout tables and Optimal
 paragraphs. Individual font calls remain indivisible even though their
@@ -164,9 +168,9 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
 - transparent-container startup still uses the existing owned margin-collapse
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
-- inline flattening/context construction and the remaining
-  justify distribution/shape-spacing, ruby-grouping and source-mapping
-  assembly are not yet fully covered by the text-work meter. Exact mapping
+- inline flattening/context construction and the remaining ruby-grouping and
+  source-mapping assembly are not yet fully covered by the text-work meter.
+  Exact mapping
   boundary checks use a sparse index of
   surrogate-pair interiors rather than rescanning the logical flow per wrapped
   run; wrapped runs share parser source text and ruby extraction moves retained
@@ -430,7 +434,7 @@ architecture rather than make an eager whole-book pipeline faster.
    completed children can publish before their ancestor closes, but no partial
    line or block is exposed. A process-local font layout-profile token rejects
    inconsistent resume inputs. Inline/context preparation, container startup,
-   justify distribution/shape spacing, ruby grouping, mapping assembly,
+   ruby grouping, mapping assembly,
    atomic Liang point generation, decorated/floated containers, tables and
    Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work

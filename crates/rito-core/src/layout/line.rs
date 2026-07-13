@@ -218,7 +218,26 @@ impl TextRunBox {
         Value::Object(value)
     }
 
+    #[cfg(test)]
     pub(crate) fn add_paint_spacing(&mut self, key: &str, delta: f64) {
+        if delta == 0.0 {
+            return;
+        }
+        self.add_paint_spacing_value(key, delta);
+        let (word_spacing_delta, letter_spacing_delta) = match key {
+            "wordSpacingPx" => (delta, 0.0),
+            "letterSpacingPx" => (0.0, delta),
+            _ => return,
+        };
+        self.shape.apply_spacing_delta_in_place(
+            &self.text,
+            word_spacing_delta,
+            letter_spacing_delta,
+            self.width,
+        );
+    }
+
+    pub(crate) fn add_paint_spacing_value(&mut self, key: &str, delta: f64) {
         if delta == 0.0 {
             return;
         }
@@ -231,17 +250,6 @@ impl TextRunBox {
         if let Some(paint) = self.paint.as_object_mut() {
             paint.insert(key.to_owned(), paint_number_value(current + delta));
         }
-        let (word_spacing_delta, letter_spacing_delta) = match key {
-            "wordSpacingPx" => (delta, 0.0),
-            "letterSpacingPx" => (0.0, delta),
-            _ => return,
-        };
-        self.shape.apply_spacing_delta_in_place(
-            &self.text,
-            word_spacing_delta,
-            letter_spacing_delta,
-            self.width,
-        );
     }
 }
 

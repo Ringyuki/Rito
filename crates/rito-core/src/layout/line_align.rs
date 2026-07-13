@@ -1,3 +1,4 @@
+#[cfg(test)]
 use super::line::LineRun;
 
 #[cfg(test)]
@@ -22,8 +23,8 @@ pub(crate) enum JustifyPlan {
     },
 }
 
-// Gap discovery is resumable upstream. Distribution and retained-shape
-// spacing are deliberately still one eager tail for the next finalizer slice.
+// Test-only eager parity oracle for the resumable production distributor.
+#[cfg(test)]
 pub(crate) fn apply_justify_plan(
     runs: Vec<LineRun>,
     extra: f64,
@@ -153,6 +154,7 @@ fn distribute_space_gaps(runs: Vec<LineRun>, gap_size: f64) -> Vec<LineRun> {
     result
 }
 
+#[cfg(test)]
 fn distribute_planned_space_gaps(
     runs: Vec<LineRun>,
     per_run: &[usize],
@@ -185,6 +187,7 @@ fn distribute_planned_space_gaps(
     result
 }
 
+#[cfg(test)]
 struct InterCharacterGapPlan {
     per_run: Vec<usize>,
     boundary_before: Vec<bool>,
@@ -230,6 +233,7 @@ fn collect_inter_character_gaps(runs: &[LineRun]) -> Option<(InterCharacterGapPl
     ))
 }
 
+#[cfg(test)]
 fn distribute_inter_character_gaps(
     runs: Vec<LineRun>,
     plan: InterCharacterGapPlan,
