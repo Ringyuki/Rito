@@ -180,7 +180,7 @@ function createRuntimeNavigation(
       internals.engines.position?.update(internals.currentSpread);
     },
     onPaginationChanged: () => {
-      publishPaginationChange(internals, emitter);
+      publishPaginationChange(internals, emitter, frameDriver);
     },
   });
 }

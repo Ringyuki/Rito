@@ -1,10 +1,14 @@
 import type { Reader } from '@ritojs/core';
+import type { FrameDriver } from '../../driver/frame-driver';
 import type { ReadingPosition } from '../../interaction/index';
 import { asLegacyPages } from '../compat/legacy-page';
 import { syncCanvasSize } from './lifecycle';
 import type { Emitter, Internals, LayoutActionsSlice, RuntimeComponents } from './types';
 import {
   invalidateNativeAnnotationGeometry,
+  refreshNativeAnnotations,
+  resolveVisibleAnnotations,
+  syncChapterIndices,
   usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
 
@@ -132,9 +136,36 @@ export function commitLayoutChange(
 }
 
 /** Publishes a larger known extent without resetting stable layout or transition state. */
-export function publishPaginationChange(internals: Internals, emitter: Emitter): void {
+export function publishPaginationChange(
+  internals: Internals,
+  emitter: Emitter,
+  frameDriver: Pick<FrameDriver, 'markAllOverlaysDirty'>,
+): void {
+  internals.engines.selection.invalidate();
   internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
+  syncChapterIndices(internals.coordState, internals.reader);
+  const clearedNativeAnnotationHover = refreshPaginationAnnotations(internals);
+  frameDriver.markAllOverlaysDirty();
+  if (clearedNativeAnnotationHover) {
+    emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
+  }
   emitLayoutChange(internals, emitter);
+}
+
+function refreshPaginationAnnotations(internals: Internals): boolean {
+  const store = internals.coordState.annotationStore;
+  if (!store) return false;
+  if (usesNativeAnnotationGeometry(internals.reader)) {
+    invalidateNativeAnnotationGeometry(internals.coordState);
+    refreshNativeAnnotations(internals.reader, internals.coordState);
+    return true;
+  }
+  internals.coordState.resolvedAnnotations = resolveVisibleAnnotations(
+    store,
+    internals.coordState,
+    internals.reader,
+  );
+  return false;
 }
 
 export function requireRenderScale(scale: number): void {

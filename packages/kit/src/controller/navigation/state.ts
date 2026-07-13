@@ -25,10 +25,17 @@ export interface NavigationAttempt {
   readonly pendingNavigation?: PendingNavigation;
 }
 
+export interface PendingTocNavigation {
+  readonly attemptId: number;
+  readonly entry: TocEntry;
+  /** Present only for atomic locator growth; legacy TOC retries remain layout-driven. */
+  readonly locatorAbort?: AbortController;
+}
+
 export interface NavigationState {
   navigationAttemptId: number;
   pendingNavigation: PendingNavigation | undefined;
-  pendingTocEntry: TocEntry | undefined;
+  pendingTocNavigation: PendingTocNavigation | undefined;
   disposed: boolean;
 }
 
@@ -36,17 +43,19 @@ export function createNavigationState(): NavigationState {
   return {
     navigationAttemptId: 0,
     pendingNavigation: undefined,
-    pendingTocEntry: undefined,
+    pendingTocNavigation: undefined,
     disposed: false,
   };
 }
 
 export function clearPendingNavigation(state: NavigationState): boolean {
   const previous = state.pendingNavigation;
-  const cancelledIntent = previous !== undefined || state.pendingTocEntry !== undefined;
+  const previousToc = state.pendingTocNavigation;
+  const cancelledIntent = previous !== undefined || previousToc !== undefined;
   state.pendingNavigation = undefined;
-  state.pendingTocEntry = undefined;
+  state.pendingTocNavigation = undefined;
   previous?.growthAbort?.abort();
+  previousToc?.locatorAbort?.abort();
   if (previous?.gesture && !previous.gesture.started) {
     previous.gesture.cancelled = true;
     previous.gesture.onUnavailable?.();

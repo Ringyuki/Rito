@@ -26,6 +26,7 @@ import {
   navigationTarget,
 } from './growth';
 import { emitNavigationStart } from './start';
+import { navigateTocEntry, retryPendingTocEntry } from './toc-growth';
 
 export interface NavigationDeps {
   getReader: () => Reader | null;
@@ -73,6 +74,7 @@ export interface GestureNavigationToken {
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const state = createNavigationState();
+  const tocNavigator = createTocNavigator(state, deps);
   return {
     goToSpread(index) {
       startNavigation(state, deps, index);
@@ -87,7 +89,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       startNavigation(state, deps, deps.getCurrentSpread() - 1);
     },
     navigateToTocEntry(entry) {
-      navigateToTocEntry(state, deps, entry);
+      navigateTocEntry(state, deps, entry, tocNavigator);
     },
     jumpToSpread(index, preservePositionIntent) {
       if (state.disposed) return false;
@@ -105,18 +107,31 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     },
     notifyLayoutCommitted() {
       if (state.disposed) return;
-      retryPendingTocNavigation(state, deps);
+      retryPendingTocEntry(state, deps, tocNavigator);
     },
     supersedeForPositionIntent: () => {
       if (state.disposed) return;
       supersedeNavigationForPositionIntent(state, deps.td);
     },
     dispose() {
-      if (state.disposed) return;
-      state.disposed = true;
-      state.navigationAttemptId += 1;
-      clearPendingNavigation(state);
+      disposeNavigation(state);
     },
+  };
+}
+
+function disposeNavigation(state: NavigationState): void {
+  if (state.disposed) return;
+  state.disposed = true;
+  state.navigationAttemptId += 1;
+  clearPendingNavigation(state);
+}
+
+function createTocNavigator(
+  state: NavigationState,
+  deps: NavigationDeps,
+): (spreadIndex: number) => void {
+  return (spreadIndex): void => {
+    replaceWithNavigation(state, deps, goToSpread(state, deps, spreadIndex));
   };
 }
 
@@ -153,27 +168,6 @@ function startGestureNavigation(
       }
     },
   };
-}
-
-function navigateToTocEntry(state: NavigationState, deps: NavigationDeps, entry: TocEntry): void {
-  if (state.disposed) return;
-  const resolved = deps.getReader()?.resolveTocEntry(entry);
-  if (!resolved) {
-    state.navigationAttemptId += 1;
-    clearPendingNavigation(state);
-    deps.onNavigationIntent?.();
-    state.pendingTocEntry = entry;
-    return;
-  }
-  replaceWithNavigation(state, deps, goToSpread(state, deps, resolved.spreadIndex));
-}
-
-function retryPendingTocNavigation(state: NavigationState, deps: NavigationDeps): void {
-  const entry = state.pendingTocEntry;
-  if (!entry) return;
-  const resolved = deps.getReader()?.resolveTocEntry(entry);
-  if (!resolved) return;
-  replaceWithNavigation(state, deps, goToSpread(state, deps, resolved.spreadIndex));
 }
 
 function goToSpread(

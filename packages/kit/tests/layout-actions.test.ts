@@ -2,7 +2,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReadingPosition } from '../src/interaction/index';
 import type { LayoutPositionPlan } from '../src/interaction/position/tracker';
 import type { Internals } from '../src/controller/core/internals';
-import { buildLayoutActions, commitLayoutChange } from '../src/controller/facade/layout-actions';
+import {
+  buildLayoutActions,
+  commitLayoutChange,
+  publishPaginationChange,
+} from '../src/controller/facade/layout-actions';
 import type { Emitter, RuntimeComponents } from '../src/controller/facade/types';
 
 function createMocks(options?: {
@@ -158,6 +162,84 @@ function createMocks(options?: {
 }
 
 describe('buildLayoutActions', () => {
+  it('publishes pagination resources without resetting stable layout state', () => {
+    const fixture = createMocks();
+    const chapter = {
+      href: 'chapter.xhtml',
+      normalizedText: 'text',
+      spans: [
+        {
+          nodePath: [0],
+          sourceStart: 0,
+          sourceEnd: 4,
+          normalizedStart: 0,
+          normalizedEnd: 4,
+        },
+      ],
+    };
+    const annotation = {
+      id: 'annotation',
+      kind: 'highlight',
+      target: {
+        href: chapter.href,
+        selectors: {
+          sourceRange: {
+            type: 'SourceRangeSelector',
+            start: { nodePath: [0], textOffset: 0 },
+            end: { nodePath: [0], textOffset: 1 },
+          },
+          textQuote: { type: 'TextQuoteSelector', exact: 't' },
+          textPosition: { type: 'TextPositionSelector', start: 0, end: 1 },
+          progression: { type: 'ProgressionSelector', chapter: 0, chapterProgress: 0 },
+        },
+        text: { highlight: 't' },
+      },
+      createdAt: 1,
+    } as const;
+    fixture.reader.getChapterTextIndices.mockReturnValue(new Map([['chapter', chapter]]));
+    fixture.internals.coordState.chapterIndices = new Map();
+    fixture.internals.coordState.hitMaps = new Map();
+    fixture.internals.coordState.annotationStore = {
+      getAll: () => [annotation],
+    } as never;
+    fixture.internals.coordState.resolvedAnnotations = [];
+    const markAllOverlaysDirty = vi.fn();
+
+    publishPaginationChange(fixture.internals, fixture.emitter, { markAllOverlaysDirty });
+
+    expect(fixture.internals.coordState.chapterIndices.get(chapter.href)).toBe(chapter);
+    expect(fixture.internals.coordState.resolvedAnnotations).toHaveLength(1);
+    expect(fixture.internals.coordState.resolvedAnnotations[0]?.record).toBe(annotation);
+    expect(fixture.spies.setPages).toHaveBeenCalledWith(fixture.reader.pages);
+    expect(fixture.spies.invalidateSelection).toHaveBeenCalledOnce();
+    expect(markAllOverlaysDirty).toHaveBeenCalledOnce();
+    expect(fixture.spies.invalidateAllContent).not.toHaveBeenCalled();
+    expect(fixture.spies.reset).not.toHaveBeenCalled();
+    expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
+    expect(fixture.spies.emit).toHaveBeenCalledWith('layoutChange', {
+      spreads: fixture.reader.spreads,
+      totalSpreads: fixture.reader.totalSpreads,
+    });
+  });
+
+  it('invalidates revision-bound native annotation geometry during pagination growth', () => {
+    const fixture = createMocks({ nativeAnnotationGeometry: true });
+    fixture.internals.coordState.annotationStore = { getAll: () => [] } as never;
+    const markAllOverlaysDirty = vi.fn();
+
+    publishPaginationChange(fixture.internals, fixture.emitter, { markAllOverlaysDirty });
+
+    expect(fixture.internals.coordState.nativeAnnotationGeometry.generation).toBe(5);
+    expect(fixture.internals.coordState.nativeAnnotationGeometry.cache.size).toBe(0);
+    expect(fixture.internals.coordState.nativeAnnotationGeometry.misses.size).toBe(0);
+    expect(fixture.internals.coordState.nativeAnnotationGeometry.pending.size).toBe(0);
+    expect(fixture.spies.emit).toHaveBeenCalledWith('annotationHover', {
+      annotation: null,
+      x: 0,
+      y: 0,
+    });
+  });
+
   it('forwards cleared theme overrides and invalidates rendered content', () => {
     const { internals, runtime, emitter, spies } = createMocks();
     const actions = buildLayoutActions(internals, emitter, runtime);
