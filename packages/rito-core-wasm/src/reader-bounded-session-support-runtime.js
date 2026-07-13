@@ -2,16 +2,26 @@ import {
   requireSourceLocatorRequest,
   requireSourceLocatorResolution,
 } from './reader-worker-interaction-validation-runtime.js';
+import { requireRevisionWorkBudget } from './core-wasm-versioned-validation-runtime.js';
 
 export function requireBoundedReaderStartRequest(request) {
   if (request === null || typeof request !== 'object' || Array.isArray(request)) {
     throw new TypeError('bounded reader start request must be an object');
   }
+  const budget = boundedReaderBudget(request.budget, 'bounded reader start');
   return {
     layoutConfig: request.layoutConfig,
     ...(request.lineBreaking !== undefined ? { lineBreaking: request.lineBreaking } : {}),
-    budget: { maxTopLevelNodes: request.budget?.maxTopLevelNodes },
+    budget,
+    growthBudget:
+      request.growthBudget === undefined
+        ? budget
+        : boundedReaderBudget(request.growthBudget, 'bounded reader growth'),
   };
+}
+
+function boundedReaderBudget(value, operation) {
+  return { maxTopLevelNodes: requireRevisionWorkBudget(value, operation) };
 }
 
 export function requireSpreadIndex(value) {

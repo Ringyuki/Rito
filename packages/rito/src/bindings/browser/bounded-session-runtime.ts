@@ -21,7 +21,8 @@ import { toReaderLocatorResolution } from './reader/interaction';
 import { copyReaderLocator } from './reader/interaction-capture';
 import type { BrowserReaderState } from './reader/types';
 
-const BOUNDED_LAYOUT_NODE_BUDGET = 32;
+const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
+const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
 const mutationTails = new WeakMap<BrowserReaderState, Promise<void>>();
 
 export { createBrowserReaderBoundedSessionOwner };
@@ -94,7 +95,13 @@ async function runCandidate(
   let snapshot = await owner.controller.start({
     layoutConfig: toCoreLayoutConfig(request.config, state.fontMetrics),
     lineBreaking: request.lineBreaking,
-    budget: { maxTopLevelNodes: BOUNDED_LAYOUT_NODE_BUDGET },
+    budget: {
+      maxTopLevelNodes:
+        request.targetSpreadIndex === 0
+          ? INITIAL_SPREAD_LAYOUT_NODE_BUDGET
+          : BOUNDED_GROWTH_LAYOUT_NODE_BUDGET,
+    },
+    growthBudget: { maxTopLevelNodes: BOUNDED_GROWTH_LAYOUT_NODE_BUDGET },
     targetSpreadIndex: request.targetSpreadIndex,
   });
   if (request.preserveLocator) {

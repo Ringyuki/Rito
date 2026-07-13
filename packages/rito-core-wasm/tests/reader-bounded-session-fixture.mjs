@@ -102,10 +102,11 @@ export function sourceResolution(revision, locator, extent, spreadIndex = 0) {
   };
 }
 
-export function startRequest(targetSpreadIndex) {
+export function startRequest(targetSpreadIndex, budget = 1, growthBudget = 32) {
   return {
     layoutConfig: {},
-    budget: { maxTopLevelNodes: 1 },
+    budget: { maxTopLevelNodes: budget },
+    growthBudget: { maxTopLevelNodes: growthBudget },
     targetSpreadIndex,
   };
 }

@@ -24,6 +24,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   let targetSequence = 0;
   let requestedTarget;
   let presentationSpreadIndex = 0;
+  let hasPublishedSnapshot = false;
   let targetEvaluation;
   let targetFailure;
   let snapshotTargetToken;
@@ -123,7 +124,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   async function runPump() {
     try {
       if (revision === undefined) {
-        acceptAdvance(await client.createBoundedRevision(startRequest), undefined);
+        acceptAdvance(await client.createBoundedRevision(initialRevisionRequest()), undefined);
       }
       while (phase === 'running') {
         if (stopRequested !== undefined) return cleanupLatest();
@@ -149,7 +150,7 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
         acceptAdvance(
           await client.continueRevision({
             ...continuation,
-            budget: startRequest.budget,
+            budget: hasPublishedSnapshot ? startRequest.growthBudget : startRequest.budget,
           }),
           previous,
         );
@@ -221,8 +222,19 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
       presentationSpreadIndex: target,
       ...(frameWindow !== undefined ? { frameWindow } : {}),
     };
+    hasPublishedSnapshot = true;
     presentationSpreadIndex = target;
     snapshotTargetToken = evaluation.token;
+  }
+
+  function initialRevisionRequest() {
+    return {
+      layoutConfig: startRequest.layoutConfig,
+      ...(startRequest.lineBreaking !== undefined
+        ? { lineBreaking: startRequest.lineBreaking }
+        : {}),
+      budget: startRequest.budget,
+    };
   }
 
   async function readRevisionPresentation(handle) {

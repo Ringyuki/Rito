@@ -41,6 +41,85 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
   await session.dispose();
 });
 
+test('bounded startup keeps its small budget until the first snapshot then uses its growth budget', async () => {
+  const calls = [];
+  const client = fixtureClient({
+    create: async (request) => {
+      calls.push(['create', request.budget.maxTopLevelNodes, 'growthBudget' in request]);
+      return versioned(advance(0, 0, true));
+    },
+    continue: async (request) => {
+      calls.push(['continue', request.budget.maxTopLevelNodes]);
+      const version = request.revisionVersion + 1;
+      const spreadCount = version < 2 ? 0 : version === 2 ? 1 : 3;
+      return versioned(advance(version, spreadCount, true));
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    yieldControl: async () => {},
+  });
+
+  const initial = await session.start(startRequest(0, 1, 32));
+  const grown = await session.ensureSpread(2);
+
+  assert.equal(initial.revision.revisionVersion, 2);
+  assert.equal(grown.revision.revisionVersion, 3);
+  assert.deepEqual(calls, [
+    ['create', 1, false],
+    ['continue', 1],
+    ['continue', 1],
+    ['continue', 32],
+  ]);
+  await session.dispose();
+});
+
+test('bounded startup validates its growth budget before opening a revision', () => {
+  let createCount = 0;
+  const client = fixtureClient({
+    create: async () => {
+      createCount += 1;
+      return versioned(advance(0, 1, true));
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client);
+
+  assert.throws(
+    () => session.start(startRequest(0, 1, 0)),
+    /bounded reader growth budget maxTopLevelNodes must be a positive safe integer/,
+  );
+  assert.equal(createCount, 0);
+});
+
+test('bounded startup defaults an omitted growth budget to its validated startup budget', async () => {
+  const calls = [];
+  const client = fixtureClient({
+    create: async (request) => {
+      calls.push(['create', request.budget.maxTopLevelNodes, 'growthBudget' in request]);
+      return versioned(advance(0, 1, true));
+    },
+    continue: async (request) => {
+      calls.push(['continue', request.budget.maxTopLevelNodes]);
+      return versioned(advance(request.revisionVersion + 1, 2, true));
+    },
+  });
+  const session = createRitoCoreWasmBoundedReaderSession(client, {
+    yieldControl: async () => {},
+  });
+
+  await session.start({
+    layoutConfig: {},
+    budget: { maxTopLevelNodes: 3 },
+    targetSpreadIndex: 0,
+  });
+  await session.ensureSpread(1);
+
+  assert.deepEqual(calls, [
+    ['create', 3, false],
+    ['continue', 3],
+  ]);
+  await session.dispose();
+});
+
 test('a target race publishes one exact presentation only for the latest snapshot request', async () => {
   const presentationStarted = deferred();
   const presentationAllowed = deferred();

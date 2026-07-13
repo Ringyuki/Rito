@@ -41,6 +41,8 @@ export interface RitoCoreWasmBoundedReaderSessionClient {
 }
 
 export interface RitoCoreWasmBoundedReaderStartRequest extends RitoCoreWasmBoundedRevisionRequest {
+  /** Work quantum used only after the first snapshot; defaults to `budget`. */
+  readonly growthBudget?: import('./revision').RitoCoreWasmRevisionWorkBudget | undefined;
   readonly targetSpreadIndex?: number | undefined;
 }
 

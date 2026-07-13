@@ -55,6 +55,7 @@ describe('Browser bounded session runtime', () => {
       layoutConfig: toCoreLayoutConfig(state.config, state.fontMetrics),
       lineBreaking: 'greedy',
       budget: { maxTopLevelNodes: 32 },
+      growthBudget: { maxTopLevelNodes: 32 },
       targetSpreadIndex: 1,
     });
     expect(state.boundedSessions.current).toBe(candidateOwner);
@@ -199,6 +200,31 @@ describe('Browser bounded session runtime', () => {
     expect(fixture.state.boundedSessions.current).toBe(fixture.owner);
     expect(controllerDispose).toHaveBeenCalled();
     expect(candidate.dispose).toHaveBeenCalled();
+  });
+
+  it('uses a one-node startup quantum for spread zero and a larger growth quantum', async () => {
+    const fixture = currentFixture();
+    const candidate = createWorker(() => undefined, 'first-spread-budget');
+    const snapshot = boundedSnapshot('first-spread-budget', 0, 1, 'ready');
+    const start = vi.fn(() => Promise.resolve(snapshot));
+    const candidateOwner = owner(candidate.worker, { start });
+    recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
+    mockAggregates(candidate.worker, snapshot);
+
+    await startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
+      config: fixture.state.config,
+      spreadMode: fixture.state.spreadMode,
+      lineBreaking: fixture.state.lineBreaking,
+      targetSpreadIndex: 0,
+    });
+
+    expect(start).toHaveBeenCalledWith({
+      layoutConfig: toCoreLayoutConfig(fixture.state.config, fixture.state.fontMetrics),
+      lineBreaking: 'greedy',
+      budget: { maxTopLevelNodes: 1 },
+      growthBudget: { maxTopLevelNodes: 32 },
+      targetSpreadIndex: 0,
+    });
   });
 
   it('rejects a shared-worker candidate without disposing the current worker', async () => {
