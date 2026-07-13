@@ -62,6 +62,54 @@ describe('Browser bounded session runtime', () => {
     expect(previous.dispose).toHaveBeenCalledOnce();
   });
 
+  it('drops a candidate when navigation moves after its anchor was captured', async () => {
+    const fixture = currentFixture();
+    const candidate = createWorker(() => undefined, 'stale-navigation');
+    const snapshot = boundedSnapshot('stale-navigation', 0, 1, 'ready');
+    const candidateOwner = owner(candidate.worker, {
+      start: vi.fn(() => Promise.resolve(snapshot)),
+    });
+    recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
+    const { readFootnotes } = mockAggregates(candidate.worker, snapshot);
+    const task = startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
+      config: fixture.state.config,
+      spreadMode: fixture.state.spreadMode,
+      lineBreaking: fixture.state.lineBreaking,
+      targetSpreadIndex: 0,
+      expectedActiveSpreadIndex: 0,
+    });
+    fixture.state.activeSpreadIndex = 1;
+
+    await expect(task).resolves.toBeUndefined();
+    expect(readFootnotes).not.toHaveBeenCalled();
+    expect(fixture.state.boundedSessions.current).toBe(fixture.owner);
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('current');
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('publishes the candidate callback before layout listeners', async () => {
+    const fixture = currentFixture();
+    const candidate = createWorker(() => undefined, 'callback-order');
+    const snapshot = boundedSnapshot('callback-order', 0, 1, 'ready');
+    const candidateOwner = owner(candidate.worker, {
+      start: vi.fn(() => Promise.resolve(snapshot)),
+    });
+    recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
+    mockAggregates(candidate.worker, snapshot);
+    const order: string[] = [];
+    fixture.state.layoutCommittedListeners.add(() => order.push('listener'));
+
+    await startBrowserReaderBoundedCandidate(fixture.state, candidateOwner, {
+      config: fixture.state.config,
+      spreadMode: fixture.state.spreadMode,
+      lineBreaking: fixture.state.lineBreaking,
+      targetSpreadIndex: 0,
+      onCommitted: () => order.push('callback'),
+    });
+
+    expect(order).toEqual(['callback', 'listener']);
+  });
+
   it('does not let an older candidate overwrite a newer committed layout', async () => {
     const fixture = currentFixture();
     const staleWorker = createWorker(() => undefined, 'stale-candidate');
@@ -489,19 +537,21 @@ function boundedSnapshot(
 function mockAggregates(
   worker: BrowserReaderWorkerClient,
   snapshot: BrowserReaderBoundedSnapshot,
-): void {
+): { readonly readFootnotes: ReturnType<typeof vi.fn> } {
   const revision = {
     revisionId: snapshot.revision.revisionId,
     revisionVersion: snapshot.revision.revisionVersion,
   };
+  const readFootnotes = vi.fn(() =>
+    Promise.resolve({ revision, value: { revisionId: revision.revisionId, entries: {} } }),
+  );
   Object.assign(worker, {
-    getFootnotesAtRevision: vi.fn(() =>
-      Promise.resolve({ revision, value: { revisionId: revision.revisionId, entries: {} } }),
-    ),
+    getFootnotesAtRevision: readFootnotes,
     getChapterTextIndicesAtRevision: vi.fn(() =>
       Promise.resolve({ revision, value: { revisionId: revision.revisionId, entries: {} } }),
     ),
   });
+  return { readFootnotes };
 }
 
 function revisionHandle(snapshot: BrowserReaderBoundedSnapshot) {

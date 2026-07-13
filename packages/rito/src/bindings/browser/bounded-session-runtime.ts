@@ -32,6 +32,8 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly lineBreaking: 'greedy' | 'optimal';
   readonly targetSpreadIndex: number;
   readonly preserveLocator?: ReaderLocator | undefined;
+  readonly expectedActiveSpreadIndex?: number | undefined;
+  readonly onCommitted?: (() => void) | undefined;
 }
 
 export async function startBrowserReaderBoundedCandidate(
@@ -109,6 +111,8 @@ async function runCandidate(
     spreadMode: request.spreadMode,
     lineBreaking: request.lineBreaking,
     baseCommitGeneration,
+    expectedActiveSpreadIndex: request.expectedActiveSpreadIndex,
+    onCommitted: request.onCommitted,
   });
   if (!result.committed) {
     await abandonBrowserReaderBoundedCandidate(state, owner);

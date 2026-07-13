@@ -29,6 +29,10 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
   readonly baseCommitGeneration: number;
   /** Same-session extent growth is published by its caller without a full layout reset. */
   readonly notifyLayoutCommitted?: boolean | undefined;
+  /** Reject a candidate if navigation moved after its reading anchor was captured. */
+  readonly expectedActiveSpreadIndex?: number | undefined;
+  /** Runs inside the atomic publication, before public layout listeners. */
+  readonly onCommitted?: (() => void) | undefined;
 }
 
 export interface BrowserReaderBoundedCommitResult {
@@ -156,6 +160,7 @@ function publishBoundedCommit(
   });
   state.activeSpreadIndex = boundedCommitActiveSpread(state, prepared);
   reopenCurrentExactReads(state, input, candidate);
+  notifyCommitCallback(state, input.onCommitted);
   if (input.notifyLayoutCommitted !== false) notifyLayoutCommitted(state);
   return {
     committed: true,
@@ -198,12 +203,23 @@ function isEligibleCommit(
   return (
     !state.disposed &&
     state.commitGeneration === input.baseCommitGeneration &&
+    (input.expectedActiveSpreadIndex === undefined ||
+      state.activeSpreadIndex === input.expectedActiveSpreadIndex) &&
     (state.boundedSessions.current === input.owner ||
       state.boundedSessions.candidate === input.owner) &&
     input.owner.worker.sessionId === accepted?.workerSessionId &&
     accepted.revisionId === input.snapshot.revision.revisionId &&
     accepted.revisionVersion === input.snapshot.revision.revisionVersion
   );
+}
+
+function notifyCommitCallback(state: BrowserReaderState, callback: (() => void) | undefined): void {
+  if (!callback) return;
+  try {
+    callback();
+  } catch (error) {
+    state.logger.warn('reader layout commit callback failed', error);
+  }
 }
 
 function requireExactAggregate(
