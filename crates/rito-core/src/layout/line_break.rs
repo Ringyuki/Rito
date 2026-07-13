@@ -8,6 +8,7 @@ use std::convert::Infallible;
 
 use unicode_linebreak::{linebreaks, BreakOpportunity};
 
+#[cfg(test)]
 use super::hyphenation::find_hyphenation_points;
 
 /// Rust line-breaking policy.
@@ -198,6 +199,7 @@ impl<'a> Utf16Text<'a> {
             .unwrap_or(0)
     }
 
+    #[cfg(test)]
     fn previous_boundary(&self, offset: usize) -> usize {
         self.boundaries
             .range(..offset)
@@ -371,6 +373,7 @@ where
     }
 }
 
+#[cfg(test)]
 pub(crate) fn try_ascii_hyphenation_with<F, E>(
     text: &Utf16Text<'_>,
     line_start: usize,
@@ -590,6 +593,7 @@ fn is_allowed_line_break(
     }
 }
 
+#[cfg(test)]
 fn find_ascii_word(
     text: &Utf16Text<'_>,
     line_start: usize,

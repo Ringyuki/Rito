@@ -49,16 +49,19 @@ The remaining usability work is narrower but still release-blocking:
    container trees. Break search, cached prefix/style-slice measurement,
    line-break scanning, UTF-16 run copy, leading-space skip,
    trailing-whitespace trim, measurement and shaping retain state across public
-   quanta without publishing a partial line or block. Every recursive session
-   shares one 32-node descendant quantum and the text-work meter, and one public
-   request keeps that meter across chapter boundaries. A later request starts
+   quanta without publishing a partial line or block. ASCII word-boundary
+   discovery, generated hyphen points, candidate probing and the final choice
+   now survive a yielded candidate measurement instead of rerunning the Liang
+   dictionary. Every recursive session shares one 32-node descendant quantum
+   and the text-work meter, and one public request keeps that meter across
+   chapter boundaries. A later request starts
    with a fresh meter. Each session also captures a process-local logical font
    layout-profile token and rejects resume under a different fallback/face
    profile; the same token isolates shared width-cache entries between font
    assemblies. Individual font measurement and Rustybuzz calls remain indivisible,
    and one oversized operation may run on a fresh quantum to avoid livelock.
-   Inline/context preparation, container startup, justification/mapping,
-   hyphen-candidate generation, visually decorated or floated containers,
+   Inline/context preparation, container startup, justification/mapping, atomic
+   Liang point generation, visually decorated or floated containers,
    Optimal paragraphs and tables therefore still prevent a complete wall-clock
    hard bound. A test-only ordered, text-hashed trace covers prefix probes,
    line-break scans, cache outcomes and actual Rustybuzz subruns; exact
@@ -108,10 +111,11 @@ It already:
 - requests the resources needed by active and warm windows.
 
 The remaining bounded-layout work is to meter incremental inline/context
-preparation, container startup, justification/alignment/mapping and
-hyphen-candidate generation, then cover visually decorated and floated
-containers, auto-layout tables and Optimal paragraphs. Individual font calls
-remain indivisible even though their surrounding measure/shape stages resume.
+preparation, container startup and justification/alignment/mapping, then make
+the currently atomic Liang point calculation bounded and cover visually
+decorated and floated containers, auto-layout tables and Optimal paragraphs.
+Individual font calls remain indivisible even though their surrounding
+measure/shape stages resume.
 Publication-wide source indexes must likewise be budgeted instead of
 front-loading a full-spine scan.
 
@@ -148,8 +152,9 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
 - inline flattening/context construction and the remaining
-  justification/alignment, source mapping and hyphen-candidate generation are
-  not yet fully covered by the text-work meter;
+  justification/alignment and source mapping are not yet fully covered by the
+  text-work meter. ASCII hyphen word discovery and candidate probing resume,
+  but one Liang point-generation call remains atomic;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
@@ -406,7 +411,7 @@ architecture rather than make an eager whole-book pipeline faster.
    completed children can publish before their ancestor closes, but no partial
    line or block is exposed. A process-local font layout-profile token rejects
    inconsistent resume inputs. Inline/context preparation, container startup,
-   justification/mapping, hyphen-candidate generation, decorated/floated
+   justification/mapping, atomic Liang point generation, decorated/floated
    containers, tables and Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work
    escape.

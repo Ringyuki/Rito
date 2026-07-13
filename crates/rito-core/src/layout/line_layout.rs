@@ -452,6 +452,26 @@ mod tests {
     }
 
     #[test]
+    fn one_unit_quanta_preserve_hyphenated_lines_and_ordered_work_trace() {
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            ("language".to_owned(), Value::String("ja".to_owned())),
+        ]);
+        let segments = vec![text_segment("Nokyoushitsue".to_owned(), style)];
+        let fonts = TextMeasurementFonts::empty();
+        let (expected, expected_trace) =
+            capture_text_work_trace(|| layout_greedy_lines_with_fonts(&segments, 60.0, &fonts));
+        let ((actual, quantum_count), actual_trace) =
+            capture_text_work_trace(|| layout_with_text_quanta(&segments, 60.0, &fonts, 1, 1));
+
+        assert_eq!(expected[0].text(), "Noky-");
+        assert!(quantum_count > 20);
+        assert_eq!(actual, expected);
+        assert_eq!(actual_trace.events, expected_trace.events);
+    }
+
+    #[test]
     fn classifies_break_offsets_once_for_many_forced_lines() {
         let style = Map::from_iter([
             ("fontSize".to_owned(), json!(16)),

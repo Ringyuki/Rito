@@ -331,10 +331,13 @@ Those names now belong to the old TS reference tree only.
      transparent container trees. Break search, cached prefix/style-slice
      measurement, line-break scanning, leading-space skip, trailing-whitespace
      trim, UTF-16 run copy, measurement and shaping all retain their state
-     across public quanta. The indivisible font measurement or Rustybuzz call
-     at each stage is admitted as one atomic operation; a fresh quantum may
-     admit one oversized operation to avoid livelock, so this is not by itself
-     a wall-clock preemption guarantee.
+     across public quanta. ASCII hyphenation also preserves word-boundary
+     discovery, generated points, the reverse candidate cursor and the selected
+     result, so a yielded candidate measurement does not rescan the word or
+     rerun the Liang dictionary. The dictionary calculation itself, like an
+     indivisible font measurement or Rustybuzz call, is admitted as one atomic
+     operation. A fresh quantum may admit one oversized operation to avoid
+     livelock, so this is not by itself a wall-clock preemption guarantee.
    - All active descendants share one 32-node accept/start meter and the same
      text-work meter. One public continuation request also shares that text
      meter across every chapter it visits instead of resetting it at chapter
@@ -352,8 +355,8 @@ Those names now belong to the old TS reference tree only.
      measurements.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
-     margin-collapse preparation, justification/alignment/mapping work,
-     hyphen-candidate generation, visually decorated or floated containers,
+     margin-collapse preparation, justification/alignment/mapping work, atomic
+     Liang point generation, visually decorated or floated containers,
      tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
@@ -484,9 +487,10 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
    flattening/context preparation, container startup and remaining line
-   post-processing such as justification/alignment, mapping and hyphen-candidate
-   generation. Then carry continuation through decorated/floated containers
-   and split table prepass/rows and Optimal preparation while preserving
+   post-processing such as justification/alignment and mapping, then make the
+   currently atomic Liang point calculation bounded. Carry continuation through
+   decorated/floated containers and split table prepass/rows and Optimal
+   preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
    indivisible.
@@ -509,15 +513,16 @@ The revision/locator contract, bounded production switch and principal native
 interaction slices are complete. Greedy leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,
-leading-space and trailing-trim state across public quanta, and one public
-request shares its text-work meter across chapter boundaries. Exact ordered
-text-work traces remain unchanged, while a captured font layout-profile token
-prevents restore under inconsistent logical font inputs. The footnote index
-performs one spine parse instead of two. The next bounded-layout slice should
-meter inline/context preparation, container startup and the remaining
-justification, mapping and hyphen-candidate-generation work before extending
-the same discipline through decorated/floated containers, tables and Optimal
-layout. Individual font calls remain indivisible and the oversized-operation
+leading-space, trailing-trim and ASCII-hyphen candidate state across public
+quanta, and one public request shares its text-work meter across chapter
+boundaries. Exact ordered text-work traces remain unchanged, while a captured
+font layout-profile token prevents restore under inconsistent logical font
+inputs. The footnote index performs one spine parse instead of two. The next
+bounded-layout slice should meter inline/context preparation, container startup
+and the remaining justification and mapping work before making Liang point
+generation itself resumable and extending the same discipline through
+decorated/floated containers, tables and Optimal layout. Individual font calls
+and the Liang dictionary call remain indivisible; the oversized-operation
 escape means the public quantum is not yet a complete wall-clock hard bound.
 After the default-Greedy hard bound, move the single-pass source scan under an
 explicit budget and reuse a durable source index for full-publication search.

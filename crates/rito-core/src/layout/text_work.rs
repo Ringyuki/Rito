@@ -23,6 +23,7 @@ impl TextWorkBudget {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::layout) enum AtomicTextOperationKind {
     LineBreakScan,
+    Hyphenation,
     Measure,
     Shape,
 }
