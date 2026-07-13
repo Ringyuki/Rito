@@ -1,12 +1,7 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { visualLayoutConfig } from './revision';
-import {
-  scheduleBrowserReaderReflow,
-  clearDeferredFullReflow,
-  navigateBrowserReaderToLocator,
-} from './pipeline/reflow';
-import { cancelLocatorNavigation } from './pipeline/locator-navigation';
+import { cancelBrowserReaderReflow, scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
 import { browserReaderSpreads } from './layout';
 import {
@@ -25,10 +20,15 @@ import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } f
 import { captureCommittedSourceRead, readCapturedSource } from './interaction-capture';
 import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
 import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
+import {
+  completeBrowserReaderBoundedSession,
+  ensureBrowserReaderBoundedLocator,
+} from '../bounded-session-runtime';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
   | 'totalSpreads'
+  | 'pagination'
   | 'toc'
   | 'chapterMap'
   | 'manifestHrefMap'
@@ -77,8 +77,7 @@ export function buildBrowserReaderMethods(
     ...listenerMethods(state),
     dispose() {
       if (state.disposed) return;
-      cancelLocatorNavigation(state);
-      clearDeferredFullReflow(state);
+      cancelBrowserReaderReflow(state);
       state.spreadRenderedListeners.clear();
       state.spreadContentInvalidatedListeners.clear();
       state.layoutCommittedListeners.clear();
@@ -193,7 +192,7 @@ function navigationMethods(
       return findRitoCoreWasmReaderActiveTocEntry(state.tocTargets, pageIndex);
     },
     navigateToLocator(locator, signal) {
-      return navigateBrowserReaderToLocator(state, locator, signal);
+      return ensureBrowserReaderBoundedLocator(state, locator, signal);
     },
   };
 }
@@ -207,6 +206,7 @@ function resourceMethods(
   return {
     async search(query, searchOptions) {
       if (query.length === 0) return [];
+      if ((await completeBrowserReaderBoundedSession(state)) !== true) return [];
       const capture = captureCommittedSourceRead(state);
       if (!capture) return [];
       const response = await readCapturedSource(state, capture, (worker, revision) =>

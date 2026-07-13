@@ -3,7 +3,7 @@ import { createReader } from '../../src/bindings/browser/reader/reader';
 import type { BrowserReaderWorkerOpenOptions } from '../../src/bindings/browser/core-contracts';
 
 type InitialReflow =
-  (typeof import('../../src/bindings/browser/reader/pipeline/reflow'))['startBrowserReaderInitialReflow'];
+  (typeof import('../../src/bindings/browser/reader/pipeline/bounded-reflow'))['startBrowserReaderInitialReflow'];
 
 const mocks = vi.hoisted(() => ({
   buildBrowserReaderMethods: vi.fn(() => ({})),
@@ -33,7 +33,8 @@ vi.mock('../../src/bindings/browser/reader/wasm-module', () => ({
   loadRuntimeCoreModule: mocks.loadRuntimeCoreModule,
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/reflow', () => ({
+vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
+  scheduleBrowserReaderReflow: vi.fn(() => true),
   startBrowserReaderInitialReflow: mocks.startBrowserReaderInitialReflow,
 }));
 
@@ -71,11 +72,6 @@ describe('Browser reader creation', () => {
     mocks.preloadCurrentReaderFonts.mockImplementation(() => {
       registrationStarted.resolve();
       return fontRegistration.promise;
-    });
-    mocks.startBrowserReaderInitialReflow.mockImplementation((...args) => {
-      const beforeFullReflow = args[6];
-      if (beforeFullReflow) void beforeFullReflow();
-      return Promise.resolve();
     });
     const worker = {
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
@@ -122,7 +118,7 @@ describe('Browser reader creation', () => {
     expect(mocks.warmBrowserReaderFrameWindow).toHaveBeenCalledOnce();
   });
 
-  it('preserves the primary creation error when worker cleanup fails', async () => {
+  it('preserves the primary creation error after the initial session owns cleanup', async () => {
     const primaryError = new Error('initial revision failed');
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
     const worker = {
@@ -136,6 +132,24 @@ describe('Browser reader creation', () => {
     await expect(
       createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
     ).rejects.toBe(primaryError);
+    expect(worker.dispose).not.toHaveBeenCalled();
+  });
+
+  it('disposes a committed initial session when facade construction fails', async () => {
+    const primaryError = new Error('reader facade failed');
+    mocks.buildBrowserReaderMethods.mockImplementationOnce(() => {
+      throw primaryError;
+    });
+    const worker = {
+      open: vi.fn(() => Promise.resolve(openResultWithFont())),
+      dispose: vi.fn(),
+    };
+    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+
+    await expect(
+      createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
+    ).rejects.toBe(primaryError);
+
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
@@ -253,7 +267,7 @@ describe('Browser reader creation', () => {
 
     expect(add).toHaveBeenCalledOnce();
     expect(remove).toHaveBeenCalledWith(add.mock.calls[0]?.[0]);
-    expect(worker.dispose).toHaveBeenCalledOnce();
+    expect(worker.dispose).not.toHaveBeenCalled();
   });
 
   it('disposes the worker without registering faces when pinned open fails', async () => {

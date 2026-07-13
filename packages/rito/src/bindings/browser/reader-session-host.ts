@@ -129,12 +129,7 @@ export function disposeBrowserReaderSessionHosts(state: BrowserReaderState): voi
   const owners = [slots.current, slots.candidate].filter((owner) => owner !== undefined);
   slots.current = undefined;
   slots.candidate = undefined;
-  const workers = new Set([
-    state.worker,
-    state.foregroundWorker,
-    ...owners.map(({ worker }) => worker),
-  ]);
-  if (state.fullReflowWorker) workers.add(state.fullReflowWorker);
+  const workers = new Set([state.worker, ...owners.map(({ worker }) => worker)]);
   const controllers = new Set(owners.map(({ controller }) => controller));
   if (controllers.size === 0) {
     disposeWorkers(state, workers);

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBrowserReaderMethods } from '../../src/bindings/browser/reader/reader-methods';
 import type { ReaderOptions } from '../../src/reader';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
@@ -11,9 +11,11 @@ import type { BrowserReaderBoundedSessionOwner } from '../../src/bindings/browse
 
 const mocks = vi.hoisted(() => ({
   scheduleBrowserReaderReflow: vi.fn(() => true),
-  navigateBrowserReaderToLocator: vi.fn(() => Promise.resolve(undefined)),
-  clearDeferredFullReflow: vi.fn(),
-  cancelLocatorNavigation: vi.fn(),
+  completeBrowserReaderBoundedSession: vi.fn(
+    (): Promise<boolean | undefined> => Promise.resolve(true),
+  ),
+  ensureBrowserReaderBoundedLocator: vi.fn(() => Promise.resolve(undefined)),
+  cancelBrowserReaderReflow: vi.fn(),
   disposeBrowserReaderPinnedFonts: vi.fn(),
   ensureFrameLoaded: vi.fn(),
   loadFrame: vi.fn(),
@@ -22,14 +24,14 @@ const mocks = vi.hoisted(() => ({
   warmBrowserReaderFrameWindow: vi.fn(),
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/reflow', () => ({
-  clearDeferredFullReflow: mocks.clearDeferredFullReflow,
-  navigateBrowserReaderToLocator: mocks.navigateBrowserReaderToLocator,
+vi.mock('../../src/bindings/browser/reader/pipeline/bounded-reflow', () => ({
+  cancelBrowserReaderReflow: mocks.cancelBrowserReaderReflow,
   scheduleBrowserReaderReflow: mocks.scheduleBrowserReaderReflow,
 }));
 
-vi.mock('../../src/bindings/browser/reader/pipeline/locator-navigation', () => ({
-  cancelLocatorNavigation: mocks.cancelLocatorNavigation,
+vi.mock('../../src/bindings/browser/bounded-session-runtime', () => ({
+  completeBrowserReaderBoundedSession: mocks.completeBrowserReaderBoundedSession,
+  ensureBrowserReaderBoundedLocator: mocks.ensureBrowserReaderBoundedLocator,
 }));
 
 vi.mock('../../src/bindings/browser/pinned-fonts', () => ({
@@ -49,6 +51,12 @@ vi.mock('../../src/bindings/browser/resources', () => ({
 }));
 
 describe('Browser reader methods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.completeBrowserReaderBoundedSession.mockResolvedValue(true);
+    mocks.ensureBrowserReaderBoundedLocator.mockResolvedValue(undefined);
+  });
+
   it('warms neighboring spreads when the active spread changes', () => {
     const state = createState();
     const methods = buildBrowserReaderMethods(state, readerOptions());
@@ -103,7 +111,7 @@ describe('Browser reader methods', () => {
     expect(methods.getChapterTextIndices().get('chapter')?.normalizedText).toBe('Hello');
   });
 
-  it('forwards atomic locator navigation to the browser reflow pipeline', async () => {
+  it('forwards atomic locator navigation to bounded session growth', async () => {
     const state = createState();
     const methods = buildBrowserReaderMethods(state, readerOptions());
     const locator = { href: 'chapter.xhtml', sourcePoint: { nodePath: [1], textOffset: 2 } };
@@ -111,7 +119,7 @@ describe('Browser reader methods', () => {
 
     await methods.navigateToLocator?.(locator, controller.signal);
 
-    expect(mocks.navigateBrowserReaderToLocator).toHaveBeenCalledWith(
+    expect(mocks.ensureBrowserReaderBoundedLocator).toHaveBeenCalledWith(
       state,
       locator,
       controller.signal,
@@ -147,11 +155,31 @@ describe('Browser reader methods', () => {
 
     await expect(methods.search?.('needle')).resolves.toEqual([]);
 
+    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
     expect(searchAtRevision).toHaveBeenCalledWith(revision, {
       query: 'needle',
       caseSensitive: false,
       wholeWord: false,
     });
+    expect(mocks.completeBrowserReaderBoundedSession.mock.invocationCallOrder[0]).toBeLessThan(
+      searchAtRevision.mock.invocationCallOrder[0] ?? 0,
+    );
+  });
+
+  it('does not issue an exact search when bounded completion is cancelled', async () => {
+    const state = createState();
+    const searchAtRevision = vi.fn();
+    state.worker = {
+      sessionId: 'cancelled-search-session',
+      searchAtRevision,
+    } as unknown as BrowserReaderState['worker'];
+    mocks.completeBrowserReaderBoundedSession.mockResolvedValueOnce(undefined);
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    await expect(methods.search?.('needle')).resolves.toEqual([]);
+
+    expect(mocks.completeBrowserReaderBoundedSession).toHaveBeenCalledWith(state);
+    expect(searchAtRevision).not.toHaveBeenCalled();
   });
 
   it('drops a delayed search result after the same session advances its version', async () => {
@@ -188,6 +216,9 @@ describe('Browser reader methods', () => {
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
     const pending = methods.search?.('needle');
+    await vi.waitFor(() => {
+      expect(searchAtRevision).toHaveBeenCalledOnce();
+    });
     state.revisionHandle = {
       workerSessionId: 'search-session',
       revisionId: 'rev',
@@ -233,7 +264,7 @@ describe('Browser reader methods', () => {
 
     methods.dispose();
 
-    expect(mocks.cancelLocatorNavigation).toHaveBeenCalledWith(state);
+    expect(mocks.cancelBrowserReaderReflow).toHaveBeenCalledWith(state);
     expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
     expect(worker.dispose).toHaveBeenCalledOnce();
   });

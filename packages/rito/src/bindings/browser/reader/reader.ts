@@ -1,4 +1,9 @@
-import type { PackageMetadata, Reader, ReaderOptions } from '../../../reader';
+import type {
+  PackageMetadata,
+  Reader,
+  ReaderIncrementalPagination,
+  ReaderOptions,
+} from '../../../reader';
 import type { CanvasRenderingTarget } from '../rendering';
 import {
   applyLayoutOverrides,
@@ -10,9 +15,11 @@ import {
   createRitoCoreWasmReaderChapterMap,
   createRitoCoreWasmReaderManifestHrefMap,
 } from '../core-contracts';
-import { startBrowserReaderInitialReflow } from './pipeline/reflow';
+import {
+  scheduleBrowserReaderReflow,
+  startBrowserReaderInitialReflow,
+} from './pipeline/bounded-reflow';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { createBrowserReaderInteractionState } from './interaction';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
 import { createHostFontMetrics } from '../font-metrics';
@@ -33,6 +40,12 @@ import {
   registerBrowserReaderPinnedFonts,
   type BrowserReaderPinnedFonts,
 } from '../pinned-fonts';
+import { ensureBrowserReaderBoundedSpread } from '../bounded-session-runtime';
+import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
+import {
+  createEmptyBrowserReaderReflowState,
+  createEmptyBrowserReaderRevisionState,
+} from './pipeline/initial-state';
 
 export async function createReader(
   data: ArrayBuffer,
@@ -43,6 +56,8 @@ export async function createReader(
   const workerFactory = createBrowserReaderWorkerClientFactory(module);
   const worker = workerFactory();
   let pinnedFonts: BrowserReaderPinnedFonts | undefined;
+  let workerLifecycleTransferred = false;
+  let committedState: BrowserReaderState | undefined;
   try {
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
@@ -64,16 +79,24 @@ export async function createReader(
       ctx,
       options,
     );
+    workerLifecycleTransferred = true;
     await startInitialReflow(state, options);
+    committedState = state;
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     return reader as Reader;
   } catch (error) {
     if (pinnedFonts) disposeBrowserReaderPinnedFonts(pinnedFonts);
-    try {
-      worker.dispose();
-    } catch {
-      // Preserve the primary creation error when best-effort cleanup fails.
+    if (committedState) {
+      committedState.disposed = true;
+      disposeBrowserReaderSessionHosts(committedState);
+      await committedState.disposeTask;
+    } else if (!workerLifecycleTransferred) {
+      try {
+        worker.dispose();
+      } catch {
+        // Preserve the primary creation error when best-effort cleanup fails.
+      }
     }
     throw await normalizeBrowserReaderError(error, 'createReader');
   }
@@ -115,7 +138,7 @@ function createInitialState(
     bgColor: options.backgroundColor ?? '#ffffff',
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
-    ...emptyReaderRevisionState(),
+    ...createEmptyBrowserReaderRevisionState(),
     visualPreview: undefined,
     frames: new Map(),
     ...createBrowserReaderResourceState(),
@@ -126,70 +149,11 @@ function createInitialState(
     ...emptyListenerSets(),
     ...initialTypographyOverrides(options),
     pendingFrameLoads: new Map(),
-    reflow: emptyReflowState(),
+    reflow: createEmptyBrowserReaderReflowState(),
     disposed: false,
   };
   state.config = applyLayoutOverrides(state, state.config);
   return state;
-}
-
-function emptyReaderRevisionState(): Pick<
-  BrowserReaderState,
-  | 'revisionBundle'
-  | 'revisionHandle'
-  | 'commitGeneration'
-  | 'boundedSessions'
-  | 'disposeTask'
-  | 'interaction'
-> {
-  return {
-    revisionBundle: emptyRevisionBundle(),
-    revisionHandle: undefined,
-    commitGeneration: 0,
-    boundedSessions: { current: undefined, candidate: undefined },
-    disposeTask: undefined,
-    interaction: createBrowserReaderInteractionState(),
-  };
-}
-
-function emptyRevisionBundle(): BrowserReaderState['revisionBundle'] {
-  return {
-    revision: {
-      revisionId: '',
-      revisionVersion: 0,
-      layoutKey: '',
-      status: 'complete',
-      knownExtent: { pageCount: 0, spreadCount: 0 },
-      finalExtent: { pageCount: 0, spreadCount: 0 },
-      pageCount: 0,
-      spreadCount: 0,
-    },
-    navigation: {
-      revisionId: '',
-      pageCount: 0,
-      spreadCount: 0,
-      spreads: [],
-      chapters: [],
-      chapterMap: {},
-    },
-    tocTargets: { revisionId: '', targets: [] },
-    footnotes: { revisionId: '', entries: {} },
-    chapterTextIndices: { revisionId: '', entries: {} },
-    fontFamilies: [],
-  };
-}
-
-function emptyReflowState(): BrowserReaderState['reflow'] {
-  return {
-    active: undefined,
-    token: 0,
-    microtaskScheduled: false,
-    queued: undefined,
-    deferred: undefined,
-    deferredTimer: undefined,
-    locatorNavigation: undefined,
-    lastError: undefined,
-  };
 }
 
 function emptyListenerSets(): Pick<
@@ -230,20 +194,28 @@ async function startInitialReflow(
   state: BrowserReaderState,
   options: ReaderOptions,
 ): Promise<void> {
-  const warm = (): Promise<boolean> => warmInitialResources(state);
   await startBrowserReaderInitialReflow(
     state,
     options,
     options.spread ?? 'single',
     options.lineBreaking ?? 'greedy',
-    undefined,
-    () => {
-      void warm().catch((error: unknown) => {
-        state.logger.warn('initial reader resource warm failed', error);
-      });
-    },
-    warm,
   );
+  void warmInitialResources(state)
+    .then((metricsChanged) => {
+      if (metricsChanged) {
+        scheduleBrowserReaderReflow(
+          state,
+          options,
+          options.spread ?? 'single',
+          options.lineBreaking ?? 'greedy',
+          undefined,
+          true,
+        );
+      }
+    })
+    .catch((error: unknown) => {
+      state.logger.warn('initial reader resource warm failed', error);
+    });
 }
 
 async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {
@@ -253,12 +225,14 @@ async function warmInitialResources(state: BrowserReaderState): Promise<boolean>
 }
 
 function defineBrowserReaderAccessors(reader: Partial<Reader>, state: BrowserReaderState): void {
+  const pagination = createBrowserReaderIncrementalPagination(state);
   Object.defineProperties(reader, {
     metadata: {
       enumerable: true,
       get: () => normalizePackageMetadata(state.publication.package.metadata),
     },
     totalSpreads: { enumerable: true, get: () => state.revisionBundle.revision.spreadCount },
+    pagination: { enumerable: true, value: pagination },
     toc: { enumerable: true, get: () => state.publication.package.toc },
     chapterMap: {
       enumerable: true,
@@ -272,6 +246,19 @@ function defineBrowserReaderAccessors(reader: Partial<Reader>, state: BrowserRea
     spreads: { enumerable: true, get: () => browserReaderSpreads(state) },
     dpr: { enumerable: true, get: () => state.dpr },
   });
+}
+
+export function createBrowserReaderIncrementalPagination(
+  state: BrowserReaderState,
+): ReaderIncrementalPagination {
+  return {
+    get complete() {
+      return state.revisionBundle.revision.status === 'complete';
+    },
+    ensureSpread(spreadIndex, signal) {
+      return ensureBrowserReaderBoundedSpread(state, spreadIndex, signal);
+    },
+  };
 }
 
 function normalizePackageMetadata(metadata: {

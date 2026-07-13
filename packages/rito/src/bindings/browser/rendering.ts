@@ -3,7 +3,6 @@ import { createCanvasImageResolver } from './image-href-resolver';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader/layout';
-import { cancelLocatorNavigation } from './reader/pipeline/locator-navigation';
 import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 
 export type { CanvasRenderingTarget } from './frame-command-renderer';
@@ -49,7 +48,6 @@ export function renderSpreadToContext(
 }
 
 export function notifySpreadRendered(state: BrowserReaderState, index: number): void {
-  if (index !== state.activeSpreadIndex) cancelLocatorNavigation(state);
   state.activeSpreadIndex = index;
   const spread = browserReaderSpreads(state)[index];
   if (!spread) return;
