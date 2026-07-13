@@ -52,10 +52,11 @@ The remaining usability work is narrower but still release-blocking:
    quanta without publishing a partial line or block. ASCII word-boundary
    discovery, generated hyphen points, candidate probing and the final choice
    now survive a yielded candidate measurement instead of rerunning the Liang
-   dictionary. Width/effective-height accumulation and vertical run shifting
-   also resume one run at a time, and publish no position, height or line until
-   finalization succeeds; Optimal eagerly drains that shared finalizer with its
-   existing width rule. Every recursive session shares one 32-node descendant
+   dictionary. Width/effective-height accumulation plus vertical and
+   non-justify center/right run shifting also resume one run at a time, and
+   publish no position, height or line until finalization succeeds; Optimal
+   eagerly drains that shared finalizer with its existing width rule. Every
+   recursive session shares one 32-node descendant
    quantum and the text-work meter, and one public request keeps that meter
    across chapter boundaries. A later request starts
    with a fresh meter. Each session also captures a process-local logical font
@@ -66,7 +67,7 @@ The remaining usability work is narrower but still release-blocking:
    Exact-shape post-processing now avoids per-cluster text-prefix rescans for
    Rustybuzz byte-to-UTF-16 ranges, grapheme constraints and spacing, with
    10,000-cluster operation-count guards and bit-level compatibility oracles.
-   Inline/context preparation, container startup, alignment/justification,
+   Inline/context preparation, container startup, justify-path alignment,
    shape spacing, ruby grouping, mapping assembly, atomic Liang point
    generation, visually decorated or floated containers,
    Optimal paragraphs and tables therefore still prevent a complete wall-clock
@@ -102,8 +103,8 @@ It already:
   ordinary transparent descendant containers;
 - resumes Greedy leaf paragraphs between completed lines and inside a pending
   line, retaining break/measure/shape, UTF-16 run-copy, leading-space and
-  trailing-trim state plus final width/height and vertical-shift state while
-  withholding unfinished output from pagination;
+  trailing-trim state plus final width/height, vertical-shift and non-justify
+  horizontal-shift state while withholding unfinished output from pagination;
 - shares one text-work meter through every descendant and chapter visited by a
   public request, then starts a fresh meter for the next request;
 - captures the logical font layout profile used to start a Greedy line session
@@ -119,7 +120,7 @@ It already:
 - requests the resources needed by active and warm windows.
 
 The remaining bounded-layout work is to meter incremental inline/context
-preparation, container startup and the alignment/justification, shape-spacing,
+preparation, container startup and the justify-path alignment, shape-spacing,
 ruby-grouping and mapping-assembly tail, then make the currently atomic Liang
 point calculation bounded and cover
 visually decorated and floated containers, auto-layout tables and Optimal
@@ -154,14 +155,15 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
 - Greedy leaf line layout now persists break search, prefix/style-slice
   measurement, line-break scan, UTF-16 run copy, leading-space skip,
   trailing-whitespace trim, measure/shape stages, final width/height
-  accumulation and vertical run shifting through transparent container trees.
+  accumulation and vertical plus non-justify horizontal run shifting through
+  transparent container trees.
   It withholds the unfinished line and paragraph; publishing a stable paragraph
   prefix still requires widow/orphan lookahead and open-block paint edges;
 - transparent-container startup still uses the existing owned margin-collapse
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
 - inline flattening/context construction and the remaining
-  alignment/justification, shape-spacing, ruby-grouping and source-mapping
+  justify-path alignment, shape-spacing, ruby-grouping and source-mapping
   assembly are not yet fully covered by the text-work meter. Exact mapping
   boundary checks use a sparse index of
   surrogate-pair interiors rather than rescanning the logical flow per wrapped
@@ -418,14 +420,15 @@ architecture rather than make an eager whole-book pipeline faster.
    extents drive navigation growth, and bounded candidates suspend interaction
    until commit. Greedy leaf paragraphs now persist break/measure/shape,
    UTF-16 run-copy, leading-space and trailing-trim state inside a pending line,
-   then persists final width/height accumulation and vertical run shifts before
-   publishing the line; eager layout drains the same state machine. Ordinary transparent
+   then persists final width/height accumulation plus vertical and non-justify
+   horizontal run shifts before publishing the line; eager layout drains the
+   same state machine. Ordinary transparent
    descendant containers share a 32-node recursive meter, while one public
    request shares its text-work meter across every chapter it visits. Stable
    completed children can publish before their ancestor closes, but no partial
    line or block is exposed. A process-local font layout-profile token rejects
    inconsistent resume inputs. Inline/context preparation, container startup,
-   alignment/justification, shape spacing, ruby grouping, mapping assembly,
+   justify-path alignment, shape spacing, ruby grouping, mapping assembly,
    atomic Liang point generation, decorated/floated containers, tables and
    Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work

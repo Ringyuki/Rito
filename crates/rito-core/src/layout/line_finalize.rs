@@ -5,6 +5,7 @@ use serde_json::{Map, Value};
 use super::{
     line::{LineBox, LineRun},
     line_align::apply_line_align,
+    line_ruby::extract_ruby_annotations,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
 
@@ -23,7 +24,9 @@ pub(crate) struct PendingLineFinalizer {
     max_width: f64,
     is_last_line: bool,
     geometry: PendingLineGeometry,
-    shift_index: usize,
+    shift_y_index: usize,
+    shift_x_index: usize,
+    x_offset: f64,
     stage: LineFinalizeStage,
 }
 
@@ -42,6 +45,9 @@ struct PendingLineGeometry {
 enum LineFinalizeStage {
     Geometry,
     ShiftY,
+    ResolveAlign,
+    ShiftX,
+    LegacyRuby,
     LegacyAlign,
     Complete,
 }
@@ -63,7 +69,9 @@ impl PendingLineFinalizer {
             max_width,
             is_last_line,
             geometry: PendingLineGeometry::default(),
-            shift_index: 0,
+            shift_y_index: 0,
+            shift_x_index: 0,
+            x_offset: 0.0,
             stage: LineFinalizeStage::Geometry,
         }
     }
@@ -77,7 +85,10 @@ impl PendingLineFinalizer {
             match self.stage {
                 LineFinalizeStage::Geometry => self.advance_geometry(work)?,
                 LineFinalizeStage::ShiftY => self.advance_shift_y(work)?,
-                LineFinalizeStage::LegacyAlign => return Ok(self.align(base_style)),
+                LineFinalizeStage::ResolveAlign => self.resolve_align(base_style),
+                LineFinalizeStage::ShiftX => self.advance_shift_x(work)?,
+                LineFinalizeStage::LegacyRuby => return Ok(self.finish_ruby()),
+                LineFinalizeStage::LegacyAlign => return Ok(self.legacy_align(base_style)),
                 LineFinalizeStage::Complete => {
                     unreachable!("a completed line finalizer cannot be resumed")
                 }
@@ -103,17 +114,57 @@ impl PendingLineFinalizer {
 
     fn advance_shift_y(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
         if self.geometry.y_shift != 0.0 {
-            while self.shift_index < self.runs.len() {
+            while self.shift_y_index < self.runs.len() {
                 require_run_work(work)?;
-                self.runs[self.shift_index].shift_y(self.geometry.y_shift);
-                self.shift_index += 1;
+                self.runs[self.shift_y_index].shift_y(self.geometry.y_shift);
+                self.shift_y_index += 1;
             }
         }
-        self.stage = LineFinalizeStage::LegacyAlign;
+        self.stage = LineFinalizeStage::ResolveAlign;
         Ok(())
     }
 
-    fn align(&mut self, base_style: &Map<String, Value>) -> LineBox {
+    fn resolve_align(&mut self, base_style: &Map<String, Value>) {
+        let align = base_style
+            .get("textAlign")
+            .and_then(Value::as_str)
+            .unwrap_or("left");
+        if align == "justify" {
+            self.stage = LineFinalizeStage::LegacyAlign;
+            return;
+        }
+        self.x_offset = match align {
+            "center" if !self.runs.is_empty() => (self.max_width - self.geometry.line_width) / 2.0,
+            "right" if !self.runs.is_empty() => self.max_width - self.geometry.line_width,
+            _ => 0.0,
+        };
+        self.stage = LineFinalizeStage::ShiftX;
+    }
+
+    fn advance_shift_x(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        if self.x_offset != 0.0 {
+            while self.shift_x_index < self.runs.len() {
+                require_run_work(work)?;
+                self.runs[self.shift_x_index].shift_x(self.x_offset);
+                self.shift_x_index += 1;
+            }
+        }
+        self.stage = LineFinalizeStage::LegacyRuby;
+        Ok(())
+    }
+
+    fn finish_ruby(&mut self) -> LineBox {
+        self.stage = LineFinalizeStage::Complete;
+        LineBox {
+            x: 0.0,
+            y: self.y,
+            width: self.max_width,
+            height: self.geometry.height,
+            runs: extract_ruby_annotations(std::mem::take(&mut self.runs), self.y),
+        }
+    }
+
+    fn legacy_align(&mut self, base_style: &Map<String, Value>) -> LineBox {
         self.stage = LineFinalizeStage::Complete;
         apply_line_align(
             std::mem::take(&mut self.runs),

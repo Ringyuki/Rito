@@ -5,6 +5,7 @@ use serde_json::{json, Map, Value};
 use super::{finalize_line_eager, LineWidthMetric, PendingLineFinalizer};
 use crate::layout::{
     line::{LineRun, TextRunBox},
+    line_align::apply_line_align,
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
@@ -79,6 +80,55 @@ fn width_metric_preserves_greedy_extensions_and_optimal_paint_bounds() {
 
     assert_eq!(greedy.runs[0].geometry().0, 27.0);
     assert_eq!(optimal.runs[0].geometry().0, 35.5);
+}
+
+#[test]
+fn center_and_right_one_unit_quanta_match_the_legacy_alignment_oracle() {
+    for (align, expected_first_x) in [("center", 20.5), ("right", 40.0)] {
+        let runs = vec![
+            text_run("first", 1.0, 0.0, json!({}), None, None),
+            text_run("second", 31.0, 0.0, json!({}), None, None),
+        ];
+        let style = Map::from_iter([("textAlign".to_owned(), Value::String(align.to_owned()))]);
+        let expected = apply_line_align(runs.clone(), 61.0, 7.0, 12.0, 100.0, &style, false);
+        let mut pending =
+            PendingLineFinalizer::new(runs, LineWidthMetric::AdvanceRight, 7.0, 12.0, 100.0, false);
+        let mut yields = 0;
+
+        let actual = loop {
+            let mut work = meter(1, 1);
+            match pending.advance(&mut work, &style) {
+                Ok(line) => break line,
+                Err(TextWorkYield) => yields += 1,
+            }
+        };
+
+        assert_eq!(yields, 3, "alignment {align}");
+        assert_eq!(actual, expected, "alignment {align}");
+        assert_eq!(actual.runs[0].geometry().0, expected_first_x);
+    }
+}
+
+#[test]
+fn zero_horizontal_offset_does_not_consume_run_work() {
+    for align in ["center", "right"] {
+        let style = Map::from_iter([("textAlign".to_owned(), Value::String(align.to_owned()))]);
+        let mut pending = PendingLineFinalizer::new(
+            vec![text_run("exact", 0.0, 0.0, json!({}), None, None)],
+            LineWidthMetric::AdvanceRight,
+            0.0,
+            12.0,
+            30.0,
+            false,
+        );
+        let mut work = meter(1, 1);
+
+        let line = pending
+            .advance(&mut work, &style)
+            .expect("zero offset finishes after geometry exhausts the budget");
+
+        assert_eq!(line.runs[0].geometry().0, 0.0);
+    }
 }
 
 #[test]

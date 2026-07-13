@@ -570,6 +570,7 @@ mod tests {
             ("fontSize".to_owned(), json!(10)),
             ("lineHeight".to_owned(), json!(1.2)),
             ("whiteSpace".to_owned(), Value::String("nowrap".to_owned())),
+            ("textAlign".to_owned(), Value::String("center".to_owned())),
         ]);
         let raised_style = Map::from_iter([
             ("fontSize".to_owned(), json!(10)),
@@ -602,6 +603,24 @@ mod tests {
         ));
         assert!(session
             .advance_with_text_work(usize::MAX, &mut partial_finalize_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
+        let mut partial_align_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut partial_align_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
+        let mut second_partial_align_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut second_partial_align_work, &fonts)
             .is_empty());
         assert!(!session.is_complete());
 
