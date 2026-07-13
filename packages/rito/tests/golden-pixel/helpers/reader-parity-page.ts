@@ -17,7 +17,7 @@ export function readerParityReviewHtml(): string {
   }
 </script>
 <script type="module">
-  const FULL_LAYOUT_TIMEOUT_MS = 90_000;
+  const PAGINATION_COMPLETION_TIMEOUT_MS = 90_000;
   const FRAME_READY_TIMEOUT_MS = 30_000;
   const FRAME_POLL_MS = 30;
   const FRAME_QUIET_MS = 250;
@@ -94,20 +94,20 @@ export function readerParityReviewHtml(): string {
     const canvas = document.createElement('canvas');
     const reader = await createReader(module, testRun, bookBase64, canvas);
     try {
-      await Promise.all([
-        assertInitialPreviewParity(reader, canvas, testRun, initialExpectedPng),
-        waitForDeferredFullLayout(reader, expectedTotalSpreads),
-      ]);
-      const totalSpreads = reader.totalSpreads;
-      const validIndexes = spreadIndexes.filter((spreadIndex) => spreadIndex < totalSpreads);
-      const missingSpreadIndexes = spreadIndexes.filter((spreadIndex) => spreadIndex >= totalSpreads);
+      await assertInitialBoundedSnapshotParity(reader, canvas, testRun, initialExpectedPng);
       sizeCanvas(reader, canvas, testRun.profile.devicePixelRatio);
       const context = requireContext(canvas);
       const textDraws = trackTextDraws(context, testRun.captureTextDraws === true);
       const invalidationVersions = trackInvalidations(reader);
       try {
         const spreads = [];
-        for (const spreadIndex of validIndexes) {
+        const missingSpreadIndexes = [];
+        for (const spreadIndex of spreadIndexes) {
+          const available = await ensureBoundedProductionSpread(reader, spreadIndex);
+          if (available === false) {
+            missingSpreadIndexes.push(spreadIndex);
+            continue;
+          }
           const png = await renderStableProductionSpread(
             reader,
             canvas,
@@ -115,12 +115,21 @@ export function readerParityReviewHtml(): string {
             spreadIndex,
             invalidationVersions,
           );
+          if (png === undefined) {
+            textDraws.take();
+            missingSpreadIndexes.push(spreadIndex);
+            continue;
+          }
           spreads.push({
             spreadIndex,
             pngBase64: png,
             ...(testRun.captureTextDraws ? { textDraws: textDraws.take() } : {}),
           });
         }
+        const totalSpreads = await completeBoundedProductionPagination(
+          reader,
+          expectedTotalSpreads,
+        );
         return { totalSpreads, spreads, missingSpreadIndexes };
       } finally {
         textDraws.dispose();
@@ -131,7 +140,7 @@ export function readerParityReviewHtml(): string {
     }
   }
 
-  async function assertInitialPreviewParity(reader, canvas, testRun, expectedPng) {
+  async function assertInitialBoundedSnapshotParity(reader, canvas, testRun, expectedPng) {
     if (!expectedPng) return;
     sizeCanvas(reader, canvas, testRun.profile.devicePixelRatio);
     const context = requireContext(canvas);
@@ -146,7 +155,9 @@ export function readerParityReviewHtml(): string {
       if (pngBase64(canvas) === expectedPng) return;
       await delay(FRAME_POLL_MS);
     }
-    throw new Error('Rust production initial preview differs from the TypeScript reference');
+    throw new Error(
+      'Rust production initial bounded snapshot differs from the TypeScript reference',
+    );
   }
 
   async function createReader(module, testRun, bookBase64, canvas) {
@@ -173,6 +184,12 @@ export function readerParityReviewHtml(): string {
     reader.notifyActiveSpread(spreadIndex);
 
     while (performance.now() < deadline) {
+      if (reader.totalSpreads <= spreadIndex) {
+        const available = await ensureBoundedProductionSpread(reader, spreadIndex, deadline);
+        if (available === false) return undefined;
+        stablePng = '';
+        stableRounds = 0;
+      }
       const version = versions.read(spreadIndex);
       if (!reader.renderSpreadTo(spreadIndex, context)) {
         await delay(FRAME_POLL_MS);
@@ -220,27 +237,83 @@ export function readerParityReviewHtml(): string {
     };
   }
 
-  function waitForDeferredFullLayout(reader, expectedTotalSpreads) {
-    return new Promise((resolve, reject) => {
-      let settled = false;
-      let unsubscribe = () => undefined;
-      const finish = () => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(timeout);
-        unsubscribe();
-        resolve();
-      };
-      const timeout = setTimeout(() => {
-        if (settled) return;
-        settled = true;
-        unsubscribe();
-        reject(new Error('Timed out waiting for the production full layout commit'));
-      }, FULL_LAYOUT_TIMEOUT_MS);
-      unsubscribe = reader.onLayoutCommitted(() => {
-        if (reader.totalSpreads === expectedTotalSpreads) finish();
-      });
-    });
+  async function ensureBoundedProductionSpread(
+    reader,
+    spreadIndex,
+    deadline = performance.now() + PAGINATION_COMPLETION_TIMEOUT_MS,
+  ) {
+    const pagination = requireBoundedProductionPagination(reader);
+    const timeoutMessage =
+      'Timed out ensuring Rust production spread ' + String(spreadIndex);
+    while (performance.now() < deadline) {
+      const available = await withTimeout(
+        pagination.ensureSpread(spreadIndex),
+        remainingMilliseconds(deadline),
+        timeoutMessage,
+      );
+      if (available === true || available === false) return available;
+      await delay(FRAME_POLL_MS);
+    }
+    throw new Error(timeoutMessage);
+  }
+
+  async function completeBoundedProductionPagination(reader, expectedTotalSpreads) {
+    const pagination = requireBoundedProductionPagination(reader);
+    const deadline = performance.now() + PAGINATION_COMPLETION_TIMEOUT_MS;
+    const timeoutMessage = 'Timed out completing Rust production bounded pagination';
+    while (performance.now() < deadline) {
+      const available = await withTimeout(
+        pagination.ensureSpread(expectedTotalSpreads),
+        remainingMilliseconds(deadline),
+        timeoutMessage,
+      );
+      if (available === true) {
+        throw new Error(
+          'Rust production bounded pagination unexpectedly exposed out-of-range spread ' +
+            String(expectedTotalSpreads),
+        );
+      }
+      if (available === false) {
+        const complete = pagination.complete;
+        const totalSpreads = reader.totalSpreads;
+        if (complete === true && totalSpreads === expectedTotalSpreads) return totalSpreads;
+        if (complete === true) {
+          throw new Error(
+            'Rust production completed with ' +
+              String(totalSpreads) +
+              ' spreads; expected ' +
+              String(expectedTotalSpreads),
+          );
+        }
+      }
+      await delay(FRAME_POLL_MS);
+    }
+    throw new Error(timeoutMessage);
+  }
+
+  function requireBoundedProductionPagination(reader) {
+    if (!reader.pagination || typeof reader.pagination.ensureSpread !== 'function') {
+      throw new Error('Rust production reader does not expose bounded pagination');
+    }
+    return reader.pagination;
+  }
+
+  function remainingMilliseconds(deadline) {
+    return Math.max(1, deadline - performance.now());
+  }
+
+  async function withTimeout(promise, milliseconds, message) {
+    let timeout;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          timeout = setTimeout(() => reject(new Error(message)), milliseconds);
+        }),
+      ]);
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async function spreadIndexesForRun(reader, testRun, totalSpreads) {

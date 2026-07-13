@@ -24,15 +24,22 @@ an opt-in external-baseline mode.
   alternate image within the same threshold. Update mode preserves these
   alternates because they are manually reviewed platform baselines; remove stale
   alternates explicitly when a platform fallback is no longer valid.
-- `production-canvas-parity.test.ts` does not add another platform PNG. It waits
-  for the production reader's deferred full revision, renders a ready frame from
-  `dist`, and compares it directly with the reference renderer. Its one-glyph
-  test font is a deterministic subset of the CC BY 4.0 Codicon font shipped
-  with Playwright; attribution is recorded in `CODICON-FONT-NOTICE.md`. Rust
-  measurement and browser rasterization therefore use identical font data
-  without system-font fallback. The fixture also asserts that its fractional
-  block opacity reaches the reference layout before comparing pixels, guarding
-  semantic paint values from geometry-oriented precision rounding.
+- `production-canvas-parity.test.ts` does not add another platform PNG. It renders
+  a ready frame from `dist` and compares it directly with the reference renderer.
+  Its one-glyph test font is a deterministic subset of the CC BY 4.0 Codicon
+  font shipped with Playwright; attribution is recorded in
+  `CODICON-FONT-NOTICE.md`. Rust measurement and browser rasterization therefore
+  use identical font data without system-font fallback. The fixture also asserts
+  that its fractional block opacity reaches the reference layout before comparing
+  pixels, guarding semantic paint values from geometry-oriented precision
+  rounding.
+- The real-book reader parity review first compares spread 0 from the production
+  reader's initial bounded snapshot. Each selected spread is then requested
+  through `reader.pagination.ensureSpread(spreadIndex)` and rendered lazily. A
+  render miss caused by a late font-metrics reflow re-ensures that spread before
+  retrying. After the selected spreads are captured, requesting the first
+  out-of-range spread drives the bounded Rust session to exact completion and
+  verifies its final spread count against the TypeScript reference.
 
 ## Commands
 

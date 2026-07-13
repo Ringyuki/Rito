@@ -86,21 +86,35 @@ describe('reader parity review', () => {
     });
   });
 
-  it('loads the TS reference and Rust production entries and guards a missed full commit', () => {
+  it('lazily ensures selected spreads before exact bounded completion', () => {
     const html = readerParityReviewHtml();
 
     expect(html).toContain("import('/reference-dist/compatibility/web.mjs')");
     expect(html).toContain("import('/dist/index.mjs')");
-    expect(html).toContain('if (reader.totalSpreads === expectedTotalSpreads)');
-    expect(html).toContain('unsubscribe = reader.onLayoutCommitted(() => {');
-    expect(html).not.toContain(
-      'if (reader.totalSpreads === expectedTotalSpreads) return Promise.resolve()',
-    );
     expect(html).toContain('const matches = await reader.search(query)');
     expect(html).toContain('reader.findSpread(match.pageIndex)');
-    expect(html).toContain('assertInitialPreviewParity(reader, canvas');
-    expect(html).toContain('waitForDeferredFullLayout(reader, expectedTotalSpreads)');
-    expect(html).toContain('initial preview differs from the TypeScript reference');
+    expect(html).toContain('assertInitialBoundedSnapshotParity(reader, canvas');
+    expect(html).toContain('ensureBoundedProductionSpread(reader, spreadIndex)');
+    expect(html).toContain('ensureBoundedProductionSpread(reader, spreadIndex, deadline)');
+    expect(html).toContain('if (reader.totalSpreads <= spreadIndex)');
+    expect(html).toContain('if (available === false)');
+    expect(html).toContain('completeBoundedProductionPagination(reader, expectedTotalSpreads)');
+    expect(html).toContain('pagination.ensureSpread(expectedTotalSpreads)');
+    expect(html).toContain('if (available === true)');
+    expect(html).toContain('complete === true && totalSpreads === expectedTotalSpreads');
+    expect(html).toContain('initial bounded snapshot differs from the TypeScript reference');
+    expect(html).not.toContain('reader.onLayoutCommitted');
+    const initialSnapshot = html.indexOf('await assertInitialBoundedSnapshotParity');
+    const selectedSpread = html.indexOf(
+      'const available = await ensureBoundedProductionSpread(reader, spreadIndex)',
+    );
+    const selectedRender = html.indexOf('const png = await renderStableProductionSpread');
+    const exactCompletion = html.indexOf(
+      'const totalSpreads = await completeBoundedProductionPagination',
+    );
+    expect(initialSnapshot).toBeLessThan(selectedSpread);
+    expect(selectedSpread).toBeLessThan(selectedRender);
+    expect(selectedRender).toBeLessThan(exactCompletion);
   });
 });
 
