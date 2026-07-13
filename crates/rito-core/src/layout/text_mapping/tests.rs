@@ -80,7 +80,7 @@ fn mapped_segment(text: &str) -> InlineSegment {
         style: Map::new(),
         href: None,
         source_path: Some(vec![1, 2]),
-        source_text: Some(text.to_owned()),
+        source_text: Some(text.into()),
         source_text_offset: None,
         ruby_annotation: None,
         inline_margin_left: None,

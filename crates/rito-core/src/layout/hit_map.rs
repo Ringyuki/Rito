@@ -264,7 +264,7 @@ mod tests {
                             line_height_px: None,
                             href: Some("#target".to_owned()),
                             source_path: Some(vec![0, 1]),
-                            source_text: Some("Hello".to_owned()),
+                            source_text: Some("Hello".into()),
                             source_text_offset: Some(0),
                             inline_margin_right: None,
                             ruby_annotation: None,

@@ -158,8 +158,9 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   justification/alignment and source-mapping assembly are not yet fully covered
   by the text-work meter. Exact mapping boundary checks use a sparse index of
   surrogate-pair interiors rather than rescanning the logical flow per wrapped
-  run. ASCII hyphen word discovery and candidate probing resume, but one Liang
-  point-generation call remains atomic;
+  run; wrapped runs share parser source text and ruby extraction moves retained
+  run allocations rather than cloning them. ASCII hyphen word discovery and
+  candidate probing resume, but one Liang point-generation call remains atomic;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;

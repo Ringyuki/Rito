@@ -1,6 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
-    sync::OnceLock,
+    sync::{Arc, OnceLock},
 };
 
 use serde_json::{Map, Value};
@@ -47,7 +47,7 @@ struct LineStyleRange {
     style: Map<String, Value>,
     href: Option<String>,
     source_path: Option<Vec<usize>>,
-    source_text: Option<String>,
+    source_text: Option<Arc<str>>,
     source_text_offset: Option<usize>,
     ruby_annotation: Option<String>,
     inline_margin_left: Option<f64>,
@@ -699,7 +699,7 @@ mod tests {
                 style: base_style,
                 href: None,
                 source_path: Some(vec![0, 1]),
-                source_text: Some("source one".to_owned()),
+                source_text: Some("source one".into()),
                 source_text_offset: Some(3),
                 ruby_annotation: None,
                 inline_margin_left: None,
@@ -713,7 +713,7 @@ mod tests {
                 style: accent_style,
                 href: Some("#note".to_owned()),
                 source_path: Some(vec![0, 2]),
-                source_text: Some("source two".to_owned()),
+                source_text: Some("source two".into()),
                 source_text_offset: Some(7),
                 ruby_annotation: Some("注".to_owned()),
                 inline_margin_left: Some(2.0),

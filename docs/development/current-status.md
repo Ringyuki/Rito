@@ -366,6 +366,12 @@ Those names now belong to the old TS reference tree only.
      run subslices validate boundaries in logarithmic time without weakening
      invalid-surrogate rejection. Mapping assembly is still part of the
      unmetered line tail described below.
+   - Wrapped text runs now share their immutable parser `source_text` through
+     `Arc<str>` instead of copying the complete source node into every line, and
+     ruby extraction moves base runs into its output instead of deep-cloning
+     text, paint and retained shape data. Runtime display commands still encode
+     their own `sourceText` payload; deduplicating that wire representation is a
+     separate protocol optimization.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
      margin-collapse preparation, justification/alignment/mapping assembly,

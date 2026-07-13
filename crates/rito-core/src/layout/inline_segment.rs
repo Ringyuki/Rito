@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde_json::{Map, Value};
 
 use super::{
@@ -79,7 +81,7 @@ pub(crate) struct TextSegment {
     pub(crate) style: Map<String, Value>,
     pub(crate) href: Option<String>,
     pub(crate) source_path: Option<Vec<usize>>,
-    pub(crate) source_text: Option<String>,
+    pub(crate) source_text: Option<Arc<str>>,
     pub(crate) source_text_offset: Option<usize>,
     pub(crate) ruby_annotation: Option<String>,
     pub(crate) inline_margin_left: Option<f64>,

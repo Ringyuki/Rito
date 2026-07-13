@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde_json::{json, Map, Number, Value};
 
 use super::{
@@ -174,7 +176,7 @@ pub(crate) struct TextRunBox {
     pub(crate) line_height_px: Option<f64>,
     pub(crate) href: Option<String>,
     pub(crate) source_path: Option<Vec<usize>>,
-    pub(crate) source_text: Option<String>,
+    pub(crate) source_text: Option<Arc<str>>,
     pub(crate) source_text_offset: Option<usize>,
     pub(crate) inline_margin_right: Option<f64>,
     pub(crate) ruby_annotation: Option<String>,
@@ -363,7 +365,7 @@ mod tests {
                     line_height_px: None,
                     href: None,
                     source_path: Some(vec![0, 1]),
-                    source_text: Some("Hello".to_owned()),
+                    source_text: Some("Hello".into()),
                     source_text_offset: Some(0),
                     inline_margin_right: Some(2.0),
                     ruby_annotation: None,

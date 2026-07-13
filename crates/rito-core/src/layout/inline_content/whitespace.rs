@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde_json::{Map, Value};
 
 use crate::style::StyledNode;
@@ -11,7 +13,7 @@ pub(in crate::layout) struct WhitespaceCollapseState {
 
 pub(super) struct NormalizedText {
     pub(super) text: String,
-    pub(super) source_text: String,
+    pub(super) source_text: Arc<str>,
     pub(super) source_text_offset: usize,
     pub(super) source_basis: TextSourceBasis,
 }
@@ -48,7 +50,7 @@ pub(super) fn normalize_text_for_white_space(
 
     NormalizedText {
         text: text.to_owned(),
-        source_text: source_text.to_owned(),
+        source_text: Arc::from(source_text),
         source_text_offset,
         source_basis: if restored_parser_whitespace {
             TextSourceBasis::RestoredParserWhitespace

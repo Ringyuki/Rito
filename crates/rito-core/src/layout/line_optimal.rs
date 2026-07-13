@@ -1602,6 +1602,8 @@ impl FitnessClass {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use serde_json::{json, Map, Value};
 
     use super::{
@@ -1892,8 +1894,15 @@ mod tests {
     }
 
     #[test]
-    fn optimal_line_rebuild_preserves_source_offsets_across_lines() {
-        let lines = layout_optimal_lines(&[source_text_segment("one two three four")], 60.0);
+    fn wrapped_optimal_runs_preserve_source_offsets_and_share_source_text() {
+        let source_text: Arc<str> = "one two three four".into();
+        let mut segment = source_text_segment(&source_text);
+        let InlineSegment::Text(text) = &mut segment else {
+            panic!("text segment expected");
+        };
+        text.source_text = Some(Arc::clone(&source_text));
+
+        let lines = layout_optimal_lines(&[segment], 60.0);
 
         let offsets = lines
             .iter()
@@ -1901,6 +1910,10 @@ mod tests {
             .collect::<Vec<_>>();
 
         assert_eq!(offsets, vec![0, 8]);
+        assert!(lines
+            .iter()
+            .flat_map(text_runs)
+            .all(|run| Arc::ptr_eq(run.source_text.as_ref().expect("source text"), &source_text)));
     }
 
     #[test]
@@ -2133,7 +2146,7 @@ mod tests {
             unreachable!();
         };
         left_segment.source_path = Some(vec![1, 0]);
-        left_segment.source_text = Some(" left".to_owned());
+        left_segment.source_text = Some(" left".into());
         left_segment.source_text_offset = Some(1);
 
         let atom = InlineSegment::Atom(AtomSegment {
@@ -2151,7 +2164,7 @@ mod tests {
             unreachable!();
         };
         right_segment.source_path = Some(vec![1, 2]);
-        right_segment.source_text = Some("  right".to_owned());
+        right_segment.source_text = Some("  right".into());
         right_segment.source_text_offset = Some(2);
 
         let lines = layout_optimal_lines(&[left, atom, right], 200.0);
@@ -2199,7 +2212,7 @@ mod tests {
             style: style(),
             href: None,
             source_path: Some(vec![1, 0]),
-            source_text: Some(text.to_owned()),
+            source_text: Some(text.into()),
             source_text_offset: None,
             ruby_annotation: None,
             inline_margin_left: None,
@@ -2216,7 +2229,7 @@ mod tests {
             style: style(),
             href: None,
             source_path: Some(source_path),
-            source_text: Some(text.to_owned()),
+            source_text: Some(text.into()),
             source_text_offset: Some(0),
             ruby_annotation: None,
             inline_margin_left: None,

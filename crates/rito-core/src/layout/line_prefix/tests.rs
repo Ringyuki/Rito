@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::Path, sync::Arc};
 
 use serde_json::{json, Map, Value};
 
@@ -207,7 +207,7 @@ fn font_aware_long_unicode_paragraph_uses_bounded_prefix_probes() {
         style,
         href: None,
         source_path: Some(vec![4, 2]),
-        source_text: Some("source".to_owned()),
+        source_text: Some("source".into()),
         source_text_offset: Some(SOURCE_OFFSET),
         ruby_annotation: None,
         inline_margin_left: None,
@@ -256,9 +256,10 @@ fn assert_long_paragraph_output(lines: &[crate::layout::line::LineBox], text: &s
 }
 
 #[test]
-fn astral_unicode_runs_keep_utf16_source_offsets() {
+fn wrapped_greedy_runs_keep_utf16_source_offsets_and_share_source_text() {
     const SOURCE_OFFSET: usize = 23;
     let text = "甲𠮷乙丙丁戊己庚辛壬癸".repeat(30);
+    let source_text: Arc<str> = text.clone().into();
     let style = Map::from_iter([
         ("fontSize".to_owned(), json!(10)),
         ("lineHeight".to_owned(), json!(1.2)),
@@ -270,7 +271,7 @@ fn astral_unicode_runs_keep_utf16_source_offsets() {
         style,
         href: None,
         source_path: Some(vec![3, 1]),
-        source_text: Some(text.clone()),
+        source_text: Some(Arc::clone(&source_text)),
         source_text_offset: Some(SOURCE_OFFSET),
         ruby_annotation: None,
         inline_margin_left: None,
@@ -294,6 +295,10 @@ fn astral_unicode_runs_keep_utf16_source_offsets() {
         };
         assert_eq!(run.source_path.as_deref(), Some([3, 1].as_slice()));
         assert_eq!(run.source_text.as_deref(), Some(text.as_str()));
+        assert!(Arc::ptr_eq(
+            run.source_text.as_ref().expect("source text"),
+            &source_text
+        ));
         assert_eq!(run.source_text_offset, Some(SOURCE_OFFSET + consumed_units));
         consumed_units += utf16_len(&run.text);
     }

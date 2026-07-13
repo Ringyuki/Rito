@@ -103,7 +103,7 @@ pub(super) fn exact_lines(text: &str, width: f64) -> Vec<RuntimeChild<LineBox>> 
         ]),
         href: None,
         source_path: Some(vec![0]),
-        source_text: Some(text.to_owned()),
+        source_text: Some(text.into()),
         source_text_offset: None,
         ruby_annotation: None,
         inline_margin_left: None,

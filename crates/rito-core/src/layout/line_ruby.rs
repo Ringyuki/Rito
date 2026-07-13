@@ -1,24 +1,28 @@
 use serde_json::{Map, Number, Value};
 
 use super::{
-    line::{LineRun, RubyRunBox, TextRunBox},
+    line::{LineRun, RubyRunBox},
     style_values::paint_number_value,
 };
 
 pub(crate) fn extract_ruby_annotations(runs: Vec<LineRun>, line_y: f64) -> Vec<LineRun> {
-    let mut out = Vec::new();
-    let mut index = 0usize;
-    while index < runs.len() {
-        let Some(group) = collect_ruby_group(&runs, index) else {
-            out.push(runs[index].clone());
-            index += 1;
+    let mut out = Vec::with_capacity(runs.len());
+    let mut remaining = runs.into_iter().peekable();
+    while let Some(run) = remaining.next() {
+        let Some(mut group) = RubyGroup::start(&run, line_y) else {
+            out.push(run);
             continue;
         };
-        for run in runs.iter().take(group.next_index).skip(index) {
-            out.push(run.clone());
+
+        out.push(run);
+        while remaining.peek().is_some_and(|run| group.includes(run)) {
+            let run = remaining
+                .next()
+                .expect("peeked ruby group continuation must exist");
+            group.extend_to(&run);
+            out.push(run);
         }
-        out.push(LineRun::Ruby(create_ruby_annotation(&group, line_y)));
-        index = group.next_index;
+        out.push(LineRun::Ruby(group.finish()));
     }
     out
 }
@@ -26,45 +30,53 @@ pub(crate) fn extract_ruby_annotations(runs: Vec<LineRun>, line_y: f64) -> Vec<L
 #[derive(Debug)]
 struct RubyGroup {
     tag: String,
-    start: TextRunBox,
-    end: TextRunBox,
-    next_index: usize,
+    start_x: f64,
+    end_right: f64,
+    y: f64,
+    font_size: f64,
+    paint: Value,
 }
 
-fn collect_ruby_group(runs: &[LineRun], index: usize) -> Option<RubyGroup> {
-    let LineRun::Text(run) = runs.get(index)? else {
-        return None;
-    };
-    let tag = run.ruby_annotation.clone()?;
-    let mut group_end = run.clone();
-    let mut next_index = index + 1;
-    while next_index < runs.len() {
-        let LineRun::Text(next) = &runs[next_index] else {
-            break;
+impl RubyGroup {
+    fn start(run: &LineRun, line_y: f64) -> Option<Self> {
+        let LineRun::Text(run) = run else {
+            return None;
         };
-        if next.ruby_annotation.as_deref() != Some(&tag) {
-            break;
-        }
-        group_end = next.clone();
-        next_index += 1;
+        let tag = run.ruby_annotation.clone()?;
+        let font_size = run.font_size * 0.5;
+        Some(Self {
+            tag,
+            start_x: run.x,
+            end_right: run.x + run.width,
+            y: line_y + run.y - font_size - 1.0,
+            font_size,
+            paint: ruby_paint_value(&run.paint, font_size),
+        })
     }
-    Some(RubyGroup {
-        tag,
-        start: run.clone(),
-        end: group_end,
-        next_index,
-    })
-}
 
-fn create_ruby_annotation(group: &RubyGroup, line_y: f64) -> RubyRunBox {
-    let ruby_font_size = group.start.font_size * 0.5;
-    RubyRunBox {
-        text: group.tag.clone(),
-        x: group.start.x,
-        y: line_y + group.start.y - ruby_font_size - 1.0,
-        width: group.end.x + group.end.width - group.start.x,
-        height: ruby_font_size,
-        paint: ruby_paint_value(&group.start.paint, ruby_font_size),
+    fn includes(&self, run: &LineRun) -> bool {
+        matches!(
+            run,
+            LineRun::Text(run) if run.ruby_annotation.as_deref() == Some(self.tag.as_str())
+        )
+    }
+
+    fn extend_to(&mut self, run: &LineRun) {
+        let LineRun::Text(run) = run else {
+            unreachable!("ruby group continuation must be a text run");
+        };
+        self.end_right = run.x + run.width;
+    }
+
+    fn finish(self) -> RubyRunBox {
+        RubyRunBox {
+            text: self.tag,
+            x: self.start_x,
+            y: self.y,
+            width: self.end_right - self.start_x,
+            height: self.font_size,
+            paint: self.paint,
+        }
     }
 }
 
@@ -105,3 +117,6 @@ fn ruby_paint_value(base_paint: &Value, ruby_font_size: f64) -> Value {
     paint.insert("font".to_owned(), Value::Object(font));
     Value::Object(paint)
 }
+
+#[cfg(test)]
+mod tests;
