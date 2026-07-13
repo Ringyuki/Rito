@@ -71,5 +71,8 @@ export function App() {
 - `load()` still requires a browser document and should run in an effect or event handler
 - `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
 - sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
+- load any app-owned `ReaderPinnedFontPolicy` bytes before calling `load()`;
+  changing the policy requires the next `load()` because it cannot mutate an
+  existing Reader
 - use `useSelection().hasSelection` for presence; native exact selections expose
   `sourceLocator` and intentionally leave the legacy layout-local `range` null

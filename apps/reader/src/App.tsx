@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { ReaderPinnedFontPolicy } from '@ritojs/core';
 import { useContainerSize, useReaderAutoResize } from '@ritojs/react';
 import { Toaster } from '@/components/ui/sonner';
 import { TocSidebar } from '@/components/toc-sidebar';
@@ -8,10 +9,14 @@ import { readerViewportMargin, useReader } from '@/hooks/use-reader';
 import { useTheme } from '@/hooks/use-theme';
 import { Reader } from '@/components/reader';
 
-export function App() {
+interface AppProps {
+  readonly pinnedFontPolicy: ReaderPinnedFontPolicy;
+}
+
+export function App({ pinnedFontPolicy }: AppProps) {
   const { theme, toggle: toggleTheme, setTheme } = useTheme();
   const [sizeRef, containerSize] = useContainerSize();
-  const reader = useReader(theme, containerSize.width, containerSize.height);
+  const reader = useReader(theme, containerSize.width, containerSize.height, pinnedFontPolicy);
   const resizeRef = useReaderAutoResize(reader.controller, {
     zoomScale: reader.zoomScale,
     margin: ({ width }) => readerViewportMargin(width),

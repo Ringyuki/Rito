@@ -58,6 +58,50 @@ This keeps exact interaction geometry tied to the font that is actually
 rendered. The policy is fixed for the lifetime of that `Reader`; create a new
 reader to replace it.
 
+The core intentionally does not bundle, download, or choose fallback assets.
+The application owns their licensing, distribution, locale policy, and offline
+availability. If the policy is unset, EPUB-provided fonts can still provide
+exact shapes and browser/system fallback text can still render. Exact native
+selection, copy, and annotation geometry for a host-fallback run is reported as
+unavailable instead of being estimated from character widths.
+
+For example, a Vite application that checks in an audited static font can load
+it during application bootstrap and pass the bytes into every new Reader:
+
+```ts
+import { createReader, type ReaderPinnedFontPolicy } from '@ritojs/core';
+import sourceHanSerifCnUrl from './assets/fonts/SourceHanSerifCN-Regular.otf?url';
+
+const response = await fetch(sourceHanSerifCnUrl);
+if (!response.ok) throw new Error(`Fallback font request failed: ${response.status}`);
+
+const pinnedFontPolicy: ReaderPinnedFontPolicy = {
+  schemaVersion: 1,
+  faces: [
+    {
+      bytes: await response.arrayBuffer(),
+      expectedSha256: '3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d',
+      genericRole: 'serif',
+      language: 'zh-Hans',
+    },
+  ],
+};
+
+const reader = await createReader(epubBytes, canvas, {
+  width: 800,
+  height: 600,
+  pinnedFontPolicy,
+});
+```
+
+The digest must come from the application's audited asset manifest rather than
+being calculated from the downloaded bytes and trusted afterward. `?url` is
+Vite-specific; another host may read the bytes from a packaged native resource,
+Cache Storage, IndexedDB, or its own asset loader. Resolve the complete policy
+before calling `createReader()`. Changing the policy object later cannot mutate
+an existing Reader; the replacement takes effect only when the host creates or
+loads a new Reader.
+
 ## `Reader`
 
 ### Render / layout

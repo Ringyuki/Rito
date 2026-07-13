@@ -52,8 +52,9 @@ The remaining usability work is narrower but still release-blocking:
    lazily, but still needs a publication source/chapter index.
 3. Exact text and annotation geometry remains same-logical-flow; cross-flow
    selection is a deliberate capability gap.
-4. The pinned-font policy and transport exist, but licensed production assets
-   and the real-book shaping/paint selection proof do not.
+4. The Reader app now has a licensed, app-owned v1 serif fallback and real-book
+   shaping/paint proof. It is not a locale-complete, sans-serif, or monospace
+   policy, and its cold-start and memory cost still belong in the release gate.
 5. The browser shell still owns some candidate/current-session, commit,
    cache and font-reflow policy that should become explicit Rust-authored host
    operations.
@@ -148,30 +149,33 @@ Canvas, or gains an equally explicit host-shaping contract. It must never fall
 back to per-character width interpolation. Ligatures without authoritative
 internal caret data are selectable only as atomic clusters.
 
-The default deterministic path should use pinned fallback font assets shared by
-Rust shaping and a uniquely aliased browser `FontFace`; a font present only in
-Rust, while Canvas still resolves `serif` or a platform family independently,
-does not close the contract. Host/DOM shaping remains a possible explicit
-platform-dependent mode and a useful reference harness, not the default native
-layout policy. Before choosing a production CJK asset or Unicode-shard scheme,
-add revision diagnostics for exact/unavailable run counts, font fingerprints
-and missing code points, then measure package size, duplicate Worker memory,
-font startup and pagination cost with an opt-in licensed test fallback.
+The deterministic path uses pinned fallback font assets shared by Rust shaping
+and a uniquely aliased browser `FontFace`; a font present only in Rust, while
+Canvas still resolves `serif` or a platform family independently, does not close
+the contract. Host/DOM shaping remains a possible explicit platform-dependent
+mode and a useful reference harness, not the default native layout policy.
 
-The private exact-version shape diagnostic and a real-WASM corpus runner now
-provide that evidence without widening the public Reader API. A 2026-07-11
-local development scan of 39 top-level EPUB files (36 unique contents) opened
-and fully paginated every book. Only 9,097 of 303,366 base-text runs in the
-unique corpus had authoritative Rust shapes (3.0%); by text volume the result
-was 141,391 of 5,894,967 UTF-16 code units (2.4%). Host-metrics fallback covered
-294,137 runs, while 10,379 Ruby annotation paint runs were explicitly excluded
-from this base-text statistic. This confirms that a shared pinned-fallback
-injection path is a usability dependency for broad exact selection, not a later
-visual polish item. Local runner timings are retained in its ignored report;
-they are uncalibrated smoke evidence, not a first-paint performance gate.
-The 2026-07-13 production Downloads smoke opened and rendered 74 EPUBs through
-the bounded reader, but it does not by itself select or license the fallback
-assets.
+The first production Reader-app preset is app-owned rather than a hidden core or
+React default. It combines Tinos Regular as `serif`/`und` with Source Han Serif
+CN Regular as `serif`/`zh-hans`. Both are static, licensed assets with audited
+SHA-256 identities. This is the v1 generic-serif baseline, not a claim of
+locale-specific CJK typography or complete `sansSerif`/`monospace` coverage.
+Other hosts remain responsible for choosing, licensing, packaging, and loading
+their own policy before they create a Reader.
+
+The private exact-version shape diagnostic and real-WASM corpus runner provide
+the selection evidence without widening the public Reader API. The completed
+2026-07-13 comparison opened and fully paginated all 39 top-level EPUB inputs
+(36 unique contents) in both profiles. On unique contents, exact base-text run
+coverage rose from 3.00% without the policy to 99.95% with it; exact UTF-16 text
+coverage rose from 2.40% to 99.95%. The pinned profile left 626 UTF-16 code units
+on host fallback and 2,219 explicitly synthetic units unavailable. Unique page
+count moved from 13,807 to 13,808, so this proves shared shaping/paint selection
+and interaction coverage rather than page-count or pixel equivalence. Ruby
+annotation paint runs remain excluded from the base-text statistic. Local
+runner timings are retained in the ignored report and are uncalibrated smoke
+evidence, not a first-paint performance gate. The separate 2026-07-13 production
+Downloads smoke opened and rendered 74 EPUBs through the bounded reader.
 
 Visual text and logical selection text are separate streams. Soft pagination
 wraps do not insert logical newlines, discretionary hyphens do not advance the
@@ -200,8 +204,10 @@ waits for the complete conservative set, registers it atomically, rejects
 mismatched Worker manifests, and permanently disables the declared-face legacy
 loader for the pinned session. Exact used-face provenance and document-scoped
 family aliases remain before multiple readers can share the global
-`FontFaceSet` deterministically. Licensed production assets and the real-book
-proof also remain.
+`FontFaceSet` deterministically. The licensed serif app preset and real-book
+proof are complete; locale-specific presets, `sansSerif`/`monospace` coverage,
+embedded-face first-paint hardening, and classification of the small residual
+unavailable set remain.
 
 Interaction responses and host caches bind to the complete Worker/session,
 revision-version and browser-generation ownership handle. Candidate growth
@@ -356,8 +362,11 @@ architecture rather than make an eager whole-book pipeline faster.
 5. Prove the shared pinned-font/paint-alias path on a no-embedded-font real book
    and use shape-provenance diagnostics to choose the production fallback set.
    **The immutable policy, deterministic Rust family stack, direct WASM/Worker
-   transport and pre-reflow Browser registration are implemented; licensed
-   assets, embedded-face first-paint hardening and the real-book proof remain.**
+   transport and pre-reflow Browser registration are implemented. The Reader
+   app now ships the licensed Tinos plus Source Han Serif CN v1 serif preset;
+   the 39/39-file corpus comparison reaches 99.95% exact run and UTF-16 coverage,
+   and the production Browser proof closes the Rust-shaping/Canvas-alias cycle.
+   Broader locale/role coverage and embedded-face first-paint hardening remain.**
 6. Add precise native point/range resolution, then migrate Kit selection,
    highlights, annotations, positions and accessibility. **Rust core,
    WASM/Worker, Browser Reader, and Kit exact selection/highlight/copy/source
@@ -372,7 +381,9 @@ architecture rather than make an eager whole-book pipeline faster.
    overlays lazily; eager completion and a missing publication source index
    remain separate search architecture work.**
 7. Reduce browser session policy to explicit core-requested host operations.
-8. Establish the real-book usability and stage-specific performance gate.
+8. Establish the real-book usability and stage-specific performance gate,
+   including v1 pinned-font cold-start/memory cost and a decision on whether its
+   residual locale/role gaps block release.
 9. Build the pinned WebView/DOM reference harness.
 10. Declare the baseline transition, then resume broad rendering and performance
     work.

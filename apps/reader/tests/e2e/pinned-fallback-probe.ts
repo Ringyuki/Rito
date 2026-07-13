@@ -21,6 +21,9 @@ export interface PinnedFallbackWorkerOpenResultObservation {
     readonly sha256: string;
     readonly shapeFingerprint: string;
     readonly familyAlias: string;
+    readonly byteLength: number;
+    readonly genericRole: string;
+    readonly language: string;
   }[];
 }
 
@@ -39,6 +42,8 @@ interface PinnedFallbackProbeGlobal {
     openRequests: PinnedFallbackWorkerOpenRequestObservation[];
     openResults: PinnedFallbackWorkerOpenResultObservation[];
     terminatedWorkerIds: number[];
+    paintCanvases: (HTMLCanvasElement | OffscreenCanvas)[];
+    targetPaintCanvases: WeakSet<object>;
   };
 }
 
@@ -50,9 +55,13 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
       openRequests: [],
       openResults: [],
       terminatedWorkerIds: [],
+      paintCanvases: [],
+      targetPaintCanvases: new WeakSet(),
     };
     runtime.__RITO_PINNED_FALLBACK_PROBE__ = probe;
     installCanvasPaintProbe(probe);
+    installOffscreenCanvasPaintProbe(probe);
+    installCanvasCompositeProbe(probe);
     installWorkerProbe(probe);
 
     function installCanvasPaintProbe(state: typeof probe): void {
@@ -74,11 +83,72 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
           font: this.font,
           x,
           y,
-          targetCanvas: this.canvas.dataset['pinnedFallbackCanvas'] === 'true',
+          targetCanvas: isTargetCanvas(state, this.canvas),
         });
+        state.paintCanvases.push(this.canvas);
         if (maxWidth === undefined) Reflect.apply(originalFillText, this, [text, x, y]);
         else Reflect.apply(originalFillText, this, [text, x, y, maxWidth]);
       };
+    }
+
+    function installOffscreenCanvasPaintProbe(state: typeof probe): void {
+      if (typeof OffscreenCanvasRenderingContext2D === 'undefined') return;
+      const originalFillText: unknown = Object.getOwnPropertyDescriptor(
+        OffscreenCanvasRenderingContext2D.prototype,
+        'fillText',
+      )?.value;
+      if (typeof originalFillText !== 'function') return;
+      OffscreenCanvasRenderingContext2D.prototype.fillText = function (
+        text: string,
+        x: number,
+        y: number,
+        maxWidth?: number,
+      ): void {
+        state.paints.push({
+          text,
+          font: this.font,
+          x,
+          y,
+          targetCanvas: isTargetCanvas(state, this.canvas),
+        });
+        state.paintCanvases.push(this.canvas);
+        if (maxWidth === undefined) Reflect.apply(originalFillText, this, [text, x, y]);
+        else Reflect.apply(originalFillText, this, [text, x, y, maxWidth]);
+      };
+    }
+
+    function installCanvasCompositeProbe(state: typeof probe): void {
+      const originalDrawImage: unknown = Object.getOwnPropertyDescriptor(
+        CanvasRenderingContext2D.prototype,
+        'drawImage',
+      )?.value;
+      if (typeof originalDrawImage !== 'function') return;
+      CanvasRenderingContext2D.prototype.drawImage = function (
+        this: CanvasRenderingContext2D,
+        ...args: unknown[]
+      ): void {
+        const source = args[0];
+        if (
+          typeof OffscreenCanvas !== 'undefined' &&
+          source instanceof OffscreenCanvas &&
+          isTargetCanvas(state, this.canvas)
+        ) {
+          state.targetPaintCanvases.add(source);
+        }
+        Reflect.apply(originalDrawImage, this, args);
+      } as typeof CanvasRenderingContext2D.prototype.drawImage;
+    }
+
+    function isTargetCanvas(
+      state: typeof probe,
+      canvas: HTMLCanvasElement | OffscreenCanvas,
+    ): boolean {
+      return (
+        state.targetPaintCanvases.has(canvas) ||
+        (canvas instanceof HTMLCanvasElement &&
+          (canvas.dataset['pinnedFallbackCanvas'] === 'true' ||
+            canvas.closest('[data-testid="reader-shell"]') !== null))
+      );
     }
 
     function installWorkerProbe(state: typeof probe): void {
@@ -154,6 +224,9 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
           sha256: stringValue(record?.['sha256']),
           shapeFingerprint: stringValue(record?.['shapeFingerprint']),
           familyAlias: stringValue(record?.['familyAlias']),
+          byteLength: numberValue(record?.['byteLength']),
+          genericRole: stringValue(record?.['genericRole']),
+          language: stringValue(record?.['language']),
         };
       });
       state.openResults.push({
@@ -175,6 +248,10 @@ export async function installPinnedFallbackProbe(target: InitScriptTarget): Prom
     function stringValue(value: unknown): string {
       return typeof value === 'string' ? value : '';
     }
+
+    function numberValue(value: unknown): number {
+      return typeof value === 'number' ? value : -1;
+    }
   });
 }
 
@@ -184,7 +261,18 @@ export async function readPinnedFallbackProbe(page: Page): Promise<PinnedFallbac
     const probe = runtime.__RITO_PINNED_FALLBACK_PROBE__;
     if (!probe) throw new Error('Pinned fallback probe is not installed');
     return {
-      paints: probe.paints.map((paint) => ({ ...paint })),
+      paints: probe.paints.map((paint, index) => {
+        const canvas = probe.paintCanvases[index];
+        return {
+          ...paint,
+          targetCanvas:
+            canvas !== undefined &&
+            (probe.targetPaintCanvases.has(canvas) ||
+              (canvas instanceof HTMLCanvasElement &&
+                (canvas.dataset['pinnedFallbackCanvas'] === 'true' ||
+                  canvas.closest('[data-testid="reader-shell"]') !== null))),
+        };
+      }),
       openRequests: probe.openRequests.map((request) => ({
         ...request,
         expectedSha256: [...request.expectedSha256],

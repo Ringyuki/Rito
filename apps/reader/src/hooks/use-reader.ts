@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { preloadReaderRuntime, type TocEntry } from '@ritojs/core';
+import { preloadReaderRuntime, type ReaderPinnedFontPolicy, type TocEntry } from '@ritojs/core';
 import type { ReaderControllerEvents } from '@ritojs/kit';
 import {
   useRitoReader,
@@ -34,6 +34,7 @@ export function useReader(
   theme: 'light' | 'dark',
   containerWidth: number,
   containerHeight: number,
+  pinnedFontPolicy: ReaderPinnedFontPolicy,
 ) {
   const [spreadMode, setSpreadModeState] = useState<'single' | 'double'>(
     DEFAULT_SETTINGS.spreadMode,
@@ -56,6 +57,7 @@ export function useReader(
       margin,
       spread: spreadMode,
       lineBreaking,
+      pinnedFontPolicy,
       ...getThemeOptions(theme),
     },
     controller: {

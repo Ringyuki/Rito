@@ -100,6 +100,20 @@ Important behavior:
 - `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
 - sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
 
+### Pinned fallback policy
+
+`useRitoReader()` does not choose or fetch fallback fonts. If the application
+uses a `ReaderPinnedFontPolicy`, finish loading its app-owned static font bytes
+before calling `load()`, then pass the completed policy under
+`options.reader.pinnedFontPolicy`. The hook samples the current Reader options
+when a load starts.
+
+A pinned policy is immutable for one loaded Reader. Replacing the policy object
+after `load()` does not reconfigure that Reader or its registered `FontFace`s.
+Call `load()` again to dispose the current stack and create the next Reader with
+the new policy. See the [Reader API](../api/reader.md#readeroptions) for the
+static-asset example and for the exact-geometry behavior when no policy is set.
+
 ## `Reader`
 
 The `Reader` component mounts the controller's managed DOM surface into a container.

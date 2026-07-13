@@ -221,6 +221,17 @@ Those names now belong to the old TS reference tree only.
   load, then commits them atomically in Rust source order before the revision
   becomes visible. Failure or staleness rolls back only that candidate. Legacy
   readers retain their opportunistic, best-effort loader.
+- The Reader app now owns and loads a licensed v1 deterministic fallback before
+  it creates any Reader: Tinos Regular as `serif`/`und` and Source Han Serif CN
+  Regular as `serif`/`zh-hans`. Core and React retain an explicit optional policy
+  rather than bundling or fetching a universal default. A completed real-WASM
+  comparison succeeded for all 39 Downloads EPUB inputs (36 unique contents).
+  On unique contents, exact base-text run coverage rose from 3.00% to 99.95% and
+  exact UTF-16 coverage from 2.40% to 99.95%; unique page count moved from 13,807
+  to 13,808. The residual unavailable text comprises 626 host-fallback UTF-16
+  code units and 2,219 explicitly synthetic units. This closes the first
+  licensed serif shaping/Canvas-selection proof, not locale-specific CJK,
+  `sansSerif`, or `monospace` completeness.
 - Image-size lookup, eager document reads, and runtime resource transfers now
   share one ambiguity-aware href resolver. An exact raw source/key match wins;
   remaining matching strips URL query/fragment suffixes before path lookup,
@@ -354,10 +365,11 @@ Those names now belong to the old TS reference tree only.
      growth and page turns independently on a named machine/browser setup.
    - Minimum first-paint and page-turn latency is a usability requirement, not
      deferred micro-optimization.
-   - Choose and license the production pinned fallback assets, then prove their
-     Rust-shaping/Canvas-paint identity and real-book coverage. The current
-     policy/alias transport is implemented, but the asset and selection proof is
-     not.
+   - The licensed Reader-app v1 serif fallback and its real-book
+     Rust-shaping/Canvas-paint proof are complete. Measure its cold-start,
+     duplicate-Worker memory, and first-layout cost under the named-machine gate,
+     then decide whether the remaining locale, `sansSerif`, `monospace`, and 626
+     host-fallback UTF-16 units require another Phase 1 preset.
 5. **Controlled baseline transition**
    - After the usability gate, build a pinned WebView/DOM reference harness and
      make it the visual authority for future rendering work.
@@ -436,13 +448,13 @@ Work in roadmap order:
    budget.
 3. Replace eager completed-layout search with a durable publication source index
    while retaining the implemented lazy, fail-closed exact-source geometry.
-4. Select licensed pinned fallback assets and prove the real-book
-   Rust-shaping/Canvas-paint contract.
-5. Reduce remaining browser session policy to explicit core-requested host
+4. Reduce remaining browser session policy to explicit core-requested host
    operations.
-6. Declare the representative-corpus usability and stage-specific performance
-   gate using the green smoke/parity evidence plus named-machine latency data.
-7. Build the pinned WebView/DOM reference harness and declare the baseline
+5. Declare the representative-corpus usability and stage-specific performance
+   gate using the green smoke/parity/font evidence plus named-machine latency,
+   pinned-font startup, and memory data. Classify the residual locale/role
+   coverage there instead of reopening the completed v1 serif proof.
+6. Build the pinned WebView/DOM reference harness and declare the baseline
    transition before broad display or performance work resumes.
 
 ## Immediate Remaining Implementation Plan
@@ -452,9 +464,10 @@ interaction slices are complete. The next implementation slice should measure
 and split one currently atomic large node without changing final pagination,
 then use the same source-index work to bound the first full-spine footnote scan
 and full-publication search. Keep search result geometry lazy and active-window
-only. In parallel, finish the pinned licensed-asset/real-book proof and specify
-which remaining browser session decisions are semantic policy that Rust must
-author versus unavoidable host operations.
+only. In parallel, measure the completed v1 serif preset under the formal
+usability protocol, classify its residual locale/role gaps, and specify which
+remaining browser session decisions are semantic policy that Rust must author
+versus unavoidable host operations.
 
 ## Archived Binary-Wire Implementation Record
 
