@@ -265,7 +265,15 @@ fn canonicalizes_source_relative_paths_and_percent_encoded_fragments() {
     ];
     let targets = discover_footnote_targets(&chapters);
     let extracted = extract_footnotes_for_targets(&chapters, &targets);
+    let mut single_pass =
+        FootnoteIndexBuilder::new(chapters.iter().map(|chapter| chapter.href.to_owned()));
+    for chapter in &chapters {
+        single_pass.discover(chapter.href, chapter.nodes);
+    }
+    let (single_pass_targets, single_pass_footnotes) = single_pass.finish();
 
+    assert_eq!(single_pass_targets, targets);
+    assert_eq!(single_pass_footnotes, extracted.footnotes);
     assert!(extracted.footnotes.contains_key("A/notes.xhtml#注"));
     assert!(!extracted.footnotes.contains_key("B/notes.xhtml#注"));
     assert!(!contains_element_id(
@@ -275,6 +283,107 @@ fn canonicalizes_source_relative_paths_and_percent_encoded_fragments() {
     assert!(contains_element_id(
         extracted.filtered_chapters.get("other-notes").unwrap(),
         "注"
+    ));
+}
+
+#[test]
+fn single_pass_duplicate_keys_keep_the_last_definition_like_two_pass_collection() {
+    let chapter = parse_xhtml(
+        r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+        <a epub:type="noteref" href="#same">note</a>
+        <aside epub:type="footnote" id="same"><p>First definition</p></aside>
+        <aside epub:type="endnote" id="same"><p>Second definition</p></aside>
+        </body></html>"##,
+    )
+    .expect("parse duplicate definitions");
+    let chapters = [FootnoteFilterChapter {
+        idref: "chapter",
+        href: "Text/chapter.xhtml",
+        nodes: &chapter.nodes,
+    }];
+    let expected = extract_referenced_footnotes(&chapters).footnotes;
+    let mut single_pass = FootnoteIndexBuilder::new(["Text/chapter.xhtml".to_owned()]);
+    single_pass.discover("Text/chapter.xhtml", &chapter.nodes);
+    let (_, actual) = single_pass.finish();
+
+    assert_eq!(actual, expected);
+    assert_eq!(actual["Text/chapter.xhtml#same"].text, "Second definition");
+    assert_eq!(
+        actual["Text/chapter.xhtml#same"].kind,
+        FootnoteKind::Endnote
+    );
+}
+
+#[test]
+fn single_pass_index_matches_two_pass_cross_chapter_and_nested_semantics() {
+    let body = parse_xhtml(
+        r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+        <a epub:type="noteref" href="notes.xhtml#forward">forward</a>
+        <a epub:type="noteref" href="#outer">outer</a>
+        <a epub:type="noteref" href="#hidden-inner">hidden inner</a>
+        <a epub:type="noteref" href="#visible-inner">visible inner</a>
+        <aside epub:type="footnote" id="back"><p>Backward</p></aside>
+        <aside epub:type="footnote" id="outer"><p>Outer</p>
+          <aside epub:type="footnote" id="hidden-inner"><p>Hidden inner</p></aside>
+        </aside>
+        <aside epub:type="note" id="unused-outer"><p>Unused outer remains body</p>
+          <aside epub:type="endnote" id="visible-inner"><p>Visible inner</p></aside>
+        </aside>
+        </body></html>"##,
+    )
+    .expect("parse body");
+    let notes = parse_xhtml(
+        r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+        <a epub:type="noteref" href="body.xhtml#back">backward</a>
+        <aside epub:type="rearnote" id="forward"><p onclick="bad()">Forward
+          <a href="javascript:bad()">unsafe</a><script>bad()</script>
+        </p></aside>
+        <aside epub:type="footnote" id="unused"><p>Unused definition</p></aside>
+        </body></html>"##,
+    )
+    .expect("parse notes");
+    let chapters = [
+        FootnoteFilterChapter {
+            idref: "body",
+            href: "Text/body.xhtml",
+            nodes: &body.nodes,
+        },
+        FootnoteFilterChapter {
+            idref: "notes",
+            href: "Text/notes.xhtml",
+            nodes: &notes.nodes,
+        },
+    ];
+    let two_pass = extract_referenced_footnotes(&chapters);
+    let mut single_pass =
+        FootnoteIndexBuilder::new(chapters.iter().map(|chapter| chapter.href.to_owned()));
+    for chapter in &chapters {
+        single_pass.discover(chapter.href, chapter.nodes);
+    }
+    let (targets, footnotes) = single_pass.finish();
+
+    assert_eq!(targets, discover_footnote_targets(&chapters));
+    assert_eq!(footnotes, two_pass.footnotes);
+    assert!(footnotes.contains_key("Text/body.xhtml#back"));
+    assert!(footnotes.contains_key("Text/notes.xhtml#forward"));
+    assert!(footnotes.contains_key("Text/body.xhtml#outer"));
+    assert!(footnotes.contains_key("Text/body.xhtml#visible-inner"));
+    assert!(!footnotes.contains_key("Text/body.xhtml#hidden-inner"));
+    assert!(!footnotes.contains_key("Text/body.xhtml#unused-outer"));
+    assert!(!footnotes.contains_key("Text/notes.xhtml#unused"));
+    let forward_html = &footnotes["Text/notes.xhtml#forward"].html;
+    assert!(forward_html.contains("<p>"));
+    assert!(forward_html.contains("<a>unsafe</a>"));
+    assert!(!forward_html.contains("onclick"));
+    assert!(!forward_html.contains("javascript"));
+    assert!(!forward_html.contains("<script"));
+    assert!(contains_element_id(
+        two_pass.filtered_chapters.get("body").unwrap(),
+        "unused-outer"
+    ));
+    assert!(!contains_element_id(
+        two_pass.filtered_chapters.get("body").unwrap(),
+        "visible-inner"
     ));
 }
 

@@ -20,8 +20,8 @@ use crate::xhtml::{parse_xhtml, DocumentNode};
 mod footnote;
 
 pub(crate) use footnote::{
-    collect_footnote_entries_for_targets, discover_footnote_targets, extract_footnotes_for_targets,
-    FootnoteFilterChapter, FootnoteTargetDiscovery, FootnoteTargetSet,
+    discover_footnote_targets, extract_footnotes_for_targets, FootnoteFilterChapter,
+    FootnoteIndexBuilder, FootnoteTargetSet,
 };
 pub use footnote::{FootnoteEntry, FootnoteKind};
 
@@ -100,7 +100,7 @@ fn interaction_summary(
     chapters: &[ParsedInteractionChapterInput<'_>],
     targets: &FootnoteTargetSet,
 ) -> InteractionSummary {
-    let footnotes = collect_footnote_entries_for_targets(&footnote_inputs(chapters), targets);
+    let footnotes = extract_footnotes_for_targets(&footnote_inputs(chapters), targets).footnotes;
     summarize_interaction_with_footnotes(
         chapters.iter().map(|chapter| chapter.idref.to_owned()),
         footnotes,

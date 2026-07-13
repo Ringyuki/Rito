@@ -9,6 +9,7 @@ use crate::xhtml::{DocumentNode, ElementNode};
 
 mod content;
 mod href;
+mod index;
 mod node;
 
 #[cfg(test)]
@@ -16,6 +17,7 @@ mod tests;
 
 use content::footnote_content;
 use href::{decode_fragment, HrefResolver};
+pub(crate) use index::FootnoteIndexBuilder;
 use node::{children, element_attributes, footnote_kind, is_noteref};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -113,17 +115,6 @@ pub(crate) fn extract_footnotes_for_targets(
     }
 }
 
-pub(crate) fn collect_footnote_entries_for_targets(
-    chapters: &[FootnoteFilterChapter<'_>],
-    targets: &FootnoteTargetSet,
-) -> BTreeMap<String, FootnoteEntry> {
-    let mut footnotes = BTreeMap::new();
-    for chapter in chapters {
-        collect_matching_footnotes(chapter.nodes, chapter.href, targets, &mut footnotes);
-    }
-    footnotes
-}
-
 #[cfg(test)]
 fn extract_referenced_footnotes(chapters: &[FootnoteFilterChapter<'_>]) -> FootnoteExtraction {
     let targets = discover_footnote_targets(chapters);
@@ -144,18 +135,26 @@ fn collect_noteref_targets(
     targets: &mut BTreeSet<String>,
 ) {
     for node in nodes {
-        if is_noteref(node) {
-            let target = element_attributes(node)
-                .and_then(|attributes| attributes.href.as_deref())
-                .and_then(|href| resolve_noteref_target(href, chapter_href, resolver));
-            if let Some(target) = target {
-                targets.insert(target);
-            }
+        if let Some(target) = noteref_target(node, chapter_href, resolver) {
+            targets.insert(target);
         }
         if let Some(children) = children(node) {
             collect_noteref_targets(children, chapter_href, resolver, targets);
         }
     }
+}
+
+fn noteref_target(
+    node: &DocumentNode,
+    chapter_href: &str,
+    resolver: &HrefResolver,
+) -> Option<String> {
+    if !is_noteref(node) {
+        return None;
+    }
+    element_attributes(node)
+        .and_then(|attributes| attributes.href.as_deref())
+        .and_then(|href| resolve_noteref_target(href, chapter_href, resolver))
 }
 
 fn resolve_noteref_target(
@@ -175,21 +174,6 @@ fn resolve_noteref_target(
     resolver
         .resolve(chapter_href, &href[..hash_index])
         .map(|resolved| format!("{resolved}#{fragment}"))
-}
-
-fn collect_matching_footnotes(
-    nodes: &[DocumentNode],
-    chapter_href: &str,
-    targets: &FootnoteTargetSet,
-    footnotes: &mut BTreeMap<String, FootnoteEntry>,
-) {
-    for node in nodes {
-        if let Some((key, entry)) = referenced_footnote_entry(node, chapter_href, targets) {
-            footnotes.insert(key, entry);
-        } else if let Some(children) = children(node) {
-            collect_matching_footnotes(children, chapter_href, targets, footnotes);
-        }
-    }
 }
 
 fn remove_matching_footnotes(
@@ -219,14 +203,18 @@ fn referenced_footnote_entry(
     chapter_href: &str,
     targets: &FootnoteTargetSet,
 ) -> Option<(String, FootnoteEntry)> {
-    let kind = footnote_kind(node)?;
-    let id = element_attributes(node)?.id.as_deref()?;
-    let key = format!("{chapter_href}#{id}");
+    let (key, kind) = footnote_identity(node, chapter_href)?;
     if !targets.contains(&key) {
         return None;
     }
     let (text, html) = footnote_content(children(node).unwrap_or_default());
     Some((key, FootnoteEntry { kind, text, html }))
+}
+
+fn footnote_identity(node: &DocumentNode, chapter_href: &str) -> Option<(String, FootnoteKind)> {
+    let kind = footnote_kind(node)?;
+    let id = element_attributes(node)?.id.as_deref()?;
+    Some((format!("{chapter_href}#{id}"), kind))
 }
 
 fn remove_child_footnotes(

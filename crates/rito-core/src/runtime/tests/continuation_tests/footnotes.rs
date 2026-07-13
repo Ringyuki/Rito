@@ -16,15 +16,13 @@ fn publication_footnote_scan_is_state_neutral() {
     let mut document = RuntimeDocument::open(&bytes).expect("document opens");
     let before = document.document.clone();
 
-    let indexed_keys = document
+    let index = document
         .publication_footnote_index()
-        .expect("publication footnotes scan")
-        .footnotes
-        .keys()
-        .cloned()
-        .collect::<Vec<_>>();
+        .expect("publication footnotes scan");
+    let indexed_keys = index.footnotes.keys().cloned().collect::<Vec<_>>();
 
     assert_eq!(indexed_keys, vec![BACK_KEY, FORWARD_KEY]);
+    assert_eq!(index.source_parse_count, 3);
     assert_eq!(document.publication_footnote_scan_count(), 1);
     assert_eq!(document.document, before);
     assert!(document.parsed_chapters.is_empty());

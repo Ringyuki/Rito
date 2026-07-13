@@ -25,8 +25,8 @@ impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
     ///
     /// The first bounded revision for a document pays for a publication-wide,
-    /// two-pass XHTML footnote scan. The resulting target/definition index is
-    /// cached without materializing lazy chapter or binary-resource state.
+    /// single-pass XHTML footnote scan. The resulting target/definition index
+    /// is cached without materializing lazy chapter or binary-resource state.
     pub fn create_bounded_revision(
         &mut self,
         request: RuntimeBoundedRevisionRequest,
