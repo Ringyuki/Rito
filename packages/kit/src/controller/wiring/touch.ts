@@ -90,11 +90,12 @@ function createGestureDeps(
   return {
     td: runtime.td,
     frameDriver: runtime.frameDriver,
-    startGestureNavigation: (index, onTransitionStart) => {
-      return nav.startGestureNavigation(index, onTransitionStart);
+    startGestureNavigation: (index, onTransitionStart, onUnavailable) => {
+      return nav.startGestureNavigation(index, onTransitionStart, onUnavailable);
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
+    isPaginationComplete: () => reader.pagination?.complete ?? true,
     commitPendingTransition: () => {
       if (runtime.td.isAnimating) runtime.td.forceSettle();
     },

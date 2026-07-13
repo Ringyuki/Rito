@@ -127,11 +127,14 @@ export function commitLayoutChange(
   if (clearedNativeAnnotationHover) {
     emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   }
-  emitter.emit('layoutChange', {
-    spreads: internals.reader.spreads,
-    totalSpreads: internals.reader.totalSpreads,
-  });
+  emitLayoutChange(internals, emitter);
   emitCommittedSpreadChangeIfCurrent(internals, emitter, previousSpread, committedSpread);
+}
+
+/** Publishes a larger known extent without resetting stable layout or transition state. */
+export function publishPaginationChange(internals: Internals, emitter: Emitter): void {
+  internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
+  emitLayoutChange(internals, emitter);
 }
 
 export function requireRenderScale(scale: number): void {
@@ -151,6 +154,13 @@ function clampSpreadIndex(internals: Internals, spreadIndex: number): number {
 
 function currentPosition(internals: Internals): ReadingPosition | null {
   return internals.engines.position?.getPreservableCurrent() ?? null;
+}
+
+function emitLayoutChange(internals: Internals, emitter: Emitter): void {
+  emitter.emit('layoutChange', {
+    spreads: internals.reader.spreads,
+    totalSpreads: internals.reader.totalSpreads,
+  });
 }
 
 function emitCommittedSpreadChangeIfCurrent(

@@ -130,6 +130,8 @@ export interface ReaderController {
   readonly pages: readonly Page[];
   readonly currentSpread: number;
   readonly totalSpreads: number;
+  /** Whether `totalSpreads` is the final publication extent. */
+  readonly paginationComplete: boolean;
 
   goToSpread(index: number): void;
   nextSpread(): void;

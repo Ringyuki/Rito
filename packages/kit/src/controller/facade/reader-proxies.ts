@@ -23,5 +23,8 @@ export function buildReaderProxies(internals: Internals): ReaderProxiesSlice {
     get totalSpreads() {
       return internals.reader.totalSpreads;
     },
+    get paginationComplete() {
+      return internals.reader.pagination?.complete ?? true;
+    },
   };
 }

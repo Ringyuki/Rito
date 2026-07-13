@@ -6,6 +6,7 @@ import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
 import {
   clearPendingNavigation,
+  createNavigationState,
   settleNavigationForContinuity,
   supersedeNavigationForPositionIntent,
   type GestureNavigationRequest,
@@ -18,6 +19,12 @@ import {
   jumpToSpreadIfReady,
   type NavigationJumpOutcome,
 } from './jump';
+import {
+  continuePendingNavigation,
+  createSpreadGrowthAttempt,
+  ensureIncomingSlot,
+  navigationTarget,
+} from './growth';
 import { emitNavigationStart } from './start';
 
 export interface NavigationDeps {
@@ -33,11 +40,17 @@ export interface NavigationDeps {
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
   onNavigationCancelled?: () => void;
+  /** Publishes a newly committed known/final spread extent without resetting layout state. */
+  onPaginationChanged?: () => void;
 }
 
 export interface NavigationActions {
   goToSpread(index: number): void;
-  startGestureNavigation(index: number, onTransitionStart: () => void): GestureNavigationToken;
+  startGestureNavigation(
+    index: number,
+    onTransitionStart: () => void,
+    onUnavailable?: () => void,
+  ): GestureNavigationToken;
   nextSpread(): void;
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
@@ -50,6 +63,7 @@ export interface NavigationActions {
   /** Retry a TOC target that was unavailable in a partial preview revision. */
   notifyLayoutCommitted(): void;
   supersedeForPositionIntent(): void;
+  dispose(): void;
 }
 
 /** Cancels a gesture navigation only while it is still waiting for content. */
@@ -58,17 +72,13 @@ export interface GestureNavigationToken {
 }
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
-  const state: NavigationState = {
-    navigationAttemptId: 0,
-    pendingNavigation: undefined,
-    pendingTocEntry: undefined,
-  };
+  const state = createNavigationState();
   return {
     goToSpread(index) {
       startNavigation(state, deps, index);
     },
-    startGestureNavigation(index, onTransitionStart) {
-      return startGestureNavigation(state, deps, index, onTransitionStart);
+    startGestureNavigation(index, onTransitionStart, onUnavailable) {
+      return startGestureNavigation(state, deps, index, onTransitionStart, onUnavailable);
     },
     nextSpread() {
       startNavigation(state, deps, deps.getCurrentSpread() + 1);
@@ -80,21 +90,32 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       navigateToTocEntry(state, deps, entry);
     },
     jumpToSpread(index, preservePositionIntent) {
+      if (state.disposed) return false;
       const attemptId = claimNavigationAttempt(state, deps, preservePositionIntent);
       return jumpToSpread(state, deps, attemptId, index);
     },
     jumpToSpreadIfReady(index) {
+      if (state.disposed) return 'superseded';
       const attemptId = claimNavigationAttempt(state, deps);
       return jumpToSpreadIfReady(state, deps, attemptId, index);
     },
     notifyContentReady(spreadIndex) {
+      if (state.disposed) return;
       continuePendingNavigation(state, deps, spreadIndex);
     },
     notifyLayoutCommitted() {
+      if (state.disposed) return;
       retryPendingTocNavigation(state, deps);
     },
     supersedeForPositionIntent: () => {
+      if (state.disposed) return;
       supersedeNavigationForPositionIntent(state, deps.td);
+    },
+    dispose() {
+      if (state.disposed) return;
+      state.disposed = true;
+      state.navigationAttemptId += 1;
+      clearPendingNavigation(state);
     },
   };
 }
@@ -108,9 +129,15 @@ function startGestureNavigation(
   deps: NavigationDeps,
   index: number,
   onTransitionStart: () => void,
+  onUnavailable?: () => void,
 ): GestureNavigationToken {
+  if (state.disposed) {
+    onUnavailable?.();
+    return { cancel() {} };
+  }
   const request: GestureNavigationRequest = {
     onTransitionStart,
+    ...(onUnavailable ? { onUnavailable } : {}),
     started: false,
     cancelled: false,
   };
@@ -120,8 +147,8 @@ function startGestureNavigation(
       if (request.started) return;
       request.cancelled = true;
       if (state.pendingNavigation?.gesture === request) {
-        state.pendingNavigation = undefined;
         state.navigationAttemptId += 1;
+        clearPendingNavigation(state);
         deps.onNavigationCancelled?.();
       }
     },
@@ -129,6 +156,7 @@ function startGestureNavigation(
 }
 
 function navigateToTocEntry(state: NavigationState, deps: NavigationDeps, entry: TocEntry): void {
+  if (state.disposed) return;
   const resolved = deps.getReader()?.resolveTocEntry(entry);
   if (!resolved) {
     state.navigationAttemptId += 1;
@@ -148,63 +176,76 @@ function retryPendingTocNavigation(state: NavigationState, deps: NavigationDeps)
   replaceWithNavigation(state, deps, goToSpread(state, deps, resolved.spreadIndex));
 }
 
-function continuePendingNavigation(
-  state: NavigationState,
-  deps: NavigationDeps,
-  spreadIndex: number,
-): void {
-  const pending = state.pendingNavigation;
-  if (!pending || pending.target !== spreadIndex) return;
-  if (pending.attemptId !== state.navigationAttemptId) return;
-  if (pending.gesture?.cancelled) {
-    state.pendingNavigation = undefined;
-    return;
-  }
-  if (!ensureIncomingSlot(deps, pending.target, pending.direction)) return;
-  const reader = deps.getReader();
-  if (!reader) return;
-  state.pendingNavigation = undefined;
-  emitNavigationStart(
-    state,
-    deps,
-    reader,
-    pending.attemptId,
-    pending.target,
-    pending.direction,
-    pending.previous,
-    pending.continuityDx,
-    pending.gesture,
-  );
-}
-
 function goToSpread(
   state: NavigationState,
   deps: NavigationDeps,
   index: number,
   gesture?: GestureNavigationRequest,
 ): NavigationAttempt {
-  const reader = deps.getReader();
-  if (!reader) return { claimedIntent: false };
-  const clamped = Math.max(0, Math.min(index, reader.totalSpreads - 1));
-  let previous = deps.getCurrentSpread();
+  const initialReader = deps.getReader();
+  if (state.disposed || !initialReader) return { claimedIntent: false };
+  const initialTarget = navigationTarget(initialReader, index);
+  const initialPrevious = deps.getCurrentSpread();
   const attemptId = claimNavigationAttempt(state, deps);
   if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
-  if (clamped === previous) return completeNoOpNavigation(deps, attemptId);
+  if (initialTarget.index === initialPrevious && !initialTarget.pagination) {
+    return completeNoOpNavigation(deps, attemptId, gesture);
+  }
 
   const continuityDx = deps.td.isAnimating ? settleNavigationForContinuity(deps.td) : 0;
-  previous = deps.getCurrentSpread();
+  const previous = deps.getCurrentSpread();
   if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
-  if (clamped === previous) return completeNoOpNavigation(deps, attemptId);
+  const reader = deps.getReader();
+  if (!reader) return { claimedIntent: true, attemptId };
+  const target = navigationTarget(reader, index);
+  if (target.index === previous && !target.pagination) {
+    return completeNoOpNavigation(deps, attemptId, gesture);
+  }
 
-  const direction = clamped > previous ? 'forward' : 'backward';
-  if (!ensureIncomingSlot(deps, clamped, direction)) {
+  if (target.pagination) {
+    return createSpreadGrowthAttempt(
+      state,
+      deps,
+      target.pagination,
+      attemptId,
+      target.index,
+      previous,
+      continuityDx,
+      gesture,
+    );
+  }
+
+  return createKnownSpreadAttempt(
+    state,
+    deps,
+    reader,
+    attemptId,
+    target.index,
+    previous,
+    continuityDx,
+    gesture,
+  );
+}
+
+function createKnownSpreadAttempt(
+  state: NavigationState,
+  deps: NavigationDeps,
+  reader: Reader,
+  attemptId: number,
+  target: number,
+  previous: number,
+  continuityDx: number,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
+  const direction = target > previous ? 'forward' : 'backward';
+  if (!ensureIncomingSlot(deps, target, direction)) {
     deps.frameDriver.scheduleComposite();
     return {
       claimedIntent: true,
       attemptId,
       pendingNavigation: {
         attemptId,
-        target: clamped,
+        target,
         direction,
         previous,
         continuityDx,
@@ -217,7 +258,7 @@ function goToSpread(
     deps,
     reader,
     attemptId,
-    clamped,
+    target,
     direction,
     previous,
     continuityDx,
@@ -226,21 +267,17 @@ function goToSpread(
   return { claimedIntent: true, attemptId };
 }
 
-function completeNoOpNavigation(deps: NavigationDeps, attemptId: number): NavigationAttempt {
+function completeNoOpNavigation(
+  deps: NavigationDeps,
+  attemptId: number,
+  gesture?: GestureNavigationRequest,
+): NavigationAttempt {
+  if (gesture && !gesture.started) {
+    gesture.cancelled = true;
+    gesture.onUnavailable?.();
+  }
   deps.onNavigationCancelled?.();
   return { claimedIntent: true, attemptId };
-}
-
-function ensureIncomingSlot(
-  deps: NavigationDeps,
-  spreadIndex: number,
-  direction: 'forward' | 'backward',
-): boolean {
-  const slotPosition = direction === 'forward' ? 'next' : 'prev';
-  if (deps.pool.getSlotFor(spreadIndex) !== slotPosition) {
-    deps.pool.assignSlot(slotPosition, spreadIndex);
-  }
-  return deps.pool.ensureContent(slotPosition, deps.contentRenderer);
 }
 
 function replaceWithNavigation(

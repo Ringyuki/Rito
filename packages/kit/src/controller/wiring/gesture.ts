@@ -27,7 +27,7 @@ interface TouchState {
   activeTouchId: number | null;
   startTouch: { x: number; y: number } | null;
   selectionStart: { x: number; y: number } | null;
-  /** Whether td was animating when this touch started. */
+  /** Whether a transition was active when this touch started. */
   wasAnimating: boolean;
 }
 
@@ -46,25 +46,16 @@ export interface GestureDeps {
   readonly startGestureNavigation: (
     index: number,
     onTransitionStart: () => void,
+    onUnavailable?: () => void,
   ) => GestureNavigationToken;
   readonly getCurrentSpread: () => number;
   readonly getTotalSpreads: () => number;
-  /**
-   * Force-complete the current transition (forceSettle).
-   * Used for same-direction rapid flipping where we want to commit
-   * the current animation and immediately start a new one.
-   */
+  readonly isPaginationComplete: () => boolean;
+  /** Commits an active same-direction transition before a rapid flip. */
   readonly commitPendingTransition: () => void;
 }
 
-/**
- * Unified touch handler: routes touch events to either page swipe
- * or text selection (long-press).
- *
- * Direction lock in onMove decides how to handle an in-progress transition:
- * - Same direction as current animation → commit + start new navigation (rapid flip)
- * - Opposite direction → interrupt and track from current position (reversal/cancel)
- */
+/** Routes touch events to page swipes or long-press text selection. */
 export function wireUnifiedTouchHandler(
   target: HTMLElement,
   gestureDeps: GestureDeps,
@@ -199,15 +190,25 @@ function beginGesture(context: TouchHandlerContext, dx: number, timestamp: numbe
   const target = direction === 'forward' ? current + 1 : current - 1;
   const session = createGestureSession(dx, timestamp);
   context.gesture = session;
-  if (target < 0 || target >= deps.getTotalSpreads()) {
+  if (target < 0 || (target >= deps.getTotalSpreads() && deps.isPaginationComplete())) {
     deps.td.startTracking(direction, current, null, timestamp);
     session.started = true;
     context.ownsTransition = true;
     deps.td.updateTracking(session.latestDx, session.latestTimestamp);
   } else {
-    const token = deps.startGestureNavigation(target, () => {
-      activateGestureTransition(context, session);
-    });
+    const token = deps.startGestureNavigation(
+      target,
+      () => {
+        activateGestureTransition(context, session);
+      },
+      () => {
+        if (context.gesture !== session || session.started) return;
+        session.status = 'cancelled';
+        session.token = null;
+        context.gesture = null;
+        deps.frameDriver.scheduleComposite();
+      },
+    );
     if (!session.started) session.token = token;
   }
   deps.frameDriver.scheduleComposite();

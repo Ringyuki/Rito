@@ -10,7 +10,11 @@ import { createCoordinatorState } from './core/index';
 import { buildWiringDeps } from './core/wiring-deps';
 import { createEngines } from './engines/index';
 import { buildController, syncCanvasSize, type Internals } from './facade';
-import { commitLayoutChange, requireRenderScale } from './facade/layout-actions';
+import {
+  commitLayoutChange,
+  publishPaginationChange,
+  requireRenderScale,
+} from './facade/layout-actions';
 import type { RuntimeComponents } from './facade/types';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
 import { createNavigation } from './navigation/index';
@@ -175,6 +179,9 @@ function createRuntimeNavigation(
     onNavigationCancelled: () => {
       internals.engines.position?.update(internals.currentSpread);
     },
+    onPaginationChanged: () => {
+      publishPaginationChange(internals, emitter);
+    },
   });
 }
 
@@ -187,6 +194,9 @@ function wireRuntimeEvents(
   contentRenderer: ContentRenderer,
   disposables: Disposables,
 ): void {
+  disposables.add(() => {
+    nav.dispose();
+  });
   const deps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav, () => {
     syncCanvasSize(internals, runtime);
   });

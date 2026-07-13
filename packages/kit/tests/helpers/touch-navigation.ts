@@ -77,6 +77,7 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     },
     getCurrentSpread: () => internals.currentSpread,
     getTotalSpreads: () => reader.totalSpreads,
+    isPaginationComplete: () => reader.pagination?.complete ?? true,
     commitPendingTransition: () => {
       if (td.isAnimating) td.forceSettle();
     },

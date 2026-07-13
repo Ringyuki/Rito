@@ -22,7 +22,14 @@ export type NavigationActionsSlice = Pick<
 >;
 export type ReaderProxiesSlice = Pick<
   ReaderController,
-  'reader' | 'metadata' | 'toc' | 'spreads' | 'pages' | 'currentSpread' | 'totalSpreads'
+  | 'reader'
+  | 'metadata'
+  | 'toc'
+  | 'spreads'
+  | 'pages'
+  | 'currentSpread'
+  | 'totalSpreads'
+  | 'paginationComplete'
 >;
 export type LayoutActionsSlice = Pick<
   ReaderController,

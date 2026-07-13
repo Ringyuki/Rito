@@ -26,13 +26,11 @@ export interface ReaderTextPoint {
   readonly x: number;
   readonly y: number;
 }
-
 export interface ReaderTextCaretGeometry {
   readonly x: number;
   readonly y: number;
   readonly height: number;
 }
-
 export type ReaderTextInteractionUnavailableReason =
   | 'shapeUnavailable'
   | 'sourceUnavailable'
@@ -40,13 +38,8 @@ export type ReaderTextInteractionUnavailableReason =
   | 'visualGeometryUnavailable'
   | 'invalidCaret'
   | 'differentLogicalFlow';
-
 declare const readerTextCaretBrand: unique symbol;
-
-/**
- * Exact point-to-caret result owned by one Reader and one committed revision.
- * Pass this object itself, not a copy, to same-flow range resolution.
- */
+/** Exact caret for one Reader revision; pass this branded object itself to range resolution. */
 export interface ReaderTextCaret {
   readonly [readerTextCaretBrand]: true;
   readonly geometry: ReaderTextCaretGeometry;
@@ -83,13 +76,11 @@ export interface ReaderExactSourceRangeRequest {
   readonly href: string;
   readonly sourceRange: ReaderSourceRange;
 }
-
 export interface ReaderExactSourceRange {
   readonly selectedText: string;
   readonly sourceLocator: ReaderLocator;
   readonly rects: readonly ReaderExactTextRangeRect[];
 }
-
 export type ReaderExactSourceRangeResolution =
   | { readonly status: 'resolved'; readonly range: ReaderExactSourceRange }
   | {
@@ -180,9 +171,17 @@ export interface ReaderThemeOptions {
   readonly backgroundColor?: string | null;
   readonly foregroundColor?: string | null;
 }
+export interface ReaderIncrementalPagination {
+  /** Whether `Reader.totalSpreads` is final. */
+  readonly complete: boolean;
+  /** `false` requires `complete === true` before resolution; `undefined` means cancelled. */
+  ensureSpread(spreadIndex: number, signal?: AbortSignal): Promise<boolean | undefined>;
+}
+
 export interface Reader {
   readonly metadata: PackageMetadata;
   readonly totalSpreads: number;
+  readonly pagination?: ReaderIncrementalPagination;
   readonly toc: readonly TocEntry[];
   readonly chapterMap: ReadonlyMap<string, ChapterRange>;
   readonly manifestHrefMap: ReadonlyMap<string, string>;

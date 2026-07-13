@@ -17,6 +17,7 @@ export type {
   ReaderExactSourceRange,
   ReaderExactSourceRangeRequest,
   ReaderExactSourceRangeResolution,
+  ReaderIncrementalPagination,
   ReaderOptions,
   ReaderPinnedFontPolicy,
   ReaderThemeOptions,

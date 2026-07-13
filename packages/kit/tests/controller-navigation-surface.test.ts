@@ -59,6 +59,7 @@ describe('controller navigation surface', () => {
     expect(controller.hasSelection).toBe(true);
     expect(controller.selectionText).toBe('live selection');
     expect(controller.selectionSourceLocator?.href).toBe('chapter.xhtml');
+    expect(controller.paginationComplete).toBe(true);
   });
 });
 
@@ -72,6 +73,7 @@ function createNavigationStub(): Nav {
     jumpToSpread: vi.fn(),
     notifyContentReady: vi.fn(),
     notifyLayoutCommitted: vi.fn(),
+    dispose: vi.fn(),
   } as unknown as Nav;
 }
 
