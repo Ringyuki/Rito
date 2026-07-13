@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { BrowserReaderBoundedSnapshot } from '../../src/bindings/browser/core-contracts';
 import type {
   BrowserReaderBoundedSessionOwner,
   BrowserReaderState,
@@ -9,6 +10,7 @@ import {
 } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import {
   recordBrowserReaderAcceptedRevision,
+  restoreBrowserReaderExactReads,
   resumeBrowserReaderExactReads,
   suspendBrowserReaderExactReads,
 } from '../../src/bindings/browser/reader-session-host';
@@ -47,6 +49,19 @@ describe('Browser reader bounded session ownership', () => {
 
     expect(resumeBrowserReaderExactReads(state, first)).toBe(false);
     expect(resumeBrowserReaderExactReads(state, second)).toBe(true);
+  });
+
+  it('restores the committed handle only when no other commit event crossed the gate', () => {
+    const { state } = readyOwner();
+    const gate = requireGate(suspendBrowserReaderExactReads(state));
+
+    expect(restoreBrowserReaderExactReads(state, gate)).toBe(true);
+    expect(state.revisionHandle && isCurrentRevisionHandle(state, state.revisionHandle)).toBe(true);
+
+    const stale = requireGate(suspendBrowserReaderExactReads(state));
+    state.commitGeneration += 1;
+    expect(restoreBrowserReaderExactReads(state, stale)).toBe(false);
+    expect(state.revisionHandle).toBeUndefined();
   });
 
   it('keeps committed reads open while an independent candidate advances', () => {
@@ -88,7 +103,9 @@ function owner(state: BrowserReaderState, _label: string): BrowserReaderBoundedS
       ensureSpread: vi.fn(),
       ensureLocator: vi.fn(),
       complete: vi.fn(),
-      currentSnapshot: vi.fn(),
+      currentSnapshot: vi.fn(
+        () => ({ revision: state.revisionBundle.revision }) as BrowserReaderBoundedSnapshot,
+      ),
       cancel: vi.fn(),
       dispose: vi.fn(),
     },

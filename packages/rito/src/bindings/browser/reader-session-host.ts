@@ -15,6 +15,7 @@ export interface BrowserReaderBoundedSessionOwner {
   acceptedRevision: BrowserReaderWorkerRevisionHandle | undefined;
   gateGeneration: number;
   readsSuspended: boolean;
+  terminalError?: Error | undefined;
 }
 
 export interface BrowserReaderBoundedSessionSlots {
@@ -25,6 +26,7 @@ export interface BrowserReaderBoundedSessionSlots {
 export interface BrowserReaderExactReadGate {
   readonly owner: BrowserReaderBoundedSessionOwner;
   readonly generation: number;
+  readonly commitGeneration: number;
 }
 
 export function recordBrowserReaderAcceptedRevision(
@@ -49,7 +51,44 @@ export function suspendBrowserReaderExactReads(
     state.commitGeneration += 1;
     state.revisionHandle = undefined;
   }
-  return { owner, generation: owner.gateGeneration };
+  return {
+    owner,
+    generation: owner.gateGeneration,
+    commitGeneration: state.commitGeneration,
+  };
+}
+
+export function restoreBrowserReaderExactReads(
+  state: BrowserReaderState,
+  gate: BrowserReaderExactReadGate,
+): boolean {
+  const revision = state.revisionBundle.revision;
+  const accepted = gate.owner.acceptedRevision;
+  const snapshot = gate.owner.controller.currentSnapshot();
+  if (
+    state.disposed ||
+    state.revisionHandle ||
+    state.commitGeneration !== gate.commitGeneration ||
+    state.boundedSessions.current !== gate.owner ||
+    gate.owner.gateGeneration !== gate.generation ||
+    gate.owner.terminalError ||
+    gate.owner.worker !== state.worker ||
+    !snapshot ||
+    snapshot.revision.revisionId !== revision.revisionId ||
+    snapshot.revision.revisionVersion !== revision.revisionVersion ||
+    accepted?.workerSessionId !== state.worker.sessionId ||
+    accepted.revisionId !== revision.revisionId ||
+    accepted.revisionVersion !== revision.revisionVersion
+  ) {
+    return false;
+  }
+  state.commitGeneration += 1;
+  state.revisionHandle = {
+    ...accepted,
+    commitGeneration: state.commitGeneration,
+  };
+  gate.owner.readsSuspended = false;
+  return true;
 }
 
 export function resumeBrowserReaderExactReads(
@@ -78,7 +117,8 @@ export function boundedOwnerAllowsRead(
 ): boolean {
   return (
     owner === undefined ||
-    (!owner.readsSuspended &&
+    (!owner.terminalError &&
+      !owner.readsSuspended &&
       owner.worker === worker &&
       sameWorkerRevision(owner.acceptedRevision, handle))
   );

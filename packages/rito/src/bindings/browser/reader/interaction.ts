@@ -213,7 +213,9 @@ function toReaderFootnote(value: CoreFootnote) {
   return { kind: value.kind, text: value.text, html: value.html };
 }
 
-function toReaderLocatorResolution(value: CoreSourceLocatorResolution): ReaderLocatorResolution {
+export function toReaderLocatorResolution(
+  value: CoreSourceLocatorResolution,
+): ReaderLocatorResolution {
   const common = {
     locator: copyReaderLocator(value.locator),
     spineIdref: value.spineIdref,
