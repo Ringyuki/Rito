@@ -18,6 +18,7 @@ describe('partial TOC locator navigation', () => {
     await settleTasks();
 
     expect(fixture.current()).toBe(2);
+    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
     expect(fixture.notifyActiveSpread).toHaveBeenCalledWith(2);
     expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);
   });
@@ -40,6 +41,23 @@ describe('partial TOC locator navigation', () => {
     await settleTasks();
     expect(fixture.current()).toBe(1);
     expect(fixture.goToTarget).toHaveBeenCalledOnce();
+  });
+
+  it('does not resume an old TOC target after pagination publication reenters navigation', async () => {
+    const fixture = createFixture();
+    fixture.onPaginationChanged.mockImplementationOnce(() => {
+      fixture.nav.navigateToTocEntry(fixture.entry('latest.xhtml'));
+    });
+
+    fixture.nav.navigateToTocEntry(fixture.entry('older.xhtml'));
+    fixture.commitExtent(2);
+    fixture.request(0).resolve(resolvedLocator('older.xhtml', 1));
+    await settleTasks();
+
+    expect(fixture.current()).toBe(0);
+    expect(fixture.navigateToLocator).toHaveBeenCalledTimes(2);
+    expect(fixture.request(1).signal.aborted).toBe(false);
+    expect(fixture.goToTarget).not.toHaveBeenCalled();
   });
 
   it('aborts locator ownership on disposal and contains a late rejection', async () => {
@@ -150,6 +168,7 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
   const goToTarget = vi.fn();
   const emit = vi.fn();
   const onNavigationCancelled = vi.fn();
+  const onPaginationChanged = vi.fn();
   let contentFailure: Error | undefined;
   const deps = {
     getReader: () => reader,
@@ -172,6 +191,7 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     contentRenderer: vi.fn(),
     onNavigationIntent: vi.fn(),
     onNavigationCancelled,
+    onPaginationChanged,
   } as unknown as NavigationDeps;
   return {
     nav: createNavigation(deps),
@@ -181,6 +201,7 @@ function createFixture(options: { readonly locatorNavigation?: boolean } = {}) {
     goToTarget,
     emit,
     onNavigationCancelled,
+    onPaginationChanged,
     current: () => currentSpread,
     setContentFailure(error: Error) {
       contentFailure = error;

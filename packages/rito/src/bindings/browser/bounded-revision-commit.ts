@@ -27,6 +27,8 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
   readonly lineBreaking: 'greedy' | 'optimal';
   /** Capture after suspending a current session, or before starting a candidate. */
   readonly baseCommitGeneration: number;
+  /** Same-session extent growth is published by its caller without a full layout reset. */
+  readonly notifyLayoutCommitted?: boolean | undefined;
 }
 
 export interface BrowserReaderBoundedCommitResult {
@@ -154,7 +156,7 @@ function publishBoundedCommit(
   });
   state.activeSpreadIndex = boundedCommitActiveSpread(state, prepared);
   reopenCurrentExactReads(state, input, candidate);
-  notifyLayoutCommitted(state);
+  if (input.notifyLayoutCommitted !== false) notifyLayoutCommitted(state);
   return {
     committed: true,
     ...(retiredOwner && retiredOwner !== input.owner ? { retiredOwner } : {}),

@@ -203,6 +203,37 @@ describe('Browser bounded revision commit adapter', () => {
     expect(state.revisionHandle && isCurrentRevisionHandle(state, state.revisionHandle)).toBe(true);
     expect(fixture.releaseRevisionAtRevision).not.toHaveBeenCalled();
   });
+
+  it('lets same-session extent growth defer full layout publication to its caller', async () => {
+    const fixture = createWorker(() => undefined, 'current-session');
+    const state = createState(fixture.worker);
+    const initial = boundedSnapshot('bounded', 1, 1, 0, 0);
+    setRevisionState(state, initial.revision, initial.navigation);
+    const current = owner(fixture.worker);
+    recordBrowserReaderAcceptedRevision(current, initial.revision);
+    state.boundedSessions.current = current;
+    const gate = suspendBrowserReaderExactReads(state);
+    if (!gate) throw new Error('test exact-read gate is missing');
+    const advanced = boundedSnapshot('bounded', 2, 2, 1, 1);
+    recordBrowserReaderAcceptedRevision(current, advanced.revision);
+    mockAggregates(fixture.worker, advanced);
+    const committed = vi.fn();
+    state.layoutCommittedListeners.add(committed);
+
+    await commitBrowserReaderBoundedSnapshot(state, {
+      owner: current,
+      snapshot: advanced,
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      baseCommitGeneration: state.commitGeneration,
+      exactReadGate: gate,
+      notifyLayoutCommitted: false,
+    });
+
+    expect(committed).not.toHaveBeenCalled();
+    expect(current.readsSuspended).toBe(false);
+  });
 });
 
 function boundedSnapshot(

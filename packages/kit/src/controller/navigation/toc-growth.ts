@@ -107,6 +107,8 @@ function settleTocLocatorGrowth(
     return;
   }
   try {
+    deps.onPaginationChanged?.();
+    if (state.disposed || state.navigationAttemptId !== pending.attemptId) return;
     onResolved(resolution.spreadIndex);
   } catch (error) {
     deps.onNavigationCancelled?.();
