@@ -1,7 +1,11 @@
 use std::num::NonZeroUsize;
 
+use crate::layout::text_work::{TextWorkBudget, TextWorkMeter};
+
 const DEFAULT_MAX_LINE_BOXES_PER_ADVANCE: usize = 32;
 const DEFAULT_MAX_DESCENDANT_NODES_PER_ADVANCE: usize = 32;
+const DEFAULT_MAX_TEXT_UTF16_UNITS_PER_ADVANCE: usize = 16_384;
+const DEFAULT_MAX_ATOMIC_TEXT_OPERATIONS_PER_ADVANCE: usize = 64;
 
 /// Deterministic upper bounds for one layout-session advance.
 ///
@@ -14,6 +18,7 @@ pub(crate) struct LayoutWorkBudget {
     max_top_level_nodes: NonZeroUsize,
     max_descendant_nodes: NonZeroUsize,
     max_line_boxes: NonZeroUsize,
+    text: TextWorkBudget,
 }
 
 impl LayoutWorkBudget {
@@ -24,6 +29,7 @@ impl LayoutWorkBudget {
                 .expect("the default descendant-node budget is non-zero"),
             max_line_boxes: NonZeroUsize::new(DEFAULT_MAX_LINE_BOXES_PER_ADVANCE)
                 .expect("the default line-box budget is non-zero"),
+            text: default_text_work_budget(),
         }
     }
 
@@ -37,6 +43,7 @@ impl LayoutWorkBudget {
             max_descendant_nodes: NonZeroUsize::new(DEFAULT_MAX_DESCENDANT_NODES_PER_ADVANCE)
                 .expect("the default descendant-node budget is non-zero"),
             max_line_boxes,
+            text: default_text_work_budget(),
         }
     }
 
@@ -50,6 +57,23 @@ impl LayoutWorkBudget {
             max_top_level_nodes,
             max_descendant_nodes,
             max_line_boxes,
+            text: default_text_work_budget(),
+        }
+    }
+
+    #[cfg(test)]
+    pub(in crate::layout) const fn with_text_work_limits(
+        max_top_level_nodes: NonZeroUsize,
+        max_text_utf16_units: NonZeroUsize,
+        max_atomic_text_operations: NonZeroUsize,
+    ) -> Self {
+        Self {
+            max_top_level_nodes,
+            max_descendant_nodes: NonZeroUsize::new(DEFAULT_MAX_DESCENDANT_NODES_PER_ADVANCE)
+                .expect("the default descendant-node budget is non-zero"),
+            max_line_boxes: NonZeroUsize::new(DEFAULT_MAX_LINE_BOXES_PER_ADVANCE)
+                .expect("the default line-box budget is non-zero"),
+            text: TextWorkBudget::new(max_text_utf16_units, max_atomic_text_operations),
         }
     }
 
@@ -58,8 +82,18 @@ impl LayoutWorkBudget {
             max_top_level_nodes: NonZeroUsize::MAX,
             max_descendant_nodes: NonZeroUsize::MAX,
             max_line_boxes: NonZeroUsize::MAX,
+            text: TextWorkBudget::new(NonZeroUsize::MAX, NonZeroUsize::MAX),
         }
     }
+}
+
+const fn default_text_work_budget() -> TextWorkBudget {
+    TextWorkBudget::new(
+        NonZeroUsize::new(DEFAULT_MAX_TEXT_UTF16_UNITS_PER_ADVANCE)
+            .expect("the default text character budget is non-zero"),
+        NonZeroUsize::new(DEFAULT_MAX_ATOMIC_TEXT_OPERATIONS_PER_ADVANCE)
+            .expect("the default atomic text-operation budget is non-zero"),
+    )
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -78,6 +112,9 @@ pub(in crate::layout) struct LayoutWorkMeter {
     descendant_accepts_remaining: usize,
     descendant_starts_remaining: usize,
     line_boxes_remaining: usize,
+    // This staged state becomes live when text-layout operations are metered.
+    #[allow(dead_code)]
+    text_work: TextWorkMeter,
 }
 
 impl LayoutWorkMeter {
@@ -88,6 +125,7 @@ impl LayoutWorkMeter {
             descendant_accepts_remaining: budget.max_descendant_nodes.get(),
             descendant_starts_remaining: budget.max_descendant_nodes.get(),
             line_boxes_remaining: budget.max_line_boxes.get(),
+            text_work: TextWorkMeter::new(budget.text),
         }
     }
 
@@ -124,5 +162,70 @@ impl LayoutWorkMeter {
 
     pub(in crate::layout) fn consume_line_boxes(&mut self, count: usize) {
         self.line_boxes_remaining = self.line_boxes_remaining.saturating_sub(count);
+    }
+
+    #[allow(dead_code)]
+    pub(in crate::layout) fn text_work_mut(&mut self) -> &mut TextWorkMeter {
+        &mut self.text_work
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::num::NonZeroUsize;
+
+    use super::{LayoutWorkBudget, LayoutWorkMeter};
+    use crate::layout::text_work::AtomicTextOperationKind;
+
+    #[test]
+    fn default_text_limits_are_transferred_to_the_meter() {
+        let mut meter = LayoutWorkMeter::new(LayoutWorkBudget::new(non_zero(1)));
+        let text = meter.text_work_mut();
+
+        assert_eq!(text.utf16_units_remaining(), 16_384);
+        assert_eq!(text.atomic_operations_remaining(), 64);
+    }
+
+    #[test]
+    fn unbounded_text_limits_are_transferred_to_the_meter() {
+        let mut meter = LayoutWorkMeter::new(LayoutWorkBudget::unbounded());
+        let text = meter.text_work_mut();
+
+        assert_eq!(text.utf16_units_remaining(), usize::MAX);
+        assert_eq!(text.atomic_operations_remaining(), usize::MAX);
+    }
+
+    #[test]
+    fn custom_text_limits_are_transferred_to_the_meter() {
+        let budget =
+            LayoutWorkBudget::with_text_work_limits(non_zero(1), non_zero(23), non_zero(7));
+        let mut meter = LayoutWorkMeter::new(budget);
+        let text = meter.text_work_mut();
+
+        assert_eq!(text.utf16_units_remaining(), 23);
+        assert_eq!(text.atomic_operations_remaining(), 7);
+    }
+
+    #[test]
+    fn mutable_accessor_shares_one_text_meter_across_consumers() {
+        let budget =
+            LayoutWorkBudget::with_text_work_limits(non_zero(1), non_zero(10), non_zero(3));
+        let mut meter = LayoutWorkMeter::new(budget);
+
+        assert_eq!(meter.text_work_mut().take_utf16_units(4), 4);
+        assert!(matches!(
+            meter
+                .text_work_mut()
+                .try_permit_atomic(AtomicTextOperationKind::Measure, 2),
+            crate::layout::text_work::TextWorkPermitResult::Permit { .. }
+        ));
+
+        let text = meter.text_work_mut();
+        assert_eq!(text.utf16_units_remaining(), 4);
+        assert_eq!(text.atomic_operations_remaining(), 2);
+    }
+
+    fn non_zero(value: usize) -> NonZeroUsize {
+        NonZeroUsize::new(value).expect("test budget is non-zero")
     }
 }

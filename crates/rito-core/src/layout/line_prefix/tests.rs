@@ -2,7 +2,10 @@ use std::{collections::BTreeMap, path::Path};
 
 use serde_json::{json, Map, Value};
 
-use super::{find_fitting_prefix, prefix_probe_stats, reset_prefix_probe_stats, PrefixProbeStats};
+use super::{
+    find_fitting_prefix, prefix_probe_stats, reset_prefix_probe_stats, try_find_fitting_prefix,
+    FittingPrefix, PrefixProbeStats,
+};
 use crate::layout::{
     inline_segment::{InlineSegment, TextSegment},
     line::LineRun,
@@ -39,6 +42,88 @@ fn non_finite_width_keeps_the_legacy_comparison_semantics() {
 
     assert_eq!(fitting.position, 0);
     assert_eq!(fitting.forward_end, text.len);
+}
+
+#[test]
+fn fallible_prefix_search_preserves_the_infallible_endpoint_order() {
+    let source = "x".repeat(300);
+    let text = Utf16Text::new(&source);
+    let mut infallible_endpoints = Vec::new();
+    let infallible = find_fitting_prefix(&text, 0, text.len, 73.0, true, &mut |end| {
+        infallible_endpoints.push(end);
+        end as f64
+    });
+    let mut fallible_endpoints = Vec::new();
+    let fallible = try_find_fitting_prefix(&text, 0, text.len, 73.0, true, &mut |end| {
+        fallible_endpoints.push(end);
+        Ok::<f64, ()>(end as f64)
+    })
+    .expect("successful fallible search");
+
+    assert_eq!(fallible, infallible);
+    assert_eq!(
+        fallible,
+        FittingPrefix {
+            position: 73,
+            forward_end: 128,
+        }
+    );
+    assert_eq!(
+        fallible_endpoints,
+        [1, 2, 4, 8, 16, 32, 64, 128, 96, 80, 72, 76, 74, 73]
+    );
+    assert_eq!(fallible_endpoints, infallible_endpoints);
+}
+
+#[test]
+fn failed_prefix_search_stops_at_the_endpoint_and_replays_from_cached_widths() {
+    const FAILED_ENDPOINT: usize = 96;
+    let source = "x".repeat(300);
+    let text = Utf16Text::new(&source);
+    let mut cached_widths = BTreeMap::new();
+    let mut first_endpoints = Vec::new();
+    let first = try_find_fitting_prefix(&text, 0, text.len, 73.0, true, &mut |end| {
+        first_endpoints.push(end);
+        if end == FAILED_ENDPOINT {
+            return Err(end);
+        }
+        let width = end as f64;
+        cached_widths.insert(end, width);
+        Ok(width)
+    });
+
+    assert_eq!(first, Err(FAILED_ENDPOINT));
+    assert_eq!(
+        first_endpoints,
+        [1, 2, 4, 8, 16, 32, 64, 128, FAILED_ENDPOINT]
+    );
+
+    let mut replay_endpoints = Vec::new();
+    let mut replay_misses = Vec::new();
+    let replayed = try_find_fitting_prefix(&text, 0, text.len, 73.0, true, &mut |end| {
+        replay_endpoints.push(end);
+        if let Some(width) = cached_widths.get(&end) {
+            return Ok::<f64, usize>(*width);
+        }
+        replay_misses.push(end);
+        let width = end as f64;
+        cached_widths.insert(end, width);
+        Ok(width)
+    })
+    .expect("cached replay succeeds");
+
+    assert_eq!(
+        replayed,
+        FittingPrefix {
+            position: 73,
+            forward_end: 128,
+        }
+    );
+    assert_eq!(
+        replay_endpoints,
+        [1, 2, 4, 8, 16, 32, 64, 128, 96, 80, 72, 76, 74, 73]
+    );
+    assert_eq!(replay_misses, [96, 80, 72, 76, 74, 73]);
 }
 
 #[test]

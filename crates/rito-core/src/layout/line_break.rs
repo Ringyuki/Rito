@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
+    convert::Infallible,
 };
 
 use unicode_linebreak::{linebreaks, BreakOpportunity};
@@ -295,44 +296,90 @@ pub(crate) fn adjust_break_position_with_offsets_until<F>(
 where
     F: FnMut(usize) -> f64,
 {
+    match try_adjust_break_position_with_offsets_until(
+        start,
+        end,
+        candidate,
+        max_width,
+        &mut |position| Ok::<f64, Infallible>(measure_width(position)),
+        offsets,
+        forward_end,
+    ) {
+        Ok(position) => position,
+        Err(error) => match error {},
+    }
+}
+
+pub(crate) fn try_adjust_break_position_with_offsets_until<F, E>(
+    start: usize,
+    end: usize,
+    candidate: usize,
+    max_width: f64,
+    mut measure_width: F,
+    offsets: &BTreeSet<usize>,
+    forward_end: usize,
+) -> Result<usize, E>
+where
+    F: FnMut(usize) -> Result<f64, E>,
+{
     if candidate <= start || candidate >= end {
-        return candidate;
+        return Ok(candidate);
     }
 
     if offsets.contains(&candidate) {
-        return candidate;
+        return Ok(candidate);
     }
 
     if let Some(backward) = find_backward_break(start, candidate, offsets) {
-        return backward;
+        return Ok(backward);
     }
 
     let forward_start = candidate + 1;
     let forward_end = forward_end.min(end);
     if forward_start >= forward_end {
-        return candidate;
+        return Ok(candidate);
     }
-    find_forward_fitting_break(
+    Ok(try_find_forward_fitting_break(
         forward_start,
         forward_end,
         max_width,
         offsets,
         &mut measure_width,
-    )
-    .unwrap_or(candidate)
+    )?
+    .unwrap_or(candidate))
 }
 
 pub(crate) fn try_ascii_hyphenation<F>(
     text: &Utf16Text<'_>,
     line_start: usize,
     fit_pos: usize,
-    _options: &LineBreakOptions,
+    options: &LineBreakOptions,
     mut candidate_fits: F,
 ) -> Option<usize>
 where
     F: FnMut(usize) -> bool,
 {
-    let (word_start, word_end) = find_ascii_word(text, line_start, fit_pos)?;
+    match try_ascii_hyphenation_with(text, line_start, fit_pos, options, &mut |candidate| {
+        Ok::<bool, Infallible>(candidate_fits(candidate))
+    }) {
+        Ok(candidate) => candidate,
+        Err(error) => match error {},
+    }
+}
+
+pub(crate) fn try_ascii_hyphenation_with<F, E>(
+    text: &Utf16Text<'_>,
+    line_start: usize,
+    fit_pos: usize,
+    _options: &LineBreakOptions,
+    mut candidate_fits: F,
+) -> Result<Option<usize>, E>
+where
+    F: FnMut(usize) -> Result<bool, E>,
+{
+    let Some((word_start, word_end)) = find_ascii_word(text, line_start, fit_pos) else {
+        return Ok(None);
+    };
     let word = text.slice(word_start, word_end);
 
     for point in find_hyphenation_points(word, "en-us").into_iter().rev() {
@@ -340,11 +387,11 @@ where
         if candidate <= line_start || candidate >= fit_pos.saturating_add(2) {
             continue;
         }
-        if candidate_fits(candidate) {
-            return Some(candidate);
+        if candidate_fits(candidate)? {
+            return Ok(Some(candidate));
         }
     }
-    None
+    Ok(None)
 }
 
 pub(crate) fn contains_cjk(text: &str) -> bool {
@@ -475,20 +522,22 @@ fn find_backward_break(start: usize, candidate: usize, offsets: &BTreeSet<usize>
     offsets.range((start + 1)..candidate).next_back().copied()
 }
 
-fn find_forward_fitting_break<F>(
+fn try_find_forward_fitting_break<F, E>(
     start: usize,
     end: usize,
     max_width: f64,
     offsets: &BTreeSet<usize>,
     measure_width: &mut F,
-) -> Option<usize>
+) -> Result<Option<usize>, E>
 where
-    F: FnMut(usize) -> f64,
+    F: FnMut(usize) -> Result<f64, E>,
 {
-    offsets
-        .range(start..end)
-        .copied()
-        .find(|position| measure_width(*position) <= max_width)
+    for position in offsets.range(start..end).copied() {
+        if measure_width(position)? <= max_width {
+            return Ok(Some(position));
+        }
+    }
+    Ok(None)
 }
 
 fn is_allowed_line_break(
@@ -850,7 +899,9 @@ mod tests {
         adjust_break_position, adjust_break_position_with_offsets_until, contains_cjk,
         find_word_break, is_allowed_cjk_break, is_allowed_normal_cjk_break,
         is_forbidden_line_start, split_line_break_segments, split_text_units,
-        try_ascii_hyphenation, unicode_line_break_offsets, utf16_len, LineBreakOptions, Utf16Text,
+        try_adjust_break_position_with_offsets_until, try_ascii_hyphenation,
+        try_ascii_hyphenation_with, unicode_line_break_offsets, utf16_len, LineBreakOptions,
+        Utf16Text,
     };
 
     fn options(
@@ -1010,6 +1061,107 @@ mod tests {
     }
 
     #[test]
+    fn fallible_forward_adjustment_preserves_the_infallible_candidate_order() {
+        let offsets = std::collections::BTreeSet::from([8, 10, 12, 20]);
+        let mut infallible_candidates = Vec::new();
+        let infallible = adjust_break_position_with_offsets_until(
+            0,
+            32,
+            5,
+            10.0,
+            |position| {
+                infallible_candidates.push(position);
+                match position {
+                    8 => 11.0,
+                    10 => 12.0,
+                    12 => 9.0,
+                    _ => unreachable!("unexpected candidate"),
+                }
+            },
+            &offsets,
+            13,
+        );
+        let mut fallible_candidates = Vec::new();
+        let fallible = try_adjust_break_position_with_offsets_until(
+            0,
+            32,
+            5,
+            10.0,
+            |position| {
+                fallible_candidates.push(position);
+                Ok::<f64, ()>(match position {
+                    8 => 11.0,
+                    10 => 12.0,
+                    12 => 9.0,
+                    _ => unreachable!("unexpected candidate"),
+                })
+            },
+            &offsets,
+            13,
+        )
+        .expect("successful fallible adjustment");
+
+        assert_eq!(infallible, 12);
+        assert_eq!(fallible, infallible);
+        assert_eq!(fallible_candidates, [8, 10, 12]);
+        assert_eq!(fallible_candidates, infallible_candidates);
+    }
+
+    #[test]
+    fn failed_forward_adjustment_stops_and_replays_from_cached_widths() {
+        const FAILED_CANDIDATE: usize = 10;
+        let offsets = std::collections::BTreeSet::from([8, 10, 12, 20]);
+        let mut cached_widths = std::collections::BTreeMap::new();
+        let mut first_candidates = Vec::new();
+        let first = try_adjust_break_position_with_offsets_until(
+            0,
+            32,
+            5,
+            10.0,
+            |position| {
+                first_candidates.push(position);
+                if position == FAILED_CANDIDATE {
+                    return Err(position);
+                }
+                let width = 11.0;
+                cached_widths.insert(position, width);
+                Ok(width)
+            },
+            &offsets,
+            13,
+        );
+
+        assert_eq!(first, Err(FAILED_CANDIDATE));
+        assert_eq!(first_candidates, [8, FAILED_CANDIDATE]);
+
+        let mut replay_candidates = Vec::new();
+        let mut replay_misses = Vec::new();
+        let replayed = try_adjust_break_position_with_offsets_until(
+            0,
+            32,
+            5,
+            10.0,
+            |position| {
+                replay_candidates.push(position);
+                if let Some(width) = cached_widths.get(&position) {
+                    return Ok::<f64, usize>(*width);
+                }
+                replay_misses.push(position);
+                let width = if position == 12 { 9.0 } else { 11.0 };
+                cached_widths.insert(position, width);
+                Ok(width)
+            },
+            &offsets,
+            13,
+        )
+        .expect("cached replay succeeds");
+
+        assert_eq!(replayed, 12);
+        assert_eq!(replay_candidates, [8, 10, 12]);
+        assert_eq!(replay_misses, [10, 12]);
+    }
+
+    #[test]
     fn hyphenates_long_ascii_word_like_ts_greedy_breaker() {
         let text = Utf16Text::new("Nokyoushitsue");
 
@@ -1021,6 +1173,67 @@ mod tests {
             try_ascii_hyphenation(&text, 0, 11, &LineBreakOptions::default(), |end| end <= 10),
             Some(10)
         );
+    }
+
+    #[test]
+    fn fallible_ascii_hyphenation_preserves_the_infallible_candidate_order() {
+        let text = Utf16Text::new("Nokyoushitsue");
+        let mut infallible_candidates = Vec::new();
+        let infallible =
+            try_ascii_hyphenation(&text, 0, 11, &LineBreakOptions::default(), |candidate| {
+                infallible_candidates.push(candidate);
+                candidate <= 4
+            });
+        let mut fallible_candidates = Vec::new();
+        let fallible =
+            try_ascii_hyphenation_with(&text, 0, 11, &LineBreakOptions::default(), |candidate| {
+                fallible_candidates.push(candidate);
+                Ok::<bool, ()>(candidate <= 4)
+            })
+            .expect("successful fallible hyphenation");
+
+        assert_eq!(infallible, Some(4));
+        assert_eq!(fallible, infallible);
+        assert_eq!(fallible_candidates, [10, 4]);
+        assert_eq!(fallible_candidates, infallible_candidates);
+    }
+
+    #[test]
+    fn failed_ascii_hyphenation_stops_and_replays_from_cached_fits() {
+        const FAILED_CANDIDATE: usize = 4;
+        let text = Utf16Text::new("Nokyoushitsue");
+        let mut cached_fits = std::collections::BTreeMap::new();
+        let mut first_candidates = Vec::new();
+        let first =
+            try_ascii_hyphenation_with(&text, 0, 11, &LineBreakOptions::default(), |candidate| {
+                first_candidates.push(candidate);
+                if candidate == FAILED_CANDIDATE {
+                    return Err(candidate);
+                }
+                cached_fits.insert(candidate, false);
+                Ok(false)
+            });
+
+        assert_eq!(first, Err(FAILED_CANDIDATE));
+        assert_eq!(first_candidates, [10, FAILED_CANDIDATE]);
+
+        let mut replay_candidates = Vec::new();
+        let mut replay_misses = Vec::new();
+        let replayed =
+            try_ascii_hyphenation_with(&text, 0, 11, &LineBreakOptions::default(), |candidate| {
+                replay_candidates.push(candidate);
+                if let Some(fits) = cached_fits.get(&candidate) {
+                    return Ok::<bool, usize>(*fits);
+                }
+                replay_misses.push(candidate);
+                cached_fits.insert(candidate, true);
+                Ok(true)
+            })
+            .expect("cached replay succeeds");
+
+        assert_eq!(replayed, Some(4));
+        assert_eq!(replay_candidates, [10, 4]);
+        assert_eq!(replay_misses, [4]);
     }
 
     #[test]
