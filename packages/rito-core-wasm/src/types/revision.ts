@@ -37,6 +37,7 @@ export interface RitoCoreWasmVersioned<T> {
 }
 
 export interface RitoCoreWasmRevisionWorkBudget {
+  /** Maximum top-level source nodes accepted by one continuation quantum. */
   readonly maxTopLevelNodes: number;
 }
 
@@ -66,6 +67,10 @@ export interface RitoCoreWasmRevisionAdvance {
   readonly revision: RitoCoreWasmRevisionSummary;
   readonly previousKnownExtent: RitoCoreWasmRevisionExtent;
   readonly newlyKnownPages: RitoCoreWasmRevisionPageRange;
+  /**
+   * Top-level source nodes accepted in this quantum. Line-only paragraph
+   * continuation can report zero while still making deterministic progress.
+   */
   readonly processedTopLevelNodes: number;
   readonly continuation?: RitoCoreWasmRevisionCursor | undefined;
 }

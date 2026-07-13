@@ -78,6 +78,37 @@ fn open_page_stays_private_until_chapter_completion() {
 }
 
 #[test]
+fn unfinished_greedy_paragraph_withholds_its_block_and_pages_until_complete() {
+    let layout = test_layout();
+    let nodes = vec![paragraph(&"long resumable paragraph ".repeat(240))];
+    let expected = eager_chapter(&nodes, &layout, None);
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut session =
+        RuntimeChapterLayoutSession::new(nodes, images, &layout, LineBreaking::Greedy, None);
+    let line_budget = budget_with_lines(1, 5);
+
+    let first = session.advance(line_budget, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert_eq!(first.total_block_count, 0);
+    assert!(first.newly_sealed_pages.is_empty());
+
+    let final_advance = loop {
+        let advance = session.advance(line_budget, &fonts);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break advance;
+        }
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        assert_eq!(advance.total_block_count, 0);
+        assert!(advance.newly_sealed_pages.is_empty());
+    };
+
+    assert_eq!(final_advance.total_block_count, expected.block_count);
+    assert_eq!(final_advance.newly_sealed_pages, expected.pages);
+}
+
+#[test]
 fn each_advance_returns_only_pages_newly_sealed_by_that_advance() {
     let layout = test_layout();
     let images = ImageSizeIndex::new(&[]);
@@ -203,6 +234,13 @@ fn eager_chapter(
 
 fn budget(max_nodes: usize) -> LayoutWorkBudget {
     LayoutWorkBudget::new(NonZeroUsize::new(max_nodes).expect("test budget is non-zero"))
+}
+
+fn budget_with_lines(max_nodes: usize, max_lines: usize) -> LayoutWorkBudget {
+    LayoutWorkBudget::with_max_line_boxes(
+        NonZeroUsize::new(max_nodes).expect("test node budget is non-zero"),
+        NonZeroUsize::new(max_lines).expect("test line budget is non-zero"),
+    )
 }
 
 fn test_layout() -> LayoutConfig {

@@ -240,7 +240,7 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
         xml_text(author_character),
         xml_text(pinned_character)
     );
-    let text = pair.repeat(12);
+    let text = pair.repeat(240);
     let body = format!(
         r#"<p style="font-family: HostOnly, Author, serif">{text}</p><p style="font-family: HostOnly, Author, serif">{text}</p>"#
     );
@@ -251,7 +251,11 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
         RuntimePinnedFontGenericRole::Serif,
         Some("en"),
     )]);
-    let base_config = font_aware_layout();
+    let mut base_config = font_aware_layout();
+    base_config.viewport_width = 120.0;
+    base_config.page_width = 120.0;
+    base_config.margin_left = 12.0;
+    base_config.margin_right = 12.0;
     let effective_config = chapter_window_layout_config(&base_config);
     let mut eager = RuntimeDocument::open_with_pinned_font_policy(&bytes, input.clone()).unwrap();
     let first = eager.create_revision(&effective_config).unwrap();
@@ -299,7 +303,14 @@ fn eager_window_bounded_and_cached_revisions_share_pinned_layout_results() {
             },
         })
         .unwrap();
-    let completed = complete_revision(&mut bounded, initial);
+    assert_eq!(initial.processed_top_level_nodes, 1);
+    assert_eq!(
+        initial.revision.status,
+        crate::runtime::RuntimeRevisionStatus::Warming
+    );
+    assert_eq!(initial.revision.known_extent.page_count, 0);
+    let (completed, saw_line_only_resume) = complete_revision(&mut bounded, initial);
+    assert!(saw_line_only_resume);
     assert_revision_layouts_equal(
         &eager,
         &first.revision_id,
@@ -337,7 +348,8 @@ fn paint_family(command: &Value) -> Option<&str> {
 fn complete_revision(
     document: &mut RuntimeDocument,
     mut advance: RuntimeRevisionAdvance,
-) -> RuntimeRevisionAdvance {
+) -> (RuntimeRevisionAdvance, bool) {
+    let mut saw_line_only_resume = false;
     while let Some(cursor) = advance.continuation.clone() {
         advance = document
             .continue_revision(RuntimeContinueRevisionRequest {
@@ -349,8 +361,9 @@ fn complete_revision(
                 },
             })
             .unwrap();
+        saw_line_only_resume |= advance.processed_top_level_nodes == 0;
     }
-    advance
+    (advance, saw_line_only_resume)
 }
 
 fn assert_revision_layouts_equal(

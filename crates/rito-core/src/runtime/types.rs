@@ -87,9 +87,11 @@ pub struct RuntimeRevisionSummary {
     pub spread_count: usize,
 }
 
-/// Maximum top-level nodes that one continuation quantum may start.
+/// Maximum top-level source nodes that one continuation quantum may accept.
 ///
-/// A single large paragraph, table, or other node is currently atomic.
+/// Top-level Greedy leaf paragraphs additionally yield after an internal
+/// line-box quantum. Nested containers, tables, optimal paragraphs, and
+/// individual shaping calls remain atomic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionWorkBudget {
@@ -98,7 +100,7 @@ pub struct RuntimeRevisionWorkBudget {
 
 /// Request for the experimental core-only bounded revision path.
 ///
-/// The first bounded request scans every spine XHTML source twice to establish
+/// The first bounded request scans every spine XHTML source once to establish
 /// exact publication-wide footnote targets and definitions. The scan is cached
 /// and does not mark lazy chapters or binary resources as loaded. Unreadable
 /// future spine resources are skipped so their failure remains deferred until
@@ -152,6 +154,9 @@ pub struct RuntimeRevisionAdvance {
     pub revision: RuntimeRevisionSummary,
     pub previous_known_extent: RuntimeRevisionExtent,
     pub newly_known_pages: RuntimeRevisionPageRange,
+    /// Top-level source nodes accepted during this quantum. A continuation
+    /// that only resumes an accepted paragraph can report zero while still
+    /// making deterministic line-layout progress.
     pub processed_top_level_nodes: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub continuation: Option<RuntimeRevisionCursor>,

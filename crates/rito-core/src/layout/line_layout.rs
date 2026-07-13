@@ -27,9 +27,9 @@ use super::{
 #[cfg(test)]
 use super::line_prefix::record_prefix_probe;
 
-#[derive(Debug, Clone)]
-struct LineContext<'a> {
-    full_text: String,
+#[derive(Debug)]
+struct LineContext {
+    text: Utf16Text<'static>,
     ranges: Vec<LineStyleRange>,
     atoms: BTreeMap<usize, LineAtom>,
     max_width: f64,
@@ -39,7 +39,6 @@ struct LineContext<'a> {
     line_break_options: LineBreakOptions,
     break_offsets: OnceLock<BTreeSet<usize>>,
     base_style: Map<String, Value>,
-    fonts: &'a TextMeasurementFonts<'a>,
     monotonic_prefix_widths: bool,
 }
 
@@ -80,28 +79,128 @@ pub(crate) fn layout_greedy_lines_with_fonts<'a>(
     max_width: f64,
     fonts: &'a TextMeasurementFonts<'a>,
 ) -> Vec<LineBox> {
-    if segments.is_empty() {
-        return Vec::new();
+    let mut session = GreedyLineLayoutSession::new(segments, max_width, fonts);
+    let mut lines = Vec::new();
+    while !session.is_complete() {
+        lines.extend(session.advance(usize::MAX, fonts));
     }
-    let Some(base_style) = segments.first().map(InlineSegment::style) else {
-        return Vec::new();
-    };
-    let context = build_line_context(segments, base_style.clone(), max_width, fonts);
-    if context.full_text.trim().is_empty()
-        && !context.full_text.contains('\n')
-        && context.atoms.is_empty()
-    {
-        return Vec::new();
-    }
-    layout_text(&context)
+    lines
 }
 
-fn build_line_context<'a>(
-    segments: &'a [InlineSegment],
+#[derive(Debug)]
+pub(crate) struct GreedyLineLayoutSession {
+    context: Option<LineContext>,
+    pos: usize,
+    y: f64,
+    is_first_line: bool,
+    indent: f64,
+    complete: bool,
+}
+
+impl GreedyLineLayoutSession {
+    pub(crate) fn new(
+        segments: &[InlineSegment],
+        max_width: f64,
+        fonts: &TextMeasurementFonts<'_>,
+    ) -> Self {
+        let Some(base_style) = segments.first().map(InlineSegment::style).cloned() else {
+            return Self::empty();
+        };
+        let indent = number_style(&base_style, "textIndent").unwrap_or(0.0);
+        let context = build_line_context(segments, base_style, max_width, fonts);
+        let complete = context.text.as_str().trim().is_empty()
+            && !context.text.as_str().contains('\n')
+            && context.atoms.is_empty();
+        Self {
+            context: Some(context),
+            pos: 0,
+            y: 0.0,
+            is_first_line: true,
+            indent,
+            complete,
+        }
+    }
+
+    pub(crate) fn advance(
+        &mut self,
+        max_lines: usize,
+        fonts: &TextMeasurementFonts<'_>,
+    ) -> Vec<LineBox> {
+        let mut lines = Vec::new();
+        while lines.len() < max_lines {
+            let Some(line) = self.layout_next_line(fonts) else {
+                break;
+            };
+            lines.push(line);
+        }
+        lines
+    }
+
+    pub(crate) fn is_complete(&self) -> bool {
+        self.complete
+    }
+
+    fn layout_next_line(&mut self, fonts: &TextMeasurementFonts<'_>) -> Option<LineBox> {
+        let Some(context) = self.context.as_ref() else {
+            self.complete = true;
+            return None;
+        };
+        if self.complete {
+            return None;
+        }
+        if !context.preserve_ws && (!self.is_first_line || self.indent <= 0.0) {
+            self.pos = skip_ascii_spaces(&context.text, self.pos);
+        }
+        if self.pos >= context.text.len {
+            self.complete = true;
+            return None;
+        }
+
+        let line = layout_single_line(
+            context,
+            &context.text,
+            self.pos,
+            self.is_first_line,
+            self.indent,
+            fonts,
+        );
+        self.pos = consume_newline(&context.text, line.next_pos);
+        self.complete = self.pos >= context.text.len;
+        let is_last_line = self.complete || line.ends_with_forced_break;
+        let (height, y_shift) = effective_line_metrics(&line.runs, context.line_height);
+        let shifted = shift_runs_y(line.runs, y_shift);
+        let output = apply_line_align(
+            shifted,
+            line.width,
+            self.y,
+            height,
+            context.max_width,
+            &context.base_style,
+            is_last_line,
+        );
+        self.y += height;
+        self.is_first_line = false;
+        Some(output)
+    }
+
+    fn empty() -> Self {
+        Self {
+            context: None,
+            pos: 0,
+            y: 0.0,
+            is_first_line: true,
+            indent: 0.0,
+            complete: true,
+        }
+    }
+}
+
+fn build_line_context(
+    segments: &[InlineSegment],
     base_style: Map<String, Value>,
     max_width: f64,
-    fonts: &'a TextMeasurementFonts<'a>,
-) -> LineContext<'a> {
+    fonts: &TextMeasurementFonts<'_>,
+) -> LineContext {
     let mut text_parts = Vec::new();
     let mut ranges = Vec::new();
     let mut atoms = BTreeMap::new();
@@ -165,7 +264,7 @@ fn build_line_context<'a>(
         string_style(&base_style, "language").as_deref(),
     );
     LineContext {
-        full_text,
+        text: Utf16Text::new_owned(full_text),
         ranges,
         atoms,
         max_width,
@@ -181,7 +280,6 @@ fn build_line_context<'a>(
         line_break_options,
         break_offsets: OnceLock::new(),
         base_style,
-        fonts,
         monotonic_prefix_widths,
     }
 }
@@ -197,43 +295,6 @@ fn line_atom(segment: &AtomSegment) -> LineAtom {
     }
 }
 
-fn layout_text(context: &LineContext) -> Vec<LineBox> {
-    let text = Utf16Text::new(&context.full_text);
-    let mut lines = Vec::new();
-    let mut y = 0.0;
-    let mut pos = 0usize;
-    let mut is_first_line = true;
-    let indent = number_style(&context.base_style, "textIndent").unwrap_or(0.0);
-
-    while pos < text.len {
-        if !context.preserve_ws && (!is_first_line || indent <= 0.0) {
-            pos = skip_ascii_spaces(&text, pos);
-        }
-        if pos >= text.len {
-            break;
-        }
-
-        let line = layout_single_line(context, &text, pos, is_first_line, indent);
-        pos = consume_newline(&text, line.next_pos);
-        let is_last_line = pos >= text.len || line.ends_with_forced_break;
-        let (height, y_shift) = effective_line_metrics(&line.runs, context.line_height);
-        let shifted = shift_runs_y(line.runs, y_shift);
-        lines.push(apply_line_align(
-            shifted,
-            line.width,
-            y,
-            height,
-            context.max_width,
-            &context.base_style,
-            is_last_line,
-        ));
-        y += height;
-        is_first_line = false;
-    }
-
-    lines
-}
-
 struct SingleLineLayout {
     runs: Vec<LineRun>,
     width: f64,
@@ -247,6 +308,7 @@ fn layout_single_line(
     pos: usize,
     is_first_line: bool,
     indent: f64,
+    fonts: &TextMeasurementFonts<'_>,
 ) -> SingleLineLayout {
     let effective_max = if is_first_line && indent != 0.0 {
         context.max_width - indent
@@ -261,7 +323,7 @@ fn layout_single_line(
     let newline_index = text.find_char(pos, '\n');
     let line_end = newline_index.unwrap_or(text.len);
     let break_result = if context.allow_wrap {
-        find_break_position(context, text, pos, line_end, effective_max)
+        find_break_position(context, text, pos, line_end, effective_max, fonts)
     } else {
         LineBreakPosition {
             position: line_end,
@@ -280,9 +342,9 @@ fn layout_single_line(
     } else {
         trim_end_js_whitespace(text, pos, line_text_end)
     };
-    let mut runs = build_line_runs(context, text, pos, render_end, line_start_x);
+    let mut runs = build_line_runs(context, text, pos, render_end, line_start_x, fonts);
     if break_result.hyphenated {
-        append_trailing_hyphen(context, break_pos, &mut runs);
+        append_trailing_hyphen(context, break_pos, &mut runs, fonts);
     }
     SingleLineLayout {
         width: runs_width(&runs),
@@ -304,6 +366,7 @@ fn find_break_position(
     start: usize,
     end: usize,
     max_width: f64,
+    fonts: &TextMeasurementFonts<'_>,
 ) -> LineBreakPosition {
     let mut measured_widths = BTreeMap::new();
     let mut measure_width = |slice_end: usize| {
@@ -312,7 +375,7 @@ fn find_break_position(
         }
         #[cfg(test)]
         record_prefix_probe(slice_end.saturating_sub(start));
-        let width = measure_slice(context, text, start, slice_end);
+        let width = measure_slice(context, text, start, slice_end, fonts);
         measured_widths.insert(slice_end, width);
         width
     };
@@ -341,7 +404,9 @@ fn find_break_position(
             start,
             fitting.position,
             &context.line_break_options,
-            |candidate| measure_hyphenated_slice(context, text, start, candidate) <= max_width,
+            |candidate| {
+                measure_hyphenated_slice(context, text, start, candidate, fonts) <= max_width
+            },
         ) {
             let position = adjust_break_position_with_offsets_until(
                 start,
@@ -412,7 +477,12 @@ fn nonnegative(value: f64) -> bool {
     value.is_finite() && value >= 0.0
 }
 
-fn append_trailing_hyphen(context: &LineContext<'_>, break_pos: usize, runs: &mut [LineRun]) {
+fn append_trailing_hyphen(
+    context: &LineContext,
+    break_pos: usize,
+    runs: &mut [LineRun],
+    fonts: &TextMeasurementFonts<'_>,
+) {
     let Some(LineRun::Text(run)) = runs.last_mut() else {
         return;
     };
@@ -423,7 +493,7 @@ fn append_trailing_hyphen(context: &LineContext<'_>, break_pos: usize, runs: &mu
         return;
     };
     run.text.push('-');
-    run.width = measure_text_slice_with_fonts(&run.text, &range.style, context.fonts);
+    run.width = measure_text_slice_with_fonts(&run.text, &range.style, fonts);
     run.text_mapping = RunTextMapping::synthetic();
     run.shape = RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, run.width);
 }
@@ -433,12 +503,19 @@ fn measure_hyphenated_slice(
     text: &Utf16Text<'_>,
     start: usize,
     end: usize,
+    fonts: &TextMeasurementFonts<'_>,
 ) -> f64 {
-    measure_slice(context, text, start, end)
-        + measure_text_slice_with_fonts("-", &context.base_style, context.fonts)
+    measure_slice(context, text, start, end, fonts)
+        + measure_text_slice_with_fonts("-", &context.base_style, fonts)
 }
 
-fn measure_slice(context: &LineContext, text: &Utf16Text<'_>, start: usize, end: usize) -> f64 {
+fn measure_slice(
+    context: &LineContext,
+    text: &Utf16Text<'_>,
+    start: usize,
+    end: usize,
+    fonts: &TextMeasurementFonts<'_>,
+) -> f64 {
     let mut width = 0.0;
     let mut pos = start;
     while pos < end {
@@ -454,7 +531,7 @@ fn measure_slice(context: &LineContext, text: &Utf16Text<'_>, start: usize, end:
             .map(|range| &range.style)
             .unwrap_or(&context.base_style);
         width += range_start_inset(range, style, pos);
-        width += measure_text_slice_with_fonts(text.slice(pos, slice_end), style, context.fonts);
+        width += measure_text_slice_with_fonts(text.slice(pos, slice_end), style, fonts);
         width += range_end_inset(range, style, slice_end);
         pos = slice_end;
     }
@@ -516,6 +593,7 @@ fn build_line_runs(
     global_offset: usize,
     render_end: usize,
     start_x: f64,
+    fonts: &TextMeasurementFonts<'_>,
 ) -> Vec<LineRun> {
     let mut runs = Vec::new();
     let mut x = start_x;
@@ -554,7 +632,7 @@ fn build_line_runs(
             .source_text
             .as_ref()
             .map(|_| range.source_text_offset.unwrap_or(0) + pos - range.start);
-        let width = measure_text_slice_with_fonts(&run_text, &range.style, context.fonts);
+        let width = measure_text_slice_with_fonts(&run_text, &range.style, fonts);
         let text_mapping = range
             .text_mapping
             .subslice(pos - range.start, range_end - range.start);
@@ -569,6 +647,7 @@ fn build_line_runs(
             is_end: edges.is_end,
             source_text_offset,
             context,
+            fonts,
         });
         if spacing.margin_right > 0.0 {
             run.inline_margin_right = Some(spacing.margin_right);
@@ -625,7 +704,7 @@ fn range_spacing(range: &LineStyleRange, edges: &RangeEdges, global_pos: usize) 
     }
 }
 
-struct BuildTextRunInput<'a> {
+struct BuildTextRunInput<'a, 'font> {
     text: String,
     text_mapping: RunTextMapping,
     x: f64,
@@ -635,10 +714,11 @@ struct BuildTextRunInput<'a> {
     is_start: bool,
     is_end: bool,
     source_text_offset: Option<usize>,
-    context: &'a LineContext<'a>,
+    context: &'a LineContext,
+    fonts: &'a TextMeasurementFonts<'font>,
 }
 
-fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
+fn build_text_run(input: BuildTextRunInput<'_, '_>) -> TextRunBox {
     let font_size = number_style(&input.range.style, "fontSize").unwrap_or(16.0);
     let y = vertical_align_offset(
         &input.range.style,
@@ -646,7 +726,7 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         base_font_size(input.context),
     );
     let height = line_height_px(&input.range.style);
-    let shape = shape_text_with_style(&input.text, &input.range.style, input.context.fonts);
+    let shape = shape_text_with_style(&input.text, &input.range.style, input.fonts);
     debug_assert!((shape.advance() - input.width).abs() < 0.000_001);
     TextRunBox {
         text: input.text,
@@ -724,7 +804,7 @@ fn trim_end_js_whitespace(text: &Utf16Text<'_>, start: usize, mut end: usize) ->
 mod tests {
     use serde_json::{json, Map, Value};
 
-    use super::{build_line_context, layout_greedy_lines, layout_text};
+    use super::{layout_greedy_lines, layout_greedy_lines_with_fonts, GreedyLineLayoutSession};
     use crate::layout::{
         inline_segment::{InlineSegment, TextSegment},
         text_mapping::TextSegmentMapping,
@@ -774,7 +854,7 @@ mod tests {
         let segment = InlineSegment::Text(TextSegment {
             text,
             mapping: TextSegmentMapping::synthetic(),
-            style: style.clone(),
+            style,
             href: None,
             source_path: None,
             source_text: None,
@@ -787,11 +867,106 @@ mod tests {
         });
         let fonts = TextMeasurementFonts::empty();
         let segments = [segment];
-        let context = build_line_context(&segments, style, 160.0, &fonts);
+        let mut session = GreedyLineLayoutSession::new(&segments, 160.0, &fonts);
+        let mut line_count = 0;
+        while !session.is_complete() {
+            line_count += session.advance(1, &fonts).len();
+        }
 
-        let lines = layout_text(&context);
+        let context = session.context.as_ref().expect("prepared context");
 
-        assert!(lines.len() > 100);
+        assert!(line_count > 100);
         assert!(context.break_offsets.get().is_some());
+    }
+
+    #[test]
+    fn resumed_budgets_match_unbounded_layout_field_for_field() {
+        let segments = resumable_segments();
+        let fonts = TextMeasurementFonts::empty();
+        let expected = layout_greedy_lines_with_fonts(&segments, 72.0, &fonts);
+        assert!(expected.len() > 8);
+
+        for budget in [1, 2, 3, 5] {
+            let mut session = GreedyLineLayoutSession::new(&segments, 72.0, &fonts);
+            assert!(session.advance(0, &fonts).is_empty());
+            let mut actual = Vec::new();
+            while !session.is_complete() {
+                let chunk = session.advance(budget, &fonts);
+                assert!(chunk.len() <= budget);
+                assert!(!chunk.is_empty());
+                actual.extend(chunk);
+            }
+            assert_eq!(actual, expected, "line budget {budget}");
+        }
+
+        let mut unbounded = GreedyLineLayoutSession::new(&segments, 72.0, &fonts);
+        let actual = unbounded.advance(usize::MAX, &fonts);
+        assert!(unbounded.is_complete());
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn session_does_not_borrow_the_construction_fonts() {
+        let segments = resumable_segments();
+        let mut session = {
+            let transient_fonts = TextMeasurementFonts::empty();
+            GreedyLineLayoutSession::new(&segments, 72.0, &transient_fonts)
+        };
+        let advance_fonts = TextMeasurementFonts::empty();
+
+        let first = session.advance(1, &advance_fonts);
+
+        assert_eq!(first.len(), 1);
+        assert!(!session.is_complete());
+    }
+
+    fn resumable_segments() -> Vec<InlineSegment> {
+        let base_style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.4)),
+            ("language".to_owned(), Value::String("ja".to_owned())),
+            ("textIndent".to_owned(), json!(8)),
+            ("textAlign".to_owned(), Value::String("justify".to_owned())),
+        ]);
+        let accent_style = Map::from_iter([
+            ("fontSize".to_owned(), json!(12)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            ("language".to_owned(), Value::String("ja".to_owned())),
+            ("paddingLeft".to_owned(), json!(1)),
+            ("paddingRight".to_owned(), json!(2)),
+            ("borderLeftWidth".to_owned(), json!(1)),
+            ("borderRightWidth".to_owned(), json!(1)),
+        ]);
+        vec![
+            InlineSegment::Text(TextSegment {
+                text: "Nokyoushitsue 这是一段需要稳定分批断行的中文文本，包含标点与空格。\n下一行继续验证纵向坐标。"
+                    .to_owned(),
+                mapping: TextSegmentMapping::synthetic(),
+                style: base_style,
+                href: None,
+                source_path: Some(vec![0, 1]),
+                source_text: Some("source one".to_owned()),
+                source_text_offset: Some(3),
+                ruby_annotation: None,
+                inline_margin_left: None,
+                inline_margin_right: None,
+                border_start: false,
+                border_end: false,
+            }),
+            InlineSegment::Text(TextSegment {
+                text: " mixed-style tail with enough words to wrap more than once".to_owned(),
+                mapping: TextSegmentMapping::synthetic(),
+                style: accent_style,
+                href: Some("#note".to_owned()),
+                source_path: Some(vec![0, 2]),
+                source_text: Some("source two".to_owned()),
+                source_text_offset: Some(7),
+                ruby_annotation: Some("注".to_owned()),
+                inline_margin_left: Some(2.0),
+                inline_margin_right: Some(3.0),
+                border_start: true,
+                border_end: true,
+            }),
+        ]
     }
 }

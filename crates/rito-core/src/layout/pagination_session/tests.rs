@@ -54,7 +54,7 @@ fn partial_continuations_are_deterministic() {
     let continuation = first_advance
         .continuation
         .expect("two top-level nodes remain");
-    assert_eq!(continuation.completed_top_level_nodes, 1);
+    assert_eq!(continuation.accepted_top_level_nodes, 1);
     assert_eq!(continuation.total_top_level_nodes, 3);
 
     let next = first.advance(budget(1), &fonts);
@@ -130,19 +130,92 @@ fn anonymous_inline_runs_resume_without_changing_grouping() {
 }
 
 #[test]
-fn one_large_paragraph_is_deliberately_atomic() {
-    let content = "A large paragraph remains one atomic top-level node. ".repeat(400);
+fn one_large_greedy_paragraph_resumes_by_line_without_publishing_a_partial_block() {
+    let content = "A large paragraph now resumes between completed line boxes. ".repeat(400);
     let nodes = vec![paragraph(&content, 0.0, 0.0)];
     let images = ImageSizeIndex::new(&[]);
     let fonts = TextMeasurementFonts::empty();
     let mut session = session(&nodes, &images);
+    let line_budget = budget_with_lines(1, 7);
 
-    let result = session.advance(budget(1), &fonts);
+    let first = session.advance(line_budget, &fonts);
 
-    assert_eq!(result.status, LayoutAdvanceStatus::Complete);
-    assert_eq!(result.processed_top_level_nodes, 1);
-    assert!(result.continuation.is_none());
-    assert_eq!(result.output, one_shot_blocks(&nodes));
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty());
+    assert!(first.continuation.is_some());
+
+    let mut advance_count = 1;
+    let mut saw_zero_node_resume = false;
+    let final_output = loop {
+        let advance = session.advance(line_budget, &fonts);
+        advance_count += 1;
+        saw_zero_node_resume |= advance.processed_top_level_nodes == 0;
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break advance.output;
+        }
+        assert!(advance.output.is_empty());
+    };
+
+    assert!(advance_count > 2);
+    assert!(saw_zero_node_resume);
+    assert_eq!(final_output, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn accepted_nodes_wait_in_source_order_behind_a_resumable_paragraph() {
+    let nodes = vec![
+        paragraph(&"queued long paragraph ".repeat(240), 0.0, 0.0),
+        paragraph("second", 0.0, 0.0),
+        paragraph("third", 0.0, 0.0),
+    ];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut session = session(&nodes, &images);
+    let line_budget = budget_with_lines(3, 5);
+
+    let first = session.advance(line_budget, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 3);
+    assert!(first.output.is_empty());
+
+    let mut actual = Vec::new();
+    loop {
+        let advance = session.advance(line_budget, &fonts);
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        actual.extend(advance.output);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break;
+        }
+    }
+    assert_eq!(actual, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn nested_and_optimal_paragraphs_remain_explicit_atomic_fallbacks() {
+    let long = paragraph(&"still atomic inside a container ".repeat(240), 0.0, 0.0);
+    let mut container = styled_node(StyledNodeKind::Block, vec![long.clone()]);
+    container.tag = Some("section".to_owned());
+    container.style.insert("display".to_owned(), json!("block"));
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+
+    let mut nested = session(&[container.clone()], &images);
+    let nested_result = nested.advance(budget_with_lines(1, 1), &fonts);
+    assert_eq!(nested_result.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(nested_result.output, one_shot_blocks(&[container]));
+
+    let mut optimal = ContinuousLayoutSession::new(
+        vec![long.clone()],
+        180.0,
+        600.0,
+        images,
+        LineBreaking::Optimal,
+    );
+    let optimal_result = optimal.advance(budget_with_lines(1, 1), &fonts);
+    assert_eq!(optimal_result.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(optimal_result.processed_top_level_nodes, 1);
+    assert!(!optimal_result.output.is_empty());
 }
 
 #[test]
@@ -204,6 +277,13 @@ fn one_shot_blocks(nodes: &[StyledNode]) -> Vec<TestBlock> {
 
 fn budget(max_nodes: usize) -> LayoutWorkBudget {
     LayoutWorkBudget::new(NonZeroUsize::new(max_nodes).expect("test budget is non-zero"))
+}
+
+fn budget_with_lines(max_nodes: usize, max_lines: usize) -> LayoutWorkBudget {
+    LayoutWorkBudget::with_max_line_boxes(
+        NonZeroUsize::new(max_nodes).expect("test node budget is non-zero"),
+        NonZeroUsize::new(max_lines).expect("test line budget is non-zero"),
+    )
 }
 
 fn paragraph(content: &str, margin_top: f64, margin_bottom: f64) -> StyledNode {

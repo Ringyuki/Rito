@@ -1,8 +1,8 @@
 use super::{assert_bounded_is_eager_prefix, bounded_request, continue_request};
 use crate::layout::LineBreaking;
 use crate::runtime::tests::fixture::{
-    double_layout, empty_chapter_fixture_epub, layout, multi_chapter_fixture_epub,
-    source_locator_fixture_epub,
+    double_layout, empty_chapter_fixture_epub, layout, long_source_text_fixture_epub,
+    multi_chapter_fixture_epub, source_locator_fixture_epub,
 };
 use crate::runtime::{
     RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeRevisionHandle, RuntimeRevisionStatus,
@@ -32,6 +32,59 @@ fn bounded_optimal_line_breaking_matches_eager() {
             .layout
             .pages,
         eager.revisions[&eager_revision.revision_id].layout.pages
+    );
+}
+
+#[test]
+fn long_greedy_paragraph_advances_versions_without_publishing_partial_layout() {
+    let bytes = long_source_text_fixture_epub();
+    let config = layout();
+    let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
+    let eager_revision = eager
+        .create_revision(&config)
+        .expect("eager revision completes");
+    let mut bounded = RuntimeDocument::open(&bytes).expect("bounded document opens");
+    let mut advance = bounded
+        .create_bounded_revision(bounded_request(config, 1))
+        .expect("bounded revision starts");
+
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Warming);
+    assert_eq!(advance.revision.revision_version, 0);
+    assert_eq!(advance.processed_top_level_nodes, 1);
+    assert_eq!(advance.revision.known_extent.page_count, 0);
+    assert_eq!(advance.newly_known_pages.start_page, 0);
+    assert_eq!(advance.newly_known_pages.end_page_exclusive, 0);
+
+    let mut continuation_count = 0;
+    while let Some(cursor) = advance.continuation.clone() {
+        let previous_version = advance.revision.revision_version;
+        advance = bounded
+            .continue_revision(continue_request(&cursor, 1))
+            .expect("paragraph continuation advances");
+        continuation_count += 1;
+        assert_eq!(advance.revision.revision_version, previous_version + 1);
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        if advance.revision.status != RuntimeRevisionStatus::Complete {
+            assert_eq!(advance.revision.status, RuntimeRevisionStatus::Warming);
+            assert_eq!(advance.revision.known_extent.page_count, 0);
+            assert_eq!(advance.newly_known_pages.start_page, 0);
+            assert_eq!(advance.newly_known_pages.end_page_exclusive, 0);
+        }
+    }
+
+    assert!(continuation_count > 1);
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(
+        bounded.revisions[&advance.revision.revision_id]
+            .layout
+            .pages,
+        eager.revisions[&eager_revision.revision_id].layout.pages
+    );
+    assert_eq!(
+        bounded.revisions[&advance.revision.revision_id]
+            .layout
+            .summary,
+        eager.revisions[&eager_revision.revision_id].layout.summary
     );
 }
 

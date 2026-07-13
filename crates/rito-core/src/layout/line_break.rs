@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 
 use unicode_linebreak::{linebreaks, BreakOpportunity};
 
@@ -85,8 +88,9 @@ enum ResolvedLineBreak {
     Strict,
 }
 
+#[derive(Debug, Clone)]
 pub(crate) struct Utf16Text<'a> {
-    text: &'a str,
+    text: Cow<'a, str>,
     pub(crate) len: usize,
     boundaries: BTreeMap<usize, usize>,
     newlines: Vec<usize>,
@@ -94,6 +98,10 @@ pub(crate) struct Utf16Text<'a> {
 
 impl<'a> Utf16Text<'a> {
     pub(crate) fn new(text: &'a str) -> Self {
+        Self::from_text(Cow::Borrowed(text))
+    }
+
+    fn from_text(text: Cow<'a, str>) -> Self {
         let mut boundaries = BTreeMap::new();
         let mut newlines = Vec::new();
         let mut offset = 0usize;
@@ -168,8 +176,8 @@ impl<'a> Utf16Text<'a> {
             .collect()
     }
 
-    fn as_str(&self) -> &str {
-        self.text
+    pub(crate) fn as_str(&self) -> &str {
+        self.text.as_ref()
     }
 
     fn byte_index(&self, offset: usize) -> usize {
@@ -193,6 +201,12 @@ impl<'a> Utf16Text<'a> {
             .next_back()
             .map(|(boundary, _)| *boundary)
             .unwrap_or(0)
+    }
+}
+
+impl Utf16Text<'static> {
+    pub(crate) fn new_owned(text: String) -> Self {
+        Self::from_text(Cow::Owned(text))
     }
 }
 

@@ -398,9 +398,10 @@ remains:
 Production now selects bounded revisions. Candidate growth suspends exact reads
 until the next presentation commits, partial extents remain distinct from final
 extents, and Browser/Kit race tests cover session replacement and stale work.
-The cross-chapter footnote index is lazy-state-safe, but its first full-spine scan
-remains outside the work budget. A single large paragraph/table/shaping call also
-remains an atomic quantum.
+The cross-chapter footnote index is lazy-state-safe and now parses each available
+spine source once, but its first full-spine scan remains outside the work budget.
+Top-level Greedy leaf paragraphs yield between line boxes; nested containers,
+tables, Optimal paragraphs and individual shaping calls remain atomic quanta.
 
 The private controller now implements the single-pump, target-coalescing,
 task-yielding and latest-handle cleanup rules above, including an exact-version

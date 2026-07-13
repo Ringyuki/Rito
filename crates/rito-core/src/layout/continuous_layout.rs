@@ -15,6 +15,7 @@ use super::{
     inline_content::flatten_inline_content,
     inline_segment::SegmentContext,
     line::{LineBox, LineRun},
+    line_layout::GreedyLineLayoutSession,
     line_metrics::line_height_px,
     line_mode::layout_lines_with_fonts,
     pagination_flow::{paginate_continuous_blocks, PaginationFlowChapter},
@@ -48,18 +49,27 @@ pub(super) struct ContinuousLayoutCursor {
     y: f64,
     previous_margin_bottom: f64,
     list_ctx: Option<ContinuousListContext>,
+    active_leaf: Option<ContinuousLeafLayoutSession>,
 }
 
 impl ContinuousLayoutCursor {
-    pub(super) fn layout_nodes<'fonts>(
+    pub(super) fn has_active_node(&self) -> bool {
+        self.active_leaf.is_some()
+    }
+
+    pub(super) fn advance_node<'fonts>(
         &mut self,
-        nodes: &[StyledNode],
-        content_width: f64,
-        content_height: f64,
-        image_sizes: &ImageSizeIndex,
-        line_breaking: LineBreaking,
-        fonts: &'fonts TextMeasurementFonts<'fonts>,
-    ) -> Vec<ContinuousBlock> {
+        node: Option<StyledNode>,
+        input: ContinuousNodeLayoutInput<'_, 'fonts>,
+    ) -> ContinuousNodeLayoutAdvance {
+        let ContinuousNodeLayoutInput {
+            content_width,
+            content_height,
+            image_sizes,
+            line_breaking,
+            fonts,
+            max_line_boxes,
+        } = input;
         let mut state = ContinuousLayoutState {
             blocks: Vec::new(),
             floats: std::mem::take(&mut self.floats),
@@ -70,22 +80,72 @@ impl ContinuousLayoutCursor {
                 fonts,
             },
         };
-        for node in nodes {
-            apply_continuous_clearance(&mut state, node);
-            layout_continuous_top_level_node(
-                &mut state,
-                node,
-                content_width,
-                content_height,
-                image_sizes,
-                &mut self.list_ctx,
+
+        if self.active_leaf.is_none() {
+            let node = node.expect("a new node is required without an active layout");
+            apply_continuous_clearance(&mut state, &node);
+            if is_resumable_continuous_leaf(&node, line_breaking) {
+                self.active_leaf = Some(ContinuousLeafLayoutSession::new(
+                    &mut state,
+                    node,
+                    content_width,
+                    image_sizes,
+                ));
+            } else {
+                layout_continuous_top_level_node(
+                    &mut state,
+                    &node,
+                    content_width,
+                    content_height,
+                    image_sizes,
+                    &mut self.list_ctx,
+                );
+            }
+        } else {
+            assert!(
+                node.is_none(),
+                "an active node must resume before new input"
             );
         }
+
+        let mut processed_line_boxes = 0;
+        let complete = if let Some(active) = self.active_leaf.as_mut() {
+            processed_line_boxes = active.advance(max_line_boxes, fonts);
+            if active.is_complete() {
+                let active = self.active_leaf.take().expect("active leaf exists");
+                active.finish(&mut state, &mut self.list_ctx);
+                true
+            } else {
+                false
+            }
+        } else {
+            true
+        };
         self.floats = state.floats;
         self.y = state.y;
         self.previous_margin_bottom = state.previous_margin_bottom;
-        state.blocks
+        ContinuousNodeLayoutAdvance {
+            complete,
+            processed_line_boxes,
+            output: state.blocks,
+        }
     }
+}
+
+pub(super) struct ContinuousNodeLayoutInput<'layout, 'fonts> {
+    pub(super) content_width: f64,
+    pub(super) content_height: f64,
+    pub(super) image_sizes: &'layout ImageSizeIndex,
+    pub(super) line_breaking: LineBreaking,
+    pub(super) fonts: &'fonts TextMeasurementFonts<'fonts>,
+    pub(super) max_line_boxes: usize,
+}
+
+#[derive(Debug)]
+pub(super) struct ContinuousNodeLayoutAdvance {
+    pub(super) complete: bool,
+    pub(super) processed_line_boxes: usize,
+    pub(super) output: Vec<ContinuousBlock>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -110,6 +170,116 @@ struct TextBlockMetrics {
     border_bottom: f64,
     border_left: f64,
     inner_width: f64,
+}
+
+#[derive(Debug)]
+struct ContinuousLeafLayoutSession {
+    node: StyledNode,
+    container_width: f64,
+    block_width: f64,
+    y: f64,
+    horizontal: HorizontalMetrics,
+    extra_left: f64,
+    metrics: TextBlockMetrics,
+    lines: GreedyLineLayoutSession,
+    completed_lines: Vec<LineBox>,
+}
+
+impl ContinuousLeafLayoutSession {
+    fn new(
+        state: &mut ContinuousLayoutState<'_>,
+        node: StyledNode,
+        content_width: f64,
+        image_sizes: &ImageSizeIndex,
+    ) -> Self {
+        collapse_continuous_margin(state, resolve_margin_top(&node.style, content_width));
+        let horizontal = resolve_horizontal_metrics(content_width, &node.style);
+        let left_float = state.floats.left_width(state.y);
+        let right_float = state.floats.right_width(state.y);
+        let extra_left = if left_float > 0.0 {
+            (left_float - horizontal.margin_left).max(0.0)
+        } else {
+            0.0
+        };
+        let extra_right = if right_float > 0.0 {
+            (right_float - horizontal.margin_right).max(0.0)
+        } else {
+            0.0
+        };
+        let block_width = (horizontal.target_width - extra_left - extra_right).max(1.0);
+        let metrics = resolve_text_block_metrics(&node, block_width);
+        let segments = flatten_inline_content(
+            &node.children,
+            SegmentContext {
+                image_sizes: Some(image_sizes),
+                href: node.href.clone(),
+                ..SegmentContext::default()
+            },
+        );
+        let line_width = if metrics.inner_width > 0.0 {
+            metrics.inner_width
+        } else {
+            block_width
+        };
+        Self {
+            node,
+            container_width: content_width,
+            block_width,
+            y: state.y,
+            horizontal,
+            extra_left,
+            metrics,
+            lines: GreedyLineLayoutSession::new(&segments, line_width, state.text_layout.fonts),
+            completed_lines: Vec::new(),
+        }
+    }
+
+    fn advance(&mut self, max_line_boxes: usize, fonts: &TextMeasurementFonts<'_>) -> usize {
+        let lines = self.lines.advance(max_line_boxes, fonts);
+        let processed = lines.len();
+        self.completed_lines.extend(lines);
+        processed
+    }
+
+    fn is_complete(&self) -> bool {
+        self.lines.is_complete()
+    }
+
+    fn finish(
+        self,
+        state: &mut ContinuousLayoutState<'_>,
+        list_ctx: &mut Option<ContinuousListContext>,
+    ) {
+        let mut block = build_continuous_text_block(
+            &self.node,
+            self.block_width,
+            self.y,
+            self.metrics,
+            self.completed_lines,
+        );
+        add_continuous_list_marker(&mut block, &self.node, list_ctx);
+        let x_offset = resolve_horizontal_offset(
+            self.container_width,
+            block.width,
+            &self.node.style,
+            self.horizontal.margin_left,
+            self.horizontal.margin_right,
+            self.extra_left,
+        );
+        if x_offset != 0.0 {
+            block.x += x_offset;
+        }
+        if let Some(id) = &self.node.id {
+            block.anchor_id = Some(id.clone());
+        }
+        apply_relative_visual_offset(&mut block, &self.node.style);
+        apply_continuous_page_breaks(&mut block, &self.node.style);
+
+        state.y += block.height;
+        state.blocks.push(block);
+        state.previous_margin_bottom =
+            resolve_margin_bottom(&self.node.style, self.container_width);
+    }
 }
 
 #[derive(Debug)]
@@ -367,6 +537,16 @@ fn layout_continuous_top_level_node(
     }
 }
 
+fn is_resumable_continuous_leaf(node: &StyledNode, line_breaking: LineBreaking) -> bool {
+    line_breaking == LineBreaking::Greedy
+        && node.node_type == StyledNodeKind::Block
+        && string_or_default(&node.style, "position", "static") != "absolute"
+        && node.tag.as_deref() != Some("hr")
+        && node.tag.as_deref() != Some("table")
+        && string_or_default(&node.style, "float", "none") == "none"
+        && !has_continuous_block_children(node)
+}
+
 fn layout_continuous_image_node(
     state: &mut ContinuousLayoutState,
     node: &StyledNode,
@@ -601,7 +781,18 @@ fn layout_continuous_text_block(
     } else {
         content_width
     };
-    let children = layout_lines_with_fonts(&segments, line_width, line_breaking, fonts)
+    let lines = layout_lines_with_fonts(&segments, line_width, line_breaking, fonts);
+    build_continuous_text_block(node, content_width, y, metrics, lines)
+}
+
+fn build_continuous_text_block(
+    node: &StyledNode,
+    content_width: f64,
+    y: f64,
+    metrics: TextBlockMetrics,
+    lines: Vec<LineBox>,
+) -> ContinuousBlock {
+    let children = lines
         .into_iter()
         .map(|line| {
             ContinuousChild::Line(line.offset_position(

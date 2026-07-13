@@ -44,9 +44,10 @@ visible-spread accessibility are wired through the public Reader and Kit.
 
 The remaining usability work is narrower but still release-blocking:
 
-1. A single large paragraph, table or contextual shaping call remains atomic,
-   and the first publication-wide footnote scan remains outside the layout
-   budget.
+1. Top-level Greedy leaf paragraphs now yield between completed line boxes,
+   but nested containers, Optimal paragraphs, tables and individual contextual
+   shaping calls remain atomic. The first publication-wide footnote scan is now
+   single-pass, but still remains outside the layout budget.
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
    lazily, but still needs a publication source/chapter index.
@@ -71,6 +72,8 @@ It already:
 
 - defines an initial top-level-node budget and stable partial page window;
 - stops inside a large XHTML spine item between top-level nodes;
+- resumes top-level Greedy leaf paragraphs every 32 completed line boxes while
+  withholding the unfinished block from pagination;
 - retains an opaque continuation cursor and resumes without rebuilding completed
   work;
 - supports cancellation and stale-revision disposal;
@@ -78,10 +81,10 @@ It already:
   locator across reflow and window growth;
 - requests the resources needed by active and warm windows.
 
-The remaining bounded-layout work is to propagate a resumable budget inside one
-large top-level block/table/paragraph and its shaping work, rather than treating
-that node as an atomic quantum. Publication-wide source indexes must likewise be
-budgeted instead of front-loading a full-spine scan.
+The remaining bounded-layout work is to propagate the resumable budget through
+nested containers, auto-layout tables, Optimal paragraphs and their shaping
+work. Publication-wide source indexes must likewise be budgeted instead of
+front-loading a full-spine scan.
 
 Revision identity is now defined across the asynchronous interaction and
 continuation APIs. A browser-side ownership handle distinguishes Worker/session
@@ -95,13 +98,15 @@ progression, not only an href. Locators into unpaginated regions request bounded
 growth and are re-resolved after font or viewport reflow.
 
 The first useful frame no longer depends on laying out the first eight chapters
-or the full publication. It can still depend on one atomic large top-level node,
-which is the remaining latency violation.
+or the full publication. A top-level Greedy leaf can no longer monopolize one
+continuation call, but one nested composite, table, Optimal paragraph or shaping
+call can still violate the intended latency bound.
 
 Exact bounded publication has algorithmic constraints that must remain explicit:
 
-- greedy line prefixes can become stable and publish incrementally once
-  widow/orphan lookahead and open-block paint edges are preserved;
+- top-level greedy leaf line layout now yields with the unfinished paragraph
+  withheld; publishing a stable paragraph prefix still requires widow/orphan
+  lookahead and open-block paint edges;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
@@ -348,9 +353,11 @@ architecture rather than make an eager whole-book pipeline faster.
    WASM paths, the coalescing session controller and the production Browser/Kit
    switch are implemented. Exact reads use complete revision handles, partial
    extents drive navigation growth, and bounded candidates suspend interaction
-   until commit. Sub-node budgets remain. The cross-chapter footnote index is
-   lazy-state-safe, but its first full-spine scan is still outside the layout
-   budget.**
+   until commit. Top-level Greedy leaf paragraphs now resume on a 32-line
+   internal quantum and eager layout drains the same state machine. Nested
+   containers, tables, Optimal layout and single shaping calls remain atomic.
+   The cross-chapter footnote index is lazy-state-safe and single-pass, but its
+   first full-spine scan is still outside the layout budget.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader. **Implemented through the public Reader and Kit
    click path, including bounded-growth gating and exact locator re-resolution.**
