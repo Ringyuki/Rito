@@ -41,6 +41,116 @@ fn footnote_filter_removes_only_referenced_same_chapter_notes() {
 }
 
 #[test]
+fn footnote_html_preserves_allowlisted_structure_and_attributes() {
+    let parsed = parse_xhtml(
+        r##"
+        <html xmlns:epub="http://www.idpf.org/2007/ops">
+          <body>
+            <p>Body<a epub:type="noteref" href="#fn1">1</a></p>
+            <aside epub:type="footnote" id="fn1">
+              <p class="note-text" lang="ja">注：<a href="#ref1">返回</a></p>
+              <ol start="2"><li value="3"><strong>补充</strong></li></ol>
+              <table><tr><th scope="row">Key</th><td colspan="2">Value</td></tr></table>
+              <img src="images/note.png" alt="diagram" width="40" height="20"/>
+            </aside>
+          </body>
+        </html>
+        "##,
+    )
+    .expect("parse chapter");
+    let extracted = extract_referenced_footnotes(&[FootnoteFilterChapter {
+        idref: "ch1",
+        href: "Text/ch1.xhtml",
+        nodes: &parsed.nodes,
+    }]);
+    let html = &extracted
+        .footnotes
+        .get("Text/ch1.xhtml#fn1")
+        .expect("footnote")
+        .html;
+
+    assert!(html.contains(r#"<p lang="ja">"#));
+    assert!(html.contains(r##"<a href="#ref1">返回</a>"##));
+    assert!(html.contains(r#"<ol start="2"><li value="3"><strong>补充</strong></li></ol>"#));
+    assert!(html.contains(r#"<th scope="row">Key</th><td colspan="2">Value</td>"#));
+    assert!(html.contains(r#"<img alt="diagram" height="20" width="40">"#));
+}
+
+#[test]
+fn footnote_html_removes_active_content_attributes_and_urls() {
+    let parsed = parse_xhtml(
+        r##"
+        <html xmlns:epub="http://www.idpf.org/2007/ops">
+          <body>
+            <p>Body<a epub:type="noteref" href="#fn1">1</a></p>
+            <aside epub:type="footnote" id="fn1">
+              <form action="javascript:alert(1)">
+                <p class="note" style="color:red" onclick="alert(2)" data-secret="x">
+                  Safe <span onmouseover="alert(3)">content</span>
+                  <a href="java&#x9;script:alert(4)">script</a>
+                  <a href="JaVaScRiPt:alert(4)">mixed-script</a>
+                  <a href="data:text/html,bad">data</a>
+                  <a href="https://example.com/note" target="_blank">web</a>
+                  <a href="HTTPS://example.com/upper">upper-web</a>
+                  <img src="javascript:alert(5)" alt="bad-script" onerror="alert(6)"/>
+                  <img src="data:image/svg+xml,bad" alt="bad-data"/>
+                  <img src="images/safe.png" alt="safe-image" onload="alert(7)"/>
+                  <img src="https://example.com/tracker.png" alt="remote-image"/>
+                </p>
+              </form>
+              <script>alert(8)</script><style>body { display: none }</style>
+              <iframe src="https://example.com"></iframe><object></object><embed/>
+            </aside>
+          </body>
+        </html>
+        "##,
+    )
+    .expect("parse chapter");
+    let extracted = extract_referenced_footnotes(&[FootnoteFilterChapter {
+        idref: "ch1",
+        href: "Text/ch1.xhtml",
+        nodes: &parsed.nodes,
+    }]);
+    let html = &extracted
+        .footnotes
+        .get("Text/ch1.xhtml#fn1")
+        .expect("footnote")
+        .html;
+
+    for unsafe_value in [
+        "<form",
+        "<script",
+        "<style",
+        "<iframe",
+        "<object",
+        "<embed",
+        "action=",
+        "style=",
+        "onclick=",
+        "onmouseover=",
+        "onerror=",
+        "onload=",
+        "data-secret=",
+        "class=",
+        "javascript:",
+        "data:",
+        "src=",
+        "target=",
+    ] {
+        assert!(!html.to_ascii_lowercase().contains(unsafe_value));
+    }
+    assert!(html.contains("<p>"));
+    assert!(html.contains("<span>content</span>"));
+    assert!(html.contains("<a>script</a>"));
+    assert!(html.contains("<a>mixed-script</a>"));
+    assert!(html.contains("<a>data</a>"));
+    assert!(html.contains(r#"<a href="https://example.com/note">web</a>"#));
+    assert!(html.contains(r#"<a href="HTTPS://example.com/upper">upper-web</a>"#));
+    assert!(html.contains(r#"<img alt="safe-image">"#));
+    assert!(html.contains(r#"<img alt="remote-image">"#));
+}
+
+#[test]
 fn external_target_set_filters_forward_and_backward_chapters() {
     let body = parse_xhtml(
         r##"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>

@@ -32,6 +32,7 @@ pub enum FootnoteKind {
 pub struct FootnoteEntry {
     pub kind: FootnoteKind,
     pub text: String,
+    /// Allowlist-sanitized HTML fragment preserving safe footnote structure.
     pub html: String,
 }
 
