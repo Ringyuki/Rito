@@ -2,7 +2,8 @@ use super::{assert_bounded_is_eager_prefix, bounded_request, continue_request};
 use crate::layout::LineBreaking;
 use crate::runtime::tests::fixture::{
     double_layout, empty_chapter_fixture_epub, layout, long_source_text_fixture_epub,
-    multi_chapter_fixture_epub, source_locator_fixture_epub,
+    multi_chapter_fixture_epub, nested_transparent_container_fixture_epub,
+    source_locator_fixture_epub,
 };
 use crate::runtime::{
     RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeRevisionHandle, RuntimeRevisionStatus,
@@ -86,6 +87,80 @@ fn long_greedy_paragraph_advances_versions_without_publishing_partial_layout() {
             .summary,
         eager.revisions[&eager_revision.revision_id].layout.summary
     );
+}
+
+#[test]
+fn nested_transparent_container_publishes_stable_frames_before_completion() {
+    let bytes = nested_transparent_container_fixture_epub();
+    let config = layout();
+    let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
+    let eager_revision = eager
+        .create_revision(&config)
+        .expect("eager revision completes");
+    let mut bounded = RuntimeDocument::open(&bytes).expect("bounded document opens");
+    let mut advance = bounded
+        .create_bounded_revision(bounded_request(config, 1))
+        .expect("bounded revision starts");
+
+    assert_ne!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(advance.processed_top_level_nodes, 1);
+    assert!(advance.revision.known_extent.page_count > 0);
+    let mut stable_frame_hashes = Vec::new();
+    assert_published_frames_stable(&mut bounded, &advance, &mut stable_frame_hashes);
+
+    let mut continuation_count = 0;
+    while let Some(cursor) = advance.continuation.clone() {
+        advance = bounded
+            .continue_revision(continue_request(&cursor, 1))
+            .expect("nested container continuation advances");
+        continuation_count += 1;
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        assert_published_frames_stable(&mut bounded, &advance, &mut stable_frame_hashes);
+    }
+
+    assert!(continuation_count > 1);
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    let eager_layout = &eager.revisions[&eager_revision.revision_id].layout;
+    let bounded_layout = &bounded.revisions[&advance.revision.revision_id].layout;
+    assert_eq!(bounded_layout.pages, eager_layout.pages);
+    assert_eq!(bounded_layout.summary, eager_layout.summary);
+    for spread_index in 0..advance.revision.spread_count {
+        assert_eq!(
+            bounded
+                .get_frame(&advance.revision.revision_id, spread_index)
+                .expect("bounded frame exists")
+                .command_hash,
+            eager
+                .get_frame(&eager_revision.revision_id, spread_index)
+                .expect("eager frame exists")
+                .command_hash
+        );
+    }
+}
+
+fn assert_published_frames_stable(
+    document: &mut RuntimeDocument,
+    advance: &crate::runtime::RuntimeRevisionAdvance,
+    stable_hashes: &mut Vec<String>,
+) {
+    for (spread_index, expected_hash) in stable_hashes.iter().enumerate() {
+        assert_eq!(
+            document
+                .get_frame(&advance.revision.revision_id, spread_index)
+                .expect("previously published frame remains available")
+                .command_hash,
+            *expected_hash,
+            "published spread {spread_index} changed after continuation"
+        );
+    }
+    for spread_index in stable_hashes.len()..advance.revision.spread_count {
+        stable_hashes.push(
+            document
+                .get_frame(&advance.revision.revision_id, spread_index)
+                .expect("newly published frame exists")
+                .command_hash,
+        );
+    }
 }
 
 #[test]

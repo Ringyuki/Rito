@@ -109,6 +109,43 @@ fn unfinished_greedy_paragraph_withholds_its_block_and_pages_until_complete() {
 }
 
 #[test]
+fn transparent_container_yields_stable_pages_before_the_container_completes() {
+    let layout = test_layout();
+    let children = (0..96)
+        .map(|index| paragraph(&format!("nested paragraph {index}")))
+        .collect();
+    let nodes = vec![container("section", children)];
+    let expected = eager_chapter(&nodes, &layout, None);
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut session =
+        RuntimeChapterLayoutSession::new(nodes, images, &layout, LineBreaking::Greedy, None);
+
+    let first = session.advance(budget(1), &fonts);
+
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.total_block_count > 0);
+    assert!(
+        !first.newly_sealed_pages.is_empty(),
+        "completed children should reach pagination before the section closes"
+    );
+
+    let mut pages = first.newly_sealed_pages;
+    let final_block_count = loop {
+        let advance = session.advance(budget(1), &fonts);
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        pages.extend(advance.newly_sealed_pages);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break advance.total_block_count;
+        }
+    };
+
+    assert_eq!(pages, expected.pages);
+    assert_eq!(final_block_count, expected.block_count);
+}
+
+#[test]
 fn each_advance_returns_only_pages_newly_sealed_by_that_advance() {
     let layout = test_layout();
     let images = ImageSizeIndex::new(&[]);
@@ -264,6 +301,13 @@ fn test_layout() -> LayoutConfig {
 fn paragraph(content: &str) -> StyledNode {
     let mut node = styled_node(StyledNodeKind::Block, vec![text(content)]);
     node.tag = Some("p".to_owned());
+    node.style.insert("display".to_owned(), json!("block"));
+    node
+}
+
+fn container(tag: &str, children: Vec<StyledNode>) -> StyledNode {
+    let mut node = styled_node(StyledNodeKind::Block, children);
+    node.tag = Some(tag.to_owned());
     node.style.insert("display".to_owned(), json!("block"));
     node
 }

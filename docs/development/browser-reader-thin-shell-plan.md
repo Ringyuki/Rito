@@ -400,8 +400,12 @@ until the next presentation commits, partial extents remain distinct from final
 extents, and Browser/Kit race tests cover session replacement and stale work.
 The cross-chapter footnote index is lazy-state-safe and now parses each available
 spine source once, but its first full-spine scan remains outside the work budget.
-Top-level Greedy leaf paragraphs yield between line boxes; nested containers,
-tables, Optimal paragraphs and individual shaping calls remain atomic quanta.
+Greedy leaf paragraphs yield between line boxes at the root and through
+ordinary transparent container trees. Recursive descendants share one private
+node/line work meter, and completed flat children can publish stable pages
+before the container closes. Decorated/floated containers, tables, Optimal
+paragraphs, container/paragraph preparation and individual shaping calls remain
+atomic quanta.
 
 The private controller now implements the single-pump, target-coalescing,
 task-yielding and latest-handle cleanup rules above, including an exact-version

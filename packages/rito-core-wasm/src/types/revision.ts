@@ -37,7 +37,10 @@ export interface RitoCoreWasmVersioned<T> {
 }
 
 export interface RitoCoreWasmRevisionWorkBudget {
-  /** Maximum top-level source nodes accepted by one continuation quantum. */
+  /**
+   * Maximum top-level source nodes accepted by one continuation quantum.
+   * Rust separately meters transparent descendants and Greedy line boxes.
+   */
   readonly maxTopLevelNodes: number;
 }
 

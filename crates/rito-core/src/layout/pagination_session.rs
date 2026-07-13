@@ -1,65 +1,21 @@
-use std::{collections::VecDeque, num::NonZeroUsize};
+use std::{collections::VecDeque, sync::Arc};
+
+mod work_meter;
+
+pub(crate) use work_meter::LayoutWorkBudget;
+pub(super) use work_meter::{LayoutSessionScope, LayoutWorkMeter};
 
 use super::{
     continuous_layout::{
         flush_anonymous_inline_run, ContinuousBlock, ContinuousLayoutCursor,
         ContinuousNodeLayoutInput,
     },
+    continuous_list::ContinuousListContext,
     image_size::ImageSizeIndex,
     text_measure::TextMeasurementFonts,
     LineBreaking,
 };
 use crate::style::{StyledNode, StyledNodeKind};
-
-const DEFAULT_MAX_LINE_BOXES_PER_ADVANCE: usize = 32;
-
-/// Deterministic upper bounds for one layout-session advance.
-///
-/// The public budget controls how many top-level source nodes may be accepted.
-/// Greedy leaf paragraphs also stop after a small internal line-box quantum so
-/// one large paragraph cannot monopolize a continuation call. Other composite
-/// nodes and individual shaping calls remain atomic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct LayoutWorkBudget {
-    max_top_level_nodes: NonZeroUsize,
-    max_line_boxes: NonZeroUsize,
-}
-
-impl LayoutWorkBudget {
-    pub(crate) const fn new(max_top_level_nodes: NonZeroUsize) -> Self {
-        Self {
-            max_top_level_nodes,
-            max_line_boxes: NonZeroUsize::new(DEFAULT_MAX_LINE_BOXES_PER_ADVANCE)
-                .expect("the default line-box budget is non-zero"),
-        }
-    }
-
-    #[cfg(test)]
-    pub(super) const fn with_max_line_boxes(
-        max_top_level_nodes: NonZeroUsize,
-        max_line_boxes: NonZeroUsize,
-    ) -> Self {
-        Self {
-            max_top_level_nodes,
-            max_line_boxes,
-        }
-    }
-
-    pub(super) const fn max_top_level_nodes(self) -> usize {
-        self.max_top_level_nodes.get()
-    }
-
-    pub(super) const fn max_line_boxes(self) -> usize {
-        self.max_line_boxes.get()
-    }
-
-    pub(super) const fn unbounded() -> Self {
-        Self {
-            max_top_level_nodes: NonZeroUsize::MAX,
-            max_line_boxes: NonZeroUsize::MAX,
-        }
-    }
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LayoutAdvanceStatus {
@@ -115,12 +71,15 @@ impl<Output> LayoutSessionAdvance<Output> {
 
 /// Resumable continuous block generation for one chapter.
 ///
-/// The session owns its source nodes and image index, so a runtime document can
-/// store it without a self-reference. Cross-node layout state stays in the
-/// cursor and fonts are injected only for the duration of each advance.
+/// The session owns its source nodes and shares its immutable image index with
+/// recursive child sessions, so a runtime document can store it without a
+/// self-reference. Cross-node layout state stays in the cursor and fonts are
+/// injected only for the duration of each advance.
 /// Consecutive top-level inline nodes are buffered until their anonymous-block
 /// boundary is known. Greedy leaf paragraphs retain their unfinished line
 /// layout in the cursor and publish no block until the paragraph is complete.
+/// Ordinary transparent containers recursively reuse this session and retain a
+/// private tail block while streaming earlier stable children.
 #[derive(Debug)]
 pub(crate) struct ContinuousLayoutSession {
     pending_nodes: VecDeque<StyledNode>,
@@ -129,7 +88,7 @@ pub(crate) struct ContinuousLayoutSession {
     cursor: ContinuousLayoutCursor,
     content_width: f64,
     content_height: f64,
-    image_sizes: ImageSizeIndex,
+    image_sizes: Arc<ImageSizeIndex>,
     line_breaking: LineBreaking,
     total_top_level_nodes: usize,
 }
@@ -142,13 +101,50 @@ impl ContinuousLayoutSession {
         image_sizes: ImageSizeIndex,
         line_breaking: LineBreaking,
     ) -> Self {
+        Self::new_with_cursor(
+            nodes,
+            content_width,
+            content_height,
+            Arc::new(image_sizes),
+            line_breaking,
+            ContinuousLayoutCursor::default(),
+        )
+    }
+
+    pub(super) fn new_descendant(
+        nodes: Vec<StyledNode>,
+        content_width: f64,
+        content_height: f64,
+        image_sizes: Arc<ImageSizeIndex>,
+        line_breaking: LineBreaking,
+        start_y: f64,
+        list_ctx: Option<ContinuousListContext>,
+    ) -> Self {
+        Self::new_with_cursor(
+            nodes,
+            content_width,
+            content_height,
+            image_sizes,
+            line_breaking,
+            ContinuousLayoutCursor::at(start_y, list_ctx),
+        )
+    }
+
+    fn new_with_cursor(
+        nodes: Vec<StyledNode>,
+        content_width: f64,
+        content_height: f64,
+        image_sizes: Arc<ImageSizeIndex>,
+        line_breaking: LineBreaking,
+        cursor: ContinuousLayoutCursor,
+    ) -> Self {
         let pending_nodes = VecDeque::from(nodes);
         Self {
             total_top_level_nodes: pending_nodes.len(),
             pending_nodes,
             ready_nodes: VecDeque::new(),
             anonymous_inline_run: Vec::new(),
-            cursor: ContinuousLayoutCursor::default(),
+            cursor,
             content_width,
             content_height,
             image_sizes,
@@ -161,22 +157,32 @@ impl ContinuousLayoutSession {
         budget: LayoutWorkBudget,
         fonts: &'fonts TextMeasurementFonts<'fonts>,
     ) -> LayoutSessionAdvance<Vec<ContinuousBlock>> {
-        let mut remaining_nodes = budget.max_top_level_nodes();
-        let mut remaining_node_starts = budget.max_top_level_nodes();
-        let mut remaining_lines = budget.max_line_boxes();
+        let mut work = LayoutWorkMeter::new(budget);
+        self.advance_with_meter(&mut work, LayoutSessionScope::Root, fonts)
+    }
+
+    pub(super) fn advance_with_meter<'fonts>(
+        &mut self,
+        work: &mut LayoutWorkMeter,
+        scope: LayoutSessionScope,
+        fonts: &'fonts TextMeasurementFonts<'fonts>,
+    ) -> LayoutSessionAdvance<Vec<ContinuousBlock>> {
         let mut processed_top_level_nodes = 0;
         let mut output = Vec::new();
 
         loop {
             if !self.cursor.has_active_node() && self.ready_nodes.is_empty() {
-                if remaining_nodes == 0 {
+                let accepts_remaining = work.accepts_remaining(scope);
+                if accepts_remaining == 0 {
                     break;
                 }
                 let before = self.pending_nodes.len();
-                let ready_nodes = self.take_ready_nodes(remaining_nodes);
+                let ready_nodes = self.take_ready_nodes(accepts_remaining);
                 let accepted = before - self.pending_nodes.len();
-                processed_top_level_nodes += accepted;
-                remaining_nodes -= accepted;
+                work.consume_accepts(scope, accepted);
+                if scope == LayoutSessionScope::Root {
+                    processed_top_level_nodes += accepted;
+                }
                 self.ready_nodes.extend(ready_nodes);
                 if self.ready_nodes.is_empty() {
                     break;
@@ -186,10 +192,9 @@ impl ContinuousLayoutSession {
             let node = if self.cursor.has_active_node() {
                 None
             } else {
-                if remaining_node_starts == 0 {
+                if !work.try_start_node(scope) {
                     break;
                 }
-                remaining_node_starts -= 1;
                 Some(self.ready_nodes.pop_front().expect("a ready node exists"))
             };
             let advance = self.cursor.advance_node(
@@ -200,12 +205,11 @@ impl ContinuousLayoutSession {
                     image_sizes: &self.image_sizes,
                     line_breaking: self.line_breaking,
                     fonts,
-                    max_line_boxes: remaining_lines,
                 },
+                work,
             );
-            remaining_lines = remaining_lines.saturating_sub(advance.processed_line_boxes);
             output.extend(advance.output);
-            if !advance.complete || remaining_lines == 0 {
+            if !advance.complete || work.line_boxes_remaining() == 0 {
                 break;
             }
             if self.pending_nodes.is_empty()
@@ -229,6 +233,10 @@ impl ContinuousLayoutSession {
             LayoutContinuationState::new(accepted_top_level_nodes, self.total_top_level_nodes),
         );
         LayoutSessionAdvance::new(status, continuation, processed_top_level_nodes, output)
+    }
+
+    pub(super) fn take_list_context(&mut self) -> Option<ContinuousListContext> {
+        self.cursor.take_list_context()
     }
 
     fn take_ready_nodes(&mut self, max_top_level_nodes: usize) -> Vec<StyledNode> {

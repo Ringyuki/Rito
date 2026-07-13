@@ -19,7 +19,9 @@ use super::{
     line_metrics::line_height_px,
     line_mode::layout_lines_with_fonts,
     pagination_flow::{paginate_continuous_blocks, PaginationFlowChapter},
-    pagination_session::{ContinuousLayoutSession, LayoutAdvanceStatus, LayoutWorkBudget},
+    pagination_session::{
+        ContinuousLayoutSession, LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter,
+    },
     style_values::*,
     summary_json::{hash_json, hash_text, number_value},
     summary_types::ContinuousBlockChapterSummary,
@@ -29,6 +31,10 @@ use crate::{
     layout::{LayoutConfig, LineBreaking},
     style::{StyledNode, StyledNodeKind},
 };
+
+mod container_session;
+
+use container_session::ContinuousContainerLayoutSession;
 
 pub(super) type ContinuousBlock = RuntimeBlock<LineBox>;
 type ContinuousChild = RuntimeChild<LineBox>;
@@ -49,18 +55,31 @@ pub(super) struct ContinuousLayoutCursor {
     y: f64,
     previous_margin_bottom: f64,
     list_ctx: Option<ContinuousListContext>,
-    active_leaf: Option<ContinuousLeafLayoutSession>,
+    active: Option<ContinuousActiveLayout>,
 }
 
 impl ContinuousLayoutCursor {
+    pub(super) fn at(y: f64, list_ctx: Option<ContinuousListContext>) -> Self {
+        Self {
+            y,
+            list_ctx,
+            ..Self::default()
+        }
+    }
+
     pub(super) fn has_active_node(&self) -> bool {
-        self.active_leaf.is_some()
+        self.active.is_some()
+    }
+
+    pub(super) fn take_list_context(&mut self) -> Option<ContinuousListContext> {
+        self.list_ctx.take()
     }
 
     pub(super) fn advance_node<'fonts>(
         &mut self,
         node: Option<StyledNode>,
         input: ContinuousNodeLayoutInput<'_, 'fonts>,
+        work: &mut LayoutWorkMeter,
     ) -> ContinuousNodeLayoutAdvance {
         let ContinuousNodeLayoutInput {
             content_width,
@@ -68,7 +87,6 @@ impl ContinuousLayoutCursor {
             image_sizes,
             line_breaking,
             fonts,
-            max_line_boxes,
         } = input;
         let mut state = ContinuousLayoutState {
             blocks: Vec::new(),
@@ -81,16 +99,24 @@ impl ContinuousLayoutCursor {
             },
         };
 
-        if self.active_leaf.is_none() {
+        if self.active.is_none() {
             let node = node.expect("a new node is required without an active layout");
             apply_continuous_clearance(&mut state, &node);
             if is_resumable_continuous_leaf(&node, line_breaking) {
-                self.active_leaf = Some(ContinuousLeafLayoutSession::new(
-                    &mut state,
-                    node,
-                    content_width,
-                    image_sizes,
-                ));
+                self.active = Some(ContinuousActiveLayout::Leaf(Box::new(
+                    ContinuousLeafLayoutSession::new(&mut state, node, content_width, image_sizes),
+                )));
+            } else if is_resumable_continuous_container(&node, line_breaking) {
+                self.active = Some(ContinuousActiveLayout::Container(Box::new(
+                    ContinuousContainerLayoutSession::new(
+                        &mut state,
+                        node,
+                        content_width,
+                        content_height,
+                        image_sizes,
+                        &mut self.list_ctx,
+                    ),
+                )));
             } else {
                 layout_continuous_top_level_node(
                     &mut state,
@@ -108,25 +134,38 @@ impl ContinuousLayoutCursor {
             );
         }
 
-        let mut processed_line_boxes = 0;
-        let complete = if let Some(active) = self.active_leaf.as_mut() {
-            processed_line_boxes = active.advance(max_line_boxes, fonts);
-            if active.is_complete() {
-                let active = self.active_leaf.take().expect("active leaf exists");
-                active.finish(&mut state, &mut self.list_ctx);
-                true
-            } else {
-                false
+        let mut complete = self.active.is_none();
+        if let Some(active) = self.active.as_mut() {
+            match active {
+                ContinuousActiveLayout::Leaf(active) => {
+                    let processed = active.advance(work.line_boxes_remaining(), fonts);
+                    work.consume_line_boxes(processed);
+                    complete = active.is_complete();
+                }
+                ContinuousActiveLayout::Container(active) => {
+                    let advance = active.advance(work, fonts);
+                    state.blocks.extend(advance.output);
+                    complete = advance.complete;
+                }
             }
-        } else {
-            true
-        };
+        }
+        if complete {
+            if let Some(active) = self.active.take() {
+                match active {
+                    ContinuousActiveLayout::Leaf(active) => {
+                        active.finish(&mut state, &mut self.list_ctx);
+                    }
+                    ContinuousActiveLayout::Container(active) => {
+                        active.finish(&mut state, &mut self.list_ctx);
+                    }
+                }
+            }
+        }
         self.floats = state.floats;
         self.y = state.y;
         self.previous_margin_bottom = state.previous_margin_bottom;
         ContinuousNodeLayoutAdvance {
             complete,
-            processed_line_boxes,
             output: state.blocks,
         }
     }
@@ -135,16 +174,14 @@ impl ContinuousLayoutCursor {
 pub(super) struct ContinuousNodeLayoutInput<'layout, 'fonts> {
     pub(super) content_width: f64,
     pub(super) content_height: f64,
-    pub(super) image_sizes: &'layout ImageSizeIndex,
+    pub(super) image_sizes: &'layout std::sync::Arc<ImageSizeIndex>,
     pub(super) line_breaking: LineBreaking,
     pub(super) fonts: &'fonts TextMeasurementFonts<'fonts>,
-    pub(super) max_line_boxes: usize,
 }
 
 #[derive(Debug)]
 pub(super) struct ContinuousNodeLayoutAdvance {
     pub(super) complete: bool,
-    pub(super) processed_line_boxes: usize,
     pub(super) output: Vec<ContinuousBlock>,
 }
 
@@ -170,6 +207,12 @@ struct TextBlockMetrics {
     border_bottom: f64,
     border_left: f64,
     inner_width: f64,
+}
+
+#[derive(Debug)]
+enum ContinuousActiveLayout {
+    Leaf(Box<ContinuousLeafLayoutSession>),
+    Container(Box<ContinuousContainerLayoutSession>),
 }
 
 #[derive(Debug)]
@@ -545,6 +588,17 @@ fn is_resumable_continuous_leaf(node: &StyledNode, line_breaking: LineBreaking) 
         && node.tag.as_deref() != Some("table")
         && string_or_default(&node.style, "float", "none") == "none"
         && !has_continuous_block_children(node)
+}
+
+fn is_resumable_continuous_container(node: &StyledNode, line_breaking: LineBreaking) -> bool {
+    line_breaking == LineBreaking::Greedy
+        && node.node_type == StyledNodeKind::Block
+        && string_or_default(&node.style, "position", "static") != "absolute"
+        && node.tag.as_deref() != Some("hr")
+        && node.tag.as_deref() != Some("table")
+        && string_or_default(&node.style, "float", "none") == "none"
+        && has_continuous_block_children(node)
+        && !has_visual_decorations(&node.style)
 }
 
 fn layout_continuous_image_node(

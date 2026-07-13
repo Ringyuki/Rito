@@ -89,9 +89,10 @@ pub struct RuntimeRevisionSummary {
 
 /// Maximum top-level source nodes that one continuation quantum may accept.
 ///
-/// Top-level Greedy leaf paragraphs additionally yield after an internal
-/// line-box quantum. Nested containers, tables, optimal paragraphs, and
-/// individual shaping calls remain atomic.
+/// Greedy leaf paragraphs at the root and inside ordinary transparent
+/// containers share internal descendant-node and line-box quanta. Visually
+/// decorated or floated containers, tables, optimal paragraphs, paragraph
+/// or container preparation, and individual shaping calls remain atomic.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionWorkBudget {

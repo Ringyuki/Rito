@@ -326,10 +326,15 @@ Those names now belong to the old TS reference tree only.
      chapter/image loading and resumable page-window growth. Browser and Kit
      publish partial extents correctly; Next at the known boundary requests and
      commits more work instead of disabling navigation.
-   - Top-level Greedy leaf paragraphs now resume every 32 completed line boxes;
-     the unfinished block remains private and final eager/bounded output is
-     identical. Nested containers, tables, Optimal paragraphs and individual
-     shaping calls remain atomic.
+   - Greedy leaf paragraphs now resume every 32 completed line boxes at the
+     root and through ordinary in-flow transparent container trees. All active
+     descendants share one 32-node accept/start meter and the same line meter;
+     flat containers retain one private tail block so completed children can
+     seal stable pages without later mutating `id` or page-break semantics.
+     Final eager/bounded pages and frame commands remain identical. Visually
+     decorated or floated containers, tables, Optimal paragraphs,
+     container/paragraph preparation and individual shaping calls remain
+     atomic.
    - Publication-wide cross-chapter footnote filtering now collects targets and
      candidate definitions in one cached, resource-light spine scan instead of
      parsing every XHTML source twice, and sanitizes note payloads only after
@@ -447,9 +452,11 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Extend the implemented line-box continuation through nested containers, then
-   split table prepass/rows, Optimal paragraph preparation and shaping work into
-   bounded stages while preserving eager/bounded final equivalence.
+1. Complete the default-Greedy hard bound by metering container startup,
+   incremental inline flatten/context preparation and explicit atomic text
+   operations, then carry continuation through decorated/floated containers.
+   Split table prepass/rows and Optimal preparation afterward while preserving
+   eager/bounded final equivalence.
 2. Move the publication-wide footnote scan inside a measured source-index
    budget.
 3. Replace eager completed-layout search with a durable publication source index
@@ -466,15 +473,17 @@ Work in roadmap order:
 ## Immediate Remaining Implementation Plan
 
 The revision/locator contract, bounded production switch and principal native
-interaction slices are complete. Top-level Greedy leaf layout is now resumable
-without changing final pagination, and the footnote index performs one spine
-parse instead of two. The next slice should carry that continuation through
-nested containers and move the single-pass source scan under an explicit budget,
-then reuse a durable source index for full-publication search. Keep search result
-geometry lazy and active-window only. In parallel, measure the completed v1
-serif preset under the formal usability protocol, classify its residual
-locale/role gaps, and specify which remaining browser session decisions are
-semantic policy that Rust must author versus unavoidable host operations.
+interaction slices are complete. Greedy leaf layout is resumable through
+ordinary transparent container trees without changing final pagination, and
+the footnote index performs one spine parse instead of two. The next slice
+should add passive text-work tracing, then meter inline preparation and explicit
+atomic break/shape operations without changing probe or command sequences.
+After the default-Greedy hard bound, move the single-pass source scan under an
+explicit budget and reuse a durable source index for full-publication search.
+Keep search result geometry lazy and active-window only. In parallel, measure
+the completed v1 serif preset under the formal usability protocol, classify its
+residual locale/role gaps, and specify which remaining browser session decisions
+are semantic policy that Rust must author versus unavoidable host operations.
 
 ## Archived Binary-Wire Implementation Record
 

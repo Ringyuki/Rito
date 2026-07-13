@@ -44,9 +44,13 @@ visible-spread accessibility are wired through the public Reader and Kit.
 
 The remaining usability work is narrower but still release-blocking:
 
-1. Top-level Greedy leaf paragraphs now yield between completed line boxes,
-   but nested containers, Optimal paragraphs, tables and individual contextual
-   shaping calls remain atomic. The first publication-wide footnote scan is now
+1. Greedy leaf paragraphs now yield between completed line boxes both at the
+   root and through ordinary in-flow transparent container trees. Every
+   recursive session shares one 32-node descendant quantum and one 32-line
+   quantum, and completed flat children can seal stable pages before their
+   ancestor closes. Visually decorated or floated containers, Optimal
+   paragraphs, tables, container/paragraph preparation and individual
+   contextual shaping calls remain atomic. The first publication-wide footnote scan is now
    single-pass, but still remains outside the layout budget.
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
@@ -71,9 +75,13 @@ Production now uses a bounded layout session rather than chapter-count preview.
 It already:
 
 - defines an initial top-level-node budget and stable partial page window;
-- stops inside a large XHTML spine item between top-level nodes;
-- resumes top-level Greedy leaf paragraphs every 32 completed line boxes while
+- stops inside a large XHTML spine item between top-level nodes and through
+  ordinary transparent descendant containers;
+- resumes Greedy leaf paragraphs every 32 completed line boxes while
   withholding the unfinished block from pagination;
+- shares a 32-node accept/start meter across every active descendant session,
+  streams stable flat-container children with a one-block tail lookbehind, and
+  preserves list, margin, anchor and page-break state across yields;
 - retains an opaque continuation cursor and resumes without rebuilding completed
   work;
 - supports cancellation and stale-revision disposal;
@@ -81,10 +89,10 @@ It already:
   locator across reflow and window growth;
 - requests the resources needed by active and warm windows.
 
-The remaining bounded-layout work is to propagate the resumable budget through
-nested containers, auto-layout tables, Optimal paragraphs and their shaping
-work. Publication-wide source indexes must likewise be budgeted instead of
-front-loading a full-spine scan.
+The remaining bounded-layout work is to cover visually decorated and floated
+containers, auto-layout tables, Optimal paragraphs, container/paragraph
+preparation and their shaping work. Publication-wide source indexes must
+likewise be budgeted instead of front-loading a full-spine scan.
 
 Revision identity is now defined across the asynchronous interaction and
 continuation APIs. A browser-side ownership handle distinguishes Worker/session
@@ -98,15 +106,20 @@ progression, not only an href. Locators into unpaginated regions request bounded
 growth and are re-resolved after font or viewport reflow.
 
 The first useful frame no longer depends on laying out the first eight chapters
-or the full publication. A top-level Greedy leaf can no longer monopolize one
-continuation call, but one nested composite, table, Optimal paragraph or shaping
-call can still violate the intended latency bound.
+or the full publication. Once prepared, transparent-container descendant
+traversal and completed Greedy line emission cannot monopolize one continuation
+call, but one container/paragraph-preparation pass, decorated or floated
+composite, table, Optimal paragraph or shaping call can still violate the
+intended latency bound.
 
 Exact bounded publication has algorithmic constraints that must remain explicit:
 
-- top-level greedy leaf line layout now yields with the unfinished paragraph
-  withheld; publishing a stable paragraph prefix still requires widow/orphan
-  lookahead and open-block paint edges;
+- Greedy leaf line layout now yields through transparent container trees with
+  the unfinished paragraph withheld; publishing a stable paragraph prefix
+  still requires widow/orphan lookahead and open-block paint edges;
+- transparent-container startup still uses the existing owned margin-collapse
+  preparation, which can clone a large child slice before the descendant meter
+  starts; this remains an explicit atomic preparation gap;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
@@ -353,9 +366,12 @@ architecture rather than make an eager whole-book pipeline faster.
    WASM paths, the coalescing session controller and the production Browser/Kit
    switch are implemented. Exact reads use complete revision handles, partial
    extents drive navigation growth, and bounded candidates suspend interaction
-   until commit. Top-level Greedy leaf paragraphs now resume on a 32-line
-   internal quantum and eager layout drains the same state machine. Nested
-   containers, tables, Optimal layout and single shaping calls remain atomic.
+   until commit. Greedy leaf paragraphs now resume on a shared 32-line internal
+   quantum and eager layout drains the same state machine. Ordinary
+   transparent descendant containers now share a 32-node recursive meter and
+   can publish stable completed children before closing. Decorated/floated
+   containers, tables, Optimal layout, container/paragraph preparation and
+   single shaping calls remain atomic.
    The cross-chapter footnote index is lazy-state-safe and single-pass, but its
    first full-spine scan is still outside the layout budget.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,

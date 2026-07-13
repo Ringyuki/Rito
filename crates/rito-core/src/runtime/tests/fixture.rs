@@ -79,6 +79,18 @@ pub fn long_source_text_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(chapter.as_bytes())
 }
 
+pub fn nested_transparent_container_fixture_epub() -> Vec<u8> {
+    let paragraphs = (0..96)
+        .map(|index| {
+            format!("<p>Nested container paragraph {index} carries stable runtime content.</p>")
+        })
+        .collect::<String>();
+    let chapter = format!(
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><section><div>{paragraphs}</div></section></body></html>"#
+    );
+    fixture_epub_with_chapter(chapter.as_bytes())
+}
+
 pub fn image_only_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(
         br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><img src="Images/cover.png" alt="cover"/></body></html>"#,

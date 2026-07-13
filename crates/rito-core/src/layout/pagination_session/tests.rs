@@ -192,18 +192,165 @@ fn accepted_nodes_wait_in_source_order_behind_a_resumable_paragraph() {
 }
 
 #[test]
-fn nested_and_optimal_paragraphs_remain_explicit_atomic_fallbacks() {
-    let long = paragraph(&"still atomic inside a container ".repeat(240), 0.0, 0.0);
-    let mut container = styled_node(StyledNodeKind::Block, vec![long.clone()]);
+fn nested_greedy_paragraph_resumes_and_exactly_matches_one_shot() {
+    let long = paragraph(&"resumable inside a container ".repeat(240), 0.0, 0.0);
+    let mut container = styled_node(StyledNodeKind::Block, vec![long]);
     container.tag = Some("section".to_owned());
     container.style.insert("display".to_owned(), json!("block"));
     let images = ImageSizeIndex::new(&[]);
     let fonts = TextMeasurementFonts::empty();
+    let nodes = vec![container];
+    let mut nested = session(&nodes, &images);
+    let work = budget_with_lines(1, 1);
 
-    let mut nested = session(&[container.clone()], &images);
+    let first = nested.advance(work, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty());
+
+    let mut advances = 1;
+    let mut output = Vec::new();
+    loop {
+        let advance = nested.advance(work, &fonts);
+        advances += 1;
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        output.extend(advance.output);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break;
+        }
+    }
+    assert!(advances > 2);
+    assert_eq!(output, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn descendant_node_budget_is_shared_across_recursive_containers() {
+    let leaf = paragraph("deep leaf", 0.0, 0.0);
+    let nodes = vec![container(
+        "outer",
+        vec![container("middle", vec![container("inner", vec![leaf])])],
+    )];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut nested = session(&nodes, &images);
+    let work = budget_with_work_limits(1, 1, 64);
+
+    for expected_processed in [1, 0] {
+        let advance = nested.advance(work, &fonts);
+        assert_eq!(advance.status, LayoutAdvanceStatus::Partial);
+        assert_eq!(advance.processed_top_level_nodes, expected_processed);
+        assert!(advance.output.is_empty());
+    }
+    let final_advance = nested.advance(work, &fonts);
+    assert_eq!(final_advance.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(final_advance.processed_top_level_nodes, 0);
+    assert_eq!(final_advance.output, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn line_budget_is_shared_between_parent_and_nested_child_sessions() {
+    let nested = container(
+        "outer",
+        vec![
+            paragraph("first line", 0.0, 0.0),
+            container("inner", vec![paragraph("second nested line", 0.0, 0.0)]),
+        ],
+    );
+    let nodes = vec![nested];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut layout = session(&nodes, &images);
+    let work = budget_with_work_limits(1, 64, 1);
+
+    let first = layout.advance(work, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty());
+
+    let second = layout.advance(work, &fonts);
+    assert_eq!(second.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(second.processed_top_level_nodes, 0);
+    assert_eq!(second.output, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn flattened_container_streams_with_a_safe_tail_and_preserves_outer_semantics() {
+    let first = paragraph("first child", 5.0, 7.0);
+    let second = paragraph("second child", 11.0, 13.0);
+    let mut ignored = paragraph("ignored absolute child", 0.0, 0.0);
+    ignored
+        .style
+        .insert("position".to_owned(), json!("absolute"));
+    let mut outer = container("section", vec![first, second, ignored]);
+    outer.id = Some("outer-anchor".to_owned());
+    outer.style.extend([
+        ("marginTop".to_owned(), json!(17)),
+        ("marginBottom".to_owned(), json!(19)),
+        ("marginLeft".to_owned(), json!(9)),
+        ("paddingLeft".to_owned(), json!(6)),
+        ("paddingBottom".to_owned(), json!(4)),
+        ("pageBreakBefore".to_owned(), json!("always")),
+        ("pageBreakAfter".to_owned(), json!("always")),
+    ]);
+    let nodes = vec![outer, paragraph("following sibling", 3.0, 0.0)];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut layout = session(&nodes, &images);
+    let work = budget_with_work_limits(1, 1, 64);
+
+    let first = layout.advance(work, &fonts);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty(), "the first child remains the tail");
+
+    let second = layout.advance(work, &fonts);
+    assert_eq!(second.processed_top_level_nodes, 0);
+    assert_eq!(second.output.len(), 1);
+    assert_eq!(second.output[0].anchor_id.as_deref(), Some("outer-anchor"));
+    assert!(second.output[0].page_break_before);
+    assert!(!second.output[0].page_break_after);
+
+    let third = layout.advance(work, &fonts);
+    assert_eq!(third.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(third.processed_top_level_nodes, 1);
+    assert_eq!(third.output.len(), 2);
+    assert!(third.output[0].page_break_after);
+
+    let mut actual = first.output;
+    actual.extend(second.output);
+    actual.extend(third.output);
+    assert_eq!(actual, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn nested_transparent_container_borrows_and_restores_list_context() {
+    let nested = container("div", vec![list_item("second")]);
+    let mut list = container("ol", vec![list_item("first"), nested, list_item("third")]);
+    list.style
+        .insert("listStyleType".to_owned(), json!("decimal"));
+    let nodes = vec![list];
+
+    let actual = session_blocks_with_budget(&nodes, budget_with_work_limits(1, 1, 64));
+    assert_eq!(actual, one_shot_blocks(&nodes));
+}
+
+#[test]
+fn decorated_nested_and_optimal_paragraphs_remain_atomic_fallbacks() {
+    let long = paragraph(
+        &"still atomic inside a decorated container ".repeat(240),
+        0.0,
+        0.0,
+    );
+    let mut decorated = container("section", vec![long.clone()]);
+    decorated
+        .style
+        .insert("backgroundColor".to_owned(), json!("#ffffff"));
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+
+    let mut nested = session(&[decorated.clone()], &images);
     let nested_result = nested.advance(budget_with_lines(1, 1), &fonts);
     assert_eq!(nested_result.status, LayoutAdvanceStatus::Complete);
-    assert_eq!(nested_result.output, one_shot_blocks(&[container]));
+    assert_eq!(nested_result.output, one_shot_blocks(&[decorated]));
 
     let mut optimal = ContinuousLayoutSession::new(
         vec![long.clone()],
@@ -243,13 +390,16 @@ fn session(nodes: &[StyledNode], images: &ImageSizeIndex) -> ContinuousLayoutSes
 }
 
 fn session_blocks(nodes: &[StyledNode], max_nodes: usize) -> Vec<TestBlock> {
+    session_blocks_with_budget(nodes, budget(max_nodes))
+}
+
+fn session_blocks_with_budget(nodes: &[StyledNode], work: LayoutWorkBudget) -> Vec<TestBlock> {
     let images = ImageSizeIndex::new(&[]);
     let fonts = TextMeasurementFonts::empty();
     let mut session = session(nodes, &images);
     let mut blocks = Vec::new();
     loop {
-        let result = session.advance(budget(max_nodes), &fonts);
-        assert!(result.processed_top_level_nodes <= max_nodes);
+        let result = session.advance(work, &fonts);
         blocks.extend(result.output);
         if result.status == LayoutAdvanceStatus::Complete {
             return blocks;
@@ -286,6 +436,18 @@ fn budget_with_lines(max_nodes: usize, max_lines: usize) -> LayoutWorkBudget {
     )
 }
 
+fn budget_with_work_limits(
+    max_nodes: usize,
+    max_descendant_nodes: usize,
+    max_lines: usize,
+) -> LayoutWorkBudget {
+    LayoutWorkBudget::with_work_limits(
+        NonZeroUsize::new(max_nodes).expect("test node budget is non-zero"),
+        NonZeroUsize::new(max_descendant_nodes).expect("test descendant-node budget is non-zero"),
+        NonZeroUsize::new(max_lines).expect("test line budget is non-zero"),
+    )
+}
+
 fn paragraph(content: &str, margin_top: f64, margin_bottom: f64) -> StyledNode {
     let mut node = styled_node(StyledNodeKind::Block, vec![text(content)]);
     node.tag = Some("p".to_owned());
@@ -294,6 +456,21 @@ fn paragraph(content: &str, margin_top: f64, margin_bottom: f64) -> StyledNode {
         ("marginTop".to_owned(), json!(margin_top)),
         ("marginBottom".to_owned(), json!(margin_bottom)),
     ]);
+    node
+}
+
+fn container(tag: &str, children: Vec<StyledNode>) -> StyledNode {
+    let mut node = styled_node(StyledNodeKind::Block, children);
+    node.tag = Some(tag.to_owned());
+    node.style.insert("display".to_owned(), json!("block"));
+    node
+}
+
+fn list_item(content: &str) -> StyledNode {
+    let mut node = paragraph(content, 0.0, 0.0);
+    node.tag = Some("li".to_owned());
+    node.style
+        .insert("listStyleType".to_owned(), json!("decimal"));
     node
 }
 
