@@ -112,8 +112,6 @@ pub(crate) struct LayoutWorkMeter {
     descendant_accepts_remaining: usize,
     descendant_starts_remaining: usize,
     line_boxes_remaining: usize,
-    // This staged state becomes live when text-layout operations are metered.
-    #[allow(dead_code)]
     text_work: TextWorkMeter,
 }
 
@@ -171,7 +169,6 @@ impl LayoutWorkMeter {
         self.root_starts_remaining = self.root_starts_remaining.min(remaining);
     }
 
-    #[allow(dead_code)]
     pub(in crate::layout) fn text_work_mut(&mut self) -> &mut TextWorkMeter {
         &mut self.text_work
     }

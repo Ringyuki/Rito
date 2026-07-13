@@ -92,7 +92,7 @@ struct TextMeasurementCacheKey {
     font_family: Option<String>,
     font_style: Option<String>,
     font_weight: Option<u16>,
-    fallback_profile_id: u64,
+    layout_profile_id: u64,
 }
 
 impl TextMeasurementCacheKey {
@@ -105,7 +105,7 @@ impl TextMeasurementCacheKey {
             font_family: input.style.font_family.clone(),
             font_style: input.style.font_style.clone(),
             font_weight: input.style.font_weight,
-            fallback_profile_id: input.fonts.fallback_profile_id(),
+            layout_profile_id: input.fonts.layout_profile_id(),
         }
     }
 }

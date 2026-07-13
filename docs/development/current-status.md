@@ -326,15 +326,35 @@ Those names now belong to the old TS reference tree only.
      chapter/image loading and resumable page-window growth. Browser and Kit
      publish partial extents correctly; Next at the known boundary requests and
      commits more work instead of disabling navigation.
-   - Greedy leaf paragraphs now resume every 32 completed line boxes at the
-     root and through ordinary in-flow transparent container trees. All active
-     descendants share one 32-node accept/start meter and the same line meter;
-     flat containers retain one private tail block so completed children can
-     seal stable pages without later mutating `id` or page-break semantics.
-     Final eager/bounded pages and frame commands remain identical. Visually
-     decorated or floated containers, tables, Optimal paragraphs,
-     container/paragraph preparation and individual shaping calls remain
-     atomic.
+   - Greedy leaf paragraphs now resume both between completed line boxes and
+     inside one pending line at the root and through ordinary in-flow
+     transparent container trees. Break search, cached prefix/style-slice
+     measurement, line-break scanning, leading-space skip, trailing-whitespace
+     trim, UTF-16 run copy, measurement and shaping all retain their state
+     across public quanta. The indivisible font measurement or Rustybuzz call
+     at each stage is admitted as one atomic operation; a fresh quantum may
+     admit one oversized operation to avoid livelock, so this is not by itself
+     a wall-clock preemption guarantee.
+   - All active descendants share one 32-node accept/start meter and the same
+     text-work meter. One public continuation request also shares that text
+     meter across every chapter it visits instead of resetting it at chapter
+     boundaries; the next public request receives a fresh meter. Flat
+     containers retain one private tail block so completed children can seal
+     stable pages without later mutating `id` or page-break semantics. No
+     unfinished line or block is published, and eager/bounded pages, frame
+     commands and ordered text-work traces remain identical.
+   - A resumed Greedy line-layout session must use the same logical font
+     inputs. Each session captures a process-local layout-profile token derived
+     from fallback mode/profile and the ordered face descriptors/fingerprints,
+     then rejects a resume under a different profile instead of silently
+     restoring with inconsistent metrics. The same token partitions the shared
+     width cache so separate revision font assemblies cannot reuse stale
+     measurements.
+   - This is not yet the complete default-Greedy hard bound. Inline
+     flattening/context construction, container startup and owned
+     margin-collapse preparation, justification/alignment/mapping work,
+     hyphen-candidate generation, visually decorated or floated containers,
+     tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -342,7 +362,9 @@ Those names now belong to the old TS reference tree only.
      retains stable text hashes. Trace-on/off tests compare mock and real-font
      `LineBox` values field for field, while fallback/cache tests prevent
      request counts from being mistaken for real shaping work. Production
-     builds carry no trace path.
+     builds carry no trace path. The trace is now the regression oracle for the
+     resumable text-work sequence rather than merely evidence for a future
+     meter.
    - Publication-wide cross-chapter footnote filtering now collects targets and
      candidate definitions in one cached, resource-light spine scan instead of
      parsing every XHTML source twice, and sanitizes note payloads only after
@@ -460,11 +482,14 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by metering container startup,
-   incremental inline flatten/context preparation and explicit atomic text
-   operations, then carry continuation through decorated/floated containers.
-   Split table prepass/rows and Optimal preparation afterward while preserving
-   eager/bounded final equivalence.
+1. Complete the default-Greedy hard bound by incrementally metering inline
+   flattening/context preparation, container startup and remaining line
+   post-processing such as justification/alignment, mapping and hyphen-candidate
+   generation. Then carry continuation through decorated/floated containers
+   and split table prepass/rows and Optimal preparation while preserving
+   eager/bounded final equivalence. Measurement and shaping stages are already
+   scheduled resumably, although each underlying font call remains
+   indivisible.
 2. Move the publication-wide footnote scan inside a measured source-index
    budget.
 3. Replace eager completed-layout search with a durable publication source index
@@ -482,11 +507,18 @@ Work in roadmap order:
 
 The revision/locator contract, bounded production switch and principal native
 interaction slices are complete. Greedy leaf layout is resumable through
-ordinary transparent container trees without changing final pagination, and
-the footnote index performs one spine parse instead of two. Passive text-work
-tracing now establishes the exact existing probe, cache, scan and Rustybuzz
-operation sequence. The next slice should meter inline preparation and make
-break/shape operations explicitly resumable without changing that sequence.
+ordinary transparent container trees without changing final pagination. A
+pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,
+leading-space and trailing-trim state across public quanta, and one public
+request shares its text-work meter across chapter boundaries. Exact ordered
+text-work traces remain unchanged, while a captured font layout-profile token
+prevents restore under inconsistent logical font inputs. The footnote index
+performs one spine parse instead of two. The next bounded-layout slice should
+meter inline/context preparation, container startup and the remaining
+justification, mapping and hyphen-candidate-generation work before extending
+the same discipline through decorated/floated containers, tables and Optimal
+layout. Individual font calls remain indivisible and the oversized-operation
+escape means the public quantum is not yet a complete wall-clock hard bound.
 After the default-Greedy hard bound, move the single-pass source scan under an
 explicit budget and reuse a durable source index for full-publication search.
 Keep search result geometry lazy and active-window only. In parallel, measure

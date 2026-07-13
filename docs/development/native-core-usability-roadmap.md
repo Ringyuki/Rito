@@ -44,19 +44,27 @@ visible-spread accessibility are wired through the public Reader and Kit.
 
 The remaining usability work is narrower but still release-blocking:
 
-1. Greedy leaf paragraphs now yield between completed line boxes both at the
-   root and through ordinary in-flow transparent container trees. Every
-   recursive session shares one 32-node descendant quantum and one 32-line
-   quantum, and completed flat children can seal stable pages before their
-   ancestor closes. Visually decorated or floated containers, Optimal
-   paragraphs, tables, container/paragraph preparation and individual
-   contextual shaping calls remain atomic. A test-only passive trace now
-   distinguishes prefix probes, full line-break scans, measurement-cache
-   sources/outcomes and the actual UTF-16 subruns sent to Rustybuzz in one
-   ordered, text-hashed event stream without changing mock or real-font line
-   output; the trace is evidence for the next work meter, not yet a bound.
-   The first publication-wide footnote scan is now single-pass, but still
-   remains outside the layout budget.
+1. Greedy leaf paragraphs now yield both between completed line boxes and
+   inside one pending line at the root and through ordinary in-flow transparent
+   container trees. Break search, cached prefix/style-slice measurement,
+   line-break scanning, UTF-16 run copy, leading-space skip,
+   trailing-whitespace trim, measurement and shaping retain state across public
+   quanta without publishing a partial line or block. Every recursive session
+   shares one 32-node descendant quantum and the text-work meter, and one public
+   request keeps that meter across chapter boundaries. A later request starts
+   with a fresh meter. Each session also captures a process-local logical font
+   layout-profile token and rejects resume under a different fallback/face
+   profile; the same token isolates shared width-cache entries between font
+   assemblies. Individual font measurement and Rustybuzz calls remain indivisible,
+   and one oversized operation may run on a fresh quantum to avoid livelock.
+   Inline/context preparation, container startup, justification/mapping,
+   hyphen-candidate generation, visually decorated or floated containers,
+   Optimal paragraphs and tables therefore still prevent a complete wall-clock
+   hard bound. A test-only ordered, text-hashed trace covers prefix probes,
+   line-break scans, cache outcomes and actual Rustybuzz subruns; exact
+   trace-on/off and eager/bounded equivalence make it the regression oracle for
+   this resumable sequence. The first publication-wide footnote scan is now
+   single-pass, but still remains outside the layout budget.
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
    lazily, but still needs a publication source/chapter index.
@@ -82,8 +90,13 @@ It already:
 - defines an initial top-level-node budget and stable partial page window;
 - stops inside a large XHTML spine item between top-level nodes and through
   ordinary transparent descendant containers;
-- resumes Greedy leaf paragraphs every 32 completed line boxes while
-  withholding the unfinished block from pagination;
+- resumes Greedy leaf paragraphs between completed lines and inside a pending
+  line, retaining break/measure/shape, UTF-16 run-copy, leading-space and
+  trailing-trim state while withholding unfinished output from pagination;
+- shares one text-work meter through every descendant and chapter visited by a
+  public request, then starts a fresh meter for the next request;
+- captures the logical font layout profile used to start a Greedy line session
+  and rejects an inconsistent profile on resume;
 - shares a 32-node accept/start meter across every active descendant session,
   streams stable flat-container children with a one-block tail lookbehind, and
   preserves list, margin, anchor and page-break state across yields;
@@ -94,10 +107,13 @@ It already:
   locator across reflow and window growth;
 - requests the resources needed by active and warm windows.
 
-The remaining bounded-layout work is to cover visually decorated and floated
-containers, auto-layout tables, Optimal paragraphs, container/paragraph
-preparation and their shaping work. Publication-wide source indexes must
-likewise be budgeted instead of front-loading a full-spine scan.
+The remaining bounded-layout work is to meter incremental inline/context
+preparation, container startup, justification/alignment/mapping and
+hyphen-candidate generation, then cover visually decorated and floated
+containers, auto-layout tables and Optimal paragraphs. Individual font calls
+remain indivisible even though their surrounding measure/shape stages resume.
+Publication-wide source indexes must likewise be budgeted instead of
+front-loading a full-spine scan.
 
 Revision identity is now defined across the asynchronous interaction and
 continuation APIs. A browser-side ownership handle distinguishes Worker/session
@@ -111,27 +127,38 @@ progression, not only an href. Locators into unpaginated regions request bounded
 growth and are re-resolved after font or viewport reflow.
 
 The first useful frame no longer depends on laying out the first eight chapters
-or the full publication. Once prepared, transparent-container descendant
-traversal and completed Greedy line emission cannot monopolize one continuation
-call, but one container/paragraph-preparation pass, decorated or floated
-composite, table, Optimal paragraph or shaping call can still violate the
-intended latency bound.
+or the full publication. Once its inline context exists, transparent-container
+descendant traversal and Greedy break/measure/shape, UTF-16 run-copy and
+whitespace work advance through metered stages across public quanta. One
+container/paragraph-preparation pass, remaining line post-processing,
+decorated or floated composite, table or Optimal paragraph can still violate
+the intended latency bound. Each individual measurement or Rustybuzz call is
+also indivisible, and the fresh-quantum oversized-operation escape prevents
+livelock rather than imposing a strict wall-clock bound.
 
 Exact bounded publication has algorithmic constraints that must remain explicit:
 
-- Greedy leaf line layout now yields through transparent container trees with
-  the unfinished paragraph withheld; publishing a stable paragraph prefix
-  still requires widow/orphan lookahead and open-block paint edges;
+- Greedy leaf line layout now persists break search, prefix/style-slice
+  measurement, line-break scan, UTF-16 run copy, leading-space skip,
+  trailing-whitespace trim and measure/shape stages through transparent
+  container trees. It withholds the unfinished line and paragraph; publishing a
+  stable paragraph prefix still requires widow/orphan lookahead and open-block
+  paint edges;
 - transparent-container startup still uses the existing owned margin-collapse
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
+- inline flattening/context construction and the remaining
+  justification/alignment, source mapping and hyphen-candidate generation are
+  not yet fully covered by the text-work meter;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
 - auto table column widths depend on a whole-table intrinsic-width prepass. The
   prepass can be resumable and rows can publish after widths freeze;
-- one contextual shaping call, especially a huge `nowrap` run, is an atomic
-  black box unless it moves to interruptible/background native execution;
+- measure and shape stages yield before an operation and resume afterward, but
+  one font measurement or contextual Rustybuzz call remains an indivisible
+  black box. A huge `nowrap` operation may use the fresh-quantum oversized-work
+  escape unless shaping moves to interruptible/background native execution;
 - publication-wide cross-chapter footnote exactness requires a cached,
   resource-light source index. It may scan XHTML targets and note candidates,
   but must not retain every chapter DOM or mark lazy chapters/resources loaded.
@@ -371,12 +398,18 @@ architecture rather than make an eager whole-book pipeline faster.
    WASM paths, the coalescing session controller and the production Browser/Kit
    switch are implemented. Exact reads use complete revision handles, partial
    extents drive navigation growth, and bounded candidates suspend interaction
-   until commit. Greedy leaf paragraphs now resume on a shared 32-line internal
-   quantum and eager layout drains the same state machine. Ordinary
-   transparent descendant containers now share a 32-node recursive meter and
-   can publish stable completed children before closing. Decorated/floated
-   containers, tables, Optimal layout, container/paragraph preparation and
-   single shaping calls remain atomic.
+   until commit. Greedy leaf paragraphs now persist break/measure/shape,
+   UTF-16 run-copy, leading-space and trailing-trim state inside a pending line,
+   and eager layout drains the same state machine. Ordinary transparent
+   descendant containers share a 32-node recursive meter, while one public
+   request shares its text-work meter across every chapter it visits. Stable
+   completed children can publish before their ancestor closes, but no partial
+   line or block is exposed. A process-local font layout-profile token rejects
+   inconsistent resume inputs. Inline/context preparation, container startup,
+   justification/mapping, hyphen-candidate generation, decorated/floated
+   containers, tables and Optimal layout retain unmetered or atomic regions;
+   individual font calls are still indivisible and may use the oversized-work
+   escape.
    The cross-chapter footnote index is lazy-state-safe and single-pass, but its
    first full-spine scan is still outside the layout budget.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,

@@ -55,8 +55,6 @@ mod text_mapping;
 mod text_measure;
 mod text_position;
 mod text_shape;
-// Staged independently before text-layout call sites start consuming it.
-#[allow(dead_code)]
 mod text_work;
 #[cfg(test)]
 mod text_work_trace;

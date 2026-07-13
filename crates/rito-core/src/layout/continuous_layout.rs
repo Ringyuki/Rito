@@ -138,7 +138,7 @@ impl ContinuousLayoutCursor {
         if let Some(active) = self.active.as_mut() {
             match active {
                 ContinuousActiveLayout::Leaf(active) => {
-                    let processed = active.advance(work.line_boxes_remaining(), fonts);
+                    let processed = active.advance(work, fonts);
                     work.consume_line_boxes(processed);
                     complete = active.is_complete();
                 }
@@ -277,8 +277,11 @@ impl ContinuousLeafLayoutSession {
         }
     }
 
-    fn advance(&mut self, max_line_boxes: usize, fonts: &TextMeasurementFonts<'_>) -> usize {
-        let lines = self.lines.advance(max_line_boxes, fonts);
+    fn advance(&mut self, work: &mut LayoutWorkMeter, fonts: &TextMeasurementFonts<'_>) -> usize {
+        let max_line_boxes = work.line_boxes_remaining();
+        let lines = self
+            .lines
+            .advance_with_text_work(max_line_boxes, work.text_work_mut(), fonts);
         let processed = lines.len();
         self.completed_lines.extend(lines);
         processed

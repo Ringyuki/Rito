@@ -34,7 +34,7 @@ enum FallbackMeasurementMode {
     FontAware,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) struct TextMeasurementFonts<'a> {
     faces: Vec<TextMeasurementFontFace<'a>>,
     cache: TextMeasurementCache,
@@ -43,7 +43,13 @@ pub(crate) struct TextMeasurementFonts<'a> {
     font_family_advances: BTreeMap<String, BTreeMap<char, f64>>,
     generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
     font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
-    fallback_profile_id: u64,
+    layout_profile_id: u64,
+}
+
+impl<'a> Default for TextMeasurementFonts<'a> {
+    fn default() -> Self {
+        Self::empty()
+    }
 }
 
 impl<'a> TextMeasurementFonts<'a> {
@@ -56,7 +62,11 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
-            fallback_profile_id: 0,
+            layout_profile_id: compute_layout_profile_id(
+                FallbackMeasurementMode::FixtureCompatible,
+                0,
+                &[],
+            ),
         }
     }
 
@@ -70,12 +80,18 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
-            fallback_profile_id: 0,
+            layout_profile_id: compute_layout_profile_id(
+                FallbackMeasurementMode::FontAware,
+                0,
+                &[],
+            ),
         }
     }
 
     #[cfg(test)]
     pub(crate) fn new(faces: Vec<TextMeasurementFontFace<'a>>) -> Self {
+        let layout_profile_id =
+            compute_layout_profile_id(FallbackMeasurementMode::FontAware, 0, &faces);
         Self {
             faces,
             cache: TextMeasurementCache::default(),
@@ -84,7 +100,7 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
-            fallback_profile_id: 0,
+            layout_profile_id,
         }
     }
 
@@ -102,6 +118,11 @@ impl<'a> TextMeasurementFonts<'a> {
             &generic_serif_pair_adjustments,
             &font_family_pair_adjustments,
         );
+        let layout_profile_id = compute_layout_profile_id(
+            FallbackMeasurementMode::FontAware,
+            fallback_profile_id,
+            &faces,
+        );
         Self {
             faces,
             cache,
@@ -110,7 +131,7 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances,
             generic_serif_pair_adjustments,
             font_family_pair_adjustments,
-            fallback_profile_id,
+            layout_profile_id,
         }
     }
 
@@ -151,8 +172,12 @@ impl<'a> TextMeasurementFonts<'a> {
         self.cache.widths.borrow_mut().insert(key, width);
     }
 
-    pub(super) fn fallback_profile_id(&self) -> u64 {
-        self.fallback_profile_id
+    /// Process-local identity for every font input that can affect layout.
+    ///
+    /// This token intentionally excludes measurement-cache instance and state;
+    /// it is not a persistent or cross-version wire format.
+    pub(crate) fn layout_profile_id(&self) -> u64 {
+        self.layout_profile_id
     }
 
     pub(super) fn uses_fixture_compatible_fallback(&self) -> bool {
@@ -325,6 +350,29 @@ fn fallback_profile_id(
             right.hash(&mut hasher);
             adjustment.to_bits().hash(&mut hasher);
         }
+    }
+    hasher.finish()
+}
+
+fn compute_layout_profile_id(
+    fallback_mode: FallbackMeasurementMode,
+    fallback_profile_id: u64,
+    faces: &[TextMeasurementFontFace<'_>],
+) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    "rito-text-layout-profile-v1".hash(&mut hasher);
+    match fallback_mode {
+        FallbackMeasurementMode::FixtureCompatible => 0_u8,
+        FallbackMeasurementMode::FontAware => 1_u8,
+    }
+    .hash(&mut hasher);
+    fallback_profile_id.hash(&mut hasher);
+    faces.len().hash(&mut hasher);
+    for face in faces {
+        face.family.hash(&mut hasher);
+        face.style.hash(&mut hasher);
+        face.weight.hash(&mut hasher);
+        face.fingerprint().hash(&mut hasher);
     }
     hasher.finish()
 }

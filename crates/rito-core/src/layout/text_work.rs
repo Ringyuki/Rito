@@ -103,10 +103,12 @@ impl TextWorkMeter {
         TextWorkPermitResult::Yield
     }
 
+    #[cfg(test)]
     pub(in crate::layout) const fn utf16_units_remaining(&self) -> usize {
         self.utf16_units_remaining
     }
 
+    #[cfg(test)]
     pub(in crate::layout) const fn atomic_operations_remaining(&self) -> usize {
         self.atomic_operations_remaining
     }

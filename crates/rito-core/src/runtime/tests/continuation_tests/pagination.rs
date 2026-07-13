@@ -104,9 +104,9 @@ fn nested_transparent_container_publishes_stable_frames_before_completion() {
 
     assert_ne!(advance.revision.status, RuntimeRevisionStatus::Complete);
     assert_eq!(advance.processed_top_level_nodes, 1);
-    assert!(advance.revision.known_extent.page_count > 0);
     let mut stable_frame_hashes = Vec::new();
     assert_published_frames_stable(&mut bounded, &advance, &mut stable_frame_hashes);
+    let mut published_before_completion = advance.revision.known_extent.page_count > 0;
 
     let mut continuation_count = 0;
     while let Some(cursor) = advance.continuation.clone() {
@@ -116,9 +116,12 @@ fn nested_transparent_container_publishes_stable_frames_before_completion() {
         continuation_count += 1;
         assert_eq!(advance.processed_top_level_nodes, 0);
         assert_published_frames_stable(&mut bounded, &advance, &mut stable_frame_hashes);
+        published_before_completion |= advance.revision.status != RuntimeRevisionStatus::Complete
+            && advance.revision.known_extent.page_count > 0;
     }
 
     assert!(continuation_count > 1);
+    assert!(published_before_completion);
     assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
     let eager_layout = &eager.revisions[&eager_revision.revision_id].layout;
     let bounded_layout = &bounded.revisions[&advance.revision.revision_id].layout;

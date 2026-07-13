@@ -163,6 +163,37 @@ fn one_large_greedy_paragraph_resumes_by_line_without_publishing_a_partial_block
 }
 
 #[test]
+fn text_work_budget_resumes_inside_a_nowrap_run_without_partial_output() {
+    let mut long = paragraph(&"text-work-budget ".repeat(40), 0.0, 0.0);
+    long.style.insert("whiteSpace".to_owned(), json!("nowrap"));
+    let nodes = vec![long];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut session = session(&nodes, &images);
+    let work = budget_with_text_work(1, 16, 1);
+
+    let first = session.advance(work, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty());
+
+    let mut advance_count = 1;
+    let final_output = loop {
+        let advance = session.advance(work, &fonts);
+        advance_count += 1;
+        assert!(advance_count < 1_000, "text layout must not livelock");
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break advance.output;
+        }
+        assert!(advance.output.is_empty());
+    };
+
+    assert!(advance_count > 10);
+    assert_eq!(final_output, one_shot_blocks(&nodes));
+}
+
+#[test]
 fn accepted_nodes_wait_in_source_order_behind_a_resumable_paragraph() {
     let nodes = vec![
         paragraph(&"queued long paragraph ".repeat(240), 0.0, 0.0),
@@ -445,6 +476,18 @@ fn budget_with_work_limits(
         NonZeroUsize::new(max_nodes).expect("test node budget is non-zero"),
         NonZeroUsize::new(max_descendant_nodes).expect("test descendant-node budget is non-zero"),
         NonZeroUsize::new(max_lines).expect("test line budget is non-zero"),
+    )
+}
+
+fn budget_with_text_work(
+    max_nodes: usize,
+    max_utf16_units: usize,
+    max_atomic_operations: usize,
+) -> LayoutWorkBudget {
+    LayoutWorkBudget::with_text_work_limits(
+        NonZeroUsize::new(max_nodes).expect("test node budget is non-zero"),
+        NonZeroUsize::new(max_utf16_units).expect("test text budget is non-zero"),
+        NonZeroUsize::new(max_atomic_operations).expect("test operation budget is non-zero"),
     )
 }
 

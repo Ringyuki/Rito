@@ -1,3 +1,4 @@
+#[cfg(test)]
 use std::convert::Infallible;
 
 use super::line_break::Utf16Text;
@@ -17,6 +18,7 @@ pub(super) struct FittingPrefix {
     pub(super) forward_end: usize,
 }
 
+#[cfg(test)]
 pub(super) fn find_fitting_prefix<F>(
     text: &Utf16Text<'_>,
     start: usize,

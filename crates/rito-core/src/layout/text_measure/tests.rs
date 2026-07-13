@@ -14,6 +14,7 @@ use super::{
 mod fixture_policy;
 mod font_face_selection;
 mod font_policy;
+mod layout_profile;
 mod shape_policy;
 mod shape_provenance;
 mod shape_safety;

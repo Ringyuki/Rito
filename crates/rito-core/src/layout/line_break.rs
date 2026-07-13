@@ -1,8 +1,10 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
-    convert::Infallible,
 };
+
+#[cfg(test)]
+use std::convert::Infallible;
 
 use unicode_linebreak::{linebreaks, BreakOpportunity};
 
@@ -284,6 +286,7 @@ where
     )
 }
 
+#[cfg(test)]
 pub(crate) fn adjust_break_position_with_offsets_until<F>(
     start: usize,
     end: usize,
@@ -349,6 +352,7 @@ where
     .unwrap_or(candidate))
 }
 
+#[cfg(test)]
 pub(crate) fn try_ascii_hyphenation<F>(
     text: &Utf16Text<'_>,
     line_start: usize,
