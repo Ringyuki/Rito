@@ -26,9 +26,6 @@ export function createEmptyBrowserReaderReflowState(): BrowserReaderState['reflo
     token: 0,
     microtaskScheduled: false,
     queued: undefined,
-    deferred: undefined,
-    deferredTimer: undefined,
-    locatorNavigation: undefined,
     lastError: undefined,
   };
 }

@@ -13,6 +13,8 @@ import {
   setRevisionState,
   spreadNavigationSlot,
 } from './browser-reader-reflow-fixtures';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
+import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 
 describe('Browser reader interaction contract', () => {
   it('maps typed page targets without exposing worker layout internals', async () => {
@@ -273,7 +275,7 @@ describe('Browser reader interaction contract', () => {
     expect(fixture.resolveSourceLocatorAtRevision).toHaveBeenCalledWith(handle(), locator);
   });
 
-  it('reports disabled without a canonical revision or during a visual preview', () => {
+  it('reports disabled without a canonical revision or while the exact gate is closed', () => {
     const { worker } = createWorker(() => undefined);
     const state = createState(worker);
     const interactions = createBrowserReaderInteractions(state);
@@ -282,16 +284,16 @@ describe('Browser reader interaction contract', () => {
     setRevisionState(state, revisionSummary('rev', 1, 1));
     expect(interactions.enabled).toBe(true);
 
-    state.visualPreview = {} as typeof state.visualPreview;
+    closeExactRevisionReadGate(state);
     expect(interactions.enabled).toBe(false);
-    state.visualPreview = undefined;
     state.disposed = true;
     expect(interactions.enabled).toBe(false);
   });
 
-  it('keeps durable source reads bound to the canonical revision during a visual preview', async () => {
+  it('keeps durable current reads available while a layout candidate exists', async () => {
     const fixture = readyFixture();
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    fixture.state.boundedSessions.candidate =
+      {} as BrowserReaderState['boundedSessions']['candidate'];
     fixture.getPageReadingAnchorAtRevision.mockResolvedValue({
       revision: handle(),
       value: pageReadingAnchor(0, 0),
@@ -315,7 +317,7 @@ describe('Browser reader interaction contract', () => {
     });
     expect(fixture.getPageReadingAnchorAtRevision).toHaveBeenCalledWith(handle(), 0);
     expect(fixture.resolveSourceLocatorAtRevision).toHaveBeenCalledWith(handle(), locator);
-    expect(interactions.enabled).toBe(false);
+    expect(interactions.enabled).toBe(true);
   });
 });
 

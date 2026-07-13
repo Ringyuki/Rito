@@ -16,10 +16,7 @@ export function createState(
 ): BrowserReaderState {
   return {
     worker,
-    foregroundWorker: worker,
     workerFactory: () => worker,
-    fullReflowWorker: undefined,
-    fullReflowOpenPromise: undefined,
     decodeFrameCommandBuffer: vi.fn(() => ({
       protocolVersion: 2,
       commandCount: 0,
@@ -109,7 +106,6 @@ export function createState(
     commitGeneration: 0,
     boundedSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
-    visualPreview: undefined,
     interaction: { pageTargets: new Map(), pendingPageTargets: new Map() },
     frames: new Map(),
     pendingImageLoads: new Map(),
@@ -134,9 +130,6 @@ export function createState(
       token: 0,
       microtaskScheduled: false,
       queued: undefined,
-      deferred: undefined,
-      deferredTimer: undefined,
-      locatorNavigation: undefined,
       lastError: undefined,
     },
     disposed: false,

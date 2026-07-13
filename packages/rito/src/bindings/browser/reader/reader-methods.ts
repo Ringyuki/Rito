@@ -1,6 +1,5 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { visualLayoutConfig } from './revision';
 import { cancelBrowserReaderReflow, scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
 import { browserReaderSpreads } from './layout';
@@ -169,14 +168,14 @@ function navigationMethods(
 > {
   return {
     getCanvasSize(scale = 1) {
-      const config = visualLayoutConfig(state);
+      const config = state.config;
       return {
         width: Math.round(config.viewportWidth * scale * state.dpr) / state.dpr,
         height: Math.round(config.viewportHeight * scale * state.dpr) / state.dpr,
       };
     },
     getLayoutGeometry() {
-      return visualLayoutConfig(state);
+      return state.config;
     },
     findPage(entry) {
       return findRitoCoreWasmReaderTocTarget(state.tocTargets, entry)?.pageIndex;

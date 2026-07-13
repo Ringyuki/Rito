@@ -1,7 +1,6 @@
 import type {
   decodeRitoFrameCommandBuffer,
   CoreRevisionBundle,
-  CoreReaderViewRevisionResult,
   CoreFrameCommand,
   CoreJsonObject,
   CoreLayoutConfig,
@@ -18,8 +17,6 @@ import type {
   ChapterTextIndex,
   FootnoteEntry,
   LayoutConfig,
-  ReaderLocator,
-  ReaderLocatorResolution,
   ReaderPageTargets,
   Spread,
   TocEntry,
@@ -86,36 +83,12 @@ export interface TocTarget {
 
 export type Logger = BrowserHostLogger;
 
-export interface BrowserReaderVisualPreview {
-  readonly revision: BrowserReaderWorkerRevisionHandle;
-  readonly baseCommitGeneration: number;
-  readonly interactionPolicy: 'disabled';
-  readonly spreadIndex: number;
-  readonly frame: BrowserReaderFrame;
-  readonly config: LayoutConfig;
-  readonly spreadMode: 'single' | 'double';
-  readonly lineBreaking: CoreLineBreaking;
-  readonly worker: BrowserReaderWorkerClient;
-}
-export interface BrowserReaderLocatorNavigation {
-  readonly locator: ReaderLocator;
-  phase: 'probing' | 'full' | 'settling';
-  readonly promise: Promise<ReaderLocatorResolution | undefined>;
-  readonly complete: (value: ReaderLocatorResolution | undefined) => void;
-  readonly fail: (error: unknown) => void;
-}
 export interface BrowserReaderQueuedReflow {
   readonly config: LayoutConfig;
   readonly spreadMode: 'single' | 'double';
   readonly lineBreaking: CoreLineBreaking;
   readonly token: number;
   readonly onCommitted?: (() => void) | undefined;
-  readonly locatorNavigation?: BrowserReaderLocatorNavigation | undefined;
-}
-
-export interface BrowserReaderDeferredFullReflow {
-  readonly request: BrowserReaderQueuedReflow;
-  readonly followUp: NonNullable<CoreReaderViewRevisionResult['followUp']>;
 }
 
 export interface BrowserReaderReflowState {
@@ -123,9 +96,6 @@ export interface BrowserReaderReflowState {
   token: number;
   microtaskScheduled: boolean;
   queued: BrowserReaderQueuedReflow | undefined;
-  deferred: BrowserReaderDeferredFullReflow | undefined;
-  deferredTimer: ReturnType<typeof setTimeout> | undefined;
-  locatorNavigation: BrowserReaderLocatorNavigation | undefined;
   lastError: Error | undefined;
 }
 
@@ -133,10 +103,7 @@ export type BrowserReaderWorkerClientFactory = () => BrowserReaderWorkerClient;
 
 export interface BrowserReaderState {
   worker: BrowserReaderWorkerClient;
-  foregroundWorker: BrowserReaderWorkerClient;
   readonly workerFactory: BrowserReaderWorkerClientFactory;
-  fullReflowWorker: BrowserReaderWorkerClient | undefined;
-  fullReflowOpenPromise: Promise<void> | undefined;
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
   readonly documentData: ArrayBuffer;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
@@ -156,7 +123,6 @@ export interface BrowserReaderState {
   commitGeneration: number;
   readonly boundedSessions: BrowserReaderBoundedSessionSlots;
   disposeTask: Promise<void> | undefined;
-  visualPreview: BrowserReaderVisualPreview | undefined;
   readonly interaction: BrowserReaderInteractionState;
   frames: Map<number, BrowserReaderFrame>;
   pendingImageLoads: Map<string, Promise<void>>;

@@ -168,7 +168,6 @@ async function createBoundedCandidate(
     if (!requestIsLive(state, request, signal)) return 'cancelled';
     const anchor = await captureBrowserReaderReflowAnchor(state);
     if (anchor.status === 'stale') return 'retry';
-    if (anchor.status === 'superseded') return 'cancelled';
     const owner = createBrowserReaderBoundedSessionOwner(worker);
     ownerCreated = true;
     const snapshot = await startBrowserReaderBoundedCandidate(

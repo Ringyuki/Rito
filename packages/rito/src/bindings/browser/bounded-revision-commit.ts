@@ -73,11 +73,7 @@ async function prepareBoundedCommit(
   );
   if (!rollbackFonts) return undefined;
   try {
-    const commitFrame = await prepareControllerOwnedBrowserReaderCommitFrame(
-      state,
-      input.owner.worker,
-      result,
-    );
+    const commitFrame = await prepareControllerOwnedBrowserReaderCommitFrame(state, result);
     if (isEligibleCommit(state, input)) return { input, result, rollbackFonts, commitFrame };
     rollbackFonts();
     return undefined;
@@ -142,7 +138,6 @@ function publishBoundedCommit(
     return { committed: false };
   }
   const candidate = state.boundedSessions.candidate === input.owner;
-  const current = state.boundedSessions.current === input.owner;
   const retiredOwner = candidate ? state.boundedSessions.current : undefined;
   if (candidate) {
     state.boundedSessions.current = input.owner;
@@ -156,7 +151,6 @@ function publishBoundedCommit(
     result: prepared.result,
     worker: input.owner.worker,
     initialFrame: prepared.commitFrame.frame,
-    previousRevisionOwnedByController: current || retiredOwner !== undefined,
   });
   state.activeSpreadIndex = boundedCommitActiveSpread(state, prepared);
   reopenCurrentExactReads(state, input, candidate);

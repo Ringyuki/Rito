@@ -24,6 +24,7 @@ const BROWSER_READER_TYPES = join(BROWSER_READER_BINDING, 'types.ts');
 const BROWSER_READER_WORKER_CLIENT = join(BROWSER_READER_BINDING, 'worker-client.ts');
 const BROWSER_READER_WORKER_ENTRY = join(BROWSER_READER_BINDING, 'worker-entry.mjs');
 const BROWSER_READER_REFLOW = join(BROWSER_READER_BINDING, 'pipeline/bounded-reflow.ts');
+const BROWSER_READER_REVISION = join(BROWSER_READER_BINDING, 'revision.ts');
 const BROWSER_BOUNDED_REVISION_COMMIT = join(SRC, 'bindings/browser/bounded-revision-commit.ts');
 const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts');
 const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
@@ -327,7 +328,24 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).not.toContain('fullReflowWorker');
   });
 
-  it('keeps semantic interaction reads exact-versioned and preview-gated', () => {
+  it('does not retain the preview, deferred, or host-owned revision lifecycle', () => {
+    const sources = [
+      read(BROWSER_READER_TYPES),
+      read(BROWSER_READER_REVISION),
+      read(BROWSER_RENDERING),
+      read(BROWSER_RESOURCE_ADAPTER),
+      read(BROWSER_REVISION_COMMIT),
+    ];
+    for (const source of sources) {
+      expect(source).not.toContain('visualPreview');
+      expect(source).not.toContain('fullReflowWorker');
+      expect(source).not.toContain('commitBrowserReaderViewResult');
+    }
+    expect(read(BROWSER_READER_TYPES)).not.toContain('deferredTimer');
+    expect(read(BROWSER_READER_REVISION)).not.toContain('releaseRevisionAtRevision');
+  });
+
+  it('keeps semantic interaction reads exact-versioned and bounded-gated', () => {
     const source = read(BROWSER_READER_INTERACTION);
     const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
     const sourceRangeSource = read(BROWSER_READER_SOURCE_RANGE);
@@ -336,7 +354,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(source).toContain('getFootnoteAtRevision');
     expect(source).toContain('resolveSourceLocatorAtRevision');
     expect(captureSource).toContain('isCurrentRevisionHandle');
-    expect(captureSource).toContain('state.visualPreview');
+    expect(captureSource).not.toContain('visualPreview');
     expect(sourceRangeSource).toContain('resolveExactSourceRangeAtRevision');
     expect(sourceRangeSource).toContain('readCapturedInteraction');
     expect(textSelectionSource).toContain('resolveTextCaretAtRevision');

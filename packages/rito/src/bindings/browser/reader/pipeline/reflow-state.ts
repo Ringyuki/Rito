@@ -52,12 +52,8 @@ export function isNoOpReflow(
   force: boolean,
 ): boolean {
   const idle =
-    !state.revisionBundle.revision.revisionId &&
-    !state.reflow.active &&
-    !state.reflow.queued &&
-    !state.reflow.deferred;
+    !state.revisionBundle.revision.revisionId && !state.reflow.active && !state.reflow.queued;
   if (force || idle) return false;
-  const pending = state.reflow.queued ?? state.reflow.active ?? state.reflow.deferred?.request;
-  const policy = pending ?? state.visualPreview ?? state;
+  const policy = state.reflow.queued ?? state.reflow.active ?? state;
   return reflowPolicyEqual(policy, config, spreadMode, lineBreaking);
 }

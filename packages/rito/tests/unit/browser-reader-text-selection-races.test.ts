@@ -7,6 +7,7 @@ import type {
 } from '../../src/bindings/browser/core-contracts';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import type { ReaderTextCaret, ReaderTextCaretResolution } from '../../src/reader';
 import {
   createDeferred,
@@ -46,9 +47,9 @@ describe('Browser reader exact text selection races', () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
-  it('does not dispatch point reads while a visual preview is active', async () => {
+  it('does not dispatch point reads while the exact gate is closed', async () => {
     const fixture = readyFixture();
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
     const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
 
     await expect(textSelection.resolveCaret({ pageIndex: 0, x: 2, y: 3 })).resolves.toBeUndefined();
@@ -70,7 +71,7 @@ describe('Browser reader exact text selection races', () => {
     },
   );
 
-  it('drops an in-flight range when a visual preview starts', async () => {
+  it('drops an in-flight range when the exact gate closes', async () => {
     const fixture = readyFixture();
     const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
     const [anchor, focus, anchorAddress, focusAddress] = await bindCaretPair(
@@ -81,7 +82,7 @@ describe('Browser reader exact text selection races', () => {
     fixture.resolveSameFlowTextRangeAtRevision.mockReturnValue(deferred.promise);
     const pending = textSelection.resolveSameFlowRange(anchor, focus);
 
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
     deferred.resolve(versionedRange(anchorAddress, focusAddress));
 
     await expect(pending).resolves.toBeUndefined();

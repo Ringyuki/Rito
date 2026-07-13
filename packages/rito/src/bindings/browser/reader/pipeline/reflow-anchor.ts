@@ -2,36 +2,19 @@ import type { ReaderLocator } from '../../../../reader';
 import type { CoreRevisionHandle } from '../../core-contracts';
 import { copyReaderLocator } from '../interaction-capture';
 import type {
-  BrowserReaderLocatorNavigation,
-  BrowserReaderQueuedReflow,
   BrowserReaderRevisionHandle,
   BrowserReaderState,
   BrowserReaderWorkerRevisionHandle,
 } from '../types';
 import { isCurrentRevisionHandle } from './revision-handle';
-import { isStaleReflow } from './reflow-state';
 
 export type BrowserReaderReflowAnchor =
   | {
       readonly status: 'captured';
       readonly activeSpreadIndex: number;
       readonly preserveLocator?: ReaderLocator | undefined;
-      readonly locatorNavigation?: BrowserReaderLocatorNavigation | undefined;
     }
-  | { readonly status: 'stale' }
-  | { readonly status: 'superseded' };
-
-export async function retryStaleReflow<T>(
-  state: BrowserReaderState,
-  request: BrowserReaderQueuedReflow,
-  attempt: () => Promise<T | 'staleSpread'>,
-): Promise<T | undefined> {
-  while (!isStaleReflow(state, request)) {
-    const result = await attempt();
-    if (result !== 'staleSpread') return result;
-  }
-  return undefined;
-}
+  | { readonly status: 'stale' };
 
 interface ReflowAnchorCapture {
   readonly worker: BrowserReaderState['worker'];
@@ -43,20 +26,7 @@ interface ReflowAnchorCapture {
 
 export function captureBrowserReaderReflowAnchor(
   state: BrowserReaderState,
-  requestedNavigation?: BrowserReaderLocatorNavigation,
 ): BrowserReaderReflowAnchor | Promise<BrowserReaderReflowAnchor> {
-  const currentNavigation = state.reflow.locatorNavigation;
-  if (requestedNavigation && currentNavigation && requestedNavigation !== currentNavigation) {
-    return { status: 'superseded' };
-  }
-  if (requestedNavigation && requestedNavigation === currentNavigation) {
-    return {
-      status: 'captured',
-      activeSpreadIndex: state.activeSpreadIndex,
-      preserveLocator: copyReaderLocator(requestedNavigation.locator),
-      locatorNavigation: requestedNavigation,
-    };
-  }
   const capture = captureReflowAnchor(state);
   if (!capture) {
     return { status: 'captured', activeSpreadIndex: state.activeSpreadIndex };

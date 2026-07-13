@@ -17,22 +17,13 @@ interface PreparedRequiredFontFace {
   readonly face: FontFace;
 }
 
-export function prepareRequiredRevisionFonts(
-  state: BrowserReaderState,
-  worker: BrowserReaderWorkerClient,
-  bundle: CoreRevisionBundle,
-  isCurrent: () => boolean,
-): Promise<(() => void) | undefined> {
-  return prepareRevisionFonts(state, worker, bundle, isCurrent, true);
-}
-
 export function prepareControllerOwnedRevisionFonts(
   state: BrowserReaderState,
   worker: BrowserReaderWorkerClient,
   bundle: CoreRevisionBundle,
   isCurrent: () => boolean,
 ): Promise<(() => void) | undefined> {
-  return prepareRevisionFonts(state, worker, bundle, isCurrent, false);
+  return prepareRevisionFonts(state, worker, bundle, isCurrent);
 }
 
 async function prepareRevisionFonts(
@@ -40,18 +31,11 @@ async function prepareRevisionFonts(
   worker: BrowserReaderWorkerClient,
   bundle: CoreRevisionBundle,
   isCurrent: () => boolean,
-  releaseOnFailure: boolean,
 ): Promise<(() => void) | undefined> {
-  try {
-    const rollback = await registerRequiredRevisionFonts(state, worker, bundle, isCurrent);
-    if (isCurrent()) return rollback;
-    rollback();
-    if (releaseOnFailure) releaseRevision(worker, bundle.revision);
-    return undefined;
-  } catch (error) {
-    if (releaseOnFailure) releaseRevision(worker, bundle.revision);
-    throw error;
-  }
+  const rollback = await registerRequiredRevisionFonts(state, worker, bundle, isCurrent);
+  if (isCurrent()) return rollback;
+  rollback();
+  return undefined;
 }
 
 async function registerRequiredRevisionFonts(
@@ -235,10 +219,6 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
 }
 
 function noopRollback(): void {}
-
-function releaseRevision(worker: BrowserReaderWorkerClient, revision: CoreRevisionHandle): void {
-  void worker.releaseRevisionAtRevision(coreRevisionHandle(revision)).catch(() => undefined);
-}
 
 function coreRevisionHandle(revision: CoreRevisionHandle): CoreRevisionHandle {
   return {

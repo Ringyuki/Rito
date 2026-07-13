@@ -3,7 +3,6 @@ import { createCanvasImageResolver } from './image-href-resolver';
 import type { BrowserReaderFrame, BrowserReaderState } from './reader/types';
 import { ensureFrameLoaded, loadFrame, warmBrowserReaderFrameWindow } from './reader/frame-cache';
 import { browserReaderSpreads } from './reader/layout';
-import { visualLayoutConfig, visualPreviewFrame } from './reader/revision';
 
 export type { CanvasRenderingTarget } from './frame-command-renderer';
 
@@ -15,7 +14,7 @@ export function renderSpreadToBoundCanvas(
   scale: number,
 ): boolean {
   const effectiveRatio = scale * state.dpr;
-  const config = visualLayoutConfig(state);
+  const config = state.config;
   state.canvas.width = Math.round(config.viewportWidth * effectiveRatio);
   state.canvas.height = Math.round(config.viewportHeight * effectiveRatio);
   const painted = renderSpreadToContext(state, index, state.ctx);
@@ -28,19 +27,13 @@ export function renderSpreadToContext(
   index: number,
   ctx: CanvasRenderingTarget,
 ): boolean {
-  const frame = visualPreviewFrame(state, index) ?? loadFrame(state, index);
+  const frame = loadFrame(state, index);
   if (!frame) {
     void ensureFrameLoaded(state, index);
     return false;
   }
   const resolveImage = createCanvasImageResolver(state.images);
-  preloadMissingFrameImages(
-    state,
-    index,
-    frame,
-    frame === visualPreviewFrame(state, index),
-    resolveImage,
-  );
+  preloadMissingFrameImages(state, index, frame, resolveImage);
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   paintBackground(ctx, state.bgColor);
   renderFrameToCanvas(ctx, frame, state, resolveImage);
@@ -67,13 +60,11 @@ function preloadMissingFrameImages(
   state: BrowserReaderState,
   index: number,
   frame: BrowserReaderFrame,
-  usesVisualPreview: boolean,
   resolveImage: CanvasImageResolver,
 ): void {
   if (typeof createImageBitmap === 'undefined') return;
   for (const href of frame.resourceRefs.images) {
     if (resolveImage(href) === undefined) {
-      if (usesVisualPreview) return;
       void warmBrowserReaderFrameWindow(state, index);
       return;
     }

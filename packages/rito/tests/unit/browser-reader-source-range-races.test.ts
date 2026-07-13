@@ -6,6 +6,7 @@ import type {
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
 import type { ReaderInteractions } from '../../src/reader';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import {
   createDeferred,
   createState,
@@ -15,9 +16,9 @@ import {
 } from './browser-reader-reflow-fixtures';
 
 describe('Browser reader exact source-range races', () => {
-  it('does not dispatch while a visual preview is active', async () => {
+  it('does not dispatch while the exact gate is closed', async () => {
     const fixture = readyFixture();
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
     const interactions = requireCapability(createBrowserReaderInteractions(fixture.state));
 
     await expect(interactions.resolveExactSourceRange(request())).resolves.toBeUndefined();
@@ -49,14 +50,14 @@ describe('Browser reader exact source-range races', () => {
     },
   );
 
-  it('drops an in-flight response when a visual preview starts', async () => {
+  it('drops an in-flight response when the exact gate closes', async () => {
     const fixture = readyFixture();
     const deferred = createDeferred<CoreVersioned<CoreExactSourceRangeResponse>>();
     fixture.resolveExactSourceRangeAtRevision.mockReturnValue(deferred.promise);
     const interactions = requireCapability(createBrowserReaderInteractions(fixture.state));
     const pending = interactions.resolveExactSourceRange(request());
 
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
     deferred.resolve(pendingResponse());
 
     await expect(pending).resolves.toBeUndefined();

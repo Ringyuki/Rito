@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { commitBrowserReaderBoundedSnapshot } from '../../src/bindings/browser/bounded-revision-commit';
 import type {
   BrowserReaderBoundedSnapshot,
@@ -10,14 +10,20 @@ import {
   type BrowserReaderBoundedSessionOwner,
 } from '../../src/bindings/browser/reader-session-host';
 import { isCurrentRevisionHandle } from '../../src/bindings/browser/reader/pipeline/revision-handle';
+import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import {
   createDeferred,
   createState,
   createWorker,
+  flushPromises,
   frameBuffer,
   revisionResult,
   setRevisionState,
 } from './browser-reader-reflow-fixtures';
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
 
 describe('Browser bounded revision commit adapter', () => {
   it('atomically publishes an exact candidate without releasing controller-owned revisions', async () => {
@@ -234,6 +240,169 @@ describe('Browser bounded revision commit adapter', () => {
     expect(committed).not.toHaveBeenCalled();
     expect(current.readsSuspended).toBe(false);
   });
+
+  it('waits for every required font before atomically publishing a candidate', async () => {
+    const loads = new Map<string, ReturnType<typeof createDeferred<FontFace>>>();
+    class DeferredFontFace {
+      constructor(readonly family: string) {}
+      load(): Promise<FontFace> {
+        const deferred = createDeferred<FontFace>();
+        loads.set(this.family, deferred);
+        return deferred.promise;
+      }
+    }
+    vi.stubGlobal('FontFace', DeferredFontFace);
+    const registry = fontRegistry();
+    const fixture = requiredFontCandidate(registry, [
+      requiredFace('First', 'fonts/shared.ttf', 0),
+      requiredFace('Second', 'fonts/shared.ttf', 1),
+    ]);
+    const readResource = mockFontResources(fixture, (href) =>
+      fontResource(revisionHandle(fixture.snapshot), href),
+    );
+
+    const commit = commitRequiredFontCandidate(fixture);
+    await flushPromises();
+    expect(readResource).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(loads.size).toBe(2);
+    });
+    expect(registry.add).not.toHaveBeenCalled();
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+
+    expectDefined(loads.get('Second')).resolve({} as FontFace);
+    await flushPromises();
+    expect(registry.add).not.toHaveBeenCalled();
+    expectDefined(loads.get('First')).resolve({} as FontFace);
+    await expect(commit).resolves.toMatchObject({ committed: true });
+
+    expect(registry.add.mock.calls.map(([face]) => (face as DeferredFontFace).family)).toEqual([
+      'First',
+      'Second',
+    ]);
+    expect(fixture.state.boundedSessions.current).toBe(fixture.candidateOwner);
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('drops required fonts when their controller-owned candidate becomes stale while loading', async () => {
+    const load = createDeferred<FontFace>();
+    class DeferredFontFace {
+      load(): Promise<FontFace> {
+        return load.promise;
+      }
+    }
+    vi.stubGlobal('FontFace', DeferredFontFace);
+    const registry = fontRegistry();
+    const fixture = requiredFontCandidate(registry, [requiredFace('Book', 'fonts/book.ttf', 0)]);
+    mockFontResources(fixture, (href) => fontResource(revisionHandle(fixture.snapshot), href));
+
+    const commit = commitRequiredFontCandidate(fixture);
+    await flushPromises();
+    fixture.state.boundedSessions.candidate = undefined;
+    load.resolve({} as FontFace);
+
+    await expect(commit).resolves.toEqual({ committed: false });
+    expect(registry.add).not.toHaveBeenCalled();
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('rolls back registered required fonts when frame decoding makes the candidate stale', async () => {
+    vi.stubGlobal('FontFace', ImmediateFontFace);
+    const registry = fontRegistry();
+    const fixture = requiredFontCandidate(registry, [requiredFace('Book', 'fonts/book.ttf', 0)]);
+    mockFontResources(fixture, (href) => fontResource(revisionHandle(fixture.snapshot), href));
+    const decode = fixture.state.decodeFrameCommandBuffer;
+    Object.assign(fixture.state, {
+      decodeFrameCommandBuffer: vi.fn<BrowserReaderState['decodeFrameCommandBuffer']>(
+        (metadata, bytes) => {
+          const frame = decode(metadata, bytes);
+          fixture.state.boundedSessions.candidate = undefined;
+          return frame;
+        },
+      ),
+    });
+
+    await expect(commitRequiredFontCandidate(fixture)).resolves.toEqual({ committed: false });
+
+    expect(registry.add).toHaveBeenCalledOnce();
+    expect(registry.delete).toHaveBeenCalledWith(registry.add.mock.calls[0]?.[0]);
+    expect(fixture.state.registeredFontFaces.size).toBe(0);
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('rolls back registered required fonts when candidate frame decoding fails', async () => {
+    vi.stubGlobal('FontFace', ImmediateFontFace);
+    const registry = fontRegistry();
+    const fixture = requiredFontCandidate(registry, [requiredFace('Book', 'fonts/book.ttf', 0)]);
+    mockFontResources(fixture, (href) => fontResource(revisionHandle(fixture.snapshot), href));
+    Object.assign(fixture.state, {
+      decodeFrameCommandBuffer: vi.fn(() => {
+        throw new Error('frame decode failed');
+      }),
+    });
+
+    await expect(commitRequiredFontCandidate(fixture)).rejects.toThrow('frame decode failed');
+
+    expect(registry.add).toHaveBeenCalledOnce();
+    expect(registry.delete).toHaveBeenCalledWith(registry.add.mock.calls[0]?.[0]);
+    expect(fixture.state.registeredFontFaces.size).toBe(0);
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('rolls back earlier required fonts when a later FontFaceSet add fails', async () => {
+    vi.stubGlobal('FontFace', ImmediateFontFace);
+    const registry = {
+      add: vi.fn((face: FontFace) => {
+        if (face.family === 'Second') throw new Error('registry add failed');
+      }),
+      delete: vi.fn((_face: FontFace) => true),
+    };
+    const fixture = requiredFontCandidate(registry, [
+      requiredFace('First', 'fonts/first.ttf', 0),
+      requiredFace('Second', 'fonts/second.ttf', 1),
+    ]);
+    const existing = {} as FontFace;
+    fixture.state.registeredFontFaces.set('legacy', existing);
+    mockFontResources(fixture, (href) => fontResource(revisionHandle(fixture.snapshot), href));
+
+    await expect(commitRequiredFontCandidate(fixture)).rejects.toThrow('registry add failed');
+
+    expect(registry.delete).toHaveBeenCalledOnce();
+    expect((registry.delete.mock.calls[0]?.[0] as ImmediateFontFace).family).toBe('First');
+    expect(fixture.state.registeredFontFaces).toEqual(new Map([['legacy', existing]]));
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
+
+  it('rejects same-length required font bytes with the wrong fingerprint', async () => {
+    const constructFontFace = vi.fn();
+    class TrackedFontFace extends ImmediateFontFace {
+      constructor(family: string) {
+        super(family);
+        constructFontFace();
+      }
+    }
+    vi.stubGlobal('FontFace', TrackedFontFace);
+    const registry = fontRegistry();
+    const fixture = requiredFontCandidate(registry, [requiredFace('Book', 'fonts/book.ttf', 0)]);
+    mockFontResources(fixture, (href) => {
+      const resource = fontResource(revisionHandle(fixture.snapshot), href);
+      resource.value.bytes.set([4, 3, 2, 1]);
+      return resource;
+    });
+
+    await expect(commitRequiredFontCandidate(fixture)).rejects.toThrow(
+      'Pinned reader required font fingerprint mismatch',
+    );
+
+    expect(constructFontFace).not.toHaveBeenCalled();
+    expect(registry.add).not.toHaveBeenCalled();
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('old');
+    expect(fixture.candidate.releaseRevisionAtRevision).not.toHaveBeenCalled();
+  });
 });
 
 function boundedSnapshot(
@@ -345,4 +514,144 @@ function revisionHandle(snapshot: BrowserReaderBoundedSnapshot) {
     revisionId: snapshot.revision.revisionId,
     revisionVersion: snapshot.revision.revisionVersion,
   };
+}
+
+interface RequiredFontCandidateFixture {
+  readonly state: BrowserReaderState;
+  readonly candidate: ReturnType<typeof createWorker>;
+  readonly candidateOwner: BrowserReaderBoundedSessionOwner;
+  readonly snapshot: BrowserReaderBoundedSnapshot;
+}
+
+function requiredFontCandidate(
+  registry: {
+    readonly add: (face: FontFace) => void;
+    readonly delete: (face: FontFace) => boolean;
+  },
+  faces: readonly ReturnType<typeof requiredFace>[],
+): RequiredFontCandidateFixture {
+  const previous = createWorker(() => undefined, 'required-font-previous');
+  const candidate = createWorker(() => undefined, 'required-font-candidate');
+  const state = pinnedState(previous.worker, registry);
+  setRevisionState(state, revisionResult('old', 1, 1).bundle.revision);
+  const previousOwner = owner(previous.worker);
+  recordBrowserReaderAcceptedRevision(previousOwner, state.revisionBundle.revision);
+  const snapshot = withRequiredFonts(boundedSnapshot('candidate', 1, 1, 0), faces);
+  const candidateOwner = owner(candidate.worker, true);
+  recordBrowserReaderAcceptedRevision(candidateOwner, snapshot.revision);
+  state.boundedSessions.current = previousOwner;
+  state.boundedSessions.candidate = candidateOwner;
+  mockAggregates(candidate.worker, snapshot);
+  return { state, candidate, candidateOwner, snapshot };
+}
+
+function commitRequiredFontCandidate(fixture: RequiredFontCandidateFixture) {
+  return commitBrowserReaderBoundedSnapshot(fixture.state, {
+    owner: fixture.candidateOwner,
+    snapshot: fixture.snapshot,
+    config: fixture.state.config,
+    spreadMode: fixture.state.spreadMode,
+    lineBreaking: fixture.state.lineBreaking,
+    baseCommitGeneration: fixture.state.commitGeneration,
+  });
+}
+
+function pinnedState(
+  worker: BrowserReaderWorkerClient,
+  registry: {
+    readonly add: (face: FontFace) => void;
+    readonly delete: (face: FontFace) => boolean;
+  },
+): BrowserReaderState {
+  const state = createState(worker);
+  Object.assign(state.pinnedFonts, {
+    registry,
+    summary: {
+      schemaVersion: 1,
+      policyId: '1'.repeat(64),
+      faces: [{ familyAlias: '__RitoPinned_test' }],
+    },
+  });
+  return state;
+}
+
+function withRequiredFonts(
+  snapshot: BrowserReaderBoundedSnapshot,
+  faces: readonly ReturnType<typeof requiredFace>[],
+): BrowserReaderBoundedSnapshot {
+  return {
+    ...snapshot,
+    presentation: {
+      ...snapshot.presentation,
+      requiredFontFaces: {
+        schemaVersion: 1,
+        revisionId: snapshot.revision.revisionId,
+        faces,
+      },
+    },
+  };
+}
+
+function requiredFace(family: string, href: string, sourceOrder: number) {
+  return {
+    family,
+    href,
+    style: 'normal' as const,
+    weight: 400,
+    shapeFingerprint: '9f64a747e1b97f13',
+    byteLength: 4,
+    sourceOrder,
+  };
+}
+
+function mockFontResources(
+  fixture: RequiredFontCandidateFixture,
+  resource: (
+    href: string,
+  ) => Awaited<ReturnType<BrowserReaderWorkerClient['readResourceAtRevision']>>,
+) {
+  const readResource = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+    (_revision, _kind, href) => Promise.resolve(resource(href)),
+  );
+  Object.assign(fixture.candidate.worker, { readResourceAtRevision: readResource });
+  return readResource;
+}
+
+function fontResource(
+  revision: { readonly revisionId: string; readonly revisionVersion: number },
+  href: string,
+): Awaited<ReturnType<BrowserReaderWorkerClient['readResourceAtRevision']>> {
+  return {
+    revision,
+    value: {
+      payload: {
+        revisionId: revision.revisionId,
+        transferId: `transfer-${href}`,
+        kind: 'font',
+        href,
+        mediaType: 'font/ttf',
+        byteLength: 4,
+      },
+      bytes: new Uint8Array([1, 2, 3, 4]),
+    },
+  };
+}
+
+function fontRegistry() {
+  return {
+    add: vi.fn((_face: FontFace) => undefined),
+    delete: vi.fn((_face: FontFace) => true),
+  };
+}
+
+class ImmediateFontFace {
+  constructor(readonly family: string) {}
+  load(): Promise<FontFace> {
+    return Promise.resolve(this as unknown as FontFace);
+  }
+}
+
+function expectDefined<T>(value: T | undefined): T {
+  expect(value).toBeDefined();
+  return value as T;
 }

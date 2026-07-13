@@ -62,7 +62,6 @@ async function readCapturedRevision<T>(
 export function captureInteraction(
   state: BrowserReaderState,
 ): BrowserReaderInteractionCapture | undefined {
-  if (state.visualPreview) return undefined;
   return captureCommittedSourceRead(state);
 }
 
@@ -88,7 +87,7 @@ export function captureIsCurrent(
   state: BrowserReaderState,
   capture: BrowserReaderInteractionCapture,
 ): boolean {
-  return state.visualPreview === undefined && revisionCaptureIsCurrent(state, capture);
+  return revisionCaptureIsCurrent(state, capture);
 }
 
 export function sameRevision(

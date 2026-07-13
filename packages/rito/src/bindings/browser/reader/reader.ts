@@ -61,19 +61,14 @@ export async function createReader(
   try {
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
-    const preparedPinnedFonts = prepareBrowserReaderPinnedFonts(options.pinnedFontPolicy);
-    const documentData = data.slice(0);
-    const openResult = await openBrowserReaderWorker(worker, data, preparedPinnedFonts.policy);
-    pinnedFonts = await registerBrowserReaderPinnedFonts(
-      preparedPinnedFonts,
-      openResult.pinnedFontPolicy,
-    );
+    const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy);
+    pinnedFonts = opened.pinnedFonts;
     const state = createInitialState(
       worker,
       workerFactory,
       module,
-      documentData,
-      openResult,
+      opened.documentData,
+      opened.openResult,
       pinnedFonts,
       canvas,
       ctx,
@@ -106,6 +101,24 @@ export async function preloadReaderRuntime(): Promise<void> {
   await loadRuntimeCoreModule();
 }
 
+interface OpenedBrowserReaderDocument {
+  readonly documentData: ArrayBuffer;
+  readonly openResult: BrowserReaderOpenResult;
+  readonly pinnedFonts: BrowserReaderPinnedFonts;
+}
+
+async function openBrowserReaderDocument(
+  worker: BrowserReaderWorkerClient,
+  data: ArrayBuffer,
+  policy: ReaderOptions['pinnedFontPolicy'],
+): Promise<OpenedBrowserReaderDocument> {
+  const prepared = prepareBrowserReaderPinnedFonts(policy);
+  const documentData = data.slice(0);
+  const openResult = await openBrowserReaderWorker(worker, data, prepared.policy);
+  const pinnedFonts = await registerBrowserReaderPinnedFonts(prepared, openResult.pinnedFontPolicy);
+  return { documentData, openResult, pinnedFonts };
+}
+
 function createInitialState(
   worker: BrowserReaderWorkerClient,
   workerFactory: BrowserReaderWorkerClientFactory,
@@ -120,10 +133,7 @@ function createInitialState(
   const spreadMode = options.spread ?? 'single';
   const state: BrowserReaderState = {
     worker,
-    foregroundWorker: worker,
     workerFactory,
-    fullReflowWorker: undefined,
-    fullReflowOpenPromise: undefined,
     decodeFrameCommandBuffer: module.decodeRitoFrameCommandBuffer,
     documentData,
     pinnedFonts,
@@ -139,7 +149,6 @@ function createInitialState(
     fgColor: options.foregroundColor ?? undefined,
     dpr: options.devicePixelRatio ?? fallbackDevicePixelRatio(),
     ...createEmptyBrowserReaderRevisionState(),
-    visualPreview: undefined,
     frames: new Map(),
     ...createBrowserReaderResourceState(),
     footnotes: new Map(),

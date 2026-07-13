@@ -92,7 +92,6 @@ describe('Browser reader interaction races', () => {
 
   it('drops an in-flight page reading anchor after its committed generation changes', async () => {
     const fixture = readyFixture();
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
     const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
     fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
     const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
@@ -103,13 +102,14 @@ describe('Browser reader interaction races', () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
-  it('keeps an in-flight durable source read when only a visual preview starts', async () => {
+  it('keeps an in-flight durable source read while a candidate starts', async () => {
     const fixture = readyFixture();
     const deferred = createDeferred<CoreVersioned<CorePageReadingAnchor>>();
     fixture.getPageReadingAnchorAtRevision.mockReturnValue(deferred.promise);
     const pending = createBrowserReaderInteractions(fixture.state).getPageReadingAnchor?.(0);
 
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    fixture.state.boundedSessions.candidate =
+      {} as BrowserReaderState['boundedSessions']['candidate'];
     deferred.resolve(versionedReadingAnchor(0, 0));
 
     await expect(pending).resolves.toMatchObject({
@@ -129,27 +129,27 @@ describe('Browser reader interaction races', () => {
     expect(fixture.getPageReadingAnchorAtRevision).not.toHaveBeenCalled();
   });
 
-  it('hides cached targets before dispatch whenever a visual preview is active', async () => {
+  it('hides cached targets before dispatch whenever the exact gate is closed', async () => {
     const fixture = readyFixture();
     fixture.getPageTargetsAtRevision.mockResolvedValue(versionedTargets(0, 0, 'cached'));
     const interactions = createBrowserReaderInteractions(fixture.state);
     await interactions.getPageTargets(0);
     expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
 
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
 
     await expect(interactions.getPageTargets(0)).resolves.toBeUndefined();
     expect(fixture.getPageTargetsAtRevision).toHaveBeenCalledOnce();
     expect(fixture.state.interaction.pageTargets.size).toBe(1);
   });
 
-  it('drops an in-flight response when a visual preview starts', async () => {
+  it('drops an in-flight response when the exact gate closes', async () => {
     const fixture = readyFixture();
     const deferred = createDeferred<CoreVersioned<CorePageTargets>>();
     fixture.getPageTargetsAtRevision.mockReturnValue(deferred.promise);
     const pending = createBrowserReaderInteractions(fixture.state).getPageTargets(0);
 
-    fixture.state.visualPreview = {} as typeof fixture.state.visualPreview;
+    closeExactRevisionReadGate(fixture.state);
     deferred.resolve(versionedTargets(0, 0, 'preview-stale'));
 
     await expect(pending).resolves.toBeUndefined();

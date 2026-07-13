@@ -42,48 +42,6 @@ describe('Browser reader resource-backed rendering', () => {
     expect(readResourceAtRevision).not.toHaveBeenCalled();
   });
 
-  it('renders a current-spread visual preview without reading canonical frames', () => {
-    const warmFrameWindow = vi.fn();
-    const worker = createWorker(warmFrameWindow);
-    const state = createState({
-      worker,
-      frames: new Map(),
-      visualPreview: {
-        revision: {
-          workerSessionId: worker.sessionId,
-          revisionId: 'preview',
-          revisionVersion: 0,
-        },
-        baseCommitGeneration: 1,
-        interactionPolicy: 'disabled',
-        spreadIndex: 2,
-        frame: { ...frameWithImages(), revisionId: 'preview', spreadIndex: 2 },
-        config: {
-          viewportWidth: 320,
-          viewportHeight: 480,
-          pageWidth: 320,
-          pageHeight: 480,
-          marginTop: 0,
-          marginRight: 0,
-          marginBottom: 0,
-          marginLeft: 0,
-          spreadMode: 'single',
-          firstPageAlone: true,
-          spreadGap: 0,
-          rootFontSize: 16,
-        },
-        spreadMode: 'single',
-        lineBreaking: 'greedy',
-        worker,
-      },
-    });
-    const ctx = fakeCanvasContext();
-
-    expect(renderSpreadToContext(state, 2, ctx)).toBe(true);
-    expect(warmFrameWindow).not.toHaveBeenCalled();
-    expect(ctx.clearRect).toHaveBeenCalledTimes(1);
-  });
-
   it('paints available frame content while image resources decode asynchronously', async () => {
     vi.stubGlobal(
       'createImageBitmap',
