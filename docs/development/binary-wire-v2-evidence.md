@@ -219,7 +219,7 @@ RITO_WIRE_EPUB=/absolute/path/book.epub \
   pnpm --filter @ritojs/core-wasm bench:runtime-wire
 ```
 
-```sh
-RITO_WIRE_EPUB=/absolute/path/book.epub \
-  pnpm test:e2e:wire-ab
-```
+The former app-level `test:e2e:wire-ab` reproduction was retired after the
+production Reader moved to bounded versioned commands. Use
+`RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile`
+for the production path; it intentionally does not claim JSON/`RITORB1` parity.

@@ -854,7 +854,7 @@ Use focused gates during normal rounds:
 pnpm run rust:parity:fast
 pnpm --filter @ritojs/core-wasm run test
 pnpm --filter @ritojs/core-wasm run typecheck
-pnpm test:e2e:wire-ab
+RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile
 ```
 
 Use milestone gates before claiming parity or release readiness:

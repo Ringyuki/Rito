@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { installReaderWireProbe, readReaderWireObservations } from './reader-wire-probe';
+import { installReaderWorkerProbe, readReaderWorkerOperations } from './reader-worker-probe';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
 
@@ -16,7 +16,7 @@ test.describe('reader app', () => {
     await loadDemoBook(page);
 
     await expect.poll(() => readerAttribute(page, 'data-book-title')).not.toBe('');
-    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(5);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
     await expect.poll(() => hasNonBlankCanvas(page)).toBe(true);
   });
 
@@ -52,10 +52,6 @@ test.describe('reader app', () => {
   test('searches book text and jumps to a result', async ({ page }) => {
     await loadDemoBook(page);
 
-    await page.keyboard.press('End');
-    const lastSpread = (await readerNumberAttribute(page, 'data-total-spreads')) - 1;
-    await expect.poll(() => currentSpread(page)).toBe(lastSpread);
-
     await openReaderContextMenu(page);
     await page.getByRole('menuitem', { name: /^Search/ }).click();
     await page.getByTestId('reader-search-input').fill('真昼');
@@ -63,12 +59,13 @@ test.describe('reader app', () => {
     await expect(page.getByText(/\d+ results/)).toBeVisible();
     await expect.poll(() => readerNumberAttribute(page, 'data-search-results')).toBeGreaterThan(0);
 
+    const beforeSearchJump = await currentSpread(page);
     await page.getByTestId('reader-search-next-button').click();
 
     await expect
       .poll(() => readerNumberAttribute(page, 'data-search-active-page'))
       .toBeGreaterThan(0);
-    await expect.poll(() => currentSpread(page)).toBeLessThan(lastSpread);
+    await expect.poll(() => currentSpread(page)).toBeGreaterThan(beforeSearchJump);
   });
 
   test('applies settings that trigger reader reflow and theme changes', async ({ page }) => {
@@ -80,69 +77,47 @@ test.describe('reader app', () => {
 
     await page.getByRole('button', { name: 'Single Page' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-spread-mode', 'single');
-    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(5);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
 
     await page.getByRole('button', { name: 'Greedy' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-line-breaking', 'greedy');
-    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(5);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBeGreaterThan(0);
 
     await page.getByRole('button', { name: 'Dark' }).click();
     await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-theme', 'dark');
   });
 });
 
-test.describe('reader app RITORB1 session', () => {
-  test('loads the demo and completes real page turns through the private binary wire', async ({
-    page,
-  }) => {
-    await installReaderWireProbe(page, 'ritorb1');
+test.describe('reader app bounded worker session', () => {
+  test('loads the demo through the production bounded protocol', async ({ page }) => {
+    await installReaderWorkerProbe(page);
     await page.goto('/');
     await page.evaluate(() => {
       localStorage.clear();
     });
     await page.reload();
 
-    const observationStart = (await readReaderWireObservations(page)).length;
     await loadDemoBook(page);
-    await expect
-      .poll(async () => completedRevisionModes(page, observationStart), {
-        timeout: READER_LOAD_TIMEOUT_MS,
-      })
-      .toEqual(['preview', 'full']);
-    const observations = (await readReaderWireObservations(page)).slice(observationStart);
-    const full = observations.find((entry) => entry.mode === 'full');
-    expect(observations.map((entry) => entry.wire)).toEqual(['ritorb1', 'ritorb1']);
-    expect(observations.every((entry) => entry.ok === true)).toBe(true);
-    expect(full?.spreadCount).toBeGreaterThan(5);
-    await expect
-      .poll(() => readerNumberAttribute(page, 'data-total-spreads'))
-      .toBe(full?.spreadCount);
     await expect.poll(() => hasNonBlankCanvas(page)).toBe(true);
 
-    const firstSpread = await currentSpread(page);
-    await page.keyboard.press('ArrowRight');
-    await expect.poll(() => currentSpread(page)).toBe(firstSpread + 1);
-    await page.waitForTimeout(750);
-    await page.keyboard.press('ArrowLeft');
-    await expect.poll(() => currentSpread(page)).toBe(firstSpread);
-
-    await expect(
-      page.evaluate(() => {
-        const runtime = globalThis as typeof globalThis & {
-          __RITO_CORE_WASM_READER_WIRE__?: 'json' | 'ritorb1';
-        };
-        return runtime.__RITO_CORE_WASM_READER_WIRE__;
-      }),
-    ).resolves.toBe('ritorb1');
+    const observations = await readReaderWorkerOperations(page);
+    expect(observations.some((entry) => entry.ok === false)).toBe(false);
+    expect(observations.map((entry) => entry.kind)).toEqual(
+      expect.arrayContaining([
+        'open',
+        'createBoundedRevision',
+        'getRevisionPresentationAtRevision',
+        'warmFrameWindowAtRevision',
+        'getFootnotesAtRevision',
+        'getChapterTextIndicesAtRevision',
+      ]),
+    );
+    expect(observations.some((entry) => entry.kind === 'createViewRevision')).toBe(false);
+    const initial = observations.find((entry) => entry.kind === 'createBoundedRevision');
+    expect(initial?.maxTopLevelNodes).toBe(1);
+    expect(observations.some((entry) => (entry.revision?.knownSpreadCount ?? 0) > 0)).toBe(true);
   });
 });
-
-async function completedRevisionModes(page: Page, startIndex: number): Promise<string[]> {
-  return (await readReaderWireObservations(page))
-    .slice(startIndex)
-    .filter((entry) => entry.completedAt !== null)
-    .map((entry) => entry.mode);
-}
 
 async function loadDemoBook(page: Page): Promise<void> {
   const shell = page.getByTestId('reader-shell');

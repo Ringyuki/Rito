@@ -258,14 +258,16 @@ Those names now belong to the old TS reference tree only.
   reference on either JSON or `RITORB1`; previews remain inline. The facade
   hydrates a fresh snapshot into the unchanged public revision shape and does
   not expose the private scope key.
-- The normal reader E2E suite exercises a real `RITORB1` WebWorker session, and
-  `pnpm test:e2e:wire-ab` runs fresh-context JSON/binary ABBA sessions through
-  initial preview, deferred full layout, settings reflow, and real page turns.
-  The opt-in report now separates raw wire bytes, Rust encode time, the complete
-  WASM method call, JavaScript decode time, worker processing, and worker round
-  trip, grouped independently for initial preview/full and reflow preview/full
-  revisions. Local runs have matched all revision/spread results with no console
-  or page errors.
+- The normal reader E2E suite now asserts the production bounded WebWorker
+  protocol (`open`, bounded revision control, exact presentation/frame reads)
+  and rejects a fallback to legacy `createViewRevision`. The former app-level
+  JSON/`RITORB1` ABBA harness was retired because the bounded production path
+  does not use that legacy transport selector. Low-level binary compatibility
+  and decode performance remain covered in `@ritojs/core-wasm`.
+- `RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile`
+  records page-clock load milestones, every bounded Worker round trip, revision
+  extent, Long Tasks, and post-load font-reflow work without mutating production
+  messages. The Downloads smoke remains the broad real-book functional gate.
 - JSON remains the production default. The local evidence matrix now includes
   15 fresh-process decode runs across `book-01`, `book-06`, and `book-10`, plus
   three full WebWorker ABBA runs for `book-01`. Binary payloads are consistently
@@ -378,8 +380,8 @@ pnpm --filter @ritojs/core-wasm run test
 pnpm --filter @ritojs/core-wasm run typecheck
 pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run test
-pnpm test:e2e:wire-ab
-RITO_EPUB_SMOKE_DIR="$HOME/Downloads" pnpm test:e2e:downloads-smoke -- --workers=3
+RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile
+RITO_EPUB_SMOKE_DIR="$HOME/Downloads" pnpm --filter @ritojs/reader exec playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts --workers=3
 ```
 
 Milestone loop:

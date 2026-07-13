@@ -91,13 +91,12 @@ Frame display command bytes stay outside this bundle and continue to use
   send only revision id plus scope. Preview revisions stay inline. This does
   not change the generic `createViewRevisionBundleJson/Bytes()` shape,
   `RITORB1` V1 bytes/golden, or the public object returned by `@ritojs/core`.
-- Normal reader E2E includes a real binary-wire WebWorker smoke. The opt-in
-  `pnpm test:e2e:wire-ab` harness runs JSON/binary ABBA sessions and records
-  revision round trips, committed spread counts, page-turn readiness, rAF
-  gaps, long tasks, browser errors, raw wire bytes, Rust encode time, complete
-  WASM method time, JavaScript decode time, and worker processing time. Wire
-  metrics are summarized separately for initial preview/full and reflow
-  preview/full so different payload scales are never mixed into one median.
+- The historical app-level JSON/binary ABBA harness recorded revision round
+  trips, committed spread counts, page-turn readiness, rAF gaps, Long Tasks,
+  browser errors, raw bytes, Rust encode time, WASM time, JavaScript decode time,
+  and Worker time. It was retired when production moved from
+  `createViewRevision` to bounded versioned commands; the transport remains
+  covered by core-wasm compatibility tests and the decode benchmark.
 - Local ABBA runs matched preview/full/reflow results and showed no page-turn
   regression. The instrumented report now exposes the cost at each wire
   boundary, but JSON remains the default while the result and the smaller
@@ -107,9 +106,8 @@ Frame display command bytes stay outside this bundle and continue to use
   real fixture, and then alternates repeated decode-only batches. It reports raw
   samples plus median/p95 without defining a CI performance threshold; run it
   in independent processes and treat a single result as diagnostic only. Set
-  `RITO_WIRE_EPUB=/absolute/path/book.epub` on this command or
-  `pnpm test:e2e:wire-ab` to use a representative local EPUB rather than the
-  built-in fixture/demo.
+  `RITO_WIRE_EPUB=/absolute/path/book.epub` on this command to use a
+  representative local EPUB rather than the built-in fixture.
 
 ## Required Compatibility During Migration
 

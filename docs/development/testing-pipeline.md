@@ -9,18 +9,18 @@ protect browser-rendered output.
 
 ## Layers
 
-| Layer              | Command                                              | Purpose                                                                                                              |
-| ------------------ | ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Unit               | `pnpm test:unit`                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                             |
-| Integration        | `pnpm test:integration`                              | Small end-to-end core flows and focused rare-feature render chains.                                                  |
-| Structured golden  | `pnpm test:golden:books`                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                                  |
-| Render golden      | `pnpm test:golden:render`                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.                 |
-| Pixel golden       | `pnpm test:golden:pixel`                             | Browser Canvas PNG output compared against checked-in image goldens.                                                 |
-| DOM-free reference | `pnpm --filter @ritojs/core test:dom-free:reference` | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code.       |
-| Reader e2e         | `pnpm test:e2e`                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                           |
-| Reader wire A/B    | `pnpm test:e2e:wire-ab`                              | Opt-in JSON/`RITORB1` WebWorker sessions with semantic, wire-boundary, turn, rAF, long-task, and error measurements. |
-| Coverage           | `pnpm test:coverage`                                 | V8 coverage for all published packages, checked against package baselines.                                           |
-| Dependency audit   | `pnpm audit:dependencies`                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                        |
+| Layer               | Command                                                              | Purpose                                                                                                        |
+| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Unit                | `pnpm test:unit`                                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                       |
+| Integration         | `pnpm test:integration`                                              | Small end-to-end core flows and focused rare-feature render chains.                                            |
+| Structured golden   | `pnpm test:golden:books`                                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                            |
+| Render golden       | `pnpm test:golden:render`                                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.           |
+| Pixel golden        | `pnpm test:golden:pixel`                                             | Browser Canvas PNG output compared against checked-in image goldens.                                           |
+| DOM-free reference  | `pnpm --filter @ritojs/core test:dom-free:reference`                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
+| Reader e2e          | `pnpm test:e2e`                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
+| Reader load profile | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile` | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
+| Coverage            | `pnpm test:coverage`                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
+| Dependency audit    | `pnpm audit:dependencies`                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
 
 ## Current Gates
 
@@ -331,8 +331,8 @@ rather than exhaustive pixel diffs:
 - table-of-contents navigation
 - search and jump to a result
 - settings changes that trigger reflow and theme updates
-- a real opt-in `RITORB1` WebWorker smoke covering preview, deferred full
-  layout, and page turns
+- a real bounded WebWorker protocol assertion covering initial lazy layout,
+  exact frame reads, and the absence of legacy view-revision calls
 
 Reader e2e can use a smaller fixture set than render golden because its job is
 runtime behavior, not visual coverage.
@@ -344,28 +344,21 @@ Chromium is unavailable locally, pass a browser channel:
 PLAYWRIGHT_BROWSER_CHANNEL=msedge pnpm test:e2e
 ```
 
-For native wire work, run the dedicated non-default A/B harness:
+For production Reader load work, run the opt-in bounded profile:
 
 ```bash
-pnpm test:e2e:wire-ab
-RITO_WIRE_EPUB=/absolute/path/book.epub pnpm test:e2e:wire-ab
+RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile
 ```
 
-It uses fresh browser contexts in JSON/binary/binary/JSON order, intercepts the
-actual `createViewRevision` worker requests and responses, and attaches a JSON
-report. It covers initial preview, deferred full layout, settings reflow, and
-forward/back turns while recording raw wire bytes, Rust encode time, complete
-WASM method time, JavaScript decode time, worker processing and round-trip time,
-committed spread counts, rAF gaps, Long Tasks, and browser errors. The diagnostic
-marker is opt-in and stripped before the public worker result is delivered. Wire
-metrics are grouped by initial preview/full and reflow preview/full phase rather
-than summarized across unlike payloads; ordinary reader sessions do not pay the
-measurement overhead. Trace and video recording are disabled for this
-performance-oriented test. Treat turn measurements as a regression probe:
-ordinary frame-window warming still uses JSON metadata plus `RITOFCB2`.
-When `RITO_WIRE_EPUB` is set, the high-level initial-ready timings also include
-Playwright staging the local file through the normal reader input; the detailed
-wire-boundary metrics remain directly comparable.
+It loads the EPUB through the normal file-input and production Reader stack,
+intercepts only Workers named `rito-browser-reader`, and attaches a JSON report.
+All timestamps use the page clock. The report separates input/Worker startup,
+`open`, bounded layout through presentation, frame warming, exact aggregate
+reads, host commit, Canvas readiness, later font-triggered reflows, and Long
+Tasks. It never adds fields to production messages. The old JSON/`RITORB1`
+app-level AB harness was retired after production moved off
+`createViewRevision`; use the core-wasm wire benchmark and compatibility tests
+when working on that legacy transport.
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 
