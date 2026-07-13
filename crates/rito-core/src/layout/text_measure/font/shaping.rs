@@ -3,6 +3,10 @@ use crate::layout::text_shape::{RunShapeCluster, RunShapeDirection};
 use sha2::{Digest, Sha256};
 use ttf_parser::Face as TtfFace;
 
+mod cluster_ranges;
+
+use cluster_ranges::logical_cluster_ranges;
+
 #[cfg(test)]
 thread_local! {
     static SHAPE_RUN_CALL_COUNT: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
@@ -242,7 +246,8 @@ pub(super) fn shape_run_checked(
     }
     let infos = glyphs.glyph_infos();
     let positions = glyphs.glyph_positions();
-    let cluster_ends = logical_cluster_ends(text, infos);
+    let cluster_ranges =
+        logical_cluster_ranges(text, infos).ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
     let mut clusters = Vec::new();
     let mut glyph_start = 0usize;
     let mut visual_cursor = 0.0;
@@ -256,18 +261,12 @@ pub(super) fn shape_run_checked(
             .iter()
             .map(|position| f64::from(position.x_advance) * font_size / units_per_em)
             .sum::<f64>();
-        let logical_start = byte_to_utf16_offset(text, cluster as usize)
-            .ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
-        let logical_end = *cluster_ends
+        let logical_range = cluster_ranges
             .get(&cluster)
             .ok_or(ShapeRunFailure::RustybuzzUnavailable)?;
         clusters.push(RunShapeCluster {
-            logical_start: logical_start
-                .try_into()
-                .map_err(|_| ShapeRunFailure::RustybuzzUnavailable)?,
-            logical_end: logical_end
-                .try_into()
-                .map_err(|_| ShapeRunFailure::RustybuzzUnavailable)?,
+            logical_start: logical_range.start,
+            logical_end: logical_range.end,
             advance: advance as f32,
         });
         visual_cursor += advance;
@@ -293,45 +292,5 @@ fn measurement_advance(result: Result<ShapedFontRun, ShapeRunFailure>) -> Option
     }
 }
 
-fn logical_cluster_ends(
-    text: &str,
-    infos: &[rustybuzz::GlyphInfo],
-) -> std::collections::BTreeMap<u32, usize> {
-    let starts = infos
-        .iter()
-        .map(|info| info.cluster)
-        .collect::<std::collections::BTreeSet<_>>();
-    let mut ends = std::collections::BTreeMap::new();
-    let mut starts = starts.into_iter().peekable();
-    while let Some(start) = starts.next() {
-        let end_byte = starts.peek().copied().unwrap_or(text.len() as u32) as usize;
-        if let Some(end) = byte_to_utf16_offset(text, end_byte) {
-            ends.insert(start, end);
-        }
-    }
-    ends
-}
-
-fn byte_to_utf16_offset(text: &str, byte_offset: usize) -> Option<usize> {
-    if !text.is_char_boundary(byte_offset) {
-        return None;
-    }
-    Some(text[..byte_offset].encode_utf16().count())
-}
-
 #[cfg(test)]
-mod tests {
-    use super::{measurement_advance, ShapeRunFailure};
-
-    #[test]
-    fn unsafe_retention_keeps_the_raw_rustybuzz_measurement_advance() {
-        let raw_advance = 42.25;
-
-        assert_eq!(
-            measurement_advance(Err(ShapeRunFailure::NonGraphemeSafeClusters {
-                advance: raw_advance,
-            })),
-            Some(raw_advance)
-        );
-    }
-}
+mod tests;

@@ -60,6 +60,9 @@ The remaining usability work is narrower but still release-blocking:
    profile; the same token isolates shared width-cache entries between font
    assemblies. Individual font measurement and Rustybuzz calls remain indivisible,
    and one oversized operation may run on a fresh quantum to avoid livelock.
+   Exact-shape post-processing now avoids per-cluster text-prefix rescans for
+   Rustybuzz byte-to-UTF-16 ranges, grapheme constraints and spacing, with
+   10,000-cluster operation-count guards and bit-level compatibility oracles.
    Inline/context preparation, container startup, justification/mapping, atomic
    Liang point generation, visually decorated or floated containers,
    Optimal paragraphs and tables therefore still prevent a complete wall-clock

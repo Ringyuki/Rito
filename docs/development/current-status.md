@@ -353,6 +353,13 @@ Those names now belong to the old TS reference tree only.
      restoring with inconsistent metrics. The same token partitions the shared
      width cache so separate revision font assemblies cannot reuse stale
      measurements.
+   - Exact real-font post-processing no longer rescans the text prefix for
+     every retained cluster. Rustybuzz byte clusters are converted to UTF-16 in
+     one source pass, grapheme endpoints use a compact sorted index and spacing
+     consumes LTR or RTL clusters with one directional cursor. Operation-count
+     regressions cover 10,000-cluster lines, and bit-level oracles preserve the
+     former spacing, merge and malformed-cluster semantics. Rustybuzz itself
+     remains an indivisible operation.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
      margin-collapse preparation, justification/alignment/mapping work, atomic

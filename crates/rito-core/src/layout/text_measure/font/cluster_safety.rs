@@ -8,6 +8,10 @@ struct LogicalRange {
     end: u32,
 }
 
+struct GraphemeIndex {
+    ends: Vec<u32>,
+}
+
 pub(super) fn constrain_clusters_to_graphemes(
     text: &str,
     clusters: Vec<RunShapeCluster>,
@@ -16,10 +20,10 @@ pub(super) fn constrain_clusters_to_graphemes(
     if text.is_empty() {
         return clusters.is_empty().then_some(clusters);
     }
-    let graphemes = grapheme_ranges(text)?;
+    let graphemes = GraphemeIndex::new(text)?;
     let mut constrained = Vec::<RunShapeCluster>::with_capacity(clusters.len());
     for cluster in clusters {
-        let range = enclosing_grapheme_range(&graphemes, &cluster)?;
+        let range = graphemes.enclosing_range(&cluster)?;
         let expanded = RunShapeCluster {
             logical_start: range.start,
             logical_end: range.end,
@@ -36,38 +40,50 @@ pub(super) fn constrain_clusters_to_graphemes(
         }
         constrained.push(expanded);
     }
-    validate_cluster_partition(&constrained, &graphemes, direction).then_some(constrained)
+    validate_cluster_partition(&constrained, graphemes.text_end(), direction).then_some(constrained)
 }
 
-fn grapheme_ranges(text: &str) -> Option<Vec<LogicalRange>> {
-    let mut ranges = Vec::new();
-    let mut cursor = 0_u32;
-    for grapheme in text.graphemes(true) {
-        let length = u32::try_from(grapheme.encode_utf16().count()).ok()?;
-        let end = cursor.checked_add(length)?;
-        ranges.push(LogicalRange { start: cursor, end });
-        cursor = end;
+impl GraphemeIndex {
+    fn new(text: &str) -> Option<Self> {
+        let mut ends = Vec::new();
+        let mut cursor = 0u32;
+        for grapheme in text.graphemes(true) {
+            let length = u32::try_from(grapheme.encode_utf16().count()).ok()?;
+            let end = cursor.checked_add(length)?;
+            #[cfg(test)]
+            record_grapheme_entry();
+            ends.push(end);
+            cursor = end;
+        }
+        Some(Self { ends })
     }
-    Some(ranges)
-}
 
-fn enclosing_grapheme_range(
-    graphemes: &[LogicalRange],
-    cluster: &RunShapeCluster,
-) -> Option<LogicalRange> {
-    if cluster.logical_start >= cluster.logical_end {
-        return None;
+    fn enclosing_range(&self, cluster: &RunShapeCluster) -> Option<LogicalRange> {
+        if cluster.logical_start >= cluster.logical_end {
+            return None;
+        }
+        let final_unit = cluster.logical_end.checked_sub(1)?;
+        let first_owner = self.owner(cluster.logical_start)?;
+        let last_owner = self.owner(final_unit)?;
+        let start = first_owner
+            .checked_sub(1)
+            .map_or(0, |previous| self.ends[previous]);
+        Some(LogicalRange {
+            start,
+            end: self.ends[last_owner],
+        })
     }
-    let first = graphemes
-        .iter()
-        .find(|range| range.start <= cluster.logical_start && cluster.logical_start < range.end)?;
-    let last = graphemes
-        .iter()
-        .find(|range| range.start < cluster.logical_end && cluster.logical_end <= range.end)?;
-    Some(LogicalRange {
-        start: first.start,
-        end: last.end,
-    })
+
+    fn owner(&self, utf16_unit: u32) -> Option<usize> {
+        #[cfg(test)]
+        record_endpoint_lookup();
+        let owner = self.ends.partition_point(|end| *end <= utf16_unit);
+        (owner < self.ends.len()).then_some(owner)
+    }
+
+    fn text_end(&self) -> u32 {
+        self.ends.last().copied().unwrap_or(0)
+    }
 }
 
 fn ranges_overlap(left: &RunShapeCluster, right: &RunShapeCluster) -> bool {
@@ -76,35 +92,61 @@ fn ranges_overlap(left: &RunShapeCluster, right: &RunShapeCluster) -> bool {
 
 fn validate_cluster_partition(
     clusters: &[RunShapeCluster],
-    graphemes: &[LogicalRange],
+    text_end: u32,
     direction: RunShapeDirection,
 ) -> bool {
-    let Some(first_grapheme) = graphemes.first() else {
-        return clusters.is_empty();
+    let mut expected = match direction {
+        RunShapeDirection::LeftToRight => 0,
+        RunShapeDirection::RightToLeft => text_end,
     };
-    let Some(last_grapheme) = graphemes.last() else {
-        return false;
-    };
-    let mut logical_ranges = clusters
-        .iter()
-        .map(|cluster| (cluster.logical_start, cluster.logical_end))
-        .collect::<Vec<_>>();
-    logical_ranges.sort_unstable();
-    if logical_ranges.first().map(|range| range.0) != Some(first_grapheme.start)
-        || logical_ranges.last().map(|range| range.1) != Some(last_grapheme.end)
-        || logical_ranges.windows(2).any(|pair| pair[0].1 != pair[1].0)
-    {
-        return false;
+    for cluster in clusters {
+        match direction {
+            RunShapeDirection::LeftToRight if cluster.logical_start == expected => {
+                expected = cluster.logical_end;
+            }
+            RunShapeDirection::RightToLeft if cluster.logical_end == expected => {
+                expected = cluster.logical_start;
+            }
+            _ => return false,
+        }
     }
-    clusters.windows(2).all(|pair| match direction {
-        RunShapeDirection::LeftToRight => pair[0].logical_end <= pair[1].logical_start,
-        RunShapeDirection::RightToLeft => pair[1].logical_end <= pair[0].logical_start,
-    })
+    expected
+        == match direction {
+            RunShapeDirection::LeftToRight => text_end,
+            RunShapeDirection::RightToLeft => 0,
+        }
+}
+
+#[cfg(test)]
+thread_local! {
+    static GRAPHEME_ENTRIES: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static ENDPOINT_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+fn record_grapheme_entry() {
+    GRAPHEME_ENTRIES.set(GRAPHEME_ENTRIES.get().saturating_add(1));
+}
+
+#[cfg(test)]
+fn record_endpoint_lookup() {
+    ENDPOINT_LOOKUPS.set(ENDPOINT_LOOKUPS.get().saturating_add(1));
+}
+
+#[cfg(test)]
+fn reset_operation_counts() {
+    GRAPHEME_ENTRIES.set(0);
+    ENDPOINT_LOOKUPS.set(0);
+}
+
+#[cfg(test)]
+fn operation_counts() -> (usize, usize) {
+    (GRAPHEME_ENTRIES.get(), ENDPOINT_LOOKUPS.get())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::constrain_clusters_to_graphemes;
+    use super::{constrain_clusters_to_graphemes, operation_counts, reset_operation_counts};
     use crate::layout::text_shape::{RunShapeCluster, RunShapeDirection};
 
     #[test]
@@ -136,6 +178,84 @@ mod tests {
         .is_none());
     }
 
+    #[test]
+    fn preserves_utf16_interior_endpoint_compatibility() {
+        let constrained = constrain_clusters_to_graphemes(
+            "😀",
+            vec![cluster(1, 2, 4.0)],
+            RunShapeDirection::LeftToRight,
+        )
+        .expect("UTF-16 interior offsets expand to the enclosing grapheme");
+
+        assert_eq!(
+            constrained
+                .iter()
+                .map(|cluster| (cluster.logical_start, cluster.logical_end))
+                .collect::<Vec<_>>(),
+            [(0, 2)]
+        );
+    }
+
+    #[test]
+    fn keeps_adjacent_merge_rounding_in_visual_order() {
+        let constrained = constrain_clusters_to_graphemes(
+            "a\u{301}\u{301}",
+            vec![
+                cluster(0, 1, 16_777_216.0),
+                cluster(1, 2, 1.0),
+                cluster(2, 3, 1.0),
+            ],
+            RunShapeDirection::LeftToRight,
+        )
+        .expect("adjacent fragments merge into their shared grapheme");
+
+        assert_eq!(constrained.len(), 1);
+        assert_eq!(constrained[0].advance.to_bits(), 16_777_216.0_f32.to_bits());
+    }
+
+    #[test]
+    fn indexes_graphemes_and_cluster_endpoints_once_in_both_directions() {
+        const CLUSTER_COUNT: usize = 10_000;
+        let text = "a".repeat(CLUSTER_COUNT);
+
+        for direction in [
+            RunShapeDirection::LeftToRight,
+            RunShapeDirection::RightToLeft,
+        ] {
+            let offsets: Box<dyn Iterator<Item = usize>> = match direction {
+                RunShapeDirection::LeftToRight => Box::new(0..CLUSTER_COUNT),
+                RunShapeDirection::RightToLeft => Box::new((0..CLUSTER_COUNT).rev()),
+            };
+            let clusters = offsets
+                .map(|offset| cluster(offset as u32, offset as u32 + 1, 1.0))
+                .collect();
+
+            reset_operation_counts();
+            let constrained = constrain_clusters_to_graphemes(&text, clusters, direction)
+                .expect("one-scalar clusters form a complete partition");
+
+            assert_eq!(constrained.len(), CLUSTER_COUNT);
+            assert_eq!(operation_counts(), (CLUSTER_COUNT, CLUSTER_COUNT * 2));
+        }
+    }
+
+    #[test]
+    fn a_long_single_grapheme_retains_only_one_index_entry() {
+        const COMBINING_MARKS: usize = 10_000;
+        let text = format!("a{}", "\u{301}".repeat(COMBINING_MARKS));
+
+        reset_operation_counts();
+        let constrained = constrain_clusters_to_graphemes(
+            &text,
+            vec![cluster(0, COMBINING_MARKS as u32 + 1, 1.0)],
+            RunShapeDirection::LeftToRight,
+        )
+        .expect("one long grapheme remains a valid cluster");
+
+        assert_eq!(constrained.len(), 1);
+        assert_eq!(operation_counts(), (1, 2));
+    }
+
     fn cluster(logical_start: u32, logical_end: u32, advance: f32) -> RunShapeCluster {
         RunShapeCluster {
             logical_start,
@@ -144,3 +264,6 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod parity_tests;

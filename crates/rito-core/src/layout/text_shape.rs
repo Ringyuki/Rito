@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 mod direction;
+mod spacing;
 
 pub(crate) use direction::requires_bidi_itemization;
 
@@ -144,32 +145,17 @@ impl RunShape {
     ) {
         match self {
             Self::Exact(shape) => {
-                let scalar_gaps = text.chars().count().saturating_sub(1);
-                let cluster_gaps = shape.clusters.len().saturating_sub(1);
-                if letter_spacing_delta != 0.0 && scalar_gaps != cluster_gaps {
+                if !spacing::apply_spacing_delta(
+                    shape,
+                    text,
+                    word_spacing_delta,
+                    letter_spacing_delta,
+                ) {
                     *self = Self::unavailable(
                         RunShapeUnavailableReason::NonClusterSafeSpacing,
                         expected_advance,
                     );
                     return;
-                }
-
-                for (index, cluster) in shape.clusters.iter_mut().enumerate() {
-                    let mut advance = f64::from(cluster.advance);
-                    let cluster_text = utf16_slice(
-                        text,
-                        cluster.logical_start as usize,
-                        cluster.logical_end as usize,
-                    );
-                    advance += cluster_text
-                        .chars()
-                        .filter(|character| *character == ' ')
-                        .count() as f64
-                        * word_spacing_delta;
-                    if index < cluster_gaps {
-                        advance += letter_spacing_delta;
-                    }
-                    cluster.advance = advance as f32;
                 }
                 shape.advance = expected_advance;
             }
@@ -233,31 +219,6 @@ fn push_unique_stop(
     if seen.insert((stop.logical_offset, stop.visual_offset.to_bits())) {
         stops.push(stop);
     }
-}
-
-fn utf16_slice(text: &str, start: usize, end: usize) -> &str {
-    let mut utf16_offset = 0usize;
-    let mut start_byte = None;
-    let mut end_byte = None;
-    for (byte, character) in text.char_indices() {
-        if utf16_offset == start {
-            start_byte = Some(byte);
-        }
-        if utf16_offset == end {
-            end_byte = Some(byte);
-            break;
-        }
-        utf16_offset += character.len_utf16();
-    }
-    let start_byte = start_byte.unwrap_or(text.len());
-    let end_byte = end_byte.unwrap_or({
-        if utf16_offset == end {
-            text.len()
-        } else {
-            start_byte
-        }
-    });
-    &text[start_byte..end_byte]
 }
 
 #[cfg(test)]
