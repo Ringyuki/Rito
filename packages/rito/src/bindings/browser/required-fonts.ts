@@ -17,20 +17,39 @@ interface PreparedRequiredFontFace {
   readonly face: FontFace;
 }
 
-export async function prepareRequiredRevisionFonts(
+export function prepareRequiredRevisionFonts(
   state: BrowserReaderState,
   worker: BrowserReaderWorkerClient,
   bundle: CoreRevisionBundle,
   isCurrent: () => boolean,
 ): Promise<(() => void) | undefined> {
+  return prepareRevisionFonts(state, worker, bundle, isCurrent, true);
+}
+
+export function prepareControllerOwnedRevisionFonts(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+  bundle: CoreRevisionBundle,
+  isCurrent: () => boolean,
+): Promise<(() => void) | undefined> {
+  return prepareRevisionFonts(state, worker, bundle, isCurrent, false);
+}
+
+async function prepareRevisionFonts(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+  bundle: CoreRevisionBundle,
+  isCurrent: () => boolean,
+  releaseOnFailure: boolean,
+): Promise<(() => void) | undefined> {
   try {
     const rollback = await registerRequiredRevisionFonts(state, worker, bundle, isCurrent);
     if (isCurrent()) return rollback;
     rollback();
-    releaseRevision(worker, bundle.revision);
+    if (releaseOnFailure) releaseRevision(worker, bundle.revision);
     return undefined;
   } catch (error) {
-    releaseRevision(worker, bundle.revision);
+    if (releaseOnFailure) releaseRevision(worker, bundle.revision);
     throw error;
   }
 }

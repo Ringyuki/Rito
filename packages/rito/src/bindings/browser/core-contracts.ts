@@ -39,6 +39,7 @@ export type {
   RitoCoreWasmReaderBindingRuntimeModule as CoreReaderBindingRuntimeModule,
   RitoCoreWasmReaderSessionCache as BrowserReaderSessionCache,
   RitoCoreWasmBoundedReaderSession as BrowserReaderBoundedSession,
+  RitoCoreWasmBoundedReaderSnapshot as BrowserReaderBoundedSnapshot,
   RitoCoreWasmReaderOpenResult as CoreReaderOpenResult,
   RitoCoreWasmReaderOpenResult as BrowserReaderOpenResult,
   RitoCoreWasmReaderWorkerOpenOptions as BrowserReaderWorkerOpenOptions,

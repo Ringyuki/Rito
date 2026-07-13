@@ -53,11 +53,30 @@ export function requireBrowserReaderLocatorSelectedFrame(
   throw new Error('Reader locator navigation full revision is missing a matching selected frame');
 }
 
-export async function prepareBrowserReaderCommitFrame(
+export function prepareBrowserReaderCommitFrame(
   state: BrowserReaderState,
   worker: BrowserReaderWorkerClient,
   result: BrowserReaderRevisionResult,
   onFailure?: () => void,
+): Promise<BrowserReaderPreparedCommitFrame> {
+  return prepareCommitFrame(state, worker, result, onFailure, true);
+}
+
+export function prepareControllerOwnedBrowserReaderCommitFrame(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+  result: BrowserReaderRevisionResult,
+  onFailure?: () => void,
+): Promise<BrowserReaderPreparedCommitFrame> {
+  return prepareCommitFrame(state, worker, result, onFailure, false);
+}
+
+async function prepareCommitFrame(
+  state: BrowserReaderState,
+  worker: BrowserReaderWorkerClient,
+  result: BrowserReaderRevisionResult,
+  onFailure: (() => void) | undefined,
+  releaseOnFailure: boolean,
 ): Promise<BrowserReaderPreparedCommitFrame> {
   try {
     const selection = result.selectedFrame;
@@ -75,12 +94,14 @@ export async function prepareBrowserReaderCommitFrame(
     return { displaySpreadIndex: selection.displaySpreadIndex, frame, resources };
   } catch (error) {
     onFailure?.();
-    void worker
-      .releaseRevisionAtRevision({
-        revisionId: result.bundle.revision.revisionId,
-        revisionVersion: result.bundle.revision.revisionVersion,
-      })
-      .catch(() => undefined);
+    if (releaseOnFailure) {
+      void worker
+        .releaseRevisionAtRevision({
+          revisionId: result.bundle.revision.revisionId,
+          revisionVersion: result.bundle.revision.revisionVersion,
+        })
+        .catch(() => undefined);
+    }
     throw error;
   }
 }

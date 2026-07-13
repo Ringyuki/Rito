@@ -38,6 +38,7 @@ export interface BrowserReaderRevisionStateInput {
   readonly result: BrowserReaderRevisionResult;
   readonly worker: BrowserReaderWorkerClient;
   readonly initialFrame?: BrowserReaderFrame | undefined;
+  readonly previousRevisionOwnedByController?: boolean | undefined;
 }
 export async function fullReflowWorker(
   state: BrowserReaderState,
@@ -106,13 +107,15 @@ export function applyBrowserReaderRevisionState(
     notifyFrameInvalidation: false,
   });
   if (
+    !input.previousRevisionOwnedByController &&
     previousRevisionId.length > 0 &&
     (previousWorker !== input.worker ||
       previousRevisionId !== input.result.bundle.revision.revisionId)
   ) {
     if (previousRevision) releaseRevision(previousWorker, previousRevision);
   }
-  disposeInactiveWorker(state, previousWorker, input.worker);
+  if (!input.previousRevisionOwnedByController)
+    disposeInactiveWorker(state, previousWorker, input.worker);
 }
 export async function commitBrowserReaderViewResult(
   state: BrowserReaderState,
