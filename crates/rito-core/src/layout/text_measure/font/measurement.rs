@@ -19,7 +19,18 @@ pub(in super::super) fn font_aware_measurement(
         return TextMeasurement { width: 0.0 };
     }
     let cache_key = TextMeasurementCacheKey::new(input);
-    if let Some(width) = input.fonts.cached_width(&cache_key) {
+    let cached_width = input.fonts.cached_width(&cache_key);
+    #[cfg(test)]
+    crate::layout::text_work_trace::record_measurement_cache(
+        input.text,
+        crate::layout::text_work_trace::MeasurementCacheSource::MeasureWidth,
+        if cached_width.is_some() {
+            crate::layout::text_work_trace::MeasurementCacheOutcome::Hit
+        } else {
+            crate::layout::text_work_trace::MeasurementCacheOutcome::Miss
+        },
+    );
+    if let Some(width) = cached_width {
         return TextMeasurement { width };
     }
     let faces = input.fonts.matching_faces(&input.style);
@@ -192,7 +203,18 @@ type ExactFontRun = (usize, usize, [u8; 8], super::shaping::ShapedFontRun);
 
 fn exact_shape_advance(input: &TextMeasurementInput<'_>, runs: &[ExactFontRun]) -> f64 {
     let cache_key = TextMeasurementCacheKey::new(input);
-    if let Some(width) = input.fonts.cached_width(&cache_key) {
+    let cached_width = input.fonts.cached_width(&cache_key);
+    #[cfg(test)]
+    crate::layout::text_work_trace::record_measurement_cache(
+        input.text,
+        crate::layout::text_work_trace::MeasurementCacheSource::ExactShapeAdvance,
+        if cached_width.is_some() {
+            crate::layout::text_work_trace::MeasurementCacheOutcome::Hit
+        } else {
+            crate::layout::text_work_trace::MeasurementCacheOutcome::Miss
+        },
+    );
+    if let Some(width) = cached_width {
         return width;
     }
     let ascii_spaces = input

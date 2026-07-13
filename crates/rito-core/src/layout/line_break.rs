@@ -443,7 +443,10 @@ pub(crate) fn line_break_offsets(
 ) -> BTreeSet<usize> {
     let unicode_breaks = unicode_line_break_offsets(text);
     let resolved = options.resolved_line_break(text);
-    text.boundaries_between(0, text.len)
+    let boundaries = text.boundaries_between(0, text.len);
+    #[cfg(test)]
+    let boundary_count = boundaries.len();
+    let offsets = boundaries
         .into_iter()
         .filter(|position| {
             let previous = text.char_before(*position);
@@ -457,7 +460,15 @@ pub(crate) fn line_break_offsets(
                 options,
             )
         })
-        .collect()
+        .collect::<BTreeSet<_>>();
+    #[cfg(test)]
+    super::text_work_trace::record_line_break_scan(
+        text.as_str(),
+        text.len,
+        boundary_count,
+        offsets.len(),
+    );
+    offsets
 }
 
 fn find_backward_break(start: usize, candidate: usize, offsets: &BTreeSet<usize>) -> Option<usize> {

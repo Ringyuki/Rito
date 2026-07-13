@@ -133,8 +133,10 @@ thread_local! {
 }
 
 #[cfg(test)]
-pub(super) fn record_prefix_probe(utf16_units: usize) {
+pub(super) fn record_prefix_probe(start_utf16: usize, end_utf16: usize) {
+    let utf16_units = end_utf16.saturating_sub(start_utf16);
     PREFIX_PROBE_STATS.set(PREFIX_PROBE_STATS.get().record(utf16_units));
+    super::text_work_trace::record_prefix_probe(start_utf16, end_utf16);
 }
 
 #[cfg(test)]

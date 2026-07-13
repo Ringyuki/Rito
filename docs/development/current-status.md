@@ -335,6 +335,14 @@ Those names now belong to the old TS reference tree only.
      decorated or floated containers, tables, Optimal paragraphs,
      container/paragraph preparation and individual shaping calls remain
      atomic.
+   - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
+     range, the lazy at-most-once-per-paragraph line-break scan, high-level
+     measure/shape requests, both width-cache lookup sources and the exact
+     UTF-16 font subruns that actually enter Rustybuzz. One ordered event stream
+     retains stable text hashes. Trace-on/off tests compare mock and real-font
+     `LineBox` values field for field, while fallback/cache tests prevent
+     request counts from being mistaken for real shaping work. Production
+     builds carry no trace path.
    - Publication-wide cross-chapter footnote filtering now collects targets and
      candidate definitions in one cached, resource-light spine scan instead of
      parsing every XHTML source twice, and sanitizes note payloads only after
@@ -475,9 +483,10 @@ Work in roadmap order:
 The revision/locator contract, bounded production switch and principal native
 interaction slices are complete. Greedy leaf layout is resumable through
 ordinary transparent container trees without changing final pagination, and
-the footnote index performs one spine parse instead of two. The next slice
-should add passive text-work tracing, then meter inline preparation and explicit
-atomic break/shape operations without changing probe or command sequences.
+the footnote index performs one spine parse instead of two. Passive text-work
+tracing now establishes the exact existing probe, cache, scan and Rustybuzz
+operation sequence. The next slice should meter inline preparation and make
+break/shape operations explicitly resumable without changing that sequence.
 After the default-Greedy hard bound, move the single-pass source scan under an
 explicit budget and reuse a durable source index for full-publication search.
 Keep search result geometry lazy and active-window only. In parallel, measure

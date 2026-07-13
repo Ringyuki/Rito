@@ -55,6 +55,8 @@ mod text_mapping;
 mod text_measure;
 mod text_position;
 mod text_shape;
+#[cfg(test)]
+mod text_work_trace;
 mod visual_geometry;
 
 use serde::{Deserialize, Serialize};

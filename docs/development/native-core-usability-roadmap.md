@@ -50,8 +50,13 @@ The remaining usability work is narrower but still release-blocking:
    quantum, and completed flat children can seal stable pages before their
    ancestor closes. Visually decorated or floated containers, Optimal
    paragraphs, tables, container/paragraph preparation and individual
-   contextual shaping calls remain atomic. The first publication-wide footnote scan is now
-   single-pass, but still remains outside the layout budget.
+   contextual shaping calls remain atomic. A test-only passive trace now
+   distinguishes prefix probes, full line-break scans, measurement-cache
+   sources/outcomes and the actual UTF-16 subruns sent to Rustybuzz in one
+   ordered, text-hashed event stream without changing mock or real-font line
+   output; the trace is evidence for the next work meter, not yet a bound.
+   The first publication-wide footnote scan is now single-pass, but still
+   remains outside the layout budget.
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
    lazily, but still needs a publication source/chapter index.

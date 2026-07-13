@@ -233,6 +233,8 @@ pub(super) fn shape_run_checked(
         rustybuzz::Direction::RightToLeft => RunShapeDirection::RightToLeft,
         _ => return Err(ShapeRunFailure::RustybuzzUnavailable),
     };
+    #[cfg(test)]
+    crate::layout::text_work_trace::record_rustybuzz_shape_run(text);
     let glyphs = rustybuzz::shape(face, &[], buffer);
     let units_per_em = f64::from(face.units_per_em());
     if units_per_em <= 0.0 {

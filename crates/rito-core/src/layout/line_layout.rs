@@ -374,7 +374,7 @@ fn find_break_position(
             return *width;
         }
         #[cfg(test)]
-        record_prefix_probe(slice_end.saturating_sub(start));
+        record_prefix_probe(start, slice_end);
         let width = measure_slice(context, text, start, slice_end, fonts);
         measured_widths.insert(slice_end, width);
         width

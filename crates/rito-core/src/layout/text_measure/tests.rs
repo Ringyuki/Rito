@@ -17,6 +17,7 @@ mod font_policy;
 mod shape_policy;
 mod shape_provenance;
 mod shape_safety;
+mod work_trace;
 
 fn assert_width(actual: f64, expected: f64) {
     assert!(

@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::Path};
 
 use serde_json::{json, Map, Value};
 
@@ -9,7 +9,8 @@ use crate::layout::{
     line_break::{utf16_len, Utf16Text},
     line_layout::{layout_greedy_lines, layout_greedy_lines_with_fonts},
     text_mapping::TextSegmentMapping,
-    text_measure::{TextMeasurementCache, TextMeasurementFonts},
+    text_measure::{TextMeasurementCache, TextMeasurementFontFace, TextMeasurementFonts},
+    text_work_trace::{capture_text_work_trace, AtomicTextOperationKind, TextWorkEvent},
 };
 
 fn text_segment(text: String, style: Map<String, Value>) -> InlineSegment {
@@ -213,4 +214,106 @@ fn astral_unicode_runs_keep_utf16_source_offsets() {
     }
     assert_eq!(consumed_units, utf16_len(&text));
     assert_eq!(stats.max_probe_units, utf16_len(&text));
+}
+
+#[test]
+fn passive_text_work_trace_preserves_exact_lines_and_classifies_atomic_work() {
+    const TEXT_UNITS: usize = 320;
+    let text = "猫".repeat(TEXT_UNITS);
+    let style = Map::from_iter([
+        ("fontSize".to_owned(), json!(10)),
+        ("lineHeight".to_owned(), json!(1.2)),
+        ("language".to_owned(), Value::String("zh-CN".to_owned())),
+    ]);
+    let without_trace = layout_greedy_lines(&[text_segment(text.clone(), style.clone())], 60.0);
+
+    reset_prefix_probe_stats();
+    let (with_trace, trace) =
+        capture_text_work_trace(|| layout_greedy_lines(&[text_segment(text, style)], 60.0));
+    let prefix_stats = prefix_probe_stats();
+
+    assert_eq!(with_trace, without_trace);
+    assert_eq!(trace.line_break_scans.len(), 1);
+    assert_eq!(trace.line_break_scans[0].utf16_units, TEXT_UNITS);
+    assert_eq!(trace.line_break_scans[0].boundary_count, TEXT_UNITS);
+    assert!(trace.line_break_scans[0].break_opportunity_count > 0);
+    assert_eq!(trace.prefix_probes.len(), prefix_stats.calls);
+    assert_eq!(
+        trace
+            .prefix_probes
+            .iter()
+            .map(|probe| probe.utf16_units())
+            .sum::<usize>(),
+        prefix_stats.utf16_units
+    );
+    assert_eq!(
+        trace
+            .prefix_probes
+            .iter()
+            .map(|probe| probe.utf16_units())
+            .max(),
+        Some(prefix_stats.max_probe_units)
+    );
+    assert!(trace
+        .prefix_probes
+        .iter()
+        .any(|probe| probe.start_utf16 > 0));
+    assert_eq!(
+        trace.max_request_utf16_units(AtomicTextOperationKind::MeasureRequest),
+        250
+    );
+    assert_eq!(
+        trace.max_request_utf16_units(AtomicTextOperationKind::ShapeRequest),
+        10
+    );
+    let oversized = trace.oversized_atomic_operations(64);
+    assert!(oversized.iter().any(|operation| {
+        operation.kind == AtomicTextOperationKind::LineBreakScan
+            && operation.utf16_units == TEXT_UNITS
+    }));
+    assert!(oversized.iter().any(|operation| {
+        operation.kind == AtomicTextOperationKind::MeasureRequest && operation.utf16_units == 250
+    }));
+    assert!(oversized.iter().all(|operation| {
+        matches!(
+            operation.kind,
+            AtomicTextOperationKind::LineBreakScan | AtomicTextOperationKind::MeasureRequest
+        )
+    }));
+}
+
+#[test]
+fn passive_trace_preserves_real_font_lines_field_for_field() {
+    let font_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf");
+    let bytes = std::fs::read(font_path).expect("read the pinned test font");
+    let make_fonts = || {
+        TextMeasurementFonts::new(vec![TextMeasurementFontFace::new(
+            "Tinos".to_owned(),
+            None,
+            None,
+            &bytes,
+        )])
+    };
+    let text = "office affinity AVATAR cafe\u{301} ffi ".repeat(12);
+    let style = Map::from_iter([
+        ("fontSize".to_owned(), json!(14)),
+        ("lineHeight".to_owned(), json!(1.4)),
+        ("fontFamily".to_owned(), Value::String("Tinos".to_owned())),
+    ]);
+    let segments = [text_segment(text, style)];
+    let expected = layout_greedy_lines_with_fonts(&segments, 150.0, &make_fonts());
+
+    let (actual, trace) =
+        capture_text_work_trace(|| layout_greedy_lines_with_fonts(&segments, 150.0, &make_fonts()));
+
+    assert_eq!(actual, expected);
+    assert!(!trace.rustybuzz_shape_runs.is_empty());
+    assert!(trace.events.windows(2).any(|events| matches!(
+        events,
+        [
+            TextWorkEvent::TextRequest(_),
+            TextWorkEvent::MeasurementCache(_),
+        ]
+    )));
 }

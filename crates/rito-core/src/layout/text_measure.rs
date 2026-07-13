@@ -111,6 +111,11 @@ impl TextMeasurementCacheKey {
 }
 
 pub(crate) fn measure_text(input: TextMeasurementInput<'_>) -> TextMeasurement {
+    #[cfg(test)]
+    super::text_work_trace::record_text_request(
+        super::text_work_trace::AtomicTextOperationKind::MeasureRequest,
+        input.text,
+    );
     match input.policy {
         TextMeasurementPolicy::FixtureCompatible => fixture_compatible_measurement(&input),
         TextMeasurementPolicy::FontAware => font::font_aware_measurement(&input),
@@ -118,6 +123,11 @@ pub(crate) fn measure_text(input: TextMeasurementInput<'_>) -> TextMeasurement {
 }
 
 pub(crate) fn shape_text(input: TextMeasurementInput<'_>) -> RunShape {
+    #[cfg(test)]
+    super::text_work_trace::record_text_request(
+        super::text_work_trace::AtomicTextOperationKind::ShapeRequest,
+        input.text,
+    );
     match input.policy {
         TextMeasurementPolicy::FixtureCompatible => RunShape::unavailable(
             RunShapeUnavailableReason::FixtureCompatibleMeasurement,
