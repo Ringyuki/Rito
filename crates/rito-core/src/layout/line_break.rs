@@ -402,7 +402,11 @@ where
 }
 
 pub(crate) fn contains_cjk(text: &str) -> bool {
-    text.chars().any(|character| is_cjk(Some(character)))
+    text.chars().any(is_cjk_character)
+}
+
+pub(crate) fn is_cjk_character(character: char) -> bool {
+    is_cjk(Some(character))
 }
 
 pub(crate) fn utf16_len(text: &str) -> usize {

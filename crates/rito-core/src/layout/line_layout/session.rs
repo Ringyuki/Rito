@@ -91,6 +91,15 @@ impl GreedyLineLayoutSession {
         self.complete
     }
 
+    #[cfg(test)]
+    pub(super) fn is_analyzing_justify(&self) -> bool {
+        matches!(
+            &self.pending_line,
+            Some(PendingGreedyLine::Finalizing(finalizing))
+                if finalizing.finalizer.is_analyzing_justify()
+        )
+    }
+
     fn advance_next_line(
         &mut self,
         work: &mut TextWorkMeter,
@@ -125,7 +134,7 @@ impl GreedyLineLayoutSession {
                             return PendingLineAdvance::Complete;
                         }
                         Ok(PendingLineResult::Line(line)) => PendingGreedyLine::Finalizing(
-                            PendingGreedyLineFinalization::new(line, self.y, context),
+                            Box::new(PendingGreedyLineFinalization::new(line, self.y, context)),
                         ),
                     }
                 }
@@ -170,7 +179,7 @@ enum PendingLineAdvance {
 #[derive(Debug)]
 enum PendingGreedyLine {
     Building(Box<PendingLineLayout>),
-    Finalizing(PendingGreedyLineFinalization),
+    Finalizing(Box<PendingGreedyLineFinalization>),
 }
 
 #[derive(Debug)]

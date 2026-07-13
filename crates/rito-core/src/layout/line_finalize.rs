@@ -4,10 +4,16 @@ use serde_json::{Map, Value};
 
 use super::{
     line::{LineBox, LineRun},
-    line_align::apply_line_align,
+    line_align::apply_justify_plan,
     line_ruby::extract_ruby_annotations,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
+
+mod geometry;
+mod justify;
+
+use geometry::PendingLineGeometry;
+use justify::{JustifyMode, PendingJustifyAnalysis};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LineWidthMetric {
@@ -27,18 +33,8 @@ pub(crate) struct PendingLineFinalizer {
     shift_y_index: usize,
     shift_x_index: usize,
     x_offset: f64,
+    justify: Option<PendingJustifyAnalysis>,
     stage: LineFinalizeStage,
-}
-
-#[derive(Debug, Default)]
-struct PendingLineGeometry {
-    index: usize,
-    line_width: f64,
-    min_top: f64,
-    max_bottom: f64,
-    ruby_overhang: f64,
-    height: f64,
-    y_shift: f64,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,9 +42,9 @@ enum LineFinalizeStage {
     Geometry,
     ShiftY,
     ResolveAlign,
+    AnalyzeJustify,
     ShiftX,
     LegacyRuby,
-    LegacyAlign,
     Complete,
 }
 
@@ -72,6 +68,7 @@ impl PendingLineFinalizer {
             shift_y_index: 0,
             shift_x_index: 0,
             x_offset: 0.0,
+            justify: None,
             stage: LineFinalizeStage::Geometry,
         }
     }
@@ -86,9 +83,9 @@ impl PendingLineFinalizer {
                 LineFinalizeStage::Geometry => self.advance_geometry(work)?,
                 LineFinalizeStage::ShiftY => self.advance_shift_y(work)?,
                 LineFinalizeStage::ResolveAlign => self.resolve_align(base_style),
+                LineFinalizeStage::AnalyzeJustify => self.advance_justify(work)?,
                 LineFinalizeStage::ShiftX => self.advance_shift_x(work)?,
                 LineFinalizeStage::LegacyRuby => return Ok(self.finish_ruby()),
-                LineFinalizeStage::LegacyAlign => return Ok(self.legacy_align(base_style)),
                 LineFinalizeStage::Complete => {
                     unreachable!("a completed line finalizer cannot be resumed")
                 }
@@ -130,7 +127,7 @@ impl PendingLineFinalizer {
             .and_then(Value::as_str)
             .unwrap_or("left");
         if align == "justify" {
-            self.stage = LineFinalizeStage::LegacyAlign;
+            self.resolve_justify(base_style);
             return;
         }
         self.x_offset = match align {
@@ -139,6 +136,41 @@ impl PendingLineFinalizer {
             _ => 0.0,
         };
         self.stage = LineFinalizeStage::ShiftX;
+    }
+
+    fn resolve_justify(&mut self, base_style: &Map<String, Value>) {
+        if self.is_last_line || self.runs.is_empty() {
+            self.stage = LineFinalizeStage::LegacyRuby;
+            return;
+        }
+        let extra = self.max_width - self.geometry.line_width;
+        let text_justify = base_style
+            .get("textJustify")
+            .and_then(Value::as_str)
+            .unwrap_or("auto");
+        let mode = JustifyMode::from_css(text_justify);
+        if extra <= 0.0 || mode.is_none() {
+            self.stage = LineFinalizeStage::LegacyRuby;
+            return;
+        }
+        self.justify = Some(PendingJustifyAnalysis::new(
+            mode.expect("none was handled"),
+            self.runs.len(),
+        ));
+        self.stage = LineFinalizeStage::AnalyzeJustify;
+    }
+
+    fn advance_justify(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        let plan = self
+            .justify
+            .as_mut()
+            .expect("justify analysis is initialized")
+            .advance(&self.runs, work)?;
+        self.justify = None;
+        let extra = self.max_width - self.geometry.line_width;
+        self.runs = apply_justify_plan(std::mem::take(&mut self.runs), extra, plan);
+        self.stage = LineFinalizeStage::LegacyRuby;
+        Ok(())
     }
 
     fn advance_shift_x(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
@@ -164,17 +196,9 @@ impl PendingLineFinalizer {
         }
     }
 
-    fn legacy_align(&mut self, base_style: &Map<String, Value>) -> LineBox {
-        self.stage = LineFinalizeStage::Complete;
-        apply_line_align(
-            std::mem::take(&mut self.runs),
-            self.geometry.line_width,
-            self.y,
-            self.geometry.height,
-            self.max_width,
-            base_style,
-            self.is_last_line,
-        )
+    #[cfg(test)]
+    pub(crate) fn is_analyzing_justify(&self) -> bool {
+        self.stage == LineFinalizeStage::AnalyzeJustify
     }
 }
 
@@ -184,55 +208,6 @@ impl LineWidthMetric {
             Self::AdvanceRight => run.advance_right(),
             Self::Right => run.right(),
         }
-    }
-}
-
-impl PendingLineGeometry {
-    fn accumulate_metrics(&mut self, run: &LineRun) {
-        let Some((top, bottom, ruby)) = run_metrics(run) else {
-            return;
-        };
-        if top < self.min_top {
-            self.min_top = top;
-        }
-        if bottom > self.max_bottom {
-            self.max_bottom = bottom;
-        }
-        if ruby > self.ruby_overhang {
-            self.ruby_overhang = ruby;
-        }
-    }
-
-    fn finish(&mut self, base_line_height: f64) {
-        let content_height = base_line_height.max(self.max_bottom - self.min_top);
-        self.height = content_height + self.ruby_overhang;
-        self.y_shift = if self.min_top < 0.0 {
-            -self.min_top
-        } else {
-            0.0
-        } + self.ruby_overhang;
-    }
-}
-
-fn run_metrics(run: &LineRun) -> Option<(f64, f64, f64)> {
-    match run {
-        LineRun::Text(run) => {
-            let (top, bottom) = if let Some(line_height_px) = run.line_height_px {
-                let half_leading = (run.font_size - line_height_px) / 2.0;
-                let top = run.y + half_leading;
-                (top, top + line_height_px)
-            } else {
-                (run.y, run.y + run.height)
-            };
-            let ruby = run
-                .ruby_annotation
-                .as_ref()
-                .map(|_| run.font_size * 0.5 + 1.0)
-                .unwrap_or(0.0);
-            Some((top, bottom, ruby))
-        }
-        LineRun::Atom(run) => Some((run.y, run.y + run.height, 0.0)),
-        LineRun::Ruby(_) => None,
     }
 }
 

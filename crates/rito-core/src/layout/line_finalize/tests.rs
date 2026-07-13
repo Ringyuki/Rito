@@ -110,6 +110,70 @@ fn center_and_right_one_unit_quanta_match_the_legacy_alignment_oracle() {
 }
 
 #[test]
+fn word_and_inter_character_justification_match_the_legacy_oracle() {
+    for (text_justify, runs) in [
+        (
+            "auto",
+            vec![
+                text_run("a b", 0.0, 0.0, json!({}), None, None),
+                text_run(" c", 30.0, 0.0, json!({}), None, None),
+            ],
+        ),
+        (
+            "inter-character",
+            vec![
+                text_run("中A", 0.0, 0.0, json!({}), None, None),
+                text_run("文", 30.0, 0.0, json!({}), None, None),
+            ],
+        ),
+    ] {
+        let style = Map::from_iter([
+            ("textAlign".to_owned(), Value::String("justify".to_owned())),
+            (
+                "textJustify".to_owned(),
+                Value::String(text_justify.to_owned()),
+            ),
+        ]);
+        let expected = apply_line_align(runs.clone(), 60.0, 0.0, 12.0, 100.0, &style, false);
+
+        let actual = finalize_line_eager(
+            runs,
+            LineWidthMetric::AdvanceRight,
+            0.0,
+            12.0,
+            100.0,
+            &style,
+            false,
+        );
+
+        assert_eq!(actual, expected, "textJustify={text_justify}");
+    }
+}
+
+#[test]
+fn last_or_forced_line_skips_justify_analysis() {
+    let runs = vec![text_run("中文", 0.0, 0.0, json!({}), None, None)];
+    let style = Map::from_iter([
+        ("textAlign".to_owned(), Value::String("justify".to_owned())),
+        (
+            "textJustify".to_owned(),
+            Value::String("inter-character".to_owned()),
+        ),
+    ]);
+    let expected = apply_line_align(runs.clone(), 30.0, 0.0, 12.0, 100.0, &style, true);
+    let mut pending =
+        PendingLineFinalizer::new(runs, LineWidthMetric::AdvanceRight, 0.0, 12.0, 100.0, true);
+    let mut work = meter(1, 1);
+
+    let actual = pending
+        .advance(&mut work, &style)
+        .expect("last lines finish after geometry without scanning their text");
+
+    assert!(!pending.is_analyzing_justify());
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn zero_horizontal_offset_does_not_consume_run_work() {
     for align in ["center", "right"] {
         let style = Map::from_iter([("textAlign".to_owned(), Value::String(align.to_owned()))]);

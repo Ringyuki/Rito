@@ -1,12 +1,56 @@
-use serde_json::{Map, Value};
+use super::line::LineRun;
 
+#[cfg(test)]
 use super::{
-    line::{LineBox, LineRun},
-    line_break::contains_cjk,
-    line_ruby::extract_ruby_annotations,
+    line::LineBox, line_break::contains_cjk, line_ruby::extract_ruby_annotations,
     style_values::string_style,
 };
+#[cfg(test)]
+use serde_json::{Map, Value};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum JustifyPlan {
+    None,
+    Word {
+        per_run: Vec<usize>,
+        total_gaps: usize,
+    },
+    InterCharacter {
+        per_run: Vec<usize>,
+        boundary_before: Vec<bool>,
+        total_gaps: usize,
+    },
+}
+
+// Gap discovery is resumable upstream. Distribution and retained-shape
+// spacing are deliberately still one eager tail for the next finalizer slice.
+pub(crate) fn apply_justify_plan(
+    runs: Vec<LineRun>,
+    extra: f64,
+    plan: JustifyPlan,
+) -> Vec<LineRun> {
+    match plan {
+        JustifyPlan::None => runs,
+        JustifyPlan::Word {
+            per_run,
+            total_gaps,
+        } => distribute_planned_space_gaps(runs, &per_run, extra / total_gaps as f64),
+        JustifyPlan::InterCharacter {
+            per_run,
+            boundary_before,
+            total_gaps,
+        } => distribute_inter_character_gaps(
+            runs,
+            InterCharacterGapPlan {
+                per_run,
+                boundary_before,
+            },
+            extra / total_gaps as f64,
+        ),
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn apply_line_align(
     mut runs: Vec<LineRun>,
     line_width: f64,
@@ -35,6 +79,7 @@ pub(crate) fn apply_line_align(
     }
 }
 
+#[cfg(test)]
 fn justify_runs(
     runs: Vec<LineRun>,
     line_width: f64,
@@ -56,16 +101,14 @@ fn justify_runs(
         return runs;
     }
 
-    let Some(plan) = collect_inter_character_gaps(&runs) else {
+    let Some((plan, total_gaps)) = collect_inter_character_gaps(&runs) else {
         return runs;
     };
-    if plan.total_gaps == 0 {
-        return runs;
-    }
-    let gap_size = extra / plan.total_gaps as f64;
+    let gap_size = extra / total_gaps as f64;
     distribute_inter_character_gaps(runs, plan, gap_size)
 }
 
+#[cfg(test)]
 fn count_run_spaces(run: &LineRun) -> usize {
     match run {
         LineRun::Text(run) => run
@@ -77,6 +120,7 @@ fn count_run_spaces(run: &LineRun) -> usize {
     }
 }
 
+#[cfg(test)]
 fn distribute_space_gaps(runs: Vec<LineRun>, gap_size: f64) -> Vec<LineRun> {
     let mut result = Vec::with_capacity(runs.len());
     let mut x_offset = 0.0;
@@ -109,13 +153,45 @@ fn distribute_space_gaps(runs: Vec<LineRun>, gap_size: f64) -> Vec<LineRun> {
     result
 }
 
+fn distribute_planned_space_gaps(
+    runs: Vec<LineRun>,
+    per_run: &[usize],
+    gap_size: f64,
+) -> Vec<LineRun> {
+    let mut result = Vec::with_capacity(runs.len());
+    let mut x_offset = 0.0;
+
+    for (index, run) in runs.into_iter().enumerate() {
+        match run {
+            LineRun::Text(mut run) => {
+                let intra_gaps = per_run.get(index).copied().unwrap_or(0);
+                run.x += x_offset;
+                run.width += intra_gaps as f64 * gap_size;
+                run.add_paint_spacing("wordSpacingPx", gap_size);
+                x_offset += intra_gaps as f64 * gap_size;
+                result.push(LineRun::Text(run));
+            }
+            LineRun::Atom(mut run) => {
+                run.x += x_offset;
+                result.push(LineRun::Atom(run));
+            }
+            LineRun::Ruby(mut run) => {
+                run.x += x_offset;
+                result.push(LineRun::Ruby(run));
+            }
+        }
+    }
+
+    result
+}
+
 struct InterCharacterGapPlan {
     per_run: Vec<usize>,
     boundary_before: Vec<bool>,
-    total_gaps: usize,
 }
 
-fn collect_inter_character_gaps(runs: &[LineRun]) -> Option<InterCharacterGapPlan> {
+#[cfg(test)]
+fn collect_inter_character_gaps(runs: &[LineRun]) -> Option<(InterCharacterGapPlan, usize)> {
     if runs.iter().any(|run| matches!(run, LineRun::Atom(_))) {
         return None;
     }
@@ -145,11 +221,13 @@ fn collect_inter_character_gaps(runs: &[LineRun]) -> Option<InterCharacterGapPla
         previous_text_was_east_asian = has_east_asian;
     }
 
-    (total_gaps > 0).then_some(InterCharacterGapPlan {
-        per_run,
-        boundary_before,
+    (total_gaps > 0).then_some((
+        InterCharacterGapPlan {
+            per_run,
+            boundary_before,
+        },
         total_gaps,
-    })
+    ))
 }
 
 fn distribute_inter_character_gaps(
@@ -189,6 +267,7 @@ fn distribute_inter_character_gaps(
     result
 }
 
+#[cfg(test)]
 fn offset_runs_x(runs: Vec<LineRun>, dx: f64) -> Vec<LineRun> {
     if dx == 0.0 {
         return runs;

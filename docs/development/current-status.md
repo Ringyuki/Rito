@@ -378,11 +378,15 @@ Those names now belong to the old TS reference tree only.
      survive a yielded quantum and commit position, height and the completed
      `LineBox` only after finalization succeeds. Optimal's eager path drains the
      same finalizer while preserving its distinct paint-bound width rule.
-     Justify analysis/distribution, shape spacing, ruby grouping and mapping
-     assembly still form the unmetered legacy tail of that state machine.
+     Justify gap analysis also resumes per run and per UTF-16 scalar, including
+     an astral scalar split across quanta, and moves its completed per-run plan
+     without a second scan. Justify distribution and retained-shape spacing,
+     ruby grouping and mapping assembly still form the unmetered tail of that
+     state machine.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
-     margin-collapse preparation, justify-path alignment/mapping assembly,
+     margin-collapse preparation, justify distribution/shape spacing/mapping
+     assembly,
      atomic Liang point generation, visually decorated or floated containers,
      tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
@@ -514,7 +518,8 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
    flattening/context preparation, container startup and remaining line
-   post-processing such as justify-path alignment and mapping assembly, then
+   post-processing such as justify distribution, shape spacing and mapping
+   assembly, then
    make the currently atomic Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
@@ -546,8 +551,8 @@ shares its text-work meter across chapter boundaries. Exact ordered text-work
 traces remain unchanged, while a captured font layout-profile token prevents
 restore under inconsistent logical font inputs. The footnote index performs
 one spine parse instead of two. The next bounded-layout slice should meter
-inline/context preparation, container startup and the remaining justify-path
-alignment, shape-spacing and mapping work before making Liang point
+inline/context preparation, container startup and the remaining justify
+distribution, shape-spacing and mapping work before making Liang point
 generation itself resumable and extending the same discipline through
 decorated/floated containers, tables and Optimal layout. Individual font calls
 and the Liang dictionary call remain indivisible; the oversized-operation

@@ -635,6 +635,56 @@ mod tests {
     }
 
     #[test]
+    fn justify_analysis_yields_without_publishing_a_partial_line() {
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+            ("textAlign".to_owned(), Value::String("justify".to_owned())),
+            (
+                "textJustify".to_owned(),
+                Value::String("inter-character".to_owned()),
+            ),
+            (
+                "wordBreak".to_owned(),
+                Value::String("break-all".to_owned()),
+            ),
+        ]);
+        let segments = vec![text_segment("中文中文中文中文".to_owned(), style)];
+        let fonts = TextMeasurementFonts::empty();
+        let expected = layout_greedy_lines_with_fonts(&segments, 25.0, &fonts);
+        let mut session = GreedyLineLayoutSession::new(&segments, 25.0, &fonts);
+        let mut quantum_count = 0;
+
+        while !session.is_analyzing_justify() {
+            quantum_count += 1;
+            assert!(quantum_count < 100, "session must reach justify analysis");
+            let mut work = TextWorkMeter::new(TextWorkBudget::new(
+                NonZeroUsize::new(1).expect("text limit is non-zero"),
+                NonZeroUsize::new(1).expect("operation limit is non-zero"),
+            ));
+            assert!(session
+                .advance_with_text_work(usize::MAX, &mut work, &fonts)
+                .is_empty());
+            assert!(!session.is_complete());
+        }
+
+        let mut partial_analysis = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut partial_analysis, &fonts)
+            .is_empty());
+        assert!(session.is_analyzing_justify());
+
+        let mut actual = Vec::new();
+        while !session.is_complete() {
+            actual.extend(session.advance(usize::MAX, &fonts));
+        }
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn oversized_nowrap_measure_and_shape_resume_without_partial_output() {
         let style = Map::from_iter([
             ("fontSize".to_owned(), json!(10)),
