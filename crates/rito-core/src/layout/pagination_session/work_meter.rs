@@ -106,7 +106,7 @@ pub(in crate::layout) enum LayoutSessionScope {
 /// session. Root input accounting remains the public progress contract while
 /// descendant input and line layout use private fixed-size quanta.
 #[derive(Debug)]
-pub(in crate::layout) struct LayoutWorkMeter {
+pub(crate) struct LayoutWorkMeter {
     root_accepts_remaining: usize,
     root_starts_remaining: usize,
     descendant_accepts_remaining: usize,
@@ -118,7 +118,7 @@ pub(in crate::layout) struct LayoutWorkMeter {
 }
 
 impl LayoutWorkMeter {
-    pub(in crate::layout) fn new(budget: LayoutWorkBudget) -> Self {
+    pub(crate) fn new(budget: LayoutWorkBudget) -> Self {
         Self {
             root_accepts_remaining: budget.max_top_level_nodes.get(),
             root_starts_remaining: budget.max_top_level_nodes.get(),
@@ -162,6 +162,13 @@ impl LayoutWorkMeter {
 
     pub(in crate::layout) fn consume_line_boxes(&mut self, count: usize) {
         self.line_boxes_remaining = self.line_boxes_remaining.saturating_sub(count);
+    }
+
+    /// Keeps private root work within the runtime request's remaining public
+    /// slots without restoring work already consumed in earlier chapters.
+    pub(crate) fn cap_root_work_remaining(&mut self, remaining: usize) {
+        self.root_accepts_remaining = self.root_accepts_remaining.min(remaining);
+        self.root_starts_remaining = self.root_starts_remaining.min(remaining);
     }
 
     #[allow(dead_code)]
@@ -223,6 +230,24 @@ mod tests {
         let text = meter.text_work_mut();
         assert_eq!(text.utf16_units_remaining(), 4);
         assert_eq!(text.atomic_operations_remaining(), 2);
+    }
+
+    #[test]
+    fn root_cap_preserves_consumed_work_and_charges_synthetic_slots() {
+        let mut meter = LayoutWorkMeter::new(LayoutWorkBudget::new(non_zero(5)));
+
+        meter.consume_accepts(super::LayoutSessionScope::Root, 1);
+        assert!(meter.try_start_node(super::LayoutSessionScope::Root));
+        assert!(meter.try_start_node(super::LayoutSessionScope::Root));
+        meter.cap_root_work_remaining(4);
+
+        assert_eq!(meter.root_accepts_remaining, 4);
+        assert_eq!(meter.root_starts_remaining, 3);
+
+        let mut empty_chapter = LayoutWorkMeter::new(LayoutWorkBudget::new(non_zero(5)));
+        empty_chapter.cap_root_work_remaining(4);
+        assert_eq!(empty_chapter.root_accepts_remaining, 4);
+        assert_eq!(empty_chapter.root_starts_remaining, 4);
     }
 
     fn non_zero(value: usize) -> NonZeroUsize {

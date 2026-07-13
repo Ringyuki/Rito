@@ -10,7 +10,7 @@ use crate::{
         image_size::ImageSizeIndex,
         line::{LineRun, TextRunBox},
         pagination_flow::PaginationFlowChapter,
-        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget},
+        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter},
         LayoutConfig, LayoutConfigInput, LayoutRuntimePage, LineBreaking, MarginInput, SpreadMode,
         TextMeasurementFonts,
     },
@@ -75,6 +75,50 @@ fn open_page_stays_private_until_chapter_completion() {
     assert_eq!(second.total_block_count, 2);
     assert_eq!(second.newly_sealed_pages.len(), 1);
     assert_eq!(page_text(&second.newly_sealed_pages[0]), "firstsecond");
+}
+
+#[test]
+fn one_meter_shares_the_line_quantum_between_chapter_sessions() {
+    let layout = test_layout();
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut first = RuntimeChapterLayoutSession::new(
+        vec![paragraph("first chapter")],
+        images.clone(),
+        &layout,
+        LineBreaking::Greedy,
+        None,
+    );
+    let mut second = RuntimeChapterLayoutSession::new(
+        vec![paragraph("second chapter")],
+        images,
+        &layout,
+        LineBreaking::Greedy,
+        None,
+    );
+    let mut work = LayoutWorkMeter::new(LayoutWorkBudget::with_max_line_boxes(
+        NonZeroUsize::new(2).expect("test node budget is non-zero"),
+        NonZeroUsize::new(1).expect("test line budget is non-zero"),
+    ));
+
+    let first_advance = first.advance_with_meter(&mut work, &fonts);
+    let second_partial = second.advance_with_meter(&mut work, &fonts);
+
+    assert_eq!(first_advance.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(first_advance.processed_top_level_nodes, 1);
+    assert_eq!(second_partial.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(second_partial.processed_top_level_nodes, 1);
+    assert_eq!(second_partial.total_block_count, 0);
+    assert!(second_partial.newly_sealed_pages.is_empty());
+
+    let second_complete = second.advance(budget_with_lines(1, 1), &fonts);
+    assert_eq!(second_complete.status, LayoutAdvanceStatus::Complete);
+    assert_eq!(second_complete.processed_top_level_nodes, 0);
+    assert_eq!(second_complete.total_block_count, 1);
+    assert_eq!(
+        page_text(&second_complete.newly_sealed_pages[0]),
+        "second chapter"
+    );
 }
 
 #[test]

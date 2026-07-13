@@ -2,8 +2,8 @@ use super::{assert_bounded_is_eager_prefix, bounded_request, continue_request};
 use crate::layout::LineBreaking;
 use crate::runtime::tests::fixture::{
     double_layout, empty_chapter_fixture_epub, layout, long_source_text_fixture_epub,
-    multi_chapter_fixture_epub, nested_transparent_container_fixture_epub,
-    source_locator_fixture_epub,
+    many_chapter_fixture_epub, many_empty_chapter_fixture_epub, multi_chapter_fixture_epub,
+    nested_transparent_container_fixture_epub, source_locator_fixture_epub,
 };
 use crate::runtime::{
     RuntimeBoundedRevisionRequest, RuntimeDocument, RuntimeRevisionHandle, RuntimeRevisionStatus,
@@ -250,6 +250,72 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
 }
 
 #[test]
+fn one_public_quantum_shares_private_work_limits_across_chapters() {
+    let bytes = many_chapter_fixture_epub(40);
+    let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
+    let eager_revision = eager
+        .create_revision(&layout())
+        .expect("eager revision completes");
+    let mut bounded = RuntimeDocument::open(&bytes).expect("bounded document opens");
+    let initial = bounded
+        .create_bounded_revision(bounded_request(layout(), 64))
+        .expect("bounded revision starts");
+
+    assert_ne!(initial.revision.status, RuntimeRevisionStatus::Complete);
+    assert!(initial.processed_top_level_nodes > 0);
+    assert!(initial.processed_top_level_nodes < 40);
+
+    let completed = super::complete_revision(&mut bounded, initial);
+    let eager_layout = &eager.revisions[&eager_revision.revision_id].layout;
+    let bounded_layout = &bounded.revisions[&completed.revision.revision_id].layout;
+    assert_eq!(bounded_layout.pages, eager_layout.pages);
+    assert_eq!(
+        bounded_layout.chapter_start_pages,
+        eager_layout.chapter_start_pages
+    );
+    assert_eq!(bounded_layout.summary, eager_layout.summary);
+    for spread_index in 0..completed.revision.spread_count {
+        assert_eq!(
+            bounded
+                .get_frame(&completed.revision.revision_id, spread_index)
+                .expect("bounded frame exists")
+                .command_hash,
+            eager
+                .get_frame(&eager_revision.revision_id, spread_index)
+                .expect("eager frame exists")
+                .command_hash
+        );
+    }
+}
+
+#[test]
+fn empty_chapter_completion_keeps_its_synthetic_public_budget_slot() {
+    let bytes = many_empty_chapter_fixture_epub(3);
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let mut advance = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect("bounded revision starts");
+
+    assert_ne!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(advance.processed_top_level_nodes, 0);
+    assert!(document.document().chapters[0].source_loaded);
+    assert!(!document.document().chapters[1].source_loaded);
+
+    let mut quantum_count = 1;
+    while let Some(cursor) = advance.continuation.clone() {
+        advance = document
+            .continue_revision(continue_request(&cursor, 1))
+            .expect("empty chapter continuation advances");
+        quantum_count += 1;
+        assert_eq!(advance.processed_top_level_nodes, 0);
+    }
+
+    assert_eq!(quantum_count, 3);
+    assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(advance.revision.known_extent.page_count, 0);
+}
+
+#[test]
 fn shape_diagnostic_marks_ready_as_prefix_and_complete_as_final() {
     let bytes = multi_chapter_fixture_epub();
     let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
@@ -420,6 +486,7 @@ fn empty_bounded_revision_has_no_warm_spread_zero() {
         .expect("empty warm plan exists");
 
     assert_eq!(advance.revision.status, RuntimeRevisionStatus::Complete);
+    assert_eq!(advance.processed_top_level_nodes, 0);
     assert_eq!(advance.revision.known_extent.spread_count, 0);
     assert!(plan.spread_indexes.is_empty());
 }

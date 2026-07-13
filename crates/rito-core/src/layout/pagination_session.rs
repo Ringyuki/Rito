@@ -2,8 +2,9 @@ use std::{collections::VecDeque, sync::Arc};
 
 mod work_meter;
 
+pub(super) use work_meter::LayoutSessionScope;
 pub(crate) use work_meter::LayoutWorkBudget;
-pub(super) use work_meter::{LayoutSessionScope, LayoutWorkMeter};
+pub(crate) use work_meter::LayoutWorkMeter;
 
 use super::{
     continuous_layout::{

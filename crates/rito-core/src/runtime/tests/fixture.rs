@@ -284,6 +284,21 @@ pub fn multi_chapter_image_fixture_epub() -> Vec<u8> {
 }
 
 pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
+    many_chapter_fixture_epub_with(chapter_count, |index| {
+        chapter_fixture_xhtml(&format!("chapter {index}"))
+    })
+}
+
+pub fn many_empty_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
+    many_chapter_fixture_epub_with(chapter_count, |_| {
+        r#"<html xmlns="http://www.w3.org/1999/xhtml"><body></body></html>"#.to_owned()
+    })
+}
+
+fn many_chapter_fixture_epub_with(
+    chapter_count: usize,
+    chapter_xhtml: impl Fn(usize) -> String,
+) -> Vec<u8> {
     let mut writer = ZipWriter::new(Cursor::new(Vec::new()));
     let options: FileOptions<'_, ()> = FileOptions::default();
     add_file(
@@ -324,13 +339,8 @@ pub fn many_chapter_fixture_epub(chapter_count: usize) -> Vec<u8> {
     add_file(&mut writer, options, "OPS/package.opf", package.as_bytes());
     for index in 0..chapter_count {
         let path = format!("OPS/chapter-{index}.xhtml");
-        let text = format!("chapter {index}");
-        add_file(
-            &mut writer,
-            options,
-            &path,
-            chapter_fixture_xhtml(&text).as_bytes(),
-        );
+        let chapter = chapter_xhtml(index);
+        add_file(&mut writer, options, &path, chapter.as_bytes());
     }
     writer.finish().expect("zip finalizes").into_inner()
 }

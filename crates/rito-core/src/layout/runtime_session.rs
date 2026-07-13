@@ -3,7 +3,9 @@ use serde_json::Value;
 use super::{
     image_size::ImageSizeIndex,
     pagination_flow::cursor::ContinuousPaginationSession,
-    pagination_session::{ContinuousLayoutSession, LayoutAdvanceStatus, LayoutWorkBudget},
+    pagination_session::{
+        ContinuousLayoutSession, LayoutAdvanceStatus, LayoutSessionScope, LayoutWorkMeter,
+    },
     LayoutConfig, LayoutRuntimePage, LineBreaking, TextMeasurementFonts,
 };
 use crate::style::StyledNode;
@@ -55,13 +57,25 @@ impl RuntimeChapterLayoutSession {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn advance<'fonts>(
         &mut self,
-        budget: LayoutWorkBudget,
+        budget: super::pagination_session::LayoutWorkBudget,
+        fonts: &'fonts TextMeasurementFonts<'fonts>,
+    ) -> RuntimeChapterLayoutAdvance {
+        let mut work = LayoutWorkMeter::new(budget);
+        self.advance_with_meter(&mut work, fonts)
+    }
+
+    pub(crate) fn advance_with_meter<'fonts>(
+        &mut self,
+        work: &mut LayoutWorkMeter,
         fonts: &'fonts TextMeasurementFonts<'fonts>,
     ) -> RuntimeChapterLayoutAdvance {
         assert!(!self.finished, "cannot advance a completed chapter layout");
-        let layout = self.layout.advance(budget, fonts);
+        let layout = self
+            .layout
+            .advance_with_meter(work, LayoutSessionScope::Root, fonts);
         let batch_block_count = layout.output.len();
         self.total_block_count += batch_block_count;
         {

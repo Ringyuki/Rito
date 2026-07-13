@@ -7,7 +7,7 @@ use crate::{
     },
     layout::{
         image_size::ImageSizeIndex,
-        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget},
+        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter},
         runtime_session::{RuntimeChapterLayoutAdvance, RuntimeChapterLayoutSession},
     },
     resources::{binary_summary_from_metadata, BinaryResourceSummary},
@@ -26,12 +26,14 @@ impl RuntimeDocument {
         budget: NonZeroUsize,
     ) -> EpubResult<RuntimeContinuationWork> {
         let mut remaining = budget.get();
+        let mut layout_work = LayoutWorkMeter::new(LayoutWorkBudget::new(budget));
         let mut work = RuntimeContinuationWork::default();
         while remaining > 0 && record.next_chapter_index < record.chapter_count {
             self.ensure_current_chapter(record, &mut work)?;
-            let advance = self.advance_current_chapter(record, remaining);
+            let advance = self.advance_current_chapter(record, &mut layout_work);
             let chapter_complete = advance.status == LayoutAdvanceStatus::Complete;
             remaining = remaining.saturating_sub(consumed_budget(&advance));
+            layout_work.cap_root_work_remaining(remaining);
             work.processed_top_level_nodes += advance.processed_top_level_nodes;
             work.batches
                 .push(capture_page_batch(record, advance, chapter_complete));
@@ -64,7 +66,7 @@ impl RuntimeDocument {
     fn advance_current_chapter(
         &self,
         record: &mut RuntimeContinuationRecord,
-        remaining: usize,
+        layout_work: &mut LayoutWorkMeter,
     ) -> RuntimeChapterLayoutAdvance {
         let pinned_faces = self
             .pinned_font_policy
@@ -75,15 +77,12 @@ impl RuntimeDocument {
             Some(self.text_measurement_cache.clone()),
             pinned_faces,
         );
-        let budget = LayoutWorkBudget::new(
-            NonZeroUsize::new(remaining).expect("remaining work is non-zero"),
-        );
         record
             .current
             .as_mut()
             .expect("chapter was started")
             .session
-            .advance(budget, &assembly.fonts)
+            .advance_with_meter(layout_work, &assembly.fonts)
     }
 
     fn start_chapter(
