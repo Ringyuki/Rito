@@ -10,6 +10,7 @@ use super::{
 
 mod distribute;
 mod geometry;
+mod grapheme;
 mod justify;
 
 use distribute::PendingJustifyDistribution;

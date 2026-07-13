@@ -91,6 +91,7 @@ impl PendingJustifyDistribution {
                 LineRun::Text(run) => {
                     let intra_gaps = self.plan.intra_gaps(self.run_index);
                     let added_width = intra_gaps as f64 * self.plan.gap_size();
+                    let known_spacing_gaps = self.plan.known_spacing_gaps(intra_gaps);
                     run.x += self.x_offset;
                     run.width += added_width;
                     let spacing_key = self.plan.spacing_key(intra_gaps);
@@ -105,7 +106,7 @@ impl PendingJustifyDistribution {
                             word_spacing_delta,
                             letter_spacing_delta,
                             run.width,
-                            None,
+                            known_spacing_gaps,
                         ));
                     } else {
                         self.x_offset += added_width;
@@ -162,6 +163,13 @@ impl DistributionPlan {
             Self::Word { .. } => Some("wordSpacingPx"),
             Self::InterCharacter { .. } if intra_gaps > 0 => Some("letterSpacingPx"),
             Self::InterCharacter { .. } => None,
+        }
+    }
+
+    fn known_spacing_gaps(&self, intra_gaps: usize) -> Option<usize> {
+        match self {
+            Self::Word { .. } => None,
+            Self::InterCharacter { .. } => Some(intra_gaps),
         }
     }
 }

@@ -127,6 +127,26 @@ fn unsafe_letter_spacing_yields_without_partially_mutating_clusters() {
 }
 
 #[test]
+fn known_grapheme_gap_mismatch_rejects_before_any_cluster_scan() {
+    let mut shape = exact(RunShapeDirection::LeftToRight, vec![cluster(0, 2, 17.25)]);
+    let mut pending = PendingShapeSpacing::new(0.0, 2.5, 19.75, Some(1));
+    let mut work = meter(1);
+
+    reset_scalar_visits();
+    pending
+        .advance(&mut shape, "\u{4e2d}\u{6587}", &mut work)
+        .expect("known mismatch is decided without scanning text");
+
+    assert_eq!(scalar_visits(), (0, 0));
+    assert!(matches!(
+        shape,
+        RunShape::Unavailable(unavailable)
+            if unavailable.reason == RunShapeUnavailableReason::NonClusterSafeSpacing
+                && unavailable.advance.to_bits() == 19.75_f64.to_bits()
+    ));
+}
+
+#[test]
 fn astral_scalar_resumes_without_repeating_or_livelocking() {
     let text = "😀a";
     for (direction, clusters) in [

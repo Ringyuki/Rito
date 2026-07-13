@@ -59,10 +59,10 @@ The remaining usability work is narrower but still release-blocking:
    gap analysis resumes per run and per UTF-16 scalar, retains a partially
    consumed astral scalar safely and hands off its per-run plan without a
    second scan. Distribution then resumes per run and retained-shape spacing
-   per UTF-16 scalar plus cluster commit. The current Rust inter-character
-   count is still scalar-based while the TypeScript baseline uses extended
-   graphemes, so that parity correction remains pending. Every recursive
-   session shares one 32-node descendant
+   per UTF-16 scalar plus cluster commit. Inter-character counts match the
+   TypeScript baseline's extended-grapheme semantics through a rolling,
+   metered `GraphemeCursor`; exact-shape safety consumes the same per-run gap
+   count. Every recursive session shares one 32-node descendant
    quantum and the text-work meter, and one public request keeps that meter
    across chapter boundaries. A later request starts
    with a fresh meter. Each session also captures a process-local logical font

@@ -384,9 +384,12 @@ Those names now belong to the old TS reference tree only.
      an astral scalar split across quanta, and moves its completed per-run plan
      without a second scan. Distribution then resumes per run; retained exact
      shape spacing resumes per UTF-16 scalar and cluster commit, while malformed
-     cluster partitions fail closed. The current inter-character plan still
-     counts Unicode scalars where the TypeScript baseline counts extended
-     graphemes, so that parity correction remains explicit follow-up work. Ruby
+     cluster partitions fail closed. Inter-character gap counts now match the
+     TypeScript baseline's extended-grapheme semantics through a rolling
+     `GraphemeCursor`: each forward call sees at most two paid scalars and each
+     requested pre-context call sees one. The same grapheme count provides the
+     exact-shape safety check without a second scalar scan; word justification
+     and base CSS letter spacing keep their distinct existing paths. Ruby
      grouping and mapping assembly still form the unmetered tail of the line
      state machine.
    - This is not yet the complete default-Greedy hard bound. Inline

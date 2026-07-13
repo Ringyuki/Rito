@@ -1,5 +1,7 @@
 #[cfg(test)]
 use super::line::LineRun;
+#[cfg(test)]
+use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(test)]
 use super::{
@@ -8,6 +10,10 @@ use super::{
 };
 #[cfg(test)]
 use serde_json::{Map, Value};
+
+#[cfg(test)]
+#[path = "line_align_oracle_spacing.rs"]
+mod oracle_spacing;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum JustifyPlan {
@@ -211,7 +217,7 @@ fn collect_inter_character_gaps(runs: &[LineRun]) -> Option<(InterCharacterGapPl
         };
         let has_east_asian = contains_cjk(&run.text);
         let intra_gaps = if has_east_asian {
-            run.text.chars().count().saturating_sub(1)
+            run.text.graphemes(true).count().saturating_sub(1)
         } else {
             0
         };
@@ -252,7 +258,7 @@ fn distribute_inter_character_gaps(
                 run.x += x_offset;
                 run.width += intra_gaps as f64 * gap_size;
                 if intra_gaps > 0 {
-                    run.add_paint_spacing("letterSpacingPx", gap_size);
+                    oracle_spacing::apply_inter_character_spacing(&mut run, gap_size, intra_gaps);
                 }
                 x_offset += intra_gaps as f64 * gap_size;
                 result.push(LineRun::Text(run));

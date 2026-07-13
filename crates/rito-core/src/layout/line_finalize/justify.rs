@@ -4,6 +4,7 @@ use super::super::{
     line_break::is_cjk_character,
     text_work::{TextWorkMeter, TextWorkYield},
 };
+use super::grapheme::{GraphemeScanEvent, PendingGraphemeScan};
 
 #[derive(Debug)]
 pub(super) struct PendingJustifyAnalysis {
@@ -29,23 +30,15 @@ pub(super) enum JustifyMode {
 #[derive(Debug, Default)]
 struct JustifyRunStats {
     ascii_spaces: usize,
-    scalar_count: usize,
+    grapheme_count: usize,
     has_cjk: bool,
     boundary_before: bool,
 }
 
-#[derive(Debug, Default)]
-struct PendingTextAnalysis {
-    byte_cursor: usize,
-    stats: JustifyRunStats,
-    pending_scalar: Option<PendingScalar>,
-}
-
 #[derive(Debug)]
-struct PendingScalar {
-    character: char,
-    utf8_len: usize,
-    utf16_units_remaining: usize,
+struct PendingTextAnalysis {
+    graphemes: PendingGraphemeScan,
+    stats: JustifyRunStats,
 }
 
 impl JustifyMode {
@@ -84,7 +77,9 @@ impl PendingJustifyAnalysis {
             if self.text.is_none() {
                 require_unit(work)?;
                 match &runs[self.run_index] {
-                    LineRun::Text(_) => self.text = Some(PendingTextAnalysis::default()),
+                    LineRun::Text(run) => {
+                        self.text = Some(PendingTextAnalysis::new(run.text.len()))
+                    }
                     LineRun::Atom(_) => {
                         self.contains_atom = true;
                         self.finish_non_text_run();
@@ -123,7 +118,7 @@ impl PendingJustifyAnalysis {
 
     fn record_run(&mut self, stats: JustifyRunStats) {
         let inter_gaps = if stats.has_cjk {
-            stats.scalar_count.saturating_sub(1)
+            stats.grapheme_count.saturating_sub(1)
         } else {
             0
         };
@@ -161,33 +156,25 @@ impl PendingJustifyAnalysis {
 }
 
 impl PendingTextAnalysis {
+    fn new(text_byte_len: usize) -> Self {
+        Self {
+            graphemes: PendingGraphemeScan::new(text_byte_len),
+            stats: JustifyRunStats::default(),
+        }
+    }
+
     fn advance(&mut self, value: &str, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
         loop {
-            if self.pending_scalar.is_none() {
-                let Some(character) = value[self.byte_cursor..].chars().next() else {
+            match self.graphemes.advance(value, work)? {
+                GraphemeScanEvent::Scalar(character) => {
+                    self.stats.ascii_spaces += usize::from(character == ' ');
+                    self.stats.has_cjk |= is_cjk_character(character);
+                }
+                GraphemeScanEvent::Complete { grapheme_count } => {
+                    self.stats.grapheme_count = grapheme_count;
                     return Ok(());
-                };
-                self.pending_scalar = Some(PendingScalar {
-                    character,
-                    utf8_len: character.len_utf8(),
-                    utf16_units_remaining: character.len_utf16(),
-                });
+                }
             }
-            let scalar = self
-                .pending_scalar
-                .as_mut()
-                .expect("pending scalar is initialized");
-            let taken = work.take_utf16_units(scalar.utf16_units_remaining);
-            scalar.utf16_units_remaining -= taken;
-            if scalar.utf16_units_remaining != 0 {
-                return Err(TextWorkYield);
-            }
-
-            let scalar = self.pending_scalar.take().expect("scalar is complete");
-            self.byte_cursor += scalar.utf8_len;
-            self.stats.scalar_count += 1;
-            self.stats.ascii_spaces += usize::from(scalar.character == ' ');
-            self.stats.has_cjk |= is_cjk_character(scalar.character);
         }
     }
 }

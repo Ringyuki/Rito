@@ -9,6 +9,7 @@ use crate::layout::{
     text_mapping::RunTextMapping,
     text_shape::{
         fixture_run_shape, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
+        RunShapeUnavailableReason,
     },
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
@@ -65,6 +66,56 @@ fn inter_character_boundary_precedes_run_shift_and_shape_spacing() {
     assert_eq!((first.x, first.width), (0.0, 16.0));
     assert_eq!(second.x, 22.0);
     assert!(second.paint.get("letterSpacingPx").is_none());
+}
+
+#[test]
+fn inter_character_preserves_grapheme_aligned_exact_shapes() {
+    let runs = vec![exact_text_run_with_clusters(
+        "\u{4e2d}e\u{301}",
+        0.0,
+        RunShapeDirection::LeftToRight,
+        &[(0, 1), (1, 3)],
+    )];
+    let plan = JustifyPlan::InterCharacter {
+        per_run: vec![1],
+        boundary_before: vec![false],
+        total_gaps: 1,
+    };
+    let expected = apply_justify_plan(runs.clone(), 4.0, plan.clone());
+    let (actual, _) = distribute_bounded(runs, 4.0, plan);
+
+    assert_eq!(actual, expected);
+    let LineRun::Text(run) = &actual[0] else {
+        unreachable!()
+    };
+    assert!(matches!(run.shape, RunShape::Exact(_)));
+    assert_eq!(run.shape.advance().to_bits(), 14.0_f64.to_bits());
+}
+
+#[test]
+fn inter_character_rejects_a_multi_grapheme_ligature_shape() {
+    let runs = vec![exact_text_run_with_clusters(
+        "\u{4e2d}\u{6587}",
+        0.0,
+        RunShapeDirection::LeftToRight,
+        &[(0, 2)],
+    )];
+    let plan = JustifyPlan::InterCharacter {
+        per_run: vec![1],
+        boundary_before: vec![false],
+        total_gaps: 1,
+    };
+    let (actual, _) = distribute_bounded(runs, 4.0, plan);
+    let LineRun::Text(run) = &actual[0] else {
+        unreachable!()
+    };
+
+    assert!(matches!(
+        run.shape,
+        RunShape::Unavailable(ref unavailable)
+            if unavailable.reason == RunShapeUnavailableReason::NonClusterSafeSpacing
+                && unavailable.advance.to_bits() == 14.0_f64.to_bits()
+    ));
 }
 
 #[test]
@@ -154,6 +205,36 @@ fn exact_text_run(text: &str, x: f64, direction: RunShapeDirection) -> LineRun {
                 logical_end: logical_offset,
                 advance: 5.0,
             }
+        })
+        .collect::<Vec<_>>();
+    let clusters = match direction {
+        RunShapeDirection::LeftToRight => logical_clusters,
+        RunShapeDirection::RightToLeft => logical_clusters.into_iter().rev().collect(),
+    };
+    text_run_with_shape(
+        text,
+        x,
+        RunShape::exact(
+            RunShapeProvenance::single([3; 8]),
+            direction,
+            10.0,
+            clusters,
+        ),
+    )
+}
+
+fn exact_text_run_with_clusters(
+    text: &str,
+    x: f64,
+    direction: RunShapeDirection,
+    logical_ranges: &[(u32, u32)],
+) -> LineRun {
+    let logical_clusters = logical_ranges
+        .iter()
+        .map(|&(logical_start, logical_end)| RunShapeCluster {
+            logical_start,
+            logical_end,
+            advance: 10.0 / logical_ranges.len() as f32,
         })
         .collect::<Vec<_>>();
     let clusters = match direction {
