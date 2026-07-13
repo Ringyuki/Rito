@@ -26,7 +26,6 @@ describe('Browser reader resource-backed rendering', () => {
     vi.stubGlobal('document', { fonts: { add: vi.fn() } });
     const state = createState({
       worker: { ...createWorker(), readResourceAtRevision } as BrowserReaderWorkerClient,
-      imageObjectUrls: new Map(),
       publication: {
         chapters: [],
         fontFaces: [{ family: 'BookFont', href: 'fonts/book.woff2' }],
@@ -37,7 +36,7 @@ describe('Browser reader resource-backed rendering', () => {
     closeExactRevisionReadGate(state);
 
     await expect(preloadReaderFonts(state)).resolves.toBe(false);
-    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
+    await expect(getImageObjectUrl(state, 'cover.png')).resolves.toBeUndefined();
     await flushPromises();
     expect(readResourceAtRevision).not.toHaveBeenCalled();
   });
@@ -390,7 +389,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(state.registeredFontFaces.size).toBe(0);
   });
 
-  it('does not cache an image object URL read from a stale revision version', async () => {
+  it('creates a caller-owned image URL only from the current revision', async () => {
     let resolveOld: ((value: ReturnType<typeof versionedResource>) => void) | undefined;
     const readResourceAtRevision = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
       (revision, kind, href) =>
@@ -404,10 +403,9 @@ describe('Browser reader resource-backed rendering', () => {
     vi.stubGlobal('URL', { createObjectURL, revokeObjectURL: vi.fn() });
     const state = createState({
       worker: { ...createWorker(), readResourceAtRevision } as BrowserReaderWorkerClient,
-      imageObjectUrls: new Map(),
     });
 
-    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
+    const staleUrl = getImageObjectUrl(state, 'cover.png');
     state.revisionBundle = {
       ...state.revisionBundle,
       revision: { ...state.revisionBundle.revision, revisionVersion: 1 },
@@ -421,14 +419,12 @@ describe('Browser reader resource-backed rendering', () => {
     resolveOld?.(
       versionedResource({ revisionId: 'rev-1', revisionVersion: 0 }, 'image', 'cover.png'),
     );
-    await flushPromises();
+    await expect(staleUrl).resolves.toBeUndefined();
 
     expect(createObjectURL).not.toHaveBeenCalled();
-    expect(getImageObjectUrl(state, 'cover.png')).toBeUndefined();
-    await flushPromises();
+    await expect(getImageObjectUrl(state, 'cover.png')).resolves.toBe('blob:current');
 
     expect(createObjectURL).toHaveBeenCalledOnce();
-    expect(state.imageObjectUrls.get('cover.png')).toBe('blob:current');
   });
 
   it('uses runtime frame font metadata for single-font fallback registration', async () => {

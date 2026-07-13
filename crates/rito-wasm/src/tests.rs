@@ -1006,6 +1006,14 @@ fn searches_revision_text_as_json() {
     assert_eq!(search["resultCount"], 1);
     assert_eq!(search["results"][0]["pageIndex"], 0);
     assert_eq!(search["results"][0]["spreadIndex"], 0);
+    assert_eq!(search["results"][0]["source"]["status"], "resolved");
+    assert_eq!(search["results"][0]["source"]["href"], "chapter.xhtml");
+    assert!(
+        search["results"][0]["source"]["sourceRange"]["end"]["textOffset"]
+            .as_u64()
+            .zip(search["results"][0]["source"]["sourceRange"]["start"]["textOffset"].as_u64())
+            .is_some_and(|(end, start)| end > start)
+    );
     assert_eq!(bad_request.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_request
         .message()

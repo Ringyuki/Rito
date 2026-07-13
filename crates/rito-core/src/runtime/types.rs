@@ -511,6 +511,29 @@ pub struct RuntimeSearchResult {
     pub page_index: usize,
     pub spread_index: usize,
     pub match_range: SearchRuntimeResult,
+    pub source: RuntimeSearchSource,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimeSearchSource {
+    Resolved {
+        href: String,
+        source_range: super::source_locator::RuntimeSourceRange,
+    },
+    Unavailable {
+        reason: RuntimeSearchSourceUnavailableReason,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeSearchSourceUnavailableReason {
+    SourceUnavailable,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

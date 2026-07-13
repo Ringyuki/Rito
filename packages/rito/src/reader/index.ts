@@ -26,6 +26,7 @@ export type {
   ReaderSemanticNode,
   ReaderSourcePoint,
   ReaderSourceRange,
+  ReaderSearchSourceResolution,
   SearchOptions,
   SearchResult,
   Spread,

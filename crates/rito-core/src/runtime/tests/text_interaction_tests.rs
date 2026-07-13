@@ -11,10 +11,10 @@ use crate::{
         RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
         RuntimePinnedFontGenericRole, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
         RuntimeRevisionWorkBudget, RuntimeSameFlowTextRangeRequest,
-        RuntimeSameFlowTextRangeResolution, RuntimeSourceLocatorPendingReason,
-        RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
-        RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
-        RuntimeVersioned,
+        RuntimeSameFlowTextRangeResolution, RuntimeSearchRequest, RuntimeSearchSource,
+        RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
+        RuntimeSourceRange, RuntimeTextCaretResolution, RuntimeTextCaretResponse,
+        RuntimeTextPointRequest, RuntimeVersioned,
     },
 };
 use serde_json::json;
@@ -129,6 +129,101 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     };
     assert!(range.selected_text.is_empty());
     assert!(range.rects.is_empty());
+}
+
+#[test]
+fn native_search_source_reuses_authoritative_exact_shape_projection() {
+    let bytes = content_epub("en", r#"<p style="font-family: serif">Wi</p>"#, "", None);
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            title_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("pinned document opens");
+    let revision = document
+        .create_revision(&font_aware_layout())
+        .expect("font-aware revision is created");
+    let handle = RuntimeRevisionHandle::from(&revision);
+    let search = document
+        .search_at(
+            &handle,
+            RuntimeSearchRequest {
+                query: "Wi".to_owned(),
+                case_sensitive: true,
+                whole_word: false,
+                limit: Some(1),
+            },
+        )
+        .expect("native search succeeds");
+    let result = search.value.results.first().expect("search match");
+    let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
+        panic!("search match owns an exact durable source range");
+    };
+
+    let projected = document
+        .resolve_exact_source_range_at(
+            &handle,
+            RuntimeExactSourceRangeRequest {
+                href: href.clone(),
+                source_range: source_range.clone(),
+            },
+        )
+        .expect("search source projects through exact shapes");
+    let RuntimeExactSourceRangeResolution::Resolved { range } = projected.value.resolution else {
+        panic!("pinned search match projects exactly");
+    };
+    assert_eq!(range.selected_text, "Wi");
+    assert_eq!(range.rects.len(), 1);
+    assert!(range.rects[0].width > 0.0);
+}
+
+#[test]
+fn embedded_nested_search_source_projects_non_tail_range_exactly() {
+    let font = title_font();
+    let bytes = content_epub(
+        "zh-CN",
+        r#"<div class="embedded"><table><tr><td><p><span>关于我</span></p></td></tr></table></div>"#,
+        r#"@font-face { font-family: embedded; src: url(book.ttf); } .embedded { font-family: embedded; }"#,
+        Some(&font),
+    );
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let revision = document
+        .create_revision(&font_aware_layout())
+        .expect("font-aware revision is created");
+    let handle = RuntimeRevisionHandle::from(&revision);
+    let search = document
+        .search_at(
+            &handle,
+            RuntimeSearchRequest {
+                query: "关于".to_owned(),
+                case_sensitive: true,
+                whole_word: false,
+                limit: Some(1),
+            },
+        )
+        .expect("native search succeeds");
+    let result = search.value.results.first().expect("search match");
+    let RuntimeSearchSource::Resolved { href, source_range } = &result.source else {
+        panic!("search match owns an exact durable source range");
+    };
+
+    let projected = document
+        .resolve_exact_source_range_at(
+            &handle,
+            RuntimeExactSourceRangeRequest {
+                href: href.clone(),
+                source_range: source_range.clone(),
+            },
+        )
+        .expect("search source projects through exact shapes");
+    let RuntimeExactSourceRangeResolution::Resolved { range } = projected.value.resolution else {
+        panic!("embedded search match projects exactly: {projected:#?}");
+    };
+    assert_eq!(range.selected_text, "关于");
+    assert_eq!(range.rects.len(), 1);
 }
 
 #[test]

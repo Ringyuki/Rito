@@ -1,4 +1,4 @@
-import type { Reader, TocEntry } from '@ritojs/core';
+import type { Reader, ReaderLocator, TocEntry } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TransitionDriver } from '../../driver/transition-driver';
 import type { ContentRenderer, PageBufferPool } from '../../painter/buffer-pool';
@@ -26,7 +26,7 @@ import {
   navigationTarget,
 } from './growth';
 import { emitNavigationStart } from './start';
-import { navigateTocEntry, retryPendingTocEntry } from './toc-growth';
+import { navigateReaderLocator, navigateTocEntry, retryPendingTocEntry } from './toc-growth';
 
 export interface NavigationDeps {
   getReader: () => Reader | null;
@@ -40,6 +40,8 @@ export interface NavigationDeps {
   contentRenderer: ContentRenderer;
   /** Invalidates older async position work as soon as a navigation intent is accepted. */
   onNavigationIntent?: () => void;
+  /** Supersedes pending content interactions for every accepted navigation/position intent. */
+  onContentInteractionIntent?: () => void;
   onNavigationCancelled?: () => void;
   /** Publishes a newly committed known/final spread extent without resetting layout state. */
   onPaginationChanged?: () => void;
@@ -55,6 +57,8 @@ export interface NavigationActions {
   nextSpread(): void;
   prevSpread(): void;
   navigateToTocEntry(entry: TocEntry): void;
+  /** Grow and navigate to a durable locator under the shared latest-wins navigation owner. */
+  navigateToLocator(locator: ReaderLocator): void;
   /** Snap to a spread without playing a transition animation. */
   jumpToSpread(index: number, preservePositionIntent?: boolean): boolean;
   /** Snap only when the target is immediately paintable. */
@@ -74,7 +78,7 @@ export interface GestureNavigationToken {
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
   const state = createNavigationState();
-  const tocNavigator = createTocNavigator(state, deps);
+  const locatorNavigator = createLocatorNavigator(state, deps);
   return {
     goToSpread(index) {
       startNavigation(state, deps, index);
@@ -89,7 +93,10 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       startNavigation(state, deps, deps.getCurrentSpread() - 1);
     },
     navigateToTocEntry(entry) {
-      navigateTocEntry(state, deps, entry, tocNavigator);
+      navigateTocEntry(state, deps, entry, locatorNavigator);
+    },
+    navigateToLocator(locator) {
+      navigateReaderLocator(state, deps, locator, locatorNavigator);
     },
     jumpToSpread(index, preservePositionIntent) {
       if (state.disposed) return false;
@@ -107,10 +114,11 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     },
     notifyLayoutCommitted() {
       if (state.disposed) return;
-      retryPendingTocEntry(state, deps, tocNavigator);
+      retryPendingTocEntry(state, deps, locatorNavigator);
     },
     supersedeForPositionIntent: () => {
       if (state.disposed) return;
+      deps.onContentInteractionIntent?.();
       supersedeNavigationForPositionIntent(state, deps.td);
     },
     dispose() {
@@ -126,7 +134,7 @@ function disposeNavigation(state: NavigationState): void {
   clearPendingNavigation(state);
 }
 
-function createTocNavigator(
+function createLocatorNavigator(
   state: NavigationState,
   deps: NavigationDeps,
 ): (spreadIndex: number) => void {

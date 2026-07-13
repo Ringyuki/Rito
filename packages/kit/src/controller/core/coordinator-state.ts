@@ -18,6 +18,10 @@ import {
   createNativeAnnotationGeometryState,
   type NativeAnnotationGeometryState,
 } from '../annotation-resolution/native-geometry';
+import {
+  createNativeSearchGeometryState,
+  type NativeSearchGeometryState,
+} from '../search-resolution/native-geometry';
 
 export interface CoordinatorEngines {
   readonly selection: SelectionEngine;
@@ -60,8 +64,12 @@ export interface CoordinatorState {
   resolvedAnnotations: readonly ResolvedAnnotation[];
   /** Revision-owned exact source-range projections and in-flight reads. */
   nativeAnnotationGeometry: NativeAnnotationGeometryState;
+  /** Revision/results-owned native search projections for visited visible spreads. */
+  nativeSearchGeometry: NativeSearchGeometryState;
   /** Active image blob URL (revoked automatically on next imageClick or dispose). */
   activeImageBlobUrl: string | null;
+  /** Latest-wins owner shared by asynchronous content-click dispatch. */
+  contentInteractionGeneration: number;
   /** One-shot position behavior for the next active spread notification. */
   positionUpdateMode: PositionUpdateMode;
 }
@@ -79,7 +87,9 @@ export function createCoordinatorState(): CoordinatorState {
     chapterIndices: new Map(),
     resolvedAnnotations: [],
     nativeAnnotationGeometry: createNativeAnnotationGeometryState(),
+    nativeSearchGeometry: createNativeSearchGeometryState(),
     activeImageBlobUrl: null,
+    contentInteractionGeneration: 0,
     positionUpdateMode: { kind: 'capture' },
   };
 }

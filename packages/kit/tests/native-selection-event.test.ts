@@ -32,6 +32,7 @@ describe('native selection controller event', () => {
     emitter.on('selectionChange', listener);
     emitter.on('error', errorListener);
     const deps = {
+      reader: {},
       engines: {
         selection,
         search: {

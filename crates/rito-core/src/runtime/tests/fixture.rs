@@ -100,6 +100,12 @@ pub fn empty_chapter_fixture_epub() -> Vec<u8> {
     fixture_epub_with_chapter(br#"<html><body></body></html>"#)
 }
 
+pub fn search_source_gap_fixture_epub() -> Vec<u8> {
+    fixture_epub_with_chapter(
+        br#"<html xmlns="http://www.w3.org/1999/xhtml"><head></head><body><p>visible<span style="display: none">hidden</span>match</p></body></html>"#,
+    )
+}
+
 fn fixture_epub_with_chapter(chapter: &[u8]) -> Vec<u8> {
     fixture_epub_with_chapter_and_stylesheet(chapter, fixture_stylesheet())
 }

@@ -114,7 +114,6 @@ export function createState(
     tocTargets: [],
     activeSpreadIndex: 0,
     images: new Map(),
-    imageObjectUrls: new Map(),
     registeredFontFaces: new Map(),
     spreadRenderedListeners: new Set(),
     spreadContentInvalidatedListeners: new Set(),

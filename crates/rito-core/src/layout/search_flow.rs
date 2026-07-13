@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -8,6 +8,7 @@ use super::{
     line::{LineBox, LineRun},
     page::RuntimePage,
     summary_json::{hash_json, hash_text},
+    text_mapping::{LogicalTextFlow, RunTextMapping},
 };
 
 type SearchPage = RuntimePage<RuntimeBlock<LineBox>>;
@@ -51,13 +52,24 @@ struct SearchPageText {
     offsets: Vec<SearchRunOffset>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct SearchRunOffset {
     start: usize,
     end: usize,
     block_index: usize,
     line_index: usize,
     run_index: usize,
+    source: Option<SearchRunSource>,
+}
+
+#[derive(Debug, Clone)]
+struct SearchRunSource {
+    flow: Arc<LogicalTextFlow>,
+    logical_start: u32,
+    logical_end: u32,
+    node_path: Vec<usize>,
+    source_start: usize,
+    source_length: usize,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -69,7 +81,15 @@ struct SearchOffsetState {
 #[derive(Debug, Clone)]
 struct FoldedSearchText {
     text: String,
-    byte_to_original_utf16: Vec<(usize, usize)>,
+    source_spans: Vec<FoldedSourceSpan>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct FoldedSourceSpan {
+    folded_start: usize,
+    folded_end: usize,
+    original_start: usize,
+    original_end: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,7 +106,9 @@ struct SearchResultDetail {
     page_index: usize,
     start: SearchTextPosition,
     end: SearchTextPosition,
+    selected_text: String,
     context: String,
+    source_range: Option<SearchSourceRange>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -96,6 +118,25 @@ pub struct SearchRuntimeResult {
     pub start: SearchTextPosition,
     pub end: SearchTextPosition,
     pub context: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SearchRuntimeMatch {
+    pub(crate) result: SearchRuntimeResult,
+    pub(crate) selected_text: String,
+    pub(crate) source_range: Option<SearchSourceRange>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SearchSourceRange {
+    pub(crate) start: SearchSourcePoint,
+    pub(crate) end: SearchSourcePoint,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SearchSourcePoint {
+    pub(crate) node_path: Vec<usize>,
+    pub(crate) text_offset: usize,
 }
 
 const SEARCH_FLOW_QUERY_SPECS: &[SearchFlowQuerySpec<'static>] = &[
@@ -147,7 +188,7 @@ pub(crate) fn search_runtime_pages(
     case_sensitive: bool,
     whole_word: bool,
     limit: Option<usize>,
-) -> Vec<SearchRuntimeResult> {
+) -> Vec<SearchRuntimeMatch> {
     let spec = SearchFlowQuerySpec {
         id: "runtime",
         query,
@@ -157,7 +198,7 @@ pub(crate) fn search_runtime_pages(
     let index = pages.iter().map(search_page_text).collect::<Vec<_>>();
     let results = search_index(&index, &spec)
         .into_iter()
-        .map(SearchRuntimeResult::from_detail);
+        .map(SearchRuntimeMatch::from_detail);
     match limit {
         Some(limit) => results.take(limit).collect(),
         None => results.collect(),
@@ -215,13 +256,17 @@ fn search_index(
         .collect()
 }
 
-impl SearchRuntimeResult {
+impl SearchRuntimeMatch {
     fn from_detail(detail: SearchResultDetail) -> Self {
         Self {
-            page_index: detail.page_index,
-            start: detail.start,
-            end: detail.end,
-            context: detail.context,
+            result: SearchRuntimeResult {
+                page_index: detail.page_index,
+                start: detail.start,
+                end: detail.end,
+                context: detail.context,
+            },
+            selected_text: detail.selected_text,
+            source_range: detail.source_range,
         }
     }
 }
@@ -243,8 +288,8 @@ fn search_page(page: &SearchPageText, spec: &SearchFlowQuerySpec<'_>) -> Vec<Sea
             continue;
         }
 
-        let start_offset = folded_byte_to_original_utf16(&haystack, byte_index);
-        let end_offset = folded_byte_to_original_utf16(&haystack, end_byte);
+        let start_offset = folded_byte_to_original_utf16(&haystack, byte_index, SearchBias::Start);
+        let end_offset = folded_byte_to_original_utf16(&haystack, end_byte, SearchBias::End);
         if let (Some(start), Some(end)) = (
             search_offset_to_position(&page.offsets, start_offset, SearchBias::Start),
             search_offset_to_position(&page.offsets, end_offset, SearchBias::End),
@@ -253,7 +298,9 @@ fn search_page(page: &SearchPageText, spec: &SearchFlowQuerySpec<'_>) -> Vec<Sea
                 page_index: page.page_index,
                 start,
                 end,
+                selected_text: utf16_slice(&page.text, start_offset, end_offset),
                 context: extract_search_context(&page.text, start_offset, end_offset),
+                source_range: search_source_range(&page.offsets, start_offset, end_offset),
             });
         }
         pos = end_byte;
@@ -264,26 +311,30 @@ fn search_page(page: &SearchPageText, spec: &SearchFlowQuerySpec<'_>) -> Vec<Sea
 
 fn fold_search_text(text: &str, case_sensitive: bool) -> FoldedSearchText {
     let mut folded = String::new();
-    let mut byte_to_original_utf16 = Vec::new();
+    let mut source_spans = Vec::new();
     let mut original_offset = 0usize;
 
     for character in text.chars() {
+        let folded_start = folded.len();
+        let original_start = original_offset;
         let chars = if case_sensitive {
             character.to_string()
         } else {
             character.to_lowercase().collect::<String>()
         };
-        for folded_character in chars.chars() {
-            byte_to_original_utf16.push((folded.len(), original_offset));
-            folded.push(folded_character);
-        }
+        folded.push_str(&chars);
         original_offset += character.len_utf16();
+        source_spans.push(FoldedSourceSpan {
+            folded_start,
+            folded_end: folded.len(),
+            original_start,
+            original_end: original_offset,
+        });
     }
-    byte_to_original_utf16.push((folded.len(), original_offset));
 
     FoldedSearchText {
         text: folded,
-        byte_to_original_utf16,
+        source_spans,
     }
 }
 
@@ -295,13 +346,29 @@ fn fold_query_text(text: &str, case_sensitive: bool) -> String {
     }
 }
 
-fn folded_byte_to_original_utf16(haystack: &FoldedSearchText, byte_index: usize) -> usize {
+fn folded_byte_to_original_utf16(
+    haystack: &FoldedSearchText,
+    byte_index: usize,
+    bias: SearchBias,
+) -> usize {
+    for span in &haystack.source_spans {
+        if byte_index <= span.folded_start {
+            return span.original_start;
+        }
+        if byte_index < span.folded_end {
+            return match bias {
+                SearchBias::Start => span.original_start,
+                SearchBias::End => span.original_end,
+            };
+        }
+        if byte_index == span.folded_end {
+            return span.original_end;
+        }
+    }
     haystack
-        .byte_to_original_utf16
-        .iter()
-        .rev()
-        .find(|(entry_byte, _)| *entry_byte <= byte_index)
-        .map(|(_, offset)| *offset)
+        .source_spans
+        .last()
+        .map(|span| span.original_end)
         .unwrap_or(0)
 }
 
@@ -374,6 +441,7 @@ fn collect_search_line_offsets(
                 block_index,
                 line_index,
                 run_index,
+                source: search_run_source(&run.text_mapping),
             });
             text.push_str(&run.text);
             state.offset += length;
@@ -399,11 +467,12 @@ fn search_offset_to_position(
             SearchBias::End => offset > entry.start && offset <= entry.end,
         };
         if in_entry {
+            let char_index = offset - entry.start;
             return Some(SearchTextPosition {
                 block_index: entry.block_index,
                 line_index: entry.line_index,
                 run_index: entry.run_index,
-                char_index: offset - entry.start,
+                char_index,
             });
         }
     }
@@ -416,6 +485,79 @@ fn search_offset_to_position(
         });
     }
     None
+}
+
+fn search_run_source(mapping: &RunTextMapping) -> Option<SearchRunSource> {
+    let RunTextMapping::Exact(slice) = mapping else {
+        return None;
+    };
+    let source = mapping.exact_source_slice()?;
+    Some(SearchRunSource {
+        flow: Arc::clone(&slice.flow),
+        logical_start: slice.logical_start,
+        logical_end: slice.logical_end,
+        node_path: source.node_path,
+        source_start: source.source_start,
+        source_length: source.source_length,
+    })
+}
+
+fn search_source_range(
+    offsets: &[SearchRunOffset],
+    start: usize,
+    end: usize,
+) -> Option<SearchSourceRange> {
+    let mut cursor = start;
+    let mut first = None;
+    let mut last = None;
+    let mut previous_flow = None;
+    for entry in offsets
+        .iter()
+        .filter(|entry| entry.end > start && entry.start < end)
+    {
+        let part_start = start.max(entry.start);
+        let part_end = end.min(entry.end);
+        if part_start != cursor {
+            return None;
+        }
+        let source = entry.source.as_ref()?;
+        let local_start = part_start - entry.start;
+        let local_end = part_end - entry.start;
+        let logical_start = source
+            .logical_start
+            .checked_add(local_start.try_into().ok()?)?;
+        let logical_end = source
+            .logical_start
+            .checked_add(local_end.try_into().ok()?)?;
+        if logical_end > source.logical_end || local_end > source.source_length {
+            return None;
+        }
+        if let Some((flow, previous_end)) = &previous_flow {
+            if !Arc::ptr_eq(flow, &source.flow) || *previous_end != logical_start {
+                return None;
+            }
+        }
+        if first.is_none() {
+            first = Some(source_point(source, local_start)?);
+        }
+        last = Some(source_point(source, local_end)?);
+        previous_flow = Some((Arc::clone(&source.flow), logical_end));
+        cursor = part_end;
+    }
+    if cursor != end {
+        return None;
+    }
+    Some(SearchSourceRange {
+        start: first?,
+        end: last?,
+    })
+}
+
+fn source_point(source: &SearchRunSource, local_offset: usize) -> Option<SearchSourcePoint> {
+    Some(SearchSourcePoint {
+        node_path: source.node_path.clone(),
+        text_offset: source.source_start.checked_add(local_offset)?,
+    })
 }
 
 fn is_search_word_boundary(text: &str, start: usize, end: usize) -> bool {
@@ -512,131 +654,4 @@ fn utf16_len(text: &str) -> usize {
 }
 
 #[cfg(test)]
-mod tests {
-    use serde_json::json;
-
-    use super::{
-        search_page, summarize_search_flow, SearchFlowQuerySpec, SearchPageText, SearchRunOffset,
-        SearchTextPosition,
-    };
-    use crate::layout::{
-        content::{RuntimeBlock, RuntimeChild},
-        line::{LineBox, LineRun, TextRunBox},
-        page::RuntimePage,
-    };
-
-    #[test]
-    fn fixed_flow_queries_search_typed_page_text() {
-        let page = page_with_text("温水 and EbookReader");
-
-        let summary = summarize_search_flow(&[page]);
-
-        assert_eq!(summary.query_count, 4);
-        assert_eq!(
-            summary
-                .queries
-                .iter()
-                .find(|query| query.id == "protagonist-name")
-                .map(|query| query.result_count),
-            Some(1)
-        );
-        assert_eq!(
-            summary
-                .queries
-                .iter()
-                .find(|query| query.id == "reader-name")
-                .map(|query| query.result_count),
-            Some(1)
-        );
-    }
-
-    #[test]
-    fn case_insensitive_search_maps_folded_offsets_to_original_text() {
-        let page = SearchPageText {
-            page_index: 0,
-            text: "\u{130}xY".to_owned(),
-            offsets: vec![SearchRunOffset {
-                start: 0,
-                end: 4,
-                block_index: 2,
-                line_index: 3,
-                run_index: 4,
-            }],
-        };
-        let spec = SearchFlowQuerySpec {
-            id: "folding",
-            query: "xy",
-            case_sensitive: false,
-            whole_word: false,
-        };
-
-        let results = search_page(&page, &spec);
-
-        assert_eq!(results.len(), 1);
-        assert_eq!(
-            results[0].start,
-            SearchTextPosition {
-                block_index: 2,
-                line_index: 3,
-                run_index: 4,
-                char_index: 1,
-            }
-        );
-        assert_eq!(
-            results[0].end,
-            SearchTextPosition {
-                block_index: 2,
-                line_index: 3,
-                run_index: 4,
-                char_index: 3,
-            }
-        );
-    }
-
-    fn page_with_text(text: &str) -> RuntimePage<RuntimeBlock<LineBox>> {
-        RuntimePage {
-            index: 0,
-            width: 400.0,
-            height: 600.0,
-            paint: None,
-            content: vec![RuntimeBlock {
-                x: 0.0,
-                y: 0.0,
-                width: 300.0,
-                height: 20.0,
-                semantic_tag: None,
-                anchor_id: None,
-                paint: None,
-                border_box: None,
-                page_break_before: false,
-                page_break_after: false,
-                orphans: None,
-                widows: None,
-                children: vec![RuntimeChild::Line(LineBox {
-                    x: 0.0,
-                    y: 0.0,
-                    width: 300.0,
-                    height: 20.0,
-                    runs: vec![LineRun::Text(TextRunBox {
-                        text: text.to_owned(),
-                        text_mapping: crate::layout::text_mapping::RunTextMapping::synthetic(),
-                        x: 0.0,
-                        y: 0.0,
-                        width: 160.0,
-                        height: 12.0,
-                        font_size: 12.0,
-                        paint: json!({}),
-                        line_height_px: None,
-                        href: None,
-                        source_path: None,
-                        source_text: None,
-                        source_text_offset: None,
-                        inline_margin_right: None,
-                        ruby_annotation: None,
-                        shape: crate::layout::text_shape::fixture_run_shape(160.0),
-                    })],
-                })],
-            }],
-        }
-    }
-}
+mod tests;

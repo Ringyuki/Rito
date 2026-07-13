@@ -51,7 +51,7 @@ describe('native click dispatch', () => {
     }>();
     const fixture = createFixture(interactions({ getFootnote: vi.fn(() => pending.promise) }));
     fixture.install(target('footnote', { href: '#note', footnoteKey: 'Text/note.xhtml#note' }));
-    const footnoteClick = vi.fn();
+    const footnoteClick = vi.fn<(event: ReaderControllerEvents['footnoteClick']) => void>();
     fixture.emitter.on('footnoteClick', footnoteClick);
 
     dispatchClick({ x: 15, y: 15 }, fixture.deps);
@@ -60,6 +60,55 @@ describe('native click dispatch', () => {
     await Promise.resolve();
 
     expect(footnoteClick).not.toHaveBeenCalled();
+  });
+
+  it('drops a pending footnote after a later content click', async () => {
+    const pending = deferred<{
+      readonly kind: 'footnote';
+      readonly text: string;
+      readonly html: string;
+    }>();
+    const fixture = createFixture(interactions({ getFootnote: vi.fn(() => pending.promise) }));
+    fixture.install(target('footnote', { href: '#note', footnoteKey: 'Text/note.xhtml#note' }));
+    const footnoteClick = vi.fn<(event: ReaderControllerEvents['footnoteClick']) => void>();
+    fixture.emitter.on('footnoteClick', footnoteClick);
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    fixture.state.nativeTargetsByPage.clear();
+    dispatchClick({ x: 40, y: 40 }, fixture.deps);
+    pending.resolve({ kind: 'footnote', text: 'stale', html: '<p>stale</p>' });
+    await settleTasks();
+
+    expect(footnoteClick).not.toHaveBeenCalled();
+  });
+
+  it('contains synchronous interaction failures even when the error listener throws', async () => {
+    let shouldFail = true;
+    const getFootnote = vi.fn<ReaderInteractions['getFootnote']>(() => {
+      if (shouldFail) {
+        shouldFail = false;
+        throw new Error('sync footnote failure');
+      }
+      return Promise.resolve({ kind: 'footnote', text: 'Recovered', html: '<p>Recovered</p>' });
+    });
+    const fixture = createFixture(interactions({ getFootnote }));
+    fixture.install(target('footnote', { href: '#note', footnoteKey: 'Text/note.xhtml#note' }));
+    const footnoteClick = vi.fn<(event: ReaderControllerEvents['footnoteClick']) => void>();
+    fixture.emitter.on('footnoteClick', footnoteClick);
+    fixture.emitter.on('error', () => {
+      throw new Error('consumer error listener failure');
+    });
+
+    expect(() => {
+      dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    }).not.toThrow();
+    await settleTasks();
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    await settleTasks();
+
+    expect(getFootnote).toHaveBeenCalledTimes(2);
+    expect(footnoteClick).toHaveBeenCalledOnce();
+    expect(footnoteClick.mock.calls[0]?.[0].content.text).toBe('Recovered');
   });
 
   it('re-resolves an internal locator against the capability active when navigate is invoked', async () => {
@@ -91,7 +140,7 @@ describe('native click dispatch', () => {
     expect(fixture.goToSpread).toHaveBeenCalledWith(6);
   });
 
-  it('does not navigate when exact resolution becomes stale or pending', async () => {
+  it('does not navigate when exact resolution disappears', async () => {
     const resolveLocator = vi.fn(() => Promise.resolve(undefined));
     const fixture = createFixture(interactions({ resolveLocator }));
     fixture.install(target('link', { href: '#target', targetLocator: locator }));
@@ -105,6 +154,32 @@ describe('native click dispatch', () => {
     await Promise.resolve();
 
     expect(fixture.goToSpread).not.toHaveBeenCalled();
+    expect(fixture.navigateToLocator).not.toHaveBeenCalled();
+  });
+
+  it('hands a pending internal target to bounded locator navigation', async () => {
+    const resolveLocator = vi.fn(() =>
+      Promise.resolve({
+        status: 'pending' as const,
+        locator,
+        spineIdref: 'chapter',
+        reason: 'notPaginated' as const,
+        matchedBy: 'anchor' as const,
+      }),
+    );
+    const fixture = createFixture(interactions({ resolveLocator }));
+    fixture.install(target('link', { href: '#target', targetLocator: locator }));
+    let navigate: (() => void) | undefined;
+    fixture.emitter.on('linkClick', (event) => {
+      navigate = event.navigate;
+    });
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    navigate?.();
+    await Promise.resolve();
+
+    expect(fixture.goToSpread).not.toHaveBeenCalled();
+    expect(fixture.navigateToLocator).toHaveBeenCalledWith(locator);
   });
 
   it('drops an in-flight internal resolution after navigation or disposal invalidates targets', async () => {
@@ -135,6 +210,39 @@ describe('native click dispatch', () => {
       matchedBy: 'anchor',
     });
     await Promise.resolve();
+
+    expect(fixture.goToSpread).not.toHaveBeenCalled();
+  });
+
+  it('drops an in-flight internal resolution after a later content click', async () => {
+    const pending = deferred<{
+      readonly status: 'resolved';
+      readonly locator: ReaderLocator;
+      readonly spineIdref: string;
+      readonly pageIndex: number;
+      readonly spreadIndex: number;
+      readonly matchedBy: 'anchor';
+    }>();
+    const fixture = createFixture(interactions({ resolveLocator: vi.fn(() => pending.promise) }));
+    fixture.install(target('link', { href: '#target', targetLocator: locator }));
+    let navigate: (() => void) | undefined;
+    fixture.emitter.on('linkClick', (event) => {
+      navigate = event.navigate;
+    });
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    navigate?.();
+    fixture.state.nativeTargetsByPage.clear();
+    dispatchClick({ x: 40, y: 40 }, fixture.deps);
+    pending.resolve({
+      status: 'resolved',
+      locator,
+      spineIdref: 'chapter',
+      pageIndex: 12,
+      spreadIndex: 6,
+      matchedBy: 'anchor',
+    });
+    await settleTasks();
 
     expect(fixture.goToSpread).not.toHaveBeenCalled();
   });
@@ -176,6 +284,25 @@ describe('native click dispatch', () => {
       expect(open).toHaveBeenCalledWith(href, '_blank', 'noopener');
     },
   );
+
+  it('contains a throwing native link listener on the pointer path', () => {
+    const fixture = createFixture(interactions());
+    fixture.install(target('link', { href: 'https://example.com' }));
+    const errors = vi.fn<(event: ReaderControllerEvents['error']) => void>();
+    fixture.emitter.on('linkClick', () => {
+      throw new Error('consumer link listener failure');
+    });
+    fixture.emitter.on('error', errors);
+
+    expect(() => {
+      dispatchClick({ x: 15, y: 15 }, fixture.deps);
+    }).not.toThrow();
+
+    expect(errors).toHaveBeenCalledWith({
+      message: 'consumer link listener failure',
+      source: 'native-link-publication',
+    });
+  });
 
   it('does not execute an unsafe external URI scheme', () => {
     const open = vi.fn();
@@ -254,17 +381,20 @@ function createFixture(initialInteractions: ReaderInteractions) {
     getImageBlobUrl: vi.fn(() => 'blob:cover'),
   };
   const goToSpread = vi.fn();
+  const navigateToLocator = vi.fn();
   const deps = {
     reader: reader as unknown as Reader,
     coordState: state,
     emitter,
     goToSpread,
+    navigateToLocator,
     canvas: { getBoundingClientRect: () => ({ left: 0, top: 0 }) },
   } as unknown as WiringDeps;
   return {
     deps,
     emitter,
     goToSpread,
+    navigateToLocator,
     reader,
     state,
     install(value: ReaderInteractionTarget) {
@@ -305,4 +435,10 @@ function deferred<T>() {
     resolve = done;
   });
   return { promise, resolve };
+}
+
+async function settleTasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
 }

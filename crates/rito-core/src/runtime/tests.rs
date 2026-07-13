@@ -18,7 +18,7 @@ use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
     fixture_stylesheet, interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub,
     many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
-    source_locator_fixture_epub,
+    search_source_gap_fixture_epub, source_locator_fixture_epub,
 };
 use serde_json::Value;
 
@@ -28,8 +28,8 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
     RuntimePrefetchRequest, RuntimePreviewRevisionBundleRequest, RuntimeResourceKind,
-    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSemanticNode,
-    RuntimeSemanticRole, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
+    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSearchSource,
+    RuntimeSemanticNode, RuntimeSemanticRole, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
     RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
     RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
     RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
@@ -1203,6 +1203,11 @@ fn searches_revision_scoped_typed_page_text() {
     assert_eq!(response.result_count, 1);
     assert_eq!(response.results[0].page_index, 0);
     assert_eq!(response.results[0].spread_index, 0);
+    let RuntimeSearchSource::Resolved { href, source_range } = &response.results[0].source else {
+        panic!("runtime search match must retain its durable source range");
+    };
+    assert_eq!(href, "chapter.xhtml");
+    assert!(source_range.end.text_offset > source_range.start.text_offset);
     assert!(response.results[0]
         .match_range
         .context
@@ -1878,6 +1883,33 @@ fn exposes_page_text_positions_from_typed_page_content() {
         .iter()
         .any(|offset| offset.end > offset.start));
     assert_eq!(missing.message(), "unknown page index: 99");
+}
+
+#[test]
+fn search_source_is_unavailable_when_raw_parsed_text_has_a_hidden_gap() {
+    let mut document =
+        RuntimeDocument::open(&search_source_gap_fixture_epub()).expect("document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+
+    let response = document
+        .search(
+            &revision.revision_id,
+            RuntimeSearchRequest {
+                query: "visiblematch".to_owned(),
+                case_sensitive: true,
+                whole_word: false,
+                limit: Some(1),
+            },
+        )
+        .expect("search succeeds");
+
+    assert_eq!(response.result_count, 1);
+    assert!(matches!(
+        response.results[0].source,
+        RuntimeSearchSource::Unavailable { .. }
+    ));
 }
 
 #[test]

@@ -1,9 +1,12 @@
 import type { ReaderInteractionTarget, ReaderInteractions } from '@ritojs/core';
 import type { WiringDeps } from '../core/wiring-deps';
+import type { ReaderControllerEvents } from '../types';
+import { dispatchImageResourceClick, supersedePendingImageRequest } from './image-click';
 
 interface NativeClickCapture {
   readonly interactions: ReaderInteractions;
-  readonly generation: number;
+  readonly targetGeneration: number;
+  readonly contentInteractionGeneration: number;
 }
 
 export function dispatchNativeClickTarget(
@@ -11,6 +14,7 @@ export function dispatchNativeClickTarget(
   target: ReaderInteractionTarget,
   deps: WiringDeps,
 ): void {
+  supersedePendingImageRequest(deps);
   if (target.kind === 'footnote') {
     dispatchFootnote(target, deps);
     return;
@@ -26,57 +30,81 @@ function dispatchFootnote(target: ReaderInteractionTarget, deps: WiringDeps): vo
   const capture = captureInteraction(deps);
   const key = target.footnoteKey;
   if (!capture || key === undefined) return;
-  void capture.interactions
-    .getFootnote(key)
-    .then((content) => {
-      if (!content || !captureIsCurrent(capture, deps)) return;
-      deps.emitter.emit('footnoteClick', {
-        id: key,
-        href: target.href ?? '',
-        content,
-      });
-    })
-    .catch((error: unknown) => {
-      if (captureIsCurrent(capture, deps)) reportError(error, deps);
-    });
+  runCapturedInteraction(
+    capture,
+    deps,
+    () => capture.interactions.getFootnote(key),
+    (content) => {
+      if (!content) return;
+      emitNativeClickEvent(
+        'footnoteClick',
+        {
+          id: key,
+          href: target.href ?? '',
+          content,
+        },
+        'native-footnote-publication',
+        deps,
+      );
+    },
+  );
 }
 
 function dispatchLink(target: ReaderInteractionTarget, deps: WiringDeps): void {
   const href = target.href ?? '';
   if (isExternalHref(href)) {
-    const navigate = (): void => {
-      if (canOpenExternalHref(href)) window.open(href, '_blank', 'noopener');
-    };
-    deps.emitter.emit('linkClick', {
-      href,
-      text: target.label,
-      type: 'external',
-      navigate,
-    });
+    dispatchExternalLink(target, href, deps);
     return;
   }
+  dispatchInternalLink(target, href, deps);
+}
 
+function dispatchExternalLink(
+  target: ReaderInteractionTarget,
+  href: string,
+  deps: WiringDeps,
+): void {
   const navigate = (): void => {
+    if (canOpenExternalHref(href)) window.open(href, '_blank', 'noopener');
+  };
+  emitNativeClickEvent(
+    'linkClick',
+    { href, text: target.label, type: 'external', navigate },
+    'native-link-publication',
+    deps,
+  );
+}
+
+function dispatchInternalLink(
+  target: ReaderInteractionTarget,
+  href: string,
+  deps: WiringDeps,
+): void {
+  const navigate = (): void => {
+    supersedePendingImageRequest(deps);
     const capture = captureInteraction(deps);
     const locator = target.targetLocator;
     if (!capture || !locator) return;
-    void capture.interactions
-      .resolveLocator(locator)
-      .then((resolution) => {
-        if (resolution?.status === 'resolved' && captureIsCurrent(capture, deps)) {
+    runCapturedInteraction(
+      capture,
+      deps,
+      () => capture.interactions.resolveLocator(locator),
+      (resolution) => {
+        if (!resolution) return;
+        if (resolution.status === 'resolved') {
           deps.goToSpread(resolution.spreadIndex);
+          return;
         }
-      })
-      .catch((error: unknown) => {
-        if (captureIsCurrent(capture, deps)) reportError(error, deps);
-      });
+        deps.navigateToLocator(locator);
+      },
+    );
   };
-  deps.emitter.emit('linkClick', {
-    href,
-    text: target.label,
-    type: 'internal',
-    navigate,
-  });
+  emitNativeClickEvent(
+    'linkClick',
+    { href, text: target.label, type: 'internal', navigate },
+    'native-link-publication',
+    deps,
+  );
 }
 
 function isExternalHref(href: string): boolean {
@@ -113,42 +141,94 @@ function isSchemeCharacter(character: string, first: boolean): boolean {
 function dispatchImage(pageIndex: number, target: ReaderInteractionTarget, deps: WiringDeps): void {
   const mapper = deps.coordState.mapper;
   if (!mapper) return;
-  const src = target.imageSrc ?? '';
-  if (deps.coordState.activeImageBlobUrl) {
-    URL.revokeObjectURL(deps.coordState.activeImageBlobUrl);
-    deps.coordState.activeImageBlobUrl = null;
+  dispatchImageResourceClick(
+    {
+      src: target.imageSrc ?? '',
+      alt: target.imageAlt ?? '',
+      screenBounds: mapper.pageContentToScreen(
+        pageIndex,
+        target.bounds,
+        deps.canvas.getBoundingClientRect(),
+      ),
+    },
+    mapper,
+    deps,
+  );
+}
+
+function emitNativeClickEvent<K extends 'footnoteClick' | 'linkClick'>(
+  event: K,
+  payload: ReaderControllerEvents[K],
+  failureSource: string,
+  deps: WiringDeps,
+): void {
+  try {
+    deps.emitter.emit(event, payload);
+  } catch (error: unknown) {
+    containReportedError(error, failureSource, deps);
   }
-  const blobUrl = src ? deps.reader.getImageBlobUrl(src) : undefined;
-  if (blobUrl) deps.coordState.activeImageBlobUrl = blobUrl;
-  deps.emitter.emit('imageClick', {
-    src,
-    alt: target.imageAlt ?? '',
-    blobUrl,
-    screenBounds: mapper.pageContentToScreen(
-      pageIndex,
-      target.bounds,
-      deps.canvas.getBoundingClientRect(),
-    ),
+}
+
+function reportError(error: unknown, source: string, deps: WiringDeps): void {
+  deps.emitter.emit('error', {
+    message: error instanceof Error ? error.message : String(error),
+    source,
   });
 }
 
-function reportError(error: unknown, deps: WiringDeps): void {
-  deps.emitter.emit('error', {
-    message: error instanceof Error ? error.message : String(error),
-    source: 'native-interaction',
-  });
+function containReportedError(error: unknown, source: string, deps: WiringDeps): void {
+  try {
+    reportError(error, source, deps);
+  } catch {
+    // Consumer error listeners must not escape native event publication.
+  }
+}
+
+function runCapturedInteraction<T>(
+  capture: NativeClickCapture,
+  deps: WiringDeps,
+  read: () => Promise<T>,
+  install: (value: T) => void,
+): void {
+  let task: Promise<T>;
+  try {
+    task = Promise.resolve(read());
+  } catch (error) {
+    task = Promise.reject(error instanceof Error ? error : new Error(String(error)));
+  }
+  void task
+    .then((value) => {
+      if (captureIsCurrent(capture, deps)) install(value);
+    })
+    .catch((error: unknown) => {
+      containInteractionFailure(error, capture, deps);
+    });
+}
+
+function containInteractionFailure(
+  error: unknown,
+  capture: NativeClickCapture,
+  deps: WiringDeps,
+): void {
+  if (!captureIsCurrent(capture, deps)) return;
+  containReportedError(error, 'native-interaction', deps);
 }
 
 function captureInteraction(deps: WiringDeps): NativeClickCapture | undefined {
   if (!deps.coordState.nativeInteractionsAlive) return undefined;
   const interactions = deps.reader.interactions;
   if (!interactions?.enabled) return undefined;
-  return { interactions, generation: deps.coordState.nativeTargetLoadGeneration };
+  return {
+    interactions,
+    targetGeneration: deps.coordState.nativeTargetLoadGeneration,
+    contentInteractionGeneration: deps.coordState.contentInteractionGeneration,
+  };
 }
 
 function captureIsCurrent(capture: NativeClickCapture, deps: WiringDeps): boolean {
   return (
-    deps.coordState.nativeTargetLoadGeneration === capture.generation &&
+    deps.coordState.nativeTargetLoadGeneration === capture.targetGeneration &&
+    deps.coordState.contentInteractionGeneration === capture.contentInteractionGeneration &&
     deps.coordState.nativeInteractionsAlive &&
     deps.reader.interactions === capture.interactions &&
     capture.interactions.enabled

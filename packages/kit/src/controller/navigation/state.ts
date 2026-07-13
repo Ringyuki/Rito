@@ -1,4 +1,4 @@
-import type { ReaderIncrementalPagination, TocEntry } from '@ritojs/core';
+import type { ReaderIncrementalPagination, ReaderLocator, TocEntry } from '@ritojs/core';
 import type { TransitionDriver } from '../../driver/transition-driver';
 
 export interface GestureNavigationRequest {
@@ -28,14 +28,21 @@ export interface NavigationAttempt {
 export interface PendingTocNavigation {
   readonly attemptId: number;
   readonly entry: TocEntry;
-  /** Present only for atomic locator growth; legacy TOC retries remain layout-driven. */
-  readonly locatorAbort?: AbortController;
+}
+
+export interface PendingLocatorNavigation {
+  readonly attemptId: number;
+  readonly locator: ReaderLocator;
+  readonly locatorAbort: AbortController;
+  readonly failureSource: string;
+  readonly targetLabel: string;
 }
 
 export interface NavigationState {
   navigationAttemptId: number;
   pendingNavigation: PendingNavigation | undefined;
   pendingTocNavigation: PendingTocNavigation | undefined;
+  pendingLocatorNavigation: PendingLocatorNavigation | undefined;
   disposed: boolean;
 }
 
@@ -44,6 +51,7 @@ export function createNavigationState(): NavigationState {
     navigationAttemptId: 0,
     pendingNavigation: undefined,
     pendingTocNavigation: undefined,
+    pendingLocatorNavigation: undefined,
     disposed: false,
   };
 }
@@ -51,11 +59,14 @@ export function createNavigationState(): NavigationState {
 export function clearPendingNavigation(state: NavigationState): boolean {
   const previous = state.pendingNavigation;
   const previousToc = state.pendingTocNavigation;
-  const cancelledIntent = previous !== undefined || previousToc !== undefined;
+  const previousLocator = state.pendingLocatorNavigation;
+  const cancelledIntent =
+    previous !== undefined || previousToc !== undefined || previousLocator !== undefined;
   state.pendingNavigation = undefined;
   state.pendingTocNavigation = undefined;
+  state.pendingLocatorNavigation = undefined;
   previous?.growthAbort?.abort();
-  previousToc?.locatorAbort?.abort();
+  previousLocator?.locatorAbort.abort();
   if (previous?.gesture && !previous.gesture.started) {
     previous.gesture.cancelled = true;
     previous.gesture.onUnavailable?.();

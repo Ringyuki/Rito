@@ -90,6 +90,15 @@ function createMocks(options?: {
       misses: new Set(['missing-source']),
       pending: new Map([['pending-source', Promise.resolve(undefined)]]),
     },
+    nativeSearchGeometry: {
+      alive: true,
+      generation: 4,
+      results: [],
+      visible: null,
+      cache: new Map(),
+      misses: new Set(),
+      pending: new Map(),
+    },
   };
   const compositeNow = vi.fn(() => {
     annotationStateAtComposite = {
@@ -233,6 +242,7 @@ describe('buildLayoutActions', () => {
     expect(fixture.internals.coordState.nativeAnnotationGeometry.cache.size).toBe(0);
     expect(fixture.internals.coordState.nativeAnnotationGeometry.misses.size).toBe(0);
     expect(fixture.internals.coordState.nativeAnnotationGeometry.pending.size).toBe(0);
+    expect(fixture.internals.coordState.nativeSearchGeometry.generation).toBe(5);
     expect(fixture.spies.emit).toHaveBeenCalledWith('annotationHover', {
       annotation: null,
       x: 0,
@@ -286,6 +296,7 @@ describe('buildLayoutActions', () => {
       pendingSize: 0,
       resolvedCount: 0,
     });
+    expect(fixture.internals.coordState.nativeSearchGeometry.generation).toBe(5);
     expect(fixture.spies.emit).toHaveBeenCalledWith('annotationHover', {
       annotation: null,
       x: 0,

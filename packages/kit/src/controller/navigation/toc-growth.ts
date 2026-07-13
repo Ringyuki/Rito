@@ -1,7 +1,10 @@
-import type { Reader, ReaderLocatorResolution, TocEntry } from '@ritojs/core';
+import type { Reader, ReaderLocator, ReaderLocatorResolution, TocEntry } from '@ritojs/core';
 import type { NavigationDeps } from './index';
 import { claimNavigationAttempt } from './jump';
-import type { NavigationState, PendingTocNavigation } from './state';
+import type { NavigationState, PendingLocatorNavigation } from './state';
+
+const TOC_FAILURE_SOURCE = 'reader TOC locator navigation';
+const LINK_FAILURE_SOURCE = 'reader link locator navigation';
 
 export function navigateTocEntry(
   state: NavigationState,
@@ -21,7 +24,42 @@ export function navigateTocEntry(
     state.pendingTocNavigation = { attemptId, entry };
     return;
   }
-  startTocLocatorGrowth(state, deps, reader, entry, attemptId, onResolved);
+  startLocatorGrowth(
+    state,
+    deps,
+    reader,
+    { href: entry.href },
+    attemptId,
+    onResolved,
+    TOC_FAILURE_SOURCE,
+    'TOC target',
+  );
+}
+
+export function navigateReaderLocator(
+  state: NavigationState,
+  deps: NavigationDeps,
+  locator: ReaderLocator,
+  onResolved: (spreadIndex: number) => void,
+): void {
+  if (state.disposed) return;
+  const reader = deps.getReader();
+  const attemptId = claimNavigationAttempt(state, deps);
+  if (!reader?.navigateToLocator) {
+    deps.onNavigationCancelled?.();
+    reportLocatorFailure(deps, LINK_FAILURE_SOURCE, new Error('Reader cannot grow a link target'));
+    return;
+  }
+  startLocatorGrowth(
+    state,
+    deps,
+    reader,
+    locator,
+    attemptId,
+    onResolved,
+    LINK_FAILURE_SOURCE,
+    'link target',
+  );
 }
 
 export function retryPendingTocEntry(
@@ -35,58 +73,65 @@ export function retryPendingTocEntry(
   if (resolved) onResolved(resolved.spreadIndex);
 }
 
-function startTocLocatorGrowth(
+function startLocatorGrowth(
   state: NavigationState,
   deps: NavigationDeps,
   reader: Reader,
-  entry: TocEntry,
+  locator: ReaderLocator,
   attemptId: number,
   onResolved: (spreadIndex: number) => void,
+  failureSource: string,
+  targetLabel: string,
 ): void {
   if (!reader.navigateToLocator) return;
   const locatorAbort = new AbortController();
-  const pending: PendingTocNavigation = { attemptId, entry, locatorAbort };
-  state.pendingTocNavigation = pending;
+  const pending: PendingLocatorNavigation = {
+    attemptId,
+    locator,
+    locatorAbort,
+    failureSource,
+    targetLabel,
+  };
+  state.pendingLocatorNavigation = pending;
   let task: Promise<ReaderLocatorResolution | undefined>;
   try {
-    task = Promise.resolve(reader.navigateToLocator({ href: entry.href }, locatorAbort.signal));
+    task = Promise.resolve(reader.navigateToLocator(locator, locatorAbort.signal));
   } catch (error) {
     task = Promise.reject(error instanceof Error ? error : new Error(String(error)));
   }
   void task
     .then((resolution) => {
-      settleTocLocatorGrowth(state, deps, reader, pending, resolution, onResolved);
+      settleLocatorGrowth(state, deps, reader, pending, resolution, onResolved);
     })
     .catch((error: unknown) => {
-      handleTocLocatorGrowthFailure(state, deps, pending, error);
+      handleLocatorGrowthFailure(state, deps, pending, error);
     });
 }
 
 export function pendingLegacyTocEntry(state: NavigationState): TocEntry | undefined {
-  const pending = state.pendingTocNavigation;
-  return pending?.locatorAbort ? undefined : pending?.entry;
+  return state.pendingTocNavigation?.entry;
 }
 
-function settleTocLocatorGrowth(
+function settleLocatorGrowth(
   state: NavigationState,
   deps: NavigationDeps,
   reader: Reader,
-  pending: PendingTocNavigation,
+  pending: PendingLocatorNavigation,
   resolution: ReaderLocatorResolution | undefined,
   onResolved: (spreadIndex: number) => void,
 ): void {
-  if (!ownsTocGrowth(state, pending)) return;
-  state.pendingTocNavigation = undefined;
+  if (!ownsLocatorGrowth(state, pending)) return;
+  state.pendingLocatorNavigation = undefined;
   if (!resolution) {
     deps.onNavigationCancelled?.();
     return;
   }
   if (resolution.status !== 'resolved') {
-    failOwnedTocGrowth(
+    failOwnedLocatorGrowth(
       state,
       deps,
       pending,
-      new Error('Reader locator navigation did not resolve its TOC target'),
+      new Error(`Reader locator navigation did not resolve its ${pending.targetLabel}`),
     );
     return;
   }
@@ -98,7 +143,7 @@ function settleTocLocatorGrowth(
     resolution.spreadIndex >= reader.totalSpreads ||
     !reader.spreads[resolution.spreadIndex]
   ) {
-    failOwnedTocGrowth(
+    failOwnedLocatorGrowth(
       state,
       deps,
       pending,
@@ -112,55 +157,55 @@ function settleTocLocatorGrowth(
     onResolved(resolution.spreadIndex);
   } catch (error) {
     deps.onNavigationCancelled?.();
-    reportTocLocatorFailure(deps, error);
+    reportLocatorFailure(deps, pending.failureSource, error);
   }
 }
 
-function failTocLocatorGrowth(
+function failLocatorGrowth(
   state: NavigationState,
   deps: NavigationDeps,
-  pending: PendingTocNavigation,
+  pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
-  if (!ownsTocGrowth(state, pending)) return;
-  state.pendingTocNavigation = undefined;
-  failOwnedTocGrowth(state, deps, pending, error);
+  if (!ownsLocatorGrowth(state, pending)) return;
+  state.pendingLocatorNavigation = undefined;
+  failOwnedLocatorGrowth(state, deps, pending, error);
 }
 
-function handleTocLocatorGrowthFailure(
+function handleLocatorGrowthFailure(
   state: NavigationState,
   deps: NavigationDeps,
-  pending: PendingTocNavigation,
+  pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
   try {
-    failTocLocatorGrowth(state, deps, pending, error);
+    failLocatorGrowth(state, deps, pending, error);
   } catch {
-    if (ownsTocGrowth(state, pending)) state.pendingTocNavigation = undefined;
+    if (ownsLocatorGrowth(state, pending)) state.pendingLocatorNavigation = undefined;
   }
 }
 
-function failOwnedTocGrowth(
+function failOwnedLocatorGrowth(
   state: NavigationState,
   deps: NavigationDeps,
-  pending: PendingTocNavigation,
+  pending: PendingLocatorNavigation,
   error: unknown,
 ): void {
   if (pending.attemptId === state.navigationAttemptId) deps.onNavigationCancelled?.();
-  reportTocLocatorFailure(deps, error);
+  reportLocatorFailure(deps, pending.failureSource, error);
 }
 
-function reportTocLocatorFailure(deps: NavigationDeps, error: unknown): void {
+function reportLocatorFailure(deps: NavigationDeps, source: string, error: unknown): void {
   deps.emitter.emit('error', {
     message: error instanceof Error ? error.message : String(error),
-    source: 'reader TOC locator navigation',
+    source,
   });
 }
 
-function ownsTocGrowth(state: NavigationState, pending: PendingTocNavigation): boolean {
+function ownsLocatorGrowth(state: NavigationState, pending: PendingLocatorNavigation): boolean {
   return (
     !state.disposed &&
-    state.pendingTocNavigation === pending &&
+    state.pendingLocatorNavigation === pending &&
     state.navigationAttemptId === pending.attemptId
   );
 }

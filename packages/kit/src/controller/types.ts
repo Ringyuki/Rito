@@ -92,8 +92,8 @@ export interface ReaderControllerEvents {
   imageClick: {
     src: string;
     alt: string;
-    /** Object URL for displaying the image. Call `URL.revokeObjectURL()` when done. */
-    blobUrl: string | undefined;
+    /** Controller-owned object URL, valid until the next image click or controller disposal. */
+    blobUrl: string;
     screenBounds: Rect;
   };
   /** Emitted when the search keyboard shortcut is pressed. UI layer should open the search bar. */

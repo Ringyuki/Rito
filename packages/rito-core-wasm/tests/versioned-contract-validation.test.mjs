@@ -170,6 +170,44 @@ test('direct exact aggregate reads reject forged identities and request echoes',
     () => search.searchAtRevision(handle(1), { query: 'A', caseSensitive: false }),
     /wholeWord must be a boolean/,
   );
+
+  const sourcedSearch = new RitoCoreWasmDocument({
+    searchAtRevisionJson: (_revisionId, _version, requestJson) =>
+      JSON.stringify({
+        revision: handle(1),
+        value: {
+          revisionId: 'rev-1',
+          ...JSON.parse(requestJson),
+          resultCount: 1,
+          results: [searchResult(searchSource())],
+        },
+      }),
+  });
+  assert.deepEqual(
+    sourcedSearch.searchAtRevision(handle(1), searchRequest()).value.results[0].source,
+    searchSource(),
+  );
+
+  for (const source of [
+    undefined,
+    { status: 'pending', reason: 'notPaginated' },
+    { status: 'unavailable', reason: 'shapeUnavailable' },
+    { status: 'resolved', href: 'chapter.xhtml', sourceRange: { start: {}, end: {} } },
+  ]) {
+    const malformed = new RitoCoreWasmDocument({
+      searchAtRevisionJson: (_revisionId, _version, requestJson) =>
+        JSON.stringify({
+          revision: handle(1),
+          value: {
+            revisionId: 'rev-1',
+            ...JSON.parse(requestJson),
+            resultCount: 1,
+            results: [searchResult(source)],
+          },
+        }),
+    });
+    assert.throws(() => malformed.searchAtRevision(handle(1), searchRequest()));
+  }
 });
 
 test('worker client rejects forged bounded and summary results behind a matching envelope', async () => {
@@ -314,6 +352,28 @@ function budget() {
 
 function searchRequest() {
   return { query: 'A', caseSensitive: false, wholeWord: false, limit: 1 };
+}
+
+function searchResult(source) {
+  const start = { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 };
+  const end = { ...start, charIndex: 1 };
+  return {
+    pageIndex: 0,
+    spreadIndex: 0,
+    matchRange: { pageIndex: 0, start, end, context: 'A' },
+    source,
+  };
+}
+
+function searchSource() {
+  return {
+    status: 'resolved',
+    href: 'chapter.xhtml',
+    sourceRange: {
+      start: { nodePath: [1], textOffset: 2 },
+      end: { nodePath: [1], textOffset: 3 },
+    },
+  };
 }
 
 async function openClient(worker) {

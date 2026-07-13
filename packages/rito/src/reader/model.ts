@@ -236,7 +236,12 @@ export interface SearchResult {
   readonly pageIndex: number;
   readonly range: TextRange;
   readonly context: string;
+  readonly source?: ReaderSearchSourceResolution;
 }
+
+export type ReaderSearchSourceResolution =
+  | { readonly status: 'resolved'; readonly href: string; readonly sourceRange: ReaderSourceRange }
+  | { readonly status: 'unavailable'; readonly reason: 'sourceUnavailable' };
 
 export interface FontShorthand {
   readonly style: 'normal' | 'italic';

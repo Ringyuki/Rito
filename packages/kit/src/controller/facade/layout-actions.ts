@@ -11,6 +11,7 @@ import {
   syncChapterIndices,
   usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
+import { invalidateNativeSearchLayout, usesNativeSearchGeometry } from '../search-resolution';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
@@ -102,6 +103,9 @@ export function commitLayoutChange(
   const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
   const clearedNativeAnnotationHover = usesNativeAnnotationGeometry(internals.reader);
   if (clearedNativeAnnotationHover) invalidateNativeAnnotationGeometry(internals.coordState);
+  if (usesNativeSearchGeometry(internals.reader)) {
+    invalidateNativeSearchLayout(internals.coordState);
+  }
   const previousSpread = internals.currentSpread;
   internals.currentSpread =
     committedSpreadIndex === undefined
@@ -142,6 +146,9 @@ export function publishPaginationChange(
   frameDriver: Pick<FrameDriver, 'markAllOverlaysDirty'>,
 ): void {
   internals.engines.selection.invalidate();
+  if (usesNativeSearchGeometry(internals.reader)) {
+    invalidateNativeSearchLayout(internals.coordState);
+  }
   internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   syncChapterIndices(internals.coordState, internals.reader);
   const clearedNativeAnnotationHover = refreshPaginationAnnotations(internals);

@@ -1,6 +1,7 @@
 import { wireA11y } from '../wiring/a11y';
 import type { WiringDeps } from '../core/wiring-deps';
 import type { Internals, Disposables, LifecycleSlice, RuntimeComponents } from './types';
+import { releaseImageClickResources } from '../wiring/image-click';
 
 export function syncCanvasSize(internals: Internals, runtime: RuntimeComponents): void {
   // getCanvasSize(renderScale) returns CSS dimensions that already include renderScale.
@@ -37,10 +38,7 @@ export function buildLifecycle(
       wireA11y(deps, disposables);
     },
     dispose(): void {
-      if (deps.coordState.activeImageBlobUrl) {
-        URL.revokeObjectURL(deps.coordState.activeImageBlobUrl);
-        deps.coordState.activeImageBlobUrl = null;
-      }
+      releaseImageClickResources(deps);
       disposables.disposeAll();
       runtime.frameDriver.dispose();
     },

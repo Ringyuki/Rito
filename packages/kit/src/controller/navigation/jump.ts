@@ -11,6 +11,7 @@ export function claimNavigationAttempt(
 ): number {
   const attemptId = ++state.navigationAttemptId;
   clearPendingNavigation(state);
+  deps.onContentInteractionIntent?.();
   if (!preservePositionIntent) deps.onNavigationIntent?.();
   return attemptId;
 }

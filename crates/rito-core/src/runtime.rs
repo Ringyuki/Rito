@@ -232,7 +232,12 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        Ok(search_revision(revision_id, revision, request))
+        Ok(search_revision(
+            &self.document,
+            revision_id,
+            revision,
+            request,
+        ))
     }
 
     pub fn resolve_locator(

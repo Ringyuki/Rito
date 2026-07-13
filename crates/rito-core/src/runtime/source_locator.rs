@@ -485,7 +485,7 @@ fn normalized_text_length(index: &RuntimeChapterTextIndex) -> usize {
         .unwrap_or(0)
 }
 
-fn utf16_slice(text: &str, start: usize, end: usize) -> Option<&str> {
+pub(super) fn utf16_slice(text: &str, start: usize, end: usize) -> Option<&str> {
     if start > end {
         return None;
     }
@@ -505,11 +505,25 @@ fn utf16_slice(text: &str, start: usize, end: usize) -> Option<&str> {
             return None;
         }
     }
-    if utf16_offset == start {
+    if start_byte.is_none() && utf16_offset == start {
         start_byte = Some(text.len());
     }
-    if utf16_offset == end {
+    if end_byte.is_none() && utf16_offset == end {
         end_byte = Some(text.len());
     }
     text.get(start_byte?..end_byte?)
+}
+
+#[cfg(test)]
+mod utf16_slice_tests {
+    use super::utf16_slice;
+
+    #[test]
+    fn preserves_non_terminal_utf16_boundaries() {
+        let text = "A😀BC";
+
+        assert_eq!(utf16_slice(text, 1, 4), Some("😀B"));
+        assert_eq!(utf16_slice(text, 3, 5), Some("BC"));
+        assert_eq!(utf16_slice(text, 2, 3), None);
+    }
 }

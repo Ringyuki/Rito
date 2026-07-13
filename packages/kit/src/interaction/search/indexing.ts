@@ -1,3 +1,4 @@
+import type { ReaderSearchSourceResolution } from '@ritojs/core';
 import type { Page } from '../layout-types';
 import type { TextPosition, TextRange } from '../core/types';
 import { walkPageTextRuns } from '../core/text-traversal';
@@ -28,6 +29,8 @@ export interface SearchResult {
   readonly pageIndex: number;
   readonly range: TextRange;
   readonly context: string;
+  /** Durable parsed-source ownership for native exact geometry. */
+  readonly source?: ReaderSearchSourceResolution;
 }
 
 /** Search options. */

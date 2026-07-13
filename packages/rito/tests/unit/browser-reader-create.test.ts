@@ -11,7 +11,6 @@ const mocks = vi.hoisted(() => ({
   createBrowserReaderResourceState: vi.fn(() => ({
     pendingImageLoads: new Map(),
     images: new Map(),
-    imageObjectUrls: new Map(),
     registeredFontFaces: new Map(),
   })),
   createBrowserReaderWorkerClientFactory: vi.fn(),

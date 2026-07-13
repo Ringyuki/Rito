@@ -1,4 +1,5 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
+import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { cancelBrowserReaderReflow, scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
 import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
@@ -16,7 +17,11 @@ import {
 import type { BrowserReaderState } from './types';
 import { fallbackBrowserTextMeasurer } from '../host-runtime';
 import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
-import { captureCommittedSourceRead, readCapturedSource } from './interaction-capture';
+import {
+  captureCommittedSourceRead,
+  copyReaderSourcePoint,
+  readCapturedSource,
+} from './interaction-capture';
 import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
 import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 import {
@@ -216,6 +221,9 @@ function resourceMethods(
         }),
       );
       if (!response) return [];
+      if (response.revisionId !== capture.coreRevision.revisionId) {
+        throw new Error('Reader search response does not match its revision request');
+      }
       return response.results.map(toSearchResult);
     },
     getChapterTextIndices() {
@@ -260,18 +268,10 @@ function disposeResources(state: BrowserReaderState): void {
   disposeBrowserReaderPinnedFonts(state.pinnedFonts);
   for (const image of state.images.values()) image.close();
   state.images.clear();
-  for (const url of state.imageObjectUrls.values()) URL.revokeObjectURL(url);
-  state.imageObjectUrls.clear();
   disposeBrowserReaderSessionHosts(state);
 }
 
-function toSearchResult(result: {
-  readonly pageIndex: number;
-  readonly matchRange: SearchResult['range'] & {
-    readonly context: string;
-    readonly pageIndex: number;
-  };
-}): SearchResult {
+function toSearchResult(result: CoreSearchResponse['results'][number]): SearchResult {
   return {
     pageIndex: result.pageIndex,
     range: {
@@ -279,5 +279,19 @@ function toSearchResult(result: {
       end: result.matchRange.end,
     },
     context: result.matchRange.context,
+    source:
+      result.source.status === 'resolved'
+        ? {
+            status: 'resolved',
+            href: result.source.href,
+            sourceRange: {
+              start: copyReaderSourcePoint(result.source.sourceRange.start),
+              end: copyReaderSourcePoint(result.source.sourceRange.end),
+            },
+          }
+        : {
+            status: 'unavailable',
+            reason: result.source.reason,
+          },
   };
 }

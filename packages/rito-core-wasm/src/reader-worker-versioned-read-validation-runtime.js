@@ -1,4 +1,5 @@
 import { requireRevisionBundle } from './core-wasm-versioned-validation-runtime.js';
+import { requireExactSourceRangeRequest } from './reader-worker-exact-source-range-validation-runtime.js';
 
 export function requireReaderRevisionBundle(value, revision, operation) {
   const bundle = requireRevisionBundle(value, revision, operation);
@@ -112,6 +113,20 @@ function requireSearchResult(value, operation) {
   }
   requireTextPosition(range.start, operation);
   requireTextPosition(range.end, operation);
+  requireSearchSource(result.source, operation);
+}
+
+function requireSearchSource(value, operation) {
+  const source = requireRecord(value, `${operation} search source`);
+  if (source.status === 'resolved') {
+    requireExactSourceRangeRequest(
+      { href: source.href, sourceRange: source.sourceRange },
+      `${operation} search source`,
+    );
+    return;
+  }
+  if (source.status === 'unavailable' && source.reason === 'sourceUnavailable') return;
+  throw new Error(`${operation} returned an invalid search source`);
 }
 
 function requireTextPosition(value, operation) {

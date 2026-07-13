@@ -35,6 +35,7 @@ export type {
   ReaderSemanticNode,
   ReaderSameFlowTextRange,
   ReaderSameFlowTextRangeResolution,
+  ReaderSearchSourceResolution,
   ReaderSourcePoint,
   ReaderSourceRange,
   ReaderTextCaret,

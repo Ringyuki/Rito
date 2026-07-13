@@ -68,6 +68,7 @@ describe('navigation deferred content', () => {
   it('claims position intent before waiting for async content', () => {
     let currentSpread = 0;
     const onNavigationIntent = vi.fn();
+    const onContentInteractionIntent = vi.fn();
     const reader = {
       totalSpreads: 2,
       spreads: [{}, {}],
@@ -90,11 +91,13 @@ describe('navigation deferred content', () => {
       },
       contentRenderer: vi.fn(),
       onNavigationIntent,
+      onContentInteractionIntent,
     } as unknown as NavigationDeps;
 
     createNavigation(deps).goToSpread(1);
 
     expect(onNavigationIntent).toHaveBeenCalledOnce();
+    expect(onContentInteractionIntent).toHaveBeenCalledOnce();
     expect(currentSpread).toBe(0);
   });
 
@@ -152,6 +155,7 @@ describe('navigation deferred content', () => {
     let contentReady = false;
     let tocReady = false;
     const onNavigationCancelled = vi.fn();
+    const onContentInteractionIntent = vi.fn();
     const gestureStarted = vi.fn();
     const goToTarget = vi.fn();
     const entry = { label: 'Target', href: 'target.xhtml', children: [] };
@@ -177,6 +181,7 @@ describe('navigation deferred content', () => {
       },
       contentRenderer: vi.fn(),
       onNavigationIntent: vi.fn(),
+      onContentInteractionIntent,
       onNavigationCancelled,
     } as unknown as NavigationDeps;
     const nav = createNavigation(deps);
@@ -197,6 +202,7 @@ describe('navigation deferred content', () => {
     expect(goToTarget).not.toHaveBeenCalled();
     expect(gestureStarted).not.toHaveBeenCalled();
     expect(onNavigationCancelled).not.toHaveBeenCalled();
+    expect(onContentInteractionIntent).toHaveBeenCalledTimes(4);
   });
 
   it('lets navigation from force-settle callbacks supersede the position intent', () => {

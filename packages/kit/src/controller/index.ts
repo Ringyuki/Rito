@@ -176,6 +176,9 @@ function createRuntimeNavigation(
     onNavigationIntent: () => {
       internals.engines.position?.claimIntent();
     },
+    onContentInteractionIntent: () => {
+      internals.coordState.contentInteractionGeneration += 1;
+    },
     onNavigationCancelled: () => {
       internals.engines.position?.update(internals.currentSpread);
     },

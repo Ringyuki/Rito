@@ -12,7 +12,6 @@ import type {
   ReaderPageReadingAnchor,
   ReaderPageSemantics,
   ReaderPageTargets,
-  ReaderSourceRange,
   Rect,
   SearchOptions,
   SearchResult,
@@ -65,17 +64,12 @@ export type ReaderTextCaretResolution =
       readonly spreadIndex: number;
     };
 
-/** Exact selection rectangle in page-content coordinates. */
 export interface ReaderExactTextRangeRect extends Rect {
   readonly pageIndex: number;
   readonly spreadIndex: number;
 }
 
-/** Durable source range to project through the current committed native revision. */
-export interface ReaderExactSourceRangeRequest {
-  readonly href: string;
-  readonly sourceRange: ReaderSourceRange;
-}
+export type ReaderExactSourceRangeRequest = Required<Pick<ReaderLocator, 'href' | 'sourceRange'>>;
 export interface ReaderExactSourceRange {
   readonly selectedText: string;
   readonly sourceLocator: ReaderLocator;
@@ -223,7 +217,7 @@ export interface Reader {
   getLayoutGeometry(): Readonly<LayoutConfig>;
   getChapterTextIndices(): ReadonlyMap<string, ChapterTextIndex>;
   getFootnotes(): ReadonlyMap<string, FootnoteEntry>;
-  getImageBlobUrl(src: string): string | undefined;
+  getImageBlobUrl(src: string): string | undefined | Promise<string | undefined>;
   setTypography(opts: {
     fontSize?: number | null;
     lineHeight?: number | null;

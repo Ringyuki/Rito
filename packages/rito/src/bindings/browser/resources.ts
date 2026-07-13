@@ -9,12 +9,11 @@ import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
 
 export function createBrowserReaderResourceState(): Pick<
   BrowserReaderState,
-  'pendingImageLoads' | 'images' | 'imageObjectUrls' | 'registeredFontFaces'
+  'pendingImageLoads' | 'images' | 'registeredFontFaces'
 > {
   return {
     pendingImageLoads: new Map(),
     images: new Map(),
-    imageObjectUrls: new Map(),
     registeredFontFaces: new Map(),
   };
 }
@@ -72,12 +71,26 @@ export async function preloadFrameResourceBytes(
   );
 }
 
-export function getImageObjectUrl(state: BrowserReaderState, href: string): string | undefined {
+export async function getImageObjectUrl(
+  state: BrowserReaderState,
+  href: string,
+): Promise<string | undefined> {
   if (typeof URL === 'undefined') return undefined;
-  const cached = state.imageObjectUrls.get(href);
-  if (cached) return cached;
-  void preloadImageObjectUrl(state, href);
-  return undefined;
+  try {
+    const revision = state.revisionHandle;
+    if (!revision) return undefined;
+    const worker = state.worker;
+    if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
+      return undefined;
+    const { payload, bytes } = (
+      await worker.readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
+    ).value;
+    if (!isCurrentRevisionHandle(state, revision)) return undefined;
+    return URL.createObjectURL(new Blob([ownedArrayBuffer(bytes)], { type: payload.mediaType }));
+  } catch {
+    // Lightbox URLs are optional; rendering uses the independently decoded bitmap cache.
+    return undefined;
+  }
 }
 
 function notifySpreadContentInvalidated(state: BrowserReaderState, spreadIndex: number): void {
@@ -240,28 +253,6 @@ async function loadImageBytes(
   const previous = state.images.get(href);
   previous?.close();
   state.images.set(href, image);
-}
-
-async function preloadImageObjectUrl(state: BrowserReaderState, href: string): Promise<void> {
-  try {
-    const revision = state.revisionHandle;
-    if (!revision) return;
-    const worker = state.worker;
-    if (worker.sessionId !== revision.workerSessionId || !isCurrentRevisionHandle(state, revision))
-      return;
-    const { payload, bytes } = (
-      await worker.readResourceAtRevision(coreRevisionHandle(revision), 'image', href)
-    ).value;
-    if (!isCurrentRevisionHandle(state, revision) || state.imageObjectUrls.has(href)) {
-      return;
-    }
-    const url = URL.createObjectURL(
-      new Blob([ownedArrayBuffer(bytes)], { type: payload.mediaType }),
-    );
-    state.imageObjectUrls.set(href, url);
-  } catch {
-    // Image lightbox object URLs are opportunistic; rendering uses ImageBitmap cache.
-  }
 }
 
 function coreRevisionHandle(revision: BrowserReaderWorkerRevisionHandle): CoreRevisionHandle {

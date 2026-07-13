@@ -6,6 +6,13 @@ import {
   scheduleNativeAnnotationsForSpread,
   usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
+import {
+  disposeNativeSearchGeometry,
+  replaceNativeSearchResults,
+  usesNativeSearchGeometry,
+} from '../search-resolution';
+import { scheduleNativeSearchForCurrentSpread } from './native-search';
+import type { ReaderControllerEvents } from '../types';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   disposables.add(() => {
@@ -69,9 +76,23 @@ function computeFocusRect(
 
 function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const { engines, emitter } = deps;
+  if (usesNativeSearchGeometry(deps.reader)) {
+    disposables.add(() => {
+      disposeNativeSearchGeometry(deps.coordState);
+    });
+  }
   disposables.add(
     engines.search.onResultsChange((results) => {
-      emitter.emit('searchResults', { results, activeIndex: engines.search.getActiveIndex() });
+      if (usesNativeSearchGeometry(deps.reader)) {
+        replaceNativeSearchResults(deps.coordState, results);
+        scheduleNativeSearchForCurrentSpread(deps);
+      }
+      emitContainedSearchEvent(
+        emitter,
+        'searchResults',
+        { results, activeIndex: engines.search.getActiveIndex() },
+        'search-results-listener',
+      );
       // Search results are global — invalidate ALL slots so adjacent pages update too
       deps.frameDriver.markAllOverlaysDirty();
     }),
@@ -79,10 +100,36 @@ function wireSearchEvents(deps: WiringDeps, disposables: DisposableCollection): 
   disposables.add(
     engines.search.onActiveResultChange((idx) => {
       const results = engines.search.getResults();
-      emitter.emit('searchActiveChange', { activeIndex: idx, result: results[idx] });
+      scheduleNativeSearchForCurrentSpread(deps);
+      emitContainedSearchEvent(
+        emitter,
+        'searchActiveChange',
+        { activeIndex: idx, result: results[idx] },
+        'search-active-listener',
+      );
       deps.frameDriver.markAllOverlaysDirty();
     }),
   );
+}
+
+function emitContainedSearchEvent<K extends 'searchResults' | 'searchActiveChange'>(
+  emitter: WiringDeps['emitter'],
+  event: K,
+  payload: ReaderControllerEvents[K],
+  failureSource: string,
+): void {
+  try {
+    emitter.emit(event, payload);
+  } catch (error: unknown) {
+    try {
+      emitter.emit('error', {
+        message: error instanceof Error ? error.message : String(error),
+        source: failureSource,
+      });
+    } catch {
+      // Search engine state and overlay invalidation must complete even if consumer listeners fail.
+    }
+  }
 }
 
 function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableCollection): void {

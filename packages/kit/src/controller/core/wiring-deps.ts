@@ -1,4 +1,4 @@
-import type { Reader } from '@ritojs/core';
+import type { Reader, ReaderLocator } from '@ritojs/core';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { CoordinatorEngines, CoordinatorState } from './coordinator-state';
@@ -21,6 +21,8 @@ export interface WiringDeps {
   positionPersistence: PositionPersistence;
   /** Navigate to a spread with transition animation. */
   goToSpread: (index: number) => void;
+  /** Resolve bounded content and navigate under the controller's latest-wins owner. */
+  navigateToLocator: (locator: ReaderLocator) => void;
   /**
    * `true` once {@link ReaderController.restorePosition} has resolved at least once.
    * `wirePositionTracker` reads this to suppress automatic `positionStorage.save`
@@ -59,6 +61,9 @@ export function buildWiringDeps(
     positionPersistence: internals.positionPersistence,
     goToSpread: (i) => {
       nav.goToSpread(i);
+    },
+    navigateToLocator: (locator) => {
+      nav.navigateToLocator(locator);
     },
     hasRestored: () => internals.restoreCompleted,
     notifyNavigationContentReady: (i) => {

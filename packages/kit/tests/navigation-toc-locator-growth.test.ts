@@ -2,7 +2,43 @@ import { describe, expect, it, vi } from 'vitest';
 import type { Reader, ReaderLocator, ReaderLocatorResolution, TocEntry } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 
-describe('partial TOC locator navigation', () => {
+describe('partial locator navigation', () => {
+  it('grows a generic internal-link locator through the same atomic owner', async () => {
+    const fixture = createFixture();
+    const locator = { href: 'chapter-4.xhtml', anchorId: 'target' };
+
+    fixture.nav.navigateToLocator(locator);
+
+    expect(fixture.navigateToLocator).toHaveBeenCalledWith(locator, expect.any(AbortSignal));
+    fixture.commitExtent(4);
+    fixture.request(0).resolve(resolvedLocator(locator.href, 3));
+    await settleTasks();
+
+    expect(fixture.current()).toBe(3);
+    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
+    expect(fixture.goToTarget).toHaveBeenCalledWith('forward', 0, 3, 0);
+  });
+
+  it('reports an unresolved internal-link locator without pretending to navigate', async () => {
+    const fixture = createFixture();
+
+    fixture.nav.navigateToLocator({ href: 'missing.xhtml' });
+    fixture.request(0).resolve({
+      status: 'pending',
+      locator: { href: 'missing.xhtml' },
+      spineIdref: 'missing',
+      reason: 'noPageProjection',
+      matchedBy: 'href',
+    });
+    await settleTasks();
+
+    expect(fixture.current()).toBe(0);
+    expect(fixture.emit).toHaveBeenCalledWith('error', {
+      message: 'Reader locator navigation did not resolve its link target',
+      source: 'reader link locator navigation',
+    });
+  });
+
   it('grows an unresolved TOC href atomically and navigates its committed spread', async () => {
     const fixture = createFixture();
 

@@ -1,3 +1,5 @@
+import type { RitoCoreWasmSourceRange } from './interaction';
+
 export interface RitoCoreWasmSearchTextPosition {
   readonly blockIndex: number;
   readonly lineIndex: number;
@@ -16,7 +18,20 @@ export interface RitoCoreWasmSearchResult {
   readonly pageIndex: number;
   readonly spreadIndex: number;
   readonly matchRange: RitoCoreWasmSearchMatchRange;
+  /** Authoritative parsed-source ownership; geometry is resolved lazily. */
+  readonly source: RitoCoreWasmSearchSource;
 }
+
+export type RitoCoreWasmSearchSource =
+  | {
+      readonly status: 'resolved';
+      readonly href: string;
+      readonly sourceRange: RitoCoreWasmSourceRange;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: 'sourceUnavailable';
+    };
 
 export interface RitoCoreWasmSearchRequest {
   readonly query: string;

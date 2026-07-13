@@ -166,6 +166,101 @@ describe('Browser reader methods', () => {
     );
   });
 
+  it('maps durable sources from a revision-bound search without eagerly resolving geometry', async () => {
+    const state = createState();
+    const revision = { revisionId: 'search-rev', revisionVersion: 7 };
+    const resolveExactSourceRangeAtRevision = vi.fn();
+    const searchAtRevision = vi.fn(() =>
+      Promise.resolve({
+        revision,
+        value: {
+          revisionId: revision.revisionId,
+          query: 'needle',
+          caseSensitive: false,
+          wholeWord: false,
+          resultCount: 2,
+          results: [
+            {
+              pageIndex: 2,
+              spreadIndex: 1,
+              matchRange: {
+                pageIndex: 2,
+                start: { blockIndex: 0, lineIndex: 1, runIndex: 2, charIndex: 3 },
+                end: { blockIndex: 0, lineIndex: 1, runIndex: 2, charIndex: 9 },
+                context: 'a needle match',
+              },
+              source: {
+                status: 'resolved' as const,
+                href: 'chapter.xhtml',
+                sourceRange: {
+                  start: { nodePath: [1, 2], textOffset: 3 },
+                  end: { nodePath: [1, 4], textOffset: 5 },
+                },
+              },
+            },
+            {
+              pageIndex: 4,
+              spreadIndex: 2,
+              matchRange: {
+                pageIndex: 4,
+                start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 },
+                end: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 6 },
+                context: 'needle',
+              },
+              source: {
+                status: 'unavailable' as const,
+                reason: 'sourceUnavailable' as const,
+              },
+            },
+          ],
+        },
+      }),
+    );
+    state.worker = {
+      sessionId: 'search-source-session',
+      searchAtRevision,
+      resolveExactSourceRangeAtRevision,
+    } as unknown as BrowserReaderState['worker'];
+    state.revisionHandle = {
+      workerSessionId: 'search-source-session',
+      ...revision,
+      commitGeneration: 8,
+    };
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    await expect(methods.search?.('needle')).resolves.toEqual([
+      {
+        pageIndex: 2,
+        range: {
+          start: { blockIndex: 0, lineIndex: 1, runIndex: 2, charIndex: 3 },
+          end: { blockIndex: 0, lineIndex: 1, runIndex: 2, charIndex: 9 },
+        },
+        context: 'a needle match',
+        source: {
+          status: 'resolved',
+          href: 'chapter.xhtml',
+          sourceRange: {
+            start: { nodePath: [1, 2], textOffset: 3 },
+            end: { nodePath: [1, 4], textOffset: 5 },
+          },
+        },
+      },
+      {
+        pageIndex: 4,
+        range: {
+          start: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 0 },
+          end: { blockIndex: 0, lineIndex: 0, runIndex: 0, charIndex: 6 },
+        },
+        context: 'needle',
+        source: {
+          status: 'unavailable',
+          reason: 'sourceUnavailable',
+        },
+      },
+    ]);
+    expect(resolveExactSourceRangeAtRevision).not.toHaveBeenCalled();
+  });
+
   it('does not issue an exact search when bounded completion is cancelled', async () => {
     const state = createState();
     const searchAtRevision = vi.fn();

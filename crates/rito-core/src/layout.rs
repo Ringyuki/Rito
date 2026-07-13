@@ -72,7 +72,9 @@ pub use pagination_flow::{
     PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
     PaginationFlowSummary,
 };
-pub(crate) use search_flow::search_runtime_pages;
+pub(crate) use search_flow::{
+    search_runtime_pages, SearchRuntimeMatch, SearchSourcePoint, SearchSourceRange,
+};
 pub use search_flow::{
     SearchFlowQuerySummary, SearchFlowSummary, SearchRuntimeResult, SearchTextPosition,
 };

@@ -19,6 +19,7 @@ import {
   usesNativeAnnotationGeometry,
 } from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
+import { scheduleNativeSearchForSpread } from './native-search';
 
 export function coordinateOnSpreadRendered(
   spreadIndex: number,
@@ -111,6 +112,7 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
       if (!currentSpread) return;
       scheduleNativeTargetLoad(currentSpread, deps);
       scheduleNativeAnnotationLoad(currentSpread, deps);
+      scheduleNativeSearchForSpread(currentSpread, deps);
       deps.frameDriver.markOverlayDirty(idx);
     }),
   );

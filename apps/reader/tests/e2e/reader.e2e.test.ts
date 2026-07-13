@@ -35,6 +35,40 @@ test.describe('reader app', () => {
     await expect.poll(() => currentSpread(page)).toBe(lastSpread);
   });
 
+  test('keeps one populated accessibility mirror after page navigation', async ({ page }) => {
+    await loadDemoBook(page);
+
+    const mirror = page.locator('[role="document"][aria-live="polite"]');
+    await expect(mirror).toHaveCount(1);
+    await expect.poll(() => accessibilityMirrorContentCount(page)).toBeGreaterThan(0);
+
+    const firstSpread = await currentSpread(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentSpread(page)).toBeGreaterThan(firstSpread);
+    await expect(mirror).toHaveCount(1);
+    await expect.poll(() => accessibilityMirrorContentCount(page)).toBeGreaterThan(0);
+  });
+
+  test('grows and follows an internal native link beyond the known extent', async ({ page }) => {
+    await loadDemoBook(page);
+
+    const link = await findAccessibilityLink(page, 'Section014.xhtml');
+    const knownBeforeNavigation = await readerNumberAttribute(page, 'data-total-spreads');
+    await link.dispatchEvent('click');
+    await expect(page.getByRole('heading', { name: 'Navigate to Chapter' })).toBeVisible();
+    await page.getByRole('button', { name: 'Go' }).click();
+
+    await expect
+      .poll(() => readerAttribute(page, 'data-active-chapter-href'), {
+        timeout: READER_LOAD_TIMEOUT_MS,
+      })
+      .toContain('Section014.xhtml');
+    await expect
+      .poll(() => readerNumberAttribute(page, 'data-total-spreads'))
+      .toBeGreaterThan(knownBeforeNavigation);
+    await expect.poll(() => currentSpread(page)).toBeGreaterThanOrEqual(knownBeforeNavigation);
+  });
+
   test('opens the table of contents and navigates to a chapter', async ({ page }) => {
     await loadDemoBook(page);
 
@@ -66,6 +100,43 @@ test.describe('reader app', () => {
       .poll(() => readerNumberAttribute(page, 'data-search-active-page'))
       .toBeGreaterThan(0);
     await expect.poll(() => currentSpread(page)).toBeGreaterThan(beforeSearchJump);
+  });
+
+  test('paints an exact native search highlight from the committed source range', async ({
+    page,
+  }) => {
+    await installReaderWorkerProbe(page);
+    await page.evaluate(() => {
+      localStorage.clear();
+    });
+    await page.reload();
+    await loadDemoBook(page);
+
+    await openReaderContextMenu(page);
+    await page.getByRole('menuitem', { name: /^Search/ }).click();
+    await page.getByTestId('reader-search-input').fill('第1话');
+    await expect(page.getByTestId('reader-search-result').first()).toBeVisible();
+    await page.getByTestId('reader-search-result').first().click();
+
+    await expect
+      .poll(async () => {
+        const operations = await readReaderWorkerOperations(page);
+        return operations.some(
+          (operation) =>
+            operation.kind === 'resolveExactSourceRangeAtRevision' && operation.ok === true,
+        );
+      })
+      .toBe(true);
+    const highlighted = await stableReaderCanvasChecksum(page);
+
+    await openReaderContextMenu(page);
+    await page.getByRole('menuitem', { name: /^Search/ }).click();
+    await page.getByTestId('reader-search-input').fill('');
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-search-results', '0');
+    await expect.poll(() => readerCanvasChecksum(page)).not.toBe(highlighted);
+    const clean = await stableReaderCanvasChecksum(page);
+
+    expect(clean).not.toBe(highlighted);
   });
 
   test('applies settings that trigger reader reflow and theme changes', async ({ page }) => {
@@ -145,6 +216,22 @@ async function readerNumberAttribute(page: Page, name: string): Promise<number> 
   return Number(value);
 }
 
+async function accessibilityMirrorContentCount(page: Page): Promise<number> {
+  return page.locator('[role="document"][aria-live="polite"] > *').count();
+}
+
+async function findAccessibilityLink(page: Page, hrefSuffix: string) {
+  const mirror = page.locator('[role="document"][aria-live="polite"]');
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const link = mirror.locator(`a[href$="${hrefSuffix}"]`).first();
+    if ((await link.count()) > 0) return link;
+    const before = await currentSpread(page);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentSpread(page)).toBeGreaterThan(before);
+  }
+  throw new Error(`Could not find accessibility link ending in ${hrefSuffix}`);
+}
+
 async function hasNonBlankCanvas(page: Page): Promise<boolean> {
   return page.locator('canvas').evaluateAll((canvases) =>
     canvases.some((canvas) => {
@@ -175,4 +262,44 @@ async function hasNonBlankCanvas(page: Page): Promise<boolean> {
       return false;
     }),
   );
+}
+
+async function stableReaderCanvasChecksum(page: Page): Promise<string> {
+  let previous = '';
+  let stableSamples = 0;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    await page.waitForTimeout(100);
+    const current = await readerCanvasChecksum(page);
+    if (current === previous) {
+      stableSamples += 1;
+      if (stableSamples >= 2) return current;
+    } else {
+      previous = current;
+      stableSamples = 0;
+    }
+  }
+  throw new Error('Reader canvas did not reach a stable checksum');
+}
+
+async function readerCanvasChecksum(page: Page): Promise<string> {
+  return page
+    .getByTestId('reader-shell')
+    .locator('canvas')
+    .evaluateAll((canvases) => {
+      const canvas = canvases
+        .filter(
+          (candidate): candidate is HTMLCanvasElement => candidate instanceof HTMLCanvasElement,
+        )
+        .sort((left, right) => right.width * right.height - left.width * left.height)[0];
+      if (!canvas) throw new Error('Reader canvas is unavailable');
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Reader canvas context is unavailable');
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      let hash = 2_166_136_261;
+      for (let index = 0; index < pixels.length; index += 1) {
+        hash ^= pixels[index] ?? 0;
+        hash = Math.imul(hash, 16_777_619);
+      }
+      return `${String(canvas.width)}x${String(canvas.height)}:${String(hash >>> 0)}`;
+    });
 }

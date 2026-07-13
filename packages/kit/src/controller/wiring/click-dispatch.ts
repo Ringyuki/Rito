@@ -5,6 +5,7 @@ import { findLinkAtPos } from './link';
 import type { WiringDeps } from '../core/wiring-deps';
 import { dispatchNativeClickTarget } from './native-click';
 import { findNativeTargetAtPos, usesNativeTargets } from './native-targets';
+import { dispatchImageResourceClick, supersedePendingImageRequest } from './image-click';
 
 /**
  * Unified click target resolution and event dispatch.
@@ -18,6 +19,7 @@ import { findNativeTargetAtPos, usesNativeTargets } from './native-targets';
  * Both desktop single-click and touch tap route through this function.
  */
 export function dispatchClick(pos: { x: number; y: number }, deps: WiringDeps): void {
+  supersedePendingImageRequest(deps);
   const nativeTargets = usesNativeTargets(deps.reader);
   if (nativeTargets && !deps.reader.interactions?.enabled) return;
 
@@ -75,20 +77,15 @@ function dispatchImageClick(pos: { x: number; y: number }, hit: HitEntry, deps: 
   const canvasRect = canvas.getBoundingClientRect();
   const screenBounds = mapper.pageContentToScreen(resolved.pageIndex, hit.bounds, canvasRect);
 
-  // Revoke previous blob URL before creating a new one
-  if (coordState.activeImageBlobUrl) {
-    URL.revokeObjectURL(coordState.activeImageBlobUrl);
-    coordState.activeImageBlobUrl = null;
-  }
-  const blobUrl = hit.imageSrc ? deps.reader.getImageBlobUrl(hit.imageSrc) : undefined;
-  if (blobUrl) coordState.activeImageBlobUrl = blobUrl;
-
-  deps.emitter.emit('imageClick', {
-    src: hit.imageSrc ?? '',
-    alt: hit.imageAlt ?? '',
-    blobUrl,
-    screenBounds,
-  });
+  dispatchImageResourceClick(
+    {
+      src: hit.imageSrc ?? '',
+      alt: hit.imageAlt ?? '',
+      screenBounds,
+    },
+    mapper,
+    deps,
+  );
 }
 
 function dispatchLinkClick(

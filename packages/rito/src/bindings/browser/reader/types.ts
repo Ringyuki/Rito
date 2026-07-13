@@ -131,7 +131,6 @@ export interface BrowserReaderState {
   tocTargets: readonly TocTarget[];
   activeSpreadIndex: number;
   images: Map<string, ImageBitmap>;
-  imageObjectUrls: Map<string, string>;
   registeredFontFaces: Map<string, FontFace>;
   spreadRenderedListeners: Set<(spreadIndex: number, spread: Spread) => void>;
   spreadContentInvalidatedListeners: Set<(spreadIndex: number) => void>;
