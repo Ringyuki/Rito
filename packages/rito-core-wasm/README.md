@@ -103,12 +103,54 @@ pnpm --filter @ritojs/core-wasm run diagnose:epub-shapes -- \
   --output .output/native-shape-provenance.json
 ```
 
-The runner scans only top-level `.epub` files, creates one complete
-`fontAware` revision per book, validates its exact revision handle, and reports
-exact/unavailable base-text coverage, unavailable reasons, font diagnostic IDs,
-excluded Ruby annotations, and affected codepoints. It deliberately performs
-whole-book pagination and is therefore a corpus/coverage gate, not a first-paint
-latency benchmark. Reports under `.output/` are ignored local artifacts.
+Use repeatable `--file` arguments instead of `--dir` to inspect an explicit
+book set. `--file` cannot be combined with `--dir` or `--limit`:
+
+```sh
+pnpm --filter @ritojs/core-wasm run diagnose:epub-shapes -- \
+  --file "$HOME/Downloads/example.epub" \
+  --file "$HOME/Downloads/second.epub"
+```
+
+Pass `--pinned-font` to compare the ordinary host-metrics path with a pinned
+font policy. Manifest-relative font paths are resolved before the run, and
+every file's complete SHA-256 is verified before WASM opens an EPUB:
+
+```json
+{
+  "schemaVersion": 1,
+  "faces": [
+    {
+      "path": "./fonts/fallback-serif.otf",
+      "expectedSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+      "genericRole": "serif",
+      "language": "und"
+    }
+  ]
+}
+```
+
+Replace the all-zero sample digest with the font file's actual SHA-256.
+
+```sh
+pnpm --filter @ritojs/core-wasm run diagnose:epub-shapes -- \
+  --file "$HOME/Downloads/example.epub" \
+  --pinned-font ./pinned-font-policy.json \
+  --output .output/pinned-shape-comparison.json
+```
+
+The pinned report records the requested paths, hashes, selectors, total font
+byte length, the accepted bytes-free Rust policy identity, separate baseline
+and pinned coverage/timing summaries, and per-book plus aggregate deltas. With
+no `--pinned-font`, the original report shape is unchanged.
+
+The runner scans only top-level `.epub` files in directory mode, creates one
+complete `fontAware` revision per book, validates its exact revision handle,
+and reports exact/unavailable base-text coverage, unavailable reasons, font
+diagnostic IDs, excluded Ruby annotations, and affected codepoints. It
+deliberately performs whole-book pagination and is therefore a corpus/coverage
+gate, not a first-paint latency benchmark. Reports under `.output/` are ignored
+local artifacts. Run the script with `--help` for the complete option list.
 
 For repeatable local verification that does not depend on existing ignored
 `dist/` state:

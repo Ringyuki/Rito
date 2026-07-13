@@ -29,24 +29,34 @@ package entry.
 
 ## `ReaderOptions`
 
-| Option             | Type                    | Default                          | Notes                                  |
-| ------------------ | ----------------------- | -------------------------------- | -------------------------------------- |
-| `width`            | `number`                | required                         | Viewport width in logical pixels       |
-| `height`           | `number`                | required                         | Viewport height in logical pixels      |
-| `margin`           | `number`                | `40`                             | Page margin                            |
-| `spread`           | `'single' \| 'double'`  | `'single'`                       | Requested spread mode                  |
-| `spreadGap`        | `number`                | `20`                             | Gap between pages in double mode       |
-| `backgroundColor`  | `string \| null`        | `'#ffffff'`                      | Page background; `null` restores white |
-| `foregroundColor`  | `string \| null`        | unset                            | Reader-wide override; `null` clears it |
-| `devicePixelRatio` | `number`                | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
-| `lineBreaking`     | `'greedy' \| 'optimal'` | `'greedy'`                       | Line-breaking strategy                 |
-| `logLevel`         | `LogLevel`              | `'warn'`                         | Diagnostics verbosity                  |
-| `paginationPolicy` | `PaginationPolicy`      | unset                            | Widow/orphan configuration             |
-| `fontSize`         | `number`                | unset                            | Initial root font-size override        |
-| `lineHeight`       | `number`                | unset                            | Initial line-height override           |
-| `lineHeightForce`  | `boolean`               | `false`                          | Force line height on every node        |
-| `fontFamily`       | `string`                | unset                            | Initial body font-family override      |
-| `fontFamilyForce`  | `boolean`               | `false`                          | Force font family on every node        |
+| Option             | Type                     | Default                          | Notes                                  |
+| ------------------ | ------------------------ | -------------------------------- | -------------------------------------- |
+| `width`            | `number`                 | required                         | Viewport width in logical pixels       |
+| `height`           | `number`                 | required                         | Viewport height in logical pixels      |
+| `margin`           | `number`                 | `40`                             | Page margin                            |
+| `spread`           | `'single' \| 'double'`   | `'single'`                       | Requested spread mode                  |
+| `spreadGap`        | `number`                 | `20`                             | Gap between pages in double mode       |
+| `backgroundColor`  | `string \| null`         | `'#ffffff'`                      | Page background; `null` restores white |
+| `foregroundColor`  | `string \| null`         | unset                            | Reader-wide override; `null` clears it |
+| `devicePixelRatio` | `number`                 | `window.devicePixelRatio \|\| 1` | HiDPI backing ratio                    |
+| `lineBreaking`     | `'greedy' \| 'optimal'`  | `'greedy'`                       | Line-breaking strategy                 |
+| `logLevel`         | `LogLevel`               | `'warn'`                         | Diagnostics verbosity                  |
+| `paginationPolicy` | `PaginationPolicy`       | unset                            | Widow/orphan configuration             |
+| `fontSize`         | `number`                 | unset                            | Initial root font-size override        |
+| `lineHeight`       | `number`                 | unset                            | Initial line-height override           |
+| `lineHeightForce`  | `boolean`                | `false`                          | Force line height on every node        |
+| `fontFamily`       | `string`                 | unset                            | Initial body font-family override      |
+| `fontFamilyForce`  | `boolean`                | `false`                          | Force font family on every node        |
+| `pinnedFontPolicy` | `ReaderPinnedFontPolicy` | unset                            | Immutable native/Canvas fallback faces |
+
+`pinnedFontPolicy` supplies the same static TTF/OTF bytes to Rust shaping and
+the browser `FontFace` registry. Each face declares a complete SHA-256 digest,
+a generic role (`serif`, `sansSerif`, or `monospace`), and an optional language
+tag. The reader copies the bytes during `createReader()`, verifies the digest in
+the native core, and uses the native-returned family alias for Canvas paint.
+This keeps exact interaction geometry tied to the font that is actually
+rendered. The policy is fixed for the lifetime of that `Reader`; create a new
+reader to replace it.
 
 ## `Reader`
 

@@ -1,65 +1,117 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { basename, dirname, resolve } from 'node:path';
 import { performance } from 'node:perf_hooks';
 import { pathToFileURL } from 'node:url';
 
-const entryPath = resolve(import.meta.dirname, '../dist/index.mjs');
-const wasmPath = resolve(import.meta.dirname, '../dist/rito_wasm_bg.wasm');
+import {
+  emptySelectionMessage,
+  helpText,
+  loadPinnedFontManifest,
+  parseOptions,
+  selectEpubPaths,
+} from './diagnose-epub-shapes-options.mjs';
+import {
+  createComparisonBookReport,
+  createLegacyBookReport,
+  createLegacyReport,
+  createPinnedReport,
+  reportHasFailures,
+} from './diagnose-epub-shapes-report.mjs';
 
-if (!existsSync(entryPath) || !existsSync(wasmPath)) {
-  throw new Error('WASM dist files are missing. Run `pnpm run build:wasm` first.');
+const ENTRY_PATH = resolve(import.meta.dirname, '../dist/index.mjs');
+const WASM_PATH = resolve(import.meta.dirname, '../dist/rito_wasm_bg.wasm');
+
+export async function main(args = process.argv.slice(2)) {
+  const options = parseOptions(args);
+  if (options.help) {
+    process.stdout.write(helpText());
+    return;
+  }
+  requireWasmArtifacts();
+  const epubPaths = await selectEpubPaths(options);
+  if (epubPaths.length === 0) throw new Error(emptySelectionMessage(options));
+  const pinned = options.pinnedFontManifestPath
+    ? await loadPinnedFontManifest(options.pinnedFontManifestPath)
+    : undefined;
+  const engine = await loadEngine();
+  const report = pinned
+    ? await diagnosePinnedComparison(engine, epubPaths, options, pinned)
+    : await diagnoseLegacyCorpus(engine, epubPaths, options);
+  await writeReport(report, options.outputPath);
+  if (reportHasFailures(report)) process.exitCode = 1;
 }
 
-const options = parseOptions(process.argv.slice(2));
-const epubPaths = await discoverEpubs(options.directory, options.limit);
-if (epubPaths.length === 0) {
-  throw new Error(`No top-level EPUB files found in ${options.directory}`);
+function requireWasmArtifacts() {
+  if (!existsSync(ENTRY_PATH) || !existsSync(WASM_PATH)) {
+    throw new Error('WASM dist files are missing. Run `pnpm run build:wasm` first.');
+  }
 }
 
-const { initRitoCoreWasmEngine } = await import(pathToFileURL(entryPath).href);
-const engine = await initRitoCoreWasmEngine({ module_or_path: await readFile(wasmPath) });
-const startedAt = performance.now();
-const books = [];
-
-for (const [index, epubPath] of epubPaths.entries()) {
-  process.stderr.write(`[${index + 1}/${epubPaths.length}] ${basename(epubPath)}\n`);
-  books.push(await diagnoseBook(engine, epubPath));
+async function loadEngine() {
+  const { initRitoCoreWasmEngine } = await import(pathToFileURL(ENTRY_PATH).href);
+  return await initRitoCoreWasmEngine({ module_or_path: await readFile(WASM_PATH) });
 }
 
-const report = {
-  schemaVersion: 1,
-  directory: options.directory,
-  bookCount: books.length,
-  uniqueContentCount: uniqueBooks(books).length,
-  elapsedMs: roundMilliseconds(performance.now() - startedAt),
-  summary: summarize(books),
-  uniqueContentSummary: summarize(uniqueBooks(books)),
-  books,
-};
-const reportText = `${JSON.stringify(report, undefined, 2)}\n`;
-
-if (options.outputPath !== undefined) {
-  await mkdir(dirname(options.outputPath), { recursive: true });
-  await writeFile(options.outputPath, reportText);
-  process.stderr.write(`Wrote ${options.outputPath}\n`);
-} else {
-  process.stdout.write(reportText);
+async function diagnoseLegacyCorpus(engine, epubPaths, options) {
+  const startedAt = performance.now();
+  const books = [];
+  for (const [index, epubPath] of epubPaths.entries()) {
+    reportProgress(index, epubPaths.length, epubPath);
+    const source = await readBookSource(epubPath);
+    books.push(createLegacyBookReport(source.metadata, diagnoseRun(engine, source.bytes)));
+  }
+  return createLegacyReport(options, books, elapsedSince(startedAt));
 }
 
-if (report.summary.failedBookCount > 0) process.exitCode = 1;
+async function diagnosePinnedComparison(engine, epubPaths, options, pinned) {
+  const startedAt = performance.now();
+  const results = [];
+  for (const [index, epubPath] of epubPaths.entries()) {
+    reportProgress(index, epubPaths.length, epubPath);
+    results.push(await diagnoseComparisonBook(engine, epubPath, pinned.policyInput));
+  }
+  return createPinnedReport(options, results, pinned.metadata, elapsedSince(startedAt));
+}
 
-async function diagnoseBook(engine, epubPath) {
+function reportProgress(index, total, epubPath) {
+  process.stderr.write(`[${index + 1}/${total}] ${basename(epubPath)}\n`);
+}
+
+async function diagnoseComparisonBook(engine, epubPath, policyInput) {
+  const source = await readBookSource(epubPath);
+  const baseline = diagnoseRun(engine, source.bytes);
+  const pinned = diagnoseRun(engine, source.bytes, copyPolicyInput(policyInput));
+  return createComparisonBookReport(source.metadata, baseline, pinned);
+}
+
+async function readBookSource(epubPath) {
   const bytes = await readFile(epubPath);
-  const sha256 = createHash('sha256').update(bytes).digest('hex');
+  return {
+    bytes,
+    metadata: {
+      path: epubPath,
+      fileName: basename(epubPath),
+      byteLength: bytes.byteLength,
+      sha256: createHash('sha256').update(bytes).digest('hex'),
+    },
+  };
+}
+
+function diagnoseRun(engine, bytes, pinnedFontPolicy) {
+  const startedAt = performance.now();
   const openedAt = performance.now();
   let document;
   let handle;
+  let acceptedSummary;
   try {
-    document = engine.openDocument(new Uint8Array(bytes));
-    const openMs = roundMilliseconds(performance.now() - openedAt);
+    const publicationBytes = Uint8Array.from(bytes);
+    document = pinnedFontPolicy
+      ? engine.openDocument(publicationBytes, { pinnedFontPolicy })
+      : engine.openDocument(publicationBytes);
+    const openMs = elapsedSince(openedAt);
+    acceptedSummary = pinnedFontPolicy ? document.pinnedFontPolicy() : undefined;
     const publication = document.publication();
     const layoutStartedAt = performance.now();
     const bundle = document.createFullRevisionBundle({
@@ -72,7 +124,7 @@ async function diagnoseBook(engine, epubPath) {
       revisionId: revision.revisionId,
       revisionVersion: revision.revisionVersion,
     };
-    const layoutMs = roundMilliseconds(performance.now() - layoutStartedAt);
+    const layoutMs = elapsedSince(layoutStartedAt);
     if (revision.status !== 'complete') {
       throw new Error(`Expected complete revision, got ${revision.status}`);
     }
@@ -80,24 +132,20 @@ async function diagnoseBook(engine, epubPath) {
     requireMatchingHandle(envelope.revision, handle);
     requireDiagnosticMatchesRevision(envelope.value, revision);
     return {
-      path: epubPath,
-      fileName: basename(epubPath),
-      byteLength: bytes.byteLength,
-      sha256,
       title: publication.package?.metadata?.title,
       openMs,
       layoutMs,
+      totalMs: elapsedSince(startedAt),
       pageCount: revision.pageCount,
       spreadCount: revision.spreadCount,
       diagnostic: envelope.value,
+      acceptedSummary,
     };
   } catch (error) {
     return {
-      path: epubPath,
-      fileName: basename(epubPath),
-      byteLength: bytes.byteLength,
-      sha256,
+      totalMs: elapsedSince(startedAt),
       error: error instanceof Error ? error.message : String(error),
+      acceptedSummary,
     };
   } finally {
     if (document !== undefined) {
@@ -108,6 +156,16 @@ async function diagnoseBook(engine, epubPath) {
       }
     }
   }
+}
+
+function copyPolicyInput(policy) {
+  return {
+    schemaVersion: 1,
+    faces: policy.faces.map((face) => ({
+      ...face,
+      bytes: Uint8Array.from(face.bytes),
+    })),
+  };
 }
 
 function releaseRevision(document, handle) {
@@ -142,117 +200,19 @@ function requireDiagnosticMatchesRevision(diagnostic, revision) {
   }
 }
 
-function summarize(books) {
-  const successful = books.filter((book) => book.diagnostic !== undefined);
-  const totalTextRuns = sum(successful, (book) => book.diagnostic.totalTextRuns);
-  const exactTextRuns = sum(successful, (book) => book.diagnostic.exactTextRuns);
-  const totalTextUtf16CodeUnitCount = sum(
-    successful,
-    (book) => book.diagnostic.totalTextUtf16CodeUnitCount,
-  );
-  const exactTextUtf16CodeUnitCount = sum(
-    successful,
-    (book) => book.diagnostic.exactTextUtf16CodeUnitCount,
-  );
-  return {
-    successfulBookCount: successful.length,
-    failedBookCount: books.length - successful.length,
-    pageCount: sum(successful, (book) => book.pageCount),
-    totalTextRuns,
-    exactTextRuns,
-    unavailableTextRuns: sum(successful, (book) => book.diagnostic.unavailableTextRuns),
-    exactTextRunPercent: percentage(exactTextRuns, totalTextRuns),
-    totalTextUtf16CodeUnitCount,
-    exactTextUtf16CodeUnitCount,
-    unavailableTextUtf16CodeUnitCount: sum(
-      successful,
-      (book) => book.diagnostic.unavailableTextUtf16CodeUnitCount,
-    ),
-    exactTextUtf16CodeUnitPercent: percentage(
-      exactTextUtf16CodeUnitCount,
-      totalTextUtf16CodeUnitCount,
-    ),
-    excludedRubyTextRunCount: sum(successful, (book) => book.diagnostic.excludedRubyTextRunCount),
-    excludedRubyTextUtf16CodeUnitCount: sum(
-      successful,
-      (book) => book.diagnostic.excludedRubyTextUtf16CodeUnitCount,
-    ),
-    unavailableReasonCounts: mergeCounts(
-      successful.map((book) => book.diagnostic.unavailableReasonCounts),
-    ),
-    unavailableReasonUtf16CodeUnitCounts: mergeCounts(
-      successful.map((book) => book.diagnostic.unavailableReasonUtf16CodeUnitCounts),
-    ),
-  };
-}
-
-function uniqueBooks(books) {
-  return [...new Map(books.map((book) => [book.sha256, book])).values()];
-}
-
-function sum(values, select) {
-  return values.reduce((total, value) => total + select(value), 0);
-}
-
-function mergeCounts(groups) {
-  const merged = {};
-  for (const group of groups) {
-    for (const [key, count] of Object.entries(group)) merged[key] = (merged[key] ?? 0) + count;
+async function writeReport(report, outputPath) {
+  const reportText = `${JSON.stringify(report, undefined, 2)}\n`;
+  if (outputPath === undefined) {
+    process.stdout.write(reportText);
+    return;
   }
-  return Object.fromEntries(
-    Object.entries(merged).sort(([left], [right]) => left.localeCompare(right)),
-  );
+  await mkdir(dirname(outputPath), { recursive: true });
+  await writeFile(outputPath, reportText);
+  process.stderr.write(`Wrote ${outputPath}\n`);
 }
 
-function percentage(numerator, denominator) {
-  return denominator === 0 ? 100 : roundMilliseconds((numerator / denominator) * 100);
-}
-
-async function discoverEpubs(directory, limit) {
-  const entries = await readdir(directory, { withFileTypes: true });
-  const paths = entries
-    .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.epub'))
-    .map((entry) => join(directory, entry.name))
-    .sort((left, right) => left.localeCompare(right));
-  return limit === undefined ? paths : paths.slice(0, limit);
-}
-
-function parseOptions(args) {
-  let directory = process.env.RITO_EPUB_SMOKE_DIR ?? join(homedir(), 'Downloads');
-  let outputPath;
-  let limit;
-  for (let index = 0; index < args.length; index += 1) {
-    const argument = args[index];
-    if (argument === '--') continue;
-    if (argument === '--dir') directory = requireValue(args, ++index, argument);
-    else if (argument === '--output') outputPath = requireValue(args, ++index, argument);
-    else if (argument === '--limit')
-      limit = requirePositiveInteger(requireValue(args, ++index, argument));
-    else throw new Error(`Unknown argument: ${argument}`);
-  }
-  return {
-    directory: resolve(directory),
-    ...(outputPath !== undefined ? { outputPath: resolve(outputPath) } : {}),
-    ...(limit !== undefined ? { limit } : {}),
-  };
-}
-
-function requireValue(args, index, option) {
-  const value = args[index];
-  if (value === undefined || value.startsWith('--')) throw new Error(`${option} requires a value`);
-  return value;
-}
-
-function requirePositiveInteger(value) {
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 1) {
-    throw new Error('--limit must be a positive safe integer');
-  }
-  return parsed;
-}
-
-function roundMilliseconds(value) {
-  return Math.round(value * 100) / 100;
+function elapsedSince(startedAt) {
+  return Math.round((performance.now() - startedAt) * 100) / 100;
 }
 
 function fontAwareLayoutConfig() {
@@ -272,3 +232,6 @@ function fontAwareLayoutConfig() {
     viewportWidth: 420,
   };
 }
+
+const invokedPath = process.argv[1] ? pathToFileURL(resolve(process.argv[1])).href : undefined;
+if (import.meta.url === invokedPath) await main();
