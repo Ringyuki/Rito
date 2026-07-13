@@ -62,22 +62,23 @@ The final shell target is:
 The target is not met if lines are merely moved to another TypeScript directory.
 Reader runtime policy must move to Rust-owned APIs, not to new TS adapters.
 
-### Temporary Versioned-Interaction Ceiling (2026-07-11)
+### Production Bounded/Interaction Ceiling (2026-07-13)
 
-The first production native-interaction slice requires a counted browser adapter
-that binds page-target, footnote and source-locator reads to the active Worker,
-revision version and browser commit generation. It also owns the small visible-page
-LRU, pending-read coalescing and the explicit visual-preview interaction gate. These
-are browser revision-lifecycle responsibilities and must remain inside the counted
-reader directory.
+The production bounded and native-interaction slices require a counted browser
+adapter that binds page-target, semantic, footnote, source-range, locator,
+frame/resource and search reads to the active Worker, revision version and browser
+commit generation. It also owns small visible-window caches, pending-read
+coalescing, candidate/current session replacement and exact-read suspension during
+bounded growth. These are browser revision-lifecycle responsibilities and must
+remain inside the counted reader directory.
 
-The enforced temporary ceilings are therefore 20 files / 2100 split-counted lines
-for `src/bindings/browser/reader/**` and 6 files / 470 lines for the stable public
-`src/reader/**` contract. This is not a new final architecture target. Selecting the
-production bounded session must delete the legacy preview/deferred-full scheduler,
-remove the superseded compatibility projections and return the shell toward the
-1550 / 360 target above. Moving this adapter or its cache policy outside the counted
-directories to satisfy the older number is explicitly forbidden.
+The production switch is complete and the legacy preview/deferred-full scheduler
+is deleted. As measured on 2026-07-13, the counted binding is 20 files / 2399
+physical lines and the public Reader contract is 5 files / 637 physical lines.
+This remains above the original final target, but the excess is no longer hidden
+legacy scheduling policy. Future compaction must move semantic decisions behind
+Rust-authored operations while keeping unavoidable browser lifecycle adapters in
+scope; moving code elsewhere only to satisfy the older number is forbidden.
 
 ## Non-Negotiable Boundaries
 
@@ -262,13 +263,18 @@ find packages/rito/src/reader -type f -name '*.ts' -print | sort | xargs wc -l
 | 2026-05-07 | Round 5c      |            11 |          1479 |            6 |          353 | Complete    |
 | 2026-07-10 | Hardening     |            11 |          1512 |            6 |          354 | Complete    |
 | 2026-07-11 | Session cache |            12 |          1537 |            6 |          354 | Complete    |
+| 2026-07-13 | Bounded prod. |            20 |          2399 |            5 |          637 | Complete    |
 
-The session-cache increment keeps one Reader-scoped cache/factory in the
-browser shell while the cache implementation and protocol validation remain in
-the private core-wasm workspace. The architecture invariant's split-line count
-is now 1549/1550 for the browser binding (and 360/360 for `src/reader/**`), so
-the next browser-shell change must include a small cleanup or move policy back
-behind the core boundary.
+The round descriptions below are historical checkpoint notes. References to a
+preview/full or deferred-full scheduler describe code that the 2026-07-13
+production bounded switch later removed.
+
+At the 2026-07-11 checkpoint, the session-cache increment kept one Reader-scoped
+cache/factory in the browser shell while the cache implementation and protocol
+validation remained in the private core-wasm workspace. The architecture
+invariant's split-line count was 1549/1550 for the browser binding (and 360/360
+for `src/reader/**`). The later bounded-production and interaction rows supersede
+those measurements.
 
 Round 2 completed the intended boundary change: browser `worker-main/` is now
 140 lines and delegates operation payload construction to the private
@@ -342,18 +348,33 @@ necessary browser lifecycle duties: explicit Rust revision release, a bounded
 12-frame LRU cache, and correct preview/full handoff between the foreground and
 full-reflow workers, with regression coverage for switching back.
 
-The 2026-07-11 native-interaction pass adds the atomic public interaction
-capability and its exact-version browser adapter under the temporary ceiling
-documented above. Its cache is revision-scoped and visual previews remain
-non-interactive. The matching Kit slice consumes link, footnote and standalone-
-image targets while leaving precise selection, annotations and accessibility for
-the later native range-geometry migration.
+The 2026-07-11 native-interaction pass added the atomic public interaction
+capability and its exact-version browser adapter under the checkpoint ceiling
+documented above. Its cache was revision-scoped and visual previews were
+non-interactive at that checkpoint. The matching Kit slice consumes link,
+footnote and standalone-image targets. Subsequent slices completed exact
+selection/copy, source annotations and re-projection, portable reading positions
+and visible-spread accessibility. Native search now transports a proven durable
+source range, and Kit resolves visible-result geometry through the exact
+source-range capability without a legacy fallback. Runtime publication verifies
+the raw parsed-source slice before exposing a resolved range, and a production
+Worker E2E proves an embedded-font demo result paints and clears its Canvas
+highlight.
 
-### Bounded Revision Integration Constraints
+The 2026-07-13 integration pass keeps the host boundary narrow while completing
+the product wiring: accessibility mirror content survives navigation, mirrored
+links return through native target dispatch, image clicks resolve native resource
+bytes with latest-request/Blob-URL cleanup, and partial-boundary Next requests
+bounded growth. Footnote HTML safety is owned by the Rust allowlist serializer,
+not by a new browser sanitizer. The production path passed 74 Downloads EPUBs
+and the complete strict zero-threshold reader parity matrix. These runs validate
+the switch but do not close the formal usability/latency gate.
 
-The bounded core/WASM path added on 2026-07-11 must enter the browser through
-the private core-wasm session controller, not as another browser-owned reflow
-policy branch. The integration contract is:
+### Production Bounded Revision Contract
+
+The bounded core/WASM path entered production through the private core-wasm
+session controller, not another browser-owned reflow policy branch. Its contract
+remains:
 
 - keep at most one continuation quantum in flight for one revision, coalesce
   requested target spreads with latest-request priority, and yield between
@@ -362,8 +383,8 @@ policy branch. The integration contract is:
 - attach the full Worker-session and Rust revision handle to every request and
   response; an accepted advance rebinds the active handle before any follow-up
   read can start;
-- invalidate pending frame/resource work from the previous version. The first
-  production slice may clear decoded frame caches on every advance; retaining a
+- invalidate pending frame/resource work from the previous version. The current
+  production slice clears decoded frame caches on advance; retaining a
   stable-prefix frame later requires an explicit version-retagging invariant;
 - release or cancel the latest accepted handle. A stale handle must never fall
   back to an ID-only revision release;
@@ -374,14 +395,12 @@ policy branch. The integration contract is:
 - use the complete current navigation snapshot after growth until a typed
   appended-spread/chapter-upsert delta is justified by profiling.
 
-The raw WASM surface and the private JavaScript control plane are staging
-boundaries. They do not by themselves authorize selecting bounded revisions in
-the production browser Reader. The cross-chapter footnote index is now
-lazy-state-safe, but its first full-spine scan remains outside the work budget.
-The slim presentation snapshot and source-locator/completion controller targets
-are implemented. The switch still requires explicit interaction gating from the
-moment growth begins until the next presentation commits, large-node work
-bounds and browser race tests.
+Production now selects bounded revisions. Candidate growth suspends exact reads
+until the next presentation commits, partial extents remain distinct from final
+extents, and Browser/Kit race tests cover session replacement and stale work.
+The cross-chapter footnote index is lazy-state-safe, but its first full-spine scan
+remains outside the work budget. A single large paragraph/table/shaping call also
+remains an atomic quantum.
 
 The private controller now implements the single-pump, target-coalescing,
 task-yielding and latest-handle cleanup rules above, including an exact-version
@@ -390,8 +409,9 @@ can grow to a source locator or drain to completion. Exact revision bundles,
 search, footnotes and chapter text indices still cross both in-process and
 Worker transports for explicit consumers. Browser frame,
 resource, search and release operations have also moved off revision-ID-only
-methods. The temporary reader-shell ceiling is 3060 split-counted lines (3033
-physical lines); bounded production integration must delete or collapse the
-legacy preview/deferred-full machinery instead of raising it again. The
-remaining work is therefore a browser lifecycle replacement, not another
-continuation scheduler.
+methods. The 3060 split-counted / 3033 physical-line checkpoint was the
+pre-switch ceiling. The legacy preview/deferred-full machinery has since been
+deleted, and the current physical count is recorded in the ledger above. The
+remaining thin-shell work is to turn candidate/current
+commit, cache and font-reflow semantics into explicit Rust-authored host
+operations, not to build another continuation scheduler.

@@ -1,6 +1,6 @@
 # Native Core Usability And Baseline Roadmap
 
-Status: active direction record, 2026-07-11.
+Status: active direction record, 2026-07-13.
 
 This document owns the phase order for the Rust reader. The more detailed
 architecture and migration documents remain authoritative for boundaries and
@@ -35,51 +35,67 @@ The production content path is already Rust-backed:
 The old TypeScript engine under `packages/rito/src/reference/ts-core/**` is a
 source-only migration oracle. It is not a production fallback.
 
-Two large usability gaps remain:
+The production Browser Reader now selects the bounded core/WASM/Worker session.
+It publishes stable partial extents, grows spreads and locators without rebuilding
+committed work, and no longer uses the legacy `createViewRevision`
+preview/deferred-full scheduler. Page/link/image/footnote targets, exact
+selection/copy, source annotations, reading-position restoration and
+visible-spread accessibility are wired through the public Reader and Kit.
 
-1. Layout is still batch-oriented. A selected chapter, including a very large
-   single-file chapter, is fully laid out and paginated before it can be used.
-2. The native interaction primitives already present in Rust/WASM are not wired
-   through the production worker and public Reader surface. Much of selection,
-   links, annotations, highlights, positioning and accessibility therefore
-   remains in TypeScript compatibility code.
+The remaining usability work is narrower but still release-blocking:
 
-The browser shell also owns more session policy than the desired thin-adapter
-boundary, including reflow sequencing, preview/full handoff, revision commit
-policy and some cache/font-reflow decisions.
+1. A single large paragraph, table or contextual shaping call remains atomic,
+   and the first publication-wide footnote scan remains outside the layout
+   budget.
+2. Search still drains pagination eagerly and searches laid-out page text. It
+   now returns a proven durable source range and resolves visible geometry
+   lazily, but still needs a publication source/chapter index.
+3. Exact text and annotation geometry remains same-logical-flow; cross-flow
+   selection is a deliberate capability gap.
+4. The pinned-font policy and transport exist, but licensed production assets
+   and the real-book shaping/paint selection proof do not.
+5. The browser shell still owns some candidate/current-session, commit,
+   cache and font-reflow policy that should become explicit Rust-authored host
+   operations.
+6. The 2026-07-13 74-EPUB smoke and complete strict reader parity matrix are
+   green, but the formal named-machine usability and latency gate has not been
+   declared.
 
 ## Phase 1: A Usable Rust Reader
 
 ### 1. Bounded, Stateful Pagination
 
-Replace chapter-count preview with a bounded layout session:
+Production now uses a bounded layout session rather than chapter-count preview.
+It already:
 
-- define an initial page/window, node and/or time budget;
-- stop inside a large XHTML document without completing the chapter;
-- retain an opaque continuation cursor and resume without rebuilding completed
+- defines an initial top-level-node budget and stable partial page window;
+- stops inside a large XHTML spine item between top-level nodes;
+- retains an opaque continuation cursor and resumes without rebuilding completed
   work;
-- support cancellation and stale-revision disposal;
-- grow navigation, text indexes and page totals incrementally;
-- preserve a stable source locator across reflow and window growth;
-- request only the resources needed by the active and warm windows;
-- propagate the budget through block and line layout rather than truncating an
-  already completed full layout.
+- supports cancellation and stale-revision disposal;
+- grows navigation and page totals incrementally and preserves a stable source
+  locator across reflow and window growth;
+- requests the resources needed by active and warm windows.
 
-Define revision identity before exposing asynchronous interaction or
-continuation APIs. A revision handle must distinguish Worker/session identity
-and browser commit generation in addition to the Rust-local revision id. The
-incremental form must also expose whether it is ready, complete, cancelled or
+The remaining bounded-layout work is to propagate a resumable budget inside one
+large top-level block/table/paragraph and its shaping work, rather than treating
+that node as an atomic quantum. Publication-wide source indexes must likewise be
+budgeted instead of front-loading a full-spine scan.
+
+Revision identity is now defined across the asynchronous interaction and
+continuation APIs. A browser-side ownership handle distinguishes Worker/session
+identity and browser commit generation in addition to the Rust-local revision id. The
+incremental form exposes whether it is ready, complete, cancelled or
 failed, the currently known spread extent and an optional final extent. Rust
-revision ids are not globally unique across the foreground and full-reflow
-Workers.
+revision ids are not treated as globally unique across Worker sessions.
 
-The source locator contract must represent a source point or range and a stable
-progression, not only an href. It must define how a locator into an unpaginated
-region requests growth/seek work and how the same locator is resolved after a
-font or viewport reflow.
+The source locator contract represents a source point or range and stable
+progression, not only an href. Locators into unpaginated regions request bounded
+growth and are re-resolved after font or viewport reflow.
 
-The first useful frame must not depend on laying out the first eight chapters,
-one entire large chapter or the full publication.
+The first useful frame no longer depends on laying out the first eight chapters
+or the full publication. It can still depend on one atomic large top-level node,
+which is the remaining latency violation.
 
 Exact bounded publication has algorithmic constraints that must remain explicit:
 
@@ -102,24 +118,25 @@ would make exact final equivalence progressively harder to prove.
 
 ### 2. Complete Native Interaction Wiring
 
-Expose Rust-owned semantic and geometry operations through the worker and
-public Reader contract:
+The worker and public Reader contract now expose Rust-owned semantic and
+geometry operations for:
 
 - page targets and links;
 - point hit testing;
 - text positions and text-range geometry;
 - selection anchors, focus movement and selected text;
-- search-result highlight geometry;
+- durable search-result source ranges and lazy visible-result highlight geometry;
 - annotation anchors and resolution after reflow;
 - source locators, bookmarks and reading-position restoration;
 - footnote targets;
 - accessibility reading order and semantic ranges.
 
-The first vertical slice is current-visible-spread link, image and footnote
-targets plus typed href locator resolution. Selection follows only after Rust
-provides point-to-caret hit testing, exact shaped character boundaries,
-selected text and precise range geometry. Linear interpolation across a
-variable-width run is not an acceptable final selection implementation.
+The first vertical slice was current-visible-spread link, image and footnote
+targets plus typed href locator resolution. Exact point-to-caret hit testing,
+shaped character boundaries, selected text and precise same-flow range geometry
+now back selection/copy/annotation UI. Linear interpolation across a
+variable-width run is not an acceptable extension for cross-flow or unavailable
+content.
 
 Exact text interaction also requires shaping provenance from the same font
 bytes used to paint the run. EPUB-provided fonts can satisfy that invariant
@@ -152,6 +169,9 @@ from this base-text statistic. This confirms that a shared pinned-fallback
 injection path is a usability dependency for broad exact selection, not a later
 visual polish item. Local runner timings are retained in its ignored report;
 they are uncalibrated smoke evidence, not a first-paint performance gate.
+The 2026-07-13 production Downloads smoke opened and rendered 74 EPUBs through
+the bounded reader, but it does not by itself select or license the fallback
+assets.
 
 Visual text and logical selection text are separate streams. Soft pagination
 wraps do not insert logical newlines, discretionary hyphens do not advance the
@@ -183,13 +203,13 @@ family aliases remain before multiple readers can share the global
 `FontFaceSet` deterministically. Licensed production assets and the real-book
 proof also remain.
 
-Interaction responses and host caches must bind to the complete revision
-handle. A visual preview must either expose its own active presentation handle
-or explicitly disable interaction until the canonical revision commits; host
-code must never hit-test old canonical pages against a newer preview frame.
+Interaction responses and host caches bind to the complete Worker/session,
+revision-version and browser-generation ownership handle. Candidate growth
+suspends exact reads until its committed presentation is current; host code does
+not hit-test an older page snapshot against newer bounded layout state.
 
 The Rust target DTO, exact-version Worker transport, Browser Reader cache and
-visual-preview gate are implemented. Kit consumes native current-spread link,
+bounded-growth gate are implemented. Kit consumes native current-spread link,
 footnote and standalone-image targets without legacy hit-map fallback. Rust
 core now also resolves exact cluster carets and same-logical-flow ranges through
 version-gated APIs, including selected source text, durable source locators and
@@ -206,6 +226,14 @@ The initial API is intentionally limited to a single logical text flow and exact
 retained shapes. The legacy interpolated diagnostic has not been promoted to
 selection-ready geometry and remains only for Readers without native capabilities.
 
+Visible-spread accessibility semantics now populate the Kit mirror across page
+navigation, and mirrored links return to revision-bound native target dispatch.
+Image clicks wait for the native resource transfer and revoke stale/disposed Blob
+URLs. Footnote structure is preserved only through a Rust allowlist sanitizer;
+active attributes and URL schemes are dropped. Partial-extent Next navigation
+grows and commits the following spread rather than treating the known boundary
+as final.
+
 Remove compatibility placeholders such as empty page content and the synthetic
 `text.length * 8` measurer once their callers use the native contract.
 
@@ -213,17 +241,22 @@ DOM events, clipboard access, accessibility nodes and overlay painting remain
 host responsibilities. The semantic target, source position, range and layout
 geometry must come from the core.
 
-Full-publication search must operate on source/chapter text indexes and return
-locators. Searching only the currently laid-out pages would silently omit
-unpaginated content; result geometry is resolved lazily for the active window.
+Native search now returns either a proven durable `{ href, sourceRange }` or
+typed `sourceUnavailable`; exact coverage must be continuous through the whole
+match and the parsed-source slice must equal the logical match. It still forces
+bounded completion and searches laid-out page text.
+Full-publication search must move to a source/chapter text index so it can avoid
+both omission and eager pagination. Kit resolves `resolveExactSourceRange`
+geometry only for visible results; pending, unavailable and missing source fail
+closed without a legacy HitMap fallback.
 
 ### 3. Finish The Thin Session Boundary
 
 Move policy into Rust-authored session plans where it affects reader semantics:
 
-- reflow state and revision transitions;
-- bounded continuation and cancellation;
-- preview/canonical revision handoff;
+- remaining reflow state and candidate/current revision transitions;
+- bounded continuation and cancellation intent beyond the implemented host pump;
+- candidate commit/retirement policy;
 - resource and frame-window planning;
 - font readiness and reflow intent;
 - layout-configuration semantics.
@@ -246,6 +279,11 @@ The Rust reader is usable only when a representative real-book corpus can:
 - cancel and dispose stale work without revision mismatches or leaked state;
 - recover from malformed-but-tolerable EPUB content with actionable errors;
 - keep the production graph free of TypeScript reference-core imports.
+
+Current evidence is green: on 2026-07-13 the bounded production reader passed 74
+Downloads EPUBs, and the complete demo-reader parity matrix passed strict
+zero-threshold comparison across its single, narrow, wide, DPR 2 and double-page
+profiles. This is regression evidence, not yet the formal usability declaration.
 
 Performance gates must name the machine class, browser/WebView version,
 viewport, corpus and measured stage. At minimum, record document open, initial
@@ -301,17 +339,15 @@ architecture rather than make an eager whole-book pipeline faster.
    incremental continuation contract. **Core, raw WASM and private JavaScript
    Worker version gates plus the bounded session pump are implemented.**
 2. Implement bounded initial layout and resumable window growth. **Core and raw
-   WASM paths, opt-in Worker primitives and the coalescing session controller
-   are implemented. Exact aggregate reads cross the Worker boundary, Browser
-   frame/resource/search/release calls use complete revision handles, and the
-   controller publishes a slim presentation while supporting source-locator
-   growth and explicit completion. Interaction gating during version advances,
-   browser/Kit partial-extent integration and sub-node budgets remain. The
-   cross-chapter footnote index is lazy-state-safe, but its first full-spine
-   scan is still outside the layout budget.**
+   WASM paths, the coalescing session controller and the production Browser/Kit
+   switch are implemented. Exact reads use complete revision handles, partial
+   extents drive navigation growth, and bounded candidates suspend interaction
+   until commit. Sub-node budgets remain. The cross-chapter footnote index is
+   lazy-state-safe, but its first full-spine scan is still outside the layout
+   budget.**
 3. Expose current-visible-spread link, image and footnote targets through WASM,
    worker and public Reader. **Implemented through the public Reader and Kit
-   click path, including preview gating and exact locator re-resolution.**
+   click path, including bounded-growth gating and exact locator re-resolution.**
 4. Retain exact shaping clusters/caret stops and logical text provenance in
    Rust layout; wire the existing versioned text diagnostics through the Worker
    without presenting their legacy interpolated geometry as selection-ready.
@@ -329,9 +365,12 @@ architecture rather than make an eager whole-book pipeline faster.
    accessibility are implemented. Portable source reading positions now cover
    capture, persistence, legacy archive migration, reflow projection and
    revision-safe restore/go-to. Reader-owned locator intents now atomically take
-   over initial-preview/deferred work, select the target Rust frame and verify its
-   final exact projection. Cross-logical-flow annotation geometry and richer
-   list/table semantic retention are follow-up capability extensions.**
+   over bounded growth, select the target Rust frame and verify its final exact
+   projection. Cross-logical-flow annotation geometry and richer
+   list/table semantic retention are follow-up capability extensions. Native
+   search now transports durable exact source ranges and Kit resolves visible
+   overlays lazily; eager completion and a missing publication source index
+   remain separate search architecture work.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
 9. Build the pinned WebView/DOM reference harness.
@@ -344,7 +383,7 @@ architecture rather than make an eager whole-book pipeline faster.
   return an explicit unavailable reading anchor and are not persisted by index.
 - Expanding `RITORB1` or making it the default without new end-to-end evidence.
 - Broad CSS/display work that does not block the usability gate.
-- Micro-optimizing eager whole-book layout instead of implementing bounded
-  continuation.
+- Micro-optimizing eager page-text search instead of building the durable
+  publication source/chapter index.
 - Deleting the TypeScript oracle before the baseline transition is complete.
 - Treating an arbitrary, unpinned browser screenshot as a canonical baseline.

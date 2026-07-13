@@ -110,7 +110,7 @@ when switching from a dark theme back to a book-authored light theme.
 | `measurer`                | Text measurer used by interaction APIs               |
 | `getChapterTextIndices()` | Source-based chapter text indices                    |
 | `getFootnotes()`          | Extracted footnotes keyed by `manifestHref#fragment` |
-| `getImageBlobUrl(src)`    | Create a blob URL for an embedded EPUB image         |
+| `getImageBlobUrl(src)`    | Create or asynchronously resolve an EPUB image URL   |
 | `interactions`            | Optional revision-safe semantic interaction provider |
 
 When present, `interactions` exposes typed page-content targets plus exact-revision
@@ -125,6 +125,23 @@ durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact
 page-content rectangles, a typed lazy-pagination result, or a typed unavailable
 reason; callers must not substitute the legacy interpolated geometry.
+
+Native `search()` results expose `source` as either a proven durable
+`{ href, sourceRange }` or typed `sourceUnavailable`. Geometry is intentionally
+not attached to every result: resolve only visible results through
+`resolveExactSourceRange`. `@ritojs/kit` performs this lazy projection and does
+not fall back to layout-local HitMaps when the native capability is present.
+
+`getImageBlobUrl()` may return either an object URL immediately or a promise for
+one. Every resolved URL is caller-owned and must be revoked when it is replaced
+or no longer displayed. `@ritojs/kit` performs that ownership and stale-request
+handling for its `imageClick` event.
+
+`FootnoteEntry.html` is an allowlist-sanitized fragment. Active elements,
+event/style attributes, host CSS classes, auto-fetching image sources, unsafe
+URL schemes and unapproved attributes are removed before the value crosses the
+Reader boundary. EPUB footnote images remain unavailable until the host can
+rewrite them through an explicit caller-owned resource URL.
 
 ### Lifecycle
 
