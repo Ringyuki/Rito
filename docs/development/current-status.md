@@ -360,10 +360,16 @@ Those names now belong to the old TS reference tree only.
      regressions cover 10,000-cluster lines, and bit-level oracles preserve the
      former spacing, merge and malformed-cluster semantics. Rustybuzz itself
      remains an indivisible operation.
+   - Exact source-mapping boundary checks no longer rescan the complete logical
+     flow for every wrapped run. Each finalized flow retains only the UTF-16
+     offsets inside surrogate pairs (zero entries for BMP-only text), so checked
+     run subslices validate boundaries in logarithmic time without weakening
+     invalid-surrogate rejection. Mapping assembly is still part of the
+     unmetered line tail described below.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
-     margin-collapse preparation, justification/alignment/mapping work, atomic
-     Liang point generation, visually decorated or floated containers,
+     margin-collapse preparation, justification/alignment/mapping assembly,
+     atomic Liang point generation, visually decorated or floated containers,
      tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
@@ -494,10 +500,10 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
    flattening/context preparation, container startup and remaining line
-   post-processing such as justification/alignment and mapping, then make the
-   currently atomic Liang point calculation bounded. Carry continuation through
-   decorated/floated containers and split table prepass/rows and Optimal
-   preparation while preserving
+   post-processing such as justification/alignment and mapping assembly, then
+   make the currently atomic Liang point calculation bounded. Carry
+   continuation through decorated/floated containers and split table
+   prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
    indivisible.

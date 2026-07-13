@@ -1,9 +1,7 @@
 use std::sync::Arc;
 
-use unicode_segmentation::UnicodeSegmentation;
-
 use super::{
-    LogicalTextFlow, LogicalTextSource, LogicalTextSpan, RunTextMapping, TextFlowSlice,
+    utf16, LogicalTextFlow, LogicalTextSource, LogicalTextSpan, RunTextMapping, TextFlowSlice,
     TextMappingCandidate, TextMappingCandidateSource, TextMappingUnavailableReason,
     TextSegmentMapping, TextSourceBasis,
 };
@@ -41,16 +39,19 @@ impl LogicalTextFlow {
     }
 
     pub(crate) fn validate(&self) -> Result<(), &'static str> {
-        if utf16_len(self.text()) != self.utf16_len as usize {
+        if utf16::len(self.text()) != self.utf16_len as usize {
             return Err("logical flow UTF-16 length does not match its text");
+        }
+        if self.non_boundaries.as_ref() != utf16::non_boundaries(self.text()) {
+            return Err("logical flow UTF-16 boundary index does not match its text");
         }
         let mut cursor = 0;
         for span in self.spans() {
             if span.logical_start != cursor || span.logical_end < span.logical_start {
                 return Err("logical flow spans are not contiguous and ordered");
             }
-            if !is_utf16_boundary(self.text(), span.logical_start)
-                || !is_utf16_boundary(self.text(), span.logical_end)
+            if !self.is_utf16_boundary(span.logical_start)
+                || !self.is_utf16_boundary(span.logical_end)
             {
                 return Err("logical flow span is not on a UTF-16 boundary");
             }
@@ -68,15 +69,15 @@ impl LogicalTextFlow {
     }
 
     pub(super) fn is_utf16_boundary(&self, target: u32) -> bool {
-        is_utf16_boundary(self.text(), target)
+        target <= self.utf16_len && self.non_boundaries.binary_search(&target).is_err()
     }
 
     pub(crate) fn slice_utf16(&self, start: u32, end: u32) -> Option<&str> {
         if start > end || end > self.utf16_len {
             return None;
         }
-        let start = utf16_offset_to_byte(self.text(), start)?;
-        let end = utf16_offset_to_byte(self.text(), end)?;
+        let start = utf16::offset_to_byte(self.text(), start)?;
+        let end = utf16::offset_to_byte(self.text(), end)?;
         self.text().get(start..end)
     }
 }
@@ -93,6 +94,7 @@ pub(crate) fn finalize_inline_text_flow(segments: &mut [InlineSegment]) {
     let flow = Arc::new(LogicalTextFlow {
         text: draft.text.into_boxed_str(),
         utf16_len: draft.utf16_len,
+        non_boundaries: draft.non_boundaries.into_boxed_slice(),
         spans: draft.spans.into_boxed_slice(),
     });
     debug_assert!(flow.validate().is_ok());
@@ -103,13 +105,14 @@ pub(crate) fn finalize_inline_text_flow(segments: &mut [InlineSegment]) {
 
 pub(crate) fn text_transform_is_linear(logical: &str, display: &str) -> bool {
     logical == display
-        || (utf16_boundaries(logical.chars()) == utf16_boundaries(display.chars())
-            && utf16_grapheme_boundaries(logical) == utf16_grapheme_boundaries(display))
+        || (utf16::boundaries(logical.chars()) == utf16::boundaries(display.chars())
+            && utf16::grapheme_boundaries(logical) == utf16::grapheme_boundaries(display))
 }
 
 struct FlowDraft {
     text: String,
     utf16_len: u32,
+    non_boundaries: Vec<u32>,
     spans: Vec<LogicalTextSpan>,
     assignments: Vec<FlowAssignment>,
 }
@@ -127,6 +130,7 @@ fn build_flow_draft(segments: &[InlineSegment]) -> Result<Option<FlowDraft>, ()>
     let mut draft = FlowDraft {
         text: String::new(),
         utf16_len: 0,
+        non_boundaries: Vec::new(),
         spans: Vec::new(),
         assignments: Vec::new(),
     };
@@ -148,8 +152,11 @@ fn push_candidate(
     candidate: &TextMappingCandidate,
 ) -> Result<(), ()> {
     let logical_start = draft.utf16_len;
-    let length = u32::try_from(utf16_len(candidate.logical_text())).map_err(|_| ())?;
-    let logical_end = logical_start.checked_add(length).ok_or(())?;
+    let logical_end = utf16::append_metadata(
+        candidate.logical_text(),
+        logical_start,
+        &mut draft.non_boundaries,
+    )?;
     let source = resolved_source(candidate.source());
     let exact = matches!(source, LogicalTextSource::ExactLinear { .. });
     let span_index = u32::try_from(draft.spans.len()).map_err(|_| ())?;
@@ -251,60 +258,4 @@ fn mark_flow_too_long(segments: &mut [InlineSegment]) {
             ));
         }
     }
-}
-
-fn utf16_boundaries(characters: impl Iterator<Item = char>) -> Vec<usize> {
-    let mut boundaries = vec![0];
-    for character in characters {
-        boundaries.push(boundaries.last().copied().unwrap_or(0) + character.len_utf16());
-    }
-    boundaries
-}
-
-fn utf16_grapheme_boundaries(text: &str) -> Vec<usize> {
-    let mut boundaries = vec![0];
-    let mut offset = 0;
-    for grapheme in text.graphemes(true) {
-        offset += utf16_len(grapheme);
-        boundaries.push(offset);
-    }
-    boundaries
-}
-
-fn is_utf16_boundary(text: &str, target: u32) -> bool {
-    let mut offset = 0_u32;
-    if target == 0 {
-        return true;
-    }
-    for character in text.chars() {
-        offset += character.len_utf16() as u32;
-        if offset == target {
-            return true;
-        }
-        if offset > target {
-            return false;
-        }
-    }
-    false
-}
-
-fn utf16_offset_to_byte(text: &str, target: u32) -> Option<usize> {
-    if target == 0 {
-        return Some(0);
-    }
-    let mut offset = 0_u32;
-    for (byte, character) in text.char_indices() {
-        offset += character.len_utf16() as u32;
-        if offset == target {
-            return Some(byte + character.len_utf8());
-        }
-        if offset > target {
-            return None;
-        }
-    }
-    (offset == target).then_some(text.len())
-}
-
-fn utf16_len(text: &str) -> usize {
-    text.encode_utf16().count()
 }

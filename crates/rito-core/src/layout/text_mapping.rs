@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 mod finalize;
+mod utf16;
 
 pub(crate) use finalize::finalize_inline_text_flow;
 
@@ -41,6 +42,9 @@ pub(crate) struct LogicalTextSpan {
 pub(crate) struct LogicalTextFlow {
     text: Box<str>,
     utf16_len: u32,
+    /// UTF-16 offsets that fall between the surrogate halves of a non-BMP
+    /// scalar. All other offsets at or below `utf16_len` are boundaries.
+    non_boundaries: Box<[u32]>,
     spans: Box<[LogicalTextSpan]>,
 }
 
@@ -254,7 +258,9 @@ pub(crate) fn fixture_logical_text_flow(
         .collect::<Vec<_>>();
     let flow = Arc::new(LogicalTextFlow {
         text: text.to_owned().into_boxed_str(),
-        utf16_len: text.encode_utf16().count() as u32,
+        utf16_len: u32::try_from(text.encode_utf16().count())
+            .expect("fixture logical text must fit in UTF-16 flow offsets"),
+        non_boundaries: utf16::non_boundaries(text).into_boxed_slice(),
         spans: spans.into_boxed_slice(),
     });
     assert_eq!(flow.validate(), Ok(()));

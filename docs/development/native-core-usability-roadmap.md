@@ -114,11 +114,11 @@ It already:
 - requests the resources needed by active and warm windows.
 
 The remaining bounded-layout work is to meter incremental inline/context
-preparation, container startup and justification/alignment/mapping, then make
-the currently atomic Liang point calculation bounded and cover visually
-decorated and floated containers, auto-layout tables and Optimal paragraphs.
-Individual font calls remain indivisible even though their surrounding
-measure/shape stages resume.
+preparation, container startup and justification/alignment/mapping assembly,
+then make the currently atomic Liang point calculation bounded and cover
+visually decorated and floated containers, auto-layout tables and Optimal
+paragraphs. Individual font calls remain indivisible even though their
+surrounding measure/shape stages resume.
 Publication-wide source indexes must likewise be budgeted instead of
 front-loading a full-spine scan.
 
@@ -155,9 +155,11 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
 - inline flattening/context construction and the remaining
-  justification/alignment and source mapping are not yet fully covered by the
-  text-work meter. ASCII hyphen word discovery and candidate probing resume,
-  but one Liang point-generation call remains atomic;
+  justification/alignment and source-mapping assembly are not yet fully covered
+  by the text-work meter. Exact mapping boundary checks use a sparse index of
+  surrogate-pair interiors rather than rescanning the logical flow per wrapped
+  run. ASCII hyphen word discovery and candidate probing resume, but one Liang
+  point-generation call remains atomic;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
@@ -414,7 +416,7 @@ architecture rather than make an eager whole-book pipeline faster.
    completed children can publish before their ancestor closes, but no partial
    line or block is exposed. A process-local font layout-profile token rejects
    inconsistent resume inputs. Inline/context preparation, container startup,
-   justification/mapping, atomic Liang point generation, decorated/floated
+   justification/mapping assembly, atomic Liang point generation, decorated/floated
    containers, tables and Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work
    escape.

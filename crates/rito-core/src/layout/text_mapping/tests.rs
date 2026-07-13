@@ -35,6 +35,7 @@ fn exact_subslices_share_the_compact_flow() {
     assert!(Arc::ptr_eq(&full.flow, &slice.flow));
     assert_eq!((slice.logical_start, slice.logical_end), (1, 3));
     assert_eq!(slice.flow.text(), "A𠮷B");
+    assert_eq!(slice.flow.non_boundaries.as_ref(), &[2]);
     assert_eq!(slice.flow.validate(), Ok(()));
     assert!(matches!(
         &slice.flow.spans()[0].source,
@@ -112,4 +113,73 @@ fn utf16_subslice_rejects_a_boundary_inside_a_surrogate_pair() {
         mapping.subslice(1, 2),
         RunTextMapping::Unavailable(TextMappingUnavailableReason::InvalidTextBoundary)
     );
+    assert_eq!(
+        mapping.subslice(2, 3),
+        RunTextMapping::Unavailable(TextMappingUnavailableReason::InvalidTextBoundary)
+    );
+}
+
+#[test]
+fn ascii_flows_need_no_utf16_boundary_index_entries() {
+    let text = "a".repeat(10_000);
+    let mut segments = vec![mapped_segment(&text)];
+    finalize_inline_text_flow(&mut segments);
+    let InlineSegment::Text(segment) = &segments[0] else {
+        unreachable!();
+    };
+    let TextSegmentMapping::Resolved(RunTextMapping::Exact(slice)) = &segment.mapping else {
+        unreachable!();
+    };
+
+    assert!(slice.flow.non_boundaries.is_empty());
+    assert_eq!(slice.flow.validate(), Ok(()));
+    assert!(matches!(
+        segment.mapping.run_mapping(9_999, 10_000),
+        RunTextMapping::Exact(_)
+    ));
+}
+
+#[test]
+fn utf16_boundary_index_tracks_only_surrogate_interiors() {
+    let mut segments = vec![mapped_segment("𠮷A😀B𐐀")];
+    finalize_inline_text_flow(&mut segments);
+    let InlineSegment::Text(segment) = &segments[0] else {
+        unreachable!();
+    };
+    let TextSegmentMapping::Resolved(RunTextMapping::Exact(slice)) = &segment.mapping else {
+        unreachable!();
+    };
+
+    assert_eq!(slice.flow.non_boundaries.as_ref(), &[1, 4, 7]);
+    for target in [1, 4, 7] {
+        assert!(!slice.flow.is_utf16_boundary(target));
+    }
+    for target in [0, 2, 3, 5, 6, 8] {
+        assert!(slice.flow.is_utf16_boundary(target));
+    }
+    assert!(!slice.flow.is_utf16_boundary(9));
+}
+
+#[test]
+fn utf16_boundary_index_rebases_entries_across_segments() {
+    let mut segments = vec![mapped_segment("A😀"), mapped_segment("𠮷B")];
+    finalize_inline_text_flow(&mut segments);
+    let InlineSegment::Text(first) = &segments[0] else {
+        unreachable!();
+    };
+    let TextSegmentMapping::Resolved(RunTextMapping::Exact(first)) = &first.mapping else {
+        unreachable!();
+    };
+    let InlineSegment::Text(second) = &segments[1] else {
+        unreachable!();
+    };
+    let TextSegmentMapping::Resolved(RunTextMapping::Exact(second)) = &second.mapping else {
+        unreachable!();
+    };
+
+    assert!(Arc::ptr_eq(&first.flow, &second.flow));
+    assert_eq!(first.flow.non_boundaries.as_ref(), &[2, 4]);
+    assert_eq!((first.logical_start, first.logical_end), (0, 3));
+    assert_eq!((second.logical_start, second.logical_end), (3, 6));
+    assert_eq!(first.flow.validate(), Ok(()));
 }
