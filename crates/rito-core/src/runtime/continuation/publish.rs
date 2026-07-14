@@ -67,7 +67,7 @@ impl RuntimeDocument {
             revision_version: continuation.revision_version,
             cursor: cursor.clone(),
         };
-        self.continuations.insert(cursor, continuation);
+        self.continuations.insert_new(cursor, continuation);
         handle
     }
 
@@ -91,8 +91,7 @@ impl RuntimeDocument {
         revision_version: u32,
         layout_key: &str,
     ) -> crate::runtime::RuntimeRevisionSummary {
-        self.continuations
-            .retain(|_, continuation| continuation.revision_id != revision_id);
+        self.continuations.remove_revision(revision_id);
         let revision = self
             .revisions
             .get_mut(revision_id)

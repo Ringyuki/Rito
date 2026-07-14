@@ -458,6 +458,15 @@ Those names now belong to the old TS reference tree only.
      history after each drain. The open page remains private in the paginator.
      This removes the duplicate retained page tree; the single moved page owner,
      unpublished page queue and outer continuation cleanup are still synchronous.
+     Active layout continuations now live in a private bidirectional store:
+     cursor-to-record lookups preserve the existing continuation error order,
+     while revision-to-cursor lookup lets cancel, release and follow-up failure
+     remove only their exact owner in `O(log C)` instead of scanning all active
+     cursors. Partial continuation commit replaces only that revision's cursor;
+     invalid, stale, missing and swapped-cursor requests leave both indexes
+     untouched. Only the table lookup/removal is logarithmic; destruction of the
+     removed continuation payload remains synchronous and unbudgeted. This
+     changes no core, WASM or browser wire contract.
      Ordinary None/upper/lower/capitalize transforms now use a resumable exact
      UTF-8 and UTF-16 preflight, paid exact-capacity admission for their logical
      and painted buffers, and a second metered scalar assembly.
@@ -739,8 +748,11 @@ without aggregate traversal-scratch allocation or growth, but its O(n) drain and
 the enclosing runtime/session disposal path remain synchronous. Sealed pagination
 pages now move into each chapter advance instead of being cloned while the
 paginator retains them, so cancellation owns one page tree rather than two; the
-open page and page-number/spacing history stay in the session. The next bounded-
-layout slice should budget the remaining cleanup layers, together with
+open page and page-number/spacing history stay in the session. Active cursor
+cleanup also uses an exact revision-to-cursor index rather than scanning the
+whole continuation table, while preserving the public error priority and one-
+shot cursor contract. The next bounded-layout slice should budget the remaining
+cleanup layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

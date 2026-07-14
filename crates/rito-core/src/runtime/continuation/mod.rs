@@ -19,7 +19,7 @@ use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
 };
 use publish::initial_revision_interactions;
-pub(in crate::runtime) use state::RuntimeContinuationRecord;
+pub(in crate::runtime) use state::{RuntimeContinuationRecord, RuntimeContinuationStore};
 
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
@@ -153,8 +153,7 @@ impl RuntimeDocument {
         })?;
         let mut continuation = self
             .continuations
-            .remove(&request.cursor)
-            .expect("validated continuation cursor exists");
+            .take_exact(&request.revision_id, &request.cursor);
         continuation.revision_version = next_version;
         Ok(continuation)
     }
@@ -170,8 +169,7 @@ impl RuntimeDocument {
                 "revision version overflow",
             )
         })?;
-        self.continuations
-            .retain(|_, continuation| continuation.revision_id != request.revision_id);
+        self.continuations.remove_revision(&request.revision_id);
         let revision = self
             .revisions
             .get_mut(&request.revision_id)

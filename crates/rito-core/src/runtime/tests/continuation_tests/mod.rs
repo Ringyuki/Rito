@@ -1,3 +1,4 @@
+mod cursor_index;
 mod footnotes;
 mod lifecycle;
 mod pagination;

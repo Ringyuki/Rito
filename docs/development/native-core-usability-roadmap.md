@@ -188,7 +188,11 @@ advance instead of being cloned from retained page history. A persistent emitted
 page count preserves chapter-local indexes and first-page spacing after each
 drain, while the open page remains private; cancellation therefore owns one page
 tree rather than a duplicated paginator copy. The remaining bounded-layout work
-starts with the remaining cancellation residuals,
+also uses a private revision-to-cursor reverse index, so cancel, release and
+follow-up failure remove one exact continuation instead of scanning the full
+cursor table. Forward lookup remains authoritative for the established stale/
+missing/owner-mismatch error order. The remaining bounded-layout work starts
+with the remaining cancellation residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
@@ -271,6 +275,10 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   Chapter pagination now moves sealed batches into continuation ownership rather
   than retaining and cloning the same pages in the paginator; persistent page
   history keeps indexes and first-block spacing stable across those drains.
+  Active continuations maintain an exact cursor/revision bidirectional index;
+  terminal cursor lookup/removal is logarithmic in cursor count and invalid
+  requests do not mutate either side of the index. The removed continuation
+  payload is still destroyed synchronously.
   Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.

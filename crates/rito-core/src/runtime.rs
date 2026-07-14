@@ -100,7 +100,7 @@ pub struct RuntimeDocument {
     next_revision_index: usize,
     next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
-    continuations: BTreeMap<String, continuation::RuntimeContinuationRecord>,
+    continuations: continuation::RuntimeContinuationStore,
 }
 
 impl RuntimeDocument {
@@ -140,7 +140,7 @@ impl RuntimeDocument {
             next_revision_index: 1,
             next_continuation_index: 1,
             revisions: BTreeMap::new(),
-            continuations: BTreeMap::new(),
+            continuations: continuation::RuntimeContinuationStore::default(),
         }
     }
 
@@ -164,8 +164,7 @@ impl RuntimeDocument {
     pub fn release_revision(&mut self, revision_id: &str) -> bool {
         let removed = self.revisions.remove(revision_id).is_some();
         if removed {
-            self.continuations
-                .retain(|_, continuation| continuation.revision_id != revision_id);
+            self.continuations.remove_revision(revision_id);
         }
         removed
     }

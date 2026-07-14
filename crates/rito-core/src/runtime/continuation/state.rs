@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{
     layout::{
@@ -6,6 +6,132 @@ use crate::{
     },
     runtime::frame::RuntimeRevisionInteractions,
 };
+
+#[derive(Debug, Default)]
+pub(in crate::runtime) struct RuntimeContinuationStore {
+    by_cursor: BTreeMap<String, RuntimeContinuationRecord>,
+    active_cursor_by_revision: BTreeMap<String, String>,
+}
+
+impl RuntimeContinuationStore {
+    pub(in crate::runtime) fn get(&self, cursor: &str) -> Option<&RuntimeContinuationRecord> {
+        self.by_cursor.get(cursor)
+    }
+
+    pub(in crate::runtime) fn insert_new(
+        &mut self,
+        cursor: String,
+        continuation: RuntimeContinuationRecord,
+    ) {
+        let revision_id = continuation.revision_id.clone();
+        self.assert_matching_lengths();
+        assert!(
+            !self.by_cursor.contains_key(&cursor),
+            "continuation cursor must be unique"
+        );
+        assert!(
+            !self.active_cursor_by_revision.contains_key(&revision_id),
+            "revision must not already own an active continuation cursor"
+        );
+        assert!(self
+            .by_cursor
+            .insert(cursor.clone(), continuation)
+            .is_none());
+        assert!(self
+            .active_cursor_by_revision
+            .insert(revision_id, cursor)
+            .is_none());
+        self.assert_matching_lengths();
+    }
+
+    pub(in crate::runtime) fn take_exact(
+        &mut self,
+        revision_id: &str,
+        cursor: &str,
+    ) -> RuntimeContinuationRecord {
+        self.assert_matching_lengths();
+        let continuation = self
+            .by_cursor
+            .get(cursor)
+            .expect("validated continuation cursor exists");
+        assert_eq!(continuation.revision_id, revision_id);
+        assert_eq!(
+            self.active_cursor_by_revision
+                .get(revision_id)
+                .map(String::as_str),
+            Some(cursor),
+            "validated continuation cursor must match its reverse index"
+        );
+        let continuation = self
+            .by_cursor
+            .remove(cursor)
+            .expect("validated continuation cursor exists");
+        let indexed_cursor = self
+            .active_cursor_by_revision
+            .remove(revision_id)
+            .expect("validated continuation owner exists");
+        assert_eq!(indexed_cursor, cursor);
+        self.assert_matching_lengths();
+        continuation
+    }
+
+    pub(in crate::runtime) fn remove_revision(
+        &mut self,
+        revision_id: &str,
+    ) -> Option<RuntimeContinuationRecord> {
+        self.assert_matching_lengths();
+        let cursor = self.active_cursor_by_revision.remove(revision_id)?;
+        let continuation = self
+            .by_cursor
+            .remove(&cursor)
+            .expect("indexed continuation cursor exists");
+        assert_eq!(continuation.revision_id, revision_id);
+        self.assert_matching_lengths();
+        Some(continuation)
+    }
+
+    fn assert_matching_lengths(&self) {
+        assert_eq!(
+            self.by_cursor.len(),
+            self.active_cursor_by_revision.len(),
+            "continuation forward and reverse indexes must have equal lengths"
+        );
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn assert_consistent(&self) {
+        self.assert_matching_lengths();
+        for (cursor, continuation) in &self.by_cursor {
+            assert_eq!(
+                self.active_cursor_by_revision
+                    .get(&continuation.revision_id),
+                Some(cursor)
+            );
+        }
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn len(&self) -> usize {
+        self.by_cursor.len()
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn is_empty(&self) -> bool {
+        self.by_cursor.is_empty()
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn contains_cursor(&self, cursor: &str) -> bool {
+        self.by_cursor.contains_key(cursor)
+    }
+
+    #[cfg(test)]
+    pub(in crate::runtime) fn cursor_for_revision(&self, revision_id: &str) -> Option<&str> {
+        self.active_cursor_by_revision
+            .get(revision_id)
+            .map(String::as_str)
+    }
+}
 
 /// Experimental core-only continuation state. Each chapter is prepared against
 /// the immutable publication footnote target index before any page is sealed.
