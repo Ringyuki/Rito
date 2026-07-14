@@ -1,4 +1,4 @@
-use std::{num::NonZeroUsize, sync::Arc};
+use std::{num::NonZeroUsize, path::Path, sync::Arc};
 
 use serde_json::{json, Map, Value};
 
@@ -7,7 +7,7 @@ use super::PendingLineContextBuilder;
 use crate::layout::{
     inline_segment::{AtomSegment, InlineSegment, TextSegment},
     text_mapping::{fixture_logical_text_flow, RunTextMapping, TextFlowSlice, TextSegmentMapping},
-    text_measure::TextMeasurementFonts,
+    text_measure::{TextMeasurementFontFace, TextMeasurementFonts},
     text_work::{TextWorkBudget, TextWorkMeter},
 };
 
@@ -73,6 +73,45 @@ fn bounded_prefix_threshold_matches_at_256_and_257_utf16_units() {
 }
 
 #[test]
+fn font_setup_is_skipped_at_256_and_resumed_at_257_utf16_units() {
+    let fonts = TextMeasurementFonts::empty();
+    let plain_style = base_style();
+    let mut family_style = plain_style.clone();
+    family_style.insert(
+        "fontFamily".to_owned(),
+        json!(format!("{}monospace", "Very Long Family, ".repeat(20))),
+    );
+
+    let (_, plain_256) = finish_pending(
+        vec![text_segment("a".repeat(256), plain_style.clone())],
+        40.0,
+        &fonts,
+        1,
+    );
+    let (_, family_256) = finish_pending(
+        vec![text_segment("a".repeat(256), family_style.clone())],
+        40.0,
+        &fonts,
+        1,
+    );
+    let (_, plain_257) = finish_pending(
+        vec![text_segment("a".repeat(257), plain_style)],
+        40.0,
+        &fonts,
+        1,
+    );
+    let (_, family_257) = finish_pending(
+        vec![text_segment("a".repeat(257), family_style)],
+        40.0,
+        &fonts,
+        1,
+    );
+
+    assert_eq!(family_256, plain_256);
+    assert!(family_257 > plain_257 + 200);
+}
+
+#[test]
 fn an_empty_text_segment_still_participates_in_monotonic_checks() {
     let mut invalid_style = base_style();
     invalid_style.insert("fontSize".to_owned(), json!(-1));
@@ -87,6 +126,34 @@ fn an_empty_text_segment_still_participates_in_monotonic_checks() {
 
     assert!(!expected.monotonic_prefix_widths);
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn an_empty_text_segment_still_runs_resumable_font_setup() {
+    let bytes = std::fs::read(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../apps/reader/src/assets/fonts/Tinos-Regular.ttf"),
+    )
+    .expect("fixture font reads");
+    let fonts = TextMeasurementFonts::new(vec![TextMeasurementFontFace::new(
+        "Empty Face".to_owned(),
+        None,
+        None,
+        &bytes,
+    )]);
+    let mut matching_style = base_style();
+    matching_style.insert("fontFamily".to_owned(), json!("Empty Face"));
+    let segments = vec![
+        text_segment("a".repeat(300), base_style()),
+        text_segment(String::new(), matching_style),
+    ];
+    let expected = build_line_context(&segments, segments[0].style().clone(), 40.0, &fonts);
+
+    let (actual, yields) = finish_pending(segments, 40.0, &fonts, 1);
+
+    assert!(!expected.monotonic_prefix_widths);
+    assert_eq!(actual, expected);
+    assert!(yields > 600);
 }
 
 #[test]
@@ -151,7 +218,7 @@ fn pending_builder_accepts_a_distinct_font_object_with_the_same_profile() {
     );
     let mut builder =
         PendingLineContextBuilder::new(segments, 80.0, &construction_fonts).expect("input");
-    let mut yields = 0;
+    let mut yields: usize = 0;
     loop {
         let mut work = meter(1);
         match builder.advance(&mut work, &resume_fonts) {
@@ -159,7 +226,11 @@ fn pending_builder_accepts_a_distinct_font_object_with_the_same_profile() {
                 assert_eq!(actual, expected);
                 break;
             }
-            Err(_) => yields += 1,
+            Err(_) => {
+                yields = yields
+                    .checked_add(1)
+                    .expect("yield count must fit in usize");
+            }
         }
     }
     assert!(yields > 100);
@@ -172,13 +243,15 @@ fn finish_pending(
     quantum: usize,
 ) -> (super::super::LineContext, usize) {
     let mut builder = PendingLineContextBuilder::new(segments, width, fonts).expect("input");
-    let mut yields = 0;
+    let mut yields: usize = 0;
     loop {
         let mut work = meter(quantum);
         match builder.advance(&mut work, fonts) {
             Ok(context) => return (context, yields),
             Err(_) => {
-                yields += 1;
+                yields = yields
+                    .checked_add(1)
+                    .expect("yield count must fit in usize");
                 assert!(yields < 10_000, "context builder must not livelock");
             }
         }

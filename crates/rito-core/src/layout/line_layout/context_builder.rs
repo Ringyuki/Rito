@@ -31,8 +31,8 @@ use segment::PendingContextSegment;
 /// published.
 ///
 /// Both passes meter segment dispatch and individual UTF-16 scalar work. JSON
-/// metadata clones, font-family/face predicates, B-tree node allocation, and
-/// style-string policy parsing remain explicitly indivisible residual work.
+/// metadata and style-string clones, B-tree node allocation, and style policy
+/// parsing remain explicitly indivisible residual work.
 #[derive(Debug)]
 pub(crate) struct PendingLineContextBuilder {
     segments: Vec<InlineSegment>,

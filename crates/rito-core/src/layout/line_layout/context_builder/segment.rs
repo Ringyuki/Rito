@@ -78,7 +78,7 @@ pub(super) struct PendingTextSegment {
     byte_index: usize,
     scalar_units_remaining: usize,
     finish_paid: bool,
-    monotonic: Option<PendingMonotonicPrefixWidthCheck>,
+    monotonic: Option<Box<PendingMonotonicPrefixWidthCheck>>,
 }
 
 impl PendingTextSegment {
@@ -97,10 +97,10 @@ impl PendingTextSegment {
                 .is_none_or(super::super::nonnegative);
         *monotonic &= style_is_monotonic;
         let check = (*monotonic).then(|| {
-            PendingMonotonicPrefixWidthCheck::new(
+            Box::new(PendingMonotonicPrefixWidthCheck::new(
                 fonts,
-                &TextMeasurementStyle::from_style(&segment.style),
-            )
+                TextMeasurementStyle::from_style(&segment.style),
+            ))
         });
         *monotonic &= check.as_ref().is_none_or(|check| check.is_monotonic());
         Self {
@@ -120,6 +120,13 @@ impl PendingTextSegment {
         fonts: &TextMeasurementFonts<'_>,
         monotonic: &mut bool,
     ) -> Result<bool, TextWorkYield> {
+        if let Some(check) = self.monotonic.as_mut() {
+            check.advance_setup(fonts, work)?;
+            *monotonic &= check.is_monotonic();
+            if !*monotonic {
+                self.monotonic = None;
+            }
+        }
         let Some(character) = self.segment.text[self.byte_index..].chars().next() else {
             if !self.finish_paid {
                 require_unit(work)?;
