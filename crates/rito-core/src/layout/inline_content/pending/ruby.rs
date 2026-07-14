@@ -3,21 +3,27 @@ use crate::{
         inline_segment::InlineSegment,
         text_work::{TextWorkMeter, TextWorkYield},
     },
-    style::{StyledNode, StyledNodeKind},
+    style::StyledNode,
 };
 
 use super::{
     context::OwnedInlineContext,
-    discard::PendingNodeDiscard,
     frame::TextSegmentSummary,
     require_unit,
     ruby_text::{PendingAnnotationApply, PendingRubyAnnotation, SharedRubyAnnotation},
 };
+use cleanup::drain_state_nodes;
+use group::{
+    PendingRubyBoundary, PendingRubyGroupBuild, PendingRubyGroupPlan, RubyGroupBoundaryKind,
+    RubyGroupSpec,
+};
+
+mod cleanup;
+mod group;
 
 #[derive(Debug)]
 pub(super) struct PendingRubyFrame {
     children: std::vec::IntoIter<StyledNode>,
-    pending_base: Vec<StyledNode>,
     base_context: OwnedInlineContext,
     summary: TextSegmentSummary,
     state: RubyState,
@@ -25,14 +31,22 @@ pub(super) struct PendingRubyFrame {
 
 #[derive(Debug)]
 enum RubyState {
-    Scanning,
-    Extracting(Box<PendingRubyAnnotation>),
+    Planning(PendingRubyGroupPlan),
+    Reserving(RubyGroupSpec),
+    Gathering(PendingRubyGroupBuild),
+    AtBoundary(PendingRubyBoundary),
+    Extracting(PendingAnnotatedGroup),
     ReadyGroup(RubyGroup),
     WaitingGroup(WaitingGroup),
     Applying(PendingAnnotationApply, AfterGroup),
-    Discarding(PendingNodeDiscard),
     Complete,
     Transition,
+}
+
+#[derive(Debug)]
+struct PendingAnnotatedGroup {
+    nodes: Vec<StyledNode>,
+    extraction: Box<PendingRubyAnnotation>,
 }
 
 #[derive(Debug)]
@@ -51,8 +65,7 @@ struct WaitingGroup {
 
 #[derive(Debug)]
 enum AfterGroup {
-    Continue,
-    ReplaceBase(Vec<StyledNode>),
+    NextSeed(Vec<StyledNode>),
     Complete,
 }
 
@@ -66,10 +79,9 @@ impl PendingRubyFrame {
     pub(super) fn new(mut node: StyledNode, inherited: &OwnedInlineContext) -> Self {
         Self {
             children: std::mem::take(&mut node.children).into_iter(),
-            pending_base: Vec::new(),
             base_context: inherited.ruby_base(),
             summary: TextSegmentSummary::default(),
-            state: RubyState::Scanning,
+            state: RubyState::Planning(PendingRubyGroupPlan::new(Vec::new())),
         }
     }
 
@@ -82,11 +94,29 @@ impl PendingRubyFrame {
         loop {
             let state = std::mem::replace(&mut self.state, RubyState::Transition);
             match state {
-                RubyState::Scanning => self.advance_scan(work)?,
-                RubyState::Extracting(mut extraction) => match extraction.advance(work) {
-                    Ok(annotation) => self.finish_annotation(annotation),
+                RubyState::Planning(mut plan) => {
+                    let spec = match plan.advance(self.children.as_slice(), work) {
+                        Ok(spec) => spec,
+                        Err(error) => {
+                            self.state = RubyState::Planning(plan);
+                            return Err(error);
+                        }
+                    };
+                    self.start_group_build(spec, work)?;
+                }
+                RubyState::Reserving(spec) => self.start_group_build(spec, work)?,
+                RubyState::Gathering(mut build) => match build.advance(&mut self.children, work) {
+                    Ok(boundary) => self.state = RubyState::AtBoundary(boundary),
                     Err(error) => {
-                        self.state = RubyState::Extracting(extraction);
+                        self.state = RubyState::Gathering(build);
+                        return Err(error);
+                    }
+                },
+                RubyState::AtBoundary(boundary) => self.advance_boundary(boundary, work)?,
+                RubyState::Extracting(mut pending) => match pending.extraction.advance(work) {
+                    Ok(annotation) => self.finish_annotation(pending.nodes, annotation),
+                    Err(error) => {
+                        self.state = RubyState::Extracting(pending);
                         return Err(error);
                     }
                 },
@@ -112,14 +142,6 @@ impl PendingRubyFrame {
                     Ok(false) => self.state = RubyState::Applying(apply, after),
                     Err(error) => {
                         self.state = RubyState::Applying(apply, after);
-                        return Err(error);
-                    }
-                },
-                RubyState::Discarding(mut discard) => match discard.advance(work) {
-                    Ok(true) => self.state = RubyState::Scanning,
-                    Ok(false) => self.state = RubyState::Discarding(discard),
-                    Err(error) => {
-                        self.state = RubyState::Discarding(discard);
                         return Err(error);
                     }
                 },
@@ -162,78 +184,80 @@ impl PendingRubyFrame {
 
     pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
         output.extend(self.children.by_ref());
-        output.append(&mut self.pending_base);
         let state = std::mem::replace(&mut self.state, RubyState::Complete);
         drain_state_nodes(state, output);
     }
 
-    fn advance_scan(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
-        self.state = RubyState::Scanning;
-        if self.children.as_slice().is_empty() {
-            require_unit(work)?;
-            let nodes = std::mem::take(&mut self.pending_base);
-            if nodes.is_empty() {
-                self.state = RubyState::Complete;
-            } else {
-                self.prepare_group(nodes, None, AfterGroup::Complete);
+    fn start_group_build(
+        &mut self,
+        spec: RubyGroupSpec,
+        work: &mut TextWorkMeter,
+    ) -> Result<(), TextWorkYield> {
+        match spec.reserve(work) {
+            Ok(build) => {
+                self.state = RubyState::Gathering(build);
+                Ok(())
             }
-            return Ok(());
+            Err((spec, error)) => {
+                self.state = RubyState::Reserving(spec);
+                Err(error)
+            }
         }
-        require_unit(work)?;
-        let node = self
-            .children
-            .next()
-            .expect("a paid direct ruby child exists");
-        self.dispatch_child(node);
+    }
+
+    fn advance_boundary(
+        &mut self,
+        boundary: PendingRubyBoundary,
+        work: &mut TextWorkMeter,
+    ) -> Result<(), TextWorkYield> {
+        let mut node = match boundary.consume_node(&mut self.children, work) {
+            Ok(node) => node,
+            Err(error) => {
+                self.state = RubyState::AtBoundary(boundary);
+                return Err(error);
+            }
+        };
+        match boundary.kind {
+            RubyGroupBoundaryKind::Annotation => {
+                let node = node.as_mut().expect("an annotation boundary node exists");
+                self.state = RubyState::Extracting(PendingAnnotatedGroup {
+                    nodes: boundary.nodes,
+                    extraction: Box::new(PendingRubyAnnotation::new(std::mem::take(
+                        &mut node.children,
+                    ))),
+                });
+            }
+            RubyGroupBoundaryKind::Replacement => {
+                let node = node.as_mut().expect("a replacement boundary node exists");
+                let seed = std::mem::take(&mut node.children);
+                if boundary.nodes.is_empty() {
+                    self.state = RubyState::Planning(PendingRubyGroupPlan::new(seed));
+                } else {
+                    self.prepare_group(boundary.nodes, None, AfterGroup::NextSeed(seed));
+                }
+            }
+            RubyGroupBoundaryKind::End => {
+                debug_assert!(node.is_none());
+                if boundary.nodes.is_empty() {
+                    self.state = RubyState::Complete;
+                } else {
+                    self.prepare_group(boundary.nodes, None, AfterGroup::Complete);
+                }
+            }
+        }
         Ok(())
     }
 
-    fn dispatch_child(&mut self, mut node: StyledNode) {
-        if node.node_type == StyledNodeKind::Text {
-            self.pending_base.push(node);
-            return;
-        }
-        if node.node_type != StyledNodeKind::Inline {
-            self.discard_children(&mut node);
-            return;
-        }
-        match node.tag.as_deref() {
-            Some("rt") => {
-                self.state = RubyState::Extracting(Box::new(PendingRubyAnnotation::new(
-                    std::mem::take(&mut node.children),
-                )));
-            }
-            Some("rp") => self.discard_children(&mut node),
-            Some("rb") => {
-                let replacement = std::mem::take(&mut node.children);
-                let nodes = std::mem::take(&mut self.pending_base);
-                if nodes.is_empty() {
-                    self.pending_base = replacement;
-                    self.state = RubyState::Scanning;
-                } else {
-                    self.prepare_group(nodes, None, AfterGroup::ReplaceBase(replacement));
-                }
-            }
-            _ => self.pending_base.push(node),
-        }
-    }
-
-    fn discard_children(&mut self, node: &mut StyledNode) {
-        let children = std::mem::take(&mut node.children);
-        self.state = if children.is_empty() {
-            RubyState::Scanning
-        } else {
-            RubyState::Discarding(PendingNodeDiscard::new(children))
-        };
-    }
-
-    fn finish_annotation(&mut self, annotation: Option<SharedRubyAnnotation>) {
-        let nodes = std::mem::take(&mut self.pending_base);
+    fn finish_annotation(
+        &mut self,
+        nodes: Vec<StyledNode>,
+        annotation: Option<SharedRubyAnnotation>,
+    ) {
         if nodes.is_empty() {
-            self.state = RubyState::Scanning;
-            return;
+            self.state = RubyState::Planning(PendingRubyGroupPlan::new(Vec::new()));
+        } else {
+            self.prepare_group(nodes, annotation, AfterGroup::NextSeed(Vec::new()));
         }
-        self.prepare_group(nodes, annotation, AfterGroup::Continue);
     }
 
     fn prepare_group(
@@ -251,33 +275,11 @@ impl PendingRubyFrame {
 
     fn apply_after(&mut self, after: AfterGroup) {
         match after {
-            AfterGroup::Continue => self.state = RubyState::Scanning,
-            AfterGroup::ReplaceBase(nodes) => {
-                self.pending_base = nodes;
-                self.state = RubyState::Scanning;
+            AfterGroup::NextSeed(seed) => {
+                self.state = RubyState::Planning(PendingRubyGroupPlan::new(seed));
             }
             AfterGroup::Complete => self.state = RubyState::Complete,
         }
-    }
-}
-
-fn drain_state_nodes(state: RubyState, output: &mut Vec<StyledNode>) {
-    match state {
-        RubyState::Extracting(mut extraction) => extraction.drain_nodes_into(output),
-        RubyState::ReadyGroup(mut group) => {
-            output.append(&mut group.nodes);
-            drain_after_nodes(group.after, output);
-        }
-        RubyState::WaitingGroup(waiting) => drain_after_nodes(waiting.after, output),
-        RubyState::Applying(_, after) => drain_after_nodes(after, output),
-        RubyState::Discarding(mut discard) => discard.drain_remaining_into(output),
-        RubyState::Scanning | RubyState::Complete | RubyState::Transition => {}
-    }
-}
-
-fn drain_after_nodes(after: AfterGroup, output: &mut Vec<StyledNode>) {
-    if let AfterGroup::ReplaceBase(mut nodes) = after {
-        output.append(&mut nodes);
     }
 }
 
