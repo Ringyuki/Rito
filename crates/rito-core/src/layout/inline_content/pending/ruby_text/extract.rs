@@ -110,6 +110,11 @@ impl PendingRubyAnnotation {
         }
     }
 
+    #[cfg(test)]
+    pub(in crate::layout::inline_content::pending) const fn has_pending_discard(&self) -> bool {
+        self.discard.is_some()
+    }
+
     fn advance_scan(&mut self, work: &mut TextWorkMeter) -> Result<bool, TextWorkYield> {
         loop {
             if let Some(text) = self.active_text.as_mut() {

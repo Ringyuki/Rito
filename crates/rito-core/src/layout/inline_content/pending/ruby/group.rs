@@ -197,6 +197,11 @@ impl PendingRubyGroupBuild {
         }
     }
 
+    #[cfg(test)]
+    pub(super) const fn has_pending_discard(&self) -> bool {
+        self.discard.is_some()
+    }
+
     fn collect_node(&mut self, mut node: StyledNode) {
         match direct_child_kind(&node) {
             DirectChildKind::Base => {
