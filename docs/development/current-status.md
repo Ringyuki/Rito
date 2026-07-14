@@ -389,7 +389,14 @@ Those names now belong to the old TS reference tree only.
      annotation extraction and per-scalar annotation application also resume
      without publishing a partial segment vector. Frame-local first/last-text
      summaries preserve nested borders and margins without rescanning completed
-     segments. Ordinary None/upper/lower/capitalize transforms now use a
+     segments. Ruby annotation extraction now performs a resumable UTF-8/UTF-16
+     size preflight, admits its exact-capacity output allocation in a paid step
+     and assembles that output in a second scalar-metered pass without growth.
+     A separate paid seal publishes one shared annotation source; application
+     retains that source while each resulting base `TextSegment` pays an exact-
+     capacity reserve, scalar-copies the annotation and commits only the
+     completed `String`. Empty annotations allocate neither output nor shared
+     seal. Ordinary None/upper/lower/capitalize transforms now use a
      resumable exact UTF-8/UTF-16 preflight, paid exact-capacity admission for
      their logical and painted buffers, and a second metered scalar assembly.
      Ordinary non-contextual assembly therefore performs no buffer growth.
@@ -401,11 +408,13 @@ Those names now belong to the old TS reference tree only.
      owned style/source data after a paid atomic admission. The borrowed eager
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
-     atomic lowercase allocation/growth residual. Ruby `String` and `Vec`
-     allocation or growth, paid-atomic
-     parser-source `Arc<str>` conversion and source-path duplication,
-     context-value clones, line-break metadata normalization and B-tree node
-     allocation remain indivisible residual operations.
+     atomic lowercase allocation/growth residual. The moved annotation-part
+     and annotation traversal/discard-frame `Vec`s, Ruby base-group `Vec`s,
+     generic candidate-output/commit/frame/discard `Vec`s, and stack-safe but
+     synchronous cancellation scratch `Vec` can still allocate or grow. The
+     paid atomic parser-source `Arc<str>` conversion, source-path duplication,
+     context/style/value clones, line-break metadata normalization and B-tree
+     node allocation remain separate indivisible residual operations.
    - Literal U+FFFC inside a text segment is now preserved as text; only an
      actual inline atom is intercepted by the atom map. Greedy and Optimal
      wrapped-run source offsets also use checked arithmetic and drop overflowing
@@ -451,15 +460,15 @@ Those names now belong to the old TS reference tree only.
      B-tree insertion, list markers and final block paint/border metadata remain
      atomic residuals.
    - This is not yet the complete default-Greedy hard bound. Contextual
-     Final_Sigma whole-string lowercase allocation/growth, Ruby buffer
-     allocation or growth, remaining context metadata work, container startup
-     and owned
-     margin-collapse preparation, mapping allocation/seal/path boxing,
-     source-text sharing/allocation, stack-safe but synchronous O(n)
-     cancellation cleanup, the downstream per-run ruby tag/paint operations,
-     atomic Liang point generation, the leaf marker/paint seal, visually
-     decorated or floated containers, tables and Optimal paragraphs still
-     contain unmetered or atomic regions.
+     Final_Sigma whole-string lowercase allocation/growth, moved annotation
+     part/traversal/discard-frame `Vec`s, Ruby base-group `Vec`s, generic
+     candidate-output/commit/frame/discard `Vec`s, remaining context metadata
+     work, container startup and owned margin-collapse preparation, mapping
+     allocation/seal/path boxing, source-text sharing/allocation, stack-safe but
+     synchronous O(n) cancellation cleanup and scratch growth, the downstream
+     per-run ruby tag/paint operations, atomic Liang point generation, the leaf
+     marker/paint seal, visually decorated or floated containers, tables and
+     Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -587,14 +596,15 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by starting with Ruby `String`/`Vec`
-   buffer preflight and exact-capacity admission, then meter the remaining
-   candidate/context allocation, clone, metadata and seal residuals, container
-   startup, strict downstream ruby tag/paint work and the leaf marker/paint
-   seal. Keep contextual Final_Sigma whole-string lowercase allocation/growth
-   as an explicit paid atomic residual. Make the currently atomic Liang point
-   calculation bounded, then carry continuation through decorated/floated
-   containers and split table
+1. Complete the default-Greedy hard bound by starting with an exact-count
+   preflight and paid capacity admission for Ruby base-group vectors, then meter
+   the remaining annotation-part/traversal-frame and generic candidate-output/
+   commit/frame/discard/cancellation collection residuals, candidate/context
+   allocation, clones, metadata and seals, container startup, strict downstream
+   ruby tag/paint work and the leaf marker/paint seal. Keep contextual
+   Final_Sigma whole-string lowercase allocation/growth as an explicit paid
+   atomic residual. Make the currently atomic Liang point calculation bounded,
+   then carry continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
@@ -639,12 +649,18 @@ grapheme boundary streams. Ordinary None/upper/lower/capitalize transforms now
 use resumable exact UTF-8/UTF-16 preflight, paid exact-capacity logical/painted
 buffer admission and second-pass metered scalar assembly without ordinary
 non-contextual buffer growth; whole-segment UTF-16-length-changing mappings fall
-back without transformed assembly. Completed leaf lines are converted and
-height-accounted as their line batch is emitted,
+back without transformed assembly. Ruby annotation extraction now preflights
+UTF-8/UTF-16 sizes resumably, pays for an exact-capacity output, assembles it in
+a second scalar pass and pays a separate shared-source seal. Each base text
+segment then reserves and scalar-copies its own exact-capacity annotation before
+commit; empty annotations allocate neither output nor seal. Completed leaf
+lines are converted and height-accounted as their line batch is emitted,
 eliminating the line-count-dependent close scan. The next bounded-layout slice
-should preflight and exactly reserve Ruby buffers, then meter the remaining
-candidate/context allocation and clone residuals, line-context metadata work,
-container startup and the leaf marker/paint seal before making
+should exact-count and reserve Ruby base-group vectors. Annotation-part/
+traversal-frame and generic candidate-output/commit/frame/discard/cancellation
+collection growth remains afterwards, together with candidate/context
+allocation and clone residuals, line-context metadata work, container startup
+and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline
 through decorated/floated containers, tables and Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the

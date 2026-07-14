@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use crate::{
     layout::{
         inline_segment::InlineSegment,
@@ -13,7 +11,7 @@ use super::{
     discard::PendingNodeDiscard,
     frame::TextSegmentSummary,
     require_unit,
-    ruby_text::{PendingAnnotationApply, PendingRubyAnnotation},
+    ruby_text::{PendingAnnotationApply, PendingRubyAnnotation, SharedRubyAnnotation},
 };
 
 #[derive(Debug)]
@@ -28,7 +26,7 @@ pub(super) struct PendingRubyFrame {
 #[derive(Debug)]
 enum RubyState {
     Scanning,
-    Extracting(PendingRubyAnnotation),
+    Extracting(Box<PendingRubyAnnotation>),
     ReadyGroup(RubyGroup),
     WaitingGroup(WaitingGroup),
     Applying(PendingAnnotationApply, AfterGroup),
@@ -40,14 +38,14 @@ enum RubyState {
 #[derive(Debug)]
 struct RubyGroup {
     nodes: Vec<StyledNode>,
-    annotation: Option<Arc<String>>,
+    annotation: Option<SharedRubyAnnotation>,
     after: AfterGroup,
 }
 
 #[derive(Debug)]
 struct WaitingGroup {
     output_start: usize,
-    annotation: Option<Arc<String>>,
+    annotation: Option<SharedRubyAnnotation>,
     after: AfterGroup,
 }
 
@@ -86,8 +84,7 @@ impl PendingRubyFrame {
             match state {
                 RubyState::Scanning => self.advance_scan(work)?,
                 RubyState::Extracting(mut extraction) => match extraction.advance(work) {
-                    Ok(Some(annotation)) => self.finish_annotation(annotation),
-                    Ok(None) => self.state = RubyState::Extracting(extraction),
+                    Ok(annotation) => self.finish_annotation(annotation),
                     Err(error) => {
                         self.state = RubyState::Extracting(extraction);
                         return Err(error);
@@ -202,8 +199,8 @@ impl PendingRubyFrame {
         }
         match node.tag.as_deref() {
             Some("rt") => {
-                self.state = RubyState::Extracting(PendingRubyAnnotation::new(std::mem::take(
-                    &mut node.children,
+                self.state = RubyState::Extracting(Box::new(PendingRubyAnnotation::new(
+                    std::mem::take(&mut node.children),
                 )));
             }
             Some("rp") => self.discard_children(&mut node),
@@ -230,20 +227,19 @@ impl PendingRubyFrame {
         };
     }
 
-    fn finish_annotation(&mut self, annotation: String) {
+    fn finish_annotation(&mut self, annotation: Option<SharedRubyAnnotation>) {
         let nodes = std::mem::take(&mut self.pending_base);
         if nodes.is_empty() {
             self.state = RubyState::Scanning;
             return;
         }
-        let annotation = (!annotation.is_empty()).then(|| Arc::new(annotation));
         self.prepare_group(nodes, annotation, AfterGroup::Continue);
     }
 
     fn prepare_group(
         &mut self,
         nodes: Vec<StyledNode>,
-        annotation: Option<Arc<String>>,
+        annotation: Option<SharedRubyAnnotation>,
         after: AfterGroup,
     ) {
         self.state = RubyState::ReadyGroup(RubyGroup {

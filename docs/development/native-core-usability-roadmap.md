@@ -80,14 +80,19 @@ The remaining usability work is narrower but still release-blocking:
    Ordinary non-contextual assembly therefore performs no buffer growth.
    Whole-segment UTF-16-length-changing mappings fall back without transformed
    assembly, while changed equal-length output uses the resumable grapheme-
-   boundary comparator. Contextual Final_Sigma whole-string allocation/growth,
-   Ruby buffer preflight, reservation, allocation or growth, source
-   sharing/allocation, remaining line-context metadata work, container startup,
-   mapping allocation/seal/path boxing, downstream per-run ruby tag/paint
-   operations, the leaf marker/paint seal, atomic Liang point generation,
+   boundary comparator. Ruby annotation output and each final base-text copy
+   now use paid exact-capacity reservation plus scalar-metered assembly; a
+   separate paid seal publishes the source shared during application, and empty
+   annotations allocate neither output nor seal. Contextual Final_Sigma whole-
+   string allocation/growth,
+   moved annotation-part/traversal/discard-frame `Vec`s, Ruby base-group `Vec`s,
+   generic candidate-output/commit/frame/discard/cancellation collection growth,
+   source sharing/allocation, remaining line-context metadata work, container
+   startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
+   paint operations, the leaf marker/paint seal, atomic Liang point generation,
    visually decorated or floated containers, Optimal paragraphs and tables
-   therefore still prevent a complete wall-clock hard bound. A test-only ordered,
-   text-hashed trace covers prefix probes,
+   therefore still prevent a complete wall-clock hard bound. A test-only
+   ordered, text-hashed trace covers prefix probes,
    line-break scans, cache outcomes and actual Rustybuzz subruns; exact
    trace-on/off and eager/bounded equivalence make it the regression oracle for
    this resumable sequence. The first publication-wide footnote scan is now
@@ -145,18 +150,27 @@ Ordinary non-contextual assembly therefore performs no buffer growth.
 Whole-segment mappings that change UTF-16 length fall back without transformed
 assembly; changed equal-length output uses the shared resumable extended-
 grapheme boundary comparator. Logical-flow mapping preflight, assembly and
-assignment commit then resume in the production Greedy leaf. Line-context
-display preflight and indexed assembly follow under the same text meter,
+assignment commit then resume in the production Greedy leaf. Ruby annotation
+extraction now performs a resumable UTF-8/UTF-16 size preflight, admits its
+exact-capacity output allocation in a paid step and assembles that output in a
+second scalar-metered pass without growth. A separate paid seal publishes one
+shared annotation source; application retains that source while each resulting
+base `TextSegment` pays an exact-capacity reserve, scalar-copies the annotation
+and commits only the completed `String`. Empty annotations allocate neither
+output nor shared seal. Line-context display preflight and indexed assembly
+follow under the same text meter,
 withholding the context until its paid seal. The remaining bounded-layout work
-starts with Ruby buffer preflight and exact reservation, then the remaining
+starts with an exact-count planner and paid reservation for Ruby base-group
+vectors, then the remaining annotation-part/traversal-frame and generic
+candidate-output/commit/frame/discard/cancellation collection residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
-downstream per-run ruby tag/paint work and the leaf marker/paint seal. Contextual
-Final_Sigma remains a paid whole-string atomic allocation/growth residual. Then
-make the currently atomic Liang point calculation bounded and extend the same
+downstream per-run ruby tag/paint work and the leaf marker/paint seal.
+Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
+residual. Then make the currently atomic Liang point calculation bounded and
+extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
-Optimal paragraphs. Individual font
-calls remain indivisible even though their surrounding measure/shape stages
-resume.
+Optimal paragraphs. Individual font calls remain indivisible even though their
+surrounding measure/shape stages resume.
 Publication-wide source indexes must likewise be budgeted instead of
 front-loading a full-spine scan.
 
@@ -214,9 +228,13 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   UTF-16-length-changing whole-segment mappings fall back without transformed
   assembly; changed equal-length output uses the resumable grapheme-boundary
   comparator. Final_Sigma whole-string lowercase allocation/growth remains a
-  paid atomic operation. Ruby buffer allocation or growth, source-text sharing
-  and context allocation remain atomic; style/value clones, line-break metadata
-  and B-tree insertion remain indivisible operations.
+  paid atomic operation. Ruby annotation output and per-base text copies now use
+  paid exact-capacity reservations and scalar-metered assembly. The moved
+  annotation-part and annotation traversal/discard-frame `Vec`s, Ruby base-group
+  `Vec`s, generic candidate-output/commit/frame/discard `Vec`s, and the
+  stack-safe but synchronous cancellation scratch `Vec` can still allocate or
+  grow. Source-text sharing and context allocation remain atomic; style/value
+  clones, line-break metadata and B-tree insertion remain indivisible operations.
   Mapping allocation plus
   boxing completed buffers and moved source paths are likewise indivisible.
   Ruby grouping traversal now resumes per input run and withholds the complete
@@ -497,11 +515,15 @@ architecture rather than make an eager whole-book pipeline faster.
    exact-capacity buffer admission and scalar assembly, transform grapheme-
    boundary comparison, font-family parsing and valid-face discovery inside the
    bounded-prefix policy resume as well, and completed leaf lines are converted
-   plus height-accounted incrementally. Contextual Final_Sigma whole-string
-   allocation/growth, Ruby buffer allocation and exact reservation, remaining
-   context metadata, container startup, mapping allocation/seal/path boxing,
-   downstream per-run ruby tag/paint work, the leaf marker/paint seal, atomic
-   Liang point generation, decorated/floated
+   plus height-accounted incrementally. Ruby annotation output and each base
+   text copy use paid exact-capacity reservation and scalar assembly, followed
+   by commit only after completion. Contextual Final_Sigma whole-string
+   allocation/growth, moved annotation-part/traversal/discard-frame `Vec`s,
+   Ruby base-group `Vec`s, generic candidate-output/commit/frame/discard/
+   cancellation collection growth, remaining context metadata, container
+   startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
+   paint work, the leaf marker/paint seal, atomic Liang point generation,
+   decorated/floated
    containers, tables and Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work
    escape.

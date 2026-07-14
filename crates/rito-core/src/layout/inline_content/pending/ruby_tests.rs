@@ -14,6 +14,9 @@ use crate::{
     style::{StyledNode, StyledNodeKind},
 };
 
+#[path = "ruby_tests/buffers.rs"]
+mod buffers;
+
 #[test]
 fn ruby_grammar_whitespace_and_nested_annotations_match_eager() {
     let nested_overridden = ruby(vec![text("inner"), rt(vec![text("IN")])]);
