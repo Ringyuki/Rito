@@ -390,13 +390,19 @@ Those names now belong to the old TS reference tree only.
      requested pre-context call sees one. The same grapheme count provides the
      exact-shape safety check without a second scalar scan; word justification
      and base CSS letter spacing keep their distinct existing paths. Ruby
-     grouping and mapping assembly still form the unmetered tail of the line
-     state machine.
+     grouping now resumes one input run at a time, retains an open group across
+     yields, reuses the original vector for plain lines and allocates the exact
+     output length only for ruby lines, without publishing a partial `LineBox`.
+     Exact tag comparison plus the first run's
+     tag/selected paint clones are still indivisible inside that paid run;
+     source-mapping and inline-context assembly happen earlier and remain
+     unmetered.
    - This is not yet the complete default-Greedy hard bound. Inline
      flattening/context construction, container startup and owned
-     margin-collapse preparation, ruby grouping and mapping assembly,
-     atomic Liang point generation, visually decorated or floated containers,
-     tables and Optimal paragraphs still contain unmetered or atomic regions.
+     margin-collapse preparation, source-mapping and context assembly, the
+     per-run ruby string/paint operations, atomic Liang point generation, leaf
+     publication, visually decorated or floated containers, tables and Optimal
+     paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -525,9 +531,9 @@ runtime render-command matrix.
 Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
-   flattening/context preparation, container startup and remaining line
-   post-processing such as ruby grouping and mapping assembly, then
-   make the currently atomic Liang point calculation bounded. Carry
+   flattening/source-mapping/context preparation, container startup, strict
+   ruby tag/paint work and leaf publication, then make the currently atomic
+   Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
@@ -557,10 +563,11 @@ geometry/vertical-shift state across public quanta, and one public request
 shares its text-work meter across chapter boundaries. Exact ordered text-work
 traces remain unchanged, while a captured font layout-profile token prevents
 restore under inconsistent logical font inputs. The footnote index performs
-one spine parse instead of two. The next bounded-layout slice should meter
-inline/context preparation, container startup and the remaining ruby-grouping
-and mapping work before making Liang point generation itself resumable and
-extending the same discipline through
+one spine parse instead of two. Ruby grouping traversal now resumes per input
+run without publishing a partial line; exact tag/paint work remains indivisible.
+The next bounded-layout slice should meter inline/source-mapping/context
+preparation, container startup and leaf publication before making Liang point
+generation itself resumable and extending the same discipline through
 decorated/floated containers, tables and Optimal layout. Individual font calls
 and the Liang dictionary call remain indivisible; the oversized-operation
 escape means the public quantum is not yet a complete wall-clock hard bound.

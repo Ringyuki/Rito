@@ -4,7 +4,7 @@ use serde_json::{Map, Value};
 
 use super::{
     line::{LineBox, LineRun},
-    line_ruby::extract_ruby_annotations,
+    line_ruby::PendingRubyExtraction,
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
 
@@ -37,6 +37,7 @@ pub(crate) struct PendingLineFinalizer {
     x_offset: f64,
     justify: Option<PendingJustifyAnalysis>,
     distribution: Option<PendingJustifyDistribution>,
+    ruby: Option<PendingRubyExtraction>,
     stage: LineFinalizeStage,
 }
 
@@ -48,7 +49,7 @@ enum LineFinalizeStage {
     AnalyzeJustify,
     DistributeJustify,
     ShiftX,
-    LegacyRuby,
+    ExtractRuby,
     Complete,
 }
 
@@ -74,6 +75,7 @@ impl PendingLineFinalizer {
             x_offset: 0.0,
             justify: None,
             distribution: None,
+            ruby: None,
             stage: LineFinalizeStage::Geometry,
         }
     }
@@ -91,7 +93,7 @@ impl PendingLineFinalizer {
                 LineFinalizeStage::AnalyzeJustify => self.advance_justify(work)?,
                 LineFinalizeStage::DistributeJustify => self.advance_distribution(work)?,
                 LineFinalizeStage::ShiftX => self.advance_shift_x(work)?,
-                LineFinalizeStage::LegacyRuby => return Ok(self.finish_ruby()),
+                LineFinalizeStage::ExtractRuby => return self.advance_ruby(work),
                 LineFinalizeStage::Complete => {
                     unreachable!("a completed line finalizer cannot be resumed")
                 }
@@ -146,7 +148,7 @@ impl PendingLineFinalizer {
 
     fn resolve_justify(&mut self, base_style: &Map<String, Value>) {
         if self.is_last_line || self.runs.is_empty() {
-            self.stage = LineFinalizeStage::LegacyRuby;
+            self.stage = LineFinalizeStage::ExtractRuby;
             return;
         }
         let extra = self.max_width - self.geometry.line_width;
@@ -156,7 +158,7 @@ impl PendingLineFinalizer {
             .unwrap_or("auto");
         let mode = JustifyMode::from_css(text_justify);
         if !extra.is_finite() || extra <= 0.0 || mode.is_none() {
-            self.stage = LineFinalizeStage::LegacyRuby;
+            self.stage = LineFinalizeStage::ExtractRuby;
             return;
         }
         self.justify = Some(PendingJustifyAnalysis::new(
@@ -178,7 +180,7 @@ impl PendingLineFinalizer {
         self.stage = if self.distribution.is_some() {
             LineFinalizeStage::DistributeJustify
         } else {
-            LineFinalizeStage::LegacyRuby
+            LineFinalizeStage::ExtractRuby
         };
         Ok(())
     }
@@ -189,7 +191,7 @@ impl PendingLineFinalizer {
             .expect("justify distribution is initialized")
             .advance(&mut self.runs, work)?;
         self.distribution = None;
-        self.stage = LineFinalizeStage::LegacyRuby;
+        self.stage = LineFinalizeStage::ExtractRuby;
         Ok(())
     }
 
@@ -201,18 +203,34 @@ impl PendingLineFinalizer {
                 self.shift_x_index += 1;
             }
         }
-        self.stage = LineFinalizeStage::LegacyRuby;
+        self.stage = LineFinalizeStage::ExtractRuby;
         Ok(())
     }
 
-    fn finish_ruby(&mut self) -> LineBox {
+    fn advance_ruby(&mut self, work: &mut TextWorkMeter) -> Result<LineBox, TextWorkYield> {
+        if self.ruby.is_none() {
+            self.ruby = Some(PendingRubyExtraction::new(
+                std::mem::take(&mut self.runs),
+                self.y,
+            ));
+        }
+        let runs = self
+            .ruby
+            .as_mut()
+            .expect("ruby extraction is initialized")
+            .advance(work)?;
+        self.ruby = None;
+        Ok(self.finish_line(runs))
+    }
+
+    fn finish_line(&mut self, runs: Vec<LineRun>) -> LineBox {
         self.stage = LineFinalizeStage::Complete;
         LineBox {
             x: 0.0,
             y: self.y,
             width: self.max_width,
             height: self.geometry.height,
-            runs: extract_ruby_annotations(std::mem::take(&mut self.runs), self.y),
+            runs,
         }
     }
 
@@ -224,6 +242,11 @@ impl PendingLineFinalizer {
     #[cfg(test)]
     pub(crate) fn is_distributing_justify(&self) -> bool {
         self.stage == LineFinalizeStage::DistributeJustify
+    }
+
+    #[cfg(test)]
+    pub(crate) fn is_extracting_ruby(&self) -> bool {
+        self.stage == LineFinalizeStage::ExtractRuby
     }
 }
 

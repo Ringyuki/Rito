@@ -1,13 +1,60 @@
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use serde_json::{json, Value};
 
-use super::extract_ruby_annotations;
+use super::{extract_ruby_annotations, PendingRubyExtraction};
 use crate::layout::{
     line::{AtomRunBox, LineRun, RubyRunBox, TextRunBox},
     text_mapping::RunTextMapping,
     text_shape::{ExactRunShape, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance},
+    text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
+
+#[test]
+fn small_quanta_match_eager_extraction_without_incremental_output() {
+    let runs = vec![
+        text_run("A", Some("same"), 1.0, 0.0, 4.0, 16.0, json!({})),
+        text_run("B", Some("same"), 5.0, 0.0, 5.0, 16.0, json!({})),
+        LineRun::Atom(AtomRunBox {
+            x: 10.0,
+            y: 0.0,
+            width: 2.0,
+            height: 3.0,
+            image_src: None,
+            alt: None,
+            href: None,
+        }),
+        text_run("C", Some("other"), 12.0, 0.0, 5.0, 16.0, json!({})),
+        text_run("D", Some(""), 17.0, 0.0, 5.0, 16.0, json!({})),
+        text_run("E", None, 22.0, 0.0, 5.0, 16.0, json!({})),
+    ];
+    let expected = extract_ruby_annotations(runs.clone(), 20.0);
+    let total_work = runs.len() * 2;
+
+    for quantum in [1, 2, 3, usize::MAX] {
+        let (actual, yields) = resumable_extract(runs.clone(), 20.0, quantum);
+
+        assert_eq!(actual, expected, "quantum={quantum}");
+        assert_eq!(yields, (total_work - 1) / quantum, "quantum={quantum}");
+    }
+}
+
+#[test]
+fn plain_runs_reuse_the_input_vector_allocation_after_the_bounded_scan() {
+    let runs = vec![
+        text_run("A", None, 1.0, 0.0, 4.0, 16.0, json!({})),
+        text_run("B", None, 5.0, 0.0, 5.0, 16.0, json!({})),
+        text_run("C", None, 10.0, 0.0, 5.0, 16.0, json!({})),
+    ];
+    let input_pointer = runs.as_ptr();
+    let input_capacity = runs.capacity();
+
+    let (output, yields) = resumable_extract(runs, 20.0, 1);
+
+    assert_eq!(yields, 2);
+    assert_eq!(output.as_ptr(), input_pointer);
+    assert_eq!(output.capacity(), input_capacity);
+}
 
 #[test]
 fn contiguous_ruby_runs_preserve_base_runs_and_derive_annotation_paint() {
@@ -50,6 +97,22 @@ fn contiguous_ruby_runs_preserve_base_runs_and_derive_annotation_paint() {
             }),
         })
     );
+}
+
+#[test]
+fn continuation_uses_the_last_run_end_instead_of_the_furthest_end() {
+    let output = extract_ruby_annotations(
+        vec![
+            text_run("A", Some("ruby"), 10.0, 0.0, 10.0, 16.0, json!({})),
+            text_run("B", Some("ruby"), 5.0, 0.0, 2.0, 16.0, json!({})),
+        ],
+        20.0,
+    );
+
+    assert!(matches!(
+        &output[2],
+        LineRun::Ruby(run) if run.x == 10.0 && run.width == -3.0
+    ));
 }
 
 #[test]
@@ -137,6 +200,56 @@ fn extraction_moves_base_run_allocations_into_output() {
     assert_eq!(allocation_pointers(&output[0]), first_pointers);
     assert_eq!(allocation_pointers(&output[1]), second_pointers);
     assert!(matches!(&output[2], LineRun::Ruby(run) if run.text == "ruby"));
+}
+
+#[test]
+fn bounded_extraction_moves_base_run_allocations_into_output() {
+    let first = text_run(
+        "first-allocation",
+        Some("ruby"),
+        0.0,
+        0.0,
+        12.0,
+        16.0,
+        json!({ "color": "first-paint-allocation" }),
+    );
+    let second = text_run(
+        "second-allocation",
+        Some("ruby"),
+        12.0,
+        0.0,
+        13.0,
+        16.0,
+        json!({ "color": "second-paint-allocation" }),
+    );
+    let first_pointers = allocation_pointers(&first);
+    let second_pointers = allocation_pointers(&second);
+
+    let (output, yields) = resumable_extract(vec![first, second], 20.0, 1);
+
+    assert_eq!(yields, 3);
+    assert_eq!(allocation_pointers(&output[0]), first_pointers);
+    assert_eq!(allocation_pointers(&output[1]), second_pointers);
+    assert!(matches!(&output[2], LineRun::Ruby(run) if run.text == "ruby"));
+}
+
+fn resumable_extract(runs: Vec<LineRun>, line_y: f64, quantum: usize) -> (Vec<LineRun>, usize) {
+    let mut pending = PendingRubyExtraction::new(runs, line_y);
+    let mut yields = 0;
+    loop {
+        let mut work = meter(quantum);
+        match pending.advance(&mut work) {
+            Ok(output) => return (output, yields),
+            Err(TextWorkYield) => yields += 1,
+        }
+    }
+}
+
+fn meter(max_utf16_units: usize) -> TextWorkMeter {
+    TextWorkMeter::new(TextWorkBudget::new(
+        NonZeroUsize::new(max_utf16_units).expect("text limit is non-zero"),
+        NonZeroUsize::MAX,
+    ))
 }
 
 fn text_run(

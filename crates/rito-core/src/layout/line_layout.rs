@@ -624,6 +624,24 @@ mod tests {
             .is_empty());
         assert!(!session.is_complete());
 
+        let mut partial_ruby_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut partial_ruby_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
+        let mut second_partial_ruby_work = TextWorkMeter::new(TextWorkBudget::new(
+            NonZeroUsize::new(1).expect("text limit is non-zero"),
+            NonZeroUsize::new(1).expect("operation limit is non-zero"),
+        ));
+        assert!(session
+            .advance_with_text_work(usize::MAX, &mut second_partial_ruby_work, &fonts)
+            .is_empty());
+        assert!(!session.is_complete());
+
         let mut finish_work = TextWorkMeter::new(TextWorkBudget::new(
             NonZeroUsize::new(1).expect("text limit is non-zero"),
             NonZeroUsize::new(1).expect("operation limit is non-zero"),

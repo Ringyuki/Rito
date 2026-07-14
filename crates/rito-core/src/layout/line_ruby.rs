@@ -3,8 +3,134 @@ use serde_json::{Map, Number, Value};
 use super::{
     line::{LineRun, RubyRunBox},
     style_values::paint_number_value,
+    text_work::{TextWorkMeter, TextWorkYield},
 };
 
+#[derive(Debug)]
+pub(crate) struct PendingRubyExtraction {
+    runs: Vec<LineRun>,
+    scan_index: usize,
+    previous_tagged_index: Option<usize>,
+    ruby_group_count: usize,
+    remaining: Option<std::vec::IntoIter<LineRun>>,
+    output: Vec<LineRun>,
+    active_group: Option<RubyGroup>,
+    line_y: f64,
+    complete: bool,
+}
+
+impl PendingRubyExtraction {
+    pub(crate) fn new(runs: Vec<LineRun>, line_y: f64) -> Self {
+        Self {
+            runs,
+            scan_index: 0,
+            previous_tagged_index: None,
+            ruby_group_count: 0,
+            remaining: None,
+            output: Vec::new(),
+            active_group: None,
+            line_y,
+            complete: false,
+        }
+    }
+
+    pub(crate) fn advance(
+        &mut self,
+        work: &mut TextWorkMeter,
+    ) -> Result<Vec<LineRun>, TextWorkYield> {
+        assert!(
+            !self.complete,
+            "completed ruby extraction cannot be resumed"
+        );
+        self.scan_groups(work)?;
+        if self.ruby_group_count == 0 {
+            self.complete = true;
+            return Ok(std::mem::take(&mut self.runs));
+        }
+        if self.remaining.is_none() {
+            require_run_work(work)?;
+            self.initialize_output();
+            self.consume_next_run();
+        }
+        while self
+            .remaining
+            .as_ref()
+            .is_some_and(|remaining| !remaining.as_slice().is_empty())
+        {
+            require_run_work(work)?;
+            self.consume_next_run();
+        }
+        self.flush_group();
+        self.complete = true;
+        Ok(std::mem::take(&mut self.output))
+    }
+
+    fn scan_groups(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        while self.scan_index < self.runs.len() {
+            require_run_work(work)?;
+            let annotation = ruby_annotation(&self.runs[self.scan_index]);
+            let continues_group = self.previous_tagged_index.is_some_and(|index| {
+                ruby_annotation(&self.runs[index]) == annotation && annotation.is_some()
+            });
+            if annotation.is_some() && !continues_group {
+                self.ruby_group_count += 1;
+            }
+            self.previous_tagged_index = annotation.map(|_| self.scan_index);
+            self.scan_index += 1;
+        }
+        Ok(())
+    }
+
+    fn initialize_output(&mut self) {
+        if self.remaining.is_some() {
+            return;
+        }
+        let output_capacity = self
+            .runs
+            .len()
+            .checked_add(self.ruby_group_count)
+            .expect("ruby output length must fit usize");
+        self.output = Vec::with_capacity(output_capacity);
+        self.remaining = Some(std::mem::take(&mut self.runs).into_iter());
+    }
+
+    fn consume_next_run(&mut self) {
+        let run = self
+            .remaining
+            .as_mut()
+            .expect("ruby extraction input is initialized")
+            .next()
+            .expect("ruby extraction input must have a next run");
+        self.consume_run(run);
+    }
+
+    fn consume_run(&mut self, run: LineRun) {
+        let continues_group = self
+            .active_group
+            .as_ref()
+            .is_some_and(|group| group.includes(&run));
+        if continues_group {
+            self.active_group
+                .as_mut()
+                .expect("matching ruby group must exist")
+                .extend_to(&run);
+            self.output.push(run);
+            return;
+        }
+
+        self.flush_group();
+        self.active_group = RubyGroup::start(&run, self.line_y);
+        self.output.push(run);
+    }
+
+    fn flush_group(&mut self) {
+        if let Some(group) = self.active_group.take() {
+            self.output.push(LineRun::Ruby(group.finish()));
+        }
+    }
+}
+
+#[cfg(test)]
 pub(crate) fn extract_ruby_annotations(runs: Vec<LineRun>, line_y: f64) -> Vec<LineRun> {
     let mut out = Vec::with_capacity(runs.len());
     let mut remaining = runs.into_iter().peekable();
@@ -25,6 +151,13 @@ pub(crate) fn extract_ruby_annotations(runs: Vec<LineRun>, line_y: f64) -> Vec<L
         out.push(LineRun::Ruby(group.finish()));
     }
     out
+}
+
+fn ruby_annotation(run: &LineRun) -> Option<&str> {
+    match run {
+        LineRun::Text(run) => run.ruby_annotation.as_deref(),
+        LineRun::Atom(_) | LineRun::Ruby(_) => None,
+    }
 }
 
 #[derive(Debug)]
@@ -116,6 +249,16 @@ fn ruby_paint_value(base_paint: &Value, ruby_font_size: f64) -> Value {
     );
     paint.insert("font".to_owned(), Value::Object(font));
     Value::Object(paint)
+}
+
+fn require_run_work(work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+    // This bounds traversal by input run. Tag comparison and the selected
+    // annotation-paint clones remain indivisible work within that run.
+    if work.take_utf16_units(1) == 1 {
+        Ok(())
+    } else {
+        Err(TextWorkYield)
+    }
 }
 
 #[cfg(test)]

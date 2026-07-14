@@ -45,6 +45,87 @@ fn one_unit_quanta_match_eager_geometry_shift_and_align_without_partial_output()
 }
 
 #[test]
+fn ruby_extraction_quanta_match_eager_finalization() {
+    let runs = vec![
+        text_run("first", 0.0, 0.0, json!({}), Some("same"), None),
+        text_run("second", 30.0, 0.0, json!({}), Some("same"), None),
+        text_run("third", 60.0, 0.0, json!({}), Some("other"), None),
+        text_run("plain", 90.0, 0.0, json!({}), None, None),
+    ];
+    let style = Map::new();
+    let expected = finalize_line_eager(
+        runs.clone(),
+        LineWidthMetric::AdvanceRight,
+        5.0,
+        12.0,
+        140.0,
+        &style,
+        false,
+    );
+
+    for quantum in [1, 2, 3, usize::MAX] {
+        let mut pending = PendingLineFinalizer::new(
+            runs.clone(),
+            LineWidthMetric::AdvanceRight,
+            5.0,
+            12.0,
+            140.0,
+            false,
+        );
+        let mut yields = 0;
+        let actual = loop {
+            let mut work = meter(quantum, quantum);
+            match pending.advance(&mut work, &style) {
+                Ok(line) => break line,
+                Err(TextWorkYield) => yields += 1,
+            }
+        };
+
+        assert_eq!(actual, expected, "quantum={quantum}");
+        assert_eq!(yields, (runs.len() * 4 - 1) / quantum, "quantum={quantum}");
+    }
+}
+
+#[test]
+fn ruby_extraction_does_not_publish_before_every_run_is_processed() {
+    let runs = vec![
+        text_run("first", 0.0, 0.0, json!({}), Some("group"), None),
+        text_run("second", 30.0, 0.0, json!({}), Some("group"), None),
+        text_run("third", 60.0, 0.0, json!({}), Some("group"), None),
+    ];
+    let style = Map::new();
+    let expected = finalize_line_eager(
+        runs.clone(),
+        LineWidthMetric::AdvanceRight,
+        0.0,
+        12.0,
+        100.0,
+        &style,
+        false,
+    );
+    let mut pending =
+        PendingLineFinalizer::new(runs, LineWidthMetric::AdvanceRight, 0.0, 12.0, 100.0, false);
+
+    assert_eq!(
+        pending.advance(&mut meter(6, 1), &style),
+        Err(TextWorkYield)
+    );
+    assert!(pending.is_extracting_ruby());
+    for _ in 0..5 {
+        assert_eq!(
+            pending.advance(&mut meter(1, 1), &style),
+            Err(TextWorkYield)
+        );
+        assert!(pending.is_extracting_ruby());
+    }
+
+    let actual = pending
+        .advance(&mut meter(1, 1), &style)
+        .expect("the line publishes only after its final run is extracted");
+    assert_eq!(actual, expected);
+}
+
+#[test]
 fn width_metric_preserves_greedy_extensions_and_optimal_paint_bounds() {
     let run = text_run(
         "end",
@@ -103,7 +184,7 @@ fn center_and_right_one_unit_quanta_match_the_legacy_alignment_oracle() {
             }
         };
 
-        assert_eq!(yields, 3, "alignment {align}");
+        assert_eq!(yields, 5, "alignment {align}");
         assert_eq!(actual, expected, "alignment {align}");
         assert_eq!(actual.runs[0].geometry().0, expected_first_x);
     }
@@ -163,11 +244,11 @@ fn last_or_forced_line_skips_justify_analysis() {
     let expected = apply_line_align(runs.clone(), 30.0, 0.0, 12.0, 100.0, &style, true);
     let mut pending =
         PendingLineFinalizer::new(runs, LineWidthMetric::AdvanceRight, 0.0, 12.0, 100.0, true);
-    let mut work = meter(1, 1);
+    let mut work = meter(2, 1);
 
     let actual = pending
         .advance(&mut work, &style)
-        .expect("last lines finish after geometry without scanning their text");
+        .expect("last lines skip justify analysis but still extract ruby runs");
 
     assert!(!pending.is_analyzing_justify());
     assert_eq!(actual, expected);
@@ -185,11 +266,11 @@ fn zero_horizontal_offset_does_not_consume_run_work() {
             30.0,
             false,
         );
-        let mut work = meter(1, 1);
+        let mut work = meter(2, 1);
 
         let line = pending
             .advance(&mut work, &style)
-            .expect("zero offset finishes after geometry exhausts the budget");
+            .expect("zero offset skips shifting but still extracts ruby runs");
 
         assert_eq!(line.runs[0].geometry().0, 0.0);
     }
