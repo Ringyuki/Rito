@@ -195,9 +195,14 @@ fn ordinary_transform_reserves_each_buffer_once_without_partial_publish() {
         "the second reserve must wait for a fresh atomic-operation slot"
     );
     let mut second = TextWorkMeter::new(budget);
+    assert!(
+        pending.advance(&mut second).is_err(),
+        "the final output reserve has its own atomic-operation slot"
+    );
+    let mut third = TextWorkMeter::new(budget);
     let actual = pending
-        .advance(&mut second)
-        .expect("successful reserves must not be repeated after resumption");
+        .advance(&mut third)
+        .expect("successful transform and output reserves must not be repeated after resumption");
 
     assert_eq!(format!("{actual:#?}"), format!("{expected:#?}"));
 }

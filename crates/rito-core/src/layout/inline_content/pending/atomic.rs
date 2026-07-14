@@ -7,7 +7,10 @@ use crate::{
     style::StyledNode,
 };
 
-use super::{context::OwnedInlineContext, ActiveCollection, PendingInlineCandidateCollector};
+use super::{
+    commit::PendingSegmentCommit, context::OwnedInlineContext, ActiveCollection,
+    PendingInlineCandidateCollector,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub(super) enum AtomicNodeKind {
@@ -53,7 +56,7 @@ impl PendingInlineCandidateCollector {
             AtomicNodeKind::InlineBlock => create_owned_inline_block_atom(node),
         };
         super::super::reset_whitespace_after_atom(&mut self.whitespace);
-        self.active = Some(super::committing(InlineSegment::Atom(segment)));
+        self.pending_commit = Some(PendingSegmentCommit::new(InlineSegment::Atom(segment)));
         Ok(())
     }
 }

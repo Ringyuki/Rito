@@ -403,9 +403,16 @@ Those names now belong to the old TS reference tree only.
      prefix without further growth, resumes inside ignored-subtree discard, and
      consumes `rt`/`rb` boundaries only after the complete group is private.
      Empty groups and seeds with sufficient spare capacity allocate nothing and
-     consume no atomic slot. Ordinary None/upper/lower/capitalize transforms now
-     use a resumable exact UTF-8/UTF-16 preflight, paid exact-capacity admission
-     for their logical and painted buffers, and a second metered scalar assembly.
+     consume no atomic slot. Generic segment commit now retains one segment
+     directly instead of allocating a single-element temporary vector. A full
+     candidate output pays atomic admission by its checked post-commit length
+     before an amortized `reserve(1)`; the ready commit retains that capacity
+     across a yielded append unit, publishes exactly once without further
+     growth, and updates text summaries only after the successful push. Spare
+     output capacity consumes no atomic slot. Ordinary None/upper/lower/
+     capitalize transforms now use a resumable exact UTF-8/UTF-16 preflight,
+     paid exact-capacity admission for their logical and painted buffers, and a
+     second metered scalar assembly.
      Ordinary non-contextual assembly therefore performs no buffer growth.
      A whole-segment mapping that changes UTF-16 length falls back to logical
      text without assembling transformed output. Changed equal-length output
@@ -416,8 +423,8 @@ Those names now belong to the old TS reference tree only.
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
      atomic lowercase allocation/growth residual. The moved annotation-part
-     and annotation traversal/discard-frame `Vec`s, generic candidate-output/
-     commit/frame/discard `Vec`s, and stack-safe but
+     and annotation traversal/discard-frame `Vec`s, generic candidate-frame/
+     discard `Vec`s, and stack-safe but
      synchronous cancellation scratch `Vec` can still allocate or grow. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
@@ -468,8 +475,8 @@ Those names now belong to the old TS reference tree only.
      atomic residuals.
    - This is not yet the complete default-Greedy hard bound. Contextual
      Final_Sigma whole-string lowercase allocation/growth, moved annotation
-     part/traversal/discard-frame `Vec`s, generic candidate-output/commit/frame/
-     discard `Vec`s, remaining context metadata
+     part/traversal/discard-frame `Vec`s, generic candidate-frame/discard `Vec`s,
+     remaining context metadata
      work, container startup and owned margin-collapse preparation, mapping
      allocation/seal/path boxing, source-text sharing/allocation, stack-safe but
      synchronous O(n) cancellation cleanup and scratch growth, the downstream
@@ -603,12 +610,11 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by first replacing generic candidate
-   segment commit's single-element temporary `Vec` and adding resumable paid
-   admission before candidate-output growth. Then meter the remaining generic
-   frame/discard/cancellation and annotation-part/traversal-frame collection
-   residuals, candidate/context allocation, clones, metadata and seals,
-   container startup, strict downstream
+1. Complete the default-Greedy hard bound by next metering generic candidate
+   traversal-frame growth, followed by shared discard and annotation-part/
+   traversal-frame growth plus cancellation collection residuals. Then cover
+   candidate/context allocation, clones, metadata and seals, container startup,
+   strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual
    Final_Sigma whole-string lowercase allocation/growth as an explicit paid
    atomic residual. Make the currently atomic Liang point calculation bounded,
@@ -665,10 +671,12 @@ commit; empty annotations allocate neither output nor seal. Completed leaf
 lines are converted and height-accounted as their line batch is emitted,
 eliminating the line-count-dependent close scan. Ruby base groups now preflight
 direct prefixes, reuse `rb` seed capacity, pay before required growth and gather
-without implicit reallocation. The next bounded-layout slice should remove the
-generic candidate commit's single-element temporary vector and admit output
-growth before reservation. Annotation-part/traversal-frame and generic frame/
-discard/cancellation collection growth remains afterwards, together with
+without implicit reallocation. Generic candidate commit now directly retains
+one pending segment and admits output growth before an amortized reservation;
+the append and summary update resume separately without re-admission. The next
+bounded-layout slice should meter generic traversal-frame growth, followed by
+annotation-part/traversal-frame and shared discard/cancellation collection
+growth, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

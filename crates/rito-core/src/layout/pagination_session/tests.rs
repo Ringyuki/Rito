@@ -83,16 +83,24 @@ fn floats_and_margins_survive_an_advance_boundary() {
     let mut session = session(&nodes, &images);
 
     let first = session.advance(budget(1), &fonts);
-    let second = session.advance(budget(1), &fonts);
-    let third = session.advance(budget(1), &fonts);
-
     assert_eq!(first.status, LayoutAdvanceStatus::Partial);
-    assert_eq!(second.status, LayoutAdvanceStatus::Partial);
-    assert_eq!(third.status, LayoutAdvanceStatus::Complete);
-    assert!(second.output[0].x > 0.0, "the active float offsets text");
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert_eq!(first.output.len(), 1, "the float finishes first");
     let mut actual = first.output;
-    actual.extend(second.output);
-    actual.extend(third.output);
+    let mut completed = false;
+    for _ in 0..8 {
+        let advance = session.advance(budget(1), &fonts);
+        let complete = advance.status == LayoutAdvanceStatus::Complete;
+        actual.extend(advance.output);
+        if complete {
+            completed = true;
+            break;
+        }
+    }
+
+    assert!(completed, "the bounded session must complete");
+    assert_eq!(actual.len(), 3, "all three blocks must finish");
+    assert!(actual[1].x > 0.0, "the active float offsets text");
     assert_eq!(actual, one_shot_blocks(&nodes));
 }
 

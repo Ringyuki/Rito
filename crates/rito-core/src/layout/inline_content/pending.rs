@@ -12,6 +12,9 @@ use crate::{
 
 mod atomic;
 mod cleanup;
+mod commit;
+#[cfg(test)]
+mod commit_tests;
 mod context;
 mod discard;
 mod frame;
@@ -22,6 +25,7 @@ mod text;
 mod transform;
 
 use atomic::{AtomicNodeKind, PendingAtomicNode};
+use commit::PendingSegmentCommit;
 use discard::PendingNodeDiscard;
 use frame::{apply_inline_exit, CollectionFrame, InlineExit, NodeFrame, TextSegmentSummary};
 use ruby::{PendingRubyFrame, RubyAction};
@@ -31,7 +35,6 @@ use text::PendingTextSegment;
 enum ActiveCollection {
     Text(Box<PendingTextSegment>),
     Atomic(Box<PendingAtomicNode>),
-    Committing(std::vec::IntoIter<InlineSegment>),
 }
 
 /// Owns ordinary inline-tree traversal and never publishes partial segments.
@@ -39,6 +42,7 @@ enum ActiveCollection {
 pub(crate) struct PendingInlineCandidateCollector {
     frames: Vec<CollectionFrame>,
     active: Option<ActiveCollection>,
+    pending_commit: Option<PendingSegmentCommit>,
     discard: Option<PendingNodeDiscard>,
     output: Vec<InlineSegment>,
     whitespace: WhitespaceCollapseState,
@@ -54,6 +58,7 @@ impl PendingInlineCandidateCollector {
         Self {
             frames: vec![CollectionFrame::Nodes(NodeFrame::root(nodes, href))],
             active: None,
+            pending_commit: None,
             discard: None,
             output: Vec::new(),
             whitespace: WhitespaceCollapseState::default(),
@@ -66,6 +71,10 @@ impl PendingInlineCandidateCollector {
         work: &mut TextWorkMeter,
     ) -> Result<Vec<InlineSegment>, TextWorkYield> {
         loop {
+            if self.pending_commit.is_some() {
+                self.advance_pending_commit(work)?;
+                continue;
+            }
             if let Some(active) = self.active.take() {
                 self.advance_active(active, work)?;
                 continue;
@@ -133,7 +142,11 @@ impl PendingInlineCandidateCollector {
     ) -> Result<(), TextWorkYield> {
         match active {
             ActiveCollection::Text(mut text) => match text.advance(work) {
-                Ok(true) => self.active = Some(committing(InlineSegment::Text((*text).finish()))),
+                Ok(true) => {
+                    self.pending_commit = Some(PendingSegmentCommit::new(InlineSegment::Text(
+                        (*text).finish(),
+                    )))
+                }
                 Ok(false) => self.active = Some(ActiveCollection::Text(text)),
                 Err(error) => {
                     self.active = Some(ActiveCollection::Text(text));
@@ -141,20 +154,19 @@ impl PendingInlineCandidateCollector {
                 }
             },
             ActiveCollection::Atomic(atomic) => self.advance_atomic(atomic, work)?,
-            ActiveCollection::Committing(mut segments) => {
-                if segments.as_slice().is_empty() {
-                    return Ok(());
-                }
-                if let Err(error) = require_unit(work) {
-                    self.active = Some(ActiveCollection::Committing(segments));
-                    return Err(error);
-                }
-                let segment = segments.next().expect("a paid segment exists");
-                self.commit_segment(segment);
-                if !segments.as_slice().is_empty() {
-                    self.active = Some(ActiveCollection::Committing(segments));
-                }
-            }
+        }
+        Ok(())
+    }
+
+    fn advance_pending_commit(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        let text_index = self
+            .pending_commit
+            .as_mut()
+            .expect("a checked pending segment commit exists")
+            .advance(&mut self.output, work)?;
+        self.pending_commit = None;
+        if let Some(index) = text_index {
+            self.current_node_frame_mut().summary.include(index);
         }
         Ok(())
     }
@@ -272,19 +284,6 @@ impl PendingInlineCandidateCollector {
         parent.summary.merge(&summary);
         Ok(())
     }
-
-    fn commit_segment(&mut self, segment: InlineSegment) {
-        let is_text = !segment.is_atom();
-        let index = self.output.len();
-        self.output.push(segment);
-        if is_text {
-            self.current_node_frame_mut().summary.include(index);
-        }
-    }
-}
-
-fn committing(segment: InlineSegment) -> ActiveCollection {
-    ActiveCollection::Committing(vec![segment].into_iter())
 }
 
 pub(super) fn require_unit(work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {

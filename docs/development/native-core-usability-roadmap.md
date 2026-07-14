@@ -86,7 +86,7 @@ The remaining usability work is narrower but still release-blocking:
    annotations allocate neither output nor seal. Contextual Final_Sigma whole-
    string allocation/growth,
    moved annotation-part/traversal/discard-frame `Vec`s, generic candidate-
-   output/commit/frame/discard/cancellation collection growth,
+   frame/discard/cancellation collection growth,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint operations, the leaf marker/paint seal, atomic Liang point generation,
@@ -163,11 +163,13 @@ withholding the context until its paid seal. Ruby base grouping now preflights
 each direct prefix, checked-counts its base nodes, reuses `rb` seed capacity and
 pays atomic admission before a required exact reservation. Its second metered
 pass gathers without implicit growth and resumes inside ignored-subtree discard.
-The remaining bounded-layout work starts with generic candidate output/commit,
-removing its single-element temporary vector and admitting growth before
-reservation, then covers annotation-part/traversal-frame and generic frame/
-discard/cancellation collection residuals, candidate/context allocation, clone
-and metadata residuals, container startup,
+Generic segment commit now directly owns one pending segment instead of a
+single-element vector, admits full-output growth by the checked post-commit
+length, retains a completed amortized reservation across yield, and updates its
+summary only after the no-growth push. The remaining bounded-layout work starts
+with generic traversal-frame growth, then covers shared discard and annotation-
+part/traversal-frame growth plus cancellation collection residuals,
+candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
 residual. Then make the currently atomic Liang point calculation bounded and
@@ -236,8 +238,8 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   paid exact-capacity reservations and scalar-metered assembly. Ruby base-group
   vectors now use checked direct-prefix preflight, paid reservation when needed
   and a no-growth gathering pass while reusing `rb` seeds. The moved annotation-
-  part and annotation traversal/discard-frame `Vec`s, generic candidate-output/
-  commit/frame/discard `Vec`s, and the
+  part and annotation traversal/discard-frame `Vec`s, generic candidate-frame/
+  discard `Vec`s, and the
   stack-safe but synchronous cancellation scratch `Vec` can still allocate or
   grow. Source-text sharing and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
@@ -525,7 +527,7 @@ architecture rather than make an eager whole-book pipeline faster.
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
    allocation/growth, moved annotation-part/traversal/discard-frame `Vec`s,
-   generic candidate-output/commit/frame/discard/
+   generic candidate-frame/discard/
    cancellation collection growth, remaining context metadata, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,
