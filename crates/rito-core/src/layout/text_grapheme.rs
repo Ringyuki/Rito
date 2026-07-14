@@ -2,10 +2,15 @@ use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 
 use crate::layout::text_work::{TextWorkMeter, TextWorkYield};
 
+mod comparator;
+
+pub(super) use comparator::PendingGraphemeBoundaryComparator;
+
 #[derive(Debug)]
 pub(super) struct PendingGraphemeScan {
     cursor: GraphemeCursor,
     source_byte_cursor: usize,
+    source_utf16_cursor: usize,
     previous_scalar: Option<ScalarChunk>,
     pending_source: Option<PendingCharge>,
     ready_source: Option<ReadySource>,
@@ -16,12 +21,14 @@ pub(super) struct PendingGraphemeScan {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum GraphemeScanEvent {
     Scalar(char),
+    Boundary { utf16_offset: usize },
     Complete { grapheme_count: usize },
 }
 
 #[derive(Debug)]
 struct ReadySource {
     scalar: ScalarChunk,
+    utf16_start: usize,
     reported: bool,
     window_context_remaining: usize,
 }
@@ -45,6 +52,7 @@ impl PendingGraphemeScan {
         Self {
             cursor: GraphemeCursor::new(0, text_byte_len, true),
             source_byte_cursor: 0,
+            source_utf16_cursor: 0,
             previous_scalar: None,
             pending_source: None,
             ready_source: None,
@@ -88,8 +96,11 @@ impl PendingGraphemeScan {
                 .expect("source scalar is fully charged")
                 .scalar;
             self.source_byte_cursor = source.end;
+            let utf16_start = self.source_utf16_cursor;
+            self.source_utf16_cursor += source.utf16_len;
             self.ready_source = Some(ReadySource {
                 scalar: source,
+                utf16_start,
                 reported: false,
                 window_context_remaining: self
                     .previous_scalar
@@ -148,12 +159,18 @@ impl PendingGraphemeScan {
         {
             Ok(Some(boundary)) => {
                 self.grapheme_count += 1;
+                let utf16_offset = match boundary {
+                    boundary if boundary == current.start => ready.utf16_start,
+                    boundary if boundary == current.end => ready.utf16_start + current.utf16_len,
+                    _ => unreachable!("a two-scalar forward window has no other boundary"),
+                };
                 if self.cursor.cur_cursor() == current.end {
                     self.finish_ready_source();
                 } else {
                     debug_assert_eq!(boundary, current.start);
                     debug_assert_eq!(self.cursor.cur_cursor(), current.start);
                 }
+                return Ok(Some(GraphemeScanEvent::Boundary { utf16_offset }));
             }
             Ok(None) => {
                 debug_assert_eq!(self.cursor.cur_cursor(), text.len());
@@ -227,5 +244,5 @@ impl PendingCharge {
 }
 
 #[cfg(test)]
-#[path = "grapheme_tests.rs"]
+#[path = "text_grapheme_tests.rs"]
 mod tests;

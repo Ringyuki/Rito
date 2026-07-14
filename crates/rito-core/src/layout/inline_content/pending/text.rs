@@ -5,16 +5,14 @@ use serde_json::{Map, Value};
 use super::{
     context::OwnedInlineContext,
     source::admit_source_metadata,
-    transform::{scalar_equals, transform_mode, TransformMode},
+    transform::{scalar_equals, transform_mode, PendingTransformLinearity, TransformMode},
 };
 use crate::{
     layout::{
         inline_content::WhitespaceCollapseState,
         inline_segment::TextSegment,
         style_values::string_style,
-        text_mapping::{
-            text_transform_is_linear, TextMappingCandidate, TextSegmentMapping, TextSourceBasis,
-        },
+        text_mapping::{TextMappingCandidate, TextSegmentMapping, TextSourceBasis},
         text_work::{AtomicTextOperationKind, TextWorkMeter, TextWorkPermitResult, TextWorkYield},
     },
     style::StyledNode,
@@ -40,9 +38,9 @@ pub(super) struct PendingTextSegment {
     transform_changed: bool,
     contextual_lowercase: bool,
     contextual_lowercase_resolved: bool,
+    linearity: PendingTransformLinearity,
     source_metadata_admitted: bool,
     at_word_boundary: bool,
-    transform_is_linear: Option<bool>,
     style: Map<String, Value>,
     href: Option<String>,
     source_path: Option<Vec<usize>>,
@@ -99,9 +97,9 @@ impl PendingTextSegment {
             transform_changed: false,
             contextual_lowercase: false,
             contextual_lowercase_resolved: false,
+            linearity: PendingTransformLinearity::new(),
             source_metadata_admitted: false,
             at_word_boundary: true,
-            transform_is_linear: None,
             style,
             href: context.href.clone(),
             source_path: node.source_ref.map(|source| source.node_path),
@@ -126,21 +124,7 @@ impl PendingTextSegment {
             self.commit_scalar();
         }
         self.resolve_contextual_lowercase(work)?;
-        if self.needs_linearity_check() && self.transform_is_linear.is_none() {
-            if matches!(
-                work.try_permit_atomic(
-                    AtomicTextOperationKind::InlineCollection,
-                    self.logical_utf16_len,
-                ),
-                TextWorkPermitResult::Yield
-            ) {
-                return Err(TextWorkYield);
-            }
-            self.transform_is_linear = Some(text_transform_is_linear(
-                &self.logical,
-                self.transformed.as_deref().unwrap_or_default(),
-            ));
-        }
+        self.compare_transform_boundaries(work)?;
         admit_source_metadata(
             work,
             &mut self.source_metadata_admitted,
@@ -159,7 +143,7 @@ impl PendingTextSegment {
         } else {
             self.display
         };
-        let transform_is_linear = self.transform_is_linear.unwrap_or(true);
+        let transform_is_linear = self.linearity.result().unwrap_or(true);
         let mapping = TextSegmentMapping::Candidate(TextMappingCandidate::new_prevalidated(
             self.logical,
             self.source_path.clone(),
@@ -259,6 +243,10 @@ impl PendingTextSegment {
         }
         let mapped = &output[start..];
         self.transform_changed |= !scalar_equals(character, mapped);
+        // The eager scalar-boundary vectors are equal exactly when every
+        // per-source-scalar case mapping remains one scalar of the same UTF-16
+        // width. Contextual Final_Sigma only changes that scalar's value.
+        self.linearity.record_scalar(character, mapped);
         self.transformed_utf16_len += mapped.encode_utf16().count();
     }
 
@@ -270,6 +258,20 @@ impl PendingTextSegment {
             )
             && self.transform_changed
             && self.transformed_utf16_len == self.logical_utf16_len
+    }
+
+    fn compare_transform_boundaries(
+        &mut self,
+        work: &mut TextWorkMeter,
+    ) -> Result<(), TextWorkYield> {
+        if !self.needs_linearity_check() {
+            return Ok(());
+        }
+        let transformed = self
+            .transformed
+            .as_deref()
+            .expect("changed equal-length transforms retain their display text");
+        self.linearity.advance(&self.logical, transformed, work)
     }
 }
 

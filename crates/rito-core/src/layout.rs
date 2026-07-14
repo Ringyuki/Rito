@@ -52,6 +52,7 @@ mod style_values;
 mod summary_json;
 mod summary_types;
 mod text_geometry;
+mod text_grapheme;
 mod text_mapping;
 mod text_measure;
 mod text_position;

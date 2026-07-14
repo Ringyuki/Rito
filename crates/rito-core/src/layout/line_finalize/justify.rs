@@ -2,9 +2,9 @@ use super::super::{
     line::LineRun,
     line_align::JustifyPlan,
     line_break::is_cjk_character,
+    text_grapheme::{GraphemeScanEvent, PendingGraphemeScan},
     text_work::{TextWorkMeter, TextWorkYield},
 };
-use super::grapheme::{GraphemeScanEvent, PendingGraphemeScan};
 
 #[derive(Debug)]
 pub(super) struct PendingJustifyAnalysis {
@@ -170,6 +170,7 @@ impl PendingTextAnalysis {
                     self.stats.ascii_spaces += usize::from(character == ' ');
                     self.stats.has_cjk |= is_cjk_character(character);
                 }
+                GraphemeScanEvent::Boundary { .. } => {}
                 GraphemeScanEvent::Complete { grapheme_count } => {
                     self.stats.grapheme_count = grapheme_count;
                     return Ok(());

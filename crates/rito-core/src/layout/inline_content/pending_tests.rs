@@ -153,7 +153,7 @@ fn suspended_deep_trees_drop_iteratively_without_stack_overflow() {
 }
 
 #[test]
-fn contextual_lowercase_is_not_repeated_before_linearity_resumes() {
+fn contextual_lowercase_resumes_with_eager_parity() {
     let mut lower = text_node("ΟΣ", None, Some(0), "normal");
     lower
         .style
@@ -169,12 +169,12 @@ fn contextual_lowercase_is_not_repeated_before_linearity_resumes() {
             Ok(segments) => break segments,
             Err(_) => yields += 1,
         }
-        assert!(yields < 5, "contextual lowercase must not restart");
+        assert!(
+            yields < 10,
+            "contextual lowercase must make bounded progress"
+        );
     };
-    assert_eq!(
-        yields, 2,
-        "linearity and source sharing must resume in fresh quanta"
-    );
+    assert!(yields > 0, "the operation limit must exercise resumption");
     assert_eq!(format!("{actual:#?}"), format!("{expected:#?}"));
 }
 

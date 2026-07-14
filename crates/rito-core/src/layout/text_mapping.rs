@@ -3,9 +3,9 @@ use std::sync::Arc;
 mod finalize;
 mod utf16;
 
-pub(crate) use finalize::{
-    finalize_inline_text_flow, text_transform_is_linear, PendingInlineTextFlowFinalizer,
-};
+#[cfg(test)]
+pub(crate) use finalize::text_transform_is_linear;
+pub(crate) use finalize::{finalize_inline_text_flow, PendingInlineTextFlowFinalizer};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum TextSourceBasis {

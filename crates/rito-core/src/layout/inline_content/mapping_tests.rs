@@ -117,63 +117,89 @@ fn pending_ordinary_nested_inline_marks_fragments_with_eager_parity() {
 
 #[test]
 fn pending_text_transforms_match_eager_across_astral_and_fallback_cases() {
-    let mut upper = text_node("hello😀", 0);
-    upper
-        .style
-        .insert("textTransform".to_owned(), json!("uppercase"));
-    let mut fallback = text_node("aß", 1);
-    fallback
-        .style
-        .insert("textTransform".to_owned(), json!("uppercase"));
-    let mut capitalize = text_node("hello_world again", 2);
-    capitalize
-        .style
-        .insert("textTransform".to_owned(), json!("capitalize"));
-    let mut astral_upper = text_node("𐐨", 3);
-    astral_upper
-        .style
-        .insert("textTransform".to_owned(), json!("uppercase"));
-    let mut nonlinear = text_node("a\u{0345}", 4);
-    nonlinear
-        .style
-        .insert("textTransform".to_owned(), json!("uppercase"));
-    let mut contextual_lower = text_node("ΟΣ", 5);
-    contextual_lower
-        .style
-        .insert("textTransform".to_owned(), json!("lowercase"));
-    let mut contextual_lower_mid = text_node("ΟΣΑ", 6);
-    contextual_lower_mid
-        .style
-        .insert("textTransform".to_owned(), json!("lowercase"));
     let nodes = vec![
-        upper,
-        fallback,
-        capitalize,
-        astral_upper,
-        nonlinear,
-        contextual_lower,
-        contextual_lower_mid,
+        transformed_text_node("hello😀", 0, "uppercase"),
+        transformed_text_node("aß", 1, "uppercase"),
+        transformed_text_node("hello_world again", 2, "capitalize"),
+        transformed_text_node("𐐨", 3, "uppercase"),
+        transformed_text_node("a\u{0345}", 4, "uppercase"),
+        transformed_text_node("ΟΣ", 5, "lowercase"),
+        transformed_text_node("ΟΣΑ", 6, "lowercase"),
     ];
-    let expected = flatten_inline_content(&nodes, SegmentContext::default());
+    let expected = assert_pending_matches_eager(&nodes);
+    let text = text_segments(&expected);
+    assert_eq!(
+        text[4].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
+            TextMappingUnavailableReason::NonLinearTextTransform
+        ))
+    );
+    assert_eq!(text[1].text, "aß");
+    assert_eq!(text[3].text, "𐐀");
+    assert_eq!(text[5].text, "ος");
+    assert_eq!(text[6].text, "οσα");
+}
 
+#[test]
+fn pending_transform_boundaries_match_eager_at_tiny_quanta() {
+    let nodes = vec![
+        transformed_text_node("\u{212a}", 0, "lowercase"),
+        transformed_text_node("\u{130}", 1, "lowercase"),
+        transformed_text_node("ΟΣ\u{301}", 2, "lowercase"),
+    ];
+    let expected = assert_pending_matches_eager(&nodes);
+    let text = text_segments(&expected);
+
+    assert_eq!(text[0].text, "k");
+    assert!(matches!(
+        text[0].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Exact(_))
+    ));
+    assert_eq!(text[1].text, "\u{130}");
+    assert!(matches!(
+        text[1].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Exact(_))
+    ));
+    assert_eq!(text[2].text, "ος\u{301}");
+}
+
+#[test]
+fn pending_transform_unavailable_reason_priority_matches_eager() {
+    let mut pseudo_nonlinear = pseudo_text_node("a\u{345}");
+    set_transform(&mut pseudo_nonlinear, "uppercase");
+    let mut restored_nonlinear = transformed_text_node("a\u{345}", 1, "uppercase");
+    restored_nonlinear.source_text = Some("a\u{345}".to_owned());
+    restored_nonlinear
+        .style
+        .insert("whiteSpace".to_owned(), json!("pre-wrap"));
+    let expected = assert_pending_matches_eager(&[pseudo_nonlinear, restored_nonlinear]);
+    let text = text_segments(&expected);
+
+    assert_eq!(
+        text[0].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
+            TextMappingUnavailableReason::NonLinearTextTransform
+        ))
+    );
+    assert_eq!(
+        text[1].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
+            TextMappingUnavailableReason::RestoredParserWhitespace
+        ))
+    );
+}
+
+fn assert_pending_matches_eager(nodes: &[StyledNode]) -> Vec<InlineSegment> {
+    let expected = flatten_inline_content(nodes, SegmentContext::default());
     for quantum in [1, 2, 3, usize::MAX] {
-        let actual = finish_pending_inline_content(&nodes, quantum);
+        let actual = finish_pending_inline_content(nodes, quantum);
         assert_eq!(
             format!("{actual:#?}"),
             format!("{expected:#?}"),
             "text quantum {quantum}"
         );
     }
-    assert_eq!(
-        text_segments(&expected)[4].mapping,
-        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
-            TextMappingUnavailableReason::NonLinearTextTransform
-        ))
-    );
-    assert_eq!(text_segments(&expected)[1].text, "aß");
-    assert_eq!(text_segments(&expected)[3].text, "𐐀");
-    assert_eq!(text_segments(&expected)[5].text, "ος");
-    assert_eq!(text_segments(&expected)[6].text, "οσα");
+    expected
 }
 
 fn finish_pending_inline_content(nodes: &[StyledNode], quantum: usize) -> Vec<InlineSegment> {
@@ -225,6 +251,17 @@ fn text_node(content: &str, path: usize) -> StyledNode {
             node_path: vec![path],
         },
     )
+}
+
+fn transformed_text_node(content: &str, path: usize, transform: &str) -> StyledNode {
+    let mut node = text_node(content, path);
+    set_transform(&mut node, transform);
+    node
+}
+
+fn set_transform(node: &mut StyledNode, transform: &str) {
+    node.style
+        .insert("textTransform".to_owned(), json!(transform));
 }
 
 fn pseudo_text_node(content: &str) -> StyledNode {
