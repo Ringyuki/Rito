@@ -75,7 +75,7 @@ The remaining usability work is narrower but still release-blocking:
    10,000-cluster operation-count guards and bit-level compatibility oracles.
    Inline candidate collection, remaining line-context metadata work, container
    startup, mapping allocation/seal/path boxing, per-run ruby tag/paint
-   operations, leaf publication, atomic Liang point generation, visually
+   operations, the leaf marker/paint seal, atomic Liang point generation, visually
    decorated or floated containers, Optimal paragraphs and tables therefore
    still prevent a complete wall-clock hard bound. A test-only ordered,
    text-hashed trace covers prefix probes,
@@ -131,9 +131,9 @@ the production Greedy leaf and withhold their owned segments until completion.
 Line-context display preflight and indexed assembly then resume under the same
 text meter, withholding the context until its paid seal. The remaining
 bounded-layout work is to meter inline candidate collection, remaining context
-metadata, container startup, per-run ruby tag/paint work and leaf publication,
-then make the currently atomic Liang point
-calculation bounded and cover
+metadata, container startup, per-run ruby tag/paint work and the leaf
+marker/paint seal, then make the currently atomic Liang point calculation
+bounded and cover
 visually decorated and floated containers, auto-layout tables and Optimal
 paragraphs. Individual font calls remain indivisible even though their
 surrounding measure/shape stages resume.
@@ -157,7 +157,8 @@ mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Inline candidate
 collection, remaining line-context metadata, one container/paragraph-preparation
-pass, decorated or floated composite, table or Optimal paragraph can still
+pass, the leaf marker/paint seal, decorated or floated composite, table or
+Optimal paragraph can still
 violate the intended latency bound. Each individual measurement or Rustybuzz
 call is also indivisible, and the fresh-quantum oversized-operation escape
 prevents livelock rather than imposing a strict wall-clock bound.
@@ -179,9 +180,11 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   vector across yields, so no partial mapping can enter line layout. The
   following line-context builder meters display-scalar preflight and assembly,
   builds UTF-16/newline indexes without a final rescan and withholds the context
-  until seal. Inline candidate collection remains eager, while context
-  allocation, style clones, font-family/face selection, line-break metadata and
-  B-tree insertion remain indivisible operations. Mapping allocation plus
+  until seal. Its bounded-prefix font setup now parses CSS family lists, scans
+  valid faces and compares even long family names across resumptions before it
+  consumes the segment text. Inline candidate collection remains eager, while
+  context allocation, style clones, line-break metadata and B-tree insertion
+  remain indivisible operations. Mapping allocation plus
   boxing completed buffers and moved source paths are likewise indivisible.
   Ruby grouping traversal now resumes per input run and withholds the complete
   line across yields, but exact tag comparison and the first run's tag/selected
@@ -191,6 +194,11 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   run; wrapped runs share parser source text and ruby extraction moves retained
   run allocations rather than cloning them. ASCII hyphen word discovery and
   candidate probing resume, but one Liang point-generation call remains atomic;
+- completed Greedy leaf lines are offset and wrapped as runtime children when
+  each bounded line batch is emitted, while the maximum child bottom is retained
+  incrementally. Closing a leaf therefore no longer maps and then rescans every
+  completed line. Child-vector growth, list-marker insertion plus block
+  paint/border/style metadata are still atomic leaf residuals;
 - optimal paragraph breaks depend on the complete paragraph. Item construction
   and dynamic programming can yield between budgets, but the paragraph cannot
   publish before completion unless a forced-break boundary proves a prefix;
@@ -450,9 +458,11 @@ architecture rather than make an eager whole-book pipeline faster.
    line or block is exposed. A process-local font layout-profile token rejects
    inconsistent resume inputs. Logical-flow source-mapping assembly and commit,
    followed by display-text line-context preflight/indexed assembly, now resume
-   before line layout. Inline candidate collection, remaining context metadata,
-   container startup, mapping allocation/seal/path boxing, per-run ruby
-   tag/paint work and leaf publication,
+   before line layout. Font-family parsing and valid-face discovery inside the
+   bounded-prefix policy resume as well, and completed leaf lines are converted
+   plus height-accounted incrementally. Inline candidate collection, remaining
+   context metadata, container startup, mapping allocation/seal/path boxing,
+   per-run ruby tag/paint work and the leaf marker/paint seal,
    atomic Liang point generation, decorated/floated containers, tables and
    Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work

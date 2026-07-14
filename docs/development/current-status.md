@@ -418,14 +418,20 @@ Those names now belong to the old TS reference tree only.
      output length only for ruby lines, without publishing a partial `LineBox`.
      Exact tag comparison plus the first run's tag/selected paint clones are
      still indivisible inside that paid run. Inline candidate collection happens
-     earlier and remains unmetered; line-context scalar assembly is now metered,
-     with the metadata-sized residuals listed above.
+     earlier and remains unmetered; line-context scalar assembly is now metered.
+     Its bounded-prefix policy also resumes CSS family parsing, valid-face scans
+     and long face-family comparisons before consuming segment text. Completed
+     leaf lines are offset, wrapped and height-accounted as each bounded batch is
+     emitted, so leaf close no longer maps and rescans every accumulated line.
+     Style clones and allocations, child-vector growth, line-break metadata,
+     B-tree insertion, list markers and final block paint/border metadata remain
+     atomic residuals.
    - This is not yet the complete default-Greedy hard bound. Inline
      candidate collection, remaining context metadata work, container startup
      and owned margin-collapse preparation, mapping allocation/seal/path boxing,
      the per-run ruby string/paint operations, atomic Liang point generation,
-     leaf publication, visually decorated or floated containers, tables and
-     Optimal paragraphs still contain unmetered or atomic regions.
+     the leaf marker/paint seal, visually decorated or floated containers,
+     tables and Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -555,8 +561,8 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
    candidate collection, the remaining line-context metadata work, container
-   startup, strict ruby tag/paint work and leaf publication, then make the
-   currently atomic Liang point calculation bounded. Carry
+   startup, strict ruby tag/paint work and the leaf marker/paint seal, then make
+   the currently atomic Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
@@ -591,12 +597,15 @@ run without publishing a partial line; exact tag/paint work remains indivisible.
 Logical-flow mapping preflight, assembly and assignment commit now resume in
 the production Greedy leaf without exposing partial mappings. Display-text
 line-context preflight, indexed assembly and seal now resume immediately after
-it without exposing partial context or rescanning the completed string. The next
+it without exposing partial context or rescanning the completed string.
+Bounded-prefix font-family parsing and valid-face discovery resume inside that
+builder. Completed leaf lines are converted and height-accounted as their line
+batch is emitted, eliminating the line-count-dependent close scan. The next
 bounded-layout slice should meter inline candidate collection, remaining
-line-context metadata work, container startup and leaf publication before
-making Liang point generation itself resumable and extending the same discipline
-through decorated/floated containers, tables and Optimal layout. Individual
-font calls and the Liang dictionary call remain indivisible; the
+line-context metadata work, container startup and the leaf marker/paint seal
+before making Liang point generation itself resumable and extending the same
+discipline through decorated/floated containers, tables and Optimal layout.
+Individual font calls and the Liang dictionary call remain indivisible; the
 oversized-operation escape means the public quantum is not yet a complete
 wall-clock hard bound.
 After the default-Greedy hard bound, move the single-pass source scan under an

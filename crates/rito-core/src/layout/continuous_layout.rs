@@ -229,7 +229,8 @@ struct ContinuousLeafLayoutSession {
     line_width: f64,
     font_profile_id: u64,
     text_state: Option<ContinuousLeafTextState>,
-    completed_lines: Vec<LineBox>,
+    completed_children: Vec<ContinuousChild>,
+    child_bottom: f64,
 }
 
 #[derive(Debug)]
@@ -286,7 +287,8 @@ impl ContinuousLeafLayoutSession {
             line_width,
             font_profile_id: state.text_layout.fonts.layout_profile_id(),
             text_state: Some(ContinuousLeafTextState::FinalizingMapping(mapping)),
-            completed_lines: Vec::new(),
+            completed_children: Vec::new(),
+            child_bottom: 0.0,
         }
     }
 
@@ -340,7 +342,7 @@ impl ContinuousLeafLayoutSession {
                     let completed =
                         lines.advance_with_text_work(max_line_boxes, work.text_work_mut(), fonts);
                     let processed = completed.len();
-                    self.completed_lines.extend(completed);
+                    self.publish_completed_lines(completed);
                     self.text_state = Some(ContinuousLeafTextState::LayoutLines(lines));
                     return processed;
                 }
@@ -355,17 +357,32 @@ impl ContinuousLeafLayoutSession {
         )
     }
 
+    fn publish_completed_lines(&mut self, completed: Vec<LineBox>) {
+        let dx = self.metrics.border_left + self.metrics.padding_left;
+        let dy = self.metrics.border_top + self.metrics.padding_top;
+        for line in completed {
+            let line = line.offset_position(dx, dy);
+            self.child_bottom = self.child_bottom.max(line.y + line.height);
+            self.completed_children.push(ContinuousChild::Line(line));
+        }
+    }
+
     fn finish(
         self,
         state: &mut ContinuousLayoutState<'_>,
         list_ctx: &mut Option<ContinuousListContext>,
     ) {
-        let mut block = build_continuous_text_block(
+        let height = resolve_continuous_text_block_height_from_bottom(
+            &self.node,
+            self.child_bottom,
+            self.metrics,
+        );
+        let mut block = seal_continuous_text_block(
             &self.node,
             self.block_width,
             self.y,
-            self.metrics,
-            self.completed_lines,
+            height,
+            self.completed_children,
         );
         add_continuous_list_marker(&mut block, &self.node, list_ctx);
         let x_offset = resolve_horizontal_offset(
@@ -923,7 +940,16 @@ fn build_continuous_text_block(
         })
         .collect::<Vec<_>>();
     let height = resolve_continuous_text_block_height(node, &children, metrics);
+    seal_continuous_text_block(node, content_width, y, height, children)
+}
 
+fn seal_continuous_text_block(
+    node: &StyledNode,
+    content_width: f64,
+    y: f64,
+    height: f64,
+    children: Vec<ContinuousChild>,
+) -> ContinuousBlock {
     ContinuousBlock {
         x: 0.0,
         y,
@@ -1386,6 +1412,14 @@ fn resolve_continuous_text_block_height(
             ContinuousChild::Block(_) | ContinuousChild::Image(_) | ContinuousChild::Hr(_) => None,
         })
         .fold(0.0_f64, f64::max);
+    resolve_continuous_text_block_height_from_bottom(node, child_bottom, metrics)
+}
+
+fn resolve_continuous_text_block_height_from_bottom(
+    node: &StyledNode,
+    child_bottom: f64,
+    metrics: TextBlockMetrics,
+) -> f64 {
     let mut height = child_bottom + metrics.padding_bottom + metrics.border_bottom;
     if positive_style(&node.style, "height").is_some() {
         let border_v = metrics.border_top + metrics.border_bottom;

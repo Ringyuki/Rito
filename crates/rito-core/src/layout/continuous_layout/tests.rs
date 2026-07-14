@@ -5,7 +5,7 @@ use serde_json::{json, Map};
 use super::{
     has_mixed_inline_content, layout_continuous_blocks, layout_continuous_floated_leaf,
     layout_continuous_text_block, relative_visual_offset, wrap_anonymous_inline_runs,
-    ContinuousFloatContext, ContinuousLayoutState, ContinuousLeafLayoutSession,
+    ContinuousBlock, ContinuousFloatContext, ContinuousLayoutState, ContinuousLeafLayoutSession,
     ContinuousLeafTextState, ContinuousTextLayout, ImageSizeIndex, LayoutWorkBudget,
     LayoutWorkMeter, LineBreaking, TextMeasurementFonts,
 };
@@ -88,7 +88,7 @@ fn production_leaf_resumes_mapping_context_and_lines_in_order() {
         seen[phase] = true;
         if phase < 2 {
             assert!(
-                leaf.completed_lines.is_empty(),
+                leaf.completed_children.is_empty(),
                 "mapping and context preparation must not publish partial lines"
             );
         }
@@ -102,10 +102,62 @@ fn production_leaf_resumes_mapping_context_and_lines_in_order() {
 
     assert!(leaf.is_complete(), "tiny quanta must not livelock");
     assert_eq!(seen, [true, true, true]);
-    assert!(leaf.completed_lines.len() > 1);
+    assert!(leaf.completed_children.len() > 1);
     let mut list_ctx = None;
     leaf.finish(&mut state, &mut list_ctx);
     assert_eq!(state.blocks, vec![expected]);
+}
+
+#[test]
+fn resumed_leaf_publishes_many_lines_with_eager_height_parity() {
+    let content = "many resumable lines keep their geometry and block height stable ".repeat(80);
+    let mut intrinsic = paragraph(&content);
+    intrinsic.style.extend(text_block_insets());
+
+    let mut content_box_height = intrinsic.clone();
+    content_box_height
+        .style
+        .insert("height".to_owned(), json!(96));
+
+    let mut border_box_height = content_box_height.clone();
+    border_box_height
+        .style
+        .insert("boxSizing".to_owned(), json!("border-box"));
+
+    let mut min_height = intrinsic.clone();
+    min_height
+        .style
+        .insert("minHeight".to_owned(), json!(100_000));
+
+    let mut max_height = intrinsic.clone();
+    max_height.style.insert("maxHeight".to_owned(), json!(72));
+
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    for (name, styled) in [
+        ("intrinsic", intrinsic),
+        ("content-box height", content_box_height),
+        ("border-box height", border_box_height),
+        ("min-height", min_height),
+        ("max-height", max_height),
+    ] {
+        let expected = layout_continuous_text_block(
+            &styled,
+            152.0,
+            0.0,
+            &images,
+            LineBreaking::Greedy,
+            &fonts,
+        );
+        assert!(
+            expected.children.len() > 32,
+            "{name} must exercise many lines"
+        );
+
+        let actual = layout_resumable_leaf_one_line_at_a_time(styled, 152.0, &images, &fonts);
+
+        assert_eq!(actual, expected, "{name}");
+    }
 }
 
 #[test]
@@ -215,6 +267,73 @@ fn relative_offset_is_applied_to_floated_leaves() {
         block.paint.as_ref().map(|paint| &paint["visualOffset"]),
         Some(&json!({ "dx": -8, "dy": -5 }))
     );
+}
+
+fn layout_resumable_leaf_one_line_at_a_time(
+    styled: StyledNode,
+    content_width: f64,
+    images: &ImageSizeIndex,
+    fonts: &TextMeasurementFonts<'_>,
+) -> ContinuousBlock {
+    let mut state = ContinuousLayoutState {
+        blocks: Vec::new(),
+        floats: ContinuousFloatContext::default(),
+        y: 0.0,
+        previous_margin_bottom: 0.0,
+        text_layout: ContinuousTextLayout {
+            line_breaking: LineBreaking::Greedy,
+            fonts,
+        },
+    };
+    let mut leaf = ContinuousLeafLayoutSession::new(&mut state, styled, content_width, images);
+    let budget = LayoutWorkBudget::with_max_line_boxes(NonZeroUsize::MIN, NonZeroUsize::MIN);
+    for _ in 0..100_000 {
+        if leaf.is_complete() {
+            break;
+        }
+        let children_before = leaf.completed_children.len();
+        let mut work = LayoutWorkMeter::new(budget);
+        let processed = leaf.advance(&mut work, fonts);
+        work.consume_line_boxes(processed);
+        assert!(processed <= 1, "the tiny line-box quantum must be honored");
+        assert_eq!(
+            leaf.completed_children.len() - children_before,
+            processed,
+            "completed lines must publish immediately"
+        );
+    }
+    assert!(leaf.is_complete(), "one-line quanta must not livelock");
+
+    let mut list_ctx = None;
+    leaf.finish(&mut state, &mut list_ctx);
+    assert!(list_ctx.is_none());
+    assert_eq!(state.blocks.len(), 1);
+    state.blocks.pop().expect("the resumed leaf output")
+}
+
+fn text_block_insets() -> Map<String, serde_json::Value> {
+    Map::from_iter([
+        ("paddingTop".to_owned(), json!(7)),
+        ("paddingRight".to_owned(), json!(5)),
+        ("paddingBottom".to_owned(), json!(11)),
+        ("paddingLeft".to_owned(), json!(13)),
+        (
+            "borderTop".to_owned(),
+            json!({ "width": 2, "color": "#111111", "style": "solid" }),
+        ),
+        (
+            "borderRight".to_owned(),
+            json!({ "width": 1, "color": "#222222", "style": "solid" }),
+        ),
+        (
+            "borderBottom".to_owned(),
+            json!({ "width": 3, "color": "#333333", "style": "solid" }),
+        ),
+        (
+            "borderLeft".to_owned(),
+            json!({ "width": 4, "color": "#444444", "style": "solid" }),
+        ),
+    ])
 }
 
 fn paragraph(content: &str) -> StyledNode {
