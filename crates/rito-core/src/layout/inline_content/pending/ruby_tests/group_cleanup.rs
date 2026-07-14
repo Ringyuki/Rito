@@ -22,18 +22,21 @@ fn suspended_group_discard_drops_a_deep_ignored_tree_iteratively() {
 }
 
 #[test]
-fn suspended_annotation_discard_drops_deep_text_children_iteratively() {
+fn suspended_annotation_part_and_discard_drop_deep_text_children_iteratively() {
     let mut ignored = text("ignored");
     for _ in 0..16_384 {
         ignored = block("block", vec![ignored]);
     }
-    let mut raw = text("");
+    let mut raw = text("annotation");
     raw.children.push(ignored);
     let pending = suspend_when(vec![ruby(vec![text("base"), rt(vec![raw])])], |state| {
         matches!(
             state,
             super::super::RubyState::Extracting(group)
                 if group.extraction.has_pending_discard()
+                    && group
+                        .extraction
+                        .has_completed_text_waiting_for_part_capacity()
         )
     });
 
@@ -41,6 +44,29 @@ fn suspended_annotation_discard_drops_deep_text_children_iteratively() {
         active_ruby_state(&pending),
         super::super::RubyState::Extracting(group)
             if group.extraction.has_pending_discard()
+                && group
+                    .extraction
+                    .has_completed_text_waiting_for_part_capacity()
+    ));
+    drop(pending);
+}
+
+#[test]
+fn unadmitted_annotation_root_drops_a_deep_tree_iteratively() {
+    let pending = suspend_when(
+        vec![ruby(vec![text("base"), rt(vec![deep_inline(16_384)])])],
+        |state| {
+            matches!(
+                state,
+                super::super::RubyState::Extracting(group)
+                    if group.extraction.has_initial_frame()
+            )
+        },
+    );
+
+    assert!(matches!(
+        active_ruby_state(&pending),
+        super::super::RubyState::Extracting(group) if group.extraction.has_initial_frame()
     ));
     drop(pending);
 }

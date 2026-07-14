@@ -136,7 +136,7 @@ fn raw_rt_text_ignores_source_transform_and_text_children() {
 }
 
 #[test]
-fn deep_annotation_resumes_at_q1_and_suspended_drop_is_stack_safe() {
+fn deep_annotation_resumes_at_q1() {
     let mut annotation = text("注😀");
     for _ in 0..2_048 {
         annotation = inline("span", vec![annotation]);
@@ -148,31 +148,6 @@ fn deep_annotation_resumes_at_q1_and_suspended_drop_is_stack_safe() {
         text_segments(&actual)[0].ruby_annotation.as_deref(),
         Some("注😀")
     );
-
-    let mut suspended = text("deep");
-    for _ in 0..16_384 {
-        suspended = inline("span", vec![suspended]);
-    }
-    let mut pending = PendingInlineCandidateCollector::new(
-        vec![ruby(vec![text("base"), rt(vec![suspended])])],
-        None,
-        None,
-    );
-    for _ in 0..32 {
-        let mut work = TextWorkMeter::new(budget(1));
-        assert!(pending.advance(&mut work).is_err());
-        if matches!(
-            try_active_ruby_state(&pending),
-            Some(super::RubyState::Extracting(_))
-        ) {
-            break;
-        }
-    }
-    assert!(matches!(
-        active_ruby_state(&pending),
-        super::RubyState::Extracting(_)
-    ));
-    drop(pending);
 }
 
 fn active_ruby_state(pending: &PendingInlineCandidateCollector) -> &super::RubyState {

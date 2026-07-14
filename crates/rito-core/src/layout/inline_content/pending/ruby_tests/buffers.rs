@@ -13,10 +13,16 @@ fn multipart_cjk_and_astral_annotation_resumes_at_q1_with_eager_parity() {
             inline("span", vec![text("😀"), text("音")]),
         ]),
     ])];
+    let expected = collect_inline_content_candidates(&nodes, SegmentContext::default());
     assert_pending_matches_eager(&nodes, None, None);
 
     let (actual, yields) = drive_with_limits(nodes, None, None, 1, 1);
     assert!(yields > 0);
+    assert_eq!(
+        format!("{actual:#?}"),
+        format!("{expected:#?}"),
+        "multipart nested extraction must retain eager parity at q1/atomic1"
+    );
     assert_eq!(
         text_segments(&actual)
             .into_iter()
@@ -27,42 +33,57 @@ fn multipart_cjk_and_astral_annotation_resumes_at_q1_with_eager_parity() {
 }
 
 #[test]
-fn extraction_reserve_and_arc_seal_each_consume_one_atomic_slot() {
-    let mut extraction = PendingRubyAnnotation::new(vec![
-        text("注"),
-        inline("span", vec![text("😀"), text("音")]),
-    ]);
+fn single_text_extraction_pays_root_part_output_and_seal_admissions() {
+    let mut extraction = PendingRubyAnnotation::new(vec![text("注")]);
+    assert!(extraction.has_initial_frame());
 
-    let mut reserve_work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
+    let mut root_work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
     assert!(
-        extraction.advance(&mut reserve_work).is_err(),
-        "the Arc seal must wait after the output reserve consumes the slot"
+        extraction.advance(&mut root_work).is_err(),
+        "first-part admission must wait after root-frame admission"
     );
-    assert_eq!(reserve_work.atomic_operations_remaining(), 0);
+    assert_eq!(root_work.atomic_operations_remaining(), 0);
+    assert!(!extraction.has_initial_frame());
+    assert!(extraction.has_completed_text_waiting_for_part_capacity());
+
+    let mut part_work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
+    assert!(
+        extraction.advance(&mut part_work).is_err(),
+        "output admission must wait after first-part admission"
+    );
+    assert_eq!(part_work.atomic_operations_remaining(), 0);
+    assert!(!extraction.has_completed_text_waiting_for_part_capacity());
+
+    let mut output_work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
+    assert!(
+        extraction.advance(&mut output_work).is_err(),
+        "the Arc seal must wait after output admission"
+    );
+    assert_eq!(output_work.atomic_operations_remaining(), 0);
 
     let mut seal_work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
     let annotation = extraction
         .advance(&mut seal_work)
-        .expect("the completed output must not be reserved again")
+        .expect("the admitted output must not be reserved again")
         .expect("the non-empty annotation must be sealed");
-    assert_eq!(annotation.text(), "注😀音");
+    assert_eq!(annotation.text(), "注");
     assert_eq!(seal_work.atomic_operations_remaining(), 0);
 }
 
 #[test]
-fn empty_annotation_skips_output_reserve_and_arc_seal() {
-    let mut extraction = PendingRubyAnnotation::new(vec![text(""), inline("span", vec![text("")])]);
+fn empty_text_annotation_pays_only_root_frame_admission() {
+    let mut extraction = PendingRubyAnnotation::new(vec![text("")]);
+    assert!(extraction.has_initial_frame());
     let mut work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
 
     assert!(extraction
         .advance(&mut work)
-        .expect("empty extraction is synchronous at a large text quantum")
+        .expect("empty extraction completes after admitting its root frame")
         .is_none());
-    assert_eq!(
-        work.atomic_operations_remaining(),
-        1,
-        "empty annotations must allocate neither an output buffer nor an Arc"
-    );
+    assert_eq!(work.atomic_operations_remaining(), 0);
+    assert!(!extraction.has_initial_frame());
+    assert!(!extraction.has_completed_text_waiting_for_part_capacity());
+    assert!(!extraction.has_pending_discard());
 }
 
 #[test]
@@ -118,9 +139,13 @@ fn limited_budget(quantum: usize, atomic_operations: usize) -> TextWorkBudget {
 
 fn extract_shared_annotation(content: &str) -> SharedRubyAnnotation {
     let mut extraction = PendingRubyAnnotation::new(vec![text(content)]);
-    let mut work = TextWorkMeter::new(limited_budget(usize::MAX, 2));
-    extraction
-        .advance(&mut work)
-        .expect("two atomic slots cover reserve and Arc seal")
-        .expect("test annotations are non-empty")
+    for _ in 0..16 {
+        let mut work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
+        match extraction.advance(&mut work) {
+            Ok(Some(annotation)) => return annotation,
+            Ok(None) => panic!("test annotations are non-empty"),
+            Err(_) => continue,
+        }
+    }
+    panic!("annotation extraction did not complete with fresh atomic slots")
 }

@@ -11,8 +11,14 @@ use super::{
     SharedRubyAnnotation,
 };
 
+mod growth;
+mod text_scan;
+
+use text_scan::PendingTextScan;
+
 #[derive(Debug)]
 pub(in crate::layout::inline_content::pending) struct PendingRubyAnnotation {
+    initial_frame: Option<std::vec::IntoIter<StyledNode>>,
     frames: Vec<std::vec::IntoIter<StyledNode>>,
     active_text: Option<PendingTextScan>,
     discard: Option<PendingNodeDiscard>,
@@ -40,7 +46,8 @@ enum ExtractionPhase {
 impl PendingRubyAnnotation {
     pub(in crate::layout::inline_content::pending) fn new(nodes: Vec<StyledNode>) -> Self {
         Self {
-            frames: vec![nodes.into_iter()],
+            initial_frame: Some(nodes.into_iter()),
+            frames: Vec::new(),
             active_text: None,
             discard: None,
             parts: Vec::new(),
@@ -102,6 +109,9 @@ impl PendingRubyAnnotation {
         &mut self,
         output: &mut Vec<StyledNode>,
     ) {
+        if let Some(frame) = self.initial_frame.take() {
+            output.extend(frame);
+        }
         for frame in self.frames.drain(..) {
             output.extend(frame);
         }
@@ -115,17 +125,34 @@ impl PendingRubyAnnotation {
         self.discard.is_some()
     }
 
+    #[cfg(test)]
+    pub(in crate::layout::inline_content::pending) const fn has_initial_frame(&self) -> bool {
+        self.initial_frame.is_some()
+    }
+
+    #[cfg(test)]
+    pub(in crate::layout::inline_content::pending) fn has_completed_text_waiting_for_part_capacity(
+        &self,
+    ) -> bool {
+        self.active_text
+            .as_ref()
+            .is_some_and(PendingTextScan::is_complete)
+            && !self.part_slot_available()
+    }
+
     fn advance_scan(&mut self, work: &mut TextWorkMeter) -> Result<bool, TextWorkYield> {
         loop {
-            if let Some(text) = self.active_text.as_mut() {
-                if text.advance(&mut self.byte_len, &mut self.utf16_len, work)? {
-                    let text = self
-                        .active_text
-                        .take()
-                        .expect("a completed ruby text scan exists")
-                        .finish();
-                    self.parts.push(text);
-                }
+            if self.initial_frame.is_some() {
+                self.ensure_frame_slot(work)?;
+                let frame = self
+                    .initial_frame
+                    .take()
+                    .expect("a checked initial annotation frame exists");
+                self.push_reserved_frame(frame);
+                continue;
+            }
+            if self.active_text.is_some() {
+                self.advance_active_text(work)?;
                 continue;
             }
             if let Some(discard) = self.discard.as_mut() {
@@ -146,6 +173,9 @@ impl PendingRubyAnnotation {
                 }
                 continue;
             }
+            if self.next_node_requires_frame() {
+                self.ensure_frame_slot(work)?;
+            }
             require_unit(work)?;
             let node = self
                 .frames
@@ -154,6 +184,24 @@ impl PendingRubyAnnotation {
                 .expect("a paid ruby annotation node exists");
             self.dispatch_node(node);
         }
+    }
+
+    fn advance_active_text(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        let completed = self
+            .active_text
+            .as_mut()
+            .expect("an active ruby text scan exists")
+            .advance(&mut self.byte_len, &mut self.utf16_len, work)?;
+        if completed {
+            self.ensure_part_slot(work)?;
+            let text = self
+                .active_text
+                .take()
+                .expect("a completed ruby text scan exists")
+                .finish();
+            self.push_reserved_part(text);
+        }
+        Ok(())
     }
 
     fn dispatch_node(&mut self, mut node: StyledNode) {
@@ -167,8 +215,7 @@ impl PendingRubyAnnotation {
             }
             return;
         }
-        self.frames
-            .push(std::mem::take(&mut node.children).into_iter());
+        self.push_reserved_frame(std::mem::take(&mut node.children).into_iter());
     }
 
     fn advance_assembly(&mut self, work: &mut TextWorkMeter) -> Result<bool, TextWorkYield> {
@@ -218,46 +265,6 @@ impl PendingRubyAnnotation {
     }
 }
 
-#[derive(Debug)]
-struct PendingTextScan {
-    source: String,
-    cursor: usize,
-    scalar: Option<PendingScalar>,
-}
-
-impl PendingTextScan {
-    fn new(source: String) -> Self {
-        Self {
-            source,
-            cursor: 0,
-            scalar: None,
-        }
-    }
-
-    fn advance(
-        &mut self,
-        byte_len: &mut usize,
-        utf16_len: &mut usize,
-        work: &mut TextWorkMeter,
-    ) -> Result<bool, TextWorkYield> {
-        while self.cursor < self.source.len() || self.scalar.is_some() {
-            if self.scalar.is_none() {
-                let character = self.source[self.cursor..]
-                    .chars()
-                    .next()
-                    .expect("the ruby scan cursor precedes its source end");
-                self.scalar = Some(PendingScalar::new(character));
-            }
-            charge_scalar(&mut self.scalar, work)?;
-            let scalar = self.scalar.take().expect("a paid ruby scan scalar exists");
-            checked_add(&mut self.cursor, scalar.character.len_utf8());
-            checked_add(byte_len, scalar.character.len_utf8());
-            checked_add(utf16_len, scalar.character.len_utf16());
-        }
-        Ok(true)
-    }
-
-    fn finish(self) -> String {
-        self.source
-    }
-}
+#[cfg(test)]
+#[path = "extract_tests.rs"]
+mod tests;

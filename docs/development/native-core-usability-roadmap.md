@@ -84,9 +84,7 @@ The remaining usability work is narrower but still release-blocking:
    now use paid exact-capacity reservation plus scalar-metered assembly; a
    separate paid seal publishes the source shared during application, and empty
    annotations allocate neither output nor seal. Contextual Final_Sigma whole-
-   string allocation/growth,
-   moved annotation-part/traversal-frame `Vec`s and cancellation collection
-   growth,
+   string allocation/growth, cancellation collection growth,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint operations, the leaf marker/paint seal, atomic Liang point generation,
@@ -172,9 +170,13 @@ initial root outside the stack until admission, and consume ordinary inline or
 Ruby-base payloads only after a no-growth push slot exists. Shared ignored-
 subtree discard now retains its root iterator outside an empty stack, admits
 checked post-depth growth before consuming nested nodes, and pushes without
-growth across ordinary, Ruby-group and raw-annotation-text owners. The remaining
-bounded-layout work starts with annotation-part/traversal-frame growth, then
-covers cancellation collection residuals,
+growth across ordinary, Ruby-group and raw-annotation-text owners. Ruby
+annotation extraction now applies checked post-depth admission to its unstacked
+root and every non-text child frame, including empty frames, and checked post-
+part-count admission to completed text scans before no-growth publication. A
+denied part reserve retains the completed scan without recounting its UTF-8 or
+UTF-16 lengths. The remaining bounded-layout work starts with cancellation
+collection residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
@@ -248,9 +250,10 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   reservation, preserves the initial root outside that stack until admission,
   and consumes ordinary inline or Ruby-base payloads only after a no-growth push
   slot exists. Shared ignored-subtree discard applies the same preflight and no-
-  growth push protocol to its root and nested frames. The moved annotation-part
-  and annotation traversal-frame `Vec`s plus the stack-safe but synchronous
-  cancellation scratch `Vec` can still allocate or grow. Source-text sharing
+  growth push protocol to its root and nested frames. Annotation traversal and
+  part vectors now preflight checked post-size growth and push only into retained
+  capacity. The stack-safe but synchronous cancellation scratch `Vec` can still
+  allocate or grow. Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
   Mapping allocation plus
@@ -536,8 +539,8 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, moved annotation-part/traversal-frame `Vec`s, cancellation
-   collection growth, remaining context metadata, container
+   allocation/growth, cancellation collection growth, remaining context
+   metadata, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,
    decorated/floated
