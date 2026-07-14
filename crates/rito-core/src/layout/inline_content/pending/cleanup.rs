@@ -5,6 +5,9 @@ use super::{frame::CollectionFrame, ActiveCollection, PendingInlineCandidateColl
 impl Drop for PendingInlineCandidateCollector {
     fn drop(&mut self) {
         let mut nodes = Vec::new();
+        if let Some(root) = self.initial_root.take() {
+            nodes.extend(root.nodes);
+        }
         for frame in self.frames.drain(..) {
             match frame {
                 CollectionFrame::Nodes(frame) => nodes.extend(frame.nodes),

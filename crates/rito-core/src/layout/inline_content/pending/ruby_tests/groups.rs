@@ -12,18 +12,18 @@ fn direct_group_reserve_is_paid_once_across_a_yield() {
     let mut output = Vec::new();
 
     let mut preflight = TextWorkMeter::new(limited_budget(4, 1));
-    assert!(frame.advance(&mut output, 0, &mut preflight).is_err());
+    assert!(frame.advance(&mut output, 0, true, &mut preflight).is_err());
     assert_eq!(preflight.atomic_operations_remaining(), 1);
 
     let mut reserve_and_gather = TextWorkMeter::new(limited_budget(4, 1));
     assert!(frame
-        .advance(&mut output, 0, &mut reserve_and_gather)
+        .advance(&mut output, 0, true, &mut reserve_and_gather)
         .is_err());
     assert_eq!(reserve_and_gather.atomic_operations_remaining(), 0);
 
     let mut publish = TextWorkMeter::new(limited_budget(4, 1));
     let RubyAction::PushBase(nodes) = frame
-        .advance(&mut output, 0, &mut publish)
+        .advance(&mut output, 0, true, &mut publish)
         .expect("a completed reserve must not repeat after yielding")
     else {
         panic!("the completed direct group must be published");
@@ -216,7 +216,7 @@ fn zero_base_groups_skip_capacity_admission() {
     let mut work = TextWorkMeter::new(limited_budget(usize::MAX, 1));
 
     assert!(matches!(
-        frame.advance(&mut output, 0, &mut work),
+        frame.advance(&mut output, 0, true, &mut work),
         Ok(RubyAction::Complete)
     ));
     assert_eq!(work.atomic_operations_remaining(), 1);

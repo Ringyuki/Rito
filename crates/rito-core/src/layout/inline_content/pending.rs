@@ -4,10 +4,9 @@ use super::{InlineSegment, WhitespaceCollapseState};
 use crate::{
     layout::{
         image_size::ImageSizeIndex,
-        style_values::{number_style, string_style},
         text_work::{TextWorkMeter, TextWorkYield},
     },
-    style::{StyledNode, StyledNodeKind},
+    style::StyledNode,
 };
 
 mod atomic;
@@ -17,18 +16,22 @@ mod commit;
 mod commit_tests;
 mod context;
 mod discard;
+mod dispatch;
 mod frame;
+mod frame_growth;
+#[cfg(test)]
+mod frame_tests;
 mod ruby;
 mod ruby_text;
 mod source;
 mod text;
 mod transform;
 
-use atomic::{AtomicNodeKind, PendingAtomicNode};
+use atomic::PendingAtomicNode;
 use commit::PendingSegmentCommit;
 use discard::PendingNodeDiscard;
-use frame::{apply_inline_exit, CollectionFrame, InlineExit, NodeFrame, TextSegmentSummary};
-use ruby::{PendingRubyFrame, RubyAction};
+use frame::{apply_inline_exit, CollectionFrame, NodeFrame};
+use ruby::RubyAction;
 use text::PendingTextSegment;
 
 #[derive(Debug)]
@@ -40,6 +43,7 @@ enum ActiveCollection {
 /// Owns ordinary inline-tree traversal and never publishes partial segments.
 #[derive(Debug)]
 pub(crate) struct PendingInlineCandidateCollector {
+    initial_root: Option<NodeFrame>,
     frames: Vec<CollectionFrame>,
     active: Option<ActiveCollection>,
     pending_commit: Option<PendingSegmentCommit>,
@@ -56,7 +60,8 @@ impl PendingInlineCandidateCollector {
         href: Option<String>,
     ) -> Self {
         Self {
-            frames: vec![CollectionFrame::Nodes(NodeFrame::root(nodes, href))],
+            initial_root: Some(NodeFrame::root(nodes, href)),
+            frames: Vec::new(),
             active: None,
             pending_commit: None,
             discard: None,
@@ -71,6 +76,15 @@ impl PendingInlineCandidateCollector {
         work: &mut TextWorkMeter,
     ) -> Result<Vec<InlineSegment>, TextWorkYield> {
         loop {
+            if self.initial_root.is_some() {
+                self.ensure_frame_slot(work)?;
+                let root = self
+                    .initial_root
+                    .take()
+                    .expect("a checked initial node frame exists");
+                self.push_reserved_frame(CollectionFrame::Nodes(root));
+                continue;
+            }
             if self.pending_commit.is_some() {
                 self.advance_pending_commit(work)?;
                 continue;
@@ -92,6 +106,9 @@ impl PendingInlineCandidateCollector {
                     }
                 }
                 Some(CollectionFrame::Nodes(_)) => {
+                    if self.next_node_requires_frame() {
+                        self.ensure_frame_slot(work)?;
+                    }
                     require_unit(work)?;
                     let node = self
                         .current_node_frame_mut()
@@ -101,6 +118,7 @@ impl PendingInlineCandidateCollector {
                     self.dispatch_node(node);
                 }
                 Some(CollectionFrame::Ruby(_)) => {
+                    let frame_slot_available = self.frame_slot_available();
                     let action = {
                         let frame = self
                             .frames
@@ -111,9 +129,10 @@ impl PendingInlineCandidateCollector {
                             })
                             .expect("the active collection frame is ruby");
                         let output_len = self.output.len();
-                        frame.advance(&mut self.output, output_len, work)?
+                        frame.advance(&mut self.output, output_len, frame_slot_available, work)?
                     };
                     match action {
+                        RubyAction::NeedBaseFrameCapacity => self.ensure_frame_slot(work)?,
                         RubyAction::PushBase(nodes) => {
                             let context = self
                                 .frames
@@ -124,8 +143,9 @@ impl PendingInlineCandidateCollector {
                                 })
                                 .expect("a ruby base inherits its ruby frame context")
                                 .clone();
-                            self.frames
-                                .push(CollectionFrame::Nodes(NodeFrame::ruby_base(nodes, context)));
+                            self.push_reserved_frame(CollectionFrame::Nodes(NodeFrame::ruby_base(
+                                nodes, context,
+                            )));
                         }
                         RubyAction::Complete => self.finish_ruby_frame(work)?,
                     }
@@ -169,79 +189,6 @@ impl PendingInlineCandidateCollector {
             self.current_node_frame_mut().summary.include(index);
         }
         Ok(())
-    }
-
-    fn dispatch_node(&mut self, mut node: StyledNode) {
-        match node.node_type {
-            StyledNodeKind::Text => {
-                self.discard_children(&mut node);
-                let context = match self.frames.last() {
-                    Some(CollectionFrame::Nodes(frame)) => &frame.context,
-                    Some(CollectionFrame::Ruby(_)) | None => {
-                        unreachable!("text dispatch requires a node frame")
-                    }
-                };
-                if let Some(text) = PendingTextSegment::new(node, context, &mut self.whitespace) {
-                    self.active = Some(ActiveCollection::Text(Box::new(text)));
-                }
-            }
-            StyledNodeKind::Inline if node.tag.as_deref() == Some("ruby") => {
-                let ruby = PendingRubyFrame::new(node, &self.current_node_frame().context);
-                self.frames.push(CollectionFrame::Ruby(ruby));
-            }
-            StyledNodeKind::Inline => self.push_inline_frame(node),
-            StyledNodeKind::Image => {
-                self.discard_children(&mut node);
-                let frame = self.current_node_frame();
-                let context = frame.context.clone();
-                let image_sizes_enabled = frame.image_sizes_enabled;
-                self.active = Some(ActiveCollection::Atomic(Box::new(PendingAtomicNode {
-                    kind: AtomicNodeKind::Image,
-                    node,
-                    context,
-                    image_sizes_enabled,
-                })));
-            }
-            StyledNodeKind::Block
-                if string_style(&node.style, "display").as_deref() == Some("inline-block") =>
-            {
-                self.discard_children(&mut node);
-                let frame = self.current_node_frame();
-                self.active = Some(ActiveCollection::Atomic(Box::new(PendingAtomicNode {
-                    kind: AtomicNodeKind::InlineBlock,
-                    node,
-                    context: frame.context.clone(),
-                    image_sizes_enabled: frame.image_sizes_enabled,
-                })));
-            }
-            StyledNodeKind::Block => self.discard_children(&mut node),
-        }
-    }
-
-    fn discard_children(&mut self, node: &mut StyledNode) {
-        if node.children.is_empty() {
-            return;
-        }
-        debug_assert!(self.discard.is_none());
-        self.discard = Some(PendingNodeDiscard::new(std::mem::take(&mut node.children)));
-    }
-
-    fn push_inline_frame(&mut self, mut node: StyledNode) {
-        let inherited = self.current_node_frame();
-        let image_sizes_enabled = inherited.image_sizes_enabled;
-        let (context, has_own_borders) = inherited.context.child(&node);
-        let exit = InlineExit {
-            has_own_borders,
-            margin_left: number_style(&node.style, "marginLeft").unwrap_or(0.0),
-            margin_right: number_style(&node.style, "marginRight").unwrap_or(0.0),
-        };
-        self.frames.push(CollectionFrame::Nodes(NodeFrame {
-            nodes: std::mem::take(&mut node.children).into_iter(),
-            context,
-            summary: TextSegmentSummary::default(),
-            exit: Some(exit),
-            image_sizes_enabled,
-        }));
     }
 
     fn finish_node_frame(

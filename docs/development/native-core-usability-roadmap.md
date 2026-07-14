@@ -86,7 +86,7 @@ The remaining usability work is narrower but still release-blocking:
    annotations allocate neither output nor seal. Contextual Final_Sigma whole-
    string allocation/growth,
    moved annotation-part/traversal/discard-frame `Vec`s, generic candidate-
-   frame/discard/cancellation collection growth,
+   discard and cancellation collection growth,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint operations, the leaf marker/paint seal, atomic Liang point generation,
@@ -166,9 +166,12 @@ pass gathers without implicit growth and resumes inside ignored-subtree discard.
 Generic segment commit now directly owns one pending segment instead of a
 single-element vector, admits full-output growth by the checked post-commit
 length, retains a completed amortized reservation across yield, and updates its
-summary only after the no-growth push. The remaining bounded-layout work starts
-with generic traversal-frame growth, then covers shared discard and annotation-
-part/traversal-frame growth plus cancellation collection residuals,
+summary only after the no-growth push. Generic candidate traversal frames now
+admit checked post-depth growth before an amortized reservation, preserve the
+initial root outside the stack until admission, and consume ordinary inline or
+Ruby-base payloads only after a no-growth push slot exists. The remaining
+bounded-layout work starts with shared candidate discard, then covers annotation-
+part/traversal/discard-frame growth plus cancellation collection residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
@@ -237,11 +240,14 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   paid atomic operation. Ruby annotation output and per-base text copies now use
   paid exact-capacity reservations and scalar-metered assembly. Ruby base-group
   vectors now use checked direct-prefix preflight, paid reservation when needed
-  and a no-growth gathering pass while reusing `rb` seeds. The moved annotation-
-  part and annotation traversal/discard-frame `Vec`s, generic candidate-frame/
-  discard `Vec`s, and the
-  stack-safe but synchronous cancellation scratch `Vec` can still allocate or
-  grow. Source-text sharing and context allocation remain atomic; style/value
+  and a no-growth gathering pass while reusing `rb` seeds. The generic candidate
+  traversal stack now admits checked post-depth growth before an amortized
+  reservation, preserves the initial root outside that stack until admission,
+  and consumes ordinary inline or Ruby-base payloads only after a no-growth push
+  slot exists. The moved annotation-part and annotation traversal/discard-frame
+  `Vec`s, the generic candidate-discard `Vec`, and the stack-safe but synchronous
+  cancellation scratch `Vec` can still allocate or grow. Source-text sharing
+  and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
   Mapping allocation plus
   boxing completed buffers and moved source paths are likewise indivisible.
@@ -527,8 +533,8 @@ architecture rather than make an eager whole-book pipeline faster.
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
    allocation/growth, moved annotation-part/traversal/discard-frame `Vec`s,
-   generic candidate-frame/discard/
-   cancellation collection growth, remaining context metadata, container
+   generic candidate-discard and cancellation collection growth, remaining
+   context metadata, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,
    decorated/floated

@@ -71,6 +71,7 @@ enum AfterGroup {
 
 #[derive(Debug)]
 pub(super) enum RubyAction {
+    NeedBaseFrameCapacity,
     PushBase(Vec<StyledNode>),
     Complete,
 }
@@ -89,6 +90,7 @@ impl PendingRubyFrame {
         &mut self,
         output: &mut [InlineSegment],
         output_len: usize,
+        frame_slot_available: bool,
         work: &mut TextWorkMeter,
     ) -> Result<RubyAction, TextWorkYield> {
         loop {
@@ -121,6 +123,10 @@ impl PendingRubyFrame {
                     }
                 },
                 RubyState::ReadyGroup(group) => {
+                    if !frame_slot_available {
+                        self.state = RubyState::ReadyGroup(group);
+                        return Ok(RubyAction::NeedBaseFrameCapacity);
+                    }
                     if let Err(error) = require_unit(work) {
                         self.state = RubyState::ReadyGroup(group);
                         return Err(error);

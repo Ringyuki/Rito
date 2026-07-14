@@ -132,27 +132,6 @@ fn ignored_deep_block_subtrees_are_discarded_iteratively_under_budget() {
 }
 
 #[test]
-fn suspended_deep_trees_drop_iteratively_without_stack_overflow() {
-    let mut nested = ignored_block(Vec::new());
-    for _ in 0..16_384 {
-        nested = ignored_block(vec![nested]);
-    }
-    let mut pending = begin_collect_inline_content(vec![nested], None, None);
-    let mut work = TextWorkMeter::new(budget(1));
-    assert!(pending.advance(&mut work).is_err());
-    drop(pending);
-
-    let mut nested = empty_inline(Vec::new());
-    for _ in 0..16_384 {
-        nested = empty_inline(vec![nested]);
-    }
-    let mut pending = begin_collect_inline_content(vec![nested], None, None);
-    let mut work = TextWorkMeter::new(budget(1));
-    assert!(pending.advance(&mut work).is_err());
-    drop(pending);
-}
-
-#[test]
 fn contextual_lowercase_resumes_with_eager_parity() {
     let mut lower = text_node("ΟΣ", None, Some(0), "normal");
     lower
@@ -189,21 +168,20 @@ fn ordinary_transform_reserves_each_buffer_once_without_partial_publish() {
     let mut pending = begin_collect_inline_content(nodes, None, None);
     let budget = TextWorkBudget::new(NonZeroUsize::MAX, NonZeroUsize::MIN);
 
-    let mut first = TextWorkMeter::new(budget);
-    assert!(
-        pending.advance(&mut first).is_err(),
-        "the second reserve must wait for a fresh atomic-operation slot"
-    );
-    let mut second = TextWorkMeter::new(budget);
-    assert!(
-        pending.advance(&mut second).is_err(),
-        "the final output reserve has its own atomic-operation slot"
-    );
-    let mut third = TextWorkMeter::new(budget);
-    let actual = pending
-        .advance(&mut third)
-        .expect("successful transform and output reserves must not be repeated after resumption");
+    let mut yields = 0;
+    let actual = loop {
+        let mut work = TextWorkMeter::new(budget);
+        match pending.advance(&mut work) {
+            Ok(actual) => break actual,
+            Err(_) => yields += 1,
+        }
+        assert!(yields < 8, "paid reserves must not be replayed");
+    };
 
+    assert_eq!(
+        yields, 3,
+        "frame, transform, and output growth each admit exactly once"
+    );
     assert_eq!(format!("{actual:#?}"), format!("{expected:#?}"));
 }
 
@@ -306,13 +284,6 @@ fn block_node(display: &str, children: Vec<StyledNode>) -> StyledNode {
 
 fn ignored_block(children: Vec<StyledNode>) -> StyledNode {
     let mut node = bare_node(StyledNodeKind::Block, children);
-    node.style.clear();
-    node
-}
-
-fn empty_inline(children: Vec<StyledNode>) -> StyledNode {
-    let mut node = bare_node(StyledNodeKind::Inline, children);
-    node.tag = Some("span".to_owned());
     node.style.clear();
     node
 }

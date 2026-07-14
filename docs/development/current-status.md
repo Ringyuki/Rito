@@ -409,10 +409,19 @@ Those names now belong to the old TS reference tree only.
      before an amortized `reserve(1)`; the ready commit retains that capacity
      across a yielded append unit, publishes exactly once without further
      growth, and updates text summaries only after the successful push. Spare
-     output capacity consumes no atomic slot. Ordinary None/upper/lower/
-     capitalize transforms now use a resumable exact UTF-8/UTF-16 preflight,
-     paid exact-capacity admission for their logical and painted buffers, and a
-     second metered scalar assembly.
+     output capacity consumes no atomic slot. The generic candidate traversal
+     stack now retains its initial root outside an empty `Vec`; each required
+     stack growth pays atomic admission by the checked post-push depth before
+     an amortized `reserve(1)`, and every production push asserts that it uses
+     the retained spare slot without changing capacity. Ordinary inline and
+     Ruby dispatch preflight that slot before consuming the parent iterator or
+     node unit. A ready Ruby base requests capacity without moving its nodes or
+     recording `output_start`; a successful reserve survives a later unit yield
+     without repeated admission. Spare frame capacity consumes no atomic slot,
+     and cancellation drains an unstacked initial root iteratively. Ordinary
+     None/upper/lower/capitalize transforms now use a resumable exact UTF-8 and
+     UTF-16 preflight, paid exact-capacity admission for their logical and
+     painted buffers, and a second metered scalar assembly.
      Ordinary non-contextual assembly therefore performs no buffer growth.
      A whole-segment mapping that changes UTF-16 length falls back to logical
      text without assembling transformed output. Changed equal-length output
@@ -423,9 +432,9 @@ Those names now belong to the old TS reference tree only.
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
      atomic lowercase allocation/growth residual. The moved annotation-part
-     and annotation traversal/discard-frame `Vec`s, generic candidate-frame/
-     discard `Vec`s, and stack-safe but
-     synchronous cancellation scratch `Vec` can still allocate or grow. The
+     and annotation traversal/discard-frame `Vec`s, the generic candidate-
+     discard `Vec`, and the stack-safe but synchronous cancellation scratch
+     `Vec` can still allocate or grow. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -475,7 +484,7 @@ Those names now belong to the old TS reference tree only.
      atomic residuals.
    - This is not yet the complete default-Greedy hard bound. Contextual
      Final_Sigma whole-string lowercase allocation/growth, moved annotation
-     part/traversal/discard-frame `Vec`s, generic candidate-frame/discard `Vec`s,
+     part/traversal/discard-frame `Vec`s, the generic candidate-discard `Vec`,
      remaining context metadata
      work, container startup and owned margin-collapse preparation, mapping
      allocation/seal/path boxing, source-text sharing/allocation, stack-safe but
@@ -610,9 +619,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by next metering generic candidate
-   traversal-frame growth, followed by shared discard and annotation-part/
-   traversal-frame growth plus cancellation collection residuals. Then cover
+1. Complete the default-Greedy hard bound by next metering shared candidate
+   discard, followed by annotation-part/traversal/discard-frame growth and
+   cancellation collection residuals. Then cover
    candidate/context allocation, clones, metadata and seals, container startup,
    strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual
@@ -673,10 +682,13 @@ eliminating the line-count-dependent close scan. Ruby base groups now preflight
 direct prefixes, reuse `rb` seed capacity, pay before required growth and gather
 without implicit reallocation. Generic candidate commit now directly retains
 one pending segment and admits output growth before an amortized reservation;
-the append and summary update resume separately without re-admission. The next
-bounded-layout slice should meter generic traversal-frame growth, followed by
-annotation-part/traversal-frame and shared discard/cancellation collection
-growth, together with
+the append and summary update resume separately without re-admission. Generic
+candidate traversal frames now admit checked post-depth growth before consuming
+their node or Ruby-base payload, retain spare capacity across a unit yield, and
+push without growth; an unstacked initial root remains cancellation-safe. The
+next bounded-layout slice should meter shared candidate discard, followed by
+annotation-part/traversal/discard-frame and cancellation collection growth,
+together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

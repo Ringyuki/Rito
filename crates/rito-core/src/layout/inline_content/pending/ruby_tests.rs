@@ -158,11 +158,15 @@ fn deep_annotation_resumes_at_q1_and_suspended_drop_is_stack_safe() {
         None,
         None,
     );
-    // Dispatch and preflight the ruby base, reserve and gather it, consume the
-    // `rt` boundary, then let the annotation extractor consume one wrapper.
-    for _ in 0..7 {
+    for _ in 0..32 {
         let mut work = TextWorkMeter::new(budget(1));
         assert!(pending.advance(&mut work).is_err());
+        if matches!(
+            try_active_ruby_state(&pending),
+            Some(super::RubyState::Extracting(_))
+        ) {
+            break;
+        }
     }
     assert!(matches!(
         active_ruby_state(&pending),
@@ -172,15 +176,14 @@ fn deep_annotation_resumes_at_q1_and_suspended_drop_is_stack_safe() {
 }
 
 fn active_ruby_state(pending: &PendingInlineCandidateCollector) -> &super::RubyState {
-    pending
-        .frames
-        .iter()
-        .rev()
-        .find_map(|frame| match frame {
-            super::super::frame::CollectionFrame::Ruby(frame) => Some(&frame.state),
-            super::super::frame::CollectionFrame::Nodes(_) => None,
-        })
-        .expect("the test collector owns an active ruby frame")
+    try_active_ruby_state(pending).expect("the test collector owns an active ruby frame")
+}
+
+fn try_active_ruby_state(pending: &PendingInlineCandidateCollector) -> Option<&super::RubyState> {
+    pending.frames.iter().rev().find_map(|frame| match frame {
+        super::super::frame::CollectionFrame::Ruby(frame) => Some(&frame.state),
+        super::super::frame::CollectionFrame::Nodes(_) => None,
+    })
 }
 
 fn assert_pending_matches_eager(

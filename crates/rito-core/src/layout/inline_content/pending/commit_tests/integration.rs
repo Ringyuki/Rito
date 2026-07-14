@@ -43,8 +43,16 @@ fn atom_resets_whitespace_before_its_full_output_commit_resumes() {
     let mut pending = PendingInlineCandidateCollector::new(nodes, None, None);
     pending.output = exact_segments([before]);
     pending.whitespace.set_previous_ended_with_space(true);
-    let mut first = meter(1, 1);
-    assert!(pending.advance(&mut first).is_err());
+    for _ in 0..8 {
+        let mut work = meter(1, 1);
+        assert!(pending.advance(&mut work).is_err());
+        if matches!(
+            pending.pending_commit.as_ref(),
+            Some(PendingSegmentCommit::Reserving { .. })
+        ) {
+            break;
+        }
+    }
     assert!(matches!(
         pending.pending_commit.as_ref(),
         Some(PendingSegmentCommit::Reserving { .. })
@@ -90,9 +98,16 @@ fn collector_drop_releases_a_ready_pending_commit_without_publishing() {
         "owned",
         Arc::clone(&source),
     )));
-    let mut reserve = meter(1, 1);
-
-    assert!(pending.advance(&mut reserve).is_err());
+    for _ in 0..8 {
+        let mut reserve = meter(1, 1);
+        assert!(pending.advance(&mut reserve).is_err());
+        if matches!(
+            pending.pending_commit.as_ref(),
+            Some(PendingSegmentCommit::Ready(_))
+        ) {
+            break;
+        }
+    }
     assert!(matches!(
         pending.pending_commit.as_ref(),
         Some(PendingSegmentCommit::Ready(_))
