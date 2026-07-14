@@ -368,9 +368,14 @@ Those names now belong to the old TS reference tree only.
      run subslices validate boundaries in logarithmic time without weakening
      invalid-surrogate rejection. Logical-flow assembly now resumes inside the
      production Greedy leaf: a paid preflight counts every candidate and UTF-16
-     scalar, buffers are reserved from exact counts in paid steps, text and
-     mapping metadata are copied incrementally, and assignments commit one
-     segment at a time while the finalizer retains ownership. No partial
+     scalar, and the text, surrogate-interior, span and assignment buffers are
+     reserved from exact counts in paid steps. Every reserve that can grow a
+     buffer first receives an `InlineCollection` atomic admission sized from
+     preflight; a zero-growth or already-capacious step consumes only one
+     resumable unit. Successful steps advance exactly once, so a later yield
+     cannot re-admit or move an earlier allocation. Text and mapping metadata
+     are copied incrementally, and assignments commit one segment at a time
+     while the finalizer retains ownership. No partial
      success or global `FlowTooLong` failure can escape across a continuation.
      Exact source ranges that overflow `usize` now fail the whole flow closed
      instead of panicking or producing an invalid mapping. After mapping, a
@@ -511,7 +516,7 @@ Those names now belong to the old TS reference tree only.
    - This is not yet the complete default-Greedy hard bound. Contextual
      Final_Sigma whole-string lowercase allocation/growth, remaining context
      metadata work, container startup and owned margin-collapse preparation,
-     mapping allocation/seal/path boxing, source-text sharing/allocation,
+     mapping seal and path/buffer boxing, source-text sharing/allocation,
      stack-safe but synchronous O(n) candidate cleanup and unbudgeted outer
      continuation/session disposal,
      the downstream per-run ruby tag/paint operations, atomic Liang point
@@ -685,8 +690,11 @@ traces remain unchanged, while a captured font layout-profile token prevents
 restore under inconsistent logical font inputs. The footnote index performs
 one spine parse instead of two. Ruby grouping traversal now resumes per input
 run without publishing a partial line; exact tag/paint work remains indivisible.
-Logical-flow mapping preflight, assembly and assignment commit now resume in
-the production Greedy leaf without exposing partial mappings. Display-text
+Logical-flow mapping preflight, four exact destination-buffer reservations,
+assembly and assignment commit now resume in the production Greedy leaf
+without exposing partial mappings. A growing reservation receives one atomic
+admission directly, preserving the fresh-quantum oversized escape, while an
+already-capacious step consumes only resumable work. Display-text
 line-context preflight, indexed assembly and seal now resume immediately after
 it without exposing partial context or rescanning the completed string.
 Bounded-prefix font-family parsing and valid-face discovery resume inside that

@@ -170,21 +170,26 @@ fn transparent_container_yields_stable_pages_before_the_container_completes() {
     assert_eq!(first.status, LayoutAdvanceStatus::Partial);
     assert_eq!(first.processed_top_level_nodes, 1);
     assert!(first.total_block_count > 0);
-    assert!(
-        !first.newly_sealed_pages.is_empty(),
-        "completed children should reach pagination before the section closes"
-    );
 
     let mut pages = first.newly_sealed_pages;
+    let mut published_before_completion = !pages.is_empty();
     let final_block_count = loop {
         let advance = session.advance(budget(1), &fonts);
         assert_eq!(advance.processed_top_level_nodes, 0);
+        if advance.status == LayoutAdvanceStatus::Partial && !advance.newly_sealed_pages.is_empty()
+        {
+            published_before_completion = true;
+        }
         pages.extend(advance.newly_sealed_pages);
         if advance.status == LayoutAdvanceStatus::Complete {
             break advance.total_block_count;
         }
     };
 
+    assert!(
+        published_before_completion,
+        "completed children should reach pagination before the section closes"
+    );
     assert_eq!(pages, expected.pages);
     assert_eq!(final_block_count, expected.block_count);
 }

@@ -87,7 +87,7 @@ The remaining usability work is narrower but still release-blocking:
    string allocation/growth, synchronous candidate cleanup and unbudgeted outer
    continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
-   startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
+   startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint operations, the leaf marker/paint seal, atomic Liang point generation,
    visually decorated or floated containers, Optimal paragraphs and tables
    therefore still prevent a complete wall-clock hard bound. A test-only
@@ -148,8 +148,12 @@ painted buffers in paid steps, and assemble scalars in a second metered pass.
 Ordinary non-contextual assembly therefore performs no buffer growth.
 Whole-segment mappings that change UTF-16 length fall back without transformed
 assembly; changed equal-length output uses the shared resumable extended-
-grapheme boundary comparator. Logical-flow mapping preflight, assembly and
-assignment commit then resume in the production Greedy leaf. Ruby annotation
+grapheme boundary comparator. Logical-flow mapping preflight, exact text/
+surrogate-interior/span/assignment reservation, assembly and assignment commit
+then resume in the production Greedy leaf. A reservation that can grow its
+buffer receives one direct `InlineCollection` atomic admission, preserving the
+fresh-quantum oversized escape; a zero-growth or already-capacious step consumes
+only resumable work. Ruby annotation
 extraction now performs a resumable UTF-8/UTF-16 size preflight, admits its
 exact-capacity output allocation in a paid step and assembles that output in a
 second scalar-metered pass without growth. A separate paid seal publishes one
@@ -263,8 +267,8 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
-  Mapping allocation plus
-  boxing completed buffers and moved source paths are likewise indivisible.
+  Mapping seal/`Arc` publication plus boxing completed buffers and moved source
+  paths are likewise indivisible.
   Ruby grouping traversal now resumes per input run and withholds the complete
   line across yields, but exact tag comparison and the first run's tag/selected
   paint clones remain indivisible per-run work. Exact
@@ -549,7 +553,7 @@ architecture rather than make an eager whole-book pipeline faster.
    allocation/growth, synchronous candidate cleanup and outer continuation/
    session disposal, remaining context
    metadata, container
-   startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
+   startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,
    decorated/floated
    containers, tables and Optimal layout retain unmetered or atomic regions;

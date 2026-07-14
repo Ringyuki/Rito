@@ -7,8 +7,12 @@ use crate::layout::{
         finalize::unavailable_reason, LogicalTextFlow, RunTextMapping, TextFlowSlice,
         TextMappingUnavailableReason, TextSegmentMapping,
     },
-    text_work::{TextWorkMeter, TextWorkYield},
+    text_work::{AtomicTextOperationKind, TextWorkMeter, TextWorkPermitResult, TextWorkYield},
 };
+
+#[cfg(test)]
+#[path = "phases_tests.rs"]
+mod tests;
 
 #[derive(Debug)]
 pub(super) struct PendingReserve {
@@ -17,7 +21,7 @@ pub(super) struct PendingReserve {
     step: ReserveStep,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ReserveStep {
     Text,
     NonBoundaries,
@@ -41,19 +45,34 @@ impl PendingReserve {
         &mut self,
         work: &mut TextWorkMeter,
     ) -> Result<Transition, TextWorkYield> {
-        require_unit(work)?;
         let draft = self.draft.as_mut().expect("reserve draft is owned");
         let result = match self.step {
-            ReserveStep::Text => draft.text.try_reserve_exact(self.counts.text_bytes),
-            ReserveStep::NonBoundaries => draft
-                .non_boundaries
-                .try_reserve_exact(self.counts.non_boundaries),
-            ReserveStep::Spans => draft.spans.try_reserve_exact(self.counts.candidate_count),
-            ReserveStep::Assignments => draft
-                .assignments
-                .try_reserve_exact(self.counts.candidate_count),
+            ReserveStep::Text => reserve_string(
+                &mut draft.text,
+                self.counts.text_bytes,
+                self.counts.utf16_len as usize,
+                work,
+            )?,
+            ReserveStep::NonBoundaries => reserve_vec(
+                &mut draft.non_boundaries,
+                self.counts.non_boundaries,
+                self.counts.non_boundaries,
+                work,
+            )?,
+            ReserveStep::Spans => reserve_vec(
+                &mut draft.spans,
+                self.counts.candidate_count,
+                self.counts.candidate_count,
+                work,
+            )?,
+            ReserveStep::Assignments => reserve_vec(
+                &mut draft.assignments,
+                self.counts.candidate_count,
+                self.counts.candidate_count,
+                work,
+            )?,
         };
-        if result.is_err() {
+        if !result {
             return Ok(Transition::Fail);
         }
         if matches!(self.step, ReserveStep::Assignments) {
@@ -63,6 +82,47 @@ impl PendingReserve {
         }
         self.step = self.step.next();
         Ok(Transition::Stay)
+    }
+}
+
+fn reserve_string(
+    output: &mut String,
+    additional: usize,
+    operation_units: usize,
+    work: &mut TextWorkMeter,
+) -> Result<bool, TextWorkYield> {
+    debug_assert!(output.is_empty(), "mapping text reserves before assembly");
+    if output.capacity().saturating_sub(output.len()) >= additional {
+        require_unit(work)?;
+        return Ok(true);
+    }
+    admit_reserve(work, operation_units)?;
+    Ok(output.try_reserve_exact(additional).is_ok())
+}
+
+fn reserve_vec<T>(
+    output: &mut Vec<T>,
+    additional: usize,
+    operation_units: usize,
+    work: &mut TextWorkMeter,
+) -> Result<bool, TextWorkYield> {
+    debug_assert!(output.is_empty(), "mapping vectors reserve before assembly");
+    if output.capacity().saturating_sub(output.len()) >= additional {
+        require_unit(work)?;
+        return Ok(true);
+    }
+    admit_reserve(work, operation_units)?;
+    Ok(output.try_reserve_exact(additional).is_ok())
+}
+
+fn admit_reserve(work: &mut TextWorkMeter, operation_units: usize) -> Result<(), TextWorkYield> {
+    if matches!(
+        work.try_permit_atomic(AtomicTextOperationKind::InlineCollection, operation_units),
+        TextWorkPermitResult::Yield
+    ) {
+        Err(TextWorkYield)
+    } else {
+        Ok(())
     }
 }
 
