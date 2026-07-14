@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde_json::{Map, Value};
 
 use super::{
@@ -5,11 +7,7 @@ use super::{
     inline_ruby::collect_ruby_segments,
     inline_segment::{InlineSegment, SegmentContext, TextSegment},
     style_values::*,
-    text_mapping::{
-        finalize_inline_text_flow, PendingInlineTextFlowFinalizer, TextMappingCandidate,
-        TextSegmentMapping,
-    },
-    text_work::{TextWorkMeter, TextWorkYield},
+    text_mapping::{finalize_inline_text_flow, TextMappingCandidate, TextSegmentMapping},
 };
 use crate::style::{StyledNode, StyledNodeKind};
 pub(super) use whitespace::WhitespaceCollapseState;
@@ -19,9 +17,14 @@ pub(crate) use super::inline_summary::normalize_inline_segment;
 
 #[cfg(test)]
 mod mapping_tests;
+mod pending;
+#[cfg(test)]
+mod pending_tests;
 #[cfg(test)]
 mod tests;
 mod whitespace;
+
+pub(crate) use pending::PendingInlineCandidateCollector;
 
 pub(crate) fn flatten_inline_content(
     nodes: &[StyledNode],
@@ -32,33 +35,12 @@ pub(crate) fn flatten_inline_content(
     segments
 }
 
-/// Owns an unfinished logical-text mapping pass so callers cannot observe
-/// partially resolved inline segments between text-work quanta.
-#[derive(Debug)]
-pub(crate) struct PendingInlineContentFinalization {
-    mapping: PendingInlineTextFlowFinalizer,
-}
-
-impl PendingInlineContentFinalization {
-    pub(crate) fn advance(
-        &mut self,
-        work: &mut TextWorkMeter,
-    ) -> Result<Vec<InlineSegment>, TextWorkYield> {
-        self.mapping.advance(work)
-    }
-}
-
-/// Candidate collection still runs eagerly; only the shared logical-flow
-/// finalization is resumable at this boundary.
-pub(crate) fn begin_flatten_inline_content(
-    nodes: &[StyledNode],
-    context: SegmentContext<'_>,
-) -> PendingInlineContentFinalization {
-    PendingInlineContentFinalization {
-        mapping: PendingInlineTextFlowFinalizer::new(collect_inline_content_candidates(
-            nodes, context,
-        )),
-    }
+pub(crate) fn begin_collect_inline_content(
+    nodes: Vec<StyledNode>,
+    image_sizes: Option<Arc<super::image_size::ImageSizeIndex>>,
+    href: Option<String>,
+) -> PendingInlineCandidateCollector {
+    PendingInlineCandidateCollector::new(nodes, image_sizes, href)
 }
 
 fn collect_inline_content_candidates(
@@ -236,16 +218,23 @@ fn patch_inherited_style(
     style: &Map<String, Value>,
     context: &SegmentContext,
 ) -> Map<String, Value> {
+    patch_owned_inherited_style(style.clone(), context)
+}
+
+fn patch_owned_inherited_style(
+    mut patched: Map<String, Value>,
+    context: &SegmentContext,
+) -> Map<String, Value> {
     let needs_bg = context.bg_color.is_some()
-        && string_style(style, "backgroundColor")
+        && string_style(&patched, "backgroundColor")
             .as_deref()
             .unwrap_or_default()
             .is_empty();
     let needs_vertical_align = context.vertical_align.is_some()
-        && string_style(style, "verticalAlign").as_deref() == Some("baseline");
-    let needs_padding = context.padding.is_some() && !has_inline_padding(style);
+        && string_style(&patched, "verticalAlign").as_deref() == Some("baseline");
+    let needs_padding = context.padding.is_some() && !has_inline_padding(&patched);
     let needs_border_radius = context.border_radius.is_some()
-        && number_style(style, "borderRadius").unwrap_or(0.0) <= 0.0;
+        && number_style(&patched, "borderRadius").unwrap_or(0.0) <= 0.0;
     let needs_borders = context.borders.is_some();
 
     if !needs_bg
@@ -254,10 +243,9 @@ fn patch_inherited_style(
         && !needs_border_radius
         && !needs_borders
     {
-        return style.clone();
+        return patched;
     }
 
-    let mut patched = style.clone();
     if needs_bg {
         if let Some(bg_color) = &context.bg_color {
             patched.insert(

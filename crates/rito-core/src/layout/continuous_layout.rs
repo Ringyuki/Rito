@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde_json::{Map, Value};
 
 use super::{
@@ -13,7 +15,7 @@ use super::{
     continuous_table::layout_continuous_table,
     image_size::ImageSizeIndex,
     inline_content::{
-        begin_flatten_inline_content, flatten_inline_content, PendingInlineContentFinalization,
+        begin_collect_inline_content, flatten_inline_content, PendingInlineCandidateCollector,
     },
     inline_segment::SegmentContext,
     line::{LineBox, LineRun},
@@ -27,6 +29,7 @@ use super::{
     style_values::*,
     summary_json::{hash_json, hash_text, number_value},
     summary_types::ContinuousBlockChapterSummary,
+    text_mapping::PendingInlineTextFlowFinalizer,
     text_measure::TextMeasurementFonts,
 };
 use crate::{
@@ -235,7 +238,8 @@ struct ContinuousLeafLayoutSession {
 
 #[derive(Debug)]
 enum ContinuousLeafTextState {
-    FinalizingMapping(PendingInlineContentFinalization),
+    Collecting(Box<PendingInlineCandidateCollector>),
+    FinalizingMapping(PendingInlineTextFlowFinalizer),
     BuildingLineContext(Box<PendingLineContextBuilder>),
     LayoutLines(GreedyLineLayoutSession),
 }
@@ -243,9 +247,9 @@ enum ContinuousLeafTextState {
 impl ContinuousLeafLayoutSession {
     fn new(
         state: &mut ContinuousLayoutState<'_>,
-        node: StyledNode,
+        mut node: StyledNode,
         content_width: f64,
-        image_sizes: &ImageSizeIndex,
+        image_sizes: &Arc<ImageSizeIndex>,
     ) -> Self {
         collapse_continuous_margin(state, resolve_margin_top(&node.style, content_width));
         let horizontal = resolve_horizontal_metrics(content_width, &node.style);
@@ -263,13 +267,10 @@ impl ContinuousLeafLayoutSession {
         };
         let block_width = (horizontal.target_width - extra_left - extra_right).max(1.0);
         let metrics = resolve_text_block_metrics(&node, block_width);
-        let mapping = begin_flatten_inline_content(
-            &node.children,
-            SegmentContext {
-                image_sizes: Some(image_sizes),
-                href: node.href.clone(),
-                ..SegmentContext::default()
-            },
+        let collection = begin_collect_inline_content(
+            std::mem::take(&mut node.children),
+            Some(Arc::clone(image_sizes)),
+            node.href.take(),
         );
         let line_width = if metrics.inner_width > 0.0 {
             metrics.inner_width
@@ -286,7 +287,7 @@ impl ContinuousLeafLayoutSession {
             metrics,
             line_width,
             font_profile_id: state.text_layout.fonts.layout_profile_id(),
-            text_state: Some(ContinuousLeafTextState::FinalizingMapping(mapping)),
+            text_state: Some(ContinuousLeafTextState::Collecting(Box::new(collection))),
             completed_children: Vec::new(),
             child_bottom: 0.0,
         }
@@ -304,6 +305,18 @@ impl ContinuousLeafLayoutSession {
                 .take()
                 .expect("a continuous leaf text state exists");
             match text_state {
+                ContinuousLeafTextState::Collecting(mut collection) => {
+                    let segments = match collection.advance(work.text_work_mut()) {
+                        Ok(segments) => segments,
+                        Err(_) => {
+                            self.text_state = Some(ContinuousLeafTextState::Collecting(collection));
+                            return 0;
+                        }
+                    };
+                    self.text_state = Some(ContinuousLeafTextState::FinalizingMapping(
+                        PendingInlineTextFlowFinalizer::new(segments),
+                    ));
+                }
                 ContinuousLeafTextState::FinalizingMapping(mut mapping) => {
                     let segments = match mapping.advance(work.text_work_mut()) {
                         Ok(segments) => segments,

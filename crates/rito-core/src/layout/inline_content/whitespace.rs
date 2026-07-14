@@ -11,6 +11,16 @@ pub(in crate::layout) struct WhitespaceCollapseState {
     previous_ended_with_space: bool,
 }
 
+impl WhitespaceCollapseState {
+    pub(super) const fn previous_ended_with_space(&self) -> bool {
+        self.previous_ended_with_space
+    }
+
+    pub(super) fn set_previous_ended_with_space(&mut self, value: bool) {
+        self.previous_ended_with_space = value;
+    }
+}
+
 pub(super) struct NormalizedText {
     pub(super) text: String,
     pub(super) source_text: Arc<str>,

@@ -29,6 +29,21 @@ impl TextMappingCandidate {
             source,
         }
     }
+
+    pub(crate) fn new_prevalidated(
+        logical_text: String,
+        source_path: Option<Vec<usize>>,
+        source_start: usize,
+        basis: TextSourceBasis,
+        transform_is_linear: bool,
+    ) -> Self {
+        let source =
+            prevalidated_candidate_source(source_path, source_start, basis, transform_is_linear);
+        Self {
+            logical_text,
+            source,
+        }
+    }
 }
 
 impl LogicalTextFlow {
@@ -102,7 +117,26 @@ fn candidate_source(
             TextMappingUnavailableReason::RestoredParserWhitespace,
         );
     }
-    if !text_transform_is_linear(logical_text, display_text) {
+    prevalidated_candidate_source(
+        source_path,
+        source_start,
+        basis,
+        text_transform_is_linear(logical_text, display_text),
+    )
+}
+
+fn prevalidated_candidate_source(
+    source_path: Option<Vec<usize>>,
+    source_start: usize,
+    basis: TextSourceBasis,
+    transform_is_linear: bool,
+) -> TextMappingCandidateSource {
+    if basis == TextSourceBasis::RestoredParserWhitespace {
+        return TextMappingCandidateSource::Unavailable(
+            TextMappingUnavailableReason::RestoredParserWhitespace,
+        );
+    }
+    if !transform_is_linear {
         return TextMappingCandidateSource::Unavailable(
             TextMappingUnavailableReason::NonLinearTextTransform,
         );

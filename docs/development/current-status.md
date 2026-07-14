@@ -380,10 +380,20 @@ Those names now belong to the old TS reference tree only.
      and newline indexes, style ranges and atoms without a seal-time rescan.
      Initial-completion and long-run monotonic-width predicates are accumulated
      during those paid passes, including the existing empty-segment semantics.
-     The independent eager builder remains the equivalence oracle. Inline
-     candidate collection is still eager; allocator calls, JSON style clones,
-     font-family parsing/face selection, line-break metadata normalization,
-     B-tree node allocation and mapping/path ownership transfers remain
+     The independent eager builder remains the equivalence oracle. Before
+     mapping, the production Greedy leaf now owns an explicit candidate-
+     collection phase. Ordinary inline traversal uses an iterative owned frame
+     stack; node dispatch, UTF-16 text assembly, segment commit and frame exit
+     consume the shared text meter, including an astral scalar split across
+     quanta. Frame-local first/last-text summaries preserve nested borders and
+     margins without rescanning completed segments, and no collected prefix is
+     published. Images and inline blocks move their owned style/source data
+     after a paid atomic admission. The borrowed eager collector remains the
+     equivalence oracle. Ruby subtree collection, Unicode Final_Sigma whole-
+     string lowercase, changed-but-equal-length transform linearity checks,
+     parser-source `Arc<str>` conversion, source-path duplication, allocator
+     calls (including case-transform buffer growth), context-value clones,
+     line-break metadata normalization and B-tree node allocation remain
      indivisible residual operations.
    - Literal U+FFFC inside a text segment is now preserved as text; only an
      actual inline atom is intercepted by the atom map. Greedy and Optimal
@@ -417,8 +427,10 @@ Those names now belong to the old TS reference tree only.
      yields, reuses the original vector for plain lines and allocates the exact
      output length only for ruby lines, without publishing a partial `LineBox`.
      Exact tag comparison plus the first run's tag/selected paint clones are
-     still indivisible inside that paid run. Inline candidate collection happens
-     earlier and remains unmetered; line-context scalar assembly is now metered.
+     still indivisible inside that paid run. Ordinary inline candidate
+     collection now resumes in the preceding production phase; legacy Ruby
+     subtree collection and the named transform/provenance operations above
+     remain atomic. Line-context scalar assembly is also metered.
      Its bounded-prefix policy also resumes CSS family parsing, valid-face scans
      and long face-family comparisons before consuming segment text. Completed
      leaf lines are offset, wrapped and height-accounted as each bounded batch is
@@ -426,12 +438,15 @@ Those names now belong to the old TS reference tree only.
      Style clones and allocations, child-vector growth, line-break metadata,
      B-tree insertion, list markers and final block paint/border metadata remain
      atomic residuals.
-   - This is not yet the complete default-Greedy hard bound. Inline
-     candidate collection, remaining context metadata work, container startup
-     and owned margin-collapse preparation, mapping allocation/seal/path boxing,
-     the per-run ruby string/paint operations, atomic Liang point generation,
-     the leaf marker/paint seal, visually decorated or floated containers,
-     tables and Optimal paragraphs still contain unmetered or atomic regions.
+   - This is not yet the complete default-Greedy hard bound. Resumable Ruby
+     candidate collection, contextual Final_Sigma lowercase and text-transform
+     linearity comparison/exact buffer reservation, remaining context metadata
+     work, container startup and owned margin-collapse preparation, mapping
+     allocation/seal/path boxing, source-text sharing/allocation, synchronous
+     cancellation cleanup, the per-run ruby string/paint operations,
+     atomic Liang point generation, the leaf marker/paint seal, visually
+     decorated or floated containers, tables and Optimal paragraphs still
+     contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -599,12 +614,16 @@ the production Greedy leaf without exposing partial mappings. Display-text
 line-context preflight, indexed assembly and seal now resume immediately after
 it without exposing partial context or rescanning the completed string.
 Bounded-prefix font-family parsing and valid-face discovery resume inside that
-builder. Completed leaf lines are converted and height-accounted as their line
-batch is emitted, eliminating the line-count-dependent close scan. The next
-bounded-layout slice should meter inline candidate collection, remaining
-line-context metadata work, container startup and the leaf marker/paint seal
-before making Liang point generation itself resumable and extending the same
-discipline through decorated/floated containers, tables and Optimal layout.
+builder. An owned production candidate collector now precedes mapping and
+resumes ordinary inline DFS, UTF-16 text assembly, atom commit and inline-frame
+exit without publishing a partial segment vector. Completed leaf lines are
+converted and height-accounted as their line batch is emitted, eliminating the
+line-count-dependent close scan. The next bounded-layout slice should make Ruby
+collection and the remaining contextual transform checks resumable, then meter
+remaining line-context metadata work, container startup and the leaf
+marker/paint seal before making Liang point generation itself resumable and
+extending the same discipline through decorated/floated containers, tables and
+Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the
 oversized-operation escape means the public quantum is not yet a complete
 wall-clock hard bound.

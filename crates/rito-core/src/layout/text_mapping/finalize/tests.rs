@@ -9,8 +9,8 @@ use super::{
 use crate::layout::{
     inline_segment::{AtomSegment, InlineSegment, TextSegment},
     text_mapping::{
-        RunTextMapping, TextMappingCandidate, TextMappingUnavailableReason, TextSegmentMapping,
-        TextSourceBasis,
+        RunTextMapping, TextMappingCandidate, TextMappingCandidateSource,
+        TextMappingUnavailableReason, TextSegmentMapping, TextSourceBasis,
     },
     text_work::{TextWorkBudget, TextWorkMeter, TextWorkYield},
 };
@@ -92,6 +92,47 @@ fn overflowing_exact_source_range_fails_the_whole_flow_closed() {
         assert!(matches!(actual[3], InlineSegment::Atom(_)));
         assert_eq!(mapping(&actual[4]), mapping(&input[4]));
     }
+}
+
+#[test]
+fn prevalidated_candidate_preserves_eager_reason_priority() {
+    let cases = [
+        (
+            "restored",
+            None,
+            TextSourceBasis::RestoredParserWhitespace,
+            "changed",
+            false,
+        ),
+        ("\r\n", None, TextSourceBasis::ParsedText, "ab", false),
+        ("plain", None, TextSourceBasis::ParsedText, "plain", true),
+        (
+            "exact",
+            Some(vec![2]),
+            TextSourceBasis::ParsedText,
+            "EXACT",
+            true,
+        ),
+    ];
+    for (logical, path, basis, display, linear) in cases {
+        let eager = TextMappingCandidate::new(logical.to_owned(), path.clone(), 3, basis, display);
+        let prevalidated =
+            TextMappingCandidate::new_prevalidated(logical.to_owned(), path, 3, basis, linear);
+        assert_eq!(prevalidated.source(), eager.source());
+    }
+    assert!(matches!(
+        TextMappingCandidate::new_prevalidated(
+            "x".to_owned(),
+            None,
+            0,
+            TextSourceBasis::ParsedText,
+            false,
+        )
+        .source(),
+        TextMappingCandidateSource::Unavailable(
+            TextMappingUnavailableReason::NonLinearTextTransform
+        )
+    ));
 }
 
 fn assert_limited_matches_reference(

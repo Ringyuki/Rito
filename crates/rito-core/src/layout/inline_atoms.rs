@@ -11,30 +11,7 @@ pub(crate) fn create_image_atom(
 ) -> AtomSegment {
     let src = node.src.clone().unwrap_or_default();
     let intrinsic = image_sizes.and_then(|sizes| sizes.resolve(&src));
-    let font_size = number_style(&node.style, "fontSize").unwrap_or(16.0);
-    let style_width = number_style(&node.style, "width").unwrap_or(0.0);
-    let style_height = number_style(&node.style, "height").unwrap_or(0.0);
-    let mut width = if style_width > 0.0 {
-        style_width
-    } else {
-        intrinsic.map(|size| size.width).unwrap_or(font_size)
-    };
-    let mut height = if style_height > 0.0 {
-        style_height
-    } else {
-        intrinsic.map(|size| size.height).unwrap_or(font_size)
-    };
-
-    if intrinsic.is_none() && style_width <= 0.0 && style_height <= 0.0 {
-        width = font_size;
-        height = font_size;
-    } else if intrinsic.is_some() && style_width <= 0.0 && style_height <= 0.0 {
-        (width, height) = fit_intrinsic_to_line_height(width, height, node);
-    }
-
-    if let Some(intrinsic) = intrinsic {
-        (width, height) = fit_contain_object(width, height, intrinsic, node);
-    }
+    let (width, height) = resolve_image_size(node, intrinsic);
 
     AtomSegment {
         width,
@@ -42,6 +19,24 @@ pub(crate) fn create_image_atom(
         style: node.style.clone(),
         image_src: Some(src),
         alt: node.alt.clone().filter(|alt| !alt.is_empty()),
+        href: None,
+        source_path: None,
+    }
+}
+
+pub(crate) fn create_owned_image_atom(
+    mut node: StyledNode,
+    image_sizes: Option<&ImageSizeIndex>,
+) -> AtomSegment {
+    let src = node.src.take().unwrap_or_default();
+    let intrinsic = image_sizes.and_then(|sizes| sizes.resolve(&src));
+    let (width, height) = resolve_image_size(&node, intrinsic);
+    AtomSegment {
+        width,
+        height,
+        style: std::mem::take(&mut node.style),
+        image_src: Some(src),
+        alt: node.alt.take().filter(|alt| !alt.is_empty()),
         href: None,
         source_path: None,
     }
@@ -67,6 +62,50 @@ pub(crate) fn create_inline_block_atom(node: &StyledNode) -> AtomSegment {
             .as_ref()
             .map(|source| source.node_path.clone()),
     }
+}
+
+pub(crate) fn create_owned_inline_block_atom(mut node: StyledNode) -> AtomSegment {
+    let font_size = number_style(&node.style, "fontSize").unwrap_or(16.0);
+    let line_height = number_style(&node.style, "lineHeight").unwrap_or(1.2);
+    let width = positive_style(&node.style, "width").unwrap_or(font_size * 5.0);
+    let height = positive_style(&node.style, "height").unwrap_or_else(|| {
+        number_style(&node.style, "lineHeightPx").unwrap_or(font_size * line_height)
+    });
+    AtomSegment {
+        width,
+        height,
+        style: std::mem::take(&mut node.style),
+        image_src: None,
+        alt: None,
+        href: None,
+        source_path: node.source_ref.map(|source| source.node_path),
+    }
+}
+
+fn resolve_image_size(node: &StyledNode, intrinsic: Option<ImageSize>) -> (f64, f64) {
+    let font_size = number_style(&node.style, "fontSize").unwrap_or(16.0);
+    let style_width = number_style(&node.style, "width").unwrap_or(0.0);
+    let style_height = number_style(&node.style, "height").unwrap_or(0.0);
+    let mut width = if style_width > 0.0 {
+        style_width
+    } else {
+        intrinsic.map(|size| size.width).unwrap_or(font_size)
+    };
+    let mut height = if style_height > 0.0 {
+        style_height
+    } else {
+        intrinsic.map(|size| size.height).unwrap_or(font_size)
+    };
+    if intrinsic.is_none() && style_width <= 0.0 && style_height <= 0.0 {
+        width = font_size;
+        height = font_size;
+    } else if intrinsic.is_some() && style_width <= 0.0 && style_height <= 0.0 {
+        (width, height) = fit_intrinsic_to_line_height(width, height, node);
+    }
+    if let Some(intrinsic) = intrinsic {
+        (width, height) = fit_contain_object(width, height, intrinsic, node);
+    }
+    (width, height)
 }
 
 fn fit_intrinsic_to_line_height(width: f64, height: f64, node: &StyledNode) -> (f64, f64) {

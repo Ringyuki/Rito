@@ -26,6 +26,7 @@ impl TextWorkBudget {
 /// Text operations that cannot yet be resumed partway through.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::layout) enum AtomicTextOperationKind {
+    InlineCollection,
     LineBreakScan,
     Hyphenation,
     Measure,
