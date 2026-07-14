@@ -73,10 +73,15 @@ The remaining usability work is narrower but still release-blocking:
    Exact-shape post-processing now avoids per-cluster text-prefix rescans for
    Rustybuzz byte-to-UTF-16 ranges, grapheme constraints and spacing, with
    10,000-cluster operation-count guards and bit-level compatibility oracles.
-   Ordinary inline and Ruby candidate traversal, annotation scalar copy and
-   changed-but-equal-length transform boundary comparison now resume under the
-   shared text meter. Contextual Final_Sigma lowercase, transform/Ruby buffer
-   preflight, exact reservation, allocation or growth, source
+   Ordinary inline and Ruby candidate traversal and annotation scalar copy now
+   resume under the shared text meter. Ordinary None/upper/lower/capitalize
+   transforms use a resumable exact UTF-8/UTF-16 preflight, paid exact-capacity
+   logical/painted buffer admission and a second metered scalar assembly.
+   Ordinary non-contextual assembly therefore performs no buffer growth.
+   Whole-segment UTF-16-length-changing mappings fall back without transformed
+   assembly, while changed equal-length output uses the resumable grapheme-
+   boundary comparator. Contextual Final_Sigma whole-string allocation/growth,
+   Ruby buffer preflight, reservation, allocation or growth, source
    sharing/allocation, remaining line-context metadata work, container startup,
    mapping allocation/seal/path boxing, downstream per-run ruby tag/paint
    operations, the leaf marker/paint seal, atomic Liang point generation,
@@ -133,17 +138,23 @@ It already:
 An owned candidate phase now resumes ordinary inline DFS, Ruby grammar/base
 traversal, annotation extraction and scalar application, UTF-16 text assembly,
 segment commit and frame exit before logical-flow mapping, while withholding the
-whole segment vector. Changed-but-equal-length transform linearity also resumes
-through paid scalar summaries and shared extended-grapheme UTF-16 boundary
-streams. Logical-flow mapping preflight, assembly and assignment commit then
-resume in the production Greedy leaf. Line-context display preflight and indexed
-assembly follow under the same text meter, withholding the context until its
-paid seal. The remaining bounded-layout work is to preflight transform output
-for exact-capacity reservation, meter remaining candidate/context allocation and
-clone residuals, container startup, downstream per-run ruby tag/paint work and
-the leaf marker/paint seal. Then make the currently atomic Liang point
-calculation bounded and extend the same coverage to visually decorated and
-floated containers, auto-layout tables and Optimal paragraphs. Individual font
+whole segment vector. Ordinary None/upper/lower/capitalize transforms now
+preflight exact UTF-8/UTF-16 sizes resumably, admit exact-capacity logical and
+painted buffers in paid steps, and assemble scalars in a second metered pass.
+Ordinary non-contextual assembly therefore performs no buffer growth.
+Whole-segment mappings that change UTF-16 length fall back without transformed
+assembly; changed equal-length output uses the shared resumable extended-
+grapheme boundary comparator. Logical-flow mapping preflight, assembly and
+assignment commit then resume in the production Greedy leaf. Line-context
+display preflight and indexed assembly follow under the same text meter,
+withholding the context until its paid seal. The remaining bounded-layout work
+starts with Ruby buffer preflight and exact reservation, then the remaining
+candidate/context allocation, clone and metadata residuals, container startup,
+downstream per-run ruby tag/paint work and the leaf marker/paint seal. Contextual
+Final_Sigma remains a paid whole-string atomic allocation/growth residual. Then
+make the currently atomic Liang point calculation bounded and extend the same
+coverage to visually decorated and floated containers, auto-layout tables and
+Optimal paragraphs. Individual font
 calls remain indivisible even though their surrounding measure/shape stages
 resume.
 Publication-wide source indexes must likewise be budgeted instead of
@@ -196,11 +207,16 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   iterative production state machine: node dispatch, UTF-16 text assembly,
   segment commit and inline-frame exit are metered, and completed prefixes stay
   private. Ruby direct-child grammar and base traversal, annotation extraction
-  and scalar copy, plus changed-but-equal-length transform grapheme-boundary
-  comparison now resume under that meter. Final_Sigma whole-string lowercase,
-  transform/Ruby buffer allocation or growth, transform exact reservation,
-  source-text sharing and context allocation remain atomic; style/value clones,
-  line-break metadata and B-tree insertion remain indivisible operations.
+  and scalar copy now resume under that meter. Ordinary None/upper/lower/
+  capitalize transforms use resumable exact UTF-8/UTF-16 preflight, paid exact-
+  capacity logical/painted buffer admission and second-pass scalar assembly.
+  Ordinary non-contextual assembly therefore performs no buffer growth.
+  UTF-16-length-changing whole-segment mappings fall back without transformed
+  assembly; changed equal-length output uses the resumable grapheme-boundary
+  comparator. Final_Sigma whole-string lowercase allocation/growth remains a
+  paid atomic operation. Ruby buffer allocation or growth, source-text sharing
+  and context allocation remain atomic; style/value clones, line-break metadata
+  and B-tree insertion remain indivisible operations.
   Mapping allocation plus
   boxing completed buffers and moved source paths are likewise indivisible.
   Ruby grouping traversal now resumes per input run and withholds the complete
@@ -477,13 +493,15 @@ architecture rather than make an eager whole-book pipeline faster.
    followed by display-text line-context preflight/indexed assembly, now resume
    before line layout. Ordinary inline candidate collection precedes them as an
    owned resumable phase, including Ruby grammar/base traversal and annotation
-   scalar work; transform grapheme-boundary comparison, font-family parsing and
-   valid-face discovery inside the bounded-prefix policy resume as well, and
-   completed leaf lines are converted plus height-accounted incrementally.
-   Contextual Final_Sigma, transform/Ruby buffer allocation and exact
-   reservation, remaining context metadata, container startup, mapping
-   allocation/seal/path boxing, downstream per-run ruby tag/paint work, the
-   leaf marker/paint seal, atomic Liang point generation, decorated/floated
+   scalar work; ordinary None/upper/lower/capitalize transform preflight,
+   exact-capacity buffer admission and scalar assembly, transform grapheme-
+   boundary comparison, font-family parsing and valid-face discovery inside the
+   bounded-prefix policy resume as well, and completed leaf lines are converted
+   plus height-accounted incrementally. Contextual Final_Sigma whole-string
+   allocation/growth, Ruby buffer allocation and exact reservation, remaining
+   context metadata, container startup, mapping allocation/seal/path boxing,
+   downstream per-run ruby tag/paint work, the leaf marker/paint seal, atomic
+   Liang point generation, decorated/floated
    containers, tables and Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work
    escape.

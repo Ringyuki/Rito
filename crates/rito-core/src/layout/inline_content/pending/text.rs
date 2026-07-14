@@ -5,7 +5,7 @@ use serde_json::{Map, Value};
 use super::{
     context::OwnedInlineContext,
     source::admit_source_metadata,
-    transform::{scalar_equals, transform_mode, PendingTransformLinearity, TransformMode},
+    transform::{transform_mode, PendingTransformLinearity, TransformMode},
 };
 use crate::{
     layout::{
@@ -13,39 +13,44 @@ use crate::{
         inline_segment::TextSegment,
         style_values::string_style,
         text_mapping::{TextMappingCandidate, TextSegmentMapping, TextSourceBasis},
-        text_work::{AtomicTextOperationKind, TextWorkMeter, TextWorkPermitResult, TextWorkYield},
+        text_work::{TextWorkMeter, TextWorkYield},
     },
     style::StyledNode,
 };
 
-#[derive(Debug)]
-struct PendingScalar {
-    character: char,
-    utf16_units_remaining: usize,
-}
+mod assembly;
+mod preflight;
+
+use assembly::PendingTextAssembly;
+use preflight::{PaintPlan, PendingTransformPreflight, TransformCounts};
 
 #[derive(Debug)]
 pub(super) struct PendingTextSegment {
     source: String,
-    cursor: usize,
-    scalar: Option<PendingScalar>,
-    logical: String,
-    display: String,
-    transformed: Option<String>,
-    logical_utf16_len: usize,
-    transformed_utf16_len: usize,
     transform: TransformMode,
-    transform_changed: bool,
-    contextual_lowercase: bool,
-    contextual_lowercase_resolved: bool,
-    linearity: PendingTransformLinearity,
+    preflight: PendingTransformPreflight,
+    counts: TransformCounts,
+    plan: PaintPlan,
+    assembly: Option<PendingTextAssembly>,
+    logical: Option<String>,
+    painted: Option<String>,
+    linearity: Option<PendingTransformLinearity>,
     source_metadata_admitted: bool,
-    at_word_boundary: bool,
+    phase: TextPhase,
     style: Map<String, Value>,
     href: Option<String>,
     source_path: Option<Vec<usize>>,
     source_text_offset: usize,
     source_basis: TextSourceBasis,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TextPhase {
+    Preflight,
+    Assembly,
+    Compare,
+    SourceAdmission,
+    Complete,
 }
 
 impl PendingTextSegment {
@@ -82,24 +87,18 @@ impl PendingTextSegment {
             return None;
         }
         let transform = transform_mode(&style);
-        let transformed =
-            (transform != TransformMode::None).then(|| String::with_capacity(logical.len()));
         Some(Self {
-            cursor: source_text_offset,
-            logical: String::with_capacity(logical.len()),
-            display: String::with_capacity(logical.len()),
-            transformed,
-            source,
-            scalar: None,
-            logical_utf16_len: 0,
-            transformed_utf16_len: 0,
-            transform,
-            transform_changed: false,
-            contextual_lowercase: false,
-            contextual_lowercase_resolved: false,
-            linearity: PendingTransformLinearity::new(),
+            preflight: PendingTransformPreflight::new(source_text_offset),
+            counts: TransformCounts::default(),
+            plan: PaintPlan::IdentityFallback,
+            assembly: None,
+            logical: None,
+            painted: None,
+            linearity: None,
             source_metadata_admitted: false,
-            at_word_boundary: true,
+            phase: TextPhase::Preflight,
+            source,
+            transform,
             style,
             href: context.href.clone(),
             source_path: node.source_ref.map(|source| source.node_path),
@@ -113,39 +112,29 @@ impl PendingTextSegment {
     }
 
     pub(super) fn advance(&mut self, work: &mut TextWorkMeter) -> Result<bool, TextWorkYield> {
-        while self.cursor < self.source.len() || self.scalar.is_some() {
-            self.prepare_scalar();
-            let scalar = self.scalar.as_mut().expect("a pending scalar exists");
-            let taken = work.take_utf16_units(scalar.utf16_units_remaining);
-            scalar.utf16_units_remaining -= taken;
-            if scalar.utf16_units_remaining > 0 {
-                return Err(TextWorkYield);
+        loop {
+            match self.phase {
+                TextPhase::Preflight => self.advance_preflight(work)?,
+                TextPhase::Assembly => self.advance_assembly(work)?,
+                TextPhase::Compare => self.advance_comparison(work)?,
+                TextPhase::SourceAdmission => self.advance_source_admission(work)?,
+                TextPhase::Complete => return Ok(true),
             }
-            self.commit_scalar();
         }
-        self.resolve_contextual_lowercase(work)?;
-        self.compare_transform_boundaries(work)?;
-        admit_source_metadata(
-            work,
-            &mut self.source_metadata_admitted,
-            self.source_path.as_deref(),
-            self.logical_utf16_len,
-            self.source_text_offset,
-        )?;
-        Ok(true)
     }
 
     pub(super) fn finish(mut self) -> TextSegment {
+        debug_assert_eq!(self.phase, TextPhase::Complete);
         debug_assert!(self.source_path.is_none() || self.source_metadata_admitted);
-        let use_transformed = self.transformed_utf16_len == self.logical_utf16_len;
-        let text = if use_transformed {
-            self.transformed.take().unwrap_or(self.display)
-        } else {
-            self.display
-        };
-        let transform_is_linear = self.linearity.result().unwrap_or(true);
+        let logical = self.logical.take().expect("logical text was assembled");
+        let painted = self.painted.take().expect("painted text was assembled");
+        let transform_is_linear = self
+            .linearity
+            .as_ref()
+            .and_then(PendingTransformLinearity::result)
+            .unwrap_or(true);
         let mapping = TextSegmentMapping::Candidate(TextMappingCandidate::new_prevalidated(
-            self.logical,
+            logical,
             self.source_path.clone(),
             self.source_text_offset,
             self.source_basis,
@@ -153,7 +142,7 @@ impl PendingTextSegment {
         ));
         let source_text = self.source_path.is_some().then(|| Arc::from(self.source));
         TextSegment {
-            text,
+            text: painted,
             mapping,
             style: self.style,
             href: self.href,
@@ -168,86 +157,66 @@ impl PendingTextSegment {
         }
     }
 
-    fn prepare_scalar(&mut self) {
-        if self.scalar.is_some() {
-            return;
-        }
-        let character = self.source[self.cursor..]
-            .chars()
-            .next()
-            .expect("the source cursor lies before a scalar");
-        self.scalar = Some(PendingScalar {
-            character,
-            utf16_units_remaining: character.len_utf16(),
-        });
-    }
-
-    fn commit_scalar(&mut self) {
-        let scalar = self.scalar.take().expect("a paid scalar exists");
-        self.cursor += scalar.character.len_utf8();
-        self.logical_utf16_len += scalar.character.len_utf16();
-        self.logical.push(scalar.character);
-        self.display.push(scalar.character);
-        self.contextual_lowercase |=
-            self.transform == TransformMode::Lowercase && scalar.character == 'Σ';
-        self.push_transformed(scalar.character);
-    }
-
-    fn resolve_contextual_lowercase(
-        &mut self,
-        work: &mut TextWorkMeter,
-    ) -> Result<(), TextWorkYield> {
-        if !self.contextual_lowercase || self.contextual_lowercase_resolved {
+    fn advance_preflight(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        let Some(counts) = self.preflight.advance(&self.source, self.transform, work)? else {
             return Ok(());
-        }
-        // `str::to_lowercase` applies Unicode Final_Sigma using surrounding
-        // cased and case-ignorable scalars. Keep that rare contextual rule as
-        // one explicitly paid atomic residual rather than silently changing
-        // the eager transform semantics.
-        if matches!(
-            work.try_permit_atomic(
-                AtomicTextOperationKind::InlineCollection,
-                self.logical_utf16_len,
-            ),
-            TextWorkPermitResult::Yield
-        ) {
-            return Err(TextWorkYield);
-        }
-        let transformed = self.logical.to_lowercase();
-        self.transform_changed = transformed != self.logical;
-        self.transformed_utf16_len = transformed.encode_utf16().count();
-        self.transformed = Some(transformed);
-        self.contextual_lowercase_resolved = true;
+        };
+        self.counts = counts;
+        self.plan = counts.paint_plan(self.transform);
+        self.linearity = Some(PendingTransformLinearity::new(
+            counts.effective_scalar_boundaries(self.plan),
+        ));
+        self.assembly = Some(PendingTextAssembly::new(
+            counts,
+            self.plan,
+            self.transform,
+            self.source_text_offset,
+        ));
+        self.phase = TextPhase::Assembly;
         Ok(())
     }
 
-    fn push_transformed(&mut self, character: char) {
-        let Some(output) = self.transformed.as_mut() else {
-            self.transformed_utf16_len += character.len_utf16();
-            return;
+    fn advance_assembly(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        let Some(assembled) = self
+            .assembly
+            .as_mut()
+            .expect("text assembly was initialized")
+            .advance(&self.source, work)?
+        else {
+            return Ok(());
         };
-        let start = output.len();
-        match self.transform {
-            TransformMode::Uppercase => output.extend(character.to_uppercase()),
-            TransformMode::Lowercase => output.extend(character.to_lowercase()),
-            TransformMode::Capitalize => {
-                let transformed = if self.at_word_boundary && character.is_ascii_alphanumeric() {
-                    character.to_ascii_uppercase()
-                } else {
-                    character
-                };
-                output.push(transformed);
-                self.at_word_boundary = !character.is_ascii_alphanumeric() && character != '_';
-            }
-            TransformMode::None => unreachable!("identity transforms have no second buffer"),
+        self.logical = Some(assembled.logical);
+        self.painted = Some(assembled.painted);
+        self.assembly = None;
+        self.phase = TextPhase::Compare;
+        Ok(())
+    }
+
+    fn advance_comparison(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        if self.needs_linearity_check() {
+            self.linearity
+                .as_mut()
+                .expect("transform linearity was initialized")
+                .advance(
+                    self.logical.as_deref().expect("logical text was assembled"),
+                    self.painted.as_deref().expect("painted text was assembled"),
+                    work,
+                )?;
         }
-        let mapped = &output[start..];
-        self.transform_changed |= !scalar_equals(character, mapped);
-        // The eager scalar-boundary vectors are equal exactly when every
-        // per-source-scalar case mapping remains one scalar of the same UTF-16
-        // width. Contextual Final_Sigma only changes that scalar's value.
-        self.linearity.record_scalar(character, mapped);
-        self.transformed_utf16_len += mapped.encode_utf16().count();
+        self.phase = TextPhase::SourceAdmission;
+        Ok(())
+    }
+
+    fn advance_source_admission(&mut self, work: &mut TextWorkMeter) -> Result<(), TextWorkYield> {
+        admit_source_metadata(
+            work,
+            &mut self.source_metadata_admitted,
+            self.source_path.as_deref(),
+            self.counts.logical_utf16,
+            self.source_text_offset,
+        )?;
+        self.phase = TextPhase::Complete;
+        Ok(())
     }
 
     fn needs_linearity_check(&self) -> bool {
@@ -256,22 +225,7 @@ impl PendingTextSegment {
                 self.transform,
                 TransformMode::Uppercase | TransformMode::Lowercase
             )
-            && self.transform_changed
-            && self.transformed_utf16_len == self.logical_utf16_len
-    }
-
-    fn compare_transform_boundaries(
-        &mut self,
-        work: &mut TextWorkMeter,
-    ) -> Result<(), TextWorkYield> {
-        if !self.needs_linearity_check() {
-            return Ok(());
-        }
-        let transformed = self
-            .transformed
-            .as_deref()
-            .expect("changed equal-length transforms retain their display text");
-        self.linearity.advance(&self.logical, transformed, work)
+            && self.counts.effective_changed(self.plan)
     }
 }
 

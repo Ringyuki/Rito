@@ -21,10 +21,16 @@ pub(super) enum TransformMode {
     Capitalize,
 }
 
+pub(super) enum ScalarMapping {
+    Identity(std::option::IntoIter<char>),
+    Uppercase(std::char::ToUppercase),
+    Lowercase(std::char::ToLowercase),
+}
+
 impl PendingTransformLinearity {
-    pub(super) fn new() -> Self {
+    pub(super) fn new(scalar_boundaries_match: bool) -> Self {
         Self {
-            scalar_boundaries_match: true,
+            scalar_boundaries_match,
             graphemes: None,
             result: None,
         }
@@ -34,18 +40,10 @@ impl PendingTransformLinearity {
         self.result
     }
 
-    pub(super) fn record_scalar(&mut self, character: char, candidate: &str) {
-        debug_assert!(
-            self.graphemes.is_none() && self.result.is_none(),
-            "transform text must be frozen before boundary comparison"
-        );
-        self.scalar_boundaries_match &= scalar_boundary_matches(character, candidate);
-    }
-
     pub(super) fn advance(
         &mut self,
         logical: &str,
-        display: &str,
+        painted: &str,
         work: &mut TextWorkMeter,
     ) -> Result<(), TextWorkYield> {
         if self.result.is_some() {
@@ -56,11 +54,41 @@ impl PendingTransformLinearity {
             return Ok(());
         }
         let graphemes = self.graphemes.get_or_insert_with(|| {
-            PendingGraphemeBoundaryComparator::new(logical.len(), display.len())
+            PendingGraphemeBoundaryComparator::new(logical.len(), painted.len())
         });
-        self.result = Some(graphemes.advance(logical, display, work)?);
+        self.result = Some(graphemes.advance(logical, painted, work)?);
         self.graphemes = None;
         Ok(())
+    }
+}
+
+impl ScalarMapping {
+    pub(super) fn new(mode: TransformMode, character: char, at_word_boundary: bool) -> Self {
+        match mode {
+            TransformMode::Uppercase => Self::Uppercase(character.to_uppercase()),
+            TransformMode::Lowercase => Self::Lowercase(character.to_lowercase()),
+            TransformMode::Capitalize => {
+                let mapped = if at_word_boundary && character.is_ascii_alphanumeric() {
+                    character.to_ascii_uppercase()
+                } else {
+                    character
+                };
+                Self::Identity(Some(mapped).into_iter())
+            }
+            TransformMode::None => Self::Identity(Some(character).into_iter()),
+        }
+    }
+}
+
+impl Iterator for ScalarMapping {
+    type Item = char;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            Self::Identity(mapping) => mapping.next(),
+            Self::Uppercase(mapping) => mapping.next(),
+            Self::Lowercase(mapping) => mapping.next(),
+        }
     }
 }
 
@@ -73,16 +101,6 @@ pub(super) fn transform_mode(style: &Map<String, Value>) -> TransformMode {
     }
 }
 
-pub(super) fn scalar_equals(character: char, candidate: &str) -> bool {
-    let mut buffer = [0_u8; 4];
-    character.encode_utf8(&mut buffer) == candidate
-}
-
-fn scalar_boundary_matches(character: char, candidate: &str) -> bool {
-    let mut candidates = candidate.chars();
-    matches!(
-        (candidates.next(), candidates.next()),
-        (Some(mapped_character), None)
-            if mapped_character.len_utf16() == character.len_utf16()
-    )
+pub(super) const fn next_word_boundary(character: char) -> bool {
+    !character.is_ascii_alphanumeric() && character != '_'
 }

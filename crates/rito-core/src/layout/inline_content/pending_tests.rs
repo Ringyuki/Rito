@@ -178,6 +178,30 @@ fn contextual_lowercase_resumes_with_eager_parity() {
     assert_eq!(format!("{actual:#?}"), format!("{expected:#?}"));
 }
 
+#[test]
+fn ordinary_transform_reserves_each_buffer_once_without_partial_publish() {
+    let mut upper = text_node("abc", None, None, "normal");
+    upper
+        .style
+        .insert("textTransform".to_owned(), json!("uppercase"));
+    let nodes = vec![upper];
+    let expected = collect_inline_content_candidates(&nodes, SegmentContext::default());
+    let mut pending = begin_collect_inline_content(nodes, None, None);
+    let budget = TextWorkBudget::new(NonZeroUsize::MAX, NonZeroUsize::MIN);
+
+    let mut first = TextWorkMeter::new(budget);
+    assert!(
+        pending.advance(&mut first).is_err(),
+        "the second reserve must wait for a fresh atomic-operation slot"
+    );
+    let mut second = TextWorkMeter::new(budget);
+    let actual = pending
+        .advance(&mut second)
+        .expect("successful reserves must not be repeated after resumption");
+
+    assert_eq!(format!("{actual:#?}"), format!("{expected:#?}"));
+}
+
 fn drive_final(
     nodes: Vec<StyledNode>,
     image_sizes: Option<Arc<ImageSizeIndex>>,

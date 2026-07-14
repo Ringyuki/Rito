@@ -164,6 +164,102 @@ fn pending_transform_boundaries_match_eager_at_tiny_quanta() {
 }
 
 #[test]
+fn pending_transform_preflight_handles_bytes_fallback_and_capitalize_boundaries() {
+    let nodes = vec![
+        text_node("identity", 0),
+        transformed_text_node("\u{212a}", 1, "lowercase"),
+        transformed_text_node("\u{131}", 2, "uppercase"),
+        transformed_text_node("\u{390}", 3, "uppercase"),
+        transformed_text_node("\u{212a}\u{130}", 4, "lowercase"),
+        transformed_text_node("_hello", 5, "capitalize"),
+        transformed_text_node("éclair", 6, "capitalize"),
+        transformed_text_node("中abc", 7, "capitalize"),
+        transformed_text_node("123abc foo-bar", 8, "capitalize"),
+        transformed_text_node("second", 9, "capitalize"),
+    ];
+    let expected = assert_pending_matches_eager(&nodes);
+    let text = text_segments(&expected);
+
+    assert_eq!(text[0].text, "identity");
+    assert_eq!(text[1].text, "k");
+    assert_eq!(text[2].text, "I");
+    assert_eq!(text[3].text, "\u{390}");
+    assert_eq!(text[4].text, "\u{212a}\u{130}");
+    assert_eq!(text[5].text, "_hello");
+    assert_eq!(text[6].text, "éClair");
+    assert_eq!(text[7].text, "中Abc");
+    assert_eq!(text[8].text, "123abc Foo-Bar");
+    assert_eq!(text[9].text, "Second");
+}
+
+#[test]
+fn pending_contextual_sigma_matches_whole_string_lowercase_or_falls_back() {
+    let cases = [
+        ("Σ", "σ"),
+        ("AΣ", "aς"),
+        ("AΣB", "aσb"),
+        ("AΣ\u{301}B", "aσ\u{301}b"),
+        ("A.Σ", "a.ς"),
+        ("A-Σ", "a-σ"),
+        ("ªΣ", "ªς"),
+        ("\u{130}Σ", "\u{130}Σ"),
+    ];
+    let nodes = cases
+        .iter()
+        .enumerate()
+        .map(|(index, (source, _))| transformed_text_node(source, index, "lowercase"))
+        .collect::<Vec<_>>();
+    let expected = assert_pending_matches_eager(&nodes);
+    let text = text_segments(&expected);
+
+    assert_eq!(
+        text.iter()
+            .map(|segment| segment.text.as_str())
+            .collect::<Vec<_>>(),
+        cases
+            .iter()
+            .map(|(_, painted)| *painted)
+            .collect::<Vec<_>>()
+    );
+}
+
+#[test]
+fn pending_transform_preserves_offset_restored_and_pseudo_reason_priority() {
+    let mut offset = transformed_text_node(" leading", 1, "uppercase");
+    let mut restored = transformed_text_node("a\u{345}", 2, "uppercase");
+    restored.source_text = Some("a\u{345}".to_owned());
+    restored
+        .style
+        .insert("whiteSpace".to_owned(), json!("pre-wrap"));
+    let mut pseudo = pseudo_text_node("a\u{345}");
+    set_transform(&mut pseudo, "uppercase");
+    let nodes = vec![text_node("prefix ", 0), offset.clone(), restored, pseudo];
+    let expected = assert_pending_matches_eager(&nodes);
+    let text = text_segments(&expected);
+
+    assert_eq!(text[1].text, "LEADING");
+    assert_eq!(text[1].source_text_offset, Some(1));
+    assert_eq!(
+        text[2].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
+            TextMappingUnavailableReason::RestoredParserWhitespace
+        ))
+    );
+    assert_eq!(
+        text[3].mapping,
+        TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
+            TextMappingUnavailableReason::NonLinearTextTransform
+        ))
+    );
+
+    // Keep the node owned/mutable construction explicit so this test also
+    // guards against accidentally reusing transform state between nodes.
+    offset.content = Some(" next".to_owned());
+    let repeated = assert_pending_matches_eager(&[text_node("x ", 4), offset]);
+    assert_eq!(text_segments(&repeated)[1].text, "NEXT");
+}
+
+#[test]
 fn pending_transform_unavailable_reason_priority_matches_eager() {
     let mut pseudo_nonlinear = pseudo_text_node("a\u{345}");
     set_transform(&mut pseudo_nonlinear, "uppercase");
