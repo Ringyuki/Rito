@@ -12,7 +12,9 @@ use super::{
     },
     continuous_table::layout_continuous_table,
     image_size::ImageSizeIndex,
-    inline_content::flatten_inline_content,
+    inline_content::{
+        begin_flatten_inline_content, flatten_inline_content, PendingInlineContentFinalization,
+    },
     inline_segment::SegmentContext,
     line::{LineBox, LineRun},
     line_layout::GreedyLineLayoutSession,
@@ -224,8 +226,16 @@ struct ContinuousLeafLayoutSession {
     horizontal: HorizontalMetrics,
     extra_left: f64,
     metrics: TextBlockMetrics,
-    lines: GreedyLineLayoutSession,
+    line_width: f64,
+    font_profile_id: u64,
+    text_state: Option<ContinuousLeafTextState>,
     completed_lines: Vec<LineBox>,
+}
+
+#[derive(Debug)]
+enum ContinuousLeafTextState {
+    FinalizingMapping(PendingInlineContentFinalization),
+    LayoutLines(GreedyLineLayoutSession),
 }
 
 impl ContinuousLeafLayoutSession {
@@ -251,7 +261,7 @@ impl ContinuousLeafLayoutSession {
         };
         let block_width = (horizontal.target_width - extra_left - extra_right).max(1.0);
         let metrics = resolve_text_block_metrics(&node, block_width);
-        let segments = flatten_inline_content(
+        let mapping = begin_flatten_inline_content(
             &node.children,
             SegmentContext {
                 image_sizes: Some(image_sizes),
@@ -272,23 +282,56 @@ impl ContinuousLeafLayoutSession {
             horizontal,
             extra_left,
             metrics,
-            lines: GreedyLineLayoutSession::new(&segments, line_width, state.text_layout.fonts),
+            line_width,
+            font_profile_id: state.text_layout.fonts.layout_profile_id(),
+            text_state: Some(ContinuousLeafTextState::FinalizingMapping(mapping)),
             completed_lines: Vec::new(),
         }
     }
 
     fn advance(&mut self, work: &mut LayoutWorkMeter, fonts: &TextMeasurementFonts<'_>) -> usize {
-        let max_line_boxes = work.line_boxes_remaining();
-        let lines = self
-            .lines
-            .advance_with_text_work(max_line_boxes, work.text_work_mut(), fonts);
-        let processed = lines.len();
-        self.completed_lines.extend(lines);
-        processed
+        assert_eq!(
+            fonts.layout_profile_id(),
+            self.font_profile_id,
+            "a continuous leaf session must resume with the same font profile"
+        );
+        loop {
+            let text_state = self
+                .text_state
+                .take()
+                .expect("a continuous leaf text state exists");
+            match text_state {
+                ContinuousLeafTextState::FinalizingMapping(mut mapping) => {
+                    let segments = match mapping.advance(work.text_work_mut()) {
+                        Ok(segments) => segments,
+                        Err(_) => {
+                            self.text_state =
+                                Some(ContinuousLeafTextState::FinalizingMapping(mapping));
+                            return 0;
+                        }
+                    };
+                    self.text_state = Some(ContinuousLeafTextState::LayoutLines(
+                        GreedyLineLayoutSession::new(&segments, self.line_width, fonts),
+                    ));
+                }
+                ContinuousLeafTextState::LayoutLines(mut lines) => {
+                    let max_line_boxes = work.line_boxes_remaining();
+                    let completed =
+                        lines.advance_with_text_work(max_line_boxes, work.text_work_mut(), fonts);
+                    let processed = completed.len();
+                    self.completed_lines.extend(completed);
+                    self.text_state = Some(ContinuousLeafTextState::LayoutLines(lines));
+                    return processed;
+                }
+            }
+        }
     }
 
     fn is_complete(&self) -> bool {
-        self.lines.is_complete()
+        matches!(
+            self.text_state.as_ref(),
+            Some(ContinuousLeafTextState::LayoutLines(lines)) if lines.is_complete()
+        )
     }
 
     fn finish(

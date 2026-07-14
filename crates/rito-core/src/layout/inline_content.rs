@@ -5,7 +5,11 @@ use super::{
     inline_ruby::collect_ruby_segments,
     inline_segment::{InlineSegment, SegmentContext, TextSegment},
     style_values::*,
-    text_mapping::{finalize_inline_text_flow, TextMappingCandidate, TextSegmentMapping},
+    text_mapping::{
+        finalize_inline_text_flow, PendingInlineTextFlowFinalizer, TextMappingCandidate,
+        TextSegmentMapping,
+    },
+    text_work::{TextWorkMeter, TextWorkYield},
 };
 use crate::style::{StyledNode, StyledNodeKind};
 pub(super) use whitespace::WhitespaceCollapseState;
@@ -23,10 +27,47 @@ pub(crate) fn flatten_inline_content(
     nodes: &[StyledNode],
     context: SegmentContext<'_>,
 ) -> Vec<InlineSegment> {
+    let mut segments = collect_inline_content_candidates(nodes, context);
+    finalize_inline_text_flow(&mut segments);
+    segments
+}
+
+/// Owns an unfinished logical-text mapping pass so callers cannot observe
+/// partially resolved inline segments between text-work quanta.
+#[derive(Debug)]
+pub(crate) struct PendingInlineContentFinalization {
+    mapping: PendingInlineTextFlowFinalizer,
+}
+
+impl PendingInlineContentFinalization {
+    pub(crate) fn advance(
+        &mut self,
+        work: &mut TextWorkMeter,
+    ) -> Result<Vec<InlineSegment>, TextWorkYield> {
+        self.mapping.advance(work)
+    }
+}
+
+/// Candidate collection still runs eagerly; only the shared logical-flow
+/// finalization is resumable at this boundary.
+pub(crate) fn begin_flatten_inline_content(
+    nodes: &[StyledNode],
+    context: SegmentContext<'_>,
+) -> PendingInlineContentFinalization {
+    PendingInlineContentFinalization {
+        mapping: PendingInlineTextFlowFinalizer::new(collect_inline_content_candidates(
+            nodes, context,
+        )),
+    }
+}
+
+fn collect_inline_content_candidates(
+    nodes: &[StyledNode],
+    context: SegmentContext<'_>,
+) -> Vec<InlineSegment> {
     let mut segments = Vec::new();
     let mut whitespace = WhitespaceCollapseState::default();
     collect_segments(nodes, &mut segments, &context, &mut whitespace);
-    finalize_inline_text_flow(&mut segments);
     segments
 }
 

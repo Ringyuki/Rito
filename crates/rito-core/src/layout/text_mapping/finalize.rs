@@ -1,11 +1,13 @@
-use std::sync::Arc;
-
 use super::{
-    utf16, LogicalTextFlow, LogicalTextSource, LogicalTextSpan, RunTextMapping, TextFlowSlice,
-    TextMappingCandidate, TextMappingCandidateSource, TextMappingUnavailableReason,
-    TextSegmentMapping, TextSourceBasis,
+    utf16, LogicalTextFlow, LogicalTextSource, LogicalTextSpan, TextMappingCandidate,
+    TextMappingCandidateSource, TextMappingUnavailableReason, TextSourceBasis,
 };
-use crate::layout::inline_segment::InlineSegment;
+
+mod eager;
+mod pending;
+
+pub(crate) use eager::finalize_inline_text_flow;
+pub(crate) use pending::PendingInlineTextFlowFinalizer;
 
 impl TextMappingCandidate {
     pub(crate) fn new(
@@ -82,126 +84,10 @@ impl LogicalTextFlow {
     }
 }
 
-pub(crate) fn finalize_inline_text_flow(segments: &mut [InlineSegment]) {
-    let draft = match build_flow_draft(segments) {
-        Ok(Some(draft)) => draft,
-        Ok(None) => return,
-        Err(()) => {
-            mark_flow_too_long(segments);
-            return;
-        }
-    };
-    let flow = Arc::new(LogicalTextFlow {
-        text: draft.text.into_boxed_str(),
-        utf16_len: draft.utf16_len,
-        non_boundaries: draft.non_boundaries.into_boxed_slice(),
-        spans: draft.spans.into_boxed_slice(),
-    });
-    debug_assert!(flow.validate().is_ok());
-    for assignment in draft.assignments {
-        assign_segment_mapping(segments, &flow, assignment);
-    }
-}
-
 pub(crate) fn text_transform_is_linear(logical: &str, display: &str) -> bool {
     logical == display
         || (utf16::boundaries(logical.chars()) == utf16::boundaries(display.chars())
             && utf16::grapheme_boundaries(logical) == utf16::grapheme_boundaries(display))
-}
-
-struct FlowDraft {
-    text: String,
-    utf16_len: u32,
-    non_boundaries: Vec<u32>,
-    spans: Vec<LogicalTextSpan>,
-    assignments: Vec<FlowAssignment>,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct FlowAssignment {
-    segment_index: usize,
-    span_index: u32,
-    logical_start: u32,
-    logical_end: u32,
-    exact: bool,
-}
-
-fn build_flow_draft(segments: &[InlineSegment]) -> Result<Option<FlowDraft>, ()> {
-    let mut draft = FlowDraft {
-        text: String::new(),
-        utf16_len: 0,
-        non_boundaries: Vec::new(),
-        spans: Vec::new(),
-        assignments: Vec::new(),
-    };
-    for (segment_index, segment) in segments.iter().enumerate() {
-        let InlineSegment::Text(segment) = segment else {
-            continue;
-        };
-        let TextSegmentMapping::Candidate(candidate) = &segment.mapping else {
-            continue;
-        };
-        push_candidate(&mut draft, segment_index, candidate)?;
-    }
-    Ok((!draft.spans.is_empty()).then_some(draft))
-}
-
-fn push_candidate(
-    draft: &mut FlowDraft,
-    segment_index: usize,
-    candidate: &TextMappingCandidate,
-) -> Result<(), ()> {
-    let logical_start = draft.utf16_len;
-    let logical_end = utf16::append_metadata(
-        candidate.logical_text(),
-        logical_start,
-        &mut draft.non_boundaries,
-    )?;
-    let source = resolved_source(candidate.source());
-    let exact = matches!(source, LogicalTextSource::ExactLinear { .. });
-    let span_index = u32::try_from(draft.spans.len()).map_err(|_| ())?;
-    draft.text.push_str(candidate.logical_text());
-    draft.utf16_len = logical_end;
-    draft.spans.push(LogicalTextSpan {
-        logical_start,
-        logical_end,
-        source,
-    });
-    draft.assignments.push(FlowAssignment {
-        segment_index,
-        span_index,
-        logical_start,
-        logical_end,
-        exact,
-    });
-    Ok(())
-}
-
-fn assign_segment_mapping(
-    segments: &mut [InlineSegment],
-    flow: &Arc<LogicalTextFlow>,
-    assignment: FlowAssignment,
-) {
-    let Some(segment) = segments
-        .get_mut(assignment.segment_index)
-        .and_then(InlineSegment::as_text_mut)
-    else {
-        return;
-    };
-    let mapping = if assignment.exact {
-        let slice = TextFlowSlice {
-            flow: Arc::clone(flow),
-            span_index: assignment.span_index,
-            logical_start: assignment.logical_start,
-            logical_end: assignment.logical_end,
-        };
-        debug_assert!(slice.validate().is_ok());
-        RunTextMapping::Exact(slice)
-    } else {
-        let span = &flow.spans[assignment.span_index as usize];
-        RunTextMapping::Unavailable(unavailable_reason(&span.source))
-    };
-    segment.mapping = TextSegmentMapping::Resolved(mapping);
 }
 
 fn candidate_source(
@@ -230,32 +116,13 @@ fn candidate_source(
     )
 }
 
-fn resolved_source(source: &TextMappingCandidateSource) -> LogicalTextSource {
-    match source {
-        TextMappingCandidateSource::ExactLinear {
-            node_path,
-            source_start,
-        } => LogicalTextSource::ExactLinear {
-            node_path: node_path.clone().into_boxed_slice(),
-            source_start: *source_start,
-        },
-        TextMappingCandidateSource::Unavailable(reason) => LogicalTextSource::Unavailable(*reason),
-    }
-}
-
-fn unavailable_reason(source: &LogicalTextSource) -> TextMappingUnavailableReason {
+pub(super) fn unavailable_reason(source: &LogicalTextSource) -> TextMappingUnavailableReason {
     match source {
         LogicalTextSource::Unavailable(reason) => *reason,
         LogicalTextSource::ExactLinear { .. } => TextMappingUnavailableReason::UnfinalizedFlow,
     }
 }
 
-fn mark_flow_too_long(segments: &mut [InlineSegment]) {
-    for segment in segments.iter_mut().filter_map(InlineSegment::as_text_mut) {
-        if matches!(segment.mapping, TextSegmentMapping::Candidate(_)) {
-            segment.mapping = TextSegmentMapping::Resolved(RunTextMapping::Unavailable(
-                TextMappingUnavailableReason::FlowTooLong,
-            ));
-        }
-    }
-}
+#[cfg(test)]
+#[path = "finalize/tests.rs"]
+mod tests;

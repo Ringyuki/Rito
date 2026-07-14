@@ -366,8 +366,17 @@ Those names now belong to the old TS reference tree only.
      flow for every wrapped run. Each finalized flow retains only the UTF-16
      offsets inside surrogate pairs (zero entries for BMP-only text), so checked
      run subslices validate boundaries in logarithmic time without weakening
-     invalid-surrogate rejection. Mapping assembly is still part of the
-     unmetered line tail described below.
+     invalid-surrogate rejection. Logical-flow assembly now resumes inside the
+     production Greedy leaf: a paid preflight counts every candidate and UTF-16
+     scalar, buffers are reserved from exact counts in paid steps, text and
+     mapping metadata are copied incrementally, and assignments commit one
+     segment at a time while the finalizer retains ownership. No partial
+     success or global `FlowTooLong` failure can escape across a continuation.
+     Exact source ranges that overflow `usize` now fail the whole flow closed
+     instead of panicking or producing an invalid mapping. Inline candidate
+     collection and line-context construction remain eager; allocation plus
+     boxing the completed buffers and moved source paths are also still
+     indivisible operations.
    - Wrapped text runs now share their immutable parser `source_text` through
      `Arc<str>` instead of copying the complete source node into every line, and
      ruby extraction moves base runs into its output instead of deep-cloning
@@ -395,11 +404,11 @@ Those names now belong to the old TS reference tree only.
      output length only for ruby lines, without publishing a partial `LineBox`.
      Exact tag comparison plus the first run's
      tag/selected paint clones are still indivisible inside that paid run;
-     source-mapping and inline-context assembly happen earlier and remain
-     unmetered.
+     inline candidate collection and line-context assembly happen earlier and
+     remain unmetered.
    - This is not yet the complete default-Greedy hard bound. Inline
-     flattening/context construction, container startup and owned
-     margin-collapse preparation, source-mapping and context assembly, the
+     candidate collection/context construction, container startup and owned
+     margin-collapse preparation, mapping allocation/seal/path boxing, the
      per-run ruby string/paint operations, atomic Liang point generation, leaf
      publication, visually decorated or floated containers, tables and Optimal
      paragraphs still contain unmetered or atomic regions.
@@ -531,7 +540,7 @@ runtime render-command matrix.
 Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
-   flattening/source-mapping/context preparation, container startup, strict
+   candidate collection/context preparation, container startup, strict
    ruby tag/paint work and leaf publication, then make the currently atomic
    Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
@@ -565,7 +574,9 @@ traces remain unchanged, while a captured font layout-profile token prevents
 restore under inconsistent logical font inputs. The footnote index performs
 one spine parse instead of two. Ruby grouping traversal now resumes per input
 run without publishing a partial line; exact tag/paint work remains indivisible.
-The next bounded-layout slice should meter inline/source-mapping/context
+Logical-flow mapping preflight, assembly and assignment commit now resume in
+the production Greedy leaf without exposing partial mappings. The next
+bounded-layout slice should meter inline candidate collection and line-context
 preparation, container startup and leaf publication before making Liang point
 generation itself resumable and extending the same discipline through
 decorated/floated containers, tables and Optimal layout. Individual font calls

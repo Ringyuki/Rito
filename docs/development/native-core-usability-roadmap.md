@@ -73,11 +73,11 @@ The remaining usability work is narrower but still release-blocking:
    Exact-shape post-processing now avoids per-cluster text-prefix rescans for
    Rustybuzz byte-to-UTF-16 ranges, grapheme constraints and spacing, with
    10,000-cluster operation-count guards and bit-level compatibility oracles.
-   Inline/context preparation, container startup, source-mapping assembly,
-   per-run ruby tag/paint operations, leaf publication, atomic Liang point
-   generation, visually decorated or floated containers,
-   Optimal paragraphs and tables therefore still prevent a complete wall-clock
-   hard bound. A test-only ordered, text-hashed trace covers prefix probes,
+   Inline candidate/context preparation, container startup, mapping
+   allocation/seal/path boxing, per-run ruby tag/paint operations, leaf
+   publication, atomic Liang point generation, visually decorated or floated
+   containers, Optimal paragraphs and tables therefore still prevent a complete
+   wall-clock hard bound. A test-only ordered, text-hashed trace covers prefix probes,
    line-break scans, cache outcomes and actual Rustybuzz subruns; exact
    trace-on/off and eager/bounded equivalence make it the regression oracle for
    this resumable sequence. The first publication-wide footnote scan is now
@@ -125,9 +125,11 @@ It already:
   locator across reflow and window growth;
 - requests the resources needed by active and warm windows.
 
-The remaining bounded-layout work is to meter incremental
-inline/source-mapping/context preparation, container startup, per-run ruby
-tag/paint work and leaf publication, then make the currently atomic Liang point
+Logical-flow mapping preflight, assembly and assignment commit now resume in
+the production Greedy leaf and withhold their owned segments until completion.
+The remaining bounded-layout work is to meter incremental inline candidate and
+line-context preparation, container startup, per-run ruby tag/paint work and
+leaf publication, then make the currently atomic Liang point
 calculation bounded and cover
 visually decorated and floated containers, auto-layout tables and Optimal
 paragraphs. Individual font calls remain indivisible even though their
@@ -147,14 +149,15 @@ progression, not only an href. Locators into unpaginated regions request bounded
 growth and are re-resolved after font or viewport reflow.
 
 The first useful frame no longer depends on laying out the first eight chapters
-or the full publication. Once its inline context exists, transparent-container
-descendant traversal and Greedy break/measure/shape, UTF-16 run-copy and
-whitespace work advance through metered stages across public quanta. One
-container/paragraph-preparation pass, remaining line post-processing,
-decorated or floated composite, table or Optimal paragraph can still violate
-the intended latency bound. Each individual measurement or Rustybuzz call is
-also indivisible, and the fresh-quantum oversized-operation escape prevents
-livelock rather than imposing a strict wall-clock bound.
+or the full publication. Once inline candidates are collected, logical-flow
+mapping, transparent-container descendant traversal and Greedy
+break/measure/shape, UTF-16 run-copy and whitespace work advance through
+metered stages across public quanta. Inline candidate collection and
+line-context construction, one container/paragraph-preparation pass, decorated
+or floated composite, table or Optimal paragraph can still violate the intended
+latency bound. Each individual measurement or Rustybuzz call is also
+indivisible, and the fresh-quantum oversized-operation escape prevents livelock
+rather than imposing a strict wall-clock bound.
 
 Exact bounded publication has algorithmic constraints that must remain explicit:
 
@@ -168,12 +171,15 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
 - transparent-container startup still uses the existing owned margin-collapse
   preparation, which can clone a large child slice before the descendant meter
   starts; this remains an explicit atomic preparation gap;
-- inline flattening/context construction and source-mapping assembly are not yet
-  covered by the text-work meter. Ruby grouping traversal now resumes per input
-  run and withholds the complete line across yields, but exact tag comparison
-  and the first run's tag/selected paint clones remain indivisible per-run work.
-  Exact mapping
-  boundary checks use a sparse index of
+- logical-flow source-mapping preflight, scalar copy and per-segment assignment
+  commit are covered by the shared text-work meter and retain the owned segment
+  vector across yields, so no partial mapping can enter line layout. Inline
+  candidate collection and line-context construction are still eager, and the
+  mapping allocation plus boxing completed buffers and moved source paths are
+  indivisible operations. Ruby grouping traversal now resumes per input run and
+  withholds the complete line across yields, but exact tag comparison and the
+  first run's tag/selected paint clones remain indivisible per-run work. Exact
+  mapping boundary checks use a sparse index of
   surrogate-pair interiors rather than rescanning the logical flow per wrapped
   run; wrapped runs share parser source text and ruby extraction moves retained
   run allocations rather than cloning them. ASCII hyphen word discovery and
@@ -435,8 +441,10 @@ architecture rather than make an eager whole-book pipeline faster.
    request shares its text-work meter across every chapter it visits. Stable
    completed children can publish before their ancestor closes, but no partial
    line or block is exposed. A process-local font layout-profile token rejects
-   inconsistent resume inputs. Inline/context preparation, container startup,
-   source-mapping assembly, per-run ruby tag/paint work and leaf publication,
+   inconsistent resume inputs. Logical-flow source-mapping assembly and commit
+   now resume before line layout. Inline candidate/context preparation,
+   container startup, mapping allocation/seal/path boxing, per-run ruby
+   tag/paint work and leaf publication,
    atomic Liang point generation, decorated/floated containers, tables and
    Optimal layout retain unmetered or atomic regions;
    individual font calls are still indivisible and may use the oversized-work

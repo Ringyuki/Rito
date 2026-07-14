@@ -1,6 +1,8 @@
+use std::num::NonZeroUsize;
+
 use serde_json::{Map, Value};
 
-use super::flatten_inline_content;
+use super::{begin_flatten_inline_content, flatten_inline_content};
 use crate::{
     layout::{
         inline_segment::{InlineSegment, SegmentContext, TextSegment},
@@ -8,6 +10,7 @@ use crate::{
             LogicalTextSource, RunTextMapping, TextFlowSlice, TextMappingUnavailableReason,
             TextSegmentMapping,
         },
+        text_work::{TextWorkBudget, TextWorkMeter},
     },
     style::{StyledNode, StyledNodeKind},
     xhtml::SourceRef,
@@ -52,6 +55,48 @@ fn ruby_flow_contains_only_selectable_base_text() {
     assert_eq!(text.len(), 1);
     assert_eq!(text[0].ruby_annotation.as_deref(), Some("かん"));
     assert_eq!(exact_slice(text[0]).flow.text(), "漢");
+}
+
+#[test]
+fn pending_inline_flow_matches_eager_at_tiny_and_unbounded_quanta() {
+    let nodes = vec![
+        text_node("a😀 ", 0),
+        pseudo_text_node("generated"),
+        inline_node(
+            "ruby",
+            vec![
+                text_node("漢", 2),
+                inline_node("rt", vec![text_node("かん", 3)]),
+            ],
+        ),
+        text_node(" z", 4),
+    ];
+    let expected = flatten_inline_content(&nodes, SegmentContext::default());
+
+    for quantum in [1, 2, 3, usize::MAX] {
+        let actual = finish_pending_inline_content(&nodes, quantum);
+        assert_eq!(
+            format!("{actual:#?}"),
+            format!("{expected:#?}"),
+            "text quantum {quantum}"
+        );
+    }
+}
+
+fn finish_pending_inline_content(nodes: &[StyledNode], quantum: usize) -> Vec<InlineSegment> {
+    let mut pending = begin_flatten_inline_content(nodes, SegmentContext::default());
+    let budget = TextWorkBudget::new(non_zero(quantum), NonZeroUsize::MAX);
+    for _ in 0..10_000 {
+        let mut work = TextWorkMeter::new(budget);
+        if let Ok(segments) = pending.advance(&mut work) {
+            return segments;
+        }
+    }
+    panic!("pending inline content must not livelock");
+}
+
+fn non_zero(value: usize) -> NonZeroUsize {
+    NonZeroUsize::new(value).expect("test quantum is non-zero")
 }
 
 fn text_segments(segments: &[InlineSegment]) -> Vec<&TextSegment> {

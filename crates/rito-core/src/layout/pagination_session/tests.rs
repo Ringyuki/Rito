@@ -194,6 +194,59 @@ fn text_work_budget_resumes_inside_a_nowrap_run_without_partial_output() {
 }
 
 #[test]
+fn tiny_text_quantum_resumes_nested_mapping_without_partial_output() {
+    let leaf = paragraph(
+        &"mapping assembly inside a transparent descendant 😀 ".repeat(3),
+        0.0,
+        0.0,
+    );
+    let nodes = vec![container("outer", vec![container("inner", vec![leaf])])];
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let mut layout = session(&nodes, &images);
+    let work = budget_with_text_work(1, 1, 64);
+
+    let first = layout.advance(work, &fonts);
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert_eq!(first.processed_top_level_nodes, 1);
+    assert!(first.output.is_empty());
+
+    let mut advances = 1;
+    let final_output = loop {
+        let advance = layout.advance(work, &fonts);
+        advances += 1;
+        assert!(advances < 10_000, "mapping finalization must not livelock");
+        assert_eq!(advance.processed_top_level_nodes, 0);
+        if advance.status == LayoutAdvanceStatus::Complete {
+            break advance.output;
+        }
+        assert!(advance.output.is_empty());
+    };
+
+    assert!(advances > 10);
+    assert_eq!(final_output, one_shot_blocks(&nodes));
+}
+
+#[test]
+#[should_panic(expected = "continuous leaf session must resume with the same font profile")]
+fn mapping_continuation_rejects_a_different_font_profile() {
+    let nodes = vec![paragraph(
+        "mapping must retain the font profile before line context exists",
+        0.0,
+        0.0,
+    )];
+    let images = ImageSizeIndex::new(&[]);
+    let mut layout = session(&nodes, &images);
+    let work = budget_with_text_work(1, 1, 64);
+
+    let first = layout.advance(work, &TextMeasurementFonts::empty());
+    assert_eq!(first.status, LayoutAdvanceStatus::Partial);
+    assert!(first.output.is_empty());
+
+    let _ = layout.advance(work, &TextMeasurementFonts::font_aware_empty());
+}
+
+#[test]
 fn accepted_nodes_wait_in_source_order_behind_a_resumable_paragraph() {
     let nodes = vec![
         paragraph(&"queued long paragraph ".repeat(240), 0.0, 0.0),
