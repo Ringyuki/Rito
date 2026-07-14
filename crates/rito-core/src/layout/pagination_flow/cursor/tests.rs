@@ -95,6 +95,48 @@ fn page_breaks_seal_pages_across_batches_and_finish_is_idempotent() {
 }
 
 #[test]
+fn taking_sealed_pages_preserves_page_history_and_open_page_state() {
+    let layout = test_layout();
+    let mut first = block_with_line("first", 0.0, 20.0);
+    first.page_break_after = true;
+    let second = block_with_line("second", 60.0, 20.0);
+    let expected = eager_reference(&[first.clone(), second.clone()], &layout, None);
+    let mut session = ContinuousPaginationSession::new(&layout, None);
+
+    {
+        let pushed = session.push_blocks(vec![first]);
+        assert_eq!(pushed.newly_sealed_pages, 0..1);
+        assert_eq!(pushed.snapshot.sealed_pages.len(), 1);
+    }
+    let mut actual = session.take_sealed_pages();
+    assert_eq!(actual.len(), 1);
+    assert_eq!(actual[0].index, 0);
+    assert!(session.take_sealed_pages().is_empty());
+
+    {
+        let pushed = session.push_blocks(vec![second]);
+        assert_eq!(pushed.newly_sealed_pages, 0..0);
+        assert!(pushed.snapshot.sealed_pages.is_empty());
+    }
+    {
+        let finished = session.finish();
+        assert_eq!(finished.newly_sealed_pages, 0..1);
+        assert_eq!(finished.snapshot.sealed_pages.len(), 1);
+    }
+    let second = session.take_sealed_pages();
+    assert_eq!(second.len(), 1);
+    assert_eq!(second[0].index, 1);
+    assert_eq!(second[0].content[0].y, 0.0);
+    actual.extend(second);
+
+    assert_eq!(actual, expected);
+    assert!(session.take_sealed_pages().is_empty());
+    let finished_again = session.finish();
+    assert_eq!(finished_again.newly_sealed_pages, 0..0);
+    assert!(finished_again.snapshot.sealed_pages.is_empty());
+}
+
+#[test]
 fn oversized_paragraph_seals_only_complete_fragments_before_finish() {
     let layout = test_layout();
     let mut block = block_with_lines(0.0, 8);

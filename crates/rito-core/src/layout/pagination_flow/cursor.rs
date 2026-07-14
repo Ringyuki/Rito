@@ -25,10 +25,10 @@ impl PreviousBlockGeometry {
 
 /// A view of the page extent that is stable at a pagination yield point.
 ///
-/// Only sealed pages are exposed. The accumulator's current page is omitted
-/// until a later block seals it or [`ContinuousPaginationSession::finish`]
-/// does so explicitly. This is a borrowed synchronous view; callers must clone
-/// or serialize it before crossing an asynchronous yield point.
+/// Only currently buffered sealed pages are exposed. The accumulator's current
+/// page is omitted until a later block seals it or
+/// [`ContinuousPaginationSession::finish`] does so explicitly. Pages moved out
+/// by [`ContinuousPaginationSession::take_sealed_pages`] are no longer included.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct PaginationSessionSnapshot<'a> {
     pub(crate) sealed_pages: &'a [LayoutRuntimePage],
@@ -39,6 +39,7 @@ pub(crate) struct PaginationSessionSnapshot<'a> {
 #[must_use]
 pub(crate) struct PaginationPushResult<'a> {
     pub(crate) processed_blocks: usize,
+    /// Range within `snapshot.sealed_pages`, not chapter-local page indexes.
     pub(crate) newly_sealed_pages: Range<usize>,
     pub(crate) snapshot: PaginationSessionSnapshot<'a>,
 }
@@ -46,6 +47,7 @@ pub(crate) struct PaginationPushResult<'a> {
 #[derive(Debug, Clone)]
 #[must_use]
 pub(crate) struct PaginationFinishResult<'a> {
+    /// Range within `snapshot.sealed_pages`, not chapter-local page indexes.
     pub(crate) newly_sealed_pages: Range<usize>,
     pub(crate) snapshot: PaginationSessionSnapshot<'a>,
 }
@@ -123,6 +125,12 @@ impl ContinuousPaginationSession {
         }
     }
 
+    /// Moves all currently buffered sealed pages out of the session.
+    /// Chapter-local page indexes remain monotonic across subsequent takes.
+    pub(crate) fn take_sealed_pages(&mut self) -> Vec<LayoutRuntimePage> {
+        self.state.take_pages()
+    }
+
     pub(crate) fn finish(&mut self) -> PaginationFinishResult<'_> {
         let sealed_before = self.state.pages.len();
         if !self.finished {
@@ -137,6 +145,8 @@ impl ContinuousPaginationSession {
         }
     }
 
+    /// Finishes and returns only pages still buffered by the session.
+    /// Eager callers use this without mixing in [`Self::take_sealed_pages`].
     pub(crate) fn into_pages(mut self) -> Vec<LayoutRuntimePage> {
         let finished = self.finish();
         debug_assert_eq!(

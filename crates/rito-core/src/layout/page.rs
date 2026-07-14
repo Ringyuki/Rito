@@ -37,6 +37,7 @@ pub(crate) struct RuntimePageAccumulator<Content> {
     pub(crate) page_blocks: Vec<Content>,
     pub(crate) page_paint: Option<Value>,
     pub(crate) used_height: f64,
+    emitted_page_count: usize,
     page_width: f64,
     page_height: f64,
 }
@@ -48,20 +49,31 @@ impl<Content> RuntimePageAccumulator<Content> {
             page_blocks: Vec::new(),
             page_paint,
             used_height: 0.0,
+            emitted_page_count: 0,
             page_width,
             page_height,
         }
     }
 
     pub(crate) fn emit_page(&mut self) {
+        let page_index = self.emitted_page_count;
         self.pages.push(RuntimePage::new(
-            self.pages.len(),
+            page_index,
             self.page_width,
             self.page_height,
             self.page_paint.clone(),
             std::mem::take(&mut self.page_blocks),
         ));
+        self.emitted_page_count += 1;
         self.used_height = 0.0;
+    }
+
+    pub(crate) fn has_emitted_pages(&self) -> bool {
+        self.emitted_page_count > 0
+    }
+
+    pub(crate) fn take_pages(&mut self) -> Vec<RuntimePage<Content>> {
+        std::mem::take(&mut self.pages)
     }
 }
 
@@ -116,5 +128,26 @@ mod tests {
         );
         assert!(accumulator.page_blocks.is_empty());
         assert_eq!(accumulator.used_height, 0.0);
+    }
+
+    #[test]
+    fn taking_pages_preserves_monotonic_page_indexes() {
+        let mut accumulator = RuntimePageAccumulator::new(600.0, 800.0, None);
+        accumulator.page_blocks.push("first");
+        accumulator.emit_page();
+
+        let first = accumulator.take_pages();
+
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].index, 0);
+        assert!(accumulator.take_pages().is_empty());
+
+        accumulator.page_blocks.push("second");
+        accumulator.emit_page();
+        let second = accumulator.take_pages();
+
+        assert_eq!(second.len(), 1);
+        assert_eq!(second[0].index, 1);
+        assert!(accumulator.take_pages().is_empty());
     }
 }

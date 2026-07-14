@@ -293,7 +293,7 @@ fn place_pagination_block(
         state.emit_page();
     }
 
-    let effective_spacing = if !state.page_blocks.is_empty() || state.pages.is_empty() {
+    let effective_spacing = if !state.page_blocks.is_empty() || !state.has_emitted_pages() {
         spacing
     } else {
         0.0

@@ -212,14 +212,20 @@ fn each_advance_returns_only_pages_newly_sealed_by_that_advance() {
     );
 
     let first = session.advance(budget(1), &fonts);
-    let second = session.advance(budget(1), &fonts);
 
     assert_eq!(first.status, LayoutAdvanceStatus::Partial);
     assert_eq!(first.newly_sealed_pages.len(), 1);
+    assert_eq!(first.newly_sealed_pages[0].index, 0);
     assert_eq!(page_text(&first.newly_sealed_pages[0]), "first page");
+    assert!(session.pagination.snapshot().sealed_pages.is_empty());
+
+    let second = session.advance(budget(1), &fonts);
+
     assert_eq!(second.status, LayoutAdvanceStatus::Complete);
     assert_eq!(second.newly_sealed_pages.len(), 1);
+    assert_eq!(second.newly_sealed_pages[0].index, 1);
     assert_eq!(page_text(&second.newly_sealed_pages[0]), "second page");
+    assert!(session.pagination.snapshot().sealed_pages.is_empty());
 }
 
 #[test]

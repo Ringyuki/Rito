@@ -451,6 +451,13 @@ Those names now belong to the old TS reference tree only.
      removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
      owners and queued node forests, and clears the revision frame cache. End-to-
      end revision cancellation is not yet budgeted or wall-clock bounded.
+     `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning each
+     newly sealed page from an ever-growing paginator snapshot. Sealed page
+     batches now move directly into the advance result, while a persistent
+     emitted-page count preserves chapter-local indexes and first-page spacing
+     history after each drain. The open page remains private in the paginator.
+     This removes the duplicate retained page tree; the single moved page owner,
+     unpublished page queue and outer continuation cleanup are still synchronous.
      Ordinary None/upper/lower/capitalize transforms now use a resumable exact
      UTF-8 and UTF-16 preflight, paid exact-capacity admission for their logical
      and painted buffers, and a second metered scalar assembly.
@@ -729,8 +736,11 @@ shared ignored-subtree traversal now applies the same preflight and no-growth
 push protocol to its root and nested frames across ordinary, Ruby-group and raw-
 annotation-text owners. Candidate cancellation now releases each owned forest
 without aggregate traversal-scratch allocation or growth, but its O(n) drain and
-the enclosing runtime/session disposal path remain synchronous. The next bounded-
-layout slice should budget both layers, together with
+the enclosing runtime/session disposal path remain synchronous. Sealed pagination
+pages now move into each chapter advance instead of being cloned while the
+paginator retains them, so cancellation owns one page tree rather than two; the
+open page and page-number/spacing history stay in the session. The next bounded-
+layout slice should budget the remaining cleanup layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

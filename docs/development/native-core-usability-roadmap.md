@@ -183,8 +183,12 @@ denied part reserve retains the completed scan without recounting its UTF-8 or
 UTF-16 lengths. Candidate cancellation now drains each owned node forest through
 an intrusive cursor without aggregate traversal-scratch allocation or growth.
 Its O(n) drain and the enclosing runtime/session disposal remain synchronous and
-unbudgeted. The remaining bounded-layout work starts with those cancellation
-residuals,
+unbudgeted. Sealed page batches now move out of the chapter paginator on every
+advance instead of being cloned from retained page history. A persistent emitted-
+page count preserves chapter-local indexes and first-page spacing after each
+drain, while the open page remains private; cancellation therefore owns one page
+tree rather than a duplicated paginator copy. The remaining bounded-layout work
+starts with the remaining cancellation residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
@@ -264,6 +268,9 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   capacity. Candidate cancellation now reuses existing child-vector slots, so
   its traversal needs no aggregate scratch allocation or growth; the drain and
   enclosing continuation/session disposal remain synchronous and unbudgeted.
+  Chapter pagination now moves sealed batches into continuation ownership rather
+  than retaining and cloning the same pages in the paginator; persistent page
+  history keeps indexes and first-block spacing stable across those drains.
   Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.

@@ -13,14 +13,13 @@ use crate::style::StyledNode;
 /// Resumable layout and pagination for one already styled chapter.
 ///
 /// The layout cursor owns continuous-flow state while the pagination cursor
-/// owns the open page. Only sealed pages are cloned into an advance result; the
+/// owns the open page. Sealed pages are moved into an advance result; the
 /// open page remains private until later input seals it or chapter completion
 /// explicitly finishes pagination.
 #[derive(Debug)]
 pub(crate) struct RuntimeChapterLayoutSession {
     layout: ContinuousLayoutSession,
     pagination: ContinuousPaginationSession,
-    published_page_count: usize,
     total_block_count: usize,
     finished: bool,
 }
@@ -51,7 +50,6 @@ impl RuntimeChapterLayoutSession {
                 line_breaking,
             ),
             pagination: ContinuousPaginationSession::new(layout_config, page_paint),
-            published_page_count: 0,
             total_block_count: 0,
             finished: false,
         }
@@ -91,9 +89,7 @@ impl RuntimeChapterLayoutSession {
             self.finished = true;
         }
 
-        let snapshot = self.pagination.snapshot();
-        let newly_sealed_pages = snapshot.sealed_pages[self.published_page_count..].to_vec();
-        self.published_page_count = snapshot.sealed_pages.len();
+        let newly_sealed_pages = self.pagination.take_sealed_pages();
         RuntimeChapterLayoutAdvance {
             status: layout.status,
             processed_top_level_nodes: layout.processed_top_level_nodes,
