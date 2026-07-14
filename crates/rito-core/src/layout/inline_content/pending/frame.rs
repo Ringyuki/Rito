@@ -1,6 +1,12 @@
 use crate::{layout::inline_segment::InlineSegment, style::StyledNode};
 
-use super::context::OwnedInlineContext;
+use super::{context::OwnedInlineContext, ruby::PendingRubyFrame, PendingInlineCandidateCollector};
+
+#[derive(Debug)]
+pub(super) enum CollectionFrame {
+    Nodes(NodeFrame),
+    Ruby(PendingRubyFrame),
+}
 
 #[derive(Debug)]
 pub(super) struct NodeFrame {
@@ -8,6 +14,7 @@ pub(super) struct NodeFrame {
     pub(super) context: OwnedInlineContext,
     pub(super) summary: TextSegmentSummary,
     pub(super) exit: Option<InlineExit>,
+    pub(super) image_sizes_enabled: bool,
 }
 
 impl NodeFrame {
@@ -17,7 +24,40 @@ impl NodeFrame {
             context: OwnedInlineContext::root(href),
             summary: TextSegmentSummary::default(),
             exit: None,
+            image_sizes_enabled: true,
         }
+    }
+
+    pub(super) fn ruby_base(nodes: Vec<StyledNode>, context: OwnedInlineContext) -> Self {
+        Self {
+            nodes: nodes.into_iter(),
+            context,
+            summary: TextSegmentSummary::default(),
+            exit: None,
+            image_sizes_enabled: false,
+        }
+    }
+}
+
+impl PendingInlineCandidateCollector {
+    pub(super) fn current_node_frame(&self) -> &NodeFrame {
+        self.frames
+            .last()
+            .and_then(|frame| match frame {
+                CollectionFrame::Nodes(frame) => Some(frame),
+                CollectionFrame::Ruby(_) => None,
+            })
+            .expect("node dispatch requires a node frame")
+    }
+
+    pub(super) fn current_node_frame_mut(&mut self) -> &mut NodeFrame {
+        self.frames
+            .last_mut()
+            .and_then(|frame| match frame {
+                CollectionFrame::Nodes(frame) => Some(frame),
+                CollectionFrame::Ruby(_) => None,
+            })
+            .expect("node dispatch requires a node frame")
     }
 }
 

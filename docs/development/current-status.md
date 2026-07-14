@@ -382,19 +382,24 @@ Those names now belong to the old TS reference tree only.
      during those paid passes, including the existing empty-segment semantics.
      The independent eager builder remains the equivalence oracle. Before
      mapping, the production Greedy leaf now owns an explicit candidate-
-     collection phase. Ordinary inline traversal uses an iterative owned frame
-     stack; node dispatch, UTF-16 text assembly, segment commit and frame exit
-     consume the shared text meter, including an astral scalar split across
-     quanta. Frame-local first/last-text summaries preserve nested borders and
-     margins without rescanning completed segments, and no collected prefix is
-     published. Images and inline blocks move their owned style/source data
-     after a paid atomic admission. The borrowed eager collector remains the
-     equivalence oracle. Ruby subtree collection, Unicode Final_Sigma whole-
-     string lowercase, changed-but-equal-length transform linearity checks,
-     parser-source `Arc<str>` conversion, source-path duplication, allocator
-     calls (including case-transform buffer growth), context-value clones,
-     line-break metadata normalization and B-tree node allocation remain
-     indivisible residual operations.
+     collection phase. Ordinary inline and Ruby candidate traversal use an
+     iterative owned frame stack; node dispatch, UTF-16 text assembly, segment
+     commit and frame exit consume the shared text meter, including an astral
+     scalar split across quanta. Ruby direct-child grammar, base traversal,
+     annotation extraction and per-scalar annotation application also resume
+     without publishing a partial segment vector. Frame-local first/last-text
+     summaries preserve nested borders and margins without rescanning completed
+     segments. Changed-but-equal-length transform linearity now combines a paid
+     scalar-boundary summary with resumable extended-grapheme UTF-16 boundary
+     streams from the shared `GraphemeCursor` scanner, without allocating the
+     eager boundary vectors. Images and inline blocks move their owned
+     style/source data after a paid atomic admission. The borrowed eager
+     collector and eager transform-boundary builder remain independent
+     equivalence oracles. Unicode Final_Sigma whole-string lowercase,
+     transform/Ruby `String` and `Vec` allocation or growth, paid-atomic
+     parser-source `Arc<str>` conversion and source-path duplication,
+     context-value clones, line-break metadata normalization and B-tree node
+     allocation remain indivisible residual operations.
    - Literal U+FFFC inside a text segment is now preserved as text; only an
      actual inline atom is intercepted by the atom map. Greedy and Optimal
      wrapped-run source offsets also use checked arithmetic and drop overflowing
@@ -427,10 +432,11 @@ Those names now belong to the old TS reference tree only.
      yields, reuses the original vector for plain lines and allocates the exact
      output length only for ruby lines, without publishing a partial `LineBox`.
      Exact tag comparison plus the first run's tag/selected paint clones are
-     still indivisible inside that paid run. Ordinary inline candidate
-     collection now resumes in the preceding production phase; legacy Ruby
-     subtree collection and the named transform/provenance operations above
-     remain atomic. Line-context scalar assembly is also metered.
+     still indivisible inside that paid run. Ordinary and Ruby candidate
+     collection, annotation scalar copy and transform-boundary comparison now
+     resume in the preceding production phase. Contextual Final_Sigma and the
+     named allocation/provenance operations above remain atomic or indivisible.
+     Line-context scalar assembly is also metered.
      Its bounded-prefix policy also resumes CSS family parsing, valid-face scans
      and long face-family comparisons before consuming segment text. Completed
      leaf lines are offset, wrapped and height-accounted as each bounded batch is
@@ -438,12 +444,13 @@ Those names now belong to the old TS reference tree only.
      Style clones and allocations, child-vector growth, line-break metadata,
      B-tree insertion, list markers and final block paint/border metadata remain
      atomic residuals.
-   - This is not yet the complete default-Greedy hard bound. Resumable Ruby
-     candidate collection, contextual Final_Sigma lowercase and text-transform
-     linearity comparison/exact buffer reservation, remaining context metadata
-     work, container startup and owned margin-collapse preparation, mapping
-     allocation/seal/path boxing, source-text sharing/allocation, synchronous
-     cancellation cleanup, the per-run ruby string/paint operations,
+   - This is not yet the complete default-Greedy hard bound. Contextual
+     Final_Sigma whole-string lowercase, case-transform output preflight and
+     exact-capacity reservation, transform/Ruby buffer allocation or growth,
+     remaining context metadata work, container startup and owned
+     margin-collapse preparation, mapping allocation/seal/path boxing,
+     source-text sharing/allocation, stack-safe but synchronous O(n)
+     cancellation cleanup, the downstream per-run ruby tag/paint operations,
      atomic Liang point generation, the leaf marker/paint seal, visually
      decorated or floated containers, tables and Optimal paragraphs still
      contain unmetered or atomic regions.
@@ -574,10 +581,12 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by incrementally metering inline
-   candidate collection, the remaining line-context metadata work, container
-   startup, strict ruby tag/paint work and the leaf marker/paint seal, then make
-   the currently atomic Liang point calculation bounded. Carry
+1. Complete the default-Greedy hard bound by metering the remaining candidate-
+   collection allocation, clone and seal residuals, including contextual
+   Final_Sigma plus transform/Ruby buffers, then the remaining line-context
+   metadata work, container startup, strict downstream ruby tag/paint work and
+   the leaf marker/paint seal. Make the currently atomic Liang point calculation
+   bounded, then carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
@@ -615,15 +624,18 @@ line-context preflight, indexed assembly and seal now resume immediately after
 it without exposing partial context or rescanning the completed string.
 Bounded-prefix font-family parsing and valid-face discovery resume inside that
 builder. An owned production candidate collector now precedes mapping and
-resumes ordinary inline DFS, UTF-16 text assembly, atom commit and inline-frame
-exit without publishing a partial segment vector. Completed leaf lines are
-converted and height-accounted as their line batch is emitted, eliminating the
-line-count-dependent close scan. The next bounded-layout slice should make Ruby
-collection and the remaining contextual transform checks resumable, then meter
-remaining line-context metadata work, container startup and the leaf
-marker/paint seal before making Liang point generation itself resumable and
-extending the same discipline through decorated/floated containers, tables and
-Optimal layout.
+resumes ordinary inline DFS, Ruby grammar/base traversal, annotation extraction
+and scalar application, UTF-16 text assembly, atom commit and inline-frame exit
+without publishing a partial segment vector. Changed-but-equal-length transform
+linearity also resumes through paid scalar summaries and shared extended-
+grapheme boundary streams. Completed leaf lines are converted and
+height-accounted as their line batch is emitted, eliminating the
+line-count-dependent close scan. The next bounded-layout slice should preflight
+case-transform output for exact-capacity buffer reservation, then meter the
+remaining candidate/context allocation and clone residuals, line-context
+metadata work, container startup and the leaf marker/paint seal before making
+Liang point generation itself resumable and extending the same discipline
+through decorated/floated containers, tables and Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the
 oversized-operation escape means the public quantum is not yet a complete
 wall-clock hard bound.

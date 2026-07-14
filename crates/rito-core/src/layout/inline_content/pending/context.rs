@@ -41,6 +41,17 @@ impl OwnedInlineContext {
         )
     }
 
+    pub(super) fn ruby_base(&self) -> Self {
+        Self {
+            href: self.href.clone(),
+            bg_color: self.bg_color.clone(),
+            vertical_align: self.vertical_align.clone(),
+            padding: None,
+            border_radius: None,
+            borders: None,
+        }
+    }
+
     pub(super) fn patched_style(&self, style: Map<String, Value>) -> Map<String, Value> {
         super::super::patch_owned_inherited_style(style, &self.as_borrowed(None))
     }
