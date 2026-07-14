@@ -373,10 +373,24 @@ Those names now belong to the old TS reference tree only.
      segment at a time while the finalizer retains ownership. No partial
      success or global `FlowTooLong` failure can escape across a continuation.
      Exact source ranges that overflow `usize` now fail the whole flow closed
-     instead of panicking or producing an invalid mapping. Inline candidate
-     collection and line-context construction remain eager; allocation plus
-     boxing the completed buffers and moved source paths are also still
-     indivisible operations.
+     instead of panicking or producing an invalid mapping. After mapping, a
+     second resumable two-pass builder now prepares the production Greedy line
+     context: it preflights display UTF-16 scalars, reserves exact text/range
+     capacities in paid steps, and assembles the final string, UTF-16 boundary
+     and newline indexes, style ranges and atoms without a seal-time rescan.
+     Initial-completion and long-run monotonic-width predicates are accumulated
+     during those paid passes, including the existing empty-segment semantics.
+     The independent eager builder remains the equivalence oracle. Inline
+     candidate collection is still eager; allocator calls, JSON style clones,
+     font-family parsing/face selection, line-break metadata normalization,
+     B-tree node allocation and mapping/path ownership transfers remain
+     indivisible residual operations.
+   - Literal U+FFFC inside a text segment is now preserved as text; only an
+     actual inline atom is intercepted by the atom map. Greedy and Optimal
+     wrapped-run source offsets also use checked arithmetic and drop overflowing
+     legacy path/text/offset provenance as one fail-closed group instead of
+     panicking, wrapping or falling back to source offset zero. That optional
+     absolute metadata remains decoupled from the relative text-mapping range.
    - Wrapped text runs now share their immutable parser `source_text` through
      `Arc<str>` instead of copying the complete source node into every line, and
      ruby extraction moves base runs into its output instead of deep-cloning
@@ -402,16 +416,16 @@ Those names now belong to the old TS reference tree only.
      grouping now resumes one input run at a time, retains an open group across
      yields, reuses the original vector for plain lines and allocates the exact
      output length only for ruby lines, without publishing a partial `LineBox`.
-     Exact tag comparison plus the first run's
-     tag/selected paint clones are still indivisible inside that paid run;
-     inline candidate collection and line-context assembly happen earlier and
-     remain unmetered.
+     Exact tag comparison plus the first run's tag/selected paint clones are
+     still indivisible inside that paid run. Inline candidate collection happens
+     earlier and remains unmetered; line-context scalar assembly is now metered,
+     with the metadata-sized residuals listed above.
    - This is not yet the complete default-Greedy hard bound. Inline
-     candidate collection/context construction, container startup and owned
-     margin-collapse preparation, mapping allocation/seal/path boxing, the
-     per-run ruby string/paint operations, atomic Liang point generation, leaf
-     publication, visually decorated or floated containers, tables and Optimal
-     paragraphs still contain unmetered or atomic regions.
+     candidate collection, remaining context metadata work, container startup
+     and owned margin-collapse preparation, mapping allocation/seal/path boxing,
+     the per-run ruby string/paint operations, atomic Liang point generation,
+     leaf publication, visually decorated or floated containers, tables and
+     Optimal paragraphs still contain unmetered or atomic regions.
    - A `cfg(test)` passive text-work trace now records each Greedy prefix-probe
      range, the lazy at-most-once-per-paragraph line-break scan, high-level
      measure/shape requests, both width-cache lookup sources and the exact
@@ -540,9 +554,9 @@ runtime render-command matrix.
 Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by incrementally metering inline
-   candidate collection/context preparation, container startup, strict
-   ruby tag/paint work and leaf publication, then make the currently atomic
-   Liang point calculation bounded. Carry
+   candidate collection, the remaining line-context metadata work, container
+   startup, strict ruby tag/paint work and leaf publication, then make the
+   currently atomic Liang point calculation bounded. Carry
    continuation through decorated/floated containers and split table
    prepass/rows and Optimal preparation while preserving
    eager/bounded final equivalence. Measurement and shaping stages are already
@@ -575,13 +589,16 @@ restore under inconsistent logical font inputs. The footnote index performs
 one spine parse instead of two. Ruby grouping traversal now resumes per input
 run without publishing a partial line; exact tag/paint work remains indivisible.
 Logical-flow mapping preflight, assembly and assignment commit now resume in
-the production Greedy leaf without exposing partial mappings. The next
-bounded-layout slice should meter inline candidate collection and line-context
-preparation, container startup and leaf publication before making Liang point
-generation itself resumable and extending the same discipline through
-decorated/floated containers, tables and Optimal layout. Individual font calls
-and the Liang dictionary call remain indivisible; the oversized-operation
-escape means the public quantum is not yet a complete wall-clock hard bound.
+the production Greedy leaf without exposing partial mappings. Display-text
+line-context preflight, indexed assembly and seal now resume immediately after
+it without exposing partial context or rescanning the completed string. The next
+bounded-layout slice should meter inline candidate collection, remaining
+line-context metadata work, container startup and leaf publication before
+making Liang point generation itself resumable and extending the same discipline
+through decorated/floated containers, tables and Optimal layout. Individual
+font calls and the Liang dictionary call remain indivisible; the
+oversized-operation escape means the public quantum is not yet a complete
+wall-clock hard bound.
 After the default-Greedy hard bound, move the single-pass source scan under an
 explicit budget and reuse a durable source index for full-publication search.
 Keep search result geometry lazy and active-window only. In parallel, measure

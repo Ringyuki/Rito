@@ -36,11 +36,13 @@ impl GreedyLineLayoutSession {
         let Some(base_style) = segments.first().map(|segment| segment.style()).cloned() else {
             return Self::empty(fonts.layout_profile_id());
         };
-        let indent = number_style(&base_style, "textIndent").unwrap_or(0.0);
         let context = build_line_context(segments, base_style, max_width, fonts);
-        let complete = context.text.as_str().trim().is_empty()
-            && !context.text.as_str().contains('\n')
-            && context.atoms.is_empty();
+        Self::from_context(context, fonts)
+    }
+
+    pub(crate) fn from_context(context: LineContext, fonts: &TextMeasurementFonts<'_>) -> Self {
+        let indent = number_style(&context.base_style, "textIndent").unwrap_or(0.0);
+        let complete = context.initially_complete;
         Self {
             context: Some(context),
             pos: 0,
@@ -165,7 +167,7 @@ impl GreedyLineLayoutSession {
         }
     }
 
-    fn empty(font_profile_id: u64) -> Self {
+    pub(crate) fn empty(font_profile_id: u64) -> Self {
         Self {
             context: None,
             pos: 0,

@@ -11,6 +11,10 @@ use unicode_linebreak::{linebreaks, BreakOpportunity};
 #[cfg(test)]
 use super::hyphenation::find_hyphenation_points;
 
+mod owned_text_builder;
+
+pub(crate) use owned_text_builder::OwnedUtf16TextBuilder;
+
 /// Rust line-breaking policy.
 ///
 /// Unicode Line Breaking Algorithm opportunities provide the base candidates.
@@ -92,7 +96,7 @@ enum ResolvedLineBreak {
     Strict,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Utf16Text<'a> {
     text: Cow<'a, str>,
     pub(crate) len: usize,

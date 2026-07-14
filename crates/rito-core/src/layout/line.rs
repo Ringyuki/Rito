@@ -183,6 +183,44 @@ pub(crate) struct TextRunBox {
     pub(crate) shape: RunShape,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct RunSourceProvenance {
+    pub(crate) source_path: Option<Vec<usize>>,
+    pub(crate) source_text: Option<Arc<str>>,
+    pub(crate) source_text_offset: Option<usize>,
+}
+
+impl RunSourceProvenance {
+    pub(crate) fn checked(
+        source_path: Option<&[usize]>,
+        source_text: Option<&Arc<str>>,
+        source_text_offset: Option<usize>,
+        relative_offset: Option<usize>,
+    ) -> Self {
+        if source_path.is_none() && source_text.is_none() {
+            return Self::unavailable();
+        }
+        let Some(offset) = relative_offset
+            .and_then(|relative| source_text_offset.unwrap_or(0).checked_add(relative))
+        else {
+            return Self::unavailable();
+        };
+        Self {
+            source_path: source_path.map(<[usize]>::to_vec),
+            source_text: source_text.cloned(),
+            source_text_offset: Some(offset),
+        }
+    }
+
+    const fn unavailable() -> Self {
+        Self {
+            source_path: None,
+            source_text: None,
+            source_text_offset: None,
+        }
+    }
+}
+
 impl TextRunBox {
     fn trailing_inline_extension(&self) -> f64 {
         if paint_object(&self.paint, &["border", "end"]).is_none() {

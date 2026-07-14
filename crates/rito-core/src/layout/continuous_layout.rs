@@ -17,7 +17,7 @@ use super::{
     },
     inline_segment::SegmentContext,
     line::{LineBox, LineRun},
-    line_layout::GreedyLineLayoutSession,
+    line_layout::{GreedyLineLayoutSession, PendingLineContextBuilder},
     line_metrics::line_height_px,
     line_mode::layout_lines_with_fonts,
     pagination_flow::{paginate_continuous_blocks, PaginationFlowChapter},
@@ -235,6 +235,7 @@ struct ContinuousLeafLayoutSession {
 #[derive(Debug)]
 enum ContinuousLeafTextState {
     FinalizingMapping(PendingInlineContentFinalization),
+    BuildingLineContext(Box<PendingLineContextBuilder>),
     LayoutLines(GreedyLineLayoutSession),
 }
 
@@ -310,8 +311,28 @@ impl ContinuousLeafLayoutSession {
                             return 0;
                         }
                     };
+                    self.text_state = Some(
+                        match PendingLineContextBuilder::new(segments, self.line_width, fonts) {
+                            Some(context) => {
+                                ContinuousLeafTextState::BuildingLineContext(Box::new(context))
+                            }
+                            None => ContinuousLeafTextState::LayoutLines(
+                                GreedyLineLayoutSession::empty(fonts.layout_profile_id()),
+                            ),
+                        },
+                    );
+                }
+                ContinuousLeafTextState::BuildingLineContext(mut context) => {
+                    let context = match context.advance(work.text_work_mut(), fonts) {
+                        Ok(context) => context,
+                        Err(_) => {
+                            self.text_state =
+                                Some(ContinuousLeafTextState::BuildingLineContext(context));
+                            return 0;
+                        }
+                    };
                     self.text_state = Some(ContinuousLeafTextState::LayoutLines(
-                        GreedyLineLayoutSession::new(&segments, self.line_width, fonts),
+                        GreedyLineLayoutSession::from_context(context, fonts),
                     ));
                 }
                 ContinuousLeafTextState::LayoutLines(mut lines) => {

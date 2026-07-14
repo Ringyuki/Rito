@@ -1,9 +1,13 @@
+use std::num::NonZeroUsize;
+
 use serde_json::{json, Map};
 
 use super::{
     has_mixed_inline_content, layout_continuous_blocks, layout_continuous_floated_leaf,
     layout_continuous_text_block, relative_visual_offset, wrap_anonymous_inline_runs,
-    ImageSizeIndex, LineBreaking, TextMeasurementFonts,
+    ContinuousFloatContext, ContinuousLayoutState, ContinuousLeafLayoutSession,
+    ContinuousLeafTextState, ContinuousTextLayout, ImageSizeIndex, LayoutWorkBudget,
+    LayoutWorkMeter, LineBreaking, TextMeasurementFonts,
 };
 use crate::style::{StyledNode, StyledNodeKind};
 
@@ -44,6 +48,64 @@ fn image_followed_by_line_break_is_mixed_inline_content() {
         &fonts,
     );
     assert_eq!(blocks.len(), 1);
+}
+
+#[test]
+fn production_leaf_resumes_mapping_context_and_lines_in_order() {
+    let content = "bounded mapping and context assembly 😀 across several lines ".repeat(12);
+    let styled = paragraph(&content);
+    let images = ImageSizeIndex::new(&[]);
+    let fonts = TextMeasurementFonts::empty();
+    let expected =
+        layout_continuous_text_block(&styled, 180.0, 0.0, &images, LineBreaking::Greedy, &fonts);
+    let mut state = ContinuousLayoutState {
+        blocks: Vec::new(),
+        floats: ContinuousFloatContext::default(),
+        y: 0.0,
+        previous_margin_bottom: 0.0,
+        text_layout: ContinuousTextLayout {
+            line_breaking: LineBreaking::Greedy,
+            fonts: &fonts,
+        },
+    };
+    let mut leaf = ContinuousLeafLayoutSession::new(&mut state, styled, 180.0, &images);
+    let budget = LayoutWorkBudget::with_text_work_limits(
+        NonZeroUsize::MIN,
+        NonZeroUsize::MIN,
+        NonZeroUsize::new(64).expect("atomic-operation budget is non-zero"),
+    );
+    let mut seen = [false; 3];
+    let mut previous_phase = 0;
+
+    for _ in 0..10_000 {
+        let phase = match leaf.text_state.as_ref().expect("leaf text state") {
+            ContinuousLeafTextState::FinalizingMapping(_) => 0,
+            ContinuousLeafTextState::BuildingLineContext(_) => 1,
+            ContinuousLeafTextState::LayoutLines(_) => 2,
+        };
+        assert!(phase >= previous_phase, "leaf text phases must not regress");
+        previous_phase = phase;
+        seen[phase] = true;
+        if phase < 2 {
+            assert!(
+                leaf.completed_lines.is_empty(),
+                "mapping and context preparation must not publish partial lines"
+            );
+        }
+        if leaf.is_complete() {
+            break;
+        }
+        let mut work = LayoutWorkMeter::new(budget);
+        let processed = leaf.advance(&mut work, &fonts);
+        work.consume_line_boxes(processed);
+    }
+
+    assert!(leaf.is_complete(), "tiny quanta must not livelock");
+    assert_eq!(seen, [true, true, true]);
+    assert!(leaf.completed_lines.len() > 1);
+    let mut list_ctx = None;
+    leaf.finish(&mut state, &mut list_ctx);
+    assert_eq!(state.blocks, vec![expected]);
 }
 
 #[test]

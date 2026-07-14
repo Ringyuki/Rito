@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 
 use super::{
     inline_segment::{AtomSegment, InlineSegment},
-    line::{AtomRunBox, LineBox, LineRun, TextRunBox},
+    line::{AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox},
     line_break::{utf16_len, LineBreakOptions, Utf16Text},
     line_metrics::{line_height_px, measure_text_slice_with_fonts, vertical_align_offset},
     line_prefix::should_probe_bounded,
@@ -17,13 +17,15 @@ use super::{
     text_shape::RunShape,
 };
 
+mod context_builder;
 mod resumable_break;
 mod session;
 
+pub(crate) use context_builder::PendingLineContextBuilder;
 pub(crate) use session::GreedyLineLayoutSession;
 
-#[derive(Debug)]
-struct LineContext {
+#[derive(Debug, PartialEq)]
+pub(crate) struct LineContext {
     text: Utf16Text<'static>,
     ranges: Vec<LineStyleRange>,
     atoms: BTreeMap<usize, LineAtom>,
@@ -35,9 +37,10 @@ struct LineContext {
     break_offsets: OnceLock<BTreeSet<usize>>,
     base_style: Map<String, Value>,
     monotonic_prefix_widths: bool,
+    initially_complete: bool,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct LineStyleRange {
     start: usize,
     end: usize,
@@ -54,7 +57,7 @@ struct LineStyleRange {
     text_mapping: RunTextMapping,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 struct LineAtom {
     width: f64,
     height: f64,
@@ -150,6 +153,8 @@ fn build_line_context(
         string_style(&base_style, "wordBreak").as_deref(),
         string_style(&base_style, "language").as_deref(),
     );
+    let initially_complete =
+        full_text.trim().is_empty() && !full_text.contains('\n') && atoms.is_empty();
     LineContext {
         text: Utf16Text::new_owned(full_text),
         ranges,
@@ -168,6 +173,7 @@ fn build_line_context(
         break_offsets: OnceLock::new(),
         base_style,
         monotonic_prefix_widths,
+        initially_complete,
     }
 }
 
@@ -332,7 +338,7 @@ struct BuildTextRunInput<'a> {
     range: &'a LineStyleRange,
     is_start: bool,
     is_end: bool,
-    source_text_offset: Option<usize>,
+    source_provenance: RunSourceProvenance,
     context: &'a LineContext,
     shape: RunShape,
 }
@@ -356,9 +362,9 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         paint: run_paint_value(&input.range.style, input.is_start, input.is_end),
         line_height_px: number_style(&input.range.style, "lineHeightPx"),
         href: input.range.href.clone(),
-        source_path: input.range.source_path.clone(),
-        source_text: input.range.source_text.clone(),
-        source_text_offset: input.source_text_offset,
+        source_path: input.source_provenance.source_path,
+        source_text: input.source_provenance.source_text,
+        source_text_offset: input.source_provenance.source_text_offset,
         inline_margin_right: None,
         ruby_annotation: input.range.ruby_annotation.clone(),
         shape: input.shape,
@@ -419,6 +425,20 @@ mod tests {
     };
 
     mod real_font_resumption;
+
+    #[test]
+    fn literal_object_replacement_character_remains_text_without_an_atom() {
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(10)),
+            ("lineHeight".to_owned(), json!(1.2)),
+        ]);
+        let segments = [text_segment("a\u{fffc}b".to_owned(), style)];
+
+        let lines = layout_greedy_lines(&segments, 200.0);
+
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].text(), "a\u{fffc}b");
+    }
 
     #[test]
     fn emits_the_discretionary_hyphen_selected_by_the_breaker() {

@@ -307,6 +307,53 @@ fn wrapped_greedy_runs_keep_utf16_source_offsets_and_share_source_text() {
 }
 
 #[test]
+fn wrapped_greedy_runs_drop_overflowing_source_offsets() {
+    let text = "猫犬鳥魚馬牛羊猿".repeat(8);
+    let source_text: Arc<str> = text.clone().into();
+    let style = Map::from_iter([
+        ("fontSize".to_owned(), json!(10)),
+        ("lineHeight".to_owned(), json!(1.2)),
+        ("language".to_owned(), Value::String("zh-CN".to_owned())),
+    ]);
+    let segment = InlineSegment::Text(TextSegment {
+        text,
+        mapping: TextSegmentMapping::synthetic(),
+        style,
+        href: None,
+        source_path: Some(vec![9, 4]),
+        source_text: Some(Arc::clone(&source_text)),
+        source_text_offset: Some(usize::MAX),
+        ruby_annotation: None,
+        inline_margin_left: None,
+        inline_margin_right: None,
+        border_start: false,
+        border_end: false,
+    });
+
+    let lines = layout_greedy_lines(&[segment], 30.0);
+    let runs = lines
+        .iter()
+        .map(|line| {
+            let [LineRun::Text(run)] = line.runs.as_slice() else {
+                panic!("expected one text run per line");
+            };
+            run
+        })
+        .collect::<Vec<_>>();
+
+    assert!(runs.len() > 1);
+    assert_eq!(runs[0].source_path.as_deref(), Some([9, 4].as_slice()));
+    assert!(Arc::ptr_eq(
+        runs[0].source_text.as_ref().expect("source text"),
+        &source_text
+    ));
+    assert_eq!(runs[0].source_text_offset, Some(usize::MAX));
+    assert!(runs[1..].iter().all(|run| {
+        run.source_path.is_none() && run.source_text.is_none() && run.source_text_offset.is_none()
+    }));
+}
+
+#[test]
 fn passive_text_work_trace_preserves_exact_lines_and_classifies_atomic_work() {
     const TEXT_UNITS: usize = 320;
     let text = "猫".repeat(TEXT_UNITS);

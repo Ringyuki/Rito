@@ -5,7 +5,7 @@
 use super::{
     hyphenation::find_hyphenation_points,
     inline_segment::{AtomSegment, InlineSegment, TextSegment},
-    line::{AtomRunBox, LineBox, LineRun, TextRunBox},
+    line::{AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox},
     line_break::{
         contains_cjk, split_line_break_segments, split_text_units, utf16_len, LineBreakOptions,
     },
@@ -15,7 +15,7 @@ use super::{
     style_values::{
         border_width, number_style, run_border_edge_value, run_paint_value, string_style,
     },
-    text_mapping::RunTextMapping,
+    text_mapping::{RunTextMapping, TextMappingUnavailableReason},
     text_measure::{shape_text_with_style, TextMeasurementFonts},
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
@@ -233,7 +233,7 @@ struct LineBuildState {
     y: f64,
     started_segments: Vec<usize>,
     trailing_edges: Vec<TrailingEdgeLocation>,
-    source_offsets: Vec<usize>,
+    source_offsets: Vec<Option<usize>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -261,7 +261,7 @@ fn build_line_boxes(
         y: 0.0,
         started_segments: Vec::new(),
         trailing_edges: Vec::new(),
-        source_offsets: vec![0; segments.len()],
+        source_offsets: vec![Some(0); segments.len()],
     };
 
     for (line_index, break_pos) in break_positions.iter().copied().enumerate() {
@@ -352,7 +352,7 @@ struct RunBuildContext<'a> {
     x: f64,
     current_text: String,
     current_segment_index: Option<usize>,
-    current_source_offset: usize,
+    current_relative_source_offset: Option<usize>,
     has_trailing_hyphen: bool,
     segments: &'a [InlineSegment],
     line_height: f64,
@@ -361,7 +361,7 @@ struct RunBuildContext<'a> {
     line_end: usize,
     started_segments: &'a mut Vec<usize>,
     trailing_edges: &'a mut Vec<TrailingEdgeLocation>,
-    source_offsets: &'a [usize],
+    source_offsets: &'a [Option<usize>],
     line_index: usize,
     fonts: &'a TextMeasurementFonts<'a>,
 }
@@ -376,7 +376,7 @@ struct LineRunBuildInput<'a> {
     line_index: usize,
     started_segments: &'a mut Vec<usize>,
     trailing_edges: &'a mut Vec<TrailingEdgeLocation>,
-    source_offsets: &'a [usize],
+    source_offsets: &'a [Option<usize>],
     fonts: &'a TextMeasurementFonts<'a>,
 }
 
@@ -391,7 +391,7 @@ fn build_line_runs(input: LineRunBuildInput<'_>) -> Vec<LineRun> {
         x: input.start_x,
         current_text: String::new(),
         current_segment_index: None,
-        current_source_offset: 0,
+        current_relative_source_offset: Some(0),
         has_trailing_hyphen: false,
         segments: input.segments,
         line_height: input.line_height,
@@ -443,20 +443,11 @@ fn append_text_box(context: &mut RunBuildContext<'_>, item_box: &KpBox) {
     flush_run(context);
     context.current_segment_index = Some(item_box.segment_index);
     context.current_text = item_box.text.clone();
-    let base_offset = context
-        .segments
+    context.current_relative_source_offset = context
+        .source_offsets
         .get(item_box.segment_index)
-        .and_then(|segment| match segment {
-            InlineSegment::Text(segment) => segment.source_text_offset,
-            InlineSegment::Atom(_) => None,
-        })
-        .unwrap_or(0);
-    context.current_source_offset = base_offset
-        + context
-            .source_offsets
-            .get(item_box.segment_index)
-            .copied()
-            .unwrap_or(0);
+        .copied()
+        .unwrap_or(Some(0));
 }
 
 fn can_merge_text_box(
@@ -544,13 +535,18 @@ fn build_text_run(
 ) -> TextRunBox {
     let font_size = number_style(&segment.style, "fontSize").unwrap_or(16.0);
     let width = measure_text_slice_with_fonts(&context.current_text, &segment.style, context.fonts);
-    let source_base = segment.source_text_offset.unwrap_or(0);
-    let relative_start = context.current_source_offset.saturating_sub(source_base);
-    let relative_end = relative_start + current_text_source_advance(context);
+    let source_range = context
+        .current_relative_source_offset
+        .and_then(|relative_start| {
+            let relative_end = relative_start.checked_add(current_text_source_advance(context))?;
+            Some((relative_start, relative_end))
+        });
     let text_mapping = if context.has_trailing_hyphen {
         RunTextMapping::synthetic()
-    } else {
+    } else if let Some((relative_start, relative_end)) = source_range {
         segment.run_text_mapping(relative_start, relative_end)
+    } else {
+        RunTextMapping::Unavailable(TextMappingUnavailableReason::FlowTooLong)
     };
     let shape = if context.has_trailing_hyphen {
         RunShape::unavailable(RunShapeUnavailableReason::SyntheticLayoutText, width)
@@ -558,6 +554,12 @@ fn build_text_run(
         shape_text_with_style(&context.current_text, &segment.style, context.fonts)
     };
     debug_assert!((shape.advance() - width).abs() < 0.000_001);
+    let source_provenance = RunSourceProvenance::checked(
+        segment.source_path.as_deref(),
+        segment.source_text.as_ref(),
+        segment.source_text_offset,
+        context.current_relative_source_offset,
+    );
     TextRunBox {
         text: context.current_text.clone(),
         text_mapping,
@@ -569,12 +571,9 @@ fn build_text_run(
         paint: run_paint_value(&segment.style, is_start, false),
         line_height_px: number_style(&segment.style, "lineHeightPx"),
         href: segment.href.clone(),
-        source_path: segment.source_path.clone(),
-        source_text: segment.source_text.clone(),
-        source_text_offset: segment
-            .source_text
-            .as_ref()
-            .map(|_| context.current_source_offset),
+        source_path: source_provenance.source_path,
+        source_text: source_provenance.source_text,
+        source_text_offset: source_provenance.source_text_offset,
         inline_margin_right: None,
         ruby_annotation: segment.ruby_annotation.clone(),
         shape,
@@ -680,7 +679,9 @@ fn kp_vertical_align_offset(
 
 fn advance_flush_state(context: &mut RunBuildContext<'_>) {
     let advance = current_text_source_advance(context);
-    context.current_source_offset += advance;
+    context.current_relative_source_offset = context
+        .current_relative_source_offset
+        .and_then(|offset| offset.checked_add(advance));
     context.current_text.clear();
     context.has_trailing_hyphen = false;
 }
@@ -1033,7 +1034,12 @@ fn add_forced_break(items: &mut Vec<KpItem>, segment_index: Option<usize>, sourc
     }));
 }
 
-fn advance_source_offsets(offsets: &mut [usize], items: &[KpItem], start: usize, end: usize) {
+fn advance_source_offsets(
+    offsets: &mut [Option<usize>],
+    items: &[KpItem],
+    start: usize,
+    end: usize,
+) {
     for item in items.iter().take(end).skip(start) {
         match item {
             KpItem::Box(item_box) if item_box.atom_index.is_none() => {
@@ -1053,9 +1059,9 @@ fn advance_source_offsets(offsets: &mut [usize], items: &[KpItem], start: usize,
     }
 }
 
-fn add_source_offset(offsets: &mut [usize], segment_index: usize, length: usize) {
+fn add_source_offset(offsets: &mut [Option<usize>], segment_index: usize, length: usize) {
     if let Some(offset) = offsets.get_mut(segment_index) {
-        *offset += length;
+        *offset = offset.and_then(|value| value.checked_add(length));
     }
 }
 
@@ -1910,6 +1916,50 @@ mod tests {
             .iter()
             .flat_map(text_runs)
             .all(|run| Arc::ptr_eq(run.source_text.as_ref().expect("source text"), &source_text)));
+    }
+
+    #[test]
+    fn wrapped_optimal_runs_drop_overflowing_source_offsets_without_changing_mapping() {
+        let content = "one two three four";
+        let source_text: Arc<str> = content.into();
+        let mut segment = source_text_segment(&source_text);
+        let InlineSegment::Text(text) = &mut segment else {
+            panic!("text segment expected");
+        };
+        text.source_text = Some(source_text);
+        text.source_text_offset = Some(usize::MAX);
+        let logical_end = u32::try_from(content.encode_utf16().count()).expect("fixture length");
+        text.mapping = crate::layout::text_mapping::TextSegmentMapping::Resolved(
+            crate::layout::text_mapping::RunTextMapping::Exact(
+                crate::layout::text_mapping::TextFlowSlice {
+                    flow: crate::layout::text_mapping::fixture_logical_text_flow(
+                        content,
+                        vec![(0, logical_end, Some((vec![1, 0], 0)))],
+                    ),
+                    span_index: 0,
+                    logical_start: 0,
+                    logical_end,
+                },
+            ),
+        );
+
+        let lines = layout_optimal_lines(&[segment], 60.0);
+        let runs = lines
+            .iter()
+            .map(|line| first_text_run(line).expect("text run"))
+            .collect::<Vec<_>>();
+
+        assert_eq!(runs.len(), 2);
+        assert_eq!(runs[0].source_path.as_deref(), Some([1, 0].as_slice()));
+        assert!(runs[0].source_text.is_some());
+        assert_eq!(runs[0].source_text_offset, Some(usize::MAX));
+        assert!(runs[1].source_path.is_none());
+        assert!(runs[1].source_text.is_none());
+        assert_eq!(runs[1].source_text_offset, None);
+        assert!(matches!(
+            runs[1].text_mapping,
+            crate::layout::text_mapping::RunTextMapping::Exact(_)
+        ));
     }
 
     #[test]

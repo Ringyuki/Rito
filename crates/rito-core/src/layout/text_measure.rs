@@ -14,7 +14,10 @@ mod generic_serif;
 #[cfg(test)]
 mod tests;
 
-pub(crate) use font::{parse_font_family_list, TextMeasurementFontFace, TextMeasurementFonts};
+pub(crate) use font::{
+    parse_font_family_list, PendingMonotonicPrefixWidthCheck, TextMeasurementFontFace,
+    TextMeasurementFonts,
+};
 
 #[cfg(test)]
 use font::{

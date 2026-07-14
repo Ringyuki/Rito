@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 use super::{ContinuousLayoutSession, LayoutAdvanceStatus, LayoutWorkBudget};
 use crate::{
     layout::{
-        content::RuntimeBlock,
+        content::{RuntimeBlock, RuntimeChild},
         continuous_layout::{layout_continuous_nodes_at, ContinuousTextLayout},
         image_size::ImageSizeIndex,
         line::LineBox,
@@ -194,7 +194,7 @@ fn text_work_budget_resumes_inside_a_nowrap_run_without_partial_output() {
 }
 
 #[test]
-fn tiny_text_quantum_resumes_nested_mapping_without_partial_output() {
+fn tiny_text_quantum_resumes_nested_mapping_context_and_lines_without_partial_output() {
     let leaf = paragraph(
         &"mapping assembly inside a transparent descendant 😀 ".repeat(3),
         0.0,
@@ -215,7 +215,10 @@ fn tiny_text_quantum_resumes_nested_mapping_without_partial_output() {
     let final_output = loop {
         let advance = layout.advance(work, &fonts);
         advances += 1;
-        assert!(advances < 10_000, "mapping finalization must not livelock");
+        assert!(
+            advances < 10_000,
+            "mapping, line-context preparation and line layout must not livelock"
+        );
         assert_eq!(advance.processed_top_level_nodes, 0);
         if advance.status == LayoutAdvanceStatus::Complete {
             break advance.output;
@@ -224,6 +227,7 @@ fn tiny_text_quantum_resumes_nested_mapping_without_partial_output() {
     };
 
     assert!(advances > 10);
+    assert!(final_output.iter().map(block_line_count).sum::<usize>() > 1);
     assert_eq!(final_output, one_shot_blocks(&nodes));
 }
 
@@ -507,6 +511,18 @@ fn one_shot_blocks(nodes: &[StyledNode]) -> Vec<TestBlock> {
         },
         &mut list_ctx,
     )
+}
+
+fn block_line_count(block: &TestBlock) -> usize {
+    block
+        .children
+        .iter()
+        .map(|child| match child {
+            RuntimeChild::Block(child) => block_line_count(child),
+            RuntimeChild::Line(_) => 1,
+            RuntimeChild::Image(_) | RuntimeChild::Hr(_) => 0,
+        })
+        .sum()
 }
 
 fn budget(max_nodes: usize) -> LayoutWorkBudget {

@@ -11,11 +11,13 @@ mod cluster_safety;
 mod mac_roman;
 mod matching;
 mod measurement;
+mod monotonic;
 mod runs;
 mod shaping;
 
 pub(crate) use matching::parse_font_family_list;
 pub(super) use measurement::{font_aware_measurement, font_aware_shape};
+pub(crate) use monotonic::PendingMonotonicPrefixWidthCheck;
 #[cfg(test)]
 pub(super) use runs::{font_runs, FontMeasurementRun};
 pub(crate) use shaping::TextMeasurementFontFace;

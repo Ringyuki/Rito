@@ -1,5 +1,5 @@
 use crate::layout::{
-    line::{LineRun, TextRunBox},
+    line::{LineRun, RunSourceProvenance, TextRunBox},
     text_measure::TextMeasurementFonts,
     text_shape::RunShape,
     text_work::{AtomicTextOperationKind, TextWorkMeter},
@@ -175,10 +175,8 @@ impl PendingTextRun {
             if self.pending_copy_units > 0 {
                 return Err(TextWorkYield);
             }
-            if character != '\u{fffc}' {
-                self.text.push(character);
-                self.text_utf16_len += character.len_utf16();
-            }
+            self.text.push(character);
+            self.text_utf16_len += character.len_utf16();
             self.copy_cursor += character.len_utf16();
         }
         self.stage = PendingTextRunStage::Measure;
@@ -198,10 +196,12 @@ impl PendingTextRun {
             line_range_end: self.range_end,
         };
         let spacing = range_spacing(range, &edges, self.start);
-        let source_text_offset = range
-            .source_text
-            .as_ref()
-            .map(|_| range.source_text_offset.unwrap_or(0) + self.start - range.start);
+        let source_provenance = RunSourceProvenance::checked(
+            range.source_path.as_deref(),
+            range.source_text.as_ref(),
+            range.source_text_offset,
+            self.start.checked_sub(range.start),
+        );
         let text_mapping = range
             .text_mapping
             .subslice(self.start - range.start, self.range_end - range.start);
@@ -214,7 +214,7 @@ impl PendingTextRun {
             range,
             is_start: edges.is_start,
             is_end: edges.is_end,
-            source_text_offset,
+            source_provenance,
             context,
             shape,
         });
