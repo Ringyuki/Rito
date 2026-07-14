@@ -30,10 +30,10 @@ fn raw_annotation_discard_matches_eager_with_tiny_shared_limits() {
 
 #[test]
 fn initial_and_nested_discard_cancellation_drain_deep_trees_iteratively() {
-    let mut initial = PendingNodeDiscard::new(vec![deep_block(16_384)]);
+    let initial = PendingNodeDiscard::new(vec![deep_block(16_384)]);
     assert!(initial.initial_frame.is_some());
     assert!(initial.frames.is_empty());
-    drain_iteratively(&mut initial);
+    drop(initial);
 
     let mut nested = PendingNodeDiscard::new(vec![deep_block(16_384)]);
     for _ in 0..128 {
@@ -44,7 +44,7 @@ fn initial_and_nested_discard_cancellation_drain_deep_trees_iteratively() {
     }
     assert!(nested.initial_frame.is_none());
     assert!(nested.frames.len() >= 128);
-    drain_iteratively(&mut nested);
+    drop(nested);
 }
 
 #[test]
@@ -84,14 +84,6 @@ fn drive(nodes: Vec<StyledNode>) -> Vec<InlineSegment> {
         }
     }
     panic!("shared discard traversal must not livelock")
-}
-
-fn drain_iteratively(pending: &mut PendingNodeDiscard) {
-    let mut nodes = Vec::new();
-    pending.drain_remaining_into(&mut nodes);
-    while let Some(mut node) = nodes.pop() {
-        nodes.append(&mut node.children);
-    }
 }
 
 fn deep_block(depth: usize) -> StyledNode {

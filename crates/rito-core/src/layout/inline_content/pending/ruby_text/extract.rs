@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    super::{discard::PendingNodeDiscard, require_unit},
+    super::{cleanup::drop_styled_nodes_iteratively, discard::PendingNodeDiscard, require_unit},
     admit_inline_collection, charge_scalar, checked_add, PendingScalar, RubyAnnotation,
     SharedRubyAnnotation,
 };
@@ -105,19 +105,14 @@ impl PendingRubyAnnotation {
         }
     }
 
-    pub(in crate::layout::inline_content::pending) fn drain_nodes_into(
-        &mut self,
-        output: &mut Vec<StyledNode>,
-    ) {
+    fn drop_owned_nodes(&mut self) {
         if let Some(frame) = self.initial_frame.take() {
-            output.extend(frame);
+            drop_styled_nodes_iteratively(frame);
         }
         for frame in self.frames.drain(..) {
-            output.extend(frame);
+            drop_styled_nodes_iteratively(frame);
         }
-        if let Some(discard) = self.discard.as_mut() {
-            discard.drain_remaining_into(output);
-        }
+        drop(self.discard.take());
     }
 
     #[cfg(test)]
@@ -262,6 +257,12 @@ impl PendingRubyAnnotation {
         debug_assert_eq!(self.output_utf16_len, self.utf16_len);
         debug_assert_eq!(output.capacity(), self.output_capacity);
         RubyAnnotation::new(output, self.utf16_len)
+    }
+}
+
+impl Drop for PendingRubyAnnotation {
+    fn drop(&mut self) {
+        self.drop_owned_nodes();
     }
 }
 

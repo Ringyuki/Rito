@@ -84,7 +84,8 @@ The remaining usability work is narrower but still release-blocking:
    now use paid exact-capacity reservation plus scalar-metered assembly; a
    separate paid seal publishes the source shared during application, and empty
    annotations allocate neither output nor seal. Contextual Final_Sigma whole-
-   string allocation/growth, cancellation collection growth,
+   string allocation/growth, synchronous candidate cleanup and unbudgeted outer
+   continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint operations, the leaf marker/paint seal, atomic Liang point generation,
@@ -175,8 +176,11 @@ annotation extraction now applies checked post-depth admission to its unstacked
 root and every non-text child frame, including empty frames, and checked post-
 part-count admission to completed text scans before no-growth publication. A
 denied part reserve retains the completed scan without recounting its UTF-8 or
-UTF-16 lengths. The remaining bounded-layout work starts with cancellation
-collection residuals,
+UTF-16 lengths. Candidate cancellation now drains each owned node forest through
+an intrusive cursor without aggregate traversal-scratch allocation or growth.
+Its O(n) drain and the enclosing runtime/session disposal remain synchronous and
+unbudgeted. The remaining bounded-layout work starts with those cancellation
+residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
@@ -205,7 +209,8 @@ mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
 allocator, context/source-copy and stack-safe but synchronous cancellation
-residuals, remaining line-context metadata, one container/paragraph-preparation
+residuals at the outer session/runtime boundary, remaining line-context metadata,
+one container/paragraph-preparation
 pass, the leaf marker/paint seal, decorated or floated composite, table or
 Optimal paragraph can still violate the intended latency bound. Each individual
 measurement or Rustybuzz call is also indivisible, and the fresh-quantum
@@ -252,8 +257,10 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   slot exists. Shared ignored-subtree discard applies the same preflight and no-
   growth push protocol to its root and nested frames. Annotation traversal and
   part vectors now preflight checked post-size growth and push only into retained
-  capacity. The stack-safe but synchronous cancellation scratch `Vec` can still
-  allocate or grow. Source-text sharing
+  capacity. Candidate cancellation now reuses existing child-vector slots, so
+  its traversal needs no aggregate scratch allocation or growth; the drain and
+  enclosing continuation/session disposal remain synchronous and unbudgeted.
+  Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
   Mapping allocation plus
@@ -539,7 +546,8 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, cancellation collection growth, remaining context
+   allocation/growth, synchronous candidate cleanup and outer continuation/
+   session disposal, remaining context
    metadata, container
    startup, mapping allocation/seal/path boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,

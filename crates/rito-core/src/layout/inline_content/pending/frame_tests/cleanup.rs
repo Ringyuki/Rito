@@ -53,3 +53,23 @@ fn suspended_discard_and_pushed_inline_frame_drop_iteratively() {
     advance_until(&mut pending, |pending| pending.frames.len() >= 2);
     drop(pending);
 }
+
+#[test]
+fn active_atomic_and_its_suspended_discard_drop_iteratively() {
+    let mut discarded = text("discarded");
+    for _ in 0..16_384 {
+        discarded = bare_node(StyledNodeKind::Block, vec![discarded]);
+    }
+    let image = bare_node(StyledNodeKind::Image, vec![discarded]);
+    let mut pending = PendingInlineCandidateCollector::new(vec![image], None, None);
+    let mut work = meter(2, 1);
+
+    assert!(pending.advance(&mut work).is_err());
+    assert!(matches!(
+        pending.active,
+        Some(super::super::ActiveCollection::Atomic(_))
+    ));
+    assert!(pending.discard.is_some());
+
+    drop(pending);
+}

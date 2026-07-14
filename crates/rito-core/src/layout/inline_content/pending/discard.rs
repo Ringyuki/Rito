@@ -5,6 +5,8 @@ use crate::{
     style::StyledNode,
 };
 
+use super::cleanup::drop_styled_nodes_iteratively;
+
 #[derive(Debug)]
 pub(super) struct PendingNodeDiscard {
     initial_frame: Option<std::vec::IntoIter<StyledNode>>,
@@ -54,12 +56,12 @@ impl PendingNodeDiscard {
         Ok(false)
     }
 
-    pub(super) fn drain_remaining_into(&mut self, output: &mut Vec<StyledNode>) {
+    fn drop_remaining_nodes(&mut self) {
         if let Some(frame) = self.initial_frame.take() {
-            output.extend(frame);
+            drop_styled_nodes_iteratively(frame);
         }
         for frame in self.frames.drain(..) {
-            output.extend(frame);
+            drop_styled_nodes_iteratively(frame);
         }
     }
 
@@ -107,6 +109,12 @@ impl PendingNodeDiscard {
             .last()
             .and_then(|frame| frame.as_slice().first())
             .is_some_and(|node| !node.children.is_empty())
+    }
+}
+
+impl Drop for PendingNodeDiscard {
+    fn drop(&mut self) {
+        self.drop_remaining_nodes();
     }
 }
 

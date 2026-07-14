@@ -46,16 +46,22 @@ fn initial_frame_admission_survives_unit_yield_and_push_never_grows() {
 }
 
 #[test]
-fn draining_an_unadmitted_root_preserves_all_owned_nodes() {
-    let mut pending = PendingRubyAnnotation::new(vec![text("first"), text("second")]);
-    let mut drained = Vec::new();
+fn direct_drop_drains_unadmitted_and_nested_annotation_trees_iteratively() {
+    let initial = PendingRubyAnnotation::new(vec![deep_branch(16_384)]);
+    assert!(initial.has_initial_frame());
+    drop(initial);
 
-    pending.drain_nodes_into(&mut drained);
-
-    assert!(!pending.has_initial_frame());
-    assert_eq!(drained.len(), 2);
-    assert_eq!(drained[0].content.as_deref(), Some("first"));
-    assert_eq!(drained[1].content.as_deref(), Some("second"));
+    let mut nested = PendingRubyAnnotation::new(vec![deep_branch(16_384)]);
+    for _ in 0..128 {
+        if nested.frames.len() >= 128 {
+            break;
+        }
+        let mut work = meter(usize::MAX, 1);
+        assert!(nested.advance_scan(&mut work).is_err());
+    }
+    assert!(!nested.has_initial_frame());
+    assert!(nested.frames.len() >= 128);
+    drop(nested);
 }
 
 #[test]
@@ -239,6 +245,14 @@ fn exhaust_atomic_slot(work: &mut TextWorkMeter) {
 
 fn exact_vec<T>(items: Vec<T>) -> Vec<T> {
     items.into_boxed_slice().into_vec()
+}
+
+fn deep_branch(depth: usize) -> StyledNode {
+    let mut nested = text("deep");
+    for _ in 0..depth {
+        nested = branch(vec![nested]);
+    }
+    nested
 }
 
 fn branch(children: Vec<StyledNode>) -> StyledNode {

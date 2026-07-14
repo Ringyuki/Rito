@@ -16,6 +16,8 @@ use crate::{
 
 #[path = "ruby_tests/buffers.rs"]
 mod buffers;
+#[path = "ruby_tests/cancellation_cleanup.rs"]
+mod cancellation_cleanup;
 #[path = "ruby_tests/group_cleanup.rs"]
 mod group_cleanup;
 #[path = "ruby_tests/groups.rs"]

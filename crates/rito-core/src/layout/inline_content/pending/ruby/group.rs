@@ -3,7 +3,10 @@ use crate::{
     style::{StyledNode, StyledNodeKind},
 };
 
-use super::super::{discard::PendingNodeDiscard, require_unit, ruby_text::admit_inline_collection};
+use super::super::{
+    cleanup::drop_styled_node_forest_iteratively, discard::PendingNodeDiscard, require_unit,
+    ruby_text::admit_inline_collection,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum RubyGroupBoundaryKind {
@@ -62,8 +65,8 @@ impl PendingRubyBoundary {
         Ok(Some(node))
     }
 
-    pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
-        output.append(&mut self.nodes);
+    pub(super) fn drop_owned_nodes(&mut self) {
+        drop_styled_node_forest_iteratively(std::mem::take(&mut self.nodes));
     }
 }
 
@@ -101,8 +104,8 @@ impl PendingRubyGroupPlan {
         }
     }
 
-    pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
-        output.append(&mut self.seed);
+    pub(super) fn drop_owned_nodes(&mut self) {
+        drop_styled_node_forest_iteratively(std::mem::take(&mut self.seed));
     }
 
     fn finish(&mut self, boundary: RubyGroupBoundaryKind) -> RubyGroupSpec {
@@ -142,8 +145,8 @@ impl RubyGroupSpec {
         Ok(self.into_build())
     }
 
-    pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
-        output.append(&mut self.seed);
+    pub(super) fn drop_owned_nodes(&mut self) {
+        drop_styled_node_forest_iteratively(std::mem::take(&mut self.seed));
     }
 
     fn into_build(self) -> PendingRubyGroupBuild {
@@ -190,11 +193,9 @@ impl PendingRubyGroupBuild {
         }
     }
 
-    pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
-        output.append(&mut self.output);
-        if let Some(discard) = self.discard.as_mut() {
-            discard.drain_remaining_into(output);
-        }
+    pub(super) fn drop_owned_nodes(&mut self) {
+        drop_styled_node_forest_iteratively(std::mem::take(&mut self.output));
+        drop(self.discard.take());
     }
 
     #[cfg(test)]

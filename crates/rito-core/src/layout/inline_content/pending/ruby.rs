@@ -12,7 +12,7 @@ use super::{
     require_unit,
     ruby_text::{PendingAnnotationApply, PendingRubyAnnotation, SharedRubyAnnotation},
 };
-use cleanup::drain_state_nodes;
+use cleanup::drop_state_nodes;
 use group::{
     PendingRubyBoundary, PendingRubyGroupBuild, PendingRubyGroupPlan, RubyGroupBoundaryKind,
     RubyGroupSpec,
@@ -183,15 +183,15 @@ impl PendingRubyFrame {
         &self.base_context
     }
 
-    pub(super) fn into_summary(self) -> TextSegmentSummary {
+    pub(super) fn into_summary(mut self) -> TextSegmentSummary {
         debug_assert!(matches!(self.state, RubyState::Complete));
-        self.summary
+        std::mem::take(&mut self.summary)
     }
 
-    pub(super) fn drain_nodes_into(&mut self, output: &mut Vec<StyledNode>) {
-        output.extend(self.children.by_ref());
+    fn drop_owned_nodes(&mut self) {
+        super::cleanup::drop_styled_nodes_iteratively(self.children.by_ref());
         let state = std::mem::replace(&mut self.state, RubyState::Complete);
-        drain_state_nodes(state, output);
+        drop_state_nodes(state);
     }
 
     fn start_group_build(
@@ -286,6 +286,12 @@ impl PendingRubyFrame {
             }
             AfterGroup::Complete => self.state = RubyState::Complete,
         }
+    }
+}
+
+impl Drop for PendingRubyFrame {
+    fn drop(&mut self) {
+        self.drop_owned_nodes();
     }
 }
 

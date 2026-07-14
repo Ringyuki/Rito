@@ -434,6 +434,18 @@ Those names now belong to the old TS reference tree only.
      UTF-8/UTF-16 lengths nor repeats a successful admission, and both frame and
      part pushes assert no capacity growth. Spare capacity consumes no atomic
      slot, while cancellation drains an unadmitted annotation root iteratively.
+     Candidate cancellation cleanup now drains every owned `StyledNode` forest
+     sequentially through an intrusive iterative cursor. The cursor stores its
+     parent and sibling traversal state in slots freed from existing child
+     vectors; focused tests assert unchanged capacity for every carrier push.
+     Ordinary
+     frames, shared discard, Ruby group and annotation state, and the active
+     atomic node therefore require no aggregate traversal-scratch allocation or
+     growth. The drain remains synchronous O(n). This closes only the candidate-
+     collector boundary: `RuntimeDocument::cancel_revision` still synchronously
+     removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
+     owners and queued node forests, and clears the revision frame cache. End-to-
+     end revision cancellation is not yet budgeted or wall-clock bounded.
      Ordinary None/upper/lower/capitalize transforms now use a resumable exact
      UTF-8 and UTF-16 preflight, paid exact-capacity admission for their logical
      and painted buffers, and a second metered scalar assembly.
@@ -446,8 +458,9 @@ Those names now belong to the old TS reference tree only.
      owned style/source data after a paid atomic admission. The borrowed eager
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
-     atomic lowercase allocation/growth residual. The stack-safe but synchronous
-     cancellation scratch `Vec` can still allocate or grow. The
+     atomic lowercase allocation/growth residual. Candidate cleanup is now stack-
+     safe and scratch-stable but remains synchronous, while enclosing runtime and
+     layout-session disposal is still unbudgeted. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -499,7 +512,8 @@ Those names now belong to the old TS reference tree only.
      Final_Sigma whole-string lowercase allocation/growth, remaining context
      metadata work, container startup and owned margin-collapse preparation,
      mapping allocation/seal/path boxing, source-text sharing/allocation,
-     stack-safe but synchronous O(n) cancellation cleanup and scratch growth,
+     stack-safe but synchronous O(n) candidate cleanup and unbudgeted outer
+     continuation/session disposal,
      the downstream per-run ruby tag/paint operations, atomic Liang point
      generation, the leaf marker/paint seal, visually decorated or floated
      containers, tables and Optimal paragraphs still contain unmetered or
@@ -631,8 +645,11 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by next metering cancellation
-   collection residuals. Then cover candidate/context allocation, clones,
+1. Complete the default-Greedy hard bound by making candidate cleanup resumable
+   under a cancellation budget and carrying that contract through
+   `RuntimeContinuationRecord`, `RuntimeChapterLayoutSession`, queued
+   `ContinuousLayoutSession` node forests and revision frame-cache disposal.
+   Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual
    Final_Sigma whole-string lowercase allocation/growth as an explicit paid
@@ -702,8 +719,10 @@ their node or Ruby-base payload, retain spare capacity across a unit yield, and
 push without growth; an unstacked initial root remains cancellation-safe. The
 shared ignored-subtree traversal now applies the same preflight and no-growth
 push protocol to its root and nested frames across ordinary, Ruby-group and raw-
-annotation-text owners. The next bounded-layout slice should meter cancellation
-collection growth, together with
+annotation-text owners. Candidate cancellation now releases each owned forest
+without aggregate traversal-scratch allocation or growth, but its O(n) drain and
+the enclosing runtime/session disposal path remain synchronous. The next bounded-
+layout slice should budget both layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline
