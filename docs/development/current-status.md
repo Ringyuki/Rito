@@ -521,7 +521,10 @@ Those names now belong to the old TS reference tree only.
      Allocation-identity tests cover both the public full-bundle and active-window
      bundle paths. A deferred view preview still needs exactly two persistent
      configs—one in the preview revision and one in its full-reflow follow-up—but
-     no longer creates a third short-lived request owner. A chapter-session cursor now
+     no longer creates a third short-lived request owner. Active-view probing now
+     also happens before that clone, so a missing active chapter falls back to a
+     full revision with the original config and no discarded preview copy. A
+     chapter-session cursor now
      releases its paginator before its continuous-layout state, with explicit
      source and nested-retirement boundaries. Its exact cost is
      `pagination units + layout units + 5`, so an
@@ -576,8 +579,8 @@ Those names now belong to the old TS reference tree only.
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. `LayoutSummary`, each generated cached-frame payload and
-     those direct paths remain destructor residuals. Rejected/no-preview request
-     configs, deferred follow-up configs, borrowed public revision inputs and
+     those direct paths remain destructor residuals. Rejected request configs,
+     deferred follow-up configs, borrowed public revision inputs and
      adapter/serialization-side `LayoutConfig` owners can still clone or drop
      directly, so these
      cursors establish structural stack safety for their guarded persistent

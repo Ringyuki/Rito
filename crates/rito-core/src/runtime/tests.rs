@@ -840,10 +840,12 @@ fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
     );
     assert!(document.full_chapter_text_indices.get().is_none());
 
+    let fallback_config = allocation_tracking_layout();
+    let fallback_config_addresses = owned_layout_allocation_addresses(&fallback_config);
     let fallback = document
         .create_view_revision_bundle_with_metadata(
             RuntimeViewRevisionRequest {
-                layout_config: layout(),
+                layout_config: fallback_config,
                 line_breaking: LineBreaking::Greedy,
                 active_spread_index: usize::MAX,
                 previous_revision_id: Some(preview.revision.bundle.revision.revision_id.clone()),
@@ -855,6 +857,15 @@ fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
         .expect("preview fallback resolves");
 
     assert_eq!(fallback.kind, RuntimeViewRevisionKind::Full);
+    let retained_fallback_config = &document
+        .revisions
+        .get(&fallback.revision.bundle.revision.revision_id)
+        .expect("fallback revision remains stored")
+        .layout_config;
+    assert_eq!(
+        owned_layout_allocation_addresses(retained_fallback_config),
+        fallback_config_addresses
+    );
     assert!(fallback
         .revision
         .bundle
@@ -862,6 +873,39 @@ fn metadata_projection_keeps_previews_inline_and_omits_full_fallbacks() {
         .entries
         .is_empty());
     assert!(document.full_chapter_text_indices.get().is_none());
+}
+
+#[test]
+fn view_preview_preflight_does_not_clone_config_before_fallback_or_error() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let full = document
+        .create_revision(&layout())
+        .expect("full revision is created");
+    let fallback_request = RuntimeViewRevisionRequest {
+        layout_config: allocation_tracking_layout(),
+        line_breaking: LineBreaking::Greedy,
+        active_spread_index: usize::MAX,
+        previous_revision_id: Some(full.revision_id),
+        preserve_locator: None,
+        mode: RuntimeViewRevisionMode::Preview,
+    };
+
+    let fallback = document
+        .create_view_preview_revision_bundle_with_config_clone(&fallback_request, |_| {
+            panic!("fallback must resolve before cloning its config")
+        })
+        .expect("fallback preflight resolves");
+    assert!(fallback.is_none());
+
+    let mut missing_request = fallback_request;
+    missing_request.previous_revision_id = Some("rev-missing".to_owned());
+    let error = document
+        .create_view_preview_revision_bundle_with_config_clone(&missing_request, |_| {
+            panic!("lookup errors must resolve before cloning their config")
+        })
+        .expect_err("unknown revision fails preflight");
+    assert_eq!(error.message(), "unknown revision: rev-missing");
 }
 
 #[test]

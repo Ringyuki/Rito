@@ -1,20 +1,21 @@
 use crate::epub::{EpubError, EpubResult};
-use crate::layout::summarize_layout_font_families;
+use crate::layout::{summarize_layout_font_families, LayoutConfig};
 
 use super::revision_fonts::required_font_faces_for_revision;
 use super::{
     frame::revision_summary,
     metadata::layout_key,
     navigation::{runtime_revision_navigation, runtime_toc_targets},
-    RuntimeActiveChapterPreviewRevisionRequest, RuntimeChapterTextIndices,
-    RuntimeCreatedRevisionBundle, RuntimeCreatedViewRevision, RuntimeDocument, RuntimeFootnotes,
-    RuntimeFullRevisionBundleRequest, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
-    RuntimeInitialPreviewRevisionRequest, RuntimePreviewRevisionBundleRequest,
-    RuntimeRevisionBundle, RuntimeRevisionPresentation, RuntimeRevisionRequest,
-    RuntimeSourceLocator, RuntimeSourceLocatorResolution, RuntimeTocTargets,
-    RuntimeViewRevisionDisplay, RuntimeViewRevisionFollowUp, RuntimeViewRevisionKind,
-    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
-    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS, DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT,
+    RuntimeActiveChapterPreview, RuntimeActiveChapterPreviewRevisionRequest,
+    RuntimeChapterTextIndices, RuntimeCreatedRevisionBundle, RuntimeCreatedViewRevision,
+    RuntimeDocument, RuntimeFootnotes, RuntimeFullRevisionBundleRequest,
+    RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimeInitialPreviewRevisionRequest,
+    RuntimePreviewRevisionBundleRequest, RuntimeRevisionBundle, RuntimeRevisionPresentation,
+    RuntimeRevisionRequest, RuntimeSourceLocator, RuntimeSourceLocatorResolution,
+    RuntimeTocTargets, RuntimeViewRevisionDisplay, RuntimeViewRevisionFollowUp,
+    RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
+    RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
+    DEFAULT_INITIAL_PREVIEW_CHAPTER_LIMIT,
 };
 
 impl RuntimeDocument {
@@ -118,6 +119,15 @@ impl RuntimeDocument {
         else {
             return Ok(None);
         };
+        self.create_resolved_active_chapter_preview_revision_bundle(request, preview)
+            .map(Some)
+    }
+
+    fn create_resolved_active_chapter_preview_revision_bundle(
+        &mut self,
+        request: RuntimeActiveChapterPreviewRevisionRequest,
+        preview: RuntimeActiveChapterPreview,
+    ) -> EpubResult<RuntimeCreatedRevisionBundle> {
         let mut creation = self.create_revision_bundle(
             RuntimeRevisionRequest {
                 layout_config: request.layout_config,
@@ -134,7 +144,7 @@ impl RuntimeDocument {
         if let Some(initial_frame) = &mut creation.initial_frame {
             initial_frame.display_spread_index = request.active_spread_index;
         }
-        Ok(Some(creation))
+        Ok(creation)
     }
 
     pub fn create_preview_revision_bundle(
@@ -158,6 +168,46 @@ impl RuntimeDocument {
                 })
                 .map(Some),
         }
+    }
+
+    fn create_view_preview_revision_bundle(
+        &mut self,
+        request: &RuntimeViewRevisionRequest,
+    ) -> EpubResult<Option<RuntimeCreatedRevisionBundle>> {
+        self.create_view_preview_revision_bundle_with_config_clone(request, LayoutConfig::clone)
+    }
+
+    pub(super) fn create_view_preview_revision_bundle_with_config_clone<CloneConfig>(
+        &mut self,
+        request: &RuntimeViewRevisionRequest,
+        clone_config: CloneConfig,
+    ) -> EpubResult<Option<RuntimeCreatedRevisionBundle>>
+    where
+        CloneConfig: FnOnce(&LayoutConfig) -> LayoutConfig,
+    {
+        let Some(previous_revision_id) = request.previous_revision_id.as_deref() else {
+            return self
+                .create_initial_preview_revision_bundle(RuntimeInitialPreviewRevisionRequest {
+                    layout_config: clone_config(&request.layout_config),
+                    line_breaking: request.line_breaking,
+                })
+                .map(Some);
+        };
+        let Some(preview) =
+            self.active_chapter_preview(previous_revision_id, request.active_spread_index)?
+        else {
+            return Ok(None);
+        };
+        self.create_resolved_active_chapter_preview_revision_bundle(
+            RuntimeActiveChapterPreviewRevisionRequest {
+                layout_config: clone_config(&request.layout_config),
+                line_breaking: request.line_breaking,
+                previous_revision_id: previous_revision_id.to_owned(),
+                active_spread_index: request.active_spread_index,
+            },
+            preview,
+        )
+        .map(Some)
     }
 
     pub fn create_view_revision_bundle(
@@ -194,13 +244,7 @@ impl RuntimeDocument {
                     revision,
                 }),
             RuntimeViewRevisionMode::Preview => {
-                let preview =
-                    self.create_preview_revision_bundle(RuntimePreviewRevisionBundleRequest {
-                        layout_config: request.layout_config.clone(),
-                        line_breaking: request.line_breaking,
-                        previous_revision_id: request.previous_revision_id.clone(),
-                        active_spread_index: Some(request.active_spread_index),
-                    })?;
+                let preview = self.create_view_preview_revision_bundle(&request)?;
                 if let Some(mut revision) = preview {
                     let revision_id = revision.bundle.revision.revision_id.clone();
                     if let Some(locator) = request.preserve_locator.clone() {
