@@ -4,70 +4,21 @@ use crate::layout::CleanupProgress;
 
 use super::super::frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner};
 
-/// Releases one generated cached frame as an explicit scheduling unit.
-///
-/// The frame's optional legacy JSON commands and packed tables remain one
-/// indivisible destructor residual. This guard exists so LRU eviction can
-/// transfer the owner without allocating a singleton map or synchronously
-/// dropping it. Packed-only and JSON-materialized entries have the same
-/// structural cost because they remain one cache owner either way.
-#[derive(Debug)]
-pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
-    owner: Option<RuntimeCachedFrame>,
-}
+mod cached;
 
-impl PendingRuntimeCachedFrameCleanup {
-    pub(in crate::runtime) fn new(owner: RuntimeCachedFrame) -> Self {
-        Self { owner: Some(owner) }
-    }
-
-    pub(in crate::runtime) fn is_complete(&self) -> bool {
-        self.owner.is_none()
-    }
-
-    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
-        usize::from(self.owner.is_some())
-    }
-
-    pub(in crate::runtime) fn advance_one(&mut self) -> bool {
-        let Some(owner) = self.owner.take() else {
-            return false;
-        };
-        drop(owner);
-        true
-    }
-
-    pub(in crate::runtime) fn advance(&mut self, _budget: NonZeroUsize) -> CleanupProgress {
-        let consumed_units = usize::from(self.advance_one());
-        CleanupProgress {
-            consumed_units,
-            complete: self.is_complete(),
-        }
-    }
-
-    pub(in crate::runtime) fn drain(&mut self) {
-        let progress = self.advance(NonZeroUsize::MIN);
-        debug_assert!(progress.complete);
-    }
-}
-
-impl Drop for PendingRuntimeCachedFrameCleanup {
-    fn drop(&mut self) {
-        self.drain();
-    }
-}
+pub(in crate::runtime) use cached::PendingRuntimeCachedFrameCleanup;
 
 /// Releases cached frame owners one at a time in spread-index order.
 ///
-/// A cache with `F` entries costs exactly `F + 3` units. Each generated frame
-/// remains an indivisible residual: its optional command JSON and packed string
-/// tables have engine-controlled depth but unbounded length. The runtime queue
-/// can therefore interleave cache entries, but this cursor alone is not a
-/// wall-clock bound for one unusually large frame.
+/// If nested cached frame `i` costs `F_i`, a cache costs exactly
+/// `3 + sum(F_i + 1)` units. The extra unit retires each completed nested
+/// cursor before the map source advances. Frame payload owners remain visible
+/// to the frame lane until their last nested unit is released.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeFrameCacheCleanup {
     owner: Option<RuntimeFrameCacheOwner>,
     frames: Option<IntoIter<usize, RuntimeCachedFrame>>,
+    frame: Option<PendingRuntimeCachedFrameCleanup>,
     order: Option<VecDeque<usize>>,
     stage: FrameCacheCleanupStage,
 }
@@ -85,6 +36,7 @@ impl PendingRuntimeFrameCacheCleanup {
         Self {
             owner: Some(owner),
             frames: None,
+            frame: None,
             order: None,
             stage: FrameCacheCleanupStage::FramesSource,
         }
@@ -96,7 +48,13 @@ impl PendingRuntimeFrameCacheCleanup {
 
     pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
         self.owner.as_ref().map_or_else(
-            || self.frames.as_ref().map_or(0, ExactSizeIterator::len),
+            || {
+                self.frames.as_ref().map_or(0, ExactSizeIterator::len)
+                    + self.frame.as_ref().map_or(
+                        0,
+                        PendingRuntimeCachedFrameCleanup::pending_frame_owner_count,
+                    )
+            },
             |owner| owner.frames.len(),
         )
     }
@@ -142,11 +100,25 @@ impl PendingRuntimeFrameCacheCleanup {
     }
 
     fn release_next_frame(&mut self) -> bool {
+        if self
+            .frame
+            .as_ref()
+            .is_some_and(PendingRuntimeCachedFrameCleanup::is_complete)
+        {
+            self.frame = None;
+            return true;
+        }
+        if let Some(frame) = self.frame.as_mut() {
+            let advanced = frame.advance_one();
+            debug_assert!(advanced, "incomplete cached-frame cleanup has work");
+            return true;
+        }
         let frames = self.frames.as_mut().expect("frame source exists");
         if let Some((_spread_index, frame)) = frames.next() {
             let mut frame = PendingRuntimeCachedFrameCleanup::new(frame);
             let advanced = frame.advance_one();
             debug_assert!(advanced, "new cached-frame cleanup has work");
+            self.frame = Some(frame);
             return true;
         }
         self.frames = None;

@@ -194,6 +194,7 @@ impl RuntimeCleanupQueue {
         self.enqueue(RuntimeCleanupJob::probe(probe));
     }
 
+    #[cfg(test)]
     pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
         self.pending_frame_owners
     }

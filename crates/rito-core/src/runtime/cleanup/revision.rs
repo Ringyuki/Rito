@@ -24,8 +24,9 @@ struct RuntimeRevisionShell {
 /// If frame-cache cleanup costs `FC`, built-layout cleanup costs `BL`, layout
 /// configuration cleanup costs `LC`, the catalog contains `RF` faces, and
 /// interaction cleanup costs `RI`, this cursor costs exactly
-/// `FC + BL + LC + RF + RI + 7` units. Each generated cached frame remains an
-/// indivisible destructor residual, so this is not an end-to-end wall-clock
+/// `FC + BL + LC + RF + RI + 7` units. Cached-frame table entries are
+/// scheduled inside `FC`; individual legacy JSON values and flat allocation
+/// releases remain atomic residuals, so this is not an end-to-end wall-clock
 /// bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {

@@ -310,6 +310,17 @@ retires one face per unit; `R` faces add exactly `R` units. Its exact total is
 built-layout, layout-config, required-font and interaction cleanup. An empty
 `FullDocument` revision costs 30 units. The minimal queue fixture uses an empty
 materialized source, so that revision plus its queue-job retirement costs 32.
+One cached frame now has its own persistent nested cursor. For a packed owner
+with `R` resource-table entries, `F` font-family entries, `S` string-table
+entries and `P` payload-table entries, its exact cursor cost is
+`CF = 7 + R + F + S + P`. A materialized compatibility JSON frame containing
+`C` commands, `I` resource images and `J` font families adds
+`C + I + J + 4`. All of those entries are retired separately; the packed byte
+allocation is one explicit unit, while scalar metadata and bounded command-kind
+maps remain in the final shell. Each legacy command's nested JSON `Value` is
+still indivisible. A detached frame cache therefore costs exactly
+`FC = 3 + sum(CF_i + 1)`, including one retirement unit for each completed
+nested frame cursor.
 The production runtime schedules continuation, completed-chapter, revision,
 orphan-continuation-work, cache, LRU-frame and complete transient-config owners
 through a private two-lane cleanup queue. If page-vector batch `b` costs `P_b`,
@@ -326,9 +337,13 @@ closed job-admission bound is at most 12 frame owners per lifecycle mutation,
 one ordinary config owner, one 42-unit owner per completed chapter with an
 immediate service, one aggregate orphan-continuation-work job per failed work
 batch, or two separately admitted configs on preview-clone construction
-failure. Tests
-over repeated batches keep the physical frame backlog at zero without starving
-regular work. Work aggregation bounds one failed batch to one new regular job;
+failure. The fixed service quantum guarantees progress rather than frame-owner
+retirement or throughput. A wide cached-frame payload remains one resumable
+frame-lane owner after its first service, sustained frame arrival can exceed the
+available service units, and owners may accumulate. The 24-owner high-water
+mark counts owners rather than retained bytes; its bounded priority bursts keep
+regular work from starving but are not generic memory backpressure. Work
+aggregation bounds one failed batch to one new regular job;
 because its exact cost grows with page-tree, chapter and span counts, it does not
 turn the fixed 64-unit service into global hard backpressure. One quantum
 guarantees progress and may leave that single job resumable. Final document
@@ -347,8 +362,12 @@ frame owner; compatibility JSON frames materialize from the immutable revision
 layout on first demand and remain in the same LRU entry. Resource prefetch reads
 image hrefs from packed metadata, and WASM metadata/bytes reads use narrow core
 projections instead of cloning both command-buffer halves. Packed-only and
-JSON-materialized entries keep the same native one-owner cleanup accounting.
-Detailed summary shells and cached frame payloads remain indivisible, while
+JSON-materialized entries remain one native cache owner, but the latter adds
+its command, resource-image, font-family and shell units to the exact cleanup
+cost. Cached-frame resource/font/string/payload entries are now individually
+scheduled, with packed bytes in their own unit. Detailed summary shells, each
+legacy command's nested JSON `Value` and flat allocation releases remain
+indivisible, while
 partially deserialized configs and deferred follow-up/config serialization or
 adapter/transport-side configuration owners can still clone or drop directly.
 Empty-policy `layout_key` hashing now streams compact layout-config JSON directly
@@ -392,8 +411,8 @@ or the full publication. Once inline candidates are collected, logical-flow
 mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
-allocator, context/source-copy, frame payloads, document-index and temporary
-wire-clone paths remain synchronous residuals,
+allocator, context/source-copy, per-command nested frame JSON, flat allocation
+release, document-index and temporary wire-clone paths remain synchronous residuals,
 alongside line-context metadata,
 one container/paragraph-preparation
 pass, the leaf marker/paint seal, decorated or floated composite, table or

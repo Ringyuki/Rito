@@ -181,11 +181,10 @@ impl RuntimeDocument {
     fn service_cleanup_queue(&mut self) {
         let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM)
             .expect("runtime cleanup quantum is non-zero");
-        self.cleanup_queue.advance(budget);
-        debug_assert_eq!(
-            self.cleanup_queue.pending_frame_owner_count(),
-            0,
-            "one legal runtime producer batch must not retain frame owners"
+        let progress = self.cleanup_queue.advance(budget);
+        debug_assert!(
+            progress.complete || progress.consumed_units == budget.get(),
+            "incomplete runtime cleanup must consume the complete service quantum"
         );
     }
 

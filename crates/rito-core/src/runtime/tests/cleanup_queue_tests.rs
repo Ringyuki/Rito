@@ -7,6 +7,7 @@ use crate::{
 };
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
+const WIDE_FRAME_PAYLOAD_COUNT: usize = 16_384;
 
 #[test]
 fn document_drop_drains_queued_and_active_runtime_owners_on_a_small_stack() {
@@ -39,14 +40,43 @@ fn build_and_drop_document() {
     let active = document
         .create_revision(&layout())
         .expect("active revision is created");
+    install_wide_cached_frame(&mut document, &queued.revision_id);
+    install_wide_cached_frame(&mut document, &active.revision_id);
     install_deep_page(&mut document, &queued.revision_id);
     install_deep_page(&mut document, &active.revision_id);
 
     assert!(document.release_revision(&queued.revision_id));
     assert!(!document.cleanup_queue.is_empty());
+    assert!(document.cleanup_queue.pending_frame_owner_count() > 0);
     assert_eq!(document.continuations.len(), 1);
 
     drop(document);
+}
+
+fn install_wide_cached_frame(document: &mut RuntimeDocument, revision_id: &str) {
+    document
+        .get_frame(revision_id, 0)
+        .expect("compatibility frame is generated");
+    let cached = document
+        .revisions
+        .get_mut(revision_id)
+        .and_then(|revision| revision.frame_cache.get_mut(&0))
+        .expect("generated frame remains cached");
+    cached
+        .frame
+        .as_mut()
+        .expect("compatibility frame is materialized")
+        .commands = (0..WIDE_FRAME_PAYLOAD_COUNT)
+        .map(|index| json!({ "index": index }))
+        .collect();
+    cached.command_buffer.metadata.string_table = wide_strings("string");
+    cached.command_buffer.metadata.payload_table = wide_strings("payload");
+}
+
+fn wide_strings(prefix: &str) -> Vec<String> {
+    (0..WIDE_FRAME_PAYLOAD_COUNT)
+        .map(|index| format!("{prefix}-{index}"))
+        .collect()
 }
 
 fn install_deep_page(document: &mut RuntimeDocument, revision_id: &str) {

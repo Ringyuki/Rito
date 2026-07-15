@@ -72,7 +72,8 @@ fn cache_layout_and_flat_fields_release_in_order() {
 
     assert_one(&mut cleanup);
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::FrameCache);
-    for _ in 0..5 {
+    let frame_cache_units = 3 + (13 + 3 * 3 + 1) + (13 + 1);
+    for _ in 0..frame_cache_units {
         assert_one(&mut cleanup);
     }
     assert!(cleanup

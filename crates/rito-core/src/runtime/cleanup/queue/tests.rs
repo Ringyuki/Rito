@@ -28,7 +28,9 @@ use crate::{
     },
 };
 
-const REAL_JOB_FIXTURE_UNITS: usize = 12 + 42 + 32 + 4 + 2 + 7;
+const EMPTY_MATERIALIZED_FRAME_UNITS: usize = 13;
+const LARGE_FRAME_PAYLOAD_COUNT: usize = 16_384;
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + 42 + 32 + 4 + (EMPTY_MATERIALIZED_FRAME_UNITS + 1) + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -81,7 +83,7 @@ fn high_frame_backlog_is_prioritized_in_bounded_bursts() {
 }
 
 #[test]
-fn default_quantum_services_frame_backlog_faster_than_single_eviction_arrival() {
+fn default_quantum_advances_wide_frame_backlog_without_false_retirement() {
     let mut queue = RuntimeCleanupQueue::default();
     for spread_index in 0..100 {
         queue.enqueue_cached_frame(cached_frame(spread_index, 0));
@@ -90,14 +92,14 @@ fn default_quantum_services_frame_backlog_faster_than_single_eviction_arrival() 
     let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
     let first = queue.advance(budget);
     assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
-    assert!(100 - queue.pending_frame_owner_count() > FRAME_CACHE_CAPACITY);
-    assert!(queue.job_count() < 100);
+    assert_eq!(queue.pending_frame_owner_count(), 100);
+    assert_eq!(queue.job_count(), 100);
 
     let mut consumed_units = first.consumed_units;
     while !queue.is_empty() {
         consumed_units += queue.advance(budget).consumed_units;
     }
-    assert_eq!(consumed_units, 200);
+    assert_eq!(consumed_units, 100 * (EMPTY_MATERIALIZED_FRAME_UNITS + 1));
     assert_eq!(queue.pending_frame_owner_count(), 0);
 }
 
@@ -121,6 +123,14 @@ fn cached_frame_owner_and_queue_retirement_are_distinct() {
     let mut queue = RuntimeCleanupQueue::default();
     queue.enqueue_cached_frame(cached_frame(0, 0));
 
+    let partial = queue.advance(
+        NonZeroUsize::new(EMPTY_MATERIALIZED_FRAME_UNITS - 1).expect("cleanup budget is non-zero"),
+    );
+    assert_eq!(partial.consumed_units, EMPTY_MATERIALIZED_FRAME_UNITS - 1);
+    assert!(!partial.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 1);
+    assert_eq!(queue.job_count(), 1);
+
     let owner = queue.advance(NonZeroUsize::MIN);
     assert_eq!(owner.consumed_units, 1);
     assert!(!owner.complete);
@@ -130,6 +140,29 @@ fn cached_frame_owner_and_queue_retirement_are_distinct() {
     let retirement = queue.advance(NonZeroUsize::MIN);
     assert_eq!(retirement.consumed_units, 1);
     assert!(retirement.complete);
+}
+
+#[test]
+fn large_cached_frame_remains_one_resumable_frame_job() {
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_cached_frame(cached_frame(0, LARGE_FRAME_PAYLOAD_COUNT));
+    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup budget is non-zero");
+
+    let first = queue.advance(budget);
+
+    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
+    assert!(!first.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 1);
+    assert_eq!(queue.job_count(), 1);
+
+    let remaining = queue.advance(NonZeroUsize::MAX);
+    let queue_units = 3 * LARGE_FRAME_PAYLOAD_COUNT + EMPTY_MATERIALIZED_FRAME_UNITS + 1;
+    assert_eq!(
+        remaining.consumed_units,
+        queue_units - RUNTIME_CLEANUP_QUANTUM
+    );
+    assert!(remaining.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 0);
 }
 
 #[test]
@@ -188,19 +221,30 @@ fn frame_lane_is_round_robin_between_jobs() {
 }
 
 #[test]
-fn repeated_legal_frame_batches_do_not_accumulate_owners() {
+fn one_fixed_service_makes_progress_without_claiming_frame_backpressure() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let mut queue = RuntimeCleanupQueue::default();
-    queue.enqueue_probe(probe(999, 10_000, 0, &log));
+    queue.enqueue_probe(probe(999, RUNTIME_CLEANUP_QUANTUM, 0, &log));
     let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
 
-    for batch in 0..128 {
-        for offset in 0..FRAME_CACHE_CAPACITY {
-            queue.enqueue_cached_frame(cached_frame(batch * FRAME_CACHE_CAPACITY + offset, 0));
-        }
-        queue.advance(budget);
-        assert_eq!(queue.pending_frame_owner_count(), 0);
+    for spread_index in 0..FRAME_CACHE_CAPACITY {
+        queue.enqueue_cached_frame(cached_frame(spread_index, 0));
     }
+    let first = queue.advance(budget);
+
+    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
+    assert_eq!(queue.pending_frame_owner_count(), FRAME_CACHE_CAPACITY);
+    assert_eq!(queue.job_count(), FRAME_CACHE_CAPACITY + 1);
+
+    let mut consumed_units = first.consumed_units;
+    while !queue.is_empty() {
+        consumed_units += queue.advance(budget).consumed_units;
+    }
+    assert_eq!(
+        consumed_units,
+        RUNTIME_CLEANUP_QUANTUM + 1 + FRAME_CACHE_CAPACITY * (EMPTY_MATERIALIZED_FRAME_UNITS + 1)
+    );
+    assert_eq!(queue.pending_frame_owner_count(), 0);
 }
 
 #[test]

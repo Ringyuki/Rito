@@ -590,9 +590,20 @@ Those names now belong to the old TS reference tree only.
      single 16K-deep block page remains stack-safe. Detailed full-publication
      diagnostic vectors and JSON values remain one summary-shell residual. A
      detached frame-cache owner keeps its frame map and LRU order
-     together; its cursor costs `frame count + 3` units, and a separate one-unit
-     cached-frame guard lets LRU eviction transfer an owner without manufacturing a
-     singleton map. The revision cursor turns its optional required-font catalog
+     together and now composes a persistent cursor for each cached frame. Let a
+     packed frame contain `R` resource-table entries, `F` font-family entries,
+     `S` string-table entries and `P` payload-table entries. Its cached-frame
+     cursor costs exactly `CF = 7 + R + F + S + P` units. If the same owner also
+     has a materialized compatibility JSON frame with `C` commands, `I` resource
+     images and `J` font families, that adds `C + I + J + 4` units. Each of those
+     entries is retired separately; the packed byte allocation is one explicit
+     unit, while scalar metadata and the bounded command-kind maps stay in the
+     final shell. Each legacy command is still one indivisible nested JSON
+     `Value` residual. A frame cache containing nested costs `CF_i` therefore
+     costs exactly `FC = 3 + sum(CF_i + 1)` units, including one explicit
+     retirement unit per completed nested cursor. The cursor retains an active
+     cached-frame cleanup instead of letting a temporary guard synchronously
+     drain the remaining payload. The revision cursor turns its optional required-font catalog
      into an iterator at the revision-source boundary and releases one face per
      unit; with `R` faces it adds exactly `R` units. The
      runtime-revision cursor releases its cache before the built layout and
@@ -633,9 +644,13 @@ Those names now belong to the old TS reference tree only.
      boundaries, one-job admission and partial/panic-unwind cleanup across deep
      pages and unread spans. `RuntimeDocument.full_chapter_text_indices` and
      temporary bundle/presentation/serialization clones still destroy their
-     aggregate owners directly. Each generated cached-frame payload, detailed
-     full-publication summary shell and those direct paths remain destructor
-     residuals. Native frame-cache prefetch now warms a packed-only owner
+     aggregate owners directly. Generated cached frames now retire legacy
+     commands, legacy resource/font entries and packed
+     resource/font/string/payload entries in bounded structural units. A single
+     legacy command's nested JSON tree, the
+     packed byte allocation and individual string allocator releases remain
+     indivisible residuals, as do the detailed full-publication summary shell and
+     the named direct paths. Native frame-cache prefetch now warms a packed-only owner
      without allocating or cloning the legacy JSON command tree. Compatibility
      frame reads materialize that tree from the immutable revision layout on
      demand; a projection mismatch fails before cache mutation or LRU refresh.
@@ -644,7 +659,9 @@ Those names now belong to the old TS reference tree only.
      cloning both halves twice. The private cached-frame owner and display-list
      construction carrier no longer implement `Clone`, and page indexes move
      only into a materialized compatibility frame. Packed-only and materialized
-     entries remain one native cache owner and preserve every cleanup formula.
+     entries remain one native cache owner, but materializing compatibility JSON
+     adds its command, resource-image, font-family and shell units to that
+     owner's cleanup cost.
      These changes remove persistent and transient full-payload copies without
      changing the frame or command-buffer wire.
      Partially deserialized
@@ -688,12 +705,13 @@ Those names now belong to the old TS reference tree only.
      its own immediate service, one aggregate orphan-continuation-work job per
      failed work batch, two individual frame owners per cache miss, or two
      separately admitted config owners when preview-clone construction fails.
-     Focused tests
-     over repeated batches show that this
-     service quantum returns pending frame ownership to zero even with permanent
-     regular backlog. High-water priority alone is not claimed as generic hard
-     backpressure; future bulk producers must preserve that admission/service
-     invariant. Aggregating the entire `RuntimeContinuationWork` closes the
+     The fixed service quantum guarantees progress, not frame-owner retirement
+     or cleanup throughput: a wide cached-frame payload remains one resumable
+     frame-lane owner after the first service, and sustained frame arrival may
+     exceed the available service units. The 24-owner high-water mark counts
+     owners rather than retained bytes, so its bounded priority bursts are not
+     generic memory backpressure and do not prevent frame-owner accumulation.
+     Aggregating the entire `RuntimeContinuationWork` closes the
      per-batch job-admission count, not a global 64-unit hard-backpressure proof:
      the job's cost grows with page-tree, chapter and span counts, so one service
      guarantees progress but may leave its single resumable regular job queued.
@@ -701,20 +719,24 @@ Those names now belong to the old TS reference tree only.
      units including queue retirement. Each queued job also has a separate
      retirement unit, making the minimum queue costs 12 for an inactive
      continuation, 42 for a completed chapter, 31 for an empty `FullDocument`
-     revision, 4 for an empty frame cache, 2 for one cached frame and 7 for an
-     empty transient config. An empty
+     revision, 4 for an empty frame cache, 8 for a packed-only cached frame with
+     empty tables and 7 for an empty transient config. An empty
      materialized-index revision plus the other empty real jobs, as used by the
-     mixed fixture, costs 99 units
-     including every queue retirement.
+     mixed fixture, costs 111 units; its materialized cached-frame fixture has
+     empty command/resource tables but one legacy and one packed font family and
+     therefore costs 14 units including queue retirement. The total includes
+     every queue retirement.
      Release, cancel, successful/failed continuation publication, initial
      continuation failure, cache invalidation and LRU eviction all transfer
      owners through this queue without changing the core, WASM or browser wire
      contract. `RuntimeDocument::Drop` synchronously drains already-retired jobs,
      then iteratively drains every active continuation and revision; a focused
-     small-stack test combines queued and active 16K-deep revisions with an
-     active continuation. End-to-end runtime-owner destruction is therefore
-     structurally stack-safe, but it is not a wall-clock bound because the named
-     indivisible payloads and direct-destruction paths remain.
+     small-stack test combines queued and active 16K-deep revisions, 16K-wide
+     cached-frame payloads and an active continuation. End-to-end runtime-owner
+     destruction is therefore
+     structurally stack-safe, but it is not a wall-clock bound because each
+     legacy command's nested JSON `Value`, flat allocation release and the named
+     direct-destruction paths remain indivisible.
      `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning the
      full host-measurement `LayoutConfig` or each newly sealed page from an
      ever-growing paginator snapshot. Sealed page
@@ -954,14 +976,15 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by addressing frame-payload residuals,
-   the document-wide chapter-text-index and font/catalog owners that still
-   bypass scheduled revision or active-continuation cleanup, and transient
-   configuration owners before claiming an end-to-end wall-clock cleanup bound.
-   Preserve the cleanup queue's closed producer-job admission rule when adding
-   bulk lifecycle operations, and instrument atomic
-   frame-payload latency before deciding whether the current 64-unit service
-   quantum needs time-aware scheduling.
+1. Continue the default-Greedy hard bound by addressing the remaining
+   per-command nested JSON and flat-allocation frame residuals, the document-wide
+   chapter-text-index and font/catalog owners that still bypass scheduled
+   revision or active-continuation cleanup, and transient configuration owners
+   before claiming an end-to-end wall-clock cleanup bound. Preserve the cleanup
+   queue's closed producer-job admission rule when adding bulk lifecycle
+   operations, and instrument frame-cleanup throughput, owner/byte backlog and
+   atomic command/allocation latency before deciding whether the current 64-unit
+   service quantum needs time-aware scheduling or memory backpressure.
    Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual
@@ -1045,9 +1068,10 @@ cleanup also uses an exact revision-to-cursor index rather than scanning the
 whole continuation table, while preserving the public error priority and one-
 shot cursor contract. Runtime pagination summary construction and extent
 refresh are now lean and incremental; the next bounded-layout slice should
-address frame payload and direct-destruction cleanup layers, together with
-candidate/context allocation and clone residuals, line-context metadata work,
-container startup and the leaf marker/paint seal, before making
+address the remaining per-command JSON, flat-allocation and direct-destruction
+cleanup residuals, together with candidate/context allocation and clone
+residuals, line-context metadata work, container startup and the leaf
+marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline
 through decorated/floated containers, tables and Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the
