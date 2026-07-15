@@ -474,9 +474,13 @@ Those names now belong to the old TS reference tree only.
      tests cover 16K-deep and 16K-wide trees with zero carrier-capacity growth.
      JSON paint and each individual run payload, including a final
      `Arc<LogicalTextFlow>` owner, remain indivisible destructor residuals. The
-     block cursor is not yet composed through page/session/revision owners, and
-     ordinary `RuntimeBlock` destruction remains recursive outside it. No
-     runtime/session cancellation path schedules either cursor yet, so
+     Page and page-vector cursors now compose that primitive over every block,
+     with explicit source activation/retirement, nested cursor retirement, page
+     paint and owner transitions; partial cursor destruction drains the same
+     state machines. They are not yet composed through open paginator,
+     session or revision owners, and ordinary `RuntimeBlock` / `RuntimePage`
+     destruction remains recursive outside them. No runtime/session
+     cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
      removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
@@ -516,9 +520,9 @@ Those names now belong to the old TS reference tree only.
      budget. The collector's direct `Drop` entry point still drains
      synchronously, and the enclosing
      runtime and layout-session disposal does not schedule that cursor. Runtime
-     page trees now have an iterative block primitive, but page vectors, open
-     pagination state, unpublished batches and built revisions do not compose it
-     yet. The
+     page trees and standalone page vectors now have iterative cleanup cursors,
+     but open pagination state, unpublished batches and built revisions do not
+     compose them yet. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -707,8 +711,8 @@ Work in roadmap order:
    cursor through queued `ContinuousLayoutSession` node forests, active leaf and
    container state, `RuntimeChapterLayoutSession` and
    `RuntimeContinuationRecord`. Compose the existing iterative `RuntimeBlock`
-   primitive through page vectors, open pagination, unpublished pages and built
-   revisions before treating those owners as stack-safe, then retire them and
+   and page-vector primitives through open pagination, unpublished pages and
+   built revisions before treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.
    Then cover candidate/context allocation, clones,

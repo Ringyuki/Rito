@@ -1,5 +1,9 @@
 use serde_json::Value;
 
+mod cleanup;
+
+pub(crate) use cleanup::{PendingRuntimePageCleanup, PendingRuntimePageVectorCleanup};
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimePage<Content> {
     pub(crate) index: usize,
