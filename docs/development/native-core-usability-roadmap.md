@@ -304,7 +304,10 @@ into SHA-256. The pinned-policy branch retains one complete JSON buffer because
 the existing byte contract places its length before the JSON, but segmented
 hashing removes the former second identity buffer and full-config copy without
 adding a second serialization pass. Serialized follow-up configs are still
-dropped synchronously by legacy view endpoints outside that path.
+dropped synchronously by legacy view endpoints outside that path. Eager preview
+and full bundle creation now keep each inserted revision provisional until
+bundle metadata and initial-frame finalization both succeed; post-insert errors
+release it through the budgeted revision cleanup queue without reusing its ID.
 Guarded persistent-owner cancellation is therefore structurally stack-safe,
 but this is not an end-to-end wall-clock hard bound. Next make the currently atomic Liang point
 calculation bounded and extend the same

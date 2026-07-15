@@ -603,7 +603,11 @@ Those names now belong to the old TS reference tree only.
      its length before the JSON, but segmented hashing removes the former second
      identity buffer and full-config copy without adding a second serialization
      pass. Legacy JSON/`RITORB1` view endpoints synchronously drop serialized
-     follow-up configs but are not used by that production path.
+     follow-up configs but are not used by that production path. Eager preview
+     and full bundle creation now keep the inserted revision provisional through
+     bundle metadata and initial-frame finalization; any post-insert error
+     releases it through the same budgeted revision cleanup queue without
+     reusing its ID.
      These
      cursors establish structural stack safety for their guarded persistent
      owners rather than an end-to-end wall-clock hard bound. Ordinary

@@ -39,6 +39,7 @@ use super::{
     RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
     RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
+use crate::epub::{EpubError, EpubResult};
 use crate::interaction::FootnoteKind;
 use crate::layout::{LayoutConfig, LineBreaking, SpreadMode};
 
@@ -1098,6 +1099,47 @@ fn failed_owned_prefix_revision_schedules_its_config_cleanup() {
     );
     assert_eq!(document.revision_count(), 0);
     assert_pending_cleanup_jobs(&mut document, 1);
+}
+
+#[test]
+fn created_revision_transaction_rolls_back_every_finalization_failure() {
+    for (bundle_first, preview_chapter_index) in [
+        (false, None),
+        (true, None),
+        (false, Some(0)),
+        (true, Some(0)),
+    ] {
+        let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+        let error = document
+            .create_revision_transaction(
+                RuntimeRevisionRequest {
+                    layout_config: large_cleanup_layout(),
+                    line_breaking: LineBreaking::Greedy,
+                    preview_chapter_limit: None,
+                    preview_chapter_index,
+                },
+                |document, revision| -> EpubResult<()> {
+                    assert!(document.has_revision(&revision.revision_id));
+                    if bundle_first {
+                        document.revision_bundle(&revision.revision_id, true)?;
+                    }
+                    Err(EpubError::new("injected revision finalization failure"))
+                },
+            )
+            .expect_err("injected finalization fails");
+
+        assert_eq!(error.message(), "injected revision finalization failure");
+        assert_eq!(document.revision_count(), 0);
+        assert!(!document.has_revision("rev-1"));
+        assert_pending_cleanup_jobs(&mut document, 1);
+        assert_eq!(
+            document
+                .create_revision(&layout())
+                .expect("creation can resume after rollback")
+                .revision_id,
+            "rev-2"
+        );
+    }
 }
 
 #[test]

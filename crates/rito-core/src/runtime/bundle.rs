@@ -26,18 +26,18 @@ impl RuntimeDocument {
         initial_frame_request: RuntimeInitialFrameRequest,
     ) -> EpubResult<RuntimeCreatedRevisionBundle> {
         let preview = request.is_preview();
-        let revision = self.create_revision_from_request(request)?;
-        let revision_id = revision.revision_id.clone();
-        let bundle = self.revision_bundle(&revision_id, include_toc_targets)?;
-        let initial_frame = if revision.spread_count == 0 {
-            None
-        } else {
-            self.initial_frame_decision(&revision_id, initial_frame_request)?
-        };
-        Ok(RuntimeCreatedRevisionBundle {
-            bundle,
-            initial_frame,
-            preview,
+        self.create_revision_transaction(request, |document, revision| {
+            let bundle = document.revision_bundle(&revision.revision_id, include_toc_targets)?;
+            let initial_frame = if revision.spread_count == 0 {
+                None
+            } else {
+                document.initial_frame_decision(&revision.revision_id, initial_frame_request)?
+            };
+            Ok(RuntimeCreatedRevisionBundle {
+                bundle,
+                initial_frame,
+                preview,
+            })
         })
     }
 
@@ -58,37 +58,56 @@ impl RuntimeDocument {
         metadata: RuntimeViewRevisionMetadata,
         preserve_locator: Option<RuntimeSourceLocator>,
     ) -> EpubResult<RuntimeCreatedRevisionBundle> {
-        let revision = self.create_revision_from_request(super::RuntimeRevisionRequest {
-            layout_config: request.layout_config,
-            line_breaking: request.line_breaking,
-            preview_chapter_limit: None,
-            preview_chapter_index: None,
-        })?;
+        self.create_revision_transaction(
+            super::RuntimeRevisionRequest {
+                layout_config: request.layout_config,
+                line_breaking: request.line_breaking,
+                preview_chapter_limit: None,
+                preview_chapter_index: None,
+            },
+            |document, revision| {
+                let bundle = document.revision_bundle_with_metadata(
+                    &revision.revision_id,
+                    true,
+                    metadata,
+                )?;
+                let initial_frame = if revision.spread_count == 0 {
+                    None
+                } else {
+                    document.view_initial_frame_decision(
+                        &revision.revision_id,
+                        request
+                            .active_spread_index
+                            .min(revision.spread_count.saturating_sub(1)),
+                        preserve_locator,
+                        None,
+                    )?
+                };
+                Ok(RuntimeCreatedRevisionBundle {
+                    bundle,
+                    initial_frame,
+                    preview: false,
+                })
+            },
+        )
+    }
+
+    pub(super) fn create_revision_transaction<T, Finalize>(
+        &mut self,
+        request: RuntimeRevisionRequest,
+        finalize: Finalize,
+    ) -> EpubResult<T>
+    where
+        Finalize: FnOnce(&mut Self, super::RuntimeRevisionSummary) -> EpubResult<T>,
+    {
+        let revision = self.create_revision_from_request(request)?;
         let revision_id = revision.revision_id.clone();
-        let bundle = self.revision_bundle_with_metadata(&revision_id, true, metadata)?;
-        let initial_frame = if revision.spread_count == 0 {
-            None
-        } else {
-            match self.view_initial_frame_decision(
-                &revision_id,
-                request
-                    .active_spread_index
-                    .min(revision.spread_count.saturating_sub(1)),
-                preserve_locator,
-                None,
-            ) {
-                Ok(decision) => decision,
-                Err(error) => {
-                    self.release_revision(&revision_id);
-                    return Err(error);
-                }
-            }
-        };
-        Ok(RuntimeCreatedRevisionBundle {
-            bundle,
-            initial_frame,
-            preview: false,
-        })
+        let result = finalize(self, revision);
+        if result.is_err() {
+            let released = self.release_revision(&revision_id);
+            debug_assert!(released, "created revision must remain owned until commit");
+        }
+        result
     }
 
     pub fn create_initial_preview_revision_bundle(
