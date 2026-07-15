@@ -508,9 +508,15 @@ Those names now belong to the old TS reference tree only.
      boundaries. Its exact cost is `pagination units + layout units + 5`, so an
      empty finished or unfinished chapter costs 33 units. Immediate, partial,
      boundary and panic-unwind drops drain the same cursor, including a 16K-deep
-     queued node forest. These cursors are not yet composed through unpublished
-     pages, continuation or revision owners, and ordinary `RuntimeBlock` /
-     `RuntimePage` destruction remains recursive outside them. No runtime/session
+     queued node forest. An outer active-chapter cursor releases unpublished
+     pages before that session, then retires interactions, idref and its scalar
+     shell. Its exact cost is `page-vector units + chapter-session units + 7`;
+     an empty active chapter costs 42 units and one empty unpublished page costs
+     47 cleanup units. Focused tests compose a 16K-deep page with a 16K-deep queued node tree,
+     lock the release order and cover immediate, boundary and panic-unwind
+     destruction. These cursors are not yet composed through the continuation
+     record or revision owners, and ordinary `RuntimeBlock` / `RuntimePage`
+     destruction remains recursive outside them. No runtime/session
      cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
@@ -522,8 +528,9 @@ Those names now belong to the old TS reference tree only.
      batches now move directly into the advance result, while a persistent
      emitted-page count preserves chapter-local indexes and first-page spacing
      history after each drain. The open page remains private in the paginator.
-     This removes the duplicate retained page tree; the single moved page owner,
-     unpublished page queue and outer continuation cleanup are still synchronous.
+     This removes the duplicate retained page tree; the single moved page owner
+     now has a stack-safe active-chapter cleanup cursor, but outer continuation
+     cleanup and scheduling are still synchronous.
      Active layout continuations now live in a private bidirectional store:
      cursor-to-record lookups preserve the existing continuation error order,
      while revision-to-cursor lookup lets cancel, release and follow-up failure
@@ -740,7 +747,7 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by composing the continuous-session,
    block, page-vector, accumulator and pagination-session cleanup primitives
-   through unpublished pages, `RuntimeContinuationRecord` and built revisions before
+   through `RuntimeContinuationRecord` and built revisions before
    treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.

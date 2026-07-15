@@ -10,6 +10,8 @@ use super::{
     RuntimeRevisionSummary,
 };
 
+#[allow(dead_code)] // Continuation-record retirement consumes this next.
+mod cleanup;
 mod error;
 mod publish;
 mod state;

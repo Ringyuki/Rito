@@ -225,13 +225,18 @@ destruction. Mapping-finalizer, context-builder and greedy-line owners remain
 declared atomic destructor residuals. A chapter-session cursor now composes the
 paginator and continuous-layout cursors in that order, costs their combined
 units plus five explicit boundaries, and drains 16K queued-node owners through
-the same path during partial or panic-unwind drops. It still needs composition
-through unpublished pages, outer runtime owners and internal cancellation
-scheduling. `RuntimeBlock`
+the same path during partial or panic-unwind drops. An active-chapter cursor
+now composes it through unpublished pages, releasing that page vector
+before the chapter session and explicit interactions/idref/scalar boundaries;
+it costs the two nested cursors plus seven units. Empty owners cost 42 units,
+one empty unpublished page costs 47, and combined 16K-deep page/node owners
+remain stack-safe through immediate, boundary and panic-unwind drops. The
+continuation record, built revision and cancellation scheduler remain to be
+composed. `RuntimeBlock`
 trees, standalone block/page vectors, direct child vectors, the open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. Unpublished chapter pages and built revisions still need to
-compose these primitives before end-to-end cancellation is stack-safe. Then make the
+line cleanup. Continuation records and built revisions still need to compose
+these primitives before end-to-end cancellation is stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
