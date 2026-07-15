@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-const REAL_JOB_FIXTURE_UNITS: usize = 13 + 29 + 4 + 2 + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + 29 + 4 + 2 + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -211,7 +211,7 @@ fn default_quantum_resumes_a_large_persistent_layout_config() {
     while !queue.is_empty() {
         consumed_units += queue.advance(budget).consumed_units;
     }
-    assert_eq!(consumed_units, 269);
+    assert_eq!(consumed_units, 268);
 }
 
 #[test]

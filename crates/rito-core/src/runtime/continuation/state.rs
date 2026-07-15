@@ -158,7 +158,6 @@ pub(in crate::runtime) struct RuntimeContinuationRecord {
     pub(super) chapter_count: usize,
     pub(super) current: Option<RuntimeChapterContinuation>,
     pub(super) published_page_count: usize,
-    pub(super) chapter_start_pages: BTreeSet<usize>,
 }
 
 impl RuntimeContinuationRecord {
@@ -179,7 +178,6 @@ impl RuntimeContinuationRecord {
             chapter_count,
             current: None,
             published_page_count: 0,
-            chapter_start_pages: BTreeSet::new(),
         }
     }
 

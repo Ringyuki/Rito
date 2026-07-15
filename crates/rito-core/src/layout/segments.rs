@@ -6,7 +6,7 @@ use super::{
     },
     image_size::ImageSizeIndex,
     pagination_flow::{
-        build_pagination_flow, build_runtime_pagination_flow, runtime_pagination_summary,
+        build_pagination_flow, build_runtime_pagination_flow, update_runtime_pagination_extent,
         PaginationFlowChapter, PaginationFlowChapterRange,
     },
     segment_details::{
@@ -14,7 +14,7 @@ use super::{
         inline_segments_full_detail_hash, line_boxes_full_detail_hash,
         line_break_inputs_full_detail_hash, InlineSegmentBlockDetail,
     },
-    spread_flow::summarize_spread_flow,
+    spread::chapter_spread_count,
     summary_json::{hash_json, hash_text},
     summary_types::{
         ContinuousBlockChapterSummary, ContinuousBlockSummary, InlineSegmentChapterSummary,
@@ -183,7 +183,7 @@ pub(crate) fn build_inline_segments_runtime<'a>(
         })
         .collect::<Vec<_>>();
     let pagination_flow = build_runtime_pagination_flow(&chapters, layout_config);
-    let summary = runtime_layout_summary(chapters.len(), pagination_flow.summary.clone());
+    let summary = runtime_layout_summary(chapters.len(), pagination_flow.summary);
 
     BuiltLayout {
         summary,
@@ -211,41 +211,119 @@ pub(crate) fn append_runtime_chapter_pages(
     pages: Vec<super::LayoutRuntimePage>,
     layout_config: &LayoutConfig,
 ) {
-    let existing_start = layout
-        .summary
-        .pagination_flow
-        .chapter_map
-        .get(idref)
-        .map(|range| range.start_page);
-    let start_page = existing_start.unwrap_or(layout.pages.len());
+    let previous = runtime_chapter_append_state(layout, idref);
     for mut page in pages {
         page.set_index(layout.pages.len());
         layout.pages.push(page);
     }
-    if layout.pages.len() > start_page {
+    let page_count = layout.pages.len();
+    let next_chapter_page_count = page_count
+        .checked_sub(previous.start_page)
+        .expect("runtime chapter start must not exceed the page count");
+    update_runtime_chapter_range(
+        layout,
+        idref,
+        previous.start_page,
+        previous.chapter_page_count,
+        next_chapter_page_count,
+        block_count,
+    );
+    let spread_count =
+        updated_runtime_spread_count(previous, next_chapter_page_count, layout_config);
+    update_runtime_pagination_extent(
+        &mut layout.summary.pagination_flow,
+        page_count,
+        spread_count,
+    );
+}
+
+#[derive(Debug, Clone, Copy)]
+struct RuntimeChapterAppendState {
+    start_page: usize,
+    chapter_page_count: usize,
+    spread_count: usize,
+}
+
+fn runtime_chapter_append_state(layout: &BuiltLayout, idref: &str) -> RuntimeChapterAppendState {
+    let pagination = &layout.summary.pagination_flow;
+    let spread_count = pagination.display_list_flow.spread_count;
+    debug_assert_eq!(pagination.spread_flow.spread_count, spread_count);
+    let Some(range) = pagination.chapter_map.get(idref) else {
+        return RuntimeChapterAppendState {
+            start_page: layout.pages.len(),
+            chapter_page_count: 0,
+            spread_count,
+        };
+    };
+    debug_assert_eq!(
+        range.start_page.checked_add(range.page_count),
+        Some(layout.pages.len()),
+        "runtime chapter pages must append in spine order"
+    );
+    debug_assert_eq!(
+        range.end_page.checked_add(1),
+        Some(layout.pages.len()),
+        "runtime chapter range must end at the published tail"
+    );
+    RuntimeChapterAppendState {
+        start_page: range.start_page,
+        chapter_page_count: range.page_count,
+        spread_count,
+    }
+}
+
+fn updated_runtime_spread_count(
+    previous: RuntimeChapterAppendState,
+    next_chapter_page_count: usize,
+    layout_config: &LayoutConfig,
+) -> usize {
+    let previous_chapter_spreads = chapter_spread_count(
+        previous.start_page,
+        previous.chapter_page_count,
+        layout_config,
+    );
+    let next_chapter_spreads =
+        chapter_spread_count(previous.start_page, next_chapter_page_count, layout_config);
+    previous
+        .spread_count
+        .checked_sub(previous_chapter_spreads)
+        .and_then(|count| count.checked_add(next_chapter_spreads))
+        .expect("runtime spread count must remain representable")
+}
+
+fn update_runtime_chapter_range(
+    layout: &mut BuiltLayout,
+    idref: &str,
+    start_page: usize,
+    previous_page_count: usize,
+    next_page_count: usize,
+    block_count: usize,
+) {
+    if next_page_count == 0 {
+        return;
+    }
+    if previous_page_count == 0 {
         layout.chapter_start_pages.insert(start_page);
         layout.summary.pagination_flow.chapter_map.insert(
             idref.to_owned(),
             PaginationFlowChapterRange {
                 start_page,
                 end_page: layout.pages.len() - 1,
-                page_count: layout.pages.len() - start_page,
+                page_count: next_page_count,
                 block_count,
             },
         );
+        return;
     }
-    refresh_runtime_pagination_summary(layout, layout_config);
-}
-
-fn refresh_runtime_pagination_summary(layout: &mut BuiltLayout, layout_config: &LayoutConfig) {
-    // TODO(native-continuation): maintain spread/chapter aggregates incrementally.
-    // Rebuilding them for every quantum is intentionally deferred while the
-    // core-only continuation contract is still experimental.
-    let page_count = layout.pages.len();
-    let chapter_map = layout.summary.pagination_flow.chapter_map.clone();
-    let spread_flow = summarize_spread_flow(page_count, &layout.chapter_start_pages, layout_config);
-    layout.summary.pagination_flow =
-        runtime_pagination_summary(page_count, chapter_map, spread_flow);
+    let range = layout
+        .summary
+        .pagination_flow
+        .chapter_map
+        .get_mut(idref)
+        .expect("published runtime chapter range exists");
+    range.end_page = layout.pages.len() - 1;
+    range.page_count = next_page_count;
+    range.block_count = block_count;
 }
 
 #[derive(Debug)]
@@ -573,3 +651,7 @@ mod tests {
         ])
     }
 }
+
+#[cfg(test)]
+#[path = "segments/runtime_tests.rs"]
+mod runtime_tests;

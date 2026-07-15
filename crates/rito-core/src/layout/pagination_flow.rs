@@ -11,6 +11,7 @@ use super::{
     link_map::{summarize_link_map_flow, LinkMapFlowSummary, LinkMapFlowTotals},
     page::{RuntimePage, RuntimePageAccumulator},
     search_flow::{summarize_search_flow, SearchFlowSummary},
+    spread::chapter_spread_count,
     spread_flow::{summarize_spread_flow, SpreadFlowSummary},
     summary_json::{hash_json, hash_text, number_value, rect_value},
     text_position::{
@@ -199,8 +200,17 @@ pub(crate) fn build_runtime_pagination_flow(
     }
 
     let chapter_start_pages = collect_chapter_start_pages(&chapter_ranges);
-    let spread_flow = summarize_spread_flow(pages.len(), &chapter_start_pages, layout_config);
-    let summary = runtime_pagination_summary(pages.len(), chapter_map, spread_flow);
+    let spread_count = chapter_ranges
+        .iter()
+        .try_fold(0usize, |total, range| {
+            total.checked_add(chapter_spread_count(
+                range.start_page,
+                range.page_count,
+                layout_config,
+            ))
+        })
+        .expect("runtime spread count must fit usize");
+    let summary = runtime_pagination_summary(pages.len(), chapter_map, spread_count);
     BuiltPaginationFlow {
         summary,
         pages,
@@ -211,16 +221,21 @@ pub(crate) fn build_runtime_pagination_flow(
 pub(super) fn runtime_pagination_summary(
     page_count: usize,
     chapter_map: BTreeMap<String, PaginationFlowChapterRange>,
-    spread_flow: SpreadFlowSummary,
+    spread_count: usize,
 ) -> PaginationFlowSummary {
-    let spread_count = spread_flow.spread_count;
     PaginationFlowSummary {
         page_count,
         chapter_map,
         totals: PaginationFlowCounts::default(),
         page_digests: Vec::new(),
         samples: Vec::new(),
-        spread_flow,
+        spread_flow: SpreadFlowSummary {
+            page_count,
+            spread_count,
+            spreads: Vec::new(),
+            samples: Vec::new(),
+            full_detail_hash: String::new(),
+        },
         display_list_flow: DisplayListFlowSummary {
             spread_count,
             spread_digests: Vec::new(),
@@ -256,6 +271,25 @@ pub(super) fn runtime_pagination_summary(
         },
         full_detail_hash: String::new(),
     }
+}
+
+pub(super) fn update_runtime_pagination_extent(
+    summary: &mut PaginationFlowSummary,
+    page_count: usize,
+    spread_count: usize,
+) {
+    debug_assert!(summary.page_digests.is_empty() && summary.samples.is_empty());
+    debug_assert!(summary.spread_flow.spreads.is_empty() && summary.spread_flow.samples.is_empty());
+    debug_assert!(
+        summary.full_detail_hash.is_empty() && summary.spread_flow.full_detail_hash.is_empty()
+    );
+    summary.page_count = page_count;
+    summary.spread_flow.page_count = page_count;
+    summary.spread_flow.spread_count = spread_count;
+    summary.display_list_flow.spread_count = spread_count;
+    summary.hit_map_flow.page_count = page_count;
+    summary.text_position_flow.page_count = page_count;
+    summary.link_map_flow.page_count = page_count;
 }
 
 pub(crate) fn paginate_continuous_blocks(

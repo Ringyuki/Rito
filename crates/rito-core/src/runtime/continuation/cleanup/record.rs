@@ -1,4 +1,4 @@
-use std::{collections::btree_set::IntoIter, num::NonZeroUsize};
+use std::num::NonZeroUsize;
 
 use crate::layout::{CleanupProgress, LineBreaking, PendingLayoutConfigCleanup};
 
@@ -18,10 +18,10 @@ struct ContinuationRecordShell {
 
 /// Releases an active chapter before the record's flat ownership fields.
 ///
-/// If layout-configuration cleanup costs `LC`, a record with `CS`
-/// chapter-start pages and no active chapter costs exactly `CS + LC + 6`
-/// units. An active chapter adds its nested cleanup units plus one retirement
-/// boundary, so a populated record costs exactly `CC + CS + LC + 7` units.
+/// If layout-configuration cleanup costs `LC`, a record without an active
+/// chapter costs exactly `LC + 5` units. An active chapter adds its nested
+/// cleanup units plus one retirement boundary, so a populated record costs
+/// exactly `CC + LC + 6` units.
 ///
 /// The layout configuration's unbounded font-measurement maps are delegated to
 /// their own budgeted cursor.
@@ -29,7 +29,6 @@ struct ContinuationRecordShell {
 pub(in crate::runtime) struct PendingRuntimeContinuationRecordCleanup {
     owner: Option<RuntimeContinuationRecord>,
     current: Option<PendingRuntimeChapterContinuationCleanup>,
-    chapter_start_pages: Option<IntoIter<usize>>,
     layout_config: Option<PendingLayoutConfigCleanup>,
     layout_key: Option<String>,
     revision_id: Option<String>,
@@ -41,7 +40,6 @@ pub(in crate::runtime) struct PendingRuntimeContinuationRecordCleanup {
 enum ContinuationRecordCleanupStage {
     CurrentSource,
     Current,
-    ChapterStartPages,
     LayoutConfig,
     LayoutKey,
     RevisionId,
@@ -54,7 +52,6 @@ impl PendingRuntimeContinuationRecordCleanup {
         Self {
             owner: Some(owner),
             current: None,
-            chapter_start_pages: None,
             layout_config: None,
             layout_key: None,
             revision_id: None,
@@ -71,9 +68,6 @@ impl PendingRuntimeContinuationRecordCleanup {
         match self.stage {
             ContinuationRecordCleanupStage::CurrentSource => self.start_current(),
             ContinuationRecordCleanupStage::Current => self.advance_current(),
-            ContinuationRecordCleanupStage::ChapterStartPages => {
-                self.release_next_chapter_start_page()
-            }
             ContinuationRecordCleanupStage::LayoutConfig => self.advance_layout_config(),
             ContinuationRecordCleanupStage::LayoutKey => self.release_layout_key(),
             ContinuationRecordCleanupStage::RevisionId => self.release_revision_id(),
@@ -120,10 +114,8 @@ impl PendingRuntimeContinuationRecordCleanup {
             chapter_count,
             current,
             published_page_count,
-            chapter_start_pages,
         } = owner;
         self.current = current.map(PendingRuntimeChapterContinuationCleanup::new);
-        self.chapter_start_pages = Some(chapter_start_pages.into_iter());
         self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.layout_key = Some(layout_key);
         self.revision_id = Some(revision_id);
@@ -137,7 +129,7 @@ impl PendingRuntimeContinuationRecordCleanup {
         self.stage = if self.current.is_some() {
             ContinuationRecordCleanupStage::Current
         } else {
-            ContinuationRecordCleanupStage::ChapterStartPages
+            ContinuationRecordCleanupStage::LayoutConfig
         };
         true
     }
@@ -149,24 +141,11 @@ impl PendingRuntimeContinuationRecordCleanup {
             .expect("active-chapter cleanup exists");
         if current.is_complete() {
             self.current = None;
-            self.stage = ContinuationRecordCleanupStage::ChapterStartPages;
+            self.stage = ContinuationRecordCleanupStage::LayoutConfig;
             return true;
         }
         let advanced = current.advance_one();
         debug_assert!(advanced, "incomplete active-chapter cleanup has work");
-        true
-    }
-
-    fn release_next_chapter_start_page(&mut self) -> bool {
-        let chapter_start_pages = self
-            .chapter_start_pages
-            .as_mut()
-            .expect("chapter-start page source exists");
-        if chapter_start_pages.next().is_some() {
-            return true;
-        }
-        self.chapter_start_pages = None;
-        self.stage = ContinuationRecordCleanupStage::LayoutConfig;
         true
     }
 

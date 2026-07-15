@@ -94,8 +94,8 @@ The remaining usability work is narrower but still release-blocking:
    `ContinuousPaginationSession` cursors now compose it with explicit nested
    retirement, page paint, layout config and owner units. Chapter, continuation
    and revision owners compose the same cursors in production. Persistent
-   `LayoutConfig` font-measurement maps and chapter-start indexes are released
-   entry by entry. Scheduled revision retirement and active continuation
+   `LayoutConfig` font-measurement maps and built-layout chapter-start indexes
+   are released entry by entry. Scheduled revision retirement and active continuation
    cancellation also release revision interactions under a cursor, and the
    scheduled revision releases its required-font catalog face by face. The slim
    completed chapter session/shell, orphaned interactions, the document-wide
@@ -206,8 +206,18 @@ unbudgeted. Sealed page batches now move out of the chapter paginator on every
 advance instead of being cloned from retained page history. A persistent emitted-
 page count preserves chapter-local indexes and first-page spacing after each
 drain, while the open page remains private; cancellation therefore owns one page
-tree rather than a duplicated paginator copy. The remaining bounded-layout work
-also uses a private revision-to-cursor reverse index, so cancel, release and
+tree rather than a duplicated paginator copy. Runtime-only eager and bounded
+summaries now keep diagnostic spread details, samples and hashes empty while the
+full publication/golden summary remains unchanged. Each bounded append updates
+only its current chapter contribution and mirrored extents in place; incomplete
+double-spread publication uses retained-tail parity instead of cloning chapter
+starts and rebuilding every spread. This removes the two near-`O(total pages²)`
+pagination-summary/publication scans while preserving exact slot-builder parity
+for single/double spreads, `first_page_alone`, empty chapters and odd completed
+tails. The now-unused continuation-side chapter-start B-tree and its cleanup
+stage are gone; the published runtime layout remains authoritative for chapter
+boundaries. The remaining bounded-layout work also uses a private revision-to-cursor
+reverse index, so cancel, release and
 follow-up failure remove one exact continuation instead of scanning the full
 cursor table. Forward lookup remains authoritative for the established stale/
 missing/owner-mismatch error order. The remaining bounded-layout work starts
@@ -274,9 +284,11 @@ units, one empty unpublished page costs 46, and combined deep page/node or wide
 completed-idref owners remain stack-safe through immediate, boundary and
 panic-unwind drops. The
 continuation-record cursor now immediately guards that active owner, then
-releases each chapter-start entry, the budgeted layout config, identity
-strings and scalar shell. With empty indexes and configuration maps, inactive
-records cost 12 units and empty active records cost 54. Built layouts,
+releases the budgeted layout config, identity strings and scalar shell. The
+redundant continuation-side chapter-start index has been removed; the published
+runtime layout remains authoritative for chapter boundaries. With empty
+configuration maps, inactive records cost 11 units and empty active records
+cost 53. Built layouts,
 detached frame caches and runtime revisions now compose these primitives. The
 scheduled revision also turns its required-font catalog into an iterator and
 retires one face per unit; `R` faces add exactly `R` units. Its exact total is
@@ -345,7 +357,8 @@ or the full publication. Once inline candidates are collected, logical-flow
 mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
-allocator, context/source-copy, summary/frame payloads, the slim completed
+allocator, context/source-copy, the lean summary chapter map, frame payloads,
+the slim completed
 chapter-session shell and aggregate owners on orphaned-interaction,
 document-index and temporary wire-clone paths remain synchronous residuals,
 alongside line-context metadata,
@@ -694,7 +707,8 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, summary/frame cleanup payloads and aggregate interaction,
+   allocation/growth, lean-summary chapter-map/frame cleanup payloads and
+   aggregate interaction,
    index, font or wire-clone owners outside the guarded scheduled
    revision/active-continuation paths, remaining
    context metadata, container

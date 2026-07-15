@@ -564,13 +564,14 @@ Those names now belong to the old TS reference tree only.
      46 cleanup units. Focused tests compose a 16K-deep page with a 16K-deep
      queued node tree and wide completed-idref owners, lock the release order
      and cover immediate, boundary and panic-unwind destruction.
-     A continuation-record cursor immediately guards
-     an optional active chapter before releasing chapter-start indexes, layout
-     config, layout key, revision id and its scalar shell. Chapter-start B-tree entries
-     are retired individually. A record with `CS` chapter starts and no active
-     chapter costs `CS + layout-config units + 6`; active records cost
-     `active-chapter units + CS + layout-config units + 7`, so empty and
-     one-empty-page active records cost 54 and 59 units respectively.
+     A continuation-record cursor immediately guards an optional active chapter
+     before releasing layout config, layout key, revision id and its scalar
+     shell. The redundant continuation-side chapter-start index has been
+     removed; the published runtime layout remains the source of truth for
+     chapter boundaries. A record without an active chapter costs
+     `layout-config units + 5`; active records cost
+     `active-chapter units + layout-config units + 6`, so empty and
+     one-empty-page active records cost 53 and 58 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
      drops. A built-layout cursor now composes the page-vector cursor before
@@ -598,8 +599,9 @@ Those names now belong to the old TS reference tree only.
      `available_interactions`,
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
-     owners directly. `LayoutSummary`, each generated cached-frame payload and
-     those direct paths remain destructor residuals. Partially deserialized
+     owners directly. The lean runtime `LayoutSummary` chapter map, each
+     generated cached-frame payload and those direct paths remain destructor
+     residuals. Partially deserialized
      configs that never form a complete owner and deferred follow-up/config
      serialization or adapter/transport-side `LayoutConfig` owners can still
      clone or drop directly. Empty-policy `layout_key` hashing now streams the
@@ -663,6 +665,22 @@ Those names now belong to the old TS reference tree only.
      This removes the duplicate retained page tree; the single moved page owner
      now composes through the scheduled continuation-record cursor; final
      document destruction drains the same cursor synchronously.
+     Runtime pagination publication no longer clones the complete chapter map,
+     rebuilds every known spread as JSON, clones those values for hashing and
+     replaces the full summary after every bounded quantum. Runtime-only eager
+     and bounded summaries retain the public summary schema but keep diagnostic
+     spread details, samples and hashes empty; the full publication/golden path
+     remains unchanged. Each append now updates the current chapter's spread
+     contribution and all mirrored page/spread extents in place, costing
+     `O(new pages + log chapters)` rather than accumulating near
+     `O(total pages²)`. Incomplete double-spread publication also uses the
+     retained-tail parity invariant instead of cloning chapter starts and
+     rebuilding all spread slots. Exhaustive small chapter partitions and valid
+     continuation states compare both formulas against the original slot
+     builder, including `first_page_alone`, empty chapters, odd completed tails
+     and same-chapter continuation. The continuation record's now-unused
+     chapter-start B-tree and its budgeted cleanup stage were removed as part of
+     the same state reduction.
      Active layout continuations now live in a private bidirectional store:
      cursor-to-record lookups preserve the existing continuation error order,
      while revision-to-cursor lookup lets cancel, release and follow-up failure
@@ -877,8 +895,8 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by splitting the named summary and
-   frame-payload residuals, the interaction/font-catalog owners that still
+1. Continue the default-Greedy hard bound by budgeting the lean runtime summary
+   chapter map and frame-payload residuals, the interaction/font-catalog owners that still
    bypass scheduled revision or active-continuation cleanup, and transient
    configuration owners before claiming an end-to-end wall-clock cleanup bound.
    Preserve the cleanup queue's closed producer
@@ -966,8 +984,10 @@ paginator retains them, so cancellation owns one page tree rather than two; the
 open page and page-number/spacing history stay in the session. Active cursor
 cleanup also uses an exact revision-to-cursor index rather than scanning the
 whole continuation table, while preserving the public error priority and one-
-shot cursor contract. The next bounded-layout slice should budget the summary,
-frame payload and direct-destruction cleanup layers, together with
+shot cursor contract. Runtime pagination summary construction and extent
+refresh are now lean and incremental; the next bounded-layout slice should
+budget the remaining summary chapter-map retirement, frame payload and
+direct-destruction cleanup layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

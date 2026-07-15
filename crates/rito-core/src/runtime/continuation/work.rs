@@ -161,7 +161,6 @@ fn capture_page_batch(
         current.unpublished_pages.extend(advance.newly_sealed_pages);
         let publish_count = super::publish::publishable_page_count(
             record.published_page_count,
-            &record.chapter_start_pages,
             current.has_published_pages,
             current.unpublished_pages.len(),
             chapter_complete,
@@ -186,12 +185,7 @@ fn record_published_pages(record: &mut RuntimeContinuationRecord, page_count: us
         return;
     }
     let current = record.current.as_mut().expect("chapter remains active");
-    if !current.has_published_pages {
-        record
-            .chapter_start_pages
-            .insert(record.published_page_count);
-        current.has_published_pages = true;
-    }
+    current.has_published_pages = true;
     record.published_page_count += page_count;
 }
 
