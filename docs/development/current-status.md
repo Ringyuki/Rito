@@ -497,8 +497,8 @@ Those names now belong to the old TS reference tree only.
      cleanup-only traversal allocation. The block-vector, page, page-vector,
      open-page-accumulator and `ContinuousPaginationSession` cursors now compose
      that primitive over sealed pages and open blocks, with explicit source
-     activation/retirement, nested cursor retirement, page paint, layout config
-     and owner transitions;
+     activation/retirement, nested cursor retirement, page paint, a bounded
+     scalar pagination-policy snapshot and owner transitions;
      partial cursor destruction drains the same state machines. A block vector
      costs `sum(block units) + block count + 2`; an accumulator costs
      `page-vector units + block-vector units + 6`. A shared persistent-owner
@@ -507,12 +507,17 @@ Those names now belong to the old TS reference tree only.
      entries and `O` outer family keys, it costs `F + N + 2O + 6`; B-tree
      iterator construction/advancement retains the standard library's
      logarithmic internal work, but whole-map `O(n)` destruction no longer sits
-     in one cleanup unit. A pagination session therefore adds the accumulator,
-     layout-config and four ownership units. A chapter-session cursor now
+     in one cleanup unit. The pagination session no longer clones the entire
+     `LayoutConfig`; page geometry is copied into its accumulator and it retains
+     only the three-field pagination policy needed by later splits. Its cleanup
+     cost is therefore `accumulator units + 3`, or 13 units when empty,
+     independent of host font-measurement map size. This also removes the large
+     direct config drop from eager pagination and normal completed-chapter
+     disposal. A chapter-session cursor now
      releases its paginator before its continuous-layout state, with explicit
      source and nested-retirement boundaries. Its exact cost is
      `pagination units + layout units + 5`, so an
-     empty finished or unfinished chapter costs 39 units. Immediate, partial,
+     empty finished or unfinished chapter costs 32 units. Immediate, partial,
      boundary and panic-unwind drops drain the same cursor, including a 16K-deep
      queued node forest. `RuntimeRevisionInteractions` now has its own composed
      cursor for the persistent owners covered here. It retires each footnote and
@@ -525,8 +530,8 @@ Those names now belong to the old TS reference tree only.
      chapter session, then composes that interactions cursor before its idref
      and scalar shell. Its exact cost is
      `page-vector units + chapter-session units + interaction units + 7`; an
-     empty `FullDocument` active chapter costs 53 units and one empty
-     unpublished page costs 58 cleanup units. Focused tests compose a 16K-deep
+     empty `FullDocument` active chapter costs 46 units and one empty
+     unpublished page costs 51 cleanup units. Focused tests compose a 16K-deep
      page with a 16K-deep queued node tree and wide interaction owners, lock the
      release order and cover immediate, boundary and panic-unwind destruction.
      A continuation-record cursor immediately guards
@@ -535,7 +540,7 @@ Those names now belong to the old TS reference tree only.
      are retired individually. A record with `CS` chapter starts and no active
      chapter costs `CS + layout-config units + 6`; active records cost
      `active-chapter units + CS + layout-config units + 7`, so empty and
-     one-empty-page active records cost 66 and 71 units respectively.
+     one-empty-page active records cost 59 and 64 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
      drops. A built-layout cursor now composes the page-vector cursor before
@@ -594,8 +599,9 @@ Those names now belong to the old TS reference tree only.
      active continuation. End-to-end runtime-owner destruction is therefore
      structurally stack-safe, but it is not a wall-clock bound because the named
      indivisible payloads and direct-destruction paths remain.
-     `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning each
-     newly sealed page from an ever-growing paginator snapshot. Sealed page
+     `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning the
+     full host-measurement `LayoutConfig` or each newly sealed page from an
+     ever-growing paginator snapshot. Sealed page
      batches now move directly into the advance result, while a persistent
      emitted-page count preserves chapter-local indexes and first-page spacing
      history after each drain. The open page remains private in the paginator.

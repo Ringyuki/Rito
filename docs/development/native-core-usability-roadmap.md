@@ -231,8 +231,12 @@ destruction. Mapping-finalizer, context-builder and greedy-line owners remain
 declared atomic destructor residuals. A chapter-session cursor now composes the
 paginator and continuous-layout cursors in that order, costs their combined
 units plus five explicit boundaries, and drains 16K queued-node owners through
-the same path during partial or panic-unwind drops. Its empty cost is now 39
-units after composing the six-unit empty layout-config cursor.
+the same path during partial or panic-unwind drops. The paginator now snapshots
+only page geometry and the bounded three-field pagination policy instead of
+cloning the complete host-measurement `LayoutConfig`; empty paginator cleanup is
+13 units and empty chapter-session cleanup is 32. Large font-measurement maps no
+longer affect that session cost or get dropped directly when eager pagination or
+a normally completed chapter disposes the paginator.
 `RuntimeRevisionInteractions` now has a budgeted cursor for these guarded
 persistent owners. With `F` footnotes and `C` completed idrefs, a
 `FullDocument` source costs `F + C + 5`; a materialized source costs
@@ -241,13 +245,13 @@ index costs `S + 4`. An active-chapter cursor now composes it through
 unpublished pages, releasing that page vector before the chapter session and
 then the interactions owner before idref/scalar retirement. Its exact cost is
 `V + CH + RI + 7` for page-vector, chapter-session and interaction costs.
-Empty `FullDocument` owners cost 53 units, one empty unpublished page costs 58,
+Empty `FullDocument` owners cost 46 units, one empty unpublished page costs 51,
 and combined deep page/node or wide interaction owners remain stack-safe
 through immediate, boundary and panic-unwind drops. The
 continuation-record cursor now immediately guards that active owner, then
 releases each chapter-start entry, the budgeted layout config, identity
 strings and scalar shell. With empty indexes and configuration maps, inactive
-records cost 12 units and empty active records cost 66. Built layouts,
+records cost 12 units and empty active records cost 59. Built layouts,
 detached frame caches and runtime revisions now compose these primitives. The
 scheduled revision also turns its required-font catalog into an iterator and
 retires one face per unit; `R` faces add exactly `R` units. Its exact total is

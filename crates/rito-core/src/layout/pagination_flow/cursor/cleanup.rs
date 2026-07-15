@@ -1,27 +1,27 @@
 use std::num::NonZeroUsize;
 
 use super::{ContinuousPaginationSession, PreviousBlockGeometry};
-use crate::layout::{
-    CleanupProgress, PendingLayoutConfigCleanup, PendingRuntimePageAccumulatorCleanup,
-};
+use crate::layout::{CleanupProgress, PaginationPolicy, PendingRuntimePageAccumulatorCleanup};
 
-/// Copy-only remainder of a decomposed pagination session.
+/// Scalar-only remainder of a decomposed pagination session.
 #[derive(Debug)]
 struct PaginationSessionShell {
     previous_block: Option<PreviousBlockGeometry>,
+    pagination_policy: Option<PaginationPolicy>,
     content_height: f64,
     pagination_disabled: bool,
     finished: bool,
 }
 
-/// Releases pagination state before its budgeted layout policy and scalar owner
-/// shell.
+/// Releases pagination state before its bounded policy and scalar owner shell.
+///
+/// If accumulator cleanup costs `S`, this cursor costs exactly `S + 3` units:
+/// one source boundary, one nested retirement, and one owner-shell boundary.
 #[derive(Debug)]
 #[allow(dead_code)] // Chapter-session retirement consumes this cursor next.
 pub(crate) struct PendingContinuousPaginationSessionCleanup {
     owner: Option<ContinuousPaginationSession>,
     state: Option<PendingRuntimePageAccumulatorCleanup>,
-    layout_config: Option<PendingLayoutConfigCleanup>,
     shell: Option<PaginationSessionShell>,
     stage: PaginationSessionCleanupStage,
 }
@@ -30,7 +30,6 @@ pub(crate) struct PendingContinuousPaginationSessionCleanup {
 enum PaginationSessionCleanupStage {
     StateSource,
     State,
-    LayoutConfig,
     Owner,
     Complete,
 }
@@ -41,7 +40,6 @@ impl PendingContinuousPaginationSessionCleanup {
         Self {
             owner: Some(owner),
             state: None,
-            layout_config: None,
             shell: None,
             stage: PaginationSessionCleanupStage::StateSource,
         }
@@ -55,7 +53,6 @@ impl PendingContinuousPaginationSessionCleanup {
         match self.stage {
             PaginationSessionCleanupStage::StateSource => self.start_state(),
             PaginationSessionCleanupStage::State => self.advance_state(),
-            PaginationSessionCleanupStage::LayoutConfig => self.advance_layout_config(),
             PaginationSessionCleanupStage::Owner => self.release_owner(),
             PaginationSessionCleanupStage::Complete => false,
         }
@@ -89,15 +86,15 @@ impl PendingContinuousPaginationSessionCleanup {
         let ContinuousPaginationSession {
             state,
             previous_block,
-            layout_config,
+            pagination_policy,
             content_height,
             pagination_disabled,
             finished,
         } = owner;
         self.state = Some(PendingRuntimePageAccumulatorCleanup::new(state));
-        self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.shell = Some(PaginationSessionShell {
             previous_block,
+            pagination_policy,
             content_height,
             pagination_disabled,
             finished,
@@ -110,7 +107,7 @@ impl PendingContinuousPaginationSessionCleanup {
         let state = self.state.as_mut().expect("accumulator cleanup exists");
         if state.is_complete() {
             self.state = None;
-            self.stage = PaginationSessionCleanupStage::LayoutConfig;
+            self.stage = PaginationSessionCleanupStage::Owner;
             return true;
         }
         let advanced = state.advance_one();
@@ -118,44 +115,24 @@ impl PendingContinuousPaginationSessionCleanup {
         true
     }
 
-    fn advance_layout_config(&mut self) -> bool {
-        let layout_config = self
-            .layout_config
-            .as_mut()
-            .expect("layout-config cleanup exists");
-        if layout_config.is_complete() {
-            self.layout_config = None;
-            self.stage = PaginationSessionCleanupStage::Owner;
-            return true;
-        }
-        let advanced = layout_config.advance_one();
-        debug_assert!(advanced, "incomplete layout-config cleanup has work");
-        true
-    }
-
     fn release_owner(&mut self) -> bool {
         let shell = self.shell.take().expect("cleanup owns its session shell");
         let PaginationSessionShell {
             previous_block,
+            pagination_policy,
             content_height,
             pagination_disabled,
             finished,
         } = shell;
         let _ = (
             previous_block,
+            pagination_policy,
             content_height,
             pagination_disabled,
             finished,
         );
         self.stage = PaginationSessionCleanupStage::Complete;
         true
-    }
-
-    #[cfg(test)]
-    fn layout_config(&self) -> Option<&crate::layout::LayoutConfig> {
-        self.layout_config
-            .as_ref()
-            .and_then(PendingLayoutConfigCleanup::source)
     }
 }
 

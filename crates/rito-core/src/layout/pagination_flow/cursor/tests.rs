@@ -7,7 +7,7 @@ use crate::layout::{
     line::{LineBox, LineRun, TextRunBox},
     page::{RuntimePage, RuntimePageAccumulator},
     pagination_flow::{paginate_continuous_blocks, place_pagination_block},
-    LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
+    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
 };
 
 type TestBlock = RuntimeBlock<LineBox>;
@@ -180,6 +180,34 @@ fn spacing_and_widow_orphan_state_cross_a_batch_boundary() {
 }
 
 #[test]
+fn session_snapshots_pagination_policy_at_construction() {
+    let mut layout = test_layout();
+    layout.pagination_policy = Some(PaginationPolicy {
+        enabled: None,
+        default_orphans: Some(2),
+        default_widows: Some(4),
+    });
+    let nested = block_with_lines(0.0, 8);
+    let mut block = block_with_line("outer", 0.0, nested.height);
+    block.children = vec![RuntimeChild::Block(Box::new(nested))];
+    let expected = eager_reference(&[block.clone()], &layout, None);
+    let RuntimeChild::Block(expected_nested) = &expected[0].content[0].children[0] else {
+        panic!("nested policy fragment expected");
+    };
+    assert_eq!(expected_nested.children.len(), 4);
+    let mut session = ContinuousPaginationSession::new(&layout, None);
+
+    layout.pagination_policy = Some(PaginationPolicy {
+        enabled: Some(false),
+        default_orphans: None,
+        default_widows: None,
+    });
+    let _ = session.push_blocks(vec![block]);
+
+    assert_eq!(session.into_pages(), expected);
+}
+
+#[test]
 fn non_positive_content_height_never_exposes_a_page() {
     let mut layout = test_layout();
     layout.margin_top = layout.page_height / 2.0;
@@ -227,7 +255,13 @@ fn eager_reference(
         } else {
             block.y - (blocks[index - 1].y + blocks[index - 1].height)
         };
-        place_pagination_block(block.clone(), spacing, content_height, &mut state, layout);
+        place_pagination_block(
+            block.clone(),
+            spacing,
+            content_height,
+            &mut state,
+            layout.pagination_policy.as_ref(),
+        );
     }
     if !state.page_blocks.is_empty() {
         state.emit_page();

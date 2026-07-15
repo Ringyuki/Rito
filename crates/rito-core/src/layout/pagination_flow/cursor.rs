@@ -4,7 +4,7 @@ use serde_json::Value;
 
 use super::super::{
     content::RuntimeBlock, line::LineBox, page::RuntimePageAccumulator, LayoutConfig,
-    LayoutRuntimePage,
+    LayoutRuntimePage, PaginationPolicy,
 };
 use super::place_pagination_block;
 
@@ -26,6 +26,21 @@ impl PreviousBlockGeometry {
     fn spacing_before(self, block: &PaginationBlock) -> f64 {
         block.y - (self.y + self.height)
     }
+}
+
+fn snapshot_pagination_policy(policy: Option<&PaginationPolicy>) -> Option<PaginationPolicy> {
+    policy.map(|policy| {
+        let PaginationPolicy {
+            enabled,
+            default_orphans,
+            default_widows,
+        } = policy;
+        PaginationPolicy {
+            enabled: *enabled,
+            default_orphans: *default_orphans,
+            default_widows: *default_widows,
+        }
+    })
 }
 
 /// A view of the page extent that is stable at a pagination yield point.
@@ -67,7 +82,7 @@ pub(crate) struct PaginationFinishResult<'a> {
 pub(crate) struct ContinuousPaginationSession {
     state: PaginationState,
     previous_block: Option<PreviousBlockGeometry>,
-    layout_config: LayoutConfig,
+    pagination_policy: Option<PaginationPolicy>,
     content_height: f64,
     pagination_disabled: bool,
     finished: bool,
@@ -83,7 +98,7 @@ impl ContinuousPaginationSession {
                 page_paint,
             ),
             previous_block: None,
-            layout_config: layout_config.clone(),
+            pagination_policy: snapshot_pagination_policy(layout_config.pagination_policy.as_ref()),
             content_height,
             pagination_disabled: content_height <= 0.0,
             finished: false,
@@ -109,7 +124,7 @@ impl ContinuousPaginationSession {
                     spacing,
                     self.content_height,
                     &mut self.state,
-                    &self.layout_config,
+                    self.pagination_policy.as_ref(),
                 );
             }
             self.previous_block = Some(geometry);

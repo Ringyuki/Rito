@@ -17,7 +17,7 @@ use super::{
         summarize_text_position_flow, TextPositionFlowSummary, TextPositionFlowTotals,
     },
 };
-use crate::layout::LayoutConfig;
+use crate::layout::{LayoutConfig, PaginationPolicy};
 
 pub(crate) mod cursor;
 
@@ -287,7 +287,7 @@ fn place_pagination_block(
     spacing: f64,
     content_height: f64,
     state: &mut PaginationState,
-    layout_config: &LayoutConfig,
+    pagination_policy: Option<&PaginationPolicy>,
 ) {
     if block.page_break_before && !state.page_blocks.is_empty() {
         state.emit_page();
@@ -312,9 +312,15 @@ fn place_pagination_block(
     }
 
     if state.page_blocks.is_empty() {
-        place_oversized_pagination_block(block, content_height, state, layout_config);
+        place_oversized_pagination_block(block, content_height, state, pagination_policy);
     } else {
-        place_block_on_full_pagination_page(block, spacing, content_height, state, layout_config);
+        place_block_on_full_pagination_page(
+            block,
+            spacing,
+            content_height,
+            state,
+            pagination_policy,
+        );
     }
 }
 
@@ -323,11 +329,11 @@ fn place_block_on_full_pagination_page(
     spacing: f64,
     content_height: f64,
     state: &mut PaginationState,
-    layout_config: &LayoutConfig,
+    pagination_policy: Option<&PaginationPolicy>,
 ) {
     let remaining = content_height - state.used_height - spacing;
     let split = if remaining > 0.0 {
-        try_split_pagination_block(&block, remaining, layout_config)
+        try_split_pagination_block(&block, remaining, pagination_policy)
     } else {
         None
     };
@@ -338,7 +344,7 @@ fn place_block_on_full_pagination_page(
                 .page_blocks
                 .push(reposition_pagination_block(&split.head, state.used_height));
             state.emit_page();
-            place_pagination_block(split.tail, 0.0, content_height, state, layout_config);
+            place_pagination_block(split.tail, 0.0, content_height, state, pagination_policy);
             return;
         }
     }
@@ -355,28 +361,28 @@ fn place_block_on_full_pagination_page(
                 .page_blocks
                 .push(reposition_pagination_block(&forced.head, state.used_height));
             state.emit_page();
-            place_pagination_block(forced.tail, 0.0, content_height, state, layout_config);
+            place_pagination_block(forced.tail, 0.0, content_height, state, pagination_policy);
             return;
         }
     }
 
     state.emit_page();
-    place_pagination_block(block, 0.0, content_height, state, layout_config);
+    place_pagination_block(block, 0.0, content_height, state, pagination_policy);
 }
 
 fn place_oversized_pagination_block(
     block: PaginationBlock,
     content_height: f64,
     state: &mut PaginationState,
-    layout_config: &LayoutConfig,
+    pagination_policy: Option<&PaginationPolicy>,
 ) {
-    if let Some(split) = try_split_pagination_block(&block, content_height, layout_config) {
+    if let Some(split) = try_split_pagination_block(&block, content_height, pagination_policy) {
         if split.head.height <= content_height {
             state
                 .page_blocks
                 .push(reposition_pagination_block(&split.head, 0.0));
             state.emit_page();
-            place_pagination_block(split.tail, 0.0, content_height, state, layout_config);
+            place_pagination_block(split.tail, 0.0, content_height, state, pagination_policy);
             return;
         }
     }
@@ -386,7 +392,7 @@ fn place_oversized_pagination_block(
             .page_blocks
             .push(reposition_pagination_block(&forced.head, 0.0));
         state.emit_page();
-        place_pagination_block(forced.tail, 0.0, content_height, state, layout_config);
+        place_pagination_block(forced.tail, 0.0, content_height, state, pagination_policy);
         return;
     }
 
@@ -407,20 +413,15 @@ const GEOMETRY_EPSILON: f64 = 0.001;
 fn try_split_pagination_block(
     block: &PaginationBlock,
     available_height: f64,
-    layout_config: &LayoutConfig,
+    pagination_policy: Option<&PaginationPolicy>,
 ) -> Option<PaginationSplitResult> {
-    split_pagination_block(
-        block,
-        available_height,
-        layout_config.pagination_policy.as_ref(),
-        false,
-    )
+    split_pagination_block(block, available_height, pagination_policy, false)
 }
 
 fn split_pagination_block(
     block: &PaginationBlock,
     available_height: f64,
-    policy: Option<&crate::layout::PaginationPolicy>,
+    policy: Option<&PaginationPolicy>,
     force: bool,
 ) -> Option<PaginationSplitResult> {
     if let Some(line_boxes) = direct_line_children(block) {
@@ -1221,7 +1222,7 @@ mod tests {
             .map(|(index, y)| RuntimeChild::Line(line_box(&index.to_string(), y)))
             .collect();
 
-        let split = try_split_pagination_block(&block, 50.0, &test_layout())
+        let split = try_split_pagination_block(&block, 50.0, None)
             .expect("line block splits after two lines");
 
         assert_eq!((split.head.y, split.head.height), (7.0, 48.0));
@@ -1254,7 +1255,7 @@ mod tests {
             RuntimeChild::Line(line_box("Second", 50.0)),
         ];
 
-        let split = try_split_pagination_block(&block, 30.0, &test_layout())
+        let split = try_split_pagination_block(&block, 30.0, None)
             .expect("line block splits inside the inter-line gap");
 
         assert_eq!((split.head.height, split.tail.height), (30.0, 70.0));
@@ -1341,7 +1342,7 @@ mod tests {
             }),
         ];
 
-        let split = try_split_pagination_block(&outer, 50.0, &test_layout())
+        let split = try_split_pagination_block(&outer, 50.0, None)
             .expect("outer block splits through its nested line block");
         let RuntimeChild::Block(head_nested) = &split.head.children[0] else {
             panic!("nested head expected");
@@ -1367,7 +1368,7 @@ mod tests {
     #[test]
     fn split_constraints_prefer_block_then_policy_then_css_defaults() {
         let block = block_with_lines(8);
-        let default_split = try_split_pagination_block(&block, 25.0, &test_layout())
+        let default_split = try_split_pagination_block(&block, 25.0, None)
             .expect("CSS default orphans moves the split after two lines");
         assert_eq!(default_split.head.children.len(), 2);
 
@@ -1376,17 +1377,22 @@ mod tests {
             default_orphans: Some(3),
             default_widows: Some(2),
         });
-        let policy_split = try_split_pagination_block(&block, 25.0, &policy_layout)
-            .expect("policy orphans moves the split after three lines");
+        let policy_split =
+            try_split_pagination_block(&block, 25.0, policy_layout.pagination_policy.as_ref())
+                .expect("policy orphans moves the split after three lines");
         assert_eq!(policy_split.head.children.len(), 3);
 
         let mut block_override = block.clone();
         block_override.orphans = Some(4);
-        let block_split = try_split_pagination_block(&block_override, 25.0, &policy_layout)
-            .expect("block orphans overrides the policy default");
+        let block_split = try_split_pagination_block(
+            &block_override,
+            25.0,
+            policy_layout.pagination_policy.as_ref(),
+        )
+        .expect("block orphans overrides the policy default");
         assert_eq!(block_split.head.children.len(), 4);
 
-        let default_split = try_split_pagination_block(&block, 125.0, &test_layout())
+        let default_split = try_split_pagination_block(&block, 125.0, None)
             .expect("CSS default widows leaves two lines in the tail");
         assert_eq!(default_split.head.children.len(), 6);
 
@@ -1395,14 +1401,19 @@ mod tests {
             default_orphans: Some(2),
             default_widows: Some(3),
         });
-        let policy_split = try_split_pagination_block(&block, 125.0, &policy_layout)
-            .expect("policy widows leaves three lines in the tail");
+        let policy_split =
+            try_split_pagination_block(&block, 125.0, policy_layout.pagination_policy.as_ref())
+                .expect("policy widows leaves three lines in the tail");
         assert_eq!(policy_split.head.children.len(), 5);
 
         block_override = block;
         block_override.widows = Some(4);
-        let block_split = try_split_pagination_block(&block_override, 125.0, &policy_layout)
-            .expect("block widows overrides the policy default");
+        let block_split = try_split_pagination_block(
+            &block_override,
+            125.0,
+            policy_layout.pagination_policy.as_ref(),
+        )
+        .expect("block widows overrides the policy default");
         assert_eq!(block_split.head.children.len(), 4);
     }
 
@@ -1417,7 +1428,7 @@ mod tests {
             default_widows: Some(5),
         });
 
-        let split = try_split_pagination_block(&block, 25.0, &layout)
+        let split = try_split_pagination_block(&block, 25.0, layout.pagination_policy.as_ref())
             .expect("disabled policy permits a one-line fragment");
 
         assert_eq!(split.head.children.len(), 1);
@@ -1429,7 +1440,7 @@ mod tests {
         block.orphans = Some(usize::MAX);
         block.widows = Some(2);
 
-        let split = try_split_pagination_block(&block, 25.0, &test_layout())
+        let split = try_split_pagination_block(&block, 25.0, None)
             .expect("an unsatisfiable constraint preserves the natural split");
 
         assert_eq!(split.head.children.len(), 1);

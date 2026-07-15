@@ -10,7 +10,7 @@ use crate::layout::{
     page::RuntimePage,
     text_mapping::RunTextMapping,
     text_shape::fixture_run_shape,
-    LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
+    LayoutConfig, LayoutConfigInput, MarginInput, PaginationPolicy, SpreadMode,
 };
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
@@ -26,45 +26,26 @@ fn empty_finished_and_unfinished_sessions_have_the_same_exact_units() {
         let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
         let progress = cleanup.advance(NonZeroUsize::new(99).unwrap());
 
-        assert_eq!(progress.consumed_units, 20);
+        assert_eq!(progress.consumed_units, 13);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
     }
 }
 
 #[test]
-fn populated_session_composes_accumulator_config_and_owner_boundaries() {
+fn populated_session_composes_accumulator_policy_and_owner_boundaries() {
     let mut layout = test_layout();
-    layout.font_family_override = Some("Pinned Serif".to_owned());
-    layout.generic_serif_advances.insert("中".to_owned(), 16.0);
+    layout.pagination_policy = Some(PaginationPolicy {
+        enabled: Some(true),
+        default_orphans: Some(3),
+        default_widows: Some(4),
+    });
     let mut owner = super::super::ContinuousPaginationSession::new(&layout, None);
     owner.state.pages.push(page(0, Vec::new()));
     owner.state.page_blocks.push(block(Vec::new()));
     let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
 
-    for _ in 0..21 {
-        assert_one(&mut cleanup);
-    }
-    let retained = cleanup
-        .layout_config()
-        .expect("layout config remains until its own unit");
-    assert_eq!(
-        retained.font_family_override.as_deref(),
-        Some("Pinned Serif")
-    );
-    assert_eq!(retained.generic_serif_advances.len(), 1);
-    for _ in 0..7 {
-        assert_one(&mut cleanup);
-    }
-    assert!(cleanup.layout_config().is_none());
-    assert!(cleanup
-        .layout_config
-        .as_ref()
-        .is_some_and(super::PendingLayoutConfigCleanup::is_complete));
-    assert_one(&mut cleanup);
-    assert!(cleanup.layout_config.is_none());
-    assert_one(&mut cleanup);
-    assert!(cleanup.is_complete());
+    assert_eq!(drive_q1(&mut cleanup, 22), 22);
 }
 
 #[test]
@@ -79,7 +60,19 @@ fn scalar_session_flags_do_not_add_hidden_cleanup_units() {
     owner.finished = true;
     let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 20), 20);
+    assert_eq!(drive_q1(&mut cleanup, 13), 13);
+}
+
+#[test]
+fn large_measurement_maps_are_not_owned_by_the_session() {
+    let mut layout = test_layout();
+    layout.generic_serif_advances = (0..DEEP_BLOCK_COUNT)
+        .map(|index| (format!("glyph-{index}"), index as f64))
+        .collect();
+    let owner = super::super::ContinuousPaginationSession::new(&layout, None);
+    let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 13), 13);
 }
 
 #[test]

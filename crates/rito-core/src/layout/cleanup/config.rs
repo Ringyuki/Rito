@@ -69,11 +69,6 @@ impl PendingLayoutConfigCleanup {
         self.stage == LayoutConfigCleanupStage::Complete
     }
 
-    #[cfg(test)]
-    pub(crate) fn source(&self) -> Option<&LayoutConfig> {
-        self.owner.as_ref()
-    }
-
     pub(crate) fn advance_one(&mut self) -> bool {
         match self.stage {
             LayoutConfigCleanupStage::Source => self.start_sources(),

@@ -38,7 +38,7 @@ fn empty_current_has_exact_units_for_both_scalar_flag_values() {
         ));
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-        assert_eq!(progress.consumed_units, 53);
+        assert_eq!(progress.consumed_units, 46);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
@@ -51,7 +51,7 @@ fn one_empty_unpublished_page_has_exact_units() {
     let mut cleanup =
         PendingRuntimeChapterContinuationCleanup::new(current(Vec::new(), pages, false));
 
-    assert_eq!(drive_q1(&mut cleanup, 58), 58);
+    assert_eq!(drive_q1(&mut cleanup, 51), 51);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn materialized_interactions_compose_with_active_chapter_retirement() {
     owner.interactions = materialized_interactions(2);
     let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 64), 64);
+    assert_eq!(drive_q1(&mut cleanup, 57), 57);
 }
 
 #[test]
@@ -68,7 +68,7 @@ fn deep_unpublished_page_and_pending_session_compose_exactly() {
     let pages = vec![page(vec![deep_block(DEEP_OWNER_COUNT, None)])];
     let nodes = vec![deep_node_tree(DEEP_OWNER_COUNT)];
     let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(current(nodes, pages, false));
-    let expected = DEEP_OWNER_COUNT * 4 + 58;
+    let expected = DEEP_OWNER_COUNT * 4 + 51;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 }
