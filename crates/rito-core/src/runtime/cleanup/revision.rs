@@ -1,13 +1,13 @@
-use std::num::NonZeroUsize;
+use std::{num::NonZeroUsize, vec};
 
 use crate::layout::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutConfigCleanup};
 
 use super::{
     super::{
-        frame::{RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionInteractions},
+        frame::{RuntimeFrameCacheOwner, RuntimeRevision},
         RuntimeRequiredFontFace, RuntimeRevisionExtent, RuntimeRevisionStatus,
     },
-    PendingRuntimeFrameCacheCleanup,
+    PendingRuntimeFrameCacheCleanup, PendingRuntimeRevisionInteractionsCleanup,
 };
 
 /// Copy-only remainder of a decomposed runtime revision.
@@ -21,19 +21,20 @@ struct RuntimeRevisionShell {
 
 /// Releases derived frames before the recursive built layout and flat fields.
 ///
-/// If frame-cache cleanup costs `FC` and built-layout cleanup costs `BL`, this
-/// cursor costs exactly `FC + BL + LC + 7` units when layout-configuration
-/// cleanup costs `LC`. Layout metadata, font catalogs, interactions and each
-/// generated cached frame retain indivisible destructor residuals, so this is a
-/// structural stack-safety bound rather than a wall-clock bound.
+/// If frame-cache cleanup costs `FC`, built-layout cleanup costs `BL`, layout
+/// configuration cleanup costs `LC`, the catalog contains `RF` faces, and
+/// interaction cleanup costs `RI`, this cursor costs exactly
+/// `FC + BL + LC + RF + RI + 7` units. Each generated cached frame remains an
+/// indivisible destructor residual, so this is not an end-to-end wall-clock
+/// bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
     owner: Option<RuntimeRevision>,
     frame_cache: Option<PendingRuntimeFrameCacheCleanup>,
     layout: Option<PendingBuiltLayoutCleanup>,
     layout_config: Option<PendingLayoutConfigCleanup>,
-    required_font_face_catalog: Option<Option<Vec<RuntimeRequiredFontFace>>>,
-    interactions: Option<RuntimeRevisionInteractions>,
+    required_font_face_catalog: Option<vec::IntoIter<RuntimeRequiredFontFace>>,
+    interactions: Option<PendingRuntimeRevisionInteractionsCleanup>,
     shell: Option<RuntimeRevisionShell>,
     stage: RuntimeRevisionCleanupStage,
 }
@@ -89,7 +90,7 @@ impl PendingRuntimeRevisionCleanup {
             RuntimeRevisionCleanupStage::RequiredFontFaceCatalog => {
                 self.release_required_font_face_catalog()
             }
-            RuntimeRevisionCleanupStage::Interactions => self.release_interactions(),
+            RuntimeRevisionCleanupStage::Interactions => self.advance_interactions(),
             RuntimeRevisionCleanupStage::Owner => self.release_owner(),
             RuntimeRevisionCleanupStage::Complete => false,
         }
@@ -143,8 +144,8 @@ impl PendingRuntimeRevisionCleanup {
         ));
         self.layout = Some(PendingBuiltLayoutCleanup::new(layout));
         self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
-        self.required_font_face_catalog = Some(required_font_face_catalog);
-        self.interactions = Some(interactions);
+        self.required_font_face_catalog = required_font_face_catalog.map(Vec::into_iter);
+        self.interactions = Some(PendingRuntimeRevisionInteractionsCleanup::new(interactions));
         self.shell = Some(RuntimeRevisionShell {
             revision_version,
             status,
@@ -198,22 +199,34 @@ impl PendingRuntimeRevisionCleanup {
     }
 
     fn release_required_font_face_catalog(&mut self) -> bool {
-        drop(
-            self.required_font_face_catalog
-                .take()
-                .expect("font-catalog ownership slot exists"),
-        );
+        if let Some(face) = self
+            .required_font_face_catalog
+            .as_mut()
+            .and_then(Iterator::next)
+        {
+            drop(face);
+            return true;
+        }
+        self.required_font_face_catalog = None;
         self.stage = RuntimeRevisionCleanupStage::Interactions;
         true
     }
 
-    fn release_interactions(&mut self) -> bool {
-        drop(
-            self.interactions
-                .take()
-                .expect("revision interactions exist"),
+    fn advance_interactions(&mut self) -> bool {
+        let interactions = self
+            .interactions
+            .as_mut()
+            .expect("revision-interactions cleanup exists");
+        if interactions.is_complete() {
+            self.interactions = None;
+            self.stage = RuntimeRevisionCleanupStage::Owner;
+            return true;
+        }
+        let advanced = interactions.advance_one();
+        debug_assert!(
+            advanced,
+            "incomplete revision-interactions cleanup has work"
         );
-        self.stage = RuntimeRevisionCleanupStage::Owner;
         true
     }
 

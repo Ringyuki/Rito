@@ -5,7 +5,7 @@ use crate::{
         runtime_session::PendingRuntimeChapterLayoutSessionCleanup, CleanupProgress,
         PendingRuntimePageVectorCleanup,
     },
-    runtime::frame::RuntimeRevisionInteractions,
+    runtime::cleanup::PendingRuntimeRevisionInteractionsCleanup,
 };
 
 use super::super::state::RuntimeChapterContinuation;
@@ -18,17 +18,15 @@ struct ChapterContinuationShell {
 
 /// Releases unpublished pages before the active chapter layout session.
 ///
-/// If the nested cursors require `V` and `CH` units, this cursor requires
-/// exactly `V + CH + 7`: one source and one retirement boundary per nested
-/// owner, then interactions, idref, and the scalar owner shell.
-/// `RuntimeRevisionInteractions` B-tree payloads remain one indivisible
-/// destructor residual, so this cursor does not establish a wall-clock bound.
+/// If the nested cursors require `V`, `CH`, and `RI` units, this cursor requires
+/// exactly `V + CH + RI + 7`: one source and one retirement boundary per
+/// nested owner, then idref and the scalar owner shell.
 #[derive(Debug)]
 pub(in crate::runtime::continuation) struct PendingRuntimeChapterContinuationCleanup {
     owner: Option<RuntimeChapterContinuation>,
     unpublished: Option<PendingRuntimePageVectorCleanup>,
     session: Option<PendingRuntimeChapterLayoutSessionCleanup>,
-    interactions: Option<RuntimeRevisionInteractions>,
+    interactions: Option<PendingRuntimeRevisionInteractionsCleanup>,
     idref: Option<String>,
     shell: Option<ChapterContinuationShell>,
     stage: ChapterContinuationCleanupStage,
@@ -69,7 +67,7 @@ impl PendingRuntimeChapterContinuationCleanup {
             ChapterContinuationCleanupStage::Unpublished => self.advance_unpublished(),
             ChapterContinuationCleanupStage::SessionSource => self.start_session(),
             ChapterContinuationCleanupStage::Session => self.advance_session(),
-            ChapterContinuationCleanupStage::Interactions => self.release_interactions(),
+            ChapterContinuationCleanupStage::Interactions => self.advance_interactions(),
             ChapterContinuationCleanupStage::Idref => self.release_idref(),
             ChapterContinuationCleanupStage::Owner => self.release_owner(),
             ChapterContinuationCleanupStage::Complete => false,
@@ -141,7 +139,7 @@ impl PendingRuntimeChapterContinuationCleanup {
         debug_assert!(unpublished_pages.is_empty());
         drop(unpublished_pages);
         self.session = Some(PendingRuntimeChapterLayoutSessionCleanup::new(session));
-        self.interactions = Some(interactions);
+        self.interactions = Some(PendingRuntimeRevisionInteractionsCleanup::new(interactions));
         self.idref = Some(idref);
         self.shell = Some(ChapterContinuationShell {
             has_published_pages,
@@ -165,13 +163,18 @@ impl PendingRuntimeChapterContinuationCleanup {
         true
     }
 
-    fn release_interactions(&mut self) -> bool {
-        drop(
-            self.interactions
-                .take()
-                .expect("chapter interactions exist"),
-        );
-        self.stage = ChapterContinuationCleanupStage::Idref;
+    fn advance_interactions(&mut self) -> bool {
+        let interactions = self
+            .interactions
+            .as_mut()
+            .expect("chapter-interactions cleanup exists");
+        if interactions.is_complete() {
+            self.interactions = None;
+            self.stage = ChapterContinuationCleanupStage::Idref;
+            return true;
+        }
+        let advanced = interactions.advance_one();
+        debug_assert!(advanced, "incomplete chapter-interactions cleanup has work");
         true
     }
 

@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-const MINIMAL_REAL_JOB_UNITS: usize = 13 + 23 + 4 + 2;
+const REAL_JOB_FIXTURE_UNITS: usize = 13 + 29 + 4 + 2;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -100,12 +100,12 @@ fn default_quantum_services_frame_backlog_faster_than_single_eviction_arrival() 
 #[test]
 fn each_job_has_a_separate_queue_retirement_unit() {
     let mut queue = RuntimeCleanupQueue::default();
-    enqueue_minimal_real_jobs(&mut queue);
+    enqueue_real_job_fixtures(&mut queue);
 
     let progress = queue
-        .advance(NonZeroUsize::new(MINIMAL_REAL_JOB_UNITS - 1).expect("test budget is non-zero"));
+        .advance(NonZeroUsize::new(REAL_JOB_FIXTURE_UNITS - 1).expect("test budget is non-zero"));
 
-    assert_eq!(progress.consumed_units, MINIMAL_REAL_JOB_UNITS - 1);
+    assert_eq!(progress.consumed_units, REAL_JOB_FIXTURE_UNITS - 1);
     assert!(!progress.complete);
     let retirement = queue.advance(NonZeroUsize::MIN);
     assert_eq!(retirement.consumed_units, 1);
@@ -234,7 +234,7 @@ fn queue_drop_drains_every_remaining_job_directly() {
 fn unwind_drains_partially_advanced_real_jobs() {
     let result = catch_unwind(AssertUnwindSafe(|| {
         let mut queue = RuntimeCleanupQueue::default();
-        enqueue_minimal_real_jobs(&mut queue);
+        enqueue_real_job_fixtures(&mut queue);
         queue.advance(NonZeroUsize::new(5).expect("test budget is non-zero"));
         panic!("force cleanup queue drop during unwind");
     }));
@@ -242,7 +242,7 @@ fn unwind_drains_partially_advanced_real_jobs() {
     assert!(result.is_err());
 }
 
-fn enqueue_minimal_real_jobs(queue: &mut RuntimeCleanupQueue) {
+fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
     queue.enqueue_continuation(empty_continuation());
     queue.enqueue_revision(empty_revision());
     queue.enqueue_frame_cache(RuntimeFrameCacheOwner::default());

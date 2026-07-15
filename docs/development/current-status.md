@@ -514,19 +514,28 @@ Those names now belong to the old TS reference tree only.
      `pagination units + layout units + 5`, so an
      empty finished or unfinished chapter costs 39 units. Immediate, partial,
      boundary and panic-unwind drops drain the same cursor, including a 16K-deep
-     queued node forest. An outer active-chapter cursor releases unpublished
-     pages before that session, then retires interactions, idref and its scalar
-     shell. Its exact cost is `page-vector units + chapter-session units + 7`;
-     an empty active chapter costs 48 units and one empty unpublished page costs
-     53 cleanup units. Focused tests compose a 16K-deep page with a 16K-deep
-     queued node tree, lock the release order and cover immediate, boundary and
-     panic-unwind destruction. A continuation-record cursor immediately guards
+     queued node forest. `RuntimeRevisionInteractions` now has its own composed
+     cursor for the persistent owners covered here. It retires each footnote and
+     completed-chapter idref separately, and a materialized chapter-text index
+     releases each span before its index shell. With `F` footnotes, `C` completed
+     idrefs and `S_i` spans in materialized index `i`, a `FullDocument` source
+     costs `F + C + 5` units; a materialized source costs
+     `F + C + 6 + sum(S_i + 6)`, while one standalone index costs `S + 4`.
+     An outer active-chapter cursor releases unpublished pages before the
+     chapter session, then composes that interactions cursor before its idref
+     and scalar shell. Its exact cost is
+     `page-vector units + chapter-session units + interaction units + 7`; an
+     empty `FullDocument` active chapter costs 53 units and one empty
+     unpublished page costs 58 cleanup units. Focused tests compose a 16K-deep
+     page with a 16K-deep queued node tree and wide interaction owners, lock the
+     release order and cover immediate, boundary and panic-unwind destruction.
+     A continuation-record cursor immediately guards
      an optional active chapter before releasing chapter-start indexes, layout
      config, layout key, revision id and its scalar shell. Chapter-start B-tree entries
      are retired individually. A record with `CS` chapter starts and no active
      chapter costs `CS + layout-config units + 6`; active records cost
      `active-chapter units + CS + layout-config units + 7`, so empty and
-     one-empty-page active records cost 61 and 66 units respectively.
+     one-empty-page active records cost 66 and 71 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
      drops. A built-layout cursor now composes the page-vector cursor before
@@ -536,17 +545,28 @@ Those names now belong to the old TS reference tree only.
      stack-safe. A detached frame-cache owner keeps its frame map and LRU order
      together; its cursor costs `frame count + 3` units, and a separate one-unit
      cached-frame guard lets LRU eviction transfer an owner without manufacturing a
-     singleton map. A runtime-revision cursor releases that cache before its
-     built layout, config, optional font catalog, interactions and scalar shell.
-     Its exact cost adds frame-cache, built-layout, layout-config and seven
-     ownership units. Empty and one-empty-page revisions cost 22 and 27 units,
-     and a single `N`-deep block page costs `2N + 28`. Immediate,
-     nested-boundary and partial-cache tests cover the composed owner, including
-     a full cache followed by a 16K-deep layout. `LayoutSummary`, interaction
-     maps, font catalogs and each generated cached-frame payload remain indivisible destructor
-     residuals. Transient request, bundle and follow-up `LayoutConfig` owners
-     still drop directly, so these cursors establish structural stack safety
-     rather than a wall-clock bound. Ordinary
+     singleton map. The revision cursor turns its optional required-font catalog
+     into an iterator at the revision-source boundary and releases one face per
+     unit; with `R` faces it adds exactly `R` units. The
+     runtime-revision cursor releases its cache before the built layout and
+     config, then composes the required-font iterator and interactions cursor
+     before its scalar shell. If the nested costs are `FC`, `BL`, `LC` and `RI`,
+     and the catalog contains `R` faces, the
+     revision costs exactly `FC + BL + LC + R + RI + 7`. Empty
+     `FullDocument` and one-empty-page revisions cost 27 and 32 units, and a
+     single `N`-deep block page costs `2N + 33`. Immediate, nested-boundary and
+     partial-cache tests cover the composed owner, including a full cache
+     followed by a 16K-deep layout, wide interactions and font catalogs.
+     This coverage is deliberately limited to scheduled `RuntimeRevision`
+     retirement and active `RuntimeChapterContinuation` cancellation. Normal
+     `finish_current_chapter`, orphaned `available_interactions`,
+     `RuntimeDocument.full_chapter_text_indices`, and temporary
+     bundle/presentation/serialization clones still destroy their aggregate
+     owners directly. `LayoutSummary`, each generated cached-frame payload and
+     those direct paths remain destructor residuals. Transient request, bundle
+     and follow-up `LayoutConfig` owners also still drop directly, so these
+     cursors establish structural stack safety for their guarded persistent
+     owners rather than an end-to-end wall-clock hard bound. Ordinary
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
      guarded owners. Production runtime retirement now uses a private two-lane
      queue: continuation records, revisions, detached frame caches and individual
@@ -561,8 +581,10 @@ Those names now belong to the old TS reference tree only.
      regular backlog. High-water priority alone is not claimed as generic hard
      backpressure; future bulk producers must preserve that admission/service
      invariant. Each queued job also has a separate retirement unit, making the
-     minimum queue costs 13 for an inactive continuation, 23 for an empty
-     revision, 4 for an empty frame cache and 2 for one cached frame.
+     minimum queue costs 13 for an inactive continuation, 28 for an empty
+     `FullDocument` revision, 4 for an empty frame cache and 2 for one cached
+     frame. An empty materialized-index revision, as used by the mixed real-job
+     fixture, costs 29 units including queue retirement.
      Release, cancel, successful/failed continuation publication, initial
      continuation failure, cache invalidation and LRU eviction all transfer
      owners through this queue without changing the core, WASM or browser wire
@@ -571,7 +593,7 @@ Those names now belong to the old TS reference tree only.
      small-stack test combines queued and active 16K-deep revisions with an
      active continuation. End-to-end runtime-owner destruction is therefore
      structurally stack-safe, but it is not a wall-clock bound because the named
-     indivisible payloads remain.
+     indivisible payloads and direct-destruction paths remain.
      `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning each
      newly sealed page from an ever-growing paginator snapshot. Sealed page
      batches now move directly into the advance result, while a persistent
@@ -794,9 +816,11 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by splitting the named
-   summary/interaction/font-catalog/frame-payload and transient-config destructor residuals before claiming
-   a wall-clock cleanup bound. Preserve the cleanup queue's closed producer
+1. Continue the default-Greedy hard bound by splitting the named summary and
+   frame-payload residuals, the interaction/font-catalog owners that still
+   bypass scheduled revision or active-continuation cleanup, and transient
+   configuration owners before claiming an end-to-end wall-clock cleanup bound.
+   Preserve the cleanup queue's closed producer
    admission rule when adding bulk lifecycle operations, and instrument atomic
    frame-payload latency before deciding whether the current 64-unit service
    quantum needs time-aware scheduling.
@@ -881,8 +905,8 @@ paginator retains them, so cancellation owns one page tree rather than two; the
 open page and page-number/spacing history stay in the session. Active cursor
 cleanup also uses an exact revision-to-cursor index rather than scanning the
 whole continuation table, while preserving the public error priority and one-
-shot cursor contract. The next bounded-layout slice should budget the remaining
-cleanup layers, together with
+shot cursor contract. The next bounded-layout slice should budget the summary,
+frame payload and direct-destruction cleanup layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

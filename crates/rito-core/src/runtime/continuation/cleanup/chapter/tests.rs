@@ -9,6 +9,7 @@ use serde_json::{json, Map};
 
 use super::{ChapterContinuationCleanupStage, PendingRuntimeChapterContinuationCleanup};
 use crate::{
+    interaction::{FootnoteEntry, FootnoteKind},
     layout::{
         create_layout_config, image_size::ImageSizeIndex,
         runtime_session::RuntimeChapterLayoutSession, LayoutConfig, LayoutConfigInput,
@@ -16,7 +17,10 @@ use crate::{
         RunShapeUnavailableReason, RunTextMapping, RuntimeBlock, RuntimeChild, SpreadMode,
         TextRunBox,
     },
-    runtime::frame::{RuntimeChapterTextIndexSource, RuntimeRevisionInteractions},
+    runtime::{
+        frame::{RuntimeChapterTextIndexSource, RuntimeRevisionInteractions},
+        RuntimeChapterTextIndex, RuntimeChapterTextSpan,
+    },
     style::{StyledNode, StyledNodeKind},
 };
 
@@ -34,7 +38,7 @@ fn empty_current_has_exact_units_for_both_scalar_flag_values() {
         ));
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-        assert_eq!(progress.consumed_units, 48);
+        assert_eq!(progress.consumed_units, 53);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
@@ -47,7 +51,16 @@ fn one_empty_unpublished_page_has_exact_units() {
     let mut cleanup =
         PendingRuntimeChapterContinuationCleanup::new(current(Vec::new(), pages, false));
 
-    assert_eq!(drive_q1(&mut cleanup, 53), 53);
+    assert_eq!(drive_q1(&mut cleanup, 58), 58);
+}
+
+#[test]
+fn materialized_interactions_compose_with_active_chapter_retirement() {
+    let mut owner = current(Vec::new(), Vec::new(), false);
+    owner.interactions = materialized_interactions(2);
+    let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 64), 64);
 }
 
 #[test]
@@ -55,7 +68,7 @@ fn deep_unpublished_page_and_pending_session_compose_exactly() {
     let pages = vec![page(vec![deep_block(DEEP_OWNER_COUNT, None)])];
     let nodes = vec![deep_node_tree(DEEP_OWNER_COUNT)];
     let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(current(nodes, pages, false));
-    let expected = DEEP_OWNER_COUNT * 4 + 53;
+    let expected = DEEP_OWNER_COUNT * 4 + 58;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 }
@@ -168,6 +181,38 @@ fn interactions() -> RuntimeRevisionInteractions {
         footnotes: BTreeMap::new(),
         chapter_text_indices: RuntimeChapterTextIndexSource::FullDocument,
         completed_chapter_idrefs: BTreeSet::new(),
+    }
+}
+
+fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
+    RuntimeRevisionInteractions {
+        footnotes: BTreeMap::from([(
+            "note".to_owned(),
+            FootnoteEntry {
+                kind: FootnoteKind::Footnote,
+                text: "note text".to_owned(),
+                html: "<p>note text</p>".to_owned(),
+            },
+        )]),
+        chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
+            "chapter".to_owned(),
+            RuntimeChapterTextIndex {
+                href: "chapter.xhtml".to_owned(),
+                normalized_text: "chapter text".to_owned(),
+                spans: (0..span_count).map(runtime_text_span).collect(),
+            },
+        )])),
+        completed_chapter_idrefs: BTreeSet::from(["chapter".to_owned()]),
+    }
+}
+
+fn runtime_text_span(index: usize) -> RuntimeChapterTextSpan {
+    RuntimeChapterTextSpan {
+        node_path: vec![index],
+        source_start: index,
+        source_end: index + 1,
+        normalized_start: index,
+        normalized_end: index + 1,
     }
 }
 

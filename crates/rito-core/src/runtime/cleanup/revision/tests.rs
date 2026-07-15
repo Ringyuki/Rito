@@ -8,22 +8,25 @@ use serde_json::json;
 
 use super::{PendingRuntimeRevisionCleanup, RuntimeRevisionCleanupStage};
 use crate::{
+    interaction::{FootnoteEntry, FootnoteKind},
     layout::{
         create_empty_runtime_layout, create_layout_config, LayoutConfig, LayoutConfigInput,
         LayoutRuntimePage, LineBox, MarginInput, RuntimeBlock, RuntimeChild, SpreadMode,
     },
     runtime::{
         frame::{RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions},
-        RuntimeRequiredFontFace, RuntimeRevisionExtent, RuntimeRevisionStatus,
+        RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeRequiredFontFace,
+        RuntimeRevisionExtent, RuntimeRevisionStatus,
     },
 };
 
 use super::super::test_support::cached_frame;
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
+const LARGE_FONT_FACE_COUNT: usize = 16_384;
 
 #[test]
-fn empty_revision_has_twenty_two_exact_units_for_all_shell_values() {
+fn empty_revision_units_include_each_required_font_face() {
     for status in [
         RuntimeRevisionStatus::Warming,
         RuntimeRevisionStatus::Ready,
@@ -44,7 +47,8 @@ fn empty_revision_has_twenty_two_exact_units_for_all_shell_values() {
                 owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
                 let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                assert_eq!(drive_q1(&mut cleanup, 22), 22);
+                let expected = 27 + usize::from(has_font_catalog);
+                assert_eq!(drive_q1(&mut cleanup, expected), expected);
             }
         }
     }
@@ -79,7 +83,7 @@ fn cache_layout_and_flat_fields_release_in_order() {
     assert!(cleanup.frame_cache.is_none());
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
 
-    assert_eq!(drive_q1(&mut cleanup, 17), 17);
+    assert_eq!(drive_q1(&mut cleanup, 24), 24);
 }
 
 #[test]
@@ -115,7 +119,7 @@ fn layout_retirement_is_separate_from_its_nested_completion() {
     assert_one(&mut cleanup);
     assert!(cleanup.layout.is_none());
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
-    assert_eq!(drive_q1(&mut cleanup, 10), 10);
+    assert_eq!(drive_q1(&mut cleanup, 15), 15);
 }
 
 #[test]
@@ -126,13 +130,22 @@ fn one_empty_page_composes_built_layout_exactly() {
         .push(LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new()));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
 
-    assert_eq!(drive_q1(&mut cleanup, 27), 27);
+    assert_eq!(drive_q1(&mut cleanup, 32), 32);
+}
+
+#[test]
+fn materialized_interactions_compose_with_revision_retirement() {
+    let mut owner = revision(empty_layout());
+    owner.interactions = materialized_interactions(2);
+    let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 38), 38);
 }
 
 #[test]
 fn deep_revision_is_exact_and_immediate_drop_is_stack_safe() {
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-    let expected = DEEP_BLOCK_COUNT * 2 + 28;
+    let expected = DEEP_BLOCK_COUNT * 2 + 33;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingRuntimeRevisionCleanup::new(revision(deep_layout())));
@@ -151,6 +164,33 @@ fn source_boundary_and_partial_panic_unwind_drain_the_deep_owner() {
         assert_eq!(progress.consumed_units, 128);
         assert!(!progress.complete);
         panic!("force runtime-revision cleanup during unwind");
+    }));
+
+    assert!(result.is_err());
+}
+
+#[test]
+fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
+    let mut owner = revision(empty_layout());
+    owner.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
+    let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
+    let expected = LARGE_FONT_FACE_COUNT + 27;
+
+    assert_eq!(drive_q1(&mut cleanup, expected), expected);
+
+    let mut immediate = revision(empty_layout());
+    immediate.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
+    drop(PendingRuntimeRevisionCleanup::new(immediate));
+
+    let result = catch_unwind(AssertUnwindSafe(|| {
+        let mut partial = revision(empty_layout());
+        partial.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
+        let mut cleanup = PendingRuntimeRevisionCleanup::new(partial);
+        let progress =
+            cleanup.advance(NonZeroUsize::new(128).expect("test cleanup budget is non-zero"));
+        assert_eq!(progress.consumed_units, 128);
+        assert!(!progress.complete);
+        panic!("force font-catalog cleanup during unwind");
     }));
 
     assert!(result.is_err());
@@ -245,6 +285,38 @@ fn interactions() -> RuntimeRevisionInteractions {
     }
 }
 
+fn materialized_interactions(span_count: usize) -> RuntimeRevisionInteractions {
+    RuntimeRevisionInteractions {
+        footnotes: BTreeMap::from([(
+            "note".to_owned(),
+            FootnoteEntry {
+                kind: FootnoteKind::Footnote,
+                text: "note text".to_owned(),
+                html: "<p>note text</p>".to_owned(),
+            },
+        )]),
+        chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
+            "chapter".to_owned(),
+            RuntimeChapterTextIndex {
+                href: "chapter.xhtml".to_owned(),
+                normalized_text: "chapter text".to_owned(),
+                spans: (0..span_count).map(runtime_text_span).collect(),
+            },
+        )])),
+        completed_chapter_idrefs: BTreeSet::from(["chapter".to_owned()]),
+    }
+}
+
+fn runtime_text_span(index: usize) -> RuntimeChapterTextSpan {
+    RuntimeChapterTextSpan {
+        node_path: vec![index],
+        source_start: index,
+        source_end: index + 1,
+        normalized_start: index,
+        normalized_end: index + 1,
+    }
+}
+
 fn font_face() -> RuntimeRequiredFontFace {
     RuntimeRequiredFontFace {
         family: "serif".to_owned(),
@@ -255,6 +327,10 @@ fn font_face() -> RuntimeRequiredFontFace {
         byte_length: 123,
         source_order: 0,
     }
+}
+
+fn font_faces(count: usize) -> Vec<RuntimeRequiredFontFace> {
+    (0..count).map(|_| font_face()).collect()
 }
 
 fn test_layout() -> LayoutConfig {
