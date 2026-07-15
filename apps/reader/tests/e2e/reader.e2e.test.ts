@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { readerCanvasChecksum, stableReaderCanvasChecksum } from './reader-page-harness';
 import { installReaderWorkerProbe, readReaderWorkerOperations } from './reader-worker-probe';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
@@ -262,44 +263,4 @@ async function hasNonBlankCanvas(page: Page): Promise<boolean> {
       return false;
     }),
   );
-}
-
-async function stableReaderCanvasChecksum(page: Page): Promise<string> {
-  let previous = '';
-  let stableSamples = 0;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
-    await page.waitForTimeout(100);
-    const current = await readerCanvasChecksum(page);
-    if (current === previous) {
-      stableSamples += 1;
-      if (stableSamples >= 2) return current;
-    } else {
-      previous = current;
-      stableSamples = 0;
-    }
-  }
-  throw new Error('Reader canvas did not reach a stable checksum');
-}
-
-async function readerCanvasChecksum(page: Page): Promise<string> {
-  return page
-    .getByTestId('reader-shell')
-    .locator('canvas')
-    .evaluateAll((canvases) => {
-      const canvas = canvases
-        .filter(
-          (candidate): candidate is HTMLCanvasElement => candidate instanceof HTMLCanvasElement,
-        )
-        .sort((left, right) => right.width * right.height - left.width * left.height)[0];
-      if (!canvas) throw new Error('Reader canvas is unavailable');
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('Reader canvas context is unavailable');
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      let hash = 2_166_136_261;
-      for (let index = 0; index < pixels.length; index += 1) {
-        hash ^= pixels[index] ?? 0;
-        hash = Math.imul(hash, 16_777_619);
-      }
-      return `${String(canvas.width)}x${String(canvas.height)}:${String(hash >>> 0)}`;
-    });
 }

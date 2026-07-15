@@ -17,7 +17,12 @@ export default defineConfig({
   },
   fullyParallel: false,
   workers: 1,
-  reporter: process.env['CI'] ? [['github'], ['html', { open: 'never' }]] : 'list',
+  reporter:
+    process.env['RITO_READER_HTML_REPORT'] === '1'
+      ? [['list'], ['html', { open: 'never' }]]
+      : process.env['CI']
+        ? [['github'], ['html', { open: 'never' }]]
+        : 'list',
   use: {
     baseURL: BASE_URL,
     trace: 'retain-on-failure',

@@ -1,34 +1,11 @@
 import type { BrowserContext, Page } from '@playwright/test';
+import type {
+  ReaderLongTaskObservation,
+  ReaderWorkerOperationObservation,
+  ReaderWorkerRevisionObservation,
+} from './reader-worker-probe-observations';
 
-export interface ReaderWorkerRevisionObservation {
-  readonly revisionId: string;
-  readonly revisionVersion: number;
-  readonly status: string | null;
-  readonly knownPageCount: number | null;
-  readonly knownSpreadCount: number | null;
-}
-
-export interface ReaderWorkerOperationObservation {
-  readonly workerId: number;
-  readonly requestId: number;
-  readonly kind: string;
-  readonly startedAt: number;
-  readonly requestBytes: number | null;
-  readonly maxTopLevelNodes: number | null;
-  readonly spreadIndex: number | null;
-  completedAt: number | null;
-  durationMs: number | null;
-  ok: boolean | null;
-  responseKind: string | null;
-  revision: ReaderWorkerRevisionObservation | null;
-  error: string | null;
-}
-
-export interface ReaderLongTaskObservation {
-  readonly startTime: number;
-  readonly duration: number;
-  readonly name: string;
-}
+export * from './reader-worker-probe-observations';
 
 type InitScriptTarget = Pick<Page, 'addInitScript'> | Pick<BrowserContext, 'addInitScript'>;
 
@@ -36,6 +13,7 @@ interface ReaderWorkerProbeGlobal {
   __RITO_READER_WORKER_OPERATIONS__?: ReaderWorkerOperationObservation[];
   __RITO_READER_LONG_TASKS__?: ReaderLongTaskObservation[];
   __RITO_READER_LONG_TASK_OBSERVER__?: PerformanceObserver;
+  __RITO_READER_FLUSH_LONG_TASKS__?: () => void;
 }
 
 export async function installReaderWorkerProbe(target: InitScriptTarget): Promise<void> {
@@ -44,6 +22,9 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
     runtime.__RITO_READER_WORKER_OPERATIONS__ = [];
     runtime.__RITO_READER_LONG_TASKS__ = [];
     installLongTaskProbe(runtime);
+    runtime.__RITO_READER_FLUSH_LONG_TASKS__ = () => {
+      flushLongTasks(runtime);
+    };
 
     const NativeWorker = globalThis.Worker;
     let nextWorkerId = 1;
@@ -96,6 +77,15 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
       });
       observer.observe({ type: 'longtask', buffered: true });
       root.__RITO_READER_LONG_TASK_OBSERVER__ = observer;
+    }
+
+    function flushLongTasks(root: typeof globalThis & ReaderWorkerProbeGlobal): void {
+      const tasks = root.__RITO_READER_LONG_TASKS__;
+      const observer = root.__RITO_READER_LONG_TASK_OBSERVER__;
+      if (!tasks || !observer) return;
+      for (const entry of observer.takeRecords()) {
+        tasks.push({ startTime: entry.startTime, duration: entry.duration, name: entry.name });
+      }
     }
 
     function recordRequest(
@@ -191,26 +181,5 @@ export async function installReaderWorkerProbe(target: InitScriptTarget): Promis
       if (value === null || typeof value !== 'object' || Array.isArray(value)) return undefined;
       return value as Record<string, unknown>;
     }
-  });
-}
-
-export async function readReaderWorkerOperations(
-  page: Page,
-): Promise<ReaderWorkerOperationObservation[]> {
-  return page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
-    return (
-      runtime.__RITO_READER_WORKER_OPERATIONS__?.map((entry) => ({
-        ...entry,
-        revision: entry.revision ? { ...entry.revision } : null,
-      })) ?? []
-    );
-  });
-}
-
-export async function readReaderLongTasks(page: Page): Promise<ReaderLongTaskObservation[]> {
-  return page.evaluate(() => {
-    const runtime = globalThis as typeof globalThis & ReaderWorkerProbeGlobal;
-    return runtime.__RITO_READER_LONG_TASKS__?.map((entry) => ({ ...entry })) ?? [];
   });
 }

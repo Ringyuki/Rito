@@ -258,8 +258,8 @@ Those names now belong to the old TS reference tree only.
   2026-07-13.
   The complete demo-reader parity matrix passed its strict zero-threshold pixel
   comparison across the single, narrow, wide, DPR 2 and double-page profiles.
-  These are strong regression results, but they do not replace the named-machine
-  latency and usability gate below.
+  A strict named-machine Reader usability gate now complements those broad
+  regression results with warm shared-process latency thresholds.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
 - Native revision-cache entries serving normal reader frame windows now retain
   only `RITOFCB2` metadata/bytes. The browser still keeps its decoded Canvas
@@ -311,6 +311,17 @@ Those names now belong to the old TS reference tree only.
   records page-clock load milestones, every bounded Worker round trip, revision
   extent, Long Tasks, and post-load font-reflow work without mutating production
   messages. The Downloads smoke remains the broad real-book functional gate.
+- `RITO_READER_USABILITY_GATE=/absolute/path/gate.json
+RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
+  manifest that pins machine, OS, browser/version, DPR, normal/reflow viewports,
+  EPUB SHA-256 digests, run count and every stage threshold. Each case/run uses
+  a fresh BrowserContext in one shared browser process. The first three-run
+  Apple M3 / macOS release `25.5` / Chromium `147.0.7727.15` baseline covers
+  `book-01`, `book-04` and `book-10`; its worst fixture p95s are 67.5 ms
+  `open`, 62.0 ms bounded-to-presentation, 2.4 ms frame warm, 249.3 ms
+  input-to-first-Canvas, 14.0 ms cached turn, 47.8 ms deferred growth, 201.4 ms
+  reflow and 70.0 ms measured-window Long Task. Canvas settling isolates stages
+  and observes animation Long Tasks but is excluded from first-frame latency.
 - JSON remains the production default. The local evidence matrix now includes
   15 fresh-process decode runs across `book-01`, `book-06`, and `book-10`, plus
   three full WebWorker ABBA runs for `book-01`. Binary payloads are consistently
@@ -891,12 +902,13 @@ Those names now belong to the old TS reference tree only.
    - Keep browser operations in the host, but move reader state transitions and
      resource/window intent into Rust-authored session plans.
 4. **Usability and performance gates**
-   - The 74-EPUB smoke and complete strict reader parity run are green, but the
-     formal representative-corpus usability gate is not yet declared.
-   - Exercise open, first paint, navigation, resize, typography changes,
-     interaction, cancellation and disposal under a recorded release protocol.
-   - Measure document open, bounded initial layout, first frame, deferred
-     growth and page turns independently on a named machine/browser setup.
+   - The 74-EPUB smoke and complete strict reader parity run are green. The
+     strict named-machine gate now measures warm shared-process document load,
+     bounded presentation/frame work, first Canvas, cached turn, deferred
+     growth, reflow and measured-window Long Tasks across three pinned fixtures.
+   - Interaction coverage exists, but the formal Phase 1 declaration still
+     needs browser-process/pinned-font cold-start, memory limits, and
+     cancellation/disposal under a recorded release protocol.
    - Minimum first-paint and page-turn latency is a usability requirement, not
      deferred micro-optimization.
    - The licensed Reader-app v1 serif fallback and its real-book
@@ -930,7 +942,8 @@ Those names now belong to the old TS reference tree only.
 - Do not expose temporary Rust/WASM/binary implementation names on public API
   surfaces.
 - Do not resume broad display-parity or binary-wire expansion before the
-  remaining formal usability gate and controlled baseline transition.
+  remaining formal usability declaration work and controlled baseline
+  transition.
 - Do not move semantic interaction targets, source ranges or layout geometry
   into host-owned heuristics; the browser should adapt core-owned results.
 - Do not delete the TypeScript oracle before the controlled DOM/WebView
@@ -947,6 +960,7 @@ pnpm --filter @ritojs/core-wasm run typecheck
 pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run test
 RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile
+RITO_READER_USABILITY_GATE=/absolute/path/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate
 RITO_EPUB_SMOKE_DIR="$HOME/Downloads" pnpm --filter @ritojs/reader exec playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts --workers=3
 ```
 
@@ -976,7 +990,15 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by addressing the remaining
+1. Complete the formal Phase 1 release protocol around the landed warm
+   shared-process gate: measure isolated browser-process and pinned-font cold
+   start, establish memory limits, and exercise cancellation/disposal with
+   recorded revision/resource cleanup evidence.
+2. Move the publication-wide footnote scan inside a measured source-index
+   budget.
+3. Replace eager completed-layout search with a durable publication source index
+   while retaining the implemented lazy, fail-closed exact-source geometry.
+4. Continue the default-Greedy hard bound by addressing the remaining
    per-command nested JSON and flat-allocation frame residuals, the document-wide
    chapter-text-index and font/catalog owners that still bypass scheduled
    revision or active-continuation cleanup, and transient configuration owners
@@ -995,16 +1017,8 @@ Work in roadmap order:
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
    indivisible.
-2. Move the publication-wide footnote scan inside a measured source-index
-   budget.
-3. Replace eager completed-layout search with a durable publication source index
-   while retaining the implemented lazy, fail-closed exact-source geometry.
-4. Reduce remaining browser session policy to explicit core-requested host
+5. Reduce remaining browser session policy to explicit core-requested host
    operations.
-5. Declare the representative-corpus usability and stage-specific performance
-   gate using the green smoke/parity/font evidence plus named-machine latency,
-   pinned-font startup, and memory data. Classify the residual locale/role
-   coverage there instead of reopening the completed v1 serif proof.
 6. Build the pinned WebView/DOM reference harness and declare the baseline
    transition before broad display or performance work resumes.
 
@@ -1077,12 +1091,14 @@ through decorated/floated containers, tables and Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the
 oversized-operation escape means the public quantum is not yet a complete
 wall-clock hard bound.
-After the default-Greedy hard bound, move the single-pass source scan under an
-explicit budget and reuse a durable source index for full-publication search.
-Keep search result geometry lazy and active-window only. In parallel, measure
-the completed v1 serif preset under the formal usability protocol, classify its
-residual locale/role gaps, and specify which remaining browser session decisions
-are semantic policy that Rust must author versus unavoidable host operations.
+Complete the cold browser-process/pinned-font, memory and cancellation/disposal
+release protocol around the warm named-machine baseline. Then move the
+single-pass source scan under an explicit budget and reuse a durable source
+index for full-publication search. Keep search result geometry lazy and
+active-window only. Classify the v1 serif preset's residual locale/role gaps
+from that release evidence, and specify which remaining browser session
+decisions are semantic policy that Rust must author versus unavoidable host
+operations.
 
 ## Archived Binary-Wire Implementation Record
 

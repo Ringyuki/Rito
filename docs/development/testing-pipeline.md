@@ -9,18 +9,19 @@ protect browser-rendered output.
 
 ## Layers
 
-| Layer               | Command                                                              | Purpose                                                                                                        |
-| ------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| Unit                | `pnpm test:unit`                                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                       |
-| Integration         | `pnpm test:integration`                                              | Small end-to-end core flows and focused rare-feature render chains.                                            |
-| Structured golden   | `pnpm test:golden:books`                                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                            |
-| Render golden       | `pnpm test:golden:render`                                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.           |
-| Pixel golden        | `pnpm test:golden:pixel`                                             | Browser Canvas PNG output compared against checked-in image goldens.                                           |
-| DOM-free reference  | `pnpm --filter @ritojs/core test:dom-free:reference`                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
-| Reader e2e          | `pnpm test:e2e`                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
-| Reader load profile | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile` | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
-| Coverage            | `pnpm test:coverage`                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
-| Dependency audit    | `pnpm audit:dependencies`                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
+| Layer                 | Command                                                                                              | Purpose                                                                                                        |
+| --------------------- | ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Unit                  | `pnpm test:unit`                                                                                     | Module-level parser, style, layout, render helper, kit, and React tests.                                       |
+| Integration           | `pnpm test:integration`                                                                              | Small end-to-end core flows and focused rare-feature render chains.                                            |
+| Structured golden     | `pnpm test:golden:books`                                                                             | Full-book parser -> style -> layout -> pagination snapshots for real EPUB fixtures.                            |
+| Render golden         | `pnpm test:golden:render`                                                                            | Auto-selected real-book feature pages summarized as display-list plus Canvas backend record goldens.           |
+| Pixel golden          | `pnpm test:golden:pixel`                                                                             | Browser Canvas PNG output compared against checked-in image goldens.                                           |
+| DOM-free reference    | `pnpm --filter @ritojs/core test:dom-free:reference`                                                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
+| Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
+| Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
+| Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine, pinned-corpus latency thresholds for production Reader load and turn paths.              |
+| Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
+| Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
 
 ## Current Gates
 
@@ -359,6 +360,51 @@ Tasks. It never adds fields to production messages. The old JSON/`RITORB1`
 app-level AB harness was retired after production moved off
 `createViewRevision`; use the core-wasm wire benchmark and compatibility tests
 when working on that legacy transport.
+
+To turn that instrumentation into a reproducible threshold gate, run:
+
+```bash
+RITO_READER_USABILITY_GATE=/absolute/path/gate.json \
+  RITO_READER_MACHINE_ID=<id> \
+  pnpm test:e2e:usability-gate
+```
+
+The opt-in load-profile and usability-gate commands also write
+`apps/reader/playwright-report/index.html`; the gate report contains each raw
+run JSON attachment plus the aggregate threshold summary.
+
+The manifest schema is strict. It pins the machine ID, platform, architecture,
+CPU model, OS release, browser name and exact version, device-pixel ratio,
+normal and reflow viewports, EPUB paths and SHA-256 digests, run count, and the
+threshold for every measured stage. Unknown or mismatched environment and
+corpus fields fail rather than silently producing incomparable data. Every
+case/run gets a fresh `BrowserContext`; the browser process is shared, so this
+is a warm shared-process document-load gate rather than a browser-process or
+pinned-font cold-start measurement.
+
+The gate records `open` round-trip, bounded-revision-to-presentation, frame
+warm, input-to-first-Canvas, cached-turn first changed frame, deferred-growth
+first changed frame, reflow first changed frame, and the maximum Long Task in
+each measured action window. Waiting for the Canvas to settle isolates one
+stage from the next and keeps animation Long Tasks in the observation window;
+that wait is not added to any first-frame latency.
+Long Tasks describe the Window main thread; Worker stalls remain visible in
+the separately recorded Worker-operation durations.
+
+The first three-run baseline was recorded on Apple M3, macOS release `25.5`,
+Chromium `147.0.7727.15`:
+
+| Fixture | Open | Bounded -> presentation | Frame warm | Input -> first Canvas | Cached turn | Deferred growth | Reflow | Max Long Task |
+| ------- | ---: | ----------------------: | ---------: | --------------------: | ----------: | --------------: | -----: | ------------: |
+| book-01 | 67.5 |                    40.8 |        2.4 |                 249.3 |        13.3 |            45.1 |  141.5 |          70.0 |
+| book-04 | 63.5 |                    62.0 |        2.1 |                 246.4 |        12.9 |            47.8 |  201.4 |          70.0 |
+| book-10 | 61.1 |                    34.8 |        2.0 |                 207.8 |        14.0 |            40.7 |  119.3 |          69.0 |
+
+Values are nearest-rank p95 milliseconds across three runs, so each value is
+the maximum of those three samples. This baseline closes the warm shared-process
+document-load gate only. A formal Phase 1 usability declaration still requires
+isolated browser-process/pinned-font cold-start measurements, memory limits,
+and cancellation/disposal exercised under a recorded release protocol.
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 

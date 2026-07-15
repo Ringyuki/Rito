@@ -1,6 +1,6 @@
 # Native Core Usability And Baseline Roadmap
 
-Status: active direction record, 2026-07-14.
+Status: active direction record, 2026-07-16.
 
 This document owns the phase order for the Rust reader. The more detailed
 architecture and migration documents remain authoritative for boundaries and
@@ -137,8 +137,10 @@ The remaining usability work is narrower but still release-blocking:
    cache and font-reflow policy that should become explicit Rust-authored host
    operations.
 6. The 2026-07-13 74-EPUB smoke and complete strict reader parity matrix are
-   green, but the formal named-machine usability and latency gate has not been
-   declared.
+   green. A strict three-fixture named-machine gate now covers the warm
+   shared-process document-load, cached-turn, growth and reflow path. Isolated
+   browser-process/pinned-font cold start, memory, and cancellation/disposal
+   release protocol remain before the formal Phase 1 declaration.
 
 ## Phase 1: A Usable Rust Reader
 
@@ -680,13 +682,22 @@ The Rust reader is usable only when a representative real-book corpus can:
 Current evidence is green: on 2026-07-13 the bounded production reader passed 74
 Downloads EPUBs, and the complete demo-reader parity matrix passed strict
 zero-threshold comparison across its single, narrow, wide, DPR 2 and double-page
-profiles. This is regression evidence, not yet the formal usability declaration.
+profiles. The warm shared-process named-machine gate also passes three runs each
+for `book-01`, `book-04` and `book-10` on Apple M3, macOS release `25.5`, and
+Chromium `147.0.7727.15`. Its strict manifest pins machine/browser identity,
+DPR, normal/reflow viewports, EPUB SHA-256 digests, run count, and per-stage
+thresholds. Each case/run receives a fresh BrowserContext while sharing the
+browser process.
 
-Performance gates must name the machine class, browser/WebView version,
-viewport, corpus and measured stage. At minimum, record document open, initial
-bounded layout, first frame, deferred window growth and page-turn latency
-separately. A whole-book completion number is not a substitute for first-paint
-latency.
+The gate records `open` round-trip, bounded-to-presentation, frame warm,
+input-to-first-Canvas, cached-turn first changed frame, deferred-growth first
+changed frame, reflow first changed frame, and measured-action-window Long
+Tasks separately. Canvas settling isolates stages and covers animation Long
+Tasks; it is excluded from first-frame latency. A whole-book completion number
+is not a substitute for first-paint latency. This lands the warm
+shared-process document-load gate, not the formal Phase 1 declaration: isolated
+browser-process/pinned-font cold start, memory limits, and cancellation/disposal
+under a recorded release protocol remain.
 
 The TypeScript parity and golden suites remain migration gates during this
 phase. Intentional differences require explicit review; they are not silently
@@ -800,9 +811,11 @@ architecture rather than make an eager whole-book pipeline faster.
    overlays lazily; eager completion and a missing publication source index
    remain separate search architecture work.**
 7. Reduce browser session policy to explicit core-requested host operations.
-8. Establish the real-book usability and stage-specific performance gate,
-   including v1 pinned-font cold-start/memory cost and a decision on whether its
-   residual locale/role gaps block release.
+8. Establish the real-book usability and stage-specific performance gate.
+   **The strict warm shared-process document-load gate is implemented and has a
+   three-fixture Apple M3 baseline. Isolated browser-process/pinned-font cold
+   start, memory limits, cancellation/disposal release protocol, and the final
+   locale/role release decision remain.**
 9. Build the pinned WebView/DOM reference harness.
 10. Declare the baseline transition, then resume broad rendering and performance
     work.
