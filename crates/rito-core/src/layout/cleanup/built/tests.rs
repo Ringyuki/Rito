@@ -10,26 +10,27 @@ use crate::layout::{
     content::{RuntimeBlock, RuntimeChild},
     create_empty_runtime_layout, create_layout_config,
     page::RuntimePage,
-    LayoutConfig, LayoutConfigInput, LineBox, MarginInput, SpreadMode,
+    LayoutConfig, LayoutConfigInput, LineBox, MarginInput, PaginationFlowChapterRange, SpreadMode,
 };
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
 
 #[test]
-fn empty_layout_has_six_exact_units_and_repeated_completion_is_free() {
+fn empty_layout_has_nine_exact_units_and_repeated_completion_is_free() {
     let mut cleanup = PendingBuiltLayoutCleanup::new(empty_layout());
     let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-    assert_eq!(progress.consumed_units, 6);
+    assert_eq!(progress.consumed_units, 9);
     assert!(progress.complete);
     assert!(!cleanup.advance_one());
     assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
 }
 
 #[test]
-fn chapter_start_pages_release_one_per_unit_after_diagnostic_metadata() {
+fn summary_and_chapter_starts_retire_in_separate_ordered_units() {
     let mut owner = empty_layout();
     owner.chapter_start_pages.extend([0, 11, 99]);
+    add_summary_chapters(&mut owner, 3);
     owner.summary.inline_segments.full_detail_hash = "diagnostic".repeat(128);
     let mut cleanup = PendingBuiltLayoutCleanup::new(owner);
 
@@ -53,8 +54,18 @@ fn chapter_start_pages_release_one_per_unit_after_diagnostic_metadata() {
         Some(3)
     );
 
+    for _ in 0..6 {
+        assert_one(&mut cleanup);
+    }
+    assert!(cleanup
+        .summary
+        .as_ref()
+        .is_some_and(|summary| summary.is_complete()));
+    assert_eq!(cleanup.stage, BuiltLayoutCleanupStage::Summary);
+
     assert_one(&mut cleanup);
     assert!(cleanup.summary.is_none());
+    assert_eq!(cleanup.stage, BuiltLayoutCleanupStage::ChapterStartPages);
 
     for expected_remaining in [2, 1, 0] {
         assert_one(&mut cleanup);
@@ -79,7 +90,16 @@ fn chapter_start_page_count_composes_exactly() {
     owner.chapter_start_pages.extend(0..4_096);
     let mut cleanup = PendingBuiltLayoutCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 4_102), 4_102);
+    assert_eq!(drive_q1(&mut cleanup, 4_105), 4_105);
+}
+
+#[test]
+fn summary_chapter_map_count_composes_exactly() {
+    let mut owner = empty_layout();
+    add_summary_chapters(&mut owner, 4_096);
+    let mut cleanup = PendingBuiltLayoutCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 4_105), 4_105);
 }
 
 #[test]
@@ -90,13 +110,13 @@ fn one_empty_page_composes_page_vector_exactly() {
         .push(RuntimePage::new(0, 320.0, 120.0, None, Vec::new()));
     let mut cleanup = PendingBuiltLayoutCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 11), 11);
+    assert_eq!(drive_q1(&mut cleanup, 14), 14);
 }
 
 #[test]
 fn deep_layout_is_exact_and_immediate_drop_is_stack_safe() {
     let mut cleanup = PendingBuiltLayoutCleanup::new(deep_layout());
-    let expected = DEEP_BLOCK_COUNT * 2 + 12;
+    let expected = DEEP_BLOCK_COUNT * 2 + 15;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingBuiltLayoutCleanup::new(deep_layout()));
@@ -134,6 +154,20 @@ fn assert_one(cleanup: &mut PendingBuiltLayoutCleanup) {
 
 fn empty_layout() -> crate::layout::BuiltLayout {
     create_empty_runtime_layout(1, &test_layout())
+}
+
+fn add_summary_chapters(owner: &mut crate::layout::BuiltLayout, count: usize) {
+    for chapter_index in 0..count {
+        owner.summary.pagination_flow.chapter_map.insert(
+            format!("chapter-{chapter_index}"),
+            PaginationFlowChapterRange {
+                start_page: chapter_index,
+                end_page: chapter_index,
+                page_count: 1,
+                block_count: 1,
+            },
+        );
+    }
 }
 
 fn deep_layout() -> crate::layout::BuiltLayout {

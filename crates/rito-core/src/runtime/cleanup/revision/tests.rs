@@ -11,7 +11,8 @@ use crate::{
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{
         create_empty_runtime_layout, create_layout_config, LayoutConfig, LayoutConfigInput,
-        LayoutRuntimePage, LineBox, MarginInput, RuntimeBlock, RuntimeChild, SpreadMode,
+        LayoutRuntimePage, LineBox, MarginInput, PaginationFlowChapterRange, RuntimeBlock,
+        RuntimeChild, SpreadMode,
     },
     runtime::{
         frame::{RuntimeChapterTextIndexSource, RuntimeRevision, RuntimeRevisionInteractions},
@@ -24,6 +25,7 @@ use super::super::test_support::cached_frame;
 
 const DEEP_BLOCK_COUNT: usize = 16_384;
 const LARGE_FONT_FACE_COUNT: usize = 16_384;
+const LARGE_SUMMARY_CHAPTER_COUNT: usize = 4_096;
 
 #[test]
 fn empty_revision_units_include_each_required_font_face() {
@@ -47,7 +49,7 @@ fn empty_revision_units_include_each_required_font_face() {
                 owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
                 let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                let expected = 27 + usize::from(has_font_catalog);
+                let expected = 30 + usize::from(has_font_catalog);
                 assert_eq!(drive_q1(&mut cleanup, expected), expected);
             }
         }
@@ -83,7 +85,7 @@ fn cache_layout_and_flat_fields_release_in_order() {
     assert!(cleanup.frame_cache.is_none());
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
 
-    assert_eq!(drive_q1(&mut cleanup, 24), 24);
+    assert_eq!(drive_q1(&mut cleanup, 27), 27);
 }
 
 #[test]
@@ -107,7 +109,7 @@ fn detached_cache_owner_is_immediately_invisible_to_the_revision() {
 fn layout_retirement_is_separate_from_its_nested_completion() {
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(empty_layout()));
 
-    for _ in 0..11 {
+    for _ in 0..14 {
         assert_one(&mut cleanup);
     }
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
@@ -130,7 +132,7 @@ fn one_empty_page_composes_built_layout_exactly() {
         .push(LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new()));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
 
-    assert_eq!(drive_q1(&mut cleanup, 32), 32);
+    assert_eq!(drive_q1(&mut cleanup, 35), 35);
 }
 
 #[test]
@@ -139,13 +141,25 @@ fn materialized_interactions_compose_with_revision_retirement() {
     owner.interactions = materialized_interactions(2);
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 38), 38);
+    assert_eq!(drive_q1(&mut cleanup, 41), 41);
+}
+
+#[test]
+fn summary_chapter_map_composes_with_revision_retirement() {
+    let mut layout = empty_layout();
+    add_summary_chapters(&mut layout, LARGE_SUMMARY_CHAPTER_COUNT);
+    let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
+
+    assert_eq!(
+        drive_q1(&mut cleanup, LARGE_SUMMARY_CHAPTER_COUNT + 30),
+        LARGE_SUMMARY_CHAPTER_COUNT + 30
+    );
 }
 
 #[test]
 fn deep_revision_is_exact_and_immediate_drop_is_stack_safe() {
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-    let expected = DEEP_BLOCK_COUNT * 2 + 33;
+    let expected = DEEP_BLOCK_COUNT * 2 + 36;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingRuntimeRevisionCleanup::new(revision(deep_layout())));
@@ -174,7 +188,7 @@ fn large_font_catalog_is_exact_and_drop_drains_unread_faces() {
     let mut owner = revision(empty_layout());
     owner.required_font_face_catalog = Some(font_faces(LARGE_FONT_FACE_COUNT));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
-    let expected = LARGE_FONT_FACE_COUNT + 27;
+    let expected = LARGE_FONT_FACE_COUNT + 30;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 
@@ -236,6 +250,20 @@ fn revision(layout: crate::layout::BuiltLayout) -> RuntimeRevision {
 
 fn empty_layout() -> crate::layout::BuiltLayout {
     create_empty_runtime_layout(1, &test_layout())
+}
+
+fn add_summary_chapters(owner: &mut crate::layout::BuiltLayout, count: usize) {
+    for chapter_index in 0..count {
+        owner.summary.pagination_flow.chapter_map.insert(
+            format!("chapter-{chapter_index}"),
+            PaginationFlowChapterRange {
+                start_page: chapter_index,
+                end_page: chapter_index,
+                page_count: 1,
+                block_count: 1,
+            },
+        );
+    }
 }
 
 fn deep_layout() -> crate::layout::BuiltLayout {

@@ -290,12 +290,16 @@ runtime layout remains authoritative for chapter boundaries. With empty
 configuration maps, inactive records cost 11 units and empty active records
 cost 53. Built layouts,
 detached frame caches and runtime revisions now compose these primitives. The
+layout-summary cursor retires each runtime pagination chapter-map entry before
+its lean remainder; with `CM` summary chapters its exact cost is `CM + 3`, and
+empty/one-page built layouts now cost 9/14 units. Detailed full-publication
+summary diagnostics remain one residual owner unit. The
 scheduled revision also turns its required-font catalog into an iterator and
 retires one face per unit; `R` faces add exactly `R` units. Its exact total is
 `FC + BL + LC + R + RI + 7` for frame-cache,
 built-layout, layout-config, required-font and interaction cleanup. An empty
-`FullDocument` revision costs 27 units. The minimal queue fixture uses an empty
-materialized source, so that revision plus its queue-job retirement costs 29.
+`FullDocument` revision costs 30 units. The minimal queue fixture uses an empty
+materialized source, so that revision plus its queue-job retirement costs 32.
 The production runtime schedules continuation, revision, cache, LRU-frame and
 complete transient-config owners through a private two-lane cleanup queue.
 Each cleanup-queue-admitting producer batch advances 64 structural units; the closed admission bound is
@@ -313,7 +317,7 @@ cancellation. The slim completed chapter session/shell in
 `finish_current_chapter`, orphaned `available_interactions`,
 `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
-owners directly. Summary and frame payloads remain indivisible, while partially
+owners directly. Detailed summary shells and frame payloads remain indivisible, while partially
 deserialized configs and deferred follow-up/config serialization or
 adapter/transport-side configuration owners can still clone or drop directly.
 Empty-policy `layout_key` hashing now streams compact layout-config JSON directly
@@ -357,8 +361,7 @@ or the full publication. Once inline candidates are collected, logical-flow
 mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
-allocator, context/source-copy, the lean summary chapter map, frame payloads,
-the slim completed
+allocator, context/source-copy, frame payloads, the slim completed
 chapter-session shell and aggregate owners on orphaned-interaction,
 document-index and temporary wire-clone paths remain synchronous residuals,
 alongside line-context metadata,
@@ -707,8 +710,7 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, lean-summary chapter-map/frame cleanup payloads and
-   aggregate interaction,
+   allocation/growth, frame cleanup payloads and aggregate interaction,
    index, font or wire-clone owners outside the guarded scheduled
    revision/active-continuation paths, remaining
    context metadata, container

@@ -12,7 +12,7 @@ use super::{
 use crate::{
     layout::{
         create_empty_runtime_layout, create_layout_config, LayoutConfig, LayoutConfigInput,
-        LineBreaking, MarginInput, SpreadMode,
+        LineBreaking, MarginInput, PaginationFlowChapterRange, SpreadMode,
     },
     runtime::{
         cleanup::test_support::cached_frame,
@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-const REAL_JOB_FIXTURE_UNITS: usize = 12 + 29 + 4 + 2 + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + 32 + 4 + 2 + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -212,6 +212,38 @@ fn default_quantum_resumes_a_large_persistent_layout_config() {
         consumed_units += queue.advance(budget).consumed_units;
     }
     assert_eq!(consumed_units, 268);
+}
+
+#[test]
+fn default_quantum_resumes_a_large_runtime_summary_chapter_map() {
+    let mut revision = empty_revision();
+    for chapter_index in 0..256 {
+        revision.layout.summary.pagination_flow.chapter_map.insert(
+            format!("chapter-{chapter_index}"),
+            PaginationFlowChapterRange {
+                start_page: chapter_index,
+                end_page: chapter_index,
+                page_count: 1,
+                block_count: 1,
+            },
+        );
+    }
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_revision(revision);
+    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
+
+    let first = queue.advance(budget);
+
+    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
+    assert!(!first.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 0);
+    assert_eq!(queue.job_count(), 1);
+
+    let mut consumed_units = first.consumed_units;
+    while !queue.is_empty() {
+        consumed_units += queue.advance(budget).consumed_units;
+    }
+    assert_eq!(consumed_units, 256 + 32);
 }
 
 #[test]

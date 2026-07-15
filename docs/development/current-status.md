@@ -574,11 +574,15 @@ Those names now belong to the old TS reference tree only.
      one-empty-page active records cost 53 and 58 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
-     drops. A built-layout cursor now composes the page-vector cursor before
-     releasing its summary and each chapter-start entry. Its exact cost is
-     `page-vector units + chapter-start count + 4`, so empty and one-empty-page
-     layouts cost 6 and 11 units, while a single 16K-deep block page remains
-     stack-safe. A detached frame-cache owner keeps its frame map and LRU order
+     drops. A built-layout cursor now composes the page-vector and layout-summary
+     cursors before releasing each chapter-start entry. The summary cursor
+     retires each pagination chapter-map entry before its remaining diagnostic
+     shell and costs `CM + 3` for `CM` summary chapter-map entries. Built-layout
+     cost is therefore `PV + CM + CS + 7` for page-vector cost `PV` and `CS`
+     chapter-start entries; empty and one-empty-page layouts cost 9 and 14 units, while a
+     single 16K-deep block page remains stack-safe. Detailed full-publication
+     diagnostic vectors and JSON values remain one summary-shell residual. A
+     detached frame-cache owner keeps its frame map and LRU order
      together; its cursor costs `frame count + 3` units, and a separate one-unit
      cached-frame guard lets LRU eviction transfer an owner without manufacturing a
      singleton map. The revision cursor turns its optional required-font catalog
@@ -589,8 +593,8 @@ Those names now belong to the old TS reference tree only.
      before its scalar shell. If the nested costs are `FC`, `BL`, `LC` and `RI`,
      and the catalog contains `R` faces, the
      revision costs exactly `FC + BL + LC + R + RI + 7`. Empty
-     `FullDocument` and one-empty-page revisions cost 27 and 32 units, and a
-     single `N`-deep block page costs `2N + 33`. Immediate, nested-boundary and
+     `FullDocument` and one-empty-page revisions cost 30 and 35 units, and a
+     single `N`-deep block page costs `2N + 36`. Immediate, nested-boundary and
      partial-cache tests cover the composed owner, including a full cache
      followed by a 16K-deep layout, wide interactions and font catalogs.
      This coverage is deliberately limited to scheduled `RuntimeRevision`
@@ -599,8 +603,8 @@ Those names now belong to the old TS reference tree only.
      `available_interactions`,
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
-     owners directly. The lean runtime `LayoutSummary` chapter map, each
-     generated cached-frame payload and those direct paths remain destructor
+     owners directly. Each generated cached-frame payload, detailed
+     full-publication summary shell and those direct paths remain destructor
      residuals. Partially deserialized
      configs that never form a complete owner and deferred follow-up/config
      serialization or adapter/transport-side `LayoutConfig` owners can still
@@ -642,10 +646,10 @@ Those names now belong to the old TS reference tree only.
      regular backlog. High-water priority alone is not claimed as generic hard
      backpressure; future bulk producers must preserve that admission/service
      invariant. Each queued job also has a separate retirement unit, making the
-     minimum queue costs 13 for an inactive continuation, 28 for an empty
+     minimum queue costs 12 for an inactive continuation, 31 for an empty
      `FullDocument` revision, 4 for an empty frame cache, 2 for one cached frame
      and 7 for an empty transient config. An empty materialized-index revision
-     plus the other empty real jobs, as used by the mixed fixture, costs 55 units
+     plus the other empty real jobs, as used by the mixed fixture, costs 57 units
      including every queue retirement.
      Release, cancel, successful/failed continuation publication, initial
      continuation failure, cache invalidation and LRU eviction all transfer
@@ -895,8 +899,8 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by budgeting the lean runtime summary
-   chapter map and frame-payload residuals, the interaction/font-catalog owners that still
+1. Continue the default-Greedy hard bound by addressing frame-payload residuals,
+   the interaction/font-catalog owners that still
    bypass scheduled revision or active-continuation cleanup, and transient
    configuration owners before claiming an end-to-end wall-clock cleanup bound.
    Preserve the cleanup queue's closed producer
@@ -986,8 +990,7 @@ cleanup also uses an exact revision-to-cursor index rather than scanning the
 whole continuation table, while preserving the public error priority and one-
 shot cursor contract. Runtime pagination summary construction and extent
 refresh are now lean and incremental; the next bounded-layout slice should
-budget the remaining summary chapter-map retirement, frame payload and
-direct-destruction cleanup layers, together with
+address frame payload and direct-destruction cleanup layers, together with
 candidate/context allocation and clone residuals, line-context metadata work,
 container startup and the leaf marker/paint seal, before making
 Liang point generation itself resumable and extending the same discipline

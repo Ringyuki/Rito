@@ -101,6 +101,7 @@ fn runtime_pages(count: usize) -> Vec<LayoutRuntimePage> {
 
 fn assert_runtime_summary_is_lean(layout: &BuiltLayout, config: &LayoutConfig) {
     let pagination = &layout.summary.pagination_flow;
+    assert_layout_diagnostics_are_lean(layout);
     let expected_spread_count =
         build_spread_slots(layout.pages.len(), &layout.chapter_start_pages, config).len();
     assert_eq!(pagination.page_count, layout.pages.len());
@@ -120,5 +121,28 @@ fn assert_runtime_summary_is_lean(layout: &BuiltLayout, config: &LayoutConfig) {
     assert!(pagination.display_list_flow.spread_digests.is_empty());
     assert!(pagination.display_list_flow.samples.is_empty());
     assert!(pagination.display_list_flow.full_detail_hash.is_empty());
+    assert!(pagination.hit_map_flow.page_digests.is_empty());
+    assert!(pagination.hit_map_flow.samples.is_empty());
+    assert!(pagination.hit_map_flow.full_detail_hash.is_empty());
+    assert!(pagination.text_position_flow.page_digests.is_empty());
+    assert!(pagination.text_position_flow.samples.is_empty());
+    assert!(pagination.text_position_flow.full_detail_hash.is_empty());
+    assert!(pagination.link_map_flow.page_digests.is_empty());
+    assert!(pagination.link_map_flow.samples.is_empty());
+    assert!(pagination.link_map_flow.full_detail_hash.is_empty());
+    assert!(pagination.search_flow.queries.is_empty());
+    assert!(pagination.search_flow.full_detail_hash.is_empty());
     assert!(pagination.full_detail_hash.is_empty());
+}
+
+fn assert_layout_diagnostics_are_lean(layout: &BuiltLayout) {
+    let summary = &layout.summary;
+    assert!(summary.inline_segments.chapters.is_empty());
+    assert!(summary.inline_segments.full_detail_hash.is_empty());
+    assert!(summary.line_break_inputs.chapters.is_empty());
+    assert!(summary.line_break_inputs.full_detail_hash.is_empty());
+    assert!(summary.line_boxes.chapters.is_empty());
+    assert!(summary.line_boxes.full_detail_hash.is_empty());
+    assert!(summary.continuous_blocks.chapters.is_empty());
+    assert!(summary.continuous_blocks.full_detail_hash.is_empty());
 }

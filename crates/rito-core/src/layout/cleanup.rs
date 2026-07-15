@@ -1,6 +1,7 @@
 mod built;
 mod config;
 mod styled_node;
+mod summary;
 
 pub(crate) use built::PendingBuiltLayoutCleanup;
 pub(crate) use config::PendingLayoutConfigCleanup;
