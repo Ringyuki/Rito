@@ -8,7 +8,9 @@ mod apply;
 mod extract;
 
 pub(in crate::layout::inline_content::pending) use apply::PendingAnnotationApply;
-pub(in crate::layout::inline_content::pending) use extract::PendingRubyAnnotation;
+pub(in crate::layout::inline_content::pending) use extract::{
+    PendingRubyAnnotation, PendingRubyAnnotationCleanup,
+};
 
 pub(super) type SharedRubyAnnotation = Arc<RubyAnnotation>;
 
@@ -16,12 +18,19 @@ pub(super) type SharedRubyAnnotation = Arc<RubyAnnotation>;
 pub(super) struct RubyAnnotation {
     text: String,
     utf16_len: usize,
+    #[cfg(test)]
+    release_probe: Option<Arc<()>>,
 }
 
 impl RubyAnnotation {
     pub(super) fn new(text: String, utf16_len: usize) -> Self {
         debug_assert!(!text.is_empty());
-        Self { text, utf16_len }
+        Self {
+            text,
+            utf16_len,
+            #[cfg(test)]
+            release_probe: None,
+        }
     }
 
     pub(super) fn text(&self) -> &str {

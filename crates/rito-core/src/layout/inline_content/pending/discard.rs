@@ -7,6 +7,10 @@ use crate::{
 
 use super::cleanup::drop_styled_nodes_iteratively;
 
+mod cleanup;
+
+pub(super) use cleanup::PendingNodeDiscardCleanup;
+
 #[derive(Debug)]
 pub(super) struct PendingNodeDiscard {
     initial_frame: Option<std::vec::IntoIter<StyledNode>>,

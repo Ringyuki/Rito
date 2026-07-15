@@ -48,6 +48,21 @@ pub(super) struct PendingRubyBoundary {
     pub(super) kind: RubyGroupBoundaryKind,
 }
 
+#[derive(Debug)]
+pub(super) struct RubyGroupCleanupParts {
+    pub(super) nodes: Vec<StyledNode>,
+    pub(super) discard: Option<PendingNodeDiscard>,
+}
+
+impl RubyGroupCleanupParts {
+    const fn nodes(nodes: Vec<StyledNode>) -> Self {
+        Self {
+            nodes,
+            discard: None,
+        }
+    }
+}
+
 impl PendingRubyBoundary {
     pub(super) fn consume_node(
         &self,
@@ -66,7 +81,12 @@ impl PendingRubyBoundary {
     }
 
     pub(super) fn drop_owned_nodes(&mut self) {
-        drop_styled_node_forest_iteratively(std::mem::take(&mut self.nodes));
+        let parts = self.take_cleanup_parts();
+        drop_styled_node_forest_iteratively(parts.nodes);
+    }
+
+    pub(super) fn take_cleanup_parts(&mut self) -> RubyGroupCleanupParts {
+        RubyGroupCleanupParts::nodes(std::mem::take(&mut self.nodes))
     }
 }
 
@@ -105,7 +125,12 @@ impl PendingRubyGroupPlan {
     }
 
     pub(super) fn drop_owned_nodes(&mut self) {
-        drop_styled_node_forest_iteratively(std::mem::take(&mut self.seed));
+        let parts = self.take_cleanup_parts();
+        drop_styled_node_forest_iteratively(parts.nodes);
+    }
+
+    pub(super) fn take_cleanup_parts(&mut self) -> RubyGroupCleanupParts {
+        RubyGroupCleanupParts::nodes(std::mem::take(&mut self.seed))
     }
 
     fn finish(&mut self, boundary: RubyGroupBoundaryKind) -> RubyGroupSpec {
@@ -146,7 +171,12 @@ impl RubyGroupSpec {
     }
 
     pub(super) fn drop_owned_nodes(&mut self) {
-        drop_styled_node_forest_iteratively(std::mem::take(&mut self.seed));
+        let parts = self.take_cleanup_parts();
+        drop_styled_node_forest_iteratively(parts.nodes);
+    }
+
+    pub(super) fn take_cleanup_parts(&mut self) -> RubyGroupCleanupParts {
+        RubyGroupCleanupParts::nodes(std::mem::take(&mut self.seed))
     }
 
     fn into_build(self) -> PendingRubyGroupBuild {
@@ -194,8 +224,16 @@ impl PendingRubyGroupBuild {
     }
 
     pub(super) fn drop_owned_nodes(&mut self) {
-        drop_styled_node_forest_iteratively(std::mem::take(&mut self.output));
-        drop(self.discard.take());
+        let parts = self.take_cleanup_parts();
+        drop_styled_node_forest_iteratively(parts.nodes);
+        drop(parts.discard);
+    }
+
+    pub(super) fn take_cleanup_parts(&mut self) -> RubyGroupCleanupParts {
+        RubyGroupCleanupParts {
+            nodes: std::mem::take(&mut self.output),
+            discard: self.discard.take(),
+        }
     }
 
     #[cfg(test)]

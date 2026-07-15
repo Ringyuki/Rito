@@ -13,6 +13,7 @@ use super::{
     ruby_text::{PendingAnnotationApply, PendingRubyAnnotation, SharedRubyAnnotation},
 };
 use cleanup::drop_state_nodes;
+pub(super) use cleanup::PendingRubyFrameCleanup;
 use group::{
     PendingRubyBoundary, PendingRubyGroupBuild, PendingRubyGroupPlan, RubyGroupBoundaryKind,
     RubyGroupSpec,

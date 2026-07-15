@@ -2,11 +2,15 @@ use std::mem;
 
 use crate::style::StyledNode;
 
-use super::{frame::CollectionFrame, ActiveCollection, PendingInlineCandidateCollector};
+use super::{
+    frame::CollectionFrame, ruby::PendingRubyFrameCleanup, ActiveCollection,
+    PendingInlineCandidateCollector,
+};
 
 mod node_iter;
 
-use node_iter::{PendingStyledNodeIterDrop, StyledNodeIterSource};
+use node_iter::StyledNodeIterSource;
+pub(super) use node_iter::{CleanupProgress, PendingStyledNodeIterDrop};
 
 /// Owns a forest while releasing it without recursive `StyledNode` drops.
 ///
@@ -152,7 +156,7 @@ impl Drop for PendingInlineCandidateCollector {
         for frame in self.frames.drain(..) {
             match frame {
                 CollectionFrame::Nodes(frame) => drop_styled_nodes_iteratively(frame.nodes),
-                CollectionFrame::Ruby(frame) => drop(frame),
+                CollectionFrame::Ruby(frame) => PendingRubyFrameCleanup::new(frame).drain(),
             }
         }
         drop(self.discard.take());

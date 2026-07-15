@@ -48,17 +48,18 @@ impl StyledNodeIterSource for &mut IntoIter<StyledNode> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct CleanupProgress {
-    pub(super) consumed_units: usize,
-    pub(super) complete: bool,
+pub(in crate::layout::inline_content::pending) struct CleanupProgress {
+    pub(in crate::layout::inline_content::pending) consumed_units: usize,
+    pub(in crate::layout::inline_content::pending) complete: bool,
 }
 
 /// Owns a sealed `Vec` node iterator source while releasing each tree under a
 /// structural budget. Candidate cleanup uses the default owned iterator;
 /// synchronous helpers may instead hold its mutable borrow without collecting.
 #[derive(Debug)]
-pub(super) struct PendingStyledNodeIterDrop<I = IntoIter<StyledNode>>
-where
+pub(in crate::layout::inline_content::pending) struct PendingStyledNodeIterDrop<
+    I = IntoIter<StyledNode>,
+> where
     I: StyledNodeIterSource,
 {
     nodes: I,
@@ -73,7 +74,7 @@ impl<I> PendingStyledNodeIterDrop<I>
 where
     I: StyledNodeIterSource,
 {
-    pub(super) fn new(nodes: I) -> Self {
+    pub(in crate::layout::inline_content::pending) fn new(nodes: I) -> Self {
         Self {
             nodes,
             active: None,
@@ -84,12 +85,12 @@ where
         }
     }
 
-    pub(super) fn is_complete(&self) -> bool {
+    pub(in crate::layout::inline_content::pending) fn is_complete(&self) -> bool {
         self.active.is_none() && self.nodes.is_empty()
     }
 
     /// Performs exactly one node traversal or release transition.
-    pub(super) fn advance_one(&mut self) -> bool {
+    pub(in crate::layout::inline_content::pending) fn advance_one(&mut self) -> bool {
         if !self.ensure_active() {
             return false;
         }
@@ -103,7 +104,10 @@ where
         true
     }
 
-    pub(super) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
+    pub(in crate::layout::inline_content::pending) fn advance(
+        &mut self,
+        budget: NonZeroUsize,
+    ) -> CleanupProgress {
         let mut consumed_units = 0;
         while consumed_units < budget.get() && self.advance_one() {
             consumed_units += 1;
@@ -116,7 +120,7 @@ where
         progress
     }
 
-    pub(super) fn drain(&mut self) {
+    pub(in crate::layout::inline_content::pending) fn drain(&mut self) {
         loop {
             let progress = self.advance(NonZeroUsize::MAX);
             debug_assert!(progress.complete || progress.consumed_units == usize::MAX);

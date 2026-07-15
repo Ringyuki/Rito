@@ -11,9 +11,11 @@ use super::{
     SharedRubyAnnotation,
 };
 
+mod cleanup;
 mod growth;
 mod text_scan;
 
+pub(in crate::layout::inline_content::pending) use cleanup::PendingRubyAnnotationCleanup;
 use text_scan::PendingTextScan;
 
 #[derive(Debug)]

@@ -449,12 +449,18 @@ Those names now belong to the old TS reference tree only.
      only the units actually consumed. Existing synchronous helpers and `Drop`
      drain that same cursor, including roots that have not become active yet,
      without collecting another forest or allocating traversal scratch.
-     Ordinary frames, shared discard, Ruby group and annotation state, and the
-     active atomic node therefore require no aggregate traversal-scratch
-     allocation or growth. This is only the reusable primitive: the candidate
-     collector does not yet expose or schedule its cleanup budget, so its drain
-     remains synchronous O(n), and each node-owned field destructor is still an
-     indivisible payload operation. `RuntimeDocument::cancel_revision` also
+     Budgeted owner cursors now compose it across `PendingNodeDiscard`,
+     `PendingRubyAnnotation`, every `PendingRubyFrame` state and all retained
+     Ruby group payloads. Empty sources, source handoff, optional ownership slots
+     and final owner release are explicit cleanup units; partial cursor
+     destruction drains the same state machine. The existing collector `Drop`
+     path also drains the Ruby-frame cursor synchronously, so ordinary frames,
+     shared discard, Ruby group and annotation state, and the active atomic node
+     require no aggregate traversal-scratch allocation or growth. The outer
+     candidate collector does not yet expose or schedule a cleanup budget,
+     however, so cancellation still drains these cursors synchronously O(n), and
+     each `String`, `Arc` or node-owned field destructor remains one indivisible
+     payload operation. `RuntimeDocument::cancel_revision` also
      still synchronously
      removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
      owners and queued node forests, and clears the revision frame cache. End-to-
@@ -487,10 +493,11 @@ Those names now belong to the old TS reference tree only.
      owned style/source data after a paid atomic admission. The borrowed eager
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
-     atomic lowercase allocation/growth residual. Candidate node-forest cleanup
-     now has a budget-capable, stack-safe and scratch-stable primitive, but Ruby/
-     collector composition and its `Drop` entry point remain synchronous; the
-     enclosing runtime and layout-session disposal is still unbudgeted. The
+     atomic lowercase allocation/growth residual. Candidate node-forest, discard
+     and Ruby ownership cleanup now have composable budget-capable, stack-safe
+     and scratch-stable cursors. The outer candidate collector and its
+     cancellation entry point still drain them synchronously; the enclosing
+     runtime and layout-session disposal is also unbudgeted. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -675,10 +682,11 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by composing the budgeted node-iterator
-   cleanup primitive across discard, Ruby annotation/group state, candidate
-   commits and output, then schedule that collector cleanup under a cancellation
-   budget. Carry the resulting contract through
+1. Complete the default-Greedy hard bound by composing the budgeted discard and
+   Ruby cleanup cursors into an outer candidate-collector cursor covering its
+   initial root, frames, active work, pending commit, output and final owner,
+   then schedule that collector cleanup under a cancellation budget. Carry the
+   resulting contract through
    `RuntimeContinuationRecord`, `RuntimeChapterLayoutSession`, queued
    `ContinuousLayoutSession` node forests and revision frame-cache disposal.
    Then cover candidate/context allocation, clones,
