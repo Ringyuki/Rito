@@ -2,15 +2,15 @@ use std::mem;
 
 use crate::style::StyledNode;
 
-use super::{
-    frame::CollectionFrame, ruby::PendingRubyFrameCleanup, ActiveCollection,
-    PendingInlineCandidateCollector,
-};
+use super::PendingInlineCandidateCollector;
 
+mod candidate;
 mod node_iter;
 
+pub(crate) use candidate::PendingInlineCandidateCleanup;
+pub(crate) use node_iter::CleanupProgress;
+pub(super) use node_iter::PendingStyledNodeIterDrop;
 use node_iter::StyledNodeIterSource;
-pub(super) use node_iter::{CleanupProgress, PendingStyledNodeIterDrop};
 
 /// Owns a forest while releasing it without recursive `StyledNode` drops.
 ///
@@ -132,6 +132,7 @@ impl Drop for PendingStyledNodeDrop {
     }
 }
 
+#[cfg(test)]
 pub(super) fn drop_styled_node_iteratively(node: StyledNode) {
     PendingStyledNodeDrop::from_node(node).drain();
 }
@@ -150,18 +151,8 @@ pub(super) fn drop_styled_node_forest_iteratively(nodes: Vec<StyledNode>) {
 
 impl Drop for PendingInlineCandidateCollector {
     fn drop(&mut self) {
-        if let Some(root) = self.initial_root.take() {
-            drop_styled_nodes_iteratively(root.nodes);
-        }
-        for frame in self.frames.drain(..) {
-            match frame {
-                CollectionFrame::Nodes(frame) => drop_styled_nodes_iteratively(frame.nodes),
-                CollectionFrame::Ruby(frame) => PendingRubyFrameCleanup::new(frame).drain(),
-            }
-        }
-        drop(self.discard.take());
-        if let Some(ActiveCollection::Atomic(atomic)) = self.active.take() {
-            drop_styled_node_iteratively(atomic.node);
+        if !self.cleanup_fields_are_empty() {
+            candidate::drain_candidate_collector(self);
         }
     }
 }

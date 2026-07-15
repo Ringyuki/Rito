@@ -48,9 +48,9 @@ impl StyledNodeIterSource for &mut IntoIter<StyledNode> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(in crate::layout::inline_content::pending) struct CleanupProgress {
-    pub(in crate::layout::inline_content::pending) consumed_units: usize,
-    pub(in crate::layout::inline_content::pending) complete: bool,
+pub(crate) struct CleanupProgress {
+    pub(crate) consumed_units: usize,
+    pub(crate) complete: bool,
 }
 
 /// Owns a sealed `Vec` node iterator source while releasing each tree under a

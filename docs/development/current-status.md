@@ -456,11 +456,19 @@ Those names now belong to the old TS reference tree only.
      destruction drains the same state machine. The existing collector `Drop`
      path also drains the Ruby-frame cursor synchronously, so ordinary frames,
      shared discard, Ruby group and annotation state, and the active atomic node
-     require no aggregate traversal-scratch allocation or growth. The outer
-     candidate collector does not yet expose or schedule a cleanup budget,
-     however, so cancellation still drains these cursors synchronously O(n), and
-     each `String`, `Arc` or node-owned field destructor remains one indivisible
-     payload operation. `RuntimeDocument::cancel_revision` also
+     require no aggregate traversal-scratch allocation or growth. A crate-private
+     outer candidate cursor now composes those primitives across the initial
+     root, each ordinary or Ruby frame, discard, active text or atomic work,
+     pending commit, output segments, whitespace/image ownership and final
+     collector release. Frames and output are popped one at a time, empty source
+     and nested-cursor retirement transitions are explicit units, partial cursor
+     destruction drains the same state machine, and the normal collector keeps
+     no cleanup-only state. Its existing `Drop` path constructs that state on the
+     stack and drains it synchronously. No runtime/session cancellation path
+     schedules the cursor yet, so cancellation remains synchronous O(n), and
+     each `String`, map, `Arc`, segment or retained vector-allocation destructor
+     remains one indivisible payload operation. `RuntimeDocument::cancel_revision`
+     also
      still synchronously
      removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
      owners and queued node forests, and clears the revision frame cache. End-to-
@@ -493,11 +501,14 @@ Those names now belong to the old TS reference tree only.
      owned style/source data after a paid atomic admission. The borrowed eager
      collector and eager transform-boundary builder remain independent
      equivalence oracles. Unicode Final_Sigma remains a paid whole-string
-     atomic lowercase allocation/growth residual. Candidate node-forest, discard
-     and Ruby ownership cleanup now have composable budget-capable, stack-safe
-     and scratch-stable cursors. The outer candidate collector and its
-     cancellation entry point still drain them synchronously; the enclosing
-     runtime and layout-session disposal is also unbudgeted. The
+     atomic lowercase allocation/growth residual. Candidate node-forest cleanup
+     remains stack-safe and scratch-stable, while discard, Ruby and complete
+     collector ownership transitions now compose over it under an explicit
+     budget. The collector's direct `Drop` entry point still drains
+     synchronously, and the enclosing
+     runtime and layout-session disposal does not schedule that cursor. Runtime
+     page trees also retain recursively owned `RuntimeBlock` children without a
+     shared iterative cleanup cursor yet. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -682,13 +693,13 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by composing the budgeted discard and
-   Ruby cleanup cursors into an outer candidate-collector cursor covering its
-   initial root, frames, active work, pending commit, output and final owner,
-   then schedule that collector cleanup under a cancellation budget. Carry the
-   resulting contract through
-   `RuntimeContinuationRecord`, `RuntimeChapterLayoutSession`, queued
-   `ContinuousLayoutSession` node forests and revision frame-cache disposal.
+1. Complete the default-Greedy hard bound by composing the candidate cleanup
+   cursor through queued `ContinuousLayoutSession` node forests, active leaf and
+   container state, `RuntimeChapterLayoutSession` and
+   `RuntimeContinuationRecord`. Add a shared iterative `RuntimeBlock`/page-owner
+   cursor before treating pagination, unpublished pages or built revisions as
+   stack-safe, then retire those owners and revision frame caches through an
+   internal round-robin cancellation queue without changing the wire contract.
    Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual

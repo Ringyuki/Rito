@@ -25,6 +25,8 @@ mod tests;
 mod whitespace;
 
 pub(crate) use pending::PendingInlineCandidateCollector;
+#[allow(unused_imports)] // Runtime cancellation composition consumes this next.
+pub(crate) use pending::{CleanupProgress, PendingInlineCandidateCleanup};
 
 pub(crate) fn flatten_inline_content(
     nodes: &[StyledNode],

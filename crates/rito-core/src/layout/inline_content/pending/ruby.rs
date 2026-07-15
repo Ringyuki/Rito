@@ -87,6 +87,16 @@ impl PendingRubyFrame {
         }
     }
 
+    #[cfg(test)]
+    pub(super) fn with_cleanup_hidden_seed(mut self, nodes: Vec<StyledNode>) -> Self {
+        self.state = RubyState::WaitingGroup(WaitingGroup {
+            output_start: 0,
+            annotation: None,
+            after: AfterGroup::NextSeed(nodes),
+        });
+        self
+    }
+
     pub(super) fn advance(
         &mut self,
         output: &mut [InlineSegment],

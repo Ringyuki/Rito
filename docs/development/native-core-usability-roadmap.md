@@ -83,10 +83,11 @@ The remaining usability work is narrower but still release-blocking:
    boundary comparator. Ruby annotation output and each final base-text copy
    now use paid exact-capacity reservation plus scalar-metered assembly; a
    separate paid seal publishes the source shared during application, and empty
-   annotations allocate neither output nor seal. Node forests, discard and Ruby
-   ownership now have composable budget-capable cleanup cursors, but the outer
-   candidate collector still drains them synchronously and is not scheduled by
-   cancellation. Contextual Final_Sigma whole-string allocation/growth and
+   annotations allocate neither output nor seal. Node forests, discard, Ruby
+   ownership and the complete outer candidate collector now have composable
+   budget-capable cleanup cursors. Direct collector `Drop` still drains the same
+   state machine synchronously, and runtime/session cancellation does not
+   schedule it yet. Contextual Final_Sigma whole-string allocation/growth and
    unbudgeted outer continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
@@ -201,11 +202,13 @@ Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
 residual. Sealed owned-or-borrowed `Vec<StyledNode>` iterators can now release
 one structural descend/release transition per explicit cleanup unit, with zero-unit empty
 completion and synchronous `Drop` draining the same cursor without aggregate
-scratch. Discard, Ruby annotation, every Ruby frame state and retained Ruby group
-payload now compose over that primitive with explicit ownership-transition
-units. The outer candidate collector still needs its own cursor and cancellation
-scheduling. Then make the currently atomic Liang
-point calculation bounded and
+scratch. Discard, Ruby annotation, every Ruby frame state, retained Ruby group
+payload and the full candidate collector compose over that primitive with
+explicit source, nested-retirement and ownership-transition units. The cursor
+now needs composition through continuous/chapter/runtime sessions and internal
+cancellation scheduling; recursively owned `RuntimeBlock` page trees need their
+own iterative cursor before end-to-end cancellation is stack-safe. Then make the
+currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
 Optimal paragraphs. Individual font calls remain indivisible even though their
@@ -574,9 +577,9 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, synchronous outer candidate-collector cancellation around
-   the budgeted node-forest/discard/Ruby cursors and outer continuation/session
-   disposal, remaining
+   allocation/growth, synchronous runtime/session cancellation around the
+   budgeted full candidate cursor, recursively owned `RuntimeBlock` page trees
+   and outer continuation/session disposal, remaining
    context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,

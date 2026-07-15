@@ -27,6 +27,8 @@ mod source;
 mod text;
 mod transform;
 
+pub(crate) use cleanup::{CleanupProgress, PendingInlineCandidateCleanup};
+
 use atomic::PendingAtomicNode;
 use commit::PendingSegmentCommit;
 use discard::PendingNodeDiscard;
