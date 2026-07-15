@@ -208,13 +208,15 @@ with the remaining cancellation residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
-residual. Sealed owned-or-borrowed `Vec<StyledNode>` iterators can now release
-one structural descend/release transition per explicit cleanup unit, with zero-unit empty
-completion and synchronous `Drop` draining the same cursor without aggregate
-scratch. Discard, Ruby annotation, every Ruby frame state, retained Ruby group
-payload and the full candidate collector compose over that primitive with
-explicit source, nested-retirement and ownership-transition units. The cursor
-now needs composition through continuous/chapter/runtime sessions and internal
+residual. Sealed owned/borrowed `Vec<StyledNode>` and owned
+`VecDeque<StyledNode>` iterators can now release one structural descend/release
+transition per explicit cleanup unit, with zero-unit empty completion and
+synchronous `Drop` draining the same cursor without aggregate scratch. Wrapped
+deque storage is consumed directly without collection or reallocation. Discard,
+Ruby annotation, every Ruby frame state, retained Ruby group payload and the
+full candidate collector compose over that primitive with explicit source,
+nested-retirement and ownership-transition units. The cursor now needs
+composition through continuous/chapter/runtime sessions and internal
 cancellation scheduling. `RuntimeBlock` trees, standalone block/page vectors,
 the open-page accumulator and `ContinuousPaginationSession` now have iterative
 cursors, including per-run line cleanup, but unpublished chapter pages and

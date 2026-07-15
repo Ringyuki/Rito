@@ -443,12 +443,15 @@ Those names now belong to the old TS reference tree only.
      sequentially through an intrusive iterative cursor. The cursor stores its
      parent and sibling traversal state in slots freed from existing child
      vectors; focused tests assert unchanged capacity for every carrier push.
-     A sealed owned-or-borrowed `Vec` iterator owner now adds explicit non-zero
-     structural budgeting: each step performs exactly one descend or release transition,
-     an empty iterator completes with zero consumption, and completion reports
-     only the units actually consumed. Existing synchronous helpers and `Drop`
-     drain that same cursor, including roots that have not become active yet,
-     without collecting another forest or allocating traversal scratch.
+     The shared layout cleanup primitive now seals owned `Vec`, borrowed `Vec`
+     and owned `VecDeque` iterator sources behind the same explicit structural
+     budget: each step performs exactly one descend or release transition, an
+     empty iterator completes with zero consumption, and completion reports only
+     the units actually consumed. The deque path consumes wrapped ring-buffer
+     storage directly without collecting or making it contiguous. Existing
+     synchronous helpers and `Drop` drain that same cursor, including roots that
+     have not become active yet, without collecting another forest or allocating
+     traversal scratch.
      Budgeted owner cursors now compose it across `PendingNodeDiscard`,
      `PendingRubyAnnotation`, every `PendingRubyFrame` state and all retained
      Ruby group payloads. Empty sources, source handoff, optional ownership slots

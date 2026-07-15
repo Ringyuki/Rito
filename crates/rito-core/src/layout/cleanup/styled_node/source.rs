@@ -1,33 +1,33 @@
-use std::{num::NonZeroUsize, vec::IntoIter};
+use std::{collections::vec_deque, num::NonZeroUsize, vec};
 
 use crate::{layout::CleanupProgress, style::StyledNode};
 
 use super::PendingStyledNodeDrop;
 
 mod sealed {
-    use std::vec::IntoIter;
+    use std::{collections::vec_deque, vec};
 
     use crate::style::StyledNode;
 
     pub trait Sealed {}
 
-    impl Sealed for IntoIter<StyledNode> {}
-    impl Sealed for &mut IntoIter<StyledNode> {}
+    impl Sealed for vec::IntoIter<StyledNode> {}
+    impl Sealed for &mut vec::IntoIter<StyledNode> {}
+    impl Sealed for vec_deque::IntoIter<StyledNode> {}
 }
 
 /// A node source whose `next` and terminal drop cannot hide another tree walk.
 ///
-/// Keep this sealed to the owned `Vec` iterator and its mutable borrow. Generic
-/// iterator adapters may discard or retain hidden nodes inside one apparent
-/// step, which would violate both the structural budget and stack-safety.
-pub(in crate::layout::inline_content::pending) trait StyledNodeIterSource:
-    sealed::Sealed
-{
+/// Keep this sealed to owned `Vec` / `VecDeque` iterators and the existing
+/// borrowed `Vec` source. Generic adapters may discard or retain hidden nodes
+/// inside one apparent step, violating both the structural budget and
+/// stack-safety.
+pub(crate) trait StyledNodeIterSource: sealed::Sealed {
     fn next_node(&mut self) -> Option<StyledNode>;
     fn is_empty(&self) -> bool;
 }
 
-impl StyledNodeIterSource for IntoIter<StyledNode> {
+impl StyledNodeIterSource for vec::IntoIter<StyledNode> {
     fn next_node(&mut self) -> Option<StyledNode> {
         self.next()
     }
@@ -37,7 +37,7 @@ impl StyledNodeIterSource for IntoIter<StyledNode> {
     }
 }
 
-impl StyledNodeIterSource for &mut IntoIter<StyledNode> {
+impl StyledNodeIterSource for &mut vec::IntoIter<StyledNode> {
     fn next_node(&mut self) -> Option<StyledNode> {
         self.next()
     }
@@ -47,13 +47,22 @@ impl StyledNodeIterSource for &mut IntoIter<StyledNode> {
     }
 }
 
-/// Owns a sealed `Vec` node iterator source while releasing each tree under a
-/// structural budget. Candidate cleanup uses the default owned iterator;
-/// synchronous helpers may instead hold its mutable borrow without collecting.
+impl StyledNodeIterSource for vec_deque::IntoIter<StyledNode> {
+    fn next_node(&mut self) -> Option<StyledNode> {
+        self.next()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// Owns a sealed node iterator while releasing each tree under a structural
+/// budget. Candidate cleanup uses `Vec`; layout-session cleanup uses
+/// `VecDeque` without collecting it into another allocation.
 #[derive(Debug)]
-pub(in crate::layout::inline_content::pending) struct PendingStyledNodeIterDrop<
-    I = IntoIter<StyledNode>,
-> where
+pub(crate) struct PendingStyledNodeIterDrop<I = vec::IntoIter<StyledNode>>
+where
     I: StyledNodeIterSource,
 {
     nodes: I,
@@ -68,7 +77,7 @@ impl<I> PendingStyledNodeIterDrop<I>
 where
     I: StyledNodeIterSource,
 {
-    pub(in crate::layout::inline_content::pending) fn new(nodes: I) -> Self {
+    pub(crate) fn new(nodes: I) -> Self {
         Self {
             nodes,
             active: None,
@@ -79,12 +88,12 @@ where
         }
     }
 
-    pub(in crate::layout::inline_content::pending) fn is_complete(&self) -> bool {
+    pub(crate) fn is_complete(&self) -> bool {
         self.active.is_none() && self.nodes.is_empty()
     }
 
     /// Performs exactly one node traversal or release transition.
-    pub(in crate::layout::inline_content::pending) fn advance_one(&mut self) -> bool {
+    pub(crate) fn advance_one(&mut self) -> bool {
         if !self.ensure_active() {
             return false;
         }
@@ -98,10 +107,7 @@ where
         true
     }
 
-    pub(in crate::layout::inline_content::pending) fn advance(
-        &mut self,
-        budget: NonZeroUsize,
-    ) -> CleanupProgress {
+    pub(crate) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
         let mut consumed_units = 0;
         while consumed_units < budget.get() && self.advance_one() {
             consumed_units += 1;
@@ -114,7 +120,7 @@ where
         progress
     }
 
-    pub(in crate::layout::inline_content::pending) fn drain(&mut self) {
+    pub(crate) fn drain(&mut self) {
         loop {
             let progress = self.advance(NonZeroUsize::MAX);
             debug_assert!(progress.complete || progress.consumed_units == usize::MAX);
@@ -156,7 +162,7 @@ where
     }
 
     #[cfg(test)]
-    pub(super) fn carrier_push_stats(&self) -> (usize, usize) {
+    fn carrier_push_stats(&self) -> (usize, usize) {
         let (active_pushes, active_growth) = self
             .active
             .as_ref()
@@ -178,5 +184,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "node_iter_tests.rs"]
+#[path = "source/tests.rs"]
 mod tests;
