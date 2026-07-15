@@ -5,7 +5,7 @@ use crate::{
     layout::LineBreaking,
     runtime::{
         cleanup::RUNTIME_CLEANUP_QUANTUM,
-        tests::fixture::{empty_chapter_fixture_epub, layout},
+        tests::fixture::{empty_chapter_fixture_epub, layout, multi_chapter_fixture_epub},
     },
 };
 
@@ -43,4 +43,43 @@ fn completed_chapter_admission_services_its_exact_queue_cost() {
         LARGE_CONFIG_JOB_UNITS + COMPLETED_CHAPTER_JOB_UNITS - RUNTIME_CLEANUP_QUANTUM
     );
     assert!(remaining.complete);
+}
+
+#[test]
+fn later_chapter_start_failure_queues_prior_interactions_as_one_job() {
+    let mut document = RuntimeDocument::open(&multi_chapter_fixture_epub())
+        .expect("multi-chapter runtime document opens");
+    document
+        .publication_footnote_index()
+        .expect("publication footnotes are cached before failure injection");
+    make_chapter_unavailable(&mut document, 1);
+    let mut record = RuntimeContinuationRecord::new(
+        "revision".to_owned(),
+        "layout".to_owned(),
+        layout(),
+        LineBreaking::Greedy,
+        document.document.chapters.len(),
+    );
+
+    let result = document.advance_record(
+        &mut record,
+        NonZeroUsize::new(2).expect("test budget is non-zero"),
+    );
+
+    assert!(result.is_err(), "the unavailable second chapter must fail");
+    assert_eq!(record.next_chapter_index, 1);
+    assert!(record.current.is_none());
+    assert_eq!(document.cleanup_queue.job_count(), 1);
+    assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
+    let remaining = document.cleanup_queue.advance(NonZeroUsize::MAX);
+    assert_eq!(remaining.consumed_units, 17);
+    assert!(remaining.complete);
+}
+
+fn make_chapter_unavailable(document: &mut RuntimeDocument, chapter_index: usize) {
+    let chapter = &mut document.document.chapters[chapter_index];
+    chapter.href = format!("missing-chapter-{chapter_index}.xhtml");
+    chapter.xhtml_source.clear();
+    chapter.source_loaded = false;
+    chapter.image_refs = None;
 }

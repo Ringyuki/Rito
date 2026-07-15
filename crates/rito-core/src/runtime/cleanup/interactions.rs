@@ -9,8 +9,10 @@ use crate::{
 };
 
 use self::chapter_text::PendingRuntimeChapterTextIndexSourceCleanup;
+pub(in crate::runtime) use self::vector::PendingRuntimeRevisionInteractionsVectorCleanup;
 
 mod chapter_text;
+mod vector;
 
 type FootnoteSource = btree_map::IntoIter<String, FootnoteEntry>;
 type CompletedChapterSource = btree_set::IntoIter<String>;

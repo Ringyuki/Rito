@@ -100,8 +100,15 @@ The remaining usability work is narrower but still release-blocking:
    scheduled revision releases its required-font catalog face by face. Normally
    completed chapters now transfer their whole drained continuation owner to the
    same queue: 41 cursor units and 42 including queue retirement, with one fixed
-   64-unit service per completion. Orphaned interactions, the document-wide
-   chapter-text-index cache and temporary wire clones still drop directly;
+   64-unit service per completion. Both non-panic orphan-work paths now transfer
+   the whole `available_interactions` vector into one regular resumable queue
+   job. A later chapter-start failure admits it inside `advance_record`, while
+   missing-revision publication admits it inside `apply_work`; the shared helper
+   does not service, leaving each existing outer error/publication boundary to
+   service once after all related owners are admitted. Orphan page batches still
+   drain synchronously through their page-vector cursors, and orphan completed
+   idrefs still destroy synchronously. The document-wide chapter-text-index
+   cache and temporary wire clones still drop directly;
    transient
    request/bundle configuration owners do too. JSON paint and a final shared
    logical-flow owner remain indivisible payload residuals. Contextual
@@ -303,22 +310,31 @@ built-layout, layout-config, required-font and interaction cleanup. An empty
 `FullDocument` revision costs 30 units. The minimal queue fixture uses an empty
 materialized source, so that revision plus its queue-job retirement costs 32.
 The production runtime schedules continuation, completed-chapter, revision,
-cache, LRU-frame and complete transient-config owners through a private two-lane
-cleanup queue.
-Each cleanup-queue-admitting producer batch advances 64 structural units; the closed admission bound is
-at most 12 frame owners per lifecycle mutation, one ordinary config owner, one
-42-unit owner per completed chapter with an immediate service, or two separately
-admitted configs on preview-clone construction failure. Tests
+orphan-interaction-vector, cache, LRU-frame and complete transient-config owners
+through a private two-lane cleanup queue. For nested interaction costs `I_i`, an
+orphan vector cursor costs exactly `2 + sum(I_i + 1)` units and its queue job
+costs `3 + sum(I_i + 1)`. A production vector for `N` chapters containing
+`S_i` text spans costs `3 + 13N + sum(S_i)` queue units.
+Each cleanup-queue-admitting producer batch advances 64 structural units; the
+closed job-admission bound is at most 12 frame owners per lifecycle mutation,
+one ordinary config owner, one 42-unit owner per completed chapter with an
+immediate service, one aggregate orphan-interaction vector per failed work
+batch, or two separately admitted configs on preview-clone construction
+failure. Tests
 over repeated batches keep the physical frame backlog at zero without starving
-regular work. Final document
+regular work. The vector aggregation bounds one failed batch to one new regular
+job; because its exact cost grows with chapter/span count, it does not turn the
+fixed 64-unit service into global hard backpressure. One quantum guarantees
+progress and may leave that single job resumable. Final document
 drop drains queued and still-active owners through the same iterative cursors.
 `RuntimeBlock` trees, standalone block/page vectors, direct child vectors, the
 open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
 line cleanup. This new interaction/font coverage applies only to scheduled
-`RuntimeRevision` retirement, active `RuntimeChapterContinuation` cancellation
-and normal completed-chapter retirement. Orphaned `available_interactions`,
-`RuntimeDocument.full_chapter_text_indices`, and
+`RuntimeRevision` retirement, active `RuntimeChapterContinuation` cancellation,
+normal completed-chapter retirement and queued orphan `available_interactions`.
+Orphan page batches and completed-idref sets still retire synchronously;
+`RuntimeDocument.full_chapter_text_indices` and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Native revision-cache warming now retains only the packed
 frame owner; compatibility JSON frames materialize from the immutable revision

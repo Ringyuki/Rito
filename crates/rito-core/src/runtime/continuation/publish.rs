@@ -16,7 +16,6 @@ use crate::{
 use super::{
     error::{continuation_error, unknown_revision},
     state::{RuntimeChapterPageBatch, RuntimeContinuationRecord, RuntimeContinuationWork},
-    work::cleanup_orphaned_work,
     PendingRuntimeContinuationRecordCleanup,
 };
 
@@ -34,7 +33,7 @@ impl RuntimeDocument {
         let complete = work.complete;
         if !self.revisions.contains_key(&revision_id) {
             self.cleanup_queue.enqueue_continuation(continuation);
-            cleanup_orphaned_work(work);
+            self.retire_orphaned_work(work);
             self.service_cleanup_queue();
             return Err(unknown_revision(&revision_id));
         }

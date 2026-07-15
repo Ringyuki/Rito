@@ -30,7 +30,10 @@ impl RuntimeDocument {
         let mut layout_work = LayoutWorkMeter::new(LayoutWorkBudget::new(budget));
         let mut work = RuntimeContinuationWork::default();
         while remaining > 0 && record.next_chapter_index < record.chapter_count {
-            self.ensure_current_chapter(record, &mut work)?;
+            if let Err(error) = self.ensure_current_chapter(record, &mut work) {
+                self.retire_orphaned_work(work);
+                return Err(error);
+            }
             let advance = self.advance_current_chapter(record, &mut layout_work);
             let chapter_complete = advance.status == LayoutAdvanceStatus::Complete;
             remaining = remaining.saturating_sub(consumed_budget(&advance));
@@ -145,6 +148,29 @@ impl RuntimeDocument {
             interactions,
         ))
     }
+
+    pub(super) fn retire_orphaned_work(&mut self, work: RuntimeContinuationWork) {
+        let RuntimeContinuationWork {
+            batches,
+            available_interactions,
+            completed_chapter_idrefs,
+            processed_top_level_nodes,
+            complete,
+        } = work;
+        self.cleanup_queue
+            .enqueue_revision_interactions(available_interactions);
+        for batch in batches {
+            let RuntimeChapterPageBatch {
+                idref,
+                block_count,
+                pages,
+            } = batch;
+            PendingRuntimePageVectorCleanup::new(pages).drain();
+            let _ = (idref, block_count);
+        }
+        drop(completed_chapter_idrefs);
+        let _ = (processed_top_level_nodes, complete);
+    }
 }
 
 fn consumed_budget(advance: &RuntimeChapterLayoutAdvance) -> usize {
@@ -218,28 +244,6 @@ fn live_image_sizes(document: &crate::epub::LoadedEpubDocument) -> ImageSizeInde
         })
         .collect::<Vec<BinaryResourceSummary>>();
     ImageSizeIndex::new(&images)
-}
-
-pub(super) fn cleanup_orphaned_work(work: RuntimeContinuationWork) {
-    let RuntimeContinuationWork {
-        batches,
-        available_interactions,
-        completed_chapter_idrefs,
-        processed_top_level_nodes,
-        complete,
-    } = work;
-    for batch in batches {
-        let RuntimeChapterPageBatch {
-            idref,
-            block_count,
-            pages,
-        } = batch;
-        PendingRuntimePageVectorCleanup::new(pages).drain();
-        let _ = (idref, block_count);
-    }
-    drop(available_interactions);
-    drop(completed_chapter_idrefs);
-    let _ = (processed_top_level_nodes, complete);
 }
 
 #[cfg(test)]

@@ -1,110 +1,24 @@
 use std::{collections::VecDeque, num::NonZeroUsize};
 
+mod job;
 #[cfg(test)]
 mod probe;
 #[cfg(test)]
 use probe::RuntimeCleanupProbe;
 
-use crate::layout::{CleanupProgress, LayoutConfig, PendingLayoutConfigCleanup};
+use crate::layout::{CleanupProgress, LayoutConfig};
 
-use super::{
-    super::{
-        continuation::{
-            PendingRuntimeChapterContinuationCleanup, PendingRuntimeContinuationRecordCleanup,
-            RuntimeChapterContinuation, RuntimeContinuationRecord,
-        },
-        frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
+use super::super::{
+    continuation::{RuntimeChapterContinuation, RuntimeContinuationRecord},
+    frame::{
+        RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionInteractions,
     },
-    PendingRuntimeCachedFrameCleanup, PendingRuntimeFrameCacheCleanup,
-    PendingRuntimeRevisionCleanup,
 };
+use job::RuntimeCleanupJob;
 
 pub(in crate::runtime) const RUNTIME_CLEANUP_QUANTUM: usize = 64;
 const FRAME_BACKLOG_HIGH_WATER: usize = 24;
 const FRAME_PRIORITY_BURST: usize = 8;
-
-#[derive(Debug)]
-struct RuntimeCleanupJob {
-    cursor: Option<RuntimeCleanupCursor>,
-}
-
-#[derive(Debug)]
-enum RuntimeCleanupCursor {
-    Continuation(Box<PendingRuntimeContinuationRecordCleanup>),
-    CompletedChapter(Box<PendingRuntimeChapterContinuationCleanup>),
-    Revision(Box<PendingRuntimeRevisionCleanup>),
-    FrameCache(Box<PendingRuntimeFrameCacheCleanup>),
-    CachedFrame(Box<PendingRuntimeCachedFrameCleanup>),
-    LayoutConfig(Box<PendingLayoutConfigCleanup>),
-    #[cfg(test)]
-    Probe(RuntimeCleanupProbe),
-}
-
-impl RuntimeCleanupJob {
-    fn new(cursor: RuntimeCleanupCursor) -> Self {
-        Self {
-            cursor: Some(cursor),
-        }
-    }
-
-    fn is_complete(&self) -> bool {
-        self.cursor.is_none()
-    }
-
-    fn cursor_is_complete(&self) -> bool {
-        match self.cursor.as_ref().expect("active cleanup cursor exists") {
-            RuntimeCleanupCursor::Continuation(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::CompletedChapter(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::Revision(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.is_complete(),
-            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.is_complete(),
-            #[cfg(test)]
-            RuntimeCleanupCursor::Probe(cleanup) => cleanup.is_complete(),
-        }
-    }
-
-    fn advance_one(&mut self) -> bool {
-        if self.is_complete() {
-            return false;
-        }
-        if self.cursor_is_complete() {
-            self.cursor = None;
-            return true;
-        }
-        match self.cursor.as_mut().expect("active cleanup cursor exists") {
-            RuntimeCleanupCursor::Continuation(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::CompletedChapter(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::Revision(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.advance_one(),
-            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.advance_one(),
-            #[cfg(test)]
-            RuntimeCleanupCursor::Probe(cleanup) => cleanup.advance_one(),
-        }
-    }
-
-    fn pending_frame_owner_count(&self) -> usize {
-        let Some(cursor) = self.cursor.as_ref() else {
-            return 0;
-        };
-        match cursor {
-            RuntimeCleanupCursor::Continuation(_) => 0,
-            RuntimeCleanupCursor::CompletedChapter(_) => 0,
-            RuntimeCleanupCursor::Revision(cleanup) => cleanup.pending_frame_owner_count(),
-            RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.pending_frame_owner_count(),
-            RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.pending_frame_owner_count(),
-            RuntimeCleanupCursor::LayoutConfig(_) => 0,
-            #[cfg(test)]
-            RuntimeCleanupCursor::Probe(cleanup) => cleanup.pending_frame_owner_count,
-        }
-    }
-
-    fn drain(&mut self) {
-        while self.advance_one() {}
-        debug_assert!(self.is_complete());
-    }
-}
 
 #[derive(Debug)]
 pub(in crate::runtime) struct RuntimeCleanupQueue {
@@ -135,44 +49,40 @@ impl Default for RuntimeCleanupQueue {
 
 impl RuntimeCleanupQueue {
     pub(in crate::runtime) fn enqueue_continuation(&mut self, owner: RuntimeContinuationRecord) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::Continuation(
-            Box::new(PendingRuntimeContinuationRecordCleanup::new(owner)),
-        )));
+        self.enqueue(RuntimeCleanupJob::continuation(owner));
     }
 
     pub(in crate::runtime) fn enqueue_completed_chapter(
         &mut self,
         owner: RuntimeChapterContinuation,
     ) {
-        self.enqueue(RuntimeCleanupJob::new(
-            RuntimeCleanupCursor::CompletedChapter(Box::new(
-                PendingRuntimeChapterContinuationCleanup::new(owner),
-            )),
-        ));
+        self.enqueue(RuntimeCleanupJob::completed_chapter(owner));
     }
 
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::Revision(
-            Box::new(PendingRuntimeRevisionCleanup::new(owner)),
-        )));
+        self.enqueue(RuntimeCleanupJob::revision(owner));
+    }
+
+    pub(in crate::runtime) fn enqueue_revision_interactions(
+        &mut self,
+        owner: Vec<RuntimeRevisionInteractions>,
+    ) {
+        if owner.is_empty() {
+            return;
+        }
+        self.enqueue(RuntimeCleanupJob::revision_interactions(owner));
     }
 
     pub(in crate::runtime) fn enqueue_frame_cache(&mut self, owner: RuntimeFrameCacheOwner) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::FrameCache(
-            Box::new(PendingRuntimeFrameCacheCleanup::new(owner)),
-        )));
+        self.enqueue(RuntimeCleanupJob::frame_cache(owner));
     }
 
     pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::CachedFrame(
-            Box::new(PendingRuntimeCachedFrameCleanup::new(owner)),
-        )));
+        self.enqueue(RuntimeCleanupJob::cached_frame(owner));
     }
 
     pub(in crate::runtime) fn enqueue_layout_config(&mut self, owner: LayoutConfig) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::LayoutConfig(
-            Box::new(PendingLayoutConfigCleanup::new(owner)),
-        )));
+        self.enqueue(RuntimeCleanupJob::layout_config(owner));
     }
 
     pub(in crate::runtime) fn is_empty(&self) -> bool {
@@ -284,7 +194,7 @@ impl RuntimeCleanupQueue {
 
     #[cfg(test)]
     fn enqueue_probe(&mut self, probe: RuntimeCleanupProbe) {
-        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::Probe(probe)));
+        self.enqueue(RuntimeCleanupJob::probe(probe));
     }
 
     pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
@@ -306,3 +216,7 @@ impl Drop for RuntimeCleanupQueue {
 #[cfg(test)]
 #[path = "queue/tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "queue/revision_interactions_vector_tests.rs"]
+mod revision_interactions_vector_tests;

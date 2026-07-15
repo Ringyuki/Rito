@@ -1,10 +1,23 @@
-use std::collections::BTreeSet;
-
-use super::publishable_page_count;
-use crate::layout::{
-    build_spread_slots, create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput,
-    SpreadMode,
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    num::NonZeroUsize,
 };
+
+use super::{publishable_page_count, RuntimeContinuationRecord, RuntimeContinuationWork};
+use crate::{
+    layout::{
+        build_spread_slots, create_layout_config, LayoutConfig, LayoutConfigInput, LineBreaking,
+        MarginInput, SpreadMode,
+    },
+    runtime::{
+        frame::{RuntimeChapterTextIndexSource, RuntimeRevisionInteractions},
+        tests::fixture::empty_chapter_fixture_epub,
+        RuntimeChapterTextIndex, RuntimeChapterTextSpan, RuntimeContinuationErrorKind,
+        RuntimeDocument, RuntimeRevisionExtent,
+    },
+};
+
+const WIDE_SPAN_COUNT: usize = 128;
 
 #[test]
 fn incomplete_double_spread_publication_matches_full_slot_oracle() {
@@ -75,6 +88,43 @@ fn complete_chapters_and_single_spreads_publish_every_candidate() {
     }
 }
 
+#[test]
+fn missing_revision_queues_orphaned_interactions_as_one_resumable_job() {
+    let mut document =
+        RuntimeDocument::open(&empty_chapter_fixture_epub()).expect("runtime document opens");
+    let continuation = RuntimeContinuationRecord::new(
+        "missing-revision".to_owned(),
+        "layout".to_owned(),
+        layout(SpreadMode::Single, true),
+        LineBreaking::Greedy,
+        1,
+    );
+    let work = RuntimeContinuationWork {
+        available_interactions: vec![wide_interactions(WIDE_SPAN_COUNT)],
+        ..RuntimeContinuationWork::default()
+    };
+
+    let error = document
+        .apply_work(
+            continuation,
+            work,
+            RuntimeRevisionExtent {
+                page_count: 0,
+                spread_count: 0,
+            },
+            0,
+            "layout",
+        )
+        .expect_err("missing revision rejects publication");
+
+    assert_eq!(error.kind, RuntimeContinuationErrorKind::UnknownRevision);
+    assert_eq!(document.cleanup_queue.job_count(), 1);
+    assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
+    let remaining = document.cleanup_queue.advance(NonZeroUsize::MAX);
+    assert_eq!(remaining.consumed_units, 92);
+    assert!(remaining.complete);
+}
+
 fn oracle_publishable_page_count(
     published_page_count: usize,
     chapter_start_pages: &BTreeSet<usize>,
@@ -140,4 +190,29 @@ fn layout(spread_mode: SpreadMode, first_page_alone: bool) -> LayoutConfig {
         pagination_policy: None,
         text_measurement: None,
     })
+}
+
+fn wide_interactions(span_count: usize) -> RuntimeRevisionInteractions {
+    RuntimeRevisionInteractions {
+        footnotes: BTreeMap::new(),
+        chapter_text_indices: RuntimeChapterTextIndexSource::Materialized(BTreeMap::from([(
+            "chapter".to_owned(),
+            RuntimeChapterTextIndex {
+                href: "chapter.xhtml".to_owned(),
+                normalized_text: "chapter text".to_owned(),
+                spans: (0..span_count).map(text_span).collect(),
+            },
+        )])),
+        completed_chapter_idrefs: BTreeSet::new(),
+    }
+}
+
+fn text_span(index: usize) -> RuntimeChapterTextSpan {
+    RuntimeChapterTextSpan {
+        node_path: vec![index],
+        source_start: index,
+        source_end: index + 1,
+        normalized_start: index,
+        normalized_end: index + 1,
+    }
 }
