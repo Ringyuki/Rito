@@ -1,4 +1,5 @@
 mod chapter;
+mod record;
 
-#[allow(unused_imports)] // Continuation-record retirement consumes this next.
-pub(super) use chapter::PendingRuntimeChapterContinuationCleanup;
+#[allow(unused_imports)] // Cancellation scheduling consumes this next.
+pub(in crate::runtime) use record::PendingRuntimeContinuationRecordCleanup;

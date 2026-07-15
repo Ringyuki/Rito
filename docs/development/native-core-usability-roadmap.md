@@ -231,12 +231,16 @@ before the chapter session and explicit interactions/idref/scalar boundaries;
 it costs the two nested cursors plus seven units. Empty owners cost 42 units,
 one empty unpublished page costs 47, and combined 16K-deep page/node owners
 remain stack-safe through immediate, boundary and panic-unwind drops. The
-continuation record, built revision and cancellation scheduler remain to be
-composed. `RuntimeBlock`
+continuation-record cursor now immediately guards that active owner, then
+releases the chapter-start set, layout config, identity strings and scalar
+shell. Inactive records cost six units; active records cost the nested cursor
+plus seven. Its B-tree set and nested `LayoutConfig` maps remain indivisible
+destructor residuals. Built revisions and the cancellation scheduler remain to
+be composed. `RuntimeBlock`
 trees, standalone block/page vectors, direct child vectors, the open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. Continuation records and built revisions still need to compose
-these primitives before end-to-end cancellation is stack-safe. Then make the
+line cleanup. Built revisions still need to compose these primitives before
+end-to-end cancellation is stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and

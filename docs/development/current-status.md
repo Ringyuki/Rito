@@ -514,8 +514,16 @@ Those names now belong to the old TS reference tree only.
      an empty active chapter costs 42 units and one empty unpublished page costs
      47 cleanup units. Focused tests compose a 16K-deep page with a 16K-deep queued node tree,
      lock the release order and cover immediate, boundary and panic-unwind
-     destruction. These cursors are not yet composed through the continuation
-     record or revision owners, and ordinary `RuntimeBlock` / `RuntimePage`
+     destruction. A continuation-record cursor immediately guards an optional
+     active chapter before releasing chapter-start indexes, layout config,
+     layout key, revision id and its scalar shell. Records without an active
+     chapter cost six units; active records cost `active-chapter units + 7`, so
+     empty and one-empty-page active records cost 49 and 54 units respectively.
+     Non-empty and extreme-scalar tests lock every flat-field boundary while a
+     16K-deep active record remains stack-safe during immediate and panic-unwind
+     drops. `LayoutConfig` and chapter-start B-trees remain indivisible
+     destructor residuals. These cursors are not yet composed through revision
+     owners, and ordinary `RuntimeBlock` / `RuntimePage`
      destruction remains recursive outside them. No runtime/session
      cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
@@ -747,7 +755,7 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by composing the continuous-session,
    block, page-vector, accumulator and pagination-session cleanup primitives
-   through `RuntimeContinuationRecord` and built revisions before
+   through built revisions before
    treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.
