@@ -192,7 +192,7 @@ impl RuntimeContinuationRecord {
 pub(super) struct RuntimeChapterContinuation {
     pub(super) idref: String,
     pub(super) session: RuntimeChapterLayoutSession,
-    pub(super) interactions: RuntimeRevisionInteractions,
+    pub(super) completed_chapter_idrefs: BTreeSet<String>,
     pub(super) unpublished_pages: Vec<LayoutRuntimePage>,
     pub(super) has_published_pages: bool,
 }

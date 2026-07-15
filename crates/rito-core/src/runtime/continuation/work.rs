@@ -12,7 +12,7 @@ use crate::{
         PendingRuntimePageVectorCleanup,
     },
     resources::{binary_summary_from_metadata, BinaryResourceSummary},
-    runtime::{revision::runtime_revision_interactions, RuntimeDocument},
+    runtime::{revision::runtime_chapter_revision_interactions, RuntimeDocument},
 };
 
 use super::state::{
@@ -56,9 +56,7 @@ impl RuntimeDocument {
         if record.current.is_some() {
             return Ok(());
         }
-        let current = self.start_chapter(record)?;
-        let mut interactions = current.interactions.clone();
-        interactions.completed_chapter_idrefs.clear();
+        let (current, interactions) = self.start_chapter(record)?;
         work.available_interactions.push(interactions);
         record.current = Some(current);
         Ok(())
@@ -89,7 +87,10 @@ impl RuntimeDocument {
     fn start_chapter(
         &mut self,
         record: &RuntimeContinuationRecord,
-    ) -> EpubResult<RuntimeChapterContinuation> {
+    ) -> EpubResult<(
+        RuntimeChapterContinuation,
+        crate::runtime::frame::RuntimeRevisionInteractions,
+    )> {
         let chapter_index = record.next_chapter_index;
         let footnote_targets = self.publication_footnote_index()?.targets.clone();
         self.document.ensure_chapter_loaded(chapter_index)?;
@@ -123,19 +124,24 @@ impl RuntimeDocument {
             font_fallbacks.as_ref(),
         )
         .ok_or_else(|| EpubError::new("prepared runtime chapter is unavailable"))?;
-        Ok(RuntimeChapterContinuation {
-            idref,
-            session: RuntimeChapterLayoutSession::new(
-                styled_nodes,
-                live_image_sizes(&self.document),
-                &record.layout_config,
-                record.line_breaking,
-                page_paint,
-            ),
-            interactions: runtime_revision_interactions(&prepared, false),
-            unpublished_pages: Vec::new(),
-            has_published_pages: false,
-        })
+        let mut interactions = runtime_chapter_revision_interactions(&prepared);
+        let completed_chapter_idrefs = std::mem::take(&mut interactions.completed_chapter_idrefs);
+        Ok((
+            RuntimeChapterContinuation {
+                idref,
+                session: RuntimeChapterLayoutSession::new(
+                    styled_nodes,
+                    live_image_sizes(&self.document),
+                    &record.layout_config,
+                    record.line_breaking,
+                    page_paint,
+                ),
+                completed_chapter_idrefs,
+                unpublished_pages: Vec::new(),
+                has_published_pages: false,
+            },
+            interactions,
+        ))
     }
 }
 
@@ -196,7 +202,7 @@ fn finish_current_chapter(
     let current = record.current.take().expect("completed chapter exists");
     debug_assert!(current.unpublished_pages.is_empty());
     work.completed_chapter_idrefs
-        .extend(current.interactions.completed_chapter_idrefs);
+        .extend(current.completed_chapter_idrefs);
     record.next_chapter_index += 1;
 }
 

@@ -13,7 +13,6 @@ use crate::{
         runtime_session::RuntimeChapterLayoutSession, LayoutConfig, LayoutConfigInput,
         LayoutRuntimePage, LineBreaking, MarginInput, SpreadMode,
     },
-    runtime::frame::{RuntimeChapterTextIndexSource, RuntimeRevisionInteractions},
     style::{StyledNode, StyledNodeKind},
 };
 
@@ -109,7 +108,7 @@ fn active_record_composes_empty_and_single_page_chapters_exactly() {
     let page = LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new());
     let one_page = record(Some(current(Vec::new(), vec![page])), LineBreaking::Greedy);
 
-    for (owner, expected) in [(empty, 59), (one_page, 64)] {
+    for (owner, expected) in [(empty, 54), (one_page, 59)] {
         let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
         assert_eq!(drive_q1(&mut cleanup, expected), expected);
     }
@@ -120,7 +119,7 @@ fn active_chapter_retirement_has_its_own_unit() {
     let owner = record(Some(current(Vec::new(), Vec::new())), LineBreaking::Greedy);
     let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
 
-    for _ in 0..47 {
+    for _ in 0..42 {
         assert_one(&mut cleanup);
     }
     assert_eq!(cleanup.stage, ContinuationRecordCleanupStage::Current);
@@ -142,7 +141,7 @@ fn active_chapter_retirement_has_its_own_unit() {
 fn deep_active_record_has_exact_units_and_immediate_drop_is_linear() {
     let owner = deep_record();
     let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
-    let expected = DEEP_NODE_COUNT * 2 + 58;
+    let expected = DEEP_NODE_COUNT * 2 + 53;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingRuntimeContinuationRecordCleanup::new(deep_record()));
@@ -214,7 +213,7 @@ fn current(
     RuntimeChapterContinuation {
         idref: "chapter".to_owned(),
         session: chapter_session(nodes),
-        interactions: interactions(),
+        completed_chapter_idrefs: BTreeSet::new(),
         unpublished_pages,
         has_published_pages: false,
     }
@@ -229,14 +228,6 @@ fn chapter_session(nodes: Vec<StyledNode>) -> RuntimeChapterLayoutSession {
         LineBreaking::Greedy,
         None,
     )
-}
-
-fn interactions() -> RuntimeRevisionInteractions {
-    RuntimeRevisionInteractions {
-        footnotes: BTreeMap::new(),
-        chapter_text_indices: RuntimeChapterTextIndexSource::FullDocument,
-        completed_chapter_idrefs: BTreeSet::new(),
-    }
 }
 
 fn deep_node_tree(count: usize) -> StyledNode {

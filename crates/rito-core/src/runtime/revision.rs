@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use crate::{
     epub::{EpubError, EpubResult},
     layout::{LayoutConfig, LineBreaking, TextMeasurementMode},
@@ -357,8 +359,26 @@ pub(super) fn runtime_revision_interactions(
     prepared: &crate::epub::PreparedLoadedDocument,
     full_document: bool,
 ) -> RuntimeRevisionInteractions {
+    runtime_revision_interactions_with_footnotes(
+        prepared,
+        full_document,
+        prepared.interaction.footnotes.clone(),
+    )
+}
+
+pub(super) fn runtime_chapter_revision_interactions(
+    prepared: &crate::epub::PreparedLoadedDocument,
+) -> RuntimeRevisionInteractions {
+    runtime_revision_interactions_with_footnotes(prepared, false, BTreeMap::new())
+}
+
+fn runtime_revision_interactions_with_footnotes(
+    prepared: &crate::epub::PreparedLoadedDocument,
+    full_document: bool,
+    footnotes: BTreeMap<String, crate::interaction::FootnoteEntry>,
+) -> RuntimeRevisionInteractions {
     RuntimeRevisionInteractions {
-        footnotes: prepared.interaction.footnotes.clone(),
+        footnotes,
         completed_chapter_idrefs: prepared
             .chapters
             .iter()

@@ -97,9 +97,10 @@ The remaining usability work is narrower but still release-blocking:
    `LayoutConfig` font-measurement maps and chapter-start indexes are released
    entry by entry. Scheduled revision retirement and active continuation
    cancellation also release revision interactions under a cursor, and the
-   scheduled revision releases its required-font catalog face by face. Normal
-   chapter finish, orphaned interactions, the document-wide chapter-text-index
-   cache and temporary wire clones still drop directly; transient
+   scheduled revision releases its required-font catalog face by face. The slim
+   completed chapter session/shell, orphaned interactions, the document-wide
+   chapter-text-index cache and temporary wire clones still drop directly;
+   transient
    request/bundle configuration owners do too. JSON paint and a final shared
    logical-flow owner remain indivisible payload residuals. Contextual
    Final_Sigma whole-string allocation/growth and
@@ -262,17 +263,20 @@ producer admissions and receives two fixed service calls, bounding that path at
 persistent owners. With `F` footnotes and `C` completed idrefs, a
 `FullDocument` source costs `F + C + 5`; a materialized source costs
 `F + C + 6 + sum(S_i + 6)` for `S_i` spans in index `i`, while a standalone
-index costs `S + 4`. An active-chapter cursor now composes it through
-unpublished pages, releasing that page vector before the chapter session and
-then the interactions owner before idref/scalar retirement. Its exact cost is
-`V + CH + RI + 7` for page-vector, chapter-session and interaction costs.
-Empty `FullDocument` owners cost 46 units, one empty unpublished page costs 51,
-and combined deep page/node or wide interaction owners remain stack-safe
-through immediate, boundary and panic-unwind drops. The
+index costs `S + 4`. Bounded chapter startup now moves its materialized text
+index into continuation work and then the revision, without cloning or later
+replacing the publication-wide footnote map. The active chapter retains only
+completed idrefs until chapter completion. Its cursor releases unpublished
+pages before the chapter session and then retires those idrefs before the
+chapter idref/scalar shell. Its exact cost is `V + CH + C + 7` for page-vector,
+chapter-session and `C` completed-idref units. Empty active owners cost 41
+units, one empty unpublished page costs 46, and combined deep page/node or wide
+completed-idref owners remain stack-safe through immediate, boundary and
+panic-unwind drops. The
 continuation-record cursor now immediately guards that active owner, then
 releases each chapter-start entry, the budgeted layout config, identity
 strings and scalar shell. With empty indexes and configuration maps, inactive
-records cost 12 units and empty active records cost 59. Built layouts,
+records cost 12 units and empty active records cost 54. Built layouts,
 detached frame caches and runtime revisions now compose these primitives. The
 scheduled revision also turns its required-font catalog into an iterator and
 retires one face per unit; `R` faces add exactly `R` units. Its exact total is
@@ -293,8 +297,9 @@ open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
 line cleanup. This new interaction/font coverage applies only to scheduled
 `RuntimeRevision` retirement and active `RuntimeChapterContinuation`
-cancellation. Normal `finish_current_chapter`, orphaned
-`available_interactions`, `RuntimeDocument.full_chapter_text_indices`, and
+cancellation. The slim completed chapter session/shell in
+`finish_current_chapter`, orphaned `available_interactions`,
+`RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Summary and frame payloads remain indivisible, while partially
 deserialized configs and deferred follow-up/config serialization or
@@ -340,9 +345,10 @@ or the full publication. Once inline candidates are collected, logical-flow
 mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
-allocator, context/source-copy, summary/frame payloads and aggregate owners on
-the normal chapter-finish, orphaned-interaction, document-index and temporary
-wire-clone paths remain synchronous residuals, alongside line-context metadata,
+allocator, context/source-copy, summary/frame payloads, the slim completed
+chapter-session shell and aggregate owners on orphaned-interaction,
+document-index and temporary wire-clone paths remain synchronous residuals,
+alongside line-context metadata,
 one container/paragraph-preparation
 pass, the leaf marker/paint seal, decorated or floated composite, table or
 Optimal paragraph can still violate the intended latency bound. Each individual

@@ -552,21 +552,25 @@ Those names now belong to the old TS reference tree only.
      idrefs and `S_i` spans in materialized index `i`, a `FullDocument` source
      costs `F + C + 5` units; a materialized source costs
      `F + C + 6 + sum(S_i + 6)`, while one standalone index costs `S + 4`.
-     An outer active-chapter cursor releases unpublished pages before the
-     chapter session, then composes that interactions cursor before its idref
-     and scalar shell. Its exact cost is
-     `page-vector units + chapter-session units + interaction units + 7`; an
-     empty `FullDocument` active chapter costs 46 units and one empty
-     unpublished page costs 51 cleanup units. Focused tests compose a 16K-deep
-     page with a 16K-deep queued node tree and wide interaction owners, lock the
-     release order and cover immediate, boundary and panic-unwind destruction.
+     Bounded chapter startup now moves its materialized text index directly into
+     continuation work and then the revision. It does not clone the
+     publication-wide footnote map or replace equal entries when later chapters
+     publish. The active chapter retains only completed idrefs until chapter
+     completion. Its outer cursor releases unpublished pages before the chapter
+     session, then retires each retained idref before the chapter idref and
+     scalar shell. Its exact cost is
+     `page-vector units + chapter-session units + completed-idref count + 7`;
+     an empty active chapter costs 41 units and one empty unpublished page costs
+     46 cleanup units. Focused tests compose a 16K-deep page with a 16K-deep
+     queued node tree and wide completed-idref owners, lock the release order
+     and cover immediate, boundary and panic-unwind destruction.
      A continuation-record cursor immediately guards
      an optional active chapter before releasing chapter-start indexes, layout
      config, layout key, revision id and its scalar shell. Chapter-start B-tree entries
      are retired individually. A record with `CS` chapter starts and no active
      chapter costs `CS + layout-config units + 6`; active records cost
      `active-chapter units + CS + layout-config units + 7`, so empty and
-     one-empty-page active records cost 59 and 64 units respectively.
+     one-empty-page active records cost 54 and 59 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
      drops. A built-layout cursor now composes the page-vector cursor before
@@ -589,8 +593,9 @@ Those names now belong to the old TS reference tree only.
      partial-cache tests cover the composed owner, including a full cache
      followed by a 16K-deep layout, wide interactions and font catalogs.
      This coverage is deliberately limited to scheduled `RuntimeRevision`
-     retirement and active `RuntimeChapterContinuation` cancellation. Normal
-     `finish_current_chapter`, orphaned `available_interactions`,
+     retirement and active `RuntimeChapterContinuation` cancellation. The slim
+     completed chapter session/shell in `finish_current_chapter`, orphaned
+     `available_interactions`,
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. `LayoutSummary`, each generated cached-frame payload and

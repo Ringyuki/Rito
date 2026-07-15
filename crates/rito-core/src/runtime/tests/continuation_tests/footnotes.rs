@@ -1,10 +1,13 @@
+use std::collections::BTreeMap;
+
 use super::{bounded_request, complete_revision, continue_request};
 use crate::layout::LineBreaking;
 use crate::runtime::tests::fixture::{
     cross_chapter_footnote_fixture_epub, layout, missing_future_chapter_fixture_epub,
 };
 use crate::runtime::{
-    RuntimeContinuationErrorKind, RuntimeDocument, RuntimePageTargetKind, RuntimeRevisionStatus,
+    revision::runtime_chapter_revision_interactions, RuntimeContinuationErrorKind, RuntimeDocument,
+    RuntimePageTargetKind, RuntimeRevisionStatus,
 };
 
 const BACK_KEY: &str = "chapter-1.xhtml#back";
@@ -33,6 +36,35 @@ fn publication_footnote_scan_is_state_neutral() {
 }
 
 #[test]
+fn bounded_chapter_interactions_do_not_copy_publication_footnotes() {
+    let bytes = cross_chapter_footnote_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    let targets = document
+        .publication_footnote_index()
+        .expect("publication footnotes scan")
+        .targets
+        .clone();
+    document
+        .document
+        .ensure_chapter_loaded(0)
+        .expect("first chapter loads");
+    let prepared = document
+        .prepare_cached_document_window(0, 1, &targets)
+        .expect("first chapter prepares");
+
+    let interactions = runtime_chapter_revision_interactions(&prepared);
+
+    assert!(interactions.footnotes.is_empty());
+    assert_eq!(
+        interactions
+            .completed_chapter_idrefs
+            .into_iter()
+            .collect::<Vec<_>>(),
+        vec!["chapter-1"]
+    );
+}
+
+#[test]
 fn bounded_uses_cached_publication_wide_footnotes_without_polluting_lazy_state() {
     let bytes = cross_chapter_footnote_fixture_epub();
     let mut eager = RuntimeDocument::open(&bytes).expect("eager document opens");
@@ -49,6 +81,7 @@ fn bounded_uses_cached_publication_wide_footnotes_without_polluting_lazy_state()
 
     assert_eq!(bounded.publication_footnote_scan_count(), 1);
     assert_lazy_state_after_first_chapter(&bounded);
+    let initial_footnote_storage = footnote_storage(&bounded, &initial.revision.revision_id);
     let initial_footnotes = bounded
         .get_footnotes(&initial.revision.revision_id)
         .expect("initial footnotes")
@@ -100,6 +133,11 @@ fn bounded_uses_cached_publication_wide_footnotes_without_polluting_lazy_state()
             .entries,
         eager_footnotes
     );
+    let completed_footnote_storage = footnote_storage(&bounded, &completed.revision.revision_id);
+    assert_eq!(
+        completed_footnote_storage, initial_footnote_storage,
+        "later chapter publication must not replace publication-wide footnote storage"
+    );
     assert_eq!(
         bounded
             .get_chapter_text_indices(&completed.revision.revision_id)
@@ -110,6 +148,23 @@ fn bounded_uses_cached_publication_wide_footnotes_without_polluting_lazy_state()
             .expect("eager chapter text")
             .entries
     );
+}
+
+fn footnote_storage(
+    document: &RuntimeDocument,
+    revision_id: &str,
+) -> BTreeMap<String, (usize, usize)> {
+    document.revisions[revision_id]
+        .interactions
+        .footnotes
+        .iter()
+        .map(|(key, entry)| {
+            (
+                key.clone(),
+                (entry.text.as_ptr() as usize, entry.html.as_ptr() as usize),
+            )
+        })
+        .collect()
 }
 
 #[test]
