@@ -33,7 +33,7 @@ use crate::{
         open_runtime_document, open_runtime_document_owned, EpubError, EpubResult,
         LoadedEpubDocument,
     },
-    layout::TextMeasurementCache,
+    layout::{LayoutConfig, TextMeasurementCache},
 };
 
 pub use access::{
@@ -187,6 +187,15 @@ impl RuntimeDocument {
             0,
             "one legal runtime producer batch must not retain frame owners"
         );
+    }
+
+    pub(super) fn enqueue_layout_config_cleanup(&mut self, layout_config: LayoutConfig) {
+        self.cleanup_queue.enqueue_layout_config(layout_config);
+    }
+
+    pub(super) fn retire_layout_config(&mut self, layout_config: LayoutConfig) {
+        self.enqueue_layout_config_cleanup(layout_config);
+        self.service_cleanup_queue();
     }
 
     pub fn revision_count(&self) -> usize {

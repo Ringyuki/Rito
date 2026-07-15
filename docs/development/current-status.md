@@ -523,8 +523,19 @@ Those names now belong to the old TS reference tree only.
      configs—one in the preview revision and one in its full-reflow follow-up—but
      no longer creates a third short-lived request owner. Active-view probing now
      also happens before that clone, so a missing active chapter falls back to a
-     full revision with the original config and no discarded preview copy. A
-     chapter-session cursor now
+     full revision with the original config and no discarded preview copy.
+     Complete configs rejected before revision ownership are now transferred to
+     the runtime cleanup queue instead of being destroyed inline. This covers
+     owned prefix/window construction errors, standalone active-preview
+     no-match/errors, view-preview preflight errors and invalid preserve locators.
+     A standalone config cursor costs `F + N + 2O + 6` units and its queue job
+     costs `F + N + 2O + 7`; an empty job costs 7 units, while the 256-entry
+     regression fixture costs 263 and demonstrably resumes after its first
+     64-unit service. An invalid preview locator batches the original request
+     config with retirement of the preview revision that owns the cloned config.
+     If construction of that cloned preview revision itself fails, those are two
+     distinct producer admissions and therefore receive two fixed service calls,
+     for a bounded total of 128 units. The chapter-session cursor now
      releases its paginator before its continuous-layout state, with explicit
      source and nested-retirement boundaries. Its exact cost is
      `pagination units + layout units + 5`, so an
@@ -579,30 +590,39 @@ Those names now belong to the old TS reference tree only.
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. `LayoutSummary`, each generated cached-frame payload and
-     those direct paths remain destructor residuals. Rejected request configs,
-     deferred follow-up configs, borrowed public revision inputs and
-     adapter/serialization-side `LayoutConfig` owners can still clone or drop
-     directly, so these
+     those direct paths remain destructor residuals. Partially deserialized
+     configs that never form a complete owner, bounded-request initialization
+     rejected before a revision/cleanup owner takes over (including invalid
+     budgets), and deferred follow-up/config serialization or adapter/transport-
+     side `LayoutConfig` owners can still clone or drop directly. The bounded
+     production path also still materializes a complete layout-config JSON
+     buffer for `layout_key`; legacy JSON/`RITORB1` view endpoints synchronously
+     drop serialized follow-up configs but are not used by that production path.
+     These
      cursors establish structural stack safety for their guarded persistent
      owners rather than an end-to-end wall-clock hard bound. Ordinary
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
      guarded owners. Production runtime retirement now uses a private two-lane
-     queue: continuation records, revisions, detached frame caches and individual
-     LRU frames are removed from their logical indexes first, then advanced in
-     unit quanta. Low frame backlog alternates with regular work; backlog at the
-     24-owner high-water mark receives bursts of at most eight frame-lane units,
+     queue: continuation records, revisions, detached frame caches, individual
+     LRU frames and complete transient configs are removed from their logical
+     owners first, then advanced in unit quanta. Low frame backlog alternates
+     with regular work. At the 24-owner high-water mark it receives bursts of at
+     most eight frame-lane units,
      so regular retirement cannot starve. Every producer batch ends with a fixed
      64-unit service call. The closed production admission bound is at most one
-     12-frame cache/revision owner per lifecycle mutation, or two individual
-     frame owners per cache miss, and focused repeated-batch tests show that this
+     cache (holding up to 12 frames), revision or config owner per lifecycle
+     mutation, two individual frame owners per cache miss, or two separately
+     admitted config owners when preview-clone construction fails. Focused tests
+     over repeated batches show that this
      service quantum returns pending frame ownership to zero even with permanent
      regular backlog. High-water priority alone is not claimed as generic hard
      backpressure; future bulk producers must preserve that admission/service
      invariant. Each queued job also has a separate retirement unit, making the
      minimum queue costs 13 for an inactive continuation, 28 for an empty
-     `FullDocument` revision, 4 for an empty frame cache and 2 for one cached
-     frame. An empty materialized-index revision, as used by the mixed real-job
-     fixture, costs 29 units including queue retirement.
+     `FullDocument` revision, 4 for an empty frame cache, 2 for one cached frame
+     and 7 for an empty transient config. An empty materialized-index revision
+     plus the other empty real jobs, as used by the mixed fixture, costs 55 units
+     including every queue retirement.
      Release, cancel, successful/failed continuation publication, initial
      continuation failure, cache invalidation and LRU eviction all transfer
      owners through this queue without changing the core, WASM or browser wire

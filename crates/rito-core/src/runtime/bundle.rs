@@ -114,10 +114,18 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeActiveChapterPreviewRevisionRequest,
     ) -> EpubResult<Option<RuntimeCreatedRevisionBundle>> {
-        let Some(preview) = self
-            .active_chapter_preview(&request.previous_revision_id, request.active_spread_index)?
-        else {
-            return Ok(None);
+        let preview = match self
+            .active_chapter_preview(&request.previous_revision_id, request.active_spread_index)
+        {
+            Ok(Some(preview)) => preview,
+            Ok(None) => {
+                self.retire_layout_config(request.layout_config);
+                return Ok(None);
+            }
+            Err(error) => {
+                self.retire_layout_config(request.layout_config);
+                return Err(error);
+            }
         };
         self.create_resolved_active_chapter_preview_revision_bundle(request, preview)
             .map(Some)
@@ -244,7 +252,13 @@ impl RuntimeDocument {
                     revision,
                 }),
             RuntimeViewRevisionMode::Preview => {
-                let preview = self.create_view_preview_revision_bundle(&request)?;
+                let preview = match self.create_view_preview_revision_bundle(&request) {
+                    Ok(preview) => preview,
+                    Err(error) => {
+                        self.retire_layout_config(request.layout_config);
+                        return Err(error);
+                    }
+                };
                 if let Some(mut revision) = preview {
                     let revision_id = revision.bundle.revision.revision_id.clone();
                     if let Some(locator) = request.preserve_locator.clone() {
@@ -260,6 +274,7 @@ impl RuntimeDocument {
                         ) {
                             Ok(decision) => decision,
                             Err(error) => {
+                                self.enqueue_layout_config_cleanup(request.layout_config);
                                 self.release_revision(&revision_id);
                                 return Err(error);
                             }

@@ -11,6 +11,8 @@ mod reading_anchor_tests;
 mod reading_anchor_view_tests;
 mod text_interaction_tests;
 
+use std::num::NonZeroUsize;
+
 use command_hash::{
     hash_json_value, json_values_match_after_number_round_trip,
     normalize_runtime_commands_for_render_hash,
@@ -18,8 +20,8 @@ use command_hash::{
 use fixture::{
     double_layout, empty_chapter_fixture_epub, fixture_epub, fixture_epub_with_stylesheet,
     fixture_stylesheet, interaction_target_fixture_epub, layout, malformed_chapter_fixture_epub,
-    many_chapter_fixture_epub, minimal_png, multi_chapter_fixture_epub,
-    search_source_gap_fixture_epub, source_locator_fixture_epub,
+    many_chapter_fixture_epub, minimal_png, missing_future_chapter_fixture_epub,
+    multi_chapter_fixture_epub, search_source_gap_fixture_epub, source_locator_fixture_epub,
 };
 use serde_json::Value;
 
@@ -29,13 +31,13 @@ use super::{
     RuntimeFullRevisionBundleRequest, RuntimeInitialFrameRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest, RuntimePageTargetKind,
     RuntimePrefetchRequest, RuntimePreviewRevisionBundleRequest, RuntimeResourceKind,
-    RuntimeRevisionExtent, RuntimeRevisionStatus, RuntimeSearchRequest, RuntimeSearchSource,
-    RuntimeSemanticNode, RuntimeSemanticRole, RuntimeSourceLocator, RuntimeSourceLocatorErrorKind,
-    RuntimeSourceLocatorMatchedBy, RuntimeSourceLocatorPendingReason,
-    RuntimeSourceLocatorResolution, RuntimeSourcePoint, RuntimeSourceRange,
-    RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay, RuntimeViewRevisionKind,
-    RuntimeViewRevisionMetadata, RuntimeViewRevisionMode, RuntimeViewRevisionRequest,
-    DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
+    RuntimeRevisionExtent, RuntimeRevisionRequest, RuntimeRevisionStatus, RuntimeSearchRequest,
+    RuntimeSearchSource, RuntimeSemanticNode, RuntimeSemanticRole, RuntimeSourceLocator,
+    RuntimeSourceLocatorErrorKind, RuntimeSourceLocatorMatchedBy,
+    RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
+    RuntimeSourceRange, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionDisplay,
+    RuntimeViewRevisionKind, RuntimeViewRevisionMetadata, RuntimeViewRevisionMode,
+    RuntimeViewRevisionRequest, DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
 use crate::interaction::FootnoteKind;
 use crate::layout::{LayoutConfig, LineBreaking, SpreadMode};
@@ -62,6 +64,21 @@ fn allocation_tracking_layout() -> LayoutConfig {
     layout.font_family_override = Some("Owned Revision Serif".repeat(64));
     layout.generic_serif_advances.insert("界".to_owned(), 1.125);
     layout
+}
+
+fn large_cleanup_layout() -> LayoutConfig {
+    let mut layout = layout();
+    layout.generic_serif_advances = (0..256)
+        .map(|index| (format!("glyph-{index}"), index as f64))
+        .collect();
+    layout
+}
+
+fn assert_pending_cleanup_jobs(document: &mut RuntimeDocument, expected: usize) {
+    assert_eq!(document.cleanup_queue.job_count(), expected);
+    assert!(!document.cleanup_queue.is_empty());
+    document.cleanup_queue.drain_sync();
+    assert!(document.cleanup_queue.is_empty());
 }
 
 fn source_locator(href: &str) -> RuntimeSourceLocator {
@@ -1031,6 +1048,106 @@ fn owned_window_revision_request_reuses_and_normalizes_layout_config() {
         owned_layout_allocation_addresses(retained),
         expected_addresses
     );
+}
+
+#[test]
+fn failed_owned_window_revision_schedules_its_config_cleanup() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let error = document
+        .create_revision_from_request(RuntimeRevisionRequest {
+            layout_config: large_cleanup_layout(),
+            line_breaking: LineBreaking::Greedy,
+            preview_chapter_limit: None,
+            preview_chapter_index: Some(99),
+        })
+        .expect_err("invalid owned window fails");
+
+    assert_eq!(error.message(), "chapter window start out of range: 99");
+    assert_pending_cleanup_jobs(&mut document, 1);
+}
+
+#[test]
+fn failed_owned_prefix_revision_schedules_its_config_cleanup() {
+    let mut document = RuntimeDocument::open(&missing_future_chapter_fixture_epub())
+        .expect("document opens lazily");
+    let error = document
+        .create_full_revision_bundle(RuntimeFullRevisionBundleRequest {
+            layout_config: large_cleanup_layout(),
+            line_breaking: LineBreaking::Greedy,
+            active_spread_index: 0,
+        })
+        .expect_err("missing future chapter rejects eager revision");
+
+    assert!(
+        error.message().contains("chapter-2.xhtml") && error.message().contains("not found"),
+        "unexpected error: {}",
+        error.message()
+    );
+    assert_eq!(document.revision_count(), 0);
+    assert_pending_cleanup_jobs(&mut document, 1);
+}
+
+#[test]
+fn rejected_preview_requests_schedule_their_config_cleanup() {
+    let mut direct = RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let full = direct
+        .create_revision(&layout())
+        .expect("full revision is created");
+    let missing = direct
+        .create_active_chapter_preview_revision_bundle(RuntimeActiveChapterPreviewRevisionRequest {
+            layout_config: large_cleanup_layout(),
+            line_breaking: LineBreaking::Greedy,
+            previous_revision_id: full.revision_id,
+            active_spread_index: usize::MAX,
+        })
+        .expect("missing active spread is not an error");
+
+    assert!(missing.is_none());
+    assert_pending_cleanup_jobs(&mut direct, 1);
+
+    let mut view = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let error = view
+        .create_view_revision_bundle(RuntimeViewRevisionRequest {
+            layout_config: large_cleanup_layout(),
+            line_breaking: LineBreaking::Greedy,
+            active_spread_index: 0,
+            previous_revision_id: Some("rev-missing".to_owned()),
+            preserve_locator: None,
+            mode: RuntimeViewRevisionMode::Preview,
+        })
+        .expect_err("unknown preview owner fails");
+
+    assert_eq!(error.message(), "unknown revision: rev-missing");
+    assert_pending_cleanup_jobs(&mut view, 1);
+}
+
+#[test]
+fn failed_view_preview_clone_schedules_both_config_owners() {
+    let mut document = RuntimeDocument::open(&missing_future_chapter_fixture_epub())
+        .expect("document opens lazily");
+    let error = document
+        .create_view_revision_bundle(RuntimeViewRevisionRequest {
+            layout_config: large_cleanup_layout(),
+            line_breaking: LineBreaking::Greedy,
+            active_spread_index: 0,
+            previous_revision_id: None,
+            preserve_locator: None,
+            mode: RuntimeViewRevisionMode::Preview,
+        })
+        .expect_err("missing preview chapter rejects the cloned config");
+
+    assert!(
+        error.message().contains("chapter-2.xhtml") && error.message().contains("not found"),
+        "unexpected error: {}",
+        error.message()
+    );
+    assert_eq!(document.revision_count(), 0);
+    assert_eq!(document.cleanup_queue.job_count(), 2);
+    let remaining = document
+        .cleanup_queue
+        .advance(NonZeroUsize::new(usize::MAX).expect("cleanup budget is non-zero"));
+    assert_eq!(remaining.consumed_units, 2 * 263 - 2 * 64);
+    assert!(remaining.complete);
 }
 
 #[test]

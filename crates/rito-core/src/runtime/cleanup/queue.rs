@@ -5,7 +5,7 @@ mod probe;
 #[cfg(test)]
 use probe::RuntimeCleanupProbe;
 
-use crate::layout::CleanupProgress;
+use crate::layout::{CleanupProgress, LayoutConfig, PendingLayoutConfigCleanup};
 
 use super::{
     super::{
@@ -31,6 +31,7 @@ enum RuntimeCleanupCursor {
     Revision(Box<PendingRuntimeRevisionCleanup>),
     FrameCache(Box<PendingRuntimeFrameCacheCleanup>),
     CachedFrame(Box<PendingRuntimeCachedFrameCleanup>),
+    LayoutConfig(Box<PendingLayoutConfigCleanup>),
     #[cfg(test)]
     Probe(RuntimeCleanupProbe),
 }
@@ -52,6 +53,7 @@ impl RuntimeCleanupJob {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.is_complete(),
+            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.is_complete(),
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.is_complete(),
         }
@@ -70,6 +72,7 @@ impl RuntimeCleanupJob {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.advance_one(),
+            RuntimeCleanupCursor::LayoutConfig(cleanup) => cleanup.advance_one(),
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.advance_one(),
         }
@@ -84,6 +87,7 @@ impl RuntimeCleanupJob {
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.pending_frame_owner_count(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.pending_frame_owner_count(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.pending_frame_owner_count(),
+            RuntimeCleanupCursor::LayoutConfig(_) => 0,
             #[cfg(test)]
             RuntimeCleanupCursor::Probe(cleanup) => cleanup.pending_frame_owner_count,
         }
@@ -144,6 +148,12 @@ impl RuntimeCleanupQueue {
     pub(in crate::runtime) fn enqueue_cached_frame(&mut self, owner: RuntimeCachedFrame) {
         self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::CachedFrame(
             Box::new(PendingRuntimeCachedFrameCleanup::new(owner)),
+        )));
+    }
+
+    pub(in crate::runtime) fn enqueue_layout_config(&mut self, owner: LayoutConfig) {
+        self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::LayoutConfig(
+            Box::new(PendingLayoutConfigCleanup::new(owner)),
         )));
     }
 

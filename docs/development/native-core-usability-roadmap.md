@@ -244,7 +244,16 @@ clone plus direct request-config drop. A deferred view preview retains the two
 configs it genuinely needs for the preview revision and full-reflow follow-up,
 without a third short-lived owner. Active-preview existence is resolved before
 that clone, so a no-match fallback moves the original config straight into its
-full revision.
+full revision. Complete configs that fail before a revision can take ownership
+now enter the runtime cleanup queue. Owned prefix/window construction errors,
+standalone active-preview no-match/errors, view-preview preflight errors and
+invalid preserve locators are covered. A standalone config queue job costs
+`F + N + 2O + 7` units, so the empty case costs 7 and a 256-entry regression
+fixture costs 263, resuming after its first 64-unit service. Invalid preview
+locators batch the original request config with the rejected preview revision.
+Failure while constructing the cloned preview revision represents two distinct
+producer admissions and receives two fixed service calls, bounding that path at
+128 structural units.
 `RuntimeRevisionInteractions` now has a budgeted cursor for these guarded
 persistent owners. With `F` footnotes and `C` completed idrefs, a
 `FullDocument` source costs `F + C + 5`; a materialized source costs
@@ -267,11 +276,13 @@ retires one face per unit; `R` faces add exactly `R` units. Its exact total is
 built-layout, layout-config, required-font and interaction cleanup. An empty
 `FullDocument` revision costs 27 units. The minimal queue fixture uses an empty
 materialized source, so that revision plus its queue-job retirement costs 29.
-The production runtime schedules continuation,
-revision, cache and LRU-frame owners through a private two-lane cleanup queue.
+The production runtime schedules continuation, revision, cache, LRU-frame and
+complete transient-config owners through a private two-lane cleanup queue.
 Each producer batch advances 64 structural units; the closed admission bound is
-at most 12 frame owners per lifecycle mutation, and repeated-batch tests keep
-that physical backlog at zero without starving regular work. Final document
+at most 12 frame owners per lifecycle mutation, one ordinary config owner, or
+two separately admitted configs on preview-clone construction failure. Tests
+over repeated batches keep the physical frame backlog at zero without starving
+regular work. Final document
 drop drains queued and still-active owners through the same iterative cursors.
 `RuntimeBlock` trees, standalone block/page vectors, direct child vectors, the
 open-page accumulator and
@@ -281,9 +292,14 @@ line cleanup. This new interaction/font coverage applies only to scheduled
 cancellation. Normal `finish_current_chapter`, orphaned
 `available_interactions`, `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
-owners directly. Summary and frame payloads remain indivisible, and transient
-rejected requests, deferred follow-ups, borrowed public revision inputs and
-adapter/serialization-side configuration owners can still clone or drop directly.
+owners directly. Summary and frame payloads remain indivisible, while partially
+deserialized configs, bounded-request initialization rejected before a
+revision/cleanup owner takes over (including invalid budgets), and deferred
+follow-up/config serialization or adapter/transport-side configuration owners
+can still clone or drop directly. The bounded production path still materializes
+a complete layout-config JSON buffer for `layout_key`; serialized follow-up
+configs are still dropped synchronously by legacy view endpoints outside that
+path.
 Guarded persistent-owner cancellation is therefore structurally stack-safe,
 but this is not an end-to-end wall-clock hard bound. Next make the currently atomic Liang point
 calculation bounded and extend the same

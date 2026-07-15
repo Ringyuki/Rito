@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-const REAL_JOB_FIXTURE_UNITS: usize = 13 + 29 + 4 + 2;
+const REAL_JOB_FIXTURE_UNITS: usize = 13 + 29 + 4 + 2 + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -215,6 +215,30 @@ fn default_quantum_resumes_a_large_persistent_layout_config() {
 }
 
 #[test]
+fn default_quantum_resumes_a_large_transient_layout_config() {
+    let mut layout_config = test_layout();
+    layout_config.generic_serif_advances = (0..256)
+        .map(|index| (format!("glyph-{index}"), index as f64))
+        .collect();
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_layout_config(layout_config);
+    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
+
+    let first = queue.advance(budget);
+
+    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
+    assert!(!first.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 0);
+    assert_eq!(queue.job_count(), 1);
+
+    let mut consumed_units = first.consumed_units;
+    while !queue.is_empty() {
+        consumed_units += queue.advance(budget).consumed_units;
+    }
+    assert_eq!(consumed_units, 263);
+}
+
+#[test]
 fn queue_drop_drains_every_remaining_job_directly() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let mut queue = RuntimeCleanupQueue::default();
@@ -247,6 +271,7 @@ fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
     queue.enqueue_revision(empty_revision());
     queue.enqueue_frame_cache(RuntimeFrameCacheOwner::default());
     queue.enqueue_cached_frame(cached_frame(0, 0));
+    queue.enqueue_layout_config(test_layout());
 }
 
 fn empty_continuation() -> RuntimeContinuationRecord {

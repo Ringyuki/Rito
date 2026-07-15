@@ -1,4 +1,8 @@
-use super::fixture::{layout, long_source_text_fixture_epub, multi_chapter_fixture_epub};
+use super::{
+    assert_pending_cleanup_jobs,
+    fixture::{layout, long_source_text_fixture_epub, multi_chapter_fixture_epub},
+    large_cleanup_layout,
+};
 use crate::{
     layout::{LayoutConfig, LineBreaking},
     runtime::{
@@ -147,6 +151,30 @@ fn invalid_preserve_locator_rejects_and_releases_the_replacement_revision() {
 
     assert!(error.message().contains("invalid preserve locator"));
     assert_eq!(document.revision_count(), revision_count);
+}
+
+#[test]
+fn invalid_preview_locator_schedules_both_config_owners() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let invalid = RuntimeSourceLocator {
+        href: "missing.xhtml".to_owned(),
+        anchor_id: None,
+        source_point: None,
+        source_range: None,
+        progression: None,
+    };
+
+    let error = document
+        .create_view_revision_bundle(RuntimeViewRevisionRequest {
+            mode: RuntimeViewRevisionMode::Preview,
+            ..view_request(large_cleanup_layout(), 0, None, Some(invalid))
+        })
+        .expect_err("invalid preview locator rejects the replacement");
+
+    assert!(error.message().contains("invalid preserve locator"));
+    assert_eq!(document.revision_count(), 0);
+    assert_pending_cleanup_jobs(&mut document, 2);
 }
 
 fn view_request(
