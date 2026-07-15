@@ -84,7 +84,8 @@ The remaining usability work is narrower but still release-blocking:
    now use paid exact-capacity reservation plus scalar-metered assembly; a
    separate paid seal publishes the source shared during application, and empty
    annotations allocate neither output nor seal. Contextual Final_Sigma whole-
-   string allocation/growth, synchronous candidate cleanup and unbudgeted outer
+   string allocation/growth, the still-synchronous Ruby/collector composition
+   around the budget-capable node-forest cleanup primitive, and unbudgeted outer
    continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
@@ -196,7 +197,12 @@ with the remaining cancellation residuals,
 candidate/context allocation, clone and metadata residuals, container startup,
 downstream per-run ruby tag/paint work and the leaf marker/paint seal.
 Contextual Final_Sigma remains a paid whole-string atomic allocation/growth
-residual. Then make the currently atomic Liang point calculation bounded and
+residual. Sealed owned-or-borrowed `Vec<StyledNode>` iterators can now release
+one structural descend/release transition per explicit cleanup unit, with zero-unit empty
+completion and synchronous `Drop` draining the same cursor without aggregate
+scratch. Ruby/collector ownership still needs to be composed over that primitive
+before cancellation is actually scheduled. Then make the currently atomic Liang
+point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
 Optimal paragraphs. Individual font calls remain indivisible even though their
@@ -565,9 +571,9 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, synchronous candidate cleanup and outer continuation/
-   session disposal, remaining context
-   metadata, container
+   allocation/growth, synchronous Ruby/collector cleanup around the budgeted
+   node-forest primitive and outer continuation/session disposal, remaining
+   context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,
    decorated/floated

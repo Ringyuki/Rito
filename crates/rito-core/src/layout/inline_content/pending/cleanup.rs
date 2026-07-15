@@ -4,6 +4,10 @@ use crate::style::StyledNode;
 
 use super::{frame::CollectionFrame, ActiveCollection, PendingInlineCandidateCollector};
 
+mod node_iter;
+
+use node_iter::{PendingStyledNodeIterDrop, StyledNodeIterSource};
+
 /// Owns a forest while releasing it without recursive `StyledNode` drops.
 ///
 /// Each successful [`Self::advance_one`] call performs one structural
@@ -27,6 +31,7 @@ impl PendingStyledNodeDrop {
         Self::from_parts(Some(node), Vec::new())
     }
 
+    #[cfg(test)]
     pub(super) fn from_forest(mut nodes: Vec<StyledNode>) -> Self {
         let current = nodes.pop();
         Self::from_parts(current, nodes)
@@ -44,8 +49,7 @@ impl PendingStyledNodeDrop {
         }
     }
 
-    #[cfg(test)]
-    fn is_complete(&self) -> bool {
+    pub(super) fn is_complete(&self) -> bool {
         self.current.is_none()
     }
 
@@ -128,14 +132,16 @@ pub(super) fn drop_styled_node_iteratively(node: StyledNode) {
     PendingStyledNodeDrop::from_node(node).drain();
 }
 
-pub(super) fn drop_styled_nodes_iteratively(nodes: impl IntoIterator<Item = StyledNode>) {
-    for node in nodes {
-        drop_styled_node_iteratively(node);
-    }
+pub(super) fn drop_styled_nodes_iteratively<T>(nodes: T)
+where
+    T: IntoIterator<Item = StyledNode>,
+    T::IntoIter: StyledNodeIterSource,
+{
+    PendingStyledNodeIterDrop::new(nodes.into_iter()).drain();
 }
 
 pub(super) fn drop_styled_node_forest_iteratively(nodes: Vec<StyledNode>) {
-    PendingStyledNodeDrop::from_forest(nodes).drain();
+    drop_styled_nodes_iteratively(nodes);
 }
 
 impl Drop for PendingInlineCandidateCollector {
