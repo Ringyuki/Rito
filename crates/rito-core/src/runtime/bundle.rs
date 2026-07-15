@@ -25,7 +25,7 @@ impl RuntimeDocument {
         initial_frame_request: RuntimeInitialFrameRequest,
     ) -> EpubResult<RuntimeCreatedRevisionBundle> {
         let preview = request.is_preview();
-        let revision = self.create_revision_from_request(&request)?;
+        let revision = self.create_revision_from_request(request)?;
         let revision_id = revision.revision_id.clone();
         let bundle = self.revision_bundle(&revision_id, include_toc_targets)?;
         let initial_frame = if revision.spread_count == 0 {
@@ -57,7 +57,7 @@ impl RuntimeDocument {
         metadata: RuntimeViewRevisionMetadata,
         preserve_locator: Option<RuntimeSourceLocator>,
     ) -> EpubResult<RuntimeCreatedRevisionBundle> {
-        let revision = self.create_revision_from_request(&super::RuntimeRevisionRequest {
+        let revision = self.create_revision_from_request(super::RuntimeRevisionRequest {
             layout_config: request.layout_config,
             line_breaking: request.line_breaking,
             preview_chapter_limit: None,

@@ -236,7 +236,13 @@ only page geometry and the bounded three-field pagination policy instead of
 cloning the complete host-measurement `LayoutConfig`; empty paginator cleanup is
 13 units and empty chapter-session cleanup is 32. Large font-measurement maps no
 longer affect that session cost or get dropped directly when eager pagination or
-a normally completed chapter disposes the paginator.
+a normally completed chapter disposes the paginator. Successful owned full,
+initial-preview and active-chapter-preview requests now move the same config
+allocation into the retained revision; the chapter-window path mutates its
+owned `first_page_alone` flag in place. This removes the former measurement-map
+clone plus direct request-config drop. A deferred view preview retains the two
+configs it genuinely needs for the preview revision and full-reflow follow-up,
+without a third short-lived owner.
 `RuntimeRevisionInteractions` now has a budgeted cursor for these guarded
 persistent owners. With `F` footnotes and `C` completed idrefs, a
 `FullDocument` source costs `F + C + 5`; a materialized source costs
@@ -274,7 +280,9 @@ cancellation. Normal `finish_current_chapter`, orphaned
 `available_interactions`, `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Summary and frame payloads remain indivisible, and transient
-request/bundle/follow-up configuration owners also still drop directly.
+rejected/no-preview requests, deferred follow-ups, borrowed public revision
+inputs and adapter/serialization-side configuration owners can still clone or
+drop directly.
 Guarded persistent-owner cancellation is therefore structurally stack-safe,
 but this is not an end-to-end wall-clock hard bound. Next make the currently atomic Liang point
 calculation bounded and extend the same

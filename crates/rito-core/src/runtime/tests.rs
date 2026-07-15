@@ -38,10 +38,30 @@ use super::{
     DEFAULT_DEFERRED_FULL_REFLOW_DELAY_MS,
 };
 use crate::interaction::FootnoteKind;
-use crate::layout::{LineBreaking, SpreadMode};
+use crate::layout::{LayoutConfig, LineBreaking, SpreadMode};
 
 fn chapter_text_index_keys(indices: &RuntimeChapterTextIndices) -> Vec<&str> {
     indices.entries.keys().map(String::as_str).collect()
+}
+
+fn owned_layout_allocation_addresses(layout: &LayoutConfig) -> (usize, usize) {
+    let family = layout
+        .font_family_override
+        .as_ref()
+        .expect("test layout has a font override")
+        .as_ptr() as usize;
+    let advance = layout
+        .generic_serif_advances
+        .get("界")
+        .expect("test layout has a generic advance") as *const f64 as usize;
+    (family, advance)
+}
+
+fn allocation_tracking_layout() -> LayoutConfig {
+    let mut layout = layout();
+    layout.font_family_override = Some("Owned Revision Serif".repeat(64));
+    layout.generic_serif_advances.insert("界".to_owned(), 1.125);
+    layout
 }
 
 fn source_locator(href: &str) -> RuntimeSourceLocator {
@@ -910,6 +930,63 @@ fn chapter_window_layout_does_not_treat_window_start_as_publication_cover() {
     assert_eq!(window_layout.spread_mode, SpreadMode::Double);
     assert_eq!(window_layout.page_width, layout.page_width);
     assert_eq!(window_layout.spread_gap, layout.spread_gap);
+}
+
+#[test]
+fn owned_prefix_revision_request_reuses_layout_config_allocations() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let config = allocation_tracking_layout();
+    let expected_addresses = owned_layout_allocation_addresses(&config);
+
+    let creation = document
+        .create_full_revision_bundle(RuntimeFullRevisionBundleRequest {
+            layout_config: config,
+            line_breaking: LineBreaking::Greedy,
+            active_spread_index: 0,
+        })
+        .expect("owned full revision is created");
+    let retained = &document
+        .revisions
+        .get(&creation.bundle.revision.revision_id)
+        .expect("revision remains stored")
+        .layout_config;
+
+    assert_eq!(
+        owned_layout_allocation_addresses(retained),
+        expected_addresses
+    );
+}
+
+#[test]
+fn owned_window_revision_request_reuses_and_normalizes_layout_config() {
+    let mut document =
+        RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
+    let full = document
+        .create_revision(&layout())
+        .expect("full revision is created");
+    let config = allocation_tracking_layout();
+    let expected_addresses = owned_layout_allocation_addresses(&config);
+
+    let creation = document
+        .create_active_chapter_preview_revision_bundle(RuntimeActiveChapterPreviewRevisionRequest {
+            layout_config: config,
+            line_breaking: LineBreaking::Greedy,
+            previous_revision_id: full.revision_id,
+            active_spread_index: 1,
+        })
+        .expect("active preview request resolves")
+        .expect("owned window revision is created");
+    let retained = &document
+        .revisions
+        .get(&creation.bundle.revision.revision_id)
+        .expect("revision remains stored")
+        .layout_config;
+
+    assert!(!retained.first_page_alone);
+    assert_eq!(
+        owned_layout_allocation_addresses(retained),
+        expected_addresses
+    );
 }
 
 #[test]

@@ -7,7 +7,7 @@ use super::{
     chapter_text::runtime_chapter_text_index_entries,
     cleanup::PendingRuntimeRevisionCleanup,
     frame::{
-        chapter_window_layout_config, revision_summary, RuntimeChapterTextIndexSource,
+        into_chapter_window_layout_config, revision_summary, RuntimeChapterTextIndexSource,
         RuntimeRevision, RuntimeRevisionInteractions,
     },
     metadata::layout_key,
@@ -32,20 +32,26 @@ impl RuntimeDocument {
 
     pub(super) fn create_revision_from_request(
         &mut self,
-        request: &RuntimeRevisionRequest,
+        request: RuntimeRevisionRequest,
     ) -> EpubResult<RuntimeRevisionSummary> {
-        if let Some(chapter_index) = request.preview_chapter_index {
-            self.create_revision_window_with_line_breaking(
-                &request.layout_config,
-                request.line_breaking,
+        let RuntimeRevisionRequest {
+            layout_config,
+            line_breaking,
+            preview_chapter_limit,
+            preview_chapter_index,
+        } = request;
+        if let Some(chapter_index) = preview_chapter_index {
+            self.create_revision_window_with_owned_layout_config(
+                layout_config,
+                line_breaking,
                 chapter_index,
                 1,
             )
         } else {
-            self.create_revision_prefix_with_line_breaking(
-                &request.layout_config,
-                request.line_breaking,
-                request.preview_chapter_limit,
+            self.create_revision_prefix_with_owned_layout_config(
+                layout_config,
+                line_breaking,
+                preview_chapter_limit,
             )
         }
     }
@@ -53,6 +59,19 @@ impl RuntimeDocument {
     pub(super) fn create_revision_prefix_with_line_breaking(
         &mut self,
         layout_config: &LayoutConfig,
+        line_breaking: LineBreaking,
+        chapter_limit: Option<usize>,
+    ) -> EpubResult<RuntimeRevisionSummary> {
+        self.create_revision_prefix_with_owned_layout_config(
+            layout_config.clone(),
+            line_breaking,
+            chapter_limit,
+        )
+    }
+
+    fn create_revision_prefix_with_owned_layout_config(
+        &mut self,
+        layout_config: LayoutConfig,
         line_breaking: LineBreaking,
         chapter_limit: Option<usize>,
     ) -> EpubResult<RuntimeRevisionSummary> {
@@ -69,7 +88,7 @@ impl RuntimeDocument {
             self.document
                 .ensure_chapter_image_dimensions_loaded(0, self.document.chapters.len())?;
         }
-        self.ensure_layout_font_resources(layout_config)?;
+        self.ensure_layout_font_resources(&layout_config)?;
         let partial_data = if let Some(limit) = partial_chapter_limit {
             let (targets, footnotes) = {
                 let index = self.publication_footnote_index()?;
@@ -89,14 +108,14 @@ impl RuntimeDocument {
             .ok_or_else(|| EpubError::new("prepared document is unavailable"))?;
         let pinned_faces = self
             .pinned_font_policy
-            .measurement_faces_for_layout(layout_config);
+            .measurement_faces_for_layout(&layout_config);
         let font_fallbacks = self
             .pinned_font_policy
-            .family_fallbacks_for_layout(layout_config, &self.document.package.metadata.language);
+            .family_fallbacks_for_layout(&layout_config, &self.document.package.metadata.language);
         let built = crate::epub::build_prepared_loaded_document_runtime_layout(
             &self.document,
             prepared,
-            layout_config,
+            &layout_config,
             crate::epub::PreparedRuntimeLayoutOptions {
                 chapter_start: 0,
                 chapter_count: prepared.chapters.len(),
@@ -108,14 +127,14 @@ impl RuntimeDocument {
         );
         let required_font_face_catalog =
             self.required_font_face_catalog_from_faces(built.shapeable_publication_faces);
-        let layout_key = layout_key(layout_config, &self.pinned_font_policy)?;
+        let layout_key = layout_key(&layout_config, &self.pinned_font_policy)?;
         let interactions = match &partial_data {
             Some((_, footnotes)) => partial_revision_interactions(prepared, footnotes.clone()),
             None => runtime_revision_interactions(prepared, full_document),
         };
         let revision = RuntimeRevision::completed(
             built.layout,
-            layout_config.clone(),
+            layout_config,
             required_font_face_catalog,
             interactions,
         );
@@ -124,9 +143,25 @@ impl RuntimeDocument {
         Ok(summary)
     }
 
+    #[cfg(test)]
     pub(super) fn create_revision_window_with_line_breaking(
         &mut self,
         layout_config: &LayoutConfig,
+        line_breaking: LineBreaking,
+        chapter_start: usize,
+        chapter_count: usize,
+    ) -> EpubResult<RuntimeRevisionSummary> {
+        self.create_revision_window_with_owned_layout_config(
+            layout_config.clone(),
+            line_breaking,
+            chapter_start,
+            chapter_count,
+        )
+    }
+
+    fn create_revision_window_with_owned_layout_config(
+        &mut self,
+        layout_config: LayoutConfig,
         line_breaking: LineBreaking,
         chapter_start: usize,
         chapter_count: usize,
@@ -145,7 +180,7 @@ impl RuntimeDocument {
             .ensure_chapter_range_loaded(chapter_start, chapter_count)?;
         self.document
             .ensure_chapter_image_dimensions_loaded(chapter_start, chapter_count)?;
-        self.ensure_layout_font_resources(layout_config)?;
+        self.ensure_layout_font_resources(&layout_config)?;
         let revision_id = self.create_revision_id();
         let (targets, footnotes) = {
             let index = self.publication_footnote_index()?;
@@ -153,7 +188,7 @@ impl RuntimeDocument {
         };
         let prepared =
             self.prepare_cached_document_window(chapter_start, chapter_count, &targets)?;
-        let window_layout_config = chapter_window_layout_config(layout_config);
+        let window_layout_config = into_chapter_window_layout_config(layout_config);
         let pinned_faces = self
             .pinned_font_policy
             .measurement_faces_for_layout(&window_layout_config);

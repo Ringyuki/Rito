@@ -513,7 +513,15 @@ Those names now belong to the old TS reference tree only.
      cost is therefore `accumulator units + 3`, or 13 units when empty,
      independent of host font-measurement map size. This also removes the large
      direct config drop from eager pagination and normal completed-chapter
-     disposal. A chapter-session cursor now
+     disposal. Owned full, initial-preview and active-chapter-preview runtime
+     requests now transfer their `LayoutConfig` allocation directly into the
+     retained revision instead of borrowing it, cloning every measurement map,
+     then directly dropping the request copy. Chapter-window normalization also
+     clears `first_page_alone` in that owned config rather than cloning it.
+     Allocation-identity tests cover both the public full-bundle and active-window
+     bundle paths. A deferred view preview still needs exactly two persistent
+     configs—one in the preview revision and one in its full-reflow follow-up—but
+     no longer creates a third short-lived request owner. A chapter-session cursor now
      releases its paginator before its continuous-layout state, with explicit
      source and nested-retirement boundaries. Its exact cost is
      `pagination units + layout units + 5`, so an
@@ -568,8 +576,10 @@ Those names now belong to the old TS reference tree only.
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. `LayoutSummary`, each generated cached-frame payload and
-     those direct paths remain destructor residuals. Transient request, bundle
-     and follow-up `LayoutConfig` owners also still drop directly, so these
+     those direct paths remain destructor residuals. Rejected/no-preview request
+     configs, deferred follow-up configs, borrowed public revision inputs and
+     adapter/serialization-side `LayoutConfig` owners can still clone or drop
+     directly, so these
      cursors establish structural stack safety for their guarded persistent
      owners rather than an end-to-end wall-clock hard bound. Ordinary
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the

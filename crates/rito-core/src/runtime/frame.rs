@@ -185,8 +185,12 @@ pub(super) fn runtime_cached_frame(
     }
 }
 
+#[cfg(test)]
 pub(super) fn chapter_window_layout_config(layout_config: &LayoutConfig) -> LayoutConfig {
-    let mut config = layout_config.clone();
+    into_chapter_window_layout_config(layout_config.clone())
+}
+
+pub(super) fn into_chapter_window_layout_config(mut config: LayoutConfig) -> LayoutConfig {
     config.first_page_alone = false;
     config
 }
