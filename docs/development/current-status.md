@@ -474,15 +474,18 @@ Those names now belong to the old TS reference tree only.
      tests cover 16K-deep and 16K-wide trees with zero carrier-capacity growth.
      JSON paint and each individual run payload, including a final
      `Arc<LogicalTextFlow>` owner, remain indivisible destructor residuals. The
-     Block-vector, page, page-vector and open-page-accumulator cursors now
-     compose that primitive over sealed pages and open blocks, with explicit
-     source activation/retirement, nested cursor retirement, page paint and
-     owner transitions; partial cursor destruction drains the same state
-     machines. A block vector costs `sum(block units) + block count + 2`; an
-     accumulator costs `page-vector units + block-vector units + 6`. They are
-     not yet composed through `ContinuousPaginationSession`, chapter or revision
-     owners, and ordinary `RuntimeBlock` / `RuntimePage` destruction remains
-     recursive outside them. No runtime/session
+     Block-vector, page, page-vector, open-page-accumulator and
+     `ContinuousPaginationSession` cursors now compose that primitive over
+     sealed pages and open blocks, with explicit source activation/retirement,
+     nested cursor retirement, page paint, layout config and owner transitions;
+     partial cursor destruction drains the same state machines. A block vector
+     costs `sum(block units) + block count + 2`; an accumulator costs
+     `page-vector units + block-vector units + 6`; its pagination session costs
+     four more units. `LayoutConfig` maps remain one indivisible destructor
+     residual. These cursors are not yet composed through
+     `RuntimeChapterLayoutSession`, continuation or revision owners, and
+     ordinary `RuntimeBlock` / `RuntimePage` destruction remains recursive
+     outside them. No runtime/session
      cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
@@ -523,9 +526,9 @@ Those names now belong to the old TS reference tree only.
      budget. The collector's direct `Drop` entry point still drains
      synchronously, and the enclosing
      runtime and layout-session disposal does not schedule that cursor. Runtime
-     page trees, standalone block/page vectors and the open-page accumulator now
-     have iterative cleanup cursors, but the enclosing pagination session,
-     unpublished batches and built revisions do not compose them yet. The
+     page trees, standalone block/page vectors, the open-page accumulator and
+     pagination session now have iterative cleanup cursors, but unpublished
+     chapter batches and built revisions do not compose them yet. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -714,9 +717,9 @@ Work in roadmap order:
    cursor through queued `ContinuousLayoutSession` node forests, active leaf and
    container state, `RuntimeChapterLayoutSession` and
    `RuntimeContinuationRecord`. Compose the existing iterative `RuntimeBlock`,
-   page-vector and accumulator primitives through `ContinuousPaginationSession`,
-   unpublished pages and built revisions before treating those owners as
-   stack-safe, then retire them and
+   page-vector, accumulator and pagination-session primitives through
+   `RuntimeChapterLayoutSession`, unpublished pages and built revisions before
+   treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.
    Then cover candidate/context allocation, clones,

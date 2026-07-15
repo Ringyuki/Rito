@@ -8,6 +8,11 @@ use super::super::{
 };
 use super::place_pagination_block;
 
+mod cleanup;
+
+#[allow(unused_imports)] // Chapter-session retirement consumes this cursor next.
+pub(crate) use cleanup::PendingContinuousPaginationSessionCleanup;
+
 type PaginationBlock = RuntimeBlock<LineBox>;
 type PaginationState = RuntimePageAccumulator<PaginationBlock>;
 
