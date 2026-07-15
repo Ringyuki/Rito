@@ -521,10 +521,25 @@ Those names now belong to the old TS reference tree only.
      empty and one-empty-page active records cost 49 and 54 units respectively.
      Non-empty and extreme-scalar tests lock every flat-field boundary while a
      16K-deep active record remains stack-safe during immediate and panic-unwind
-     drops. `LayoutConfig` and chapter-start B-trees remain indivisible
-     destructor residuals. These cursors are not yet composed through revision
-     owners, and ordinary `RuntimeBlock` / `RuntimePage`
-     destruction remains recursive outside them. No runtime/session
+     drops. A built-layout cursor now composes the page-vector cursor before
+     releasing its summary and chapter-start set. Its exact cost is
+     `page-vector units + 4`, so empty and one-empty-page layouts cost 6 and 11
+     units, while a single 16K-deep block page remains stack-safe. A detached
+     frame-cache owner keeps its frame map and LRU order together; its cursor
+     costs `frame count + 3` units, and a separate one-unit cached-frame guard
+     lets future LRU eviction transfer an owner without manufacturing a
+     singleton map. A runtime-revision cursor releases that cache before its
+     built layout, config, optional font catalog, interactions and scalar shell.
+     Its exact cost is `frame-cache units + built-layout units + 7`; empty and
+     one-empty-page revisions cost 16 and 21 units, and a single `N`-deep block
+     page costs `2N + 22`. Immediate, nested-boundary, partial-cache and
+     panic-unwind tests cover the composed owner, including a full cache followed
+     by a 16K-deep layout. `LayoutSummary`, `LayoutConfig`, interaction maps,
+     font catalogs, chapter-start B-trees and each generated cached-frame
+     payload remain indivisible destructor residuals, so these cursors establish
+     structural stack safety rather than a wall-clock bound. Ordinary
+     `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
+     guarded owners. No runtime/session
      cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
@@ -566,9 +581,10 @@ Those names now belong to the old TS reference tree only.
      budget. The collector's direct `Drop` entry point still drains
      synchronously, and the enclosing
      runtime and layout-session disposal does not schedule that cursor. Runtime
-     page trees, standalone block/page vectors, the open-page accumulator and
-     pagination session now have iterative cleanup cursors, but unpublished
-     chapter batches and built revisions do not compose them yet. The
+     page trees, standalone block/page vectors, the open-page accumulator,
+     pagination session, unpublished chapter batches and built revisions now
+     compose iterative cleanup cursors, but production lifecycle paths do not
+     schedule them yet. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -753,12 +769,13 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by composing the continuous-session,
-   block, page-vector, accumulator and pagination-session cleanup primitives
-   through built revisions before
-   treating those owners as stack-safe, then retire them and
-   revision frame caches through an
-   internal round-robin cancellation queue without changing the wire contract.
+1. Continue the default-Greedy hard bound by scheduling the now-composed
+   continuation-record, built-revision and frame-cache cleanup guards through
+   an internal round-robin cancellation queue without changing the wire
+   contract. Preserve cache-detach atomicity and add backpressure so pending LRU
+   frame owners cannot make the physical cache backlog unbounded. Then split
+   the named summary/config/interaction/frame-payload destructor residuals
+   before claiming a wall-clock cleanup bound.
    Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual

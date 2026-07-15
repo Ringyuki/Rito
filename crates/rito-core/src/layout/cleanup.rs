@@ -1,5 +1,7 @@
+mod built;
 mod styled_node;
 
+pub(crate) use built::PendingBuiltLayoutCleanup;
 pub(crate) use styled_node::{
     PendingStyledNodeDrop, PendingStyledNodeIterDrop, StyledNodeIterSource,
 };

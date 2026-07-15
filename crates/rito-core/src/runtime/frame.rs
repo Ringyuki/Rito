@@ -57,6 +57,12 @@ pub(super) struct RuntimeCachedFrame {
     pub(super) command_buffer: RuntimeFrameCommandBuffer,
 }
 
+#[derive(Debug, Default)]
+pub(super) struct RuntimeFrameCacheOwner {
+    pub(super) frames: BTreeMap<usize, RuntimeCachedFrame>,
+    pub(super) order: VecDeque<usize>,
+}
+
 impl RuntimeRevision {
     pub(super) fn completed(
         layout: BuiltLayout,
@@ -105,6 +111,14 @@ impl RuntimeRevision {
     pub(super) fn clear_frame_cache(&mut self) {
         self.frame_cache.clear();
         self.frame_cache_order.clear();
+    }
+
+    #[allow(dead_code)] // The runtime cleanup queue consumes detached cache owners next.
+    pub(super) fn take_frame_cache(&mut self) -> RuntimeFrameCacheOwner {
+        RuntimeFrameCacheOwner {
+            frames: std::mem::take(&mut self.frame_cache),
+            order: std::mem::take(&mut self.frame_cache_order),
+        }
     }
 }
 

@@ -8,6 +8,7 @@ mod access;
 mod bundle;
 mod bundle_wire;
 mod chapter_text;
+mod cleanup;
 mod continuation;
 mod frame;
 mod metadata;
