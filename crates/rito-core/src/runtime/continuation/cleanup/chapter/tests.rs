@@ -10,11 +10,13 @@ use serde_json::{json, Map};
 use super::{ChapterContinuationCleanupStage, PendingRuntimeChapterContinuationCleanup};
 use crate::{
     layout::{
-        create_layout_config, image_size::ImageSizeIndex,
-        runtime_session::RuntimeChapterLayoutSession, LayoutConfig, LayoutConfigInput,
-        LayoutRuntimePage, LineBox, LineBreaking, LineRun, MarginInput, RunShape,
-        RunShapeUnavailableReason, RunTextMapping, RuntimeBlock, RuntimeChild, SpreadMode,
-        TextRunBox,
+        create_layout_config,
+        image_size::ImageSizeIndex,
+        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget},
+        runtime_session::RuntimeChapterLayoutSession,
+        LayoutConfig, LayoutConfigInput, LayoutRuntimePage, LineBox, LineBreaking, LineRun,
+        MarginInput, RunShape, RunShapeUnavailableReason, RunTextMapping, RuntimeBlock,
+        RuntimeChild, SpreadMode, TextMeasurementFonts, TextRunBox,
     },
     style::{StyledNode, StyledNodeKind},
 };
@@ -38,6 +40,24 @@ fn empty_current_has_exact_units_for_both_scalar_flag_values() {
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
     }
+}
+
+#[test]
+fn completed_current_has_41_exact_units_after_its_idrefs_are_transferred() {
+    let mut owner = current(vec![styled_node(Vec::new())], Vec::new(), true);
+    let advance = owner.session.advance(
+        LayoutWorkBudget::new(NonZeroUsize::new(8).expect("layout budget is non-zero")),
+        &TextMeasurementFonts::empty(),
+    );
+    assert_eq!(advance.status, LayoutAdvanceStatus::Complete);
+    owner.completed_chapter_idrefs =
+        BTreeSet::from(["chapter-1".to_owned(), "chapter-2".to_owned()]);
+    let mut transferred = BTreeSet::new();
+    transferred.append(&mut owner.completed_chapter_idrefs);
+    let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 41), 41);
+    assert_eq!(transferred.len(), 2);
 }
 
 #[test]

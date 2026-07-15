@@ -97,8 +97,10 @@ The remaining usability work is narrower but still release-blocking:
    `LayoutConfig` font-measurement maps and built-layout chapter-start indexes
    are released entry by entry. Scheduled revision retirement and active continuation
    cancellation also release revision interactions under a cursor, and the
-   scheduled revision releases its required-font catalog face by face. The slim
-   completed chapter session/shell, orphaned interactions, the document-wide
+   scheduled revision releases its required-font catalog face by face. Normally
+   completed chapters now transfer their whole drained continuation owner to the
+   same queue: 41 cursor units and 42 including queue retirement, with one fixed
+   64-unit service per completion. Orphaned interactions, the document-wide
    chapter-text-index cache and temporary wire clones still drop directly;
    transient
    request/bundle configuration owners do too. JSON paint and a final shared
@@ -300,11 +302,13 @@ retires one face per unit; `R` faces add exactly `R` units. Its exact total is
 built-layout, layout-config, required-font and interaction cleanup. An empty
 `FullDocument` revision costs 30 units. The minimal queue fixture uses an empty
 materialized source, so that revision plus its queue-job retirement costs 32.
-The production runtime schedules continuation, revision, cache, LRU-frame and
-complete transient-config owners through a private two-lane cleanup queue.
+The production runtime schedules continuation, completed-chapter, revision,
+cache, LRU-frame and complete transient-config owners through a private two-lane
+cleanup queue.
 Each cleanup-queue-admitting producer batch advances 64 structural units; the closed admission bound is
-at most 12 frame owners per lifecycle mutation, one ordinary config owner, or
-two separately admitted configs on preview-clone construction failure. Tests
+at most 12 frame owners per lifecycle mutation, one ordinary config owner, one
+42-unit owner per completed chapter with an immediate service, or two separately
+admitted configs on preview-clone construction failure. Tests
 over repeated batches keep the physical frame backlog at zero without starving
 regular work. Final document
 drop drains queued and still-active owners through the same iterative cursors.
@@ -312,9 +316,8 @@ drop drains queued and still-active owners through the same iterative cursors.
 open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
 line cleanup. This new interaction/font coverage applies only to scheduled
-`RuntimeRevision` retirement and active `RuntimeChapterContinuation`
-cancellation. The slim completed chapter session/shell in
-`finish_current_chapter`, orphaned `available_interactions`,
+`RuntimeRevision` retirement, active `RuntimeChapterContinuation` cancellation
+and normal completed-chapter retirement. Orphaned `available_interactions`,
 `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Native revision-cache warming now retains only the packed

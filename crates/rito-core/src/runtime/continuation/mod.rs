@@ -19,12 +19,16 @@ mod publish;
 mod state;
 mod work;
 
-pub(in crate::runtime) use cleanup::PendingRuntimeContinuationRecordCleanup;
+pub(in crate::runtime) use cleanup::{
+    PendingRuntimeChapterContinuationCleanup, PendingRuntimeContinuationRecordCleanup,
+};
 use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
 };
 use publish::initial_revision_interactions;
-pub(in crate::runtime) use state::{RuntimeContinuationRecord, RuntimeContinuationStore};
+pub(in crate::runtime) use state::{
+    RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationStore,
+};
 
 struct BoundedRevisionPreflight {
     budget: NonZeroUsize,

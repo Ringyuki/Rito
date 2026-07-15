@@ -9,7 +9,10 @@ use crate::layout::{CleanupProgress, LayoutConfig, PendingLayoutConfigCleanup};
 
 use super::{
     super::{
-        continuation::{PendingRuntimeContinuationRecordCleanup, RuntimeContinuationRecord},
+        continuation::{
+            PendingRuntimeChapterContinuationCleanup, PendingRuntimeContinuationRecordCleanup,
+            RuntimeChapterContinuation, RuntimeContinuationRecord,
+        },
         frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
     },
     PendingRuntimeCachedFrameCleanup, PendingRuntimeFrameCacheCleanup,
@@ -28,6 +31,7 @@ struct RuntimeCleanupJob {
 #[derive(Debug)]
 enum RuntimeCleanupCursor {
     Continuation(Box<PendingRuntimeContinuationRecordCleanup>),
+    CompletedChapter(Box<PendingRuntimeChapterContinuationCleanup>),
     Revision(Box<PendingRuntimeRevisionCleanup>),
     FrameCache(Box<PendingRuntimeFrameCacheCleanup>),
     CachedFrame(Box<PendingRuntimeCachedFrameCleanup>),
@@ -50,6 +54,7 @@ impl RuntimeCleanupJob {
     fn cursor_is_complete(&self) -> bool {
         match self.cursor.as_ref().expect("active cleanup cursor exists") {
             RuntimeCleanupCursor::Continuation(cleanup) => cleanup.is_complete(),
+            RuntimeCleanupCursor::CompletedChapter(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.is_complete(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.is_complete(),
@@ -69,6 +74,7 @@ impl RuntimeCleanupJob {
         }
         match self.cursor.as_mut().expect("active cleanup cursor exists") {
             RuntimeCleanupCursor::Continuation(cleanup) => cleanup.advance_one(),
+            RuntimeCleanupCursor::CompletedChapter(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.advance_one(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.advance_one(),
@@ -84,6 +90,7 @@ impl RuntimeCleanupJob {
         };
         match cursor {
             RuntimeCleanupCursor::Continuation(_) => 0,
+            RuntimeCleanupCursor::CompletedChapter(_) => 0,
             RuntimeCleanupCursor::Revision(cleanup) => cleanup.pending_frame_owner_count(),
             RuntimeCleanupCursor::FrameCache(cleanup) => cleanup.pending_frame_owner_count(),
             RuntimeCleanupCursor::CachedFrame(cleanup) => cleanup.pending_frame_owner_count(),
@@ -131,6 +138,17 @@ impl RuntimeCleanupQueue {
         self.enqueue(RuntimeCleanupJob::new(RuntimeCleanupCursor::Continuation(
             Box::new(PendingRuntimeContinuationRecordCleanup::new(owner)),
         )));
+    }
+
+    pub(in crate::runtime) fn enqueue_completed_chapter(
+        &mut self,
+        owner: RuntimeChapterContinuation,
+    ) {
+        self.enqueue(RuntimeCleanupJob::new(
+            RuntimeCleanupCursor::CompletedChapter(Box::new(
+                PendingRuntimeChapterContinuationCleanup::new(owner),
+            )),
+        ));
     }
 
     pub(in crate::runtime) fn enqueue_revision(&mut self, owner: RuntimeRevision) {

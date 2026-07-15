@@ -39,7 +39,9 @@ impl RuntimeDocument {
             work.batches
                 .push(capture_page_batch(record, advance, chapter_complete));
             if chapter_complete {
-                finish_current_chapter(record, &mut work);
+                let completed = finish_current_chapter(record, &mut work);
+                self.cleanup_queue.enqueue_completed_chapter(completed);
+                self.service_cleanup_queue();
             } else {
                 break;
             }
@@ -127,9 +129,9 @@ impl RuntimeDocument {
         let mut interactions = runtime_chapter_revision_interactions(&prepared);
         let completed_chapter_idrefs = std::mem::take(&mut interactions.completed_chapter_idrefs);
         Ok((
-            RuntimeChapterContinuation {
+            RuntimeChapterContinuation::new(
                 idref,
-                session: RuntimeChapterLayoutSession::new(
+                RuntimeChapterLayoutSession::new(
                     styled_nodes,
                     live_image_sizes(&self.document),
                     &record.layout_config,
@@ -137,9 +139,9 @@ impl RuntimeDocument {
                     page_paint,
                 ),
                 completed_chapter_idrefs,
-                unpublished_pages: Vec::new(),
-                has_published_pages: false,
-            },
+                Vec::new(),
+                false,
+            ),
             interactions,
         ))
     }
@@ -192,12 +194,13 @@ fn record_published_pages(record: &mut RuntimeContinuationRecord, page_count: us
 fn finish_current_chapter(
     record: &mut RuntimeContinuationRecord,
     work: &mut RuntimeContinuationWork,
-) {
-    let current = record.current.take().expect("completed chapter exists");
+) -> RuntimeChapterContinuation {
+    let mut current = record.current.take().expect("completed chapter exists");
     debug_assert!(current.unpublished_pages.is_empty());
     work.completed_chapter_idrefs
-        .extend(current.completed_chapter_idrefs);
+        .append(&mut current.completed_chapter_idrefs);
     record.next_chapter_index += 1;
+    current
 }
 
 fn live_image_sizes(document: &crate::epub::LoadedEpubDocument) -> ImageSizeIndex {
@@ -238,3 +241,7 @@ pub(super) fn cleanup_orphaned_work(work: RuntimeContinuationWork) {
     drop(completed_chapter_idrefs);
     let _ = (processed_top_level_nodes, complete);
 }
+
+#[cfg(test)]
+#[path = "work/tests.rs"]
+mod tests;

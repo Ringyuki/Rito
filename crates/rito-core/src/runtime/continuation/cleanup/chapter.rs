@@ -20,7 +20,7 @@ struct ChapterContinuationShell {
 /// and one retirement boundary per nested owner, then idref and the scalar
 /// owner shell.
 #[derive(Debug)]
-pub(in crate::runtime::continuation) struct PendingRuntimeChapterContinuationCleanup {
+pub(in crate::runtime) struct PendingRuntimeChapterContinuationCleanup {
     owner: Option<RuntimeChapterContinuation>,
     unpublished: Option<PendingRuntimePageVectorCleanup>,
     session: Option<PendingRuntimeChapterLayoutSessionCleanup>,
@@ -43,7 +43,7 @@ enum ChapterContinuationCleanupStage {
 }
 
 impl PendingRuntimeChapterContinuationCleanup {
-    pub(in crate::runtime::continuation) fn new(owner: RuntimeChapterContinuation) -> Self {
+    pub(in crate::runtime) fn new(owner: RuntimeChapterContinuation) -> Self {
         Self {
             owner: Some(owner),
             unpublished: None,
@@ -55,11 +55,11 @@ impl PendingRuntimeChapterContinuationCleanup {
         }
     }
 
-    pub(in crate::runtime::continuation) fn is_complete(&self) -> bool {
+    pub(in crate::runtime) fn is_complete(&self) -> bool {
         self.stage == ChapterContinuationCleanupStage::Complete
     }
 
-    pub(in crate::runtime::continuation) fn advance_one(&mut self) -> bool {
+    pub(in crate::runtime) fn advance_one(&mut self) -> bool {
         match self.stage {
             ChapterContinuationCleanupStage::UnpublishedSource => self.start_unpublished(),
             ChapterContinuationCleanupStage::Unpublished => self.advance_unpublished(),
@@ -74,10 +74,7 @@ impl PendingRuntimeChapterContinuationCleanup {
         }
     }
 
-    pub(in crate::runtime::continuation) fn advance(
-        &mut self,
-        budget: NonZeroUsize,
-    ) -> CleanupProgress {
+    pub(in crate::runtime) fn advance(&mut self, budget: NonZeroUsize) -> CleanupProgress {
         let mut consumed_units = 0;
         while consumed_units < budget.get() && self.advance_one() {
             consumed_units += 1;
@@ -90,7 +87,7 @@ impl PendingRuntimeChapterContinuationCleanup {
         progress
     }
 
-    pub(in crate::runtime::continuation) fn drain(&mut self) {
+    pub(in crate::runtime) fn drain(&mut self) {
         loop {
             let progress = self.advance(NonZeroUsize::MAX);
             debug_assert!(progress.complete || progress.consumed_units == usize::MAX);

@@ -604,10 +604,15 @@ Those names now belong to the old TS reference tree only.
      single `N`-deep block page costs `2N + 36`. Immediate, nested-boundary and
      partial-cache tests cover the composed owner, including a full cache
      followed by a 16K-deep layout, wide interactions and font catalogs.
-     This coverage is deliberately limited to scheduled `RuntimeRevision`
-     retirement and active `RuntimeChapterContinuation` cancellation. The slim
-     completed chapter session/shell in `finish_current_chapter`, orphaned
-     `available_interactions`,
+     This coverage now also includes normal completed-chapter retirement.
+     `finish_current_chapter` transfers completed idrefs into publication work,
+     then admits the remaining whole `RuntimeChapterContinuation` to the runtime
+     queue instead of synchronously destroying its finished layout session,
+     idref and scalar shell. That completed owner costs exactly 41 cursor units
+     and 42 units including queue retirement, so every completion's immediate
+     64-unit service has positive aggregate headroom; a repeated-arrival test
+     keeps the job count bounded even behind permanent regular backlog. The
+     remaining orphaned `available_interactions`,
      `RuntimeDocument.full_chapter_text_indices`, and temporary
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. Each generated cached-frame payload, detailed
@@ -650,25 +655,29 @@ Those names now belong to the old TS reference tree only.
      owners rather than an end-to-end wall-clock hard bound. Ordinary
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
      guarded owners. Production runtime retirement now uses a private two-lane
-     queue: continuation records, revisions, detached frame caches, individual
-     LRU frames and complete transient configs are removed from their logical
-     owners first, then advanced in unit quanta. Low frame backlog alternates
+     queue: continuation records, normally completed chapters, revisions,
+     detached frame caches, individual LRU frames and complete transient configs
+     are removed from their logical owners first, then advanced in unit quanta.
+     Low frame backlog alternates
      with regular work. At the 24-owner high-water mark it receives bursts of at
      most eight frame-lane units,
      so regular retirement cannot starve. Every cleanup-queue-admitting producer
      batch ends with a fixed 64-unit service call. The closed production admission bound is at most one
      cache (holding up to 12 frames), revision or config owner per lifecycle
-     mutation, two individual frame owners per cache miss, or two separately
-     admitted config owners when preview-clone construction fails. Focused tests
+     mutation, one 42-unit completed-chapter owner per chapter completion with
+     its own immediate service, two individual frame owners per cache miss, or
+     two separately admitted config owners when preview-clone construction
+     fails. Focused tests
      over repeated batches show that this
      service quantum returns pending frame ownership to zero even with permanent
      regular backlog. High-water priority alone is not claimed as generic hard
      backpressure; future bulk producers must preserve that admission/service
      invariant. Each queued job also has a separate retirement unit, making the
-     minimum queue costs 12 for an inactive continuation, 31 for an empty
-     `FullDocument` revision, 4 for an empty frame cache, 2 for one cached frame
-     and 7 for an empty transient config. An empty materialized-index revision
-     plus the other empty real jobs, as used by the mixed fixture, costs 57 units
+     minimum queue costs 12 for an inactive continuation, 42 for a completed
+     chapter, 31 for an empty `FullDocument` revision, 4 for an empty frame
+     cache, 2 for one cached frame and 7 for an empty transient config. An empty
+     materialized-index revision plus the other empty real jobs, as used by the
+     mixed fixture, costs 99 units
      including every queue retirement.
      Release, cancel, successful/failed continuation publication, initial
      continuation failure, cache invalidation and LRU eviction all transfer

@@ -2,7 +2,7 @@ mod access_tests;
 mod cleanup_queue_tests;
 mod command_hash;
 mod continuation_tests;
-mod fixture;
+pub(in crate::runtime) mod fixture;
 mod pinned_font_policy_fixtures;
 mod pinned_font_policy_tests;
 mod pinned_font_policy_validation_tests;

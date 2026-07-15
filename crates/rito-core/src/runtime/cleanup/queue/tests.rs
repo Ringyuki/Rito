@@ -11,12 +11,16 @@ use super::{
 };
 use crate::{
     layout::{
-        create_empty_runtime_layout, create_layout_config, LayoutConfig, LayoutConfigInput,
-        LineBreaking, MarginInput, PaginationFlowChapterRange, SpreadMode,
+        create_empty_runtime_layout, create_layout_config,
+        image_size::ImageSizeIndex,
+        pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget},
+        runtime_session::RuntimeChapterLayoutSession,
+        LayoutConfig, LayoutConfigInput, LineBreaking, MarginInput, PaginationFlowChapterRange,
+        SpreadMode, TextMeasurementFonts,
     },
     runtime::{
         cleanup::test_support::cached_frame,
-        continuation::RuntimeContinuationRecord,
+        continuation::{RuntimeChapterContinuation, RuntimeContinuationRecord},
         frame::{
             RuntimeChapterTextIndexSource, RuntimeFrameCacheOwner, RuntimeRevision,
             RuntimeRevisionInteractions, FRAME_CACHE_CAPACITY,
@@ -24,7 +28,7 @@ use crate::{
     },
 };
 
-const REAL_JOB_FIXTURE_UNITS: usize = 12 + 32 + 4 + 2 + 7;
+const REAL_JOB_FIXTURE_UNITS: usize = 12 + 42 + 32 + 4 + 2 + 7;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -129,6 +133,21 @@ fn cached_frame_owner_and_queue_retirement_are_distinct() {
 }
 
 #[test]
+fn completed_chapter_owner_and_queue_retirement_are_distinct() {
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_completed_chapter(empty_completed_chapter());
+
+    let owner = queue.advance(NonZeroUsize::new(41).expect("cleanup budget is non-zero"));
+    assert_eq!(owner.consumed_units, 41);
+    assert!(!owner.complete);
+    assert_eq!(queue.job_count(), 1);
+
+    let retirement = queue.advance(NonZeroUsize::MIN);
+    assert_eq!(retirement.consumed_units, 1);
+    assert!(retirement.complete);
+}
+
+#[test]
 fn high_water_threshold_changes_the_second_service_choice() {
     let low_log = Rc::new(RefCell::new(Vec::new()));
     let mut low = RuntimeCleanupQueue::default();
@@ -181,6 +200,23 @@ fn repeated_legal_frame_batches_do_not_accumulate_owners() {
         }
         queue.advance(budget);
         assert_eq!(queue.pending_frame_owner_count(), 0);
+    }
+}
+
+#[test]
+fn repeated_completed_chapters_do_not_accumulate_behind_regular_backlog() {
+    let log = Rc::new(RefCell::new(Vec::new()));
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_probe(probe(999, 10_000, 0, &log));
+    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
+
+    for _ in 0..128 {
+        queue.enqueue_completed_chapter(empty_completed_chapter());
+        queue.advance(budget);
+        assert!(
+            queue.job_count() <= 3,
+            "one 42-unit arrival per 64-unit service must remain bounded"
+        );
     }
 }
 
@@ -300,10 +336,34 @@ fn unwind_drains_partially_advanced_real_jobs() {
 
 fn enqueue_real_job_fixtures(queue: &mut RuntimeCleanupQueue) {
     queue.enqueue_continuation(empty_continuation());
+    queue.enqueue_completed_chapter(empty_completed_chapter());
     queue.enqueue_revision(empty_revision());
     queue.enqueue_frame_cache(RuntimeFrameCacheOwner::default());
     queue.enqueue_cached_frame(cached_frame(0, 0));
     queue.enqueue_layout_config(test_layout());
+}
+
+fn empty_completed_chapter() -> RuntimeChapterContinuation {
+    let layout = test_layout();
+    let mut session = RuntimeChapterLayoutSession::new(
+        Vec::new(),
+        ImageSizeIndex::new(&[]),
+        &layout,
+        LineBreaking::Greedy,
+        None,
+    );
+    let advance = session.advance(
+        LayoutWorkBudget::new(NonZeroUsize::MIN),
+        &TextMeasurementFonts::empty(),
+    );
+    assert_eq!(advance.status, LayoutAdvanceStatus::Complete);
+    RuntimeChapterContinuation::new(
+        "chapter".to_owned(),
+        session,
+        BTreeSet::new(),
+        Vec::new(),
+        true,
+    )
 }
 
 fn empty_continuation() -> RuntimeContinuationRecord {

@@ -187,12 +187,30 @@ impl RuntimeContinuationRecord {
 }
 
 #[derive(Debug)]
-pub(super) struct RuntimeChapterContinuation {
+pub(in crate::runtime) struct RuntimeChapterContinuation {
     pub(super) idref: String,
     pub(super) session: RuntimeChapterLayoutSession,
     pub(super) completed_chapter_idrefs: BTreeSet<String>,
     pub(super) unpublished_pages: Vec<LayoutRuntimePage>,
     pub(super) has_published_pages: bool,
+}
+
+impl RuntimeChapterContinuation {
+    pub(in crate::runtime) fn new(
+        idref: String,
+        session: RuntimeChapterLayoutSession,
+        completed_chapter_idrefs: BTreeSet<String>,
+        unpublished_pages: Vec<LayoutRuntimePage>,
+        has_published_pages: bool,
+    ) -> Self {
+        Self {
+            idref,
+            session,
+            completed_chapter_idrefs,
+            unpublished_pages,
+            has_published_pages,
+        }
+    }
 }
 
 #[derive(Default)]
