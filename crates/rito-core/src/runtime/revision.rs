@@ -69,20 +69,6 @@ impl RuntimeDocument {
         )
     }
 
-    fn run_with_owned_layout_config<T>(
-        &mut self,
-        layout_config: LayoutConfig,
-        work: impl FnOnce(&mut Self, &LayoutConfig) -> EpubResult<T>,
-    ) -> EpubResult<(LayoutConfig, T)> {
-        match work(self, &layout_config) {
-            Ok(value) => Ok((layout_config, value)),
-            Err(error) => {
-                self.retire_layout_config(layout_config);
-                Err(error)
-            }
-        }
-    }
-
     fn create_revision_prefix_with_owned_layout_config(
         &mut self,
         layout_config: LayoutConfig,

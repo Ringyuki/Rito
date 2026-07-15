@@ -81,6 +81,19 @@ fn assert_pending_cleanup_jobs(document: &mut RuntimeDocument, expected: usize) 
     assert!(document.cleanup_queue.is_empty());
 }
 
+fn assert_pending_cleanup_units(
+    document: &mut RuntimeDocument,
+    expected_jobs: usize,
+    expected_units: usize,
+) {
+    assert_eq!(document.cleanup_queue.job_count(), expected_jobs);
+    let remaining = document
+        .cleanup_queue
+        .advance(NonZeroUsize::new(usize::MAX).expect("cleanup budget is non-zero"));
+    assert_eq!(remaining.consumed_units, expected_units);
+    assert!(remaining.complete);
+}
+
 fn source_locator(href: &str) -> RuntimeSourceLocator {
     RuntimeSourceLocator {
         href: href.to_owned(),
@@ -1142,12 +1155,7 @@ fn failed_view_preview_clone_schedules_both_config_owners() {
         error.message()
     );
     assert_eq!(document.revision_count(), 0);
-    assert_eq!(document.cleanup_queue.job_count(), 2);
-    let remaining = document
-        .cleanup_queue
-        .advance(NonZeroUsize::new(usize::MAX).expect("cleanup budget is non-zero"));
-    assert_eq!(remaining.consumed_units, 2 * 263 - 2 * 64);
-    assert!(remaining.complete);
+    assert_pending_cleanup_units(&mut document, 2, 2 * 263 - 2 * 64);
 }
 
 #[test]

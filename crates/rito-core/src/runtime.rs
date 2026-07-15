@@ -198,6 +198,20 @@ impl RuntimeDocument {
         self.service_cleanup_queue();
     }
 
+    pub(super) fn run_with_owned_layout_config<T, E>(
+        &mut self,
+        layout_config: LayoutConfig,
+        work: impl FnOnce(&mut Self, &LayoutConfig) -> Result<T, E>,
+    ) -> Result<(LayoutConfig, T), E> {
+        match work(self, &layout_config) {
+            Ok(value) => Ok((layout_config, value)),
+            Err(error) => {
+                self.retire_layout_config(layout_config);
+                Err(error)
+            }
+        }
+    }
+
     pub fn revision_count(&self) -> usize {
         self.revisions.len()
     }

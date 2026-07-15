@@ -247,7 +247,11 @@ that clone, so a no-match fallback moves the original config straight into its
 full revision. Complete configs that fail before a revision can take ownership
 now enter the runtime cleanup queue. Owned prefix/window construction errors,
 standalone active-preview no-match/errors, view-preview preflight errors and
-invalid preserve locators are covered. A standalone config queue job costs
+invalid preserve locators are covered, as are bounded-request invalid budgets
+and layout-key/footnote/font preflight failures. Bounded initialization retains
+one owned config through those fallible steps and creates its sole persistent
+revision clone and footnote payload only after they all succeed. A standalone
+config queue job costs
 `F + N + 2O + 7` units, so the empty case costs 7 and a 256-entry regression
 fixture costs 263, resuming after its first 64-unit service. Invalid preview
 locators batch the original request config with the rejected preview revision.
@@ -278,7 +282,7 @@ built-layout, layout-config, required-font and interaction cleanup. An empty
 materialized source, so that revision plus its queue-job retirement costs 29.
 The production runtime schedules continuation, revision, cache, LRU-frame and
 complete transient-config owners through a private two-lane cleanup queue.
-Each producer batch advances 64 structural units; the closed admission bound is
+Each cleanup-queue-admitting producer batch advances 64 structural units; the closed admission bound is
 at most 12 frame owners per lifecycle mutation, one ordinary config owner, or
 two separately admitted configs on preview-clone construction failure. Tests
 over repeated batches keep the physical frame backlog at zero without starving
@@ -293,10 +297,9 @@ cancellation. Normal `finish_current_chapter`, orphaned
 `available_interactions`, `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Summary and frame payloads remain indivisible, while partially
-deserialized configs, bounded-request initialization rejected before a
-revision/cleanup owner takes over (including invalid budgets), and deferred
-follow-up/config serialization or adapter/transport-side configuration owners
-can still clone or drop directly. The bounded production path still materializes
+deserialized configs and deferred follow-up/config serialization or
+adapter/transport-side configuration owners can still clone or drop directly.
+The bounded production path still materializes
 a complete layout-config JSON buffer for `layout_key`; serialized follow-up
 configs are still dropped synchronously by legacy view endpoints outside that
 path.

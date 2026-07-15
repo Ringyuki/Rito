@@ -1,5 +1,10 @@
 use super::{bounded_request, budget, continue_request};
-use crate::runtime::tests::fixture::{layout, multi_chapter_fixture_epub};
+use crate::layout::TextMeasurementMode;
+use crate::runtime::tests::{
+    assert_pending_cleanup_units,
+    fixture::{fixture_epub, layout, multi_chapter_fixture_epub},
+    large_cleanup_layout,
+};
 use crate::runtime::{
     RuntimeCancelRevisionRequest, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
     RuntimeDocument, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionStatus,
@@ -120,7 +125,7 @@ fn invalid_budget_and_swapped_cursor_do_not_consume_valid_progress() {
     let bytes = multi_chapter_fixture_epub();
     let mut document = RuntimeDocument::open(&bytes).expect("document opens");
     let invalid_create = document
-        .create_bounded_revision(bounded_request(layout(), 0))
+        .create_bounded_revision(bounded_request(large_cleanup_layout(), 0))
         .expect_err("zero create budget fails");
     assert_eq!(
         invalid_create.kind,
@@ -134,6 +139,7 @@ fn invalid_budget_and_swapped_cursor_do_not_consume_valid_progress() {
         "pre-revision failures omit recovery metadata"
     );
     assert_eq!(document.revision_count(), 0);
+    assert_pending_cleanup_units(&mut document, 1, 263 - 64);
 
     let first = document
         .create_bounded_revision(bounded_request(layout(), 1))
@@ -185,6 +191,25 @@ fn invalid_budget_and_swapped_cursor_do_not_consume_valid_progress() {
     document
         .continue_revision(continue_request(&second_cursor, 1))
         .expect("second cursor remains valid");
+}
+
+#[test]
+fn failed_bounded_font_preflight_schedules_its_config_cleanup() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    document.document.fonts[0].href = "Fonts/missing.otf".to_owned();
+    let mut layout_config = large_cleanup_layout();
+    layout_config.text_measurement = TextMeasurementMode::FontAware;
+
+    let error = document
+        .create_bounded_revision(bounded_request(layout_config, 1))
+        .expect_err("missing font fails bounded preflight");
+
+    assert_eq!(error.kind, RuntimeContinuationErrorKind::EngineFailure);
+    assert!(error.message.contains("Fonts/missing.otf"));
+    assert!(error.revision.is_none());
+    assert_eq!(document.revision_count(), 0);
+    assert!(document.continuations.is_empty());
+    assert_pending_cleanup_units(&mut document, 1, 263 - 64);
 }
 
 #[test]

@@ -1,4 +1,7 @@
+use std::{collections::BTreeMap, num::NonZeroUsize};
+
 use crate::{
+    interaction::FootnoteEntry,
     layout::create_empty_runtime_layout,
     runtime::frame::{revision_summary, RuntimeRevision},
 };
@@ -6,8 +9,8 @@ use crate::{
 use super::{
     metadata::layout_key, RuntimeBoundedRevisionRequest, RuntimeCancelRevisionRequest,
     RuntimeContinuationError, RuntimeContinuationErrorKind, RuntimeContinueRevisionRequest,
-    RuntimeDocument, RuntimeRevisionAdvance, RuntimeRevisionExtent, RuntimeRevisionStatus,
-    RuntimeRevisionSummary,
+    RuntimeDocument, RuntimeRequiredFontFace, RuntimeRevisionAdvance, RuntimeRevisionExtent,
+    RuntimeRevisionStatus, RuntimeRevisionSummary, RuntimeRevisionWorkBudget,
 };
 
 mod cleanup;
@@ -23,6 +26,14 @@ use error::{
 use publish::initial_revision_interactions;
 pub(in crate::runtime) use state::{RuntimeContinuationRecord, RuntimeContinuationStore};
 
+struct BoundedRevisionPreflight {
+    budget: NonZeroUsize,
+    revision_id: String,
+    layout_key: String,
+    footnotes: BTreeMap<String, FootnoteEntry>,
+    required_font_face_catalog: Option<Vec<RuntimeRequiredFontFace>>,
+}
+
 impl RuntimeDocument {
     /// Starts the experimental core-only bounded revision path.
     ///
@@ -33,32 +44,34 @@ impl RuntimeDocument {
         &mut self,
         request: RuntimeBoundedRevisionRequest,
     ) -> Result<RuntimeRevisionAdvance, RuntimeContinuationError> {
-        let budget = checked_budget(request.budget)?;
-        let (continuation, layout_key) = self.initialize_bounded_revision(request)?;
+        let (continuation, layout_key, budget) = self.initialize_bounded_revision(request)?;
         self.advance_initial_revision(continuation, budget, &layout_key)
     }
 
     fn initialize_bounded_revision(
         &mut self,
         request: RuntimeBoundedRevisionRequest,
-    ) -> Result<(RuntimeContinuationRecord, String), RuntimeContinuationError> {
-        let revision_id = self.create_revision_id();
-        let layout_key =
-            layout_key(&request.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
-        let footnotes = self
-            .publication_footnote_index()
-            .map_err(engine_error)?
-            .footnotes
-            .clone();
-        self.ensure_layout_font_resources(&request.layout_config)
-            .map_err(engine_error)?;
-        let required_font_face_catalog =
-            self.required_font_face_catalog_for_layout(&request.layout_config);
-        let layout =
-            create_empty_runtime_layout(self.document.chapters.len(), &request.layout_config);
+    ) -> Result<(RuntimeContinuationRecord, String, NonZeroUsize), RuntimeContinuationError> {
+        let RuntimeBoundedRevisionRequest {
+            layout_config,
+            line_breaking,
+            budget,
+        } = request;
+        let (layout_config, preflight) = self
+            .run_with_owned_layout_config(layout_config, |document, layout_config| {
+                document.preflight_bounded_revision(layout_config, budget)
+            })?;
+        let layout = create_empty_runtime_layout(self.document.chapters.len(), &layout_config);
+        let BoundedRevisionPreflight {
+            budget,
+            revision_id,
+            layout_key,
+            footnotes,
+            required_font_face_catalog,
+        } = preflight;
         let revision = RuntimeRevision::warming(
             layout,
-            request.layout_config.clone(),
+            layout_config.clone(),
             required_font_face_catalog,
             initial_revision_interactions(footnotes),
         );
@@ -66,11 +79,39 @@ impl RuntimeDocument {
         let continuation = RuntimeContinuationRecord::new(
             revision_id,
             layout_key.clone(),
-            request.layout_config,
-            request.line_breaking,
+            layout_config,
+            line_breaking,
             self.document.chapters.len(),
         );
-        Ok((continuation, layout_key))
+        Ok((continuation, layout_key, budget))
+    }
+
+    fn preflight_bounded_revision(
+        &mut self,
+        layout_config: &crate::layout::LayoutConfig,
+        budget: RuntimeRevisionWorkBudget,
+    ) -> Result<BoundedRevisionPreflight, RuntimeContinuationError> {
+        let budget = checked_budget(budget)?;
+        let revision_id = self.create_revision_id();
+        let layout_key =
+            layout_key(layout_config, &self.pinned_font_policy).map_err(engine_error)?;
+        self.publication_footnote_index().map_err(engine_error)?;
+        self.ensure_layout_font_resources(layout_config)
+            .map_err(engine_error)?;
+        let required_font_face_catalog = self.required_font_face_catalog_for_layout(layout_config);
+        let footnotes = self
+            .publication_footnotes
+            .get()
+            .expect("publication footnote index was initialized")
+            .footnotes
+            .clone();
+        Ok(BoundedRevisionPreflight {
+            budget,
+            revision_id,
+            layout_key,
+            footnotes,
+            required_font_face_catalog,
+        })
     }
 
     fn advance_initial_revision(

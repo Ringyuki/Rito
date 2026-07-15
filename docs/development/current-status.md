@@ -527,7 +527,11 @@ Those names now belong to the old TS reference tree only.
      Complete configs rejected before revision ownership are now transferred to
      the runtime cleanup queue instead of being destroyed inline. This covers
      owned prefix/window construction errors, standalone active-preview
-     no-match/errors, view-preview preflight errors and invalid preserve locators.
+     no-match/errors, view-preview preflight errors, invalid preserve locators,
+     and bounded-request invalid budgets or layout-key/footnote/font preflight
+     failures. Bounded initialization keeps one owned config through every
+     fallible preflight and creates its sole persistent revision clone plus the
+     revision footnote payload only after they all succeed.
      A standalone config cursor costs `F + N + 2O + 6` units and its queue job
      costs `F + N + 2O + 7`; an empty job costs 7 units, while the 256-entry
      regression fixture costs 263 and demonstrably resumes after its first
@@ -591,10 +595,9 @@ Those names now belong to the old TS reference tree only.
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. `LayoutSummary`, each generated cached-frame payload and
      those direct paths remain destructor residuals. Partially deserialized
-     configs that never form a complete owner, bounded-request initialization
-     rejected before a revision/cleanup owner takes over (including invalid
-     budgets), and deferred follow-up/config serialization or adapter/transport-
-     side `LayoutConfig` owners can still clone or drop directly. The bounded
+     configs that never form a complete owner and deferred follow-up/config
+     serialization or adapter/transport-side `LayoutConfig` owners can still
+     clone or drop directly. The bounded
      production path also still materializes a complete layout-config JSON
      buffer for `layout_key`; legacy JSON/`RITORB1` view endpoints synchronously
      drop serialized follow-up configs but are not used by that production path.
@@ -608,8 +611,8 @@ Those names now belong to the old TS reference tree only.
      owners first, then advanced in unit quanta. Low frame backlog alternates
      with regular work. At the 24-owner high-water mark it receives bursts of at
      most eight frame-lane units,
-     so regular retirement cannot starve. Every producer batch ends with a fixed
-     64-unit service call. The closed production admission bound is at most one
+     so regular retirement cannot starve. Every cleanup-queue-admitting producer
+     batch ends with a fixed 64-unit service call. The closed production admission bound is at most one
      cache (holding up to 12 frames), revision or config owner per lifecycle
      mutation, two individual frame owners per cache miss, or two separately
      admitted config owners when preview-clone construction fails. Focused tests
