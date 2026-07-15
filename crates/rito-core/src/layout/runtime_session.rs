@@ -1,5 +1,11 @@
 use serde_json::Value;
 
+#[allow(dead_code)] // Runtime chapter-continuation retirement consumes this next.
+mod cleanup;
+
+#[allow(unused_imports)] // Runtime chapter-continuation retirement consumes this next.
+pub(crate) use cleanup::PendingRuntimeChapterLayoutSessionCleanup;
+
 use super::{
     image_size::ImageSizeIndex,
     pagination_flow::cursor::ContinuousPaginationSession,

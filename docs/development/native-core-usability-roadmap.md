@@ -222,8 +222,12 @@ sessions. Empty sessions cost 14 cleanup units and each empty no-tail container
 layer adds 19; 16K chains, immediate drops, child-handoff boundaries and panic
 unwinding all use that same allocation-free driver without recursive session
 destruction. Mapping-finalizer, context-builder and greedy-line owners remain
-declared atomic destructor residuals. The cursor still needs composition through
-chapter/runtime owners and internal cancellation scheduling. `RuntimeBlock`
+declared atomic destructor residuals. A chapter-session cursor now composes the
+paginator and continuous-layout cursors in that order, costs their combined
+units plus five explicit boundaries, and drains 16K queued-node owners through
+the same path during partial or panic-unwind drops. It still needs composition
+through unpublished pages, outer runtime owners and internal cancellation
+scheduling. `RuntimeBlock`
 trees, standalone block/page vectors, direct child vectors, the open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
 line cleanup. Unpublished chapter pages and built revisions still need to

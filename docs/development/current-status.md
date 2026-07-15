@@ -503,10 +503,14 @@ Those names now belong to the old TS reference tree only.
      costs `sum(block units) + block count + 2`; an accumulator costs
      `page-vector units + block-vector units + 6`; its pagination session costs
      four more units. `LayoutConfig` maps remain one indivisible destructor
-     residual. These cursors are not yet composed through
-     `RuntimeChapterLayoutSession`, continuation or revision owners, and
-     ordinary `RuntimeBlock` / `RuntimePage` destruction remains recursive
-     outside them. No runtime/session
+     residual. A chapter-session cursor now releases its paginator before its
+     continuous-layout state, with explicit source and nested-retirement
+     boundaries. Its exact cost is `pagination units + layout units + 5`, so an
+     empty finished or unfinished chapter costs 33 units. Immediate, partial,
+     boundary and panic-unwind drops drain the same cursor, including a 16K-deep
+     queued node forest. These cursors are not yet composed through unpublished
+     pages, continuation or revision owners, and ordinary `RuntimeBlock` /
+     `RuntimePage` destruction remains recursive outside them. No runtime/session
      cancellation path schedules these cursors yet, so
      cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
@@ -736,8 +740,7 @@ Work in roadmap order:
 
 1. Complete the default-Greedy hard bound by composing the continuous-session,
    block, page-vector, accumulator and pagination-session cleanup primitives
-   through `RuntimeChapterLayoutSession`, unpublished pages,
-   `RuntimeContinuationRecord` and built revisions before
+   through unpublished pages, `RuntimeContinuationRecord` and built revisions before
    treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.
