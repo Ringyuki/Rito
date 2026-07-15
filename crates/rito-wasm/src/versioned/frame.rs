@@ -1,5 +1,3 @@
-use rito_core::runtime::{RuntimeFrameCommandBufferMetadata, RuntimeVersioned};
-
 use super::revision_handle;
 use crate::{wire::serialize_json, WasmRuntimeDocument, WasmRuntimeError};
 
@@ -26,17 +24,13 @@ impl WasmRuntimeDocument {
         revision_version: u32,
         spread_index: usize,
     ) -> Result<String, WasmRuntimeError> {
-        let buffer = self
+        let metadata = self
             .document
-            .get_frame_command_buffer_at(
+            .get_frame_command_buffer_metadata_at(
                 &revision_handle(revision_id, revision_version),
                 spread_index,
             )
             .map_err(WasmRuntimeError::from_revision_access)?;
-        let metadata = RuntimeVersioned::<RuntimeFrameCommandBufferMetadata>::new(
-            buffer.revision,
-            buffer.value.metadata,
-        );
         serialize_json(&metadata)
     }
 
@@ -47,11 +41,11 @@ impl WasmRuntimeDocument {
         spread_index: usize,
     ) -> Result<Vec<u8>, WasmRuntimeError> {
         self.document
-            .get_frame_command_buffer_at(
+            .read_frame_command_buffer_at(
                 &revision_handle(revision_id, revision_version),
                 spread_index,
             )
-            .map(|buffer| buffer.value.bytes)
+            .map(|bytes| bytes.value)
             .map_err(WasmRuntimeError::from_revision_access)
     }
 }

@@ -317,7 +317,10 @@ cancellation. The slim completed chapter session/shell in
 `finish_current_chapter`, orphaned `available_interactions`,
 `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
-owners directly. Detailed summary shells and frame payloads remain indivisible, while partially
+owners directly. Cache warming now avoids an owned frame clone; resource
+prefetch copies only image hrefs; and WASM metadata/bytes reads use narrow core
+projections instead of cloning both command-buffer halves. Detailed summary
+shells and cached frame payloads remain indivisible, while partially
 deserialized configs and deferred follow-up/config serialization or
 adapter/transport-side configuration owners can still clone or drop directly.
 Empty-policy `layout_key` hashing now streams compact layout-config JSON directly

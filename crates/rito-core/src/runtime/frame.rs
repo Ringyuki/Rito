@@ -51,7 +51,7 @@ pub(super) enum RuntimeChapterTextIndexSource {
     Materialized(BTreeMap<String, RuntimeChapterTextIndex>),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(super) struct RuntimeCachedFrame {
     pub(super) frame: RuntimeFrame,
     pub(super) command_buffer: RuntimeFrameCommandBuffer,
@@ -150,22 +150,27 @@ pub(super) fn runtime_cached_frame(
     layout_config: &LayoutConfig,
     frame: DisplayListFrameCommands,
 ) -> RuntimeCachedFrame {
-    let command_values = display_command_values(&frame.commands);
-    let command_counts = count_display_commands(&frame.commands);
-    let resource_refs = summarize_display_list_resource_refs(&frame.commands);
-    let font_families = summarize_display_list_font_families(&frame.commands);
+    let DisplayListFrameCommands {
+        spread_index,
+        page_indexes,
+        commands,
+    } = frame;
+    let command_values = display_command_values(&commands);
+    let command_counts = count_display_commands(&commands);
+    let resource_refs = summarize_display_list_resource_refs(&commands);
+    let font_families = summarize_display_list_font_families(&commands);
     let image_dominated = frame_image_dominated(&command_counts, &resource_refs);
-    let packed = pack_display_commands(&frame.commands);
+    let packed = pack_display_commands(&commands);
     let runtime_frame = RuntimeFrame {
         revision_id: revision_id.to_owned(),
-        spread_index: frame.spread_index,
-        page_indexes: frame.page_indexes.clone(),
+        spread_index,
+        page_indexes,
         width: number_value(layout_config.viewport_width),
         height: number_value(layout_config.viewport_height),
         commands: command_values,
-        command_count: frame.commands.len(),
+        command_count: commands.len(),
         command_counts,
-        command_hash: hash_display_commands(&frame.commands),
+        command_hash: hash_display_commands(&commands),
         resource_refs,
         font_families: font_families.clone(),
         image_dominated,
@@ -174,7 +179,7 @@ pub(super) fn runtime_cached_frame(
         frame: runtime_frame,
         command_buffer: runtime_frame_command_buffer(RuntimeFrameCommandBufferInput {
             revision_id,
-            spread_index: frame.spread_index,
+            spread_index,
             width: number_value(layout_config.viewport_width),
             height: number_value(layout_config.viewport_height),
             metadata: packed.metadata,
@@ -209,10 +214,49 @@ impl RuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) -> EpubResult<RuntimeFrameCommandBuffer> {
-        self.ensure_frame_cached(revision_id, spread_index)?;
         Ok(self
-            .cached_frame(revision_id, spread_index)?
+            .ensure_frame_cached(revision_id, spread_index)?
             .command_buffer
+            .clone())
+    }
+
+    /// Returns an owned metadata snapshot without copying the packed bytes.
+    pub fn get_frame_command_buffer_metadata(
+        &mut self,
+        revision_id: &str,
+        spread_index: usize,
+    ) -> EpubResult<RuntimeFrameCommandBufferMetadata> {
+        Ok(self
+            .ensure_frame_cached(revision_id, spread_index)?
+            .command_buffer
+            .metadata
+            .clone())
+    }
+
+    /// Copies the packed command bytes without copying their metadata tables.
+    pub fn read_frame_command_buffer(
+        &mut self,
+        revision_id: &str,
+        spread_index: usize,
+    ) -> EpubResult<Vec<u8>> {
+        Ok(self
+            .ensure_frame_cached(revision_id, spread_index)?
+            .command_buffer
+            .bytes
+            .clone())
+    }
+
+    /// Returns the frame's unique image-resource hrefs without copying its commands.
+    pub fn get_frame_image_resource_hrefs(
+        &mut self,
+        revision_id: &str,
+        spread_index: usize,
+    ) -> EpubResult<Vec<String>> {
+        Ok(self
+            .ensure_frame_cached(revision_id, spread_index)?
+            .frame
+            .resource_refs
+            .images
             .clone())
     }
 
@@ -225,7 +269,7 @@ impl RuntimeDocument {
         let mut warmed_spread_indexes = Vec::new();
         let mut missing_spread_indexes = Vec::new();
         for spread_index in unique_spread_indexes(request.spread_indexes) {
-            match self.get_frame_inner(revision_id, spread_index) {
+            match self.ensure_frame_cached(revision_id, spread_index) {
                 Ok(_) => warmed_spread_indexes.push(spread_index),
                 Err(_) => missing_spread_indexes.push(spread_index),
             }
@@ -282,11 +326,17 @@ impl RuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) -> EpubResult<RuntimeFrame> {
-        self.ensure_frame_cached(revision_id, spread_index)?;
-        Ok(self.cached_frame(revision_id, spread_index)?.frame.clone())
+        Ok(self
+            .ensure_frame_cached(revision_id, spread_index)?
+            .frame
+            .clone())
     }
 
-    fn ensure_frame_cached(&mut self, revision_id: &str, spread_index: usize) -> EpubResult<()> {
+    fn ensure_frame_cached(
+        &mut self,
+        revision_id: &str,
+        spread_index: usize,
+    ) -> EpubResult<&RuntimeCachedFrame> {
         let result = self
             .revisions
             .get_mut(revision_id)
@@ -301,7 +351,7 @@ impl RuntimeDocument {
                     self.cleanup_queue.enqueue_cached_frame(evicted);
                 }
                 self.service_cleanup_queue();
-                Ok(())
+                self.cached_frame(revision_id, spread_index)
             }
             Err(error) => {
                 self.service_cleanup_queue();

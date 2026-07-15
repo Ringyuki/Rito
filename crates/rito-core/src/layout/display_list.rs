@@ -23,7 +23,7 @@ pub(crate) enum DisplayListTextMode {
     RuntimeCommand,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub(crate) struct DisplayListFrameCommands {
     pub(crate) spread_index: usize,
     pub(crate) page_indexes: Vec<usize>,

@@ -18,11 +18,11 @@ impl WasmRuntimeDocument {
         revision_id: &str,
         spread_index: usize,
     ) -> Result<String, WasmRuntimeError> {
-        let buffer = self
+        let metadata = self
             .document
-            .get_frame_command_buffer(revision_id, spread_index)
+            .get_frame_command_buffer_metadata(revision_id, spread_index)
             .map_err(WasmRuntimeError::from_engine)?;
-        serialize_json(&buffer.metadata)
+        serialize_json(&metadata)
     }
 
     pub fn read_frame_command_buffer(
@@ -31,8 +31,7 @@ impl WasmRuntimeDocument {
         spread_index: usize,
     ) -> Result<Vec<u8>, WasmRuntimeError> {
         self.document
-            .get_frame_command_buffer(revision_id, spread_index)
-            .map(|buffer| buffer.bytes)
+            .read_frame_command_buffer(revision_id, spread_index)
             .map_err(WasmRuntimeError::from_engine)
     }
 }

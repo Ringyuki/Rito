@@ -260,10 +260,22 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
     let buffer = document
         .get_frame_command_buffer(&revision.revision_id, 0)
         .expect("command buffer is available");
+    let metadata = document
+        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
+        .expect("command buffer metadata is available");
+    let bytes = document
+        .read_frame_command_buffer(&revision.revision_id, 0)
+        .expect("command buffer bytes are available");
+    let image_refs = document
+        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
+        .expect("frame image refs are available");
     let missing = document
         .get_frame_command_buffer(&revision.revision_id, 99)
         .expect_err("missing spread fails");
 
+    assert_eq!(metadata, buffer.metadata);
+    assert_eq!(bytes, buffer.bytes);
+    assert_eq!(image_refs, frame.resource_refs.images);
     assert_eq!(buffer.metadata.revision_id, revision.revision_id);
     assert_eq!(buffer.metadata.spread_index, 0);
     assert_eq!(buffer.metadata.command_count, frame.command_count);
@@ -1143,6 +1155,40 @@ fn created_revision_transaction_rolls_back_every_finalization_failure() {
 }
 
 #[test]
+fn narrow_frame_projections_preserve_revision_and_spread_errors() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+
+    assert_frame_error(
+        document.get_frame_command_buffer_metadata("rev-missing", 0),
+        "unknown revision: rev-missing",
+    );
+    assert_frame_error(
+        document.read_frame_command_buffer("rev-missing", 0),
+        "unknown revision: rev-missing",
+    );
+    assert_frame_error(
+        document.get_frame_image_resource_hrefs("rev-missing", 0),
+        "unknown revision: rev-missing",
+    );
+
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    assert_frame_error(
+        document.get_frame_command_buffer_metadata(&revision.revision_id, 99),
+        "unknown spread index: 99",
+    );
+    assert_frame_error(
+        document.read_frame_command_buffer(&revision.revision_id, 99),
+        "unknown spread index: 99",
+    );
+    assert_frame_error(
+        document.get_frame_image_resource_hrefs(&revision.revision_id, 99),
+        "unknown spread index: 99",
+    );
+}
+
+#[test]
 fn rejected_preview_requests_schedule_their_config_cleanup() {
     let mut direct = RuntimeDocument::open(&multi_chapter_fixture_epub()).expect("document opens");
     let full = direct
@@ -1890,6 +1936,14 @@ fn resolved_page_and_locator(
 #[test]
 fn prefetches_frames_into_revision_cache() {
     let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let unknown = document
+        .prefetch_frames(
+            "rev-missing",
+            RuntimePrefetchRequest {
+                spread_indexes: Vec::new(),
+            },
+        )
+        .expect_err("an empty prefetch still validates its revision");
     let revision = document
         .create_revision(&layout())
         .expect("revision is created");
@@ -1906,12 +1960,20 @@ fn prefetches_frames_into_revision_cache() {
         .get_frame(&revision.revision_id, 0)
         .expect("warmed frame remains available");
 
+    assert_eq!(unknown.message(), "unknown revision: rev-missing");
     assert_eq!(response.revision_id, revision.revision_id);
     assert_eq!(response.warmed_spread_indexes, vec![0]);
     assert_eq!(response.missing_spread_indexes, vec![99]);
     assert_eq!(response.cached_frame_count, 1);
     assert_eq!(frame.spread_index, 0);
     assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
+}
+
+fn assert_frame_error<T>(result: crate::epub::EpubResult<T>, expected: &str) {
+    let Err(error) = result else {
+        panic!("frame projection should fail");
+    };
+    assert_eq!(error.message(), expected);
 }
 
 #[test]

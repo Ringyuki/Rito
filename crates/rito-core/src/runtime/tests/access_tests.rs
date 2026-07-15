@@ -147,6 +147,28 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
         .get_frame_command_buffer_at(&handle, 0)
         .expect("command buffer");
     document
+        .get_frame_command_buffer_metadata_at(&handle, 0)
+        .expect("command buffer metadata");
+    document
+        .read_frame_command_buffer_at(&handle, 0)
+        .expect("command buffer bytes");
+    document
+        .get_frame_image_resource_hrefs_at(&handle, 0)
+        .expect("frame image refs");
+    for error in [
+        document
+            .get_frame_command_buffer_metadata_at(&handle, revision.spread_count)
+            .expect_err("missing metadata spread fails"),
+        document
+            .read_frame_command_buffer_at(&handle, revision.spread_count)
+            .expect_err("missing byte spread fails"),
+        document
+            .get_frame_image_resource_hrefs_at(&handle, revision.spread_count)
+            .expect_err("missing image-resource spread fails"),
+    ] {
+        assert_eq!(error.kind, RuntimeRevisionAccessErrorKind::OperationFailed);
+    }
+    document
         .prefetch_frames_at(
             &handle,
             RuntimePrefetchRequest {
@@ -410,6 +432,9 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     assert_stale!(document.get_frame_at(&stale, 0));
     assert_stale!(document.get_frame_summary_at(&stale, 0));
     assert_stale!(document.get_frame_command_buffer_at(&stale, 0));
+    assert_stale!(document.get_frame_command_buffer_metadata_at(&stale, 0));
+    assert_stale!(document.read_frame_command_buffer_at(&stale, 0));
+    assert_stale!(document.get_frame_image_resource_hrefs_at(&stale, 0));
     assert_stale!(document.prefetch_frames_at(
         &stale,
         RuntimePrefetchRequest {

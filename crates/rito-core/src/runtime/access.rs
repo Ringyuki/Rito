@@ -3,9 +3,10 @@ use std::{error::Error, fmt};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameResourceWarmPlan,
-    RuntimeInitialFrameDecision, RuntimeInitialFrameRequest, RuntimePrefetchRequest,
-    RuntimePrefetchResponse, RuntimeResource, RuntimeResourceKind, RuntimeRevisionSummary,
+    RuntimeDocument, RuntimeFrame, RuntimeFrameCommandBuffer, RuntimeFrameCommandBufferMetadata,
+    RuntimeFrameResourceWarmPlan, RuntimeInitialFrameDecision, RuntimeInitialFrameRequest,
+    RuntimePrefetchRequest, RuntimePrefetchResponse, RuntimeResource, RuntimeResourceKind,
+    RuntimeRevisionSummary,
 };
 
 mod geometry;
@@ -144,6 +145,40 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeFrameCommandBuffer>, RuntimeRevisionAccessError> {
         self.versioned_write(handle, |document, revision_id| {
             document.get_frame_command_buffer(revision_id, spread_index)
+        })
+    }
+
+    /// Returns a version-gated owned metadata snapshot without the packed bytes.
+    pub fn get_frame_command_buffer_metadata_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        spread_index: usize,
+    ) -> Result<RuntimeVersioned<RuntimeFrameCommandBufferMetadata>, RuntimeRevisionAccessError>
+    {
+        self.versioned_write(handle, |document, revision_id| {
+            document.get_frame_command_buffer_metadata(revision_id, spread_index)
+        })
+    }
+
+    /// Returns a version-gated copy of the packed bytes without metadata tables.
+    pub fn read_frame_command_buffer_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        spread_index: usize,
+    ) -> Result<RuntimeVersioned<Vec<u8>>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, revision_id| {
+            document.read_frame_command_buffer(revision_id, spread_index)
+        })
+    }
+
+    /// Returns version-gated unique image-resource hrefs without frame commands.
+    pub fn get_frame_image_resource_hrefs_at(
+        &mut self,
+        handle: &RuntimeRevisionHandle,
+        spread_index: usize,
+    ) -> Result<RuntimeVersioned<Vec<String>>, RuntimeRevisionAccessError> {
+        self.versioned_write(handle, |document, revision_id| {
+            document.get_frame_image_resource_hrefs(revision_id, spread_index)
         })
     }
 

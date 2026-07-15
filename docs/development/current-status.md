@@ -605,7 +605,14 @@ Those names now belong to the old TS reference tree only.
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. Each generated cached-frame payload, detailed
      full-publication summary shell and those direct paths remain destructor
-     residuals. Partially deserialized
+     residuals. Frame-cache prefetch now warms entries without cloning an owned
+     JSON frame snapshot. WASM resource prefetch copies only the unique image
+     resource hrefs, while packed metadata and bytes use separate narrow core
+     projections instead of cloning both halves twice. The private cached-frame
+     owner and display-list construction carrier no longer implement `Clone`,
+     and page indexes move into the cached frame. These changes remove transient
+     full-payload copies without changing the frame or command-buffer wire.
+     Partially deserialized
      configs that never form a complete owner and deferred follow-up/config
      serialization or adapter/transport-side `LayoutConfig` owners can still
      clone or drop directly. Empty-policy `layout_key` hashing now streams the

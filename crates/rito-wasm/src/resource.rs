@@ -138,10 +138,8 @@ impl WasmRuntimeDocument {
     ) -> Result<WasmFrameResourcePrefetchResponse, WasmRuntimeError> {
         let images = self
             .document
-            .get_frame(revision_id, spread_index)
-            .map_err(WasmRuntimeError::from_engine)?
-            .resource_refs
-            .images;
+            .get_frame_image_resource_hrefs(revision_id, spread_index)
+            .map_err(WasmRuntimeError::from_engine)?;
         let (payloads, missing_resources) = self.store_resource_transfers(
             revision_id,
             images
