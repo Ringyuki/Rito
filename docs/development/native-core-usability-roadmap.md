@@ -317,11 +317,14 @@ cancellation. The slim completed chapter session/shell in
 `finish_current_chapter`, orphaned `available_interactions`,
 `RuntimeDocument.full_chapter_text_indices`, and
 temporary bundle/presentation/serialization clones still destroy aggregate
-owners directly. Cache warming now avoids an owned frame clone; resource
-prefetch copies only image hrefs; and WASM metadata/bytes reads use narrow core
-projections instead of cloning both command-buffer halves. Detailed summary
-shells and cached frame payloads remain indivisible, while partially
-deserialized configs and deferred follow-up/config serialization or
+owners directly. Native revision-cache warming now retains only the packed
+frame owner; compatibility JSON frames materialize from the immutable revision
+layout on first demand and remain in the same LRU entry. Resource prefetch reads
+image hrefs from packed metadata, and WASM metadata/bytes reads use narrow core
+projections instead of cloning both command-buffer halves. Packed-only and
+JSON-materialized entries keep the same native one-owner cleanup accounting.
+Detailed summary shells and cached frame payloads remain indivisible, while
+partially deserialized configs and deferred follow-up/config serialization or
 adapter/transport-side configuration owners can still clone or drop directly.
 Empty-policy `layout_key` hashing now streams compact layout-config JSON directly
 into SHA-256. The pinned-policy branch retains one complete JSON buffer because

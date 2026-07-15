@@ -261,6 +261,13 @@ Those names now belong to the old TS reference tree only.
   These are strong regression results, but they do not replace the named-machine
   latency and usability gate below.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
+- Native revision-cache entries serving normal reader frame windows now retain
+  only `RITOFCB2` metadata/bytes. The browser still keeps its decoded Canvas
+  frame window. The legacy full `RuntimeFrame` JSON tree is materialized from
+  the immutable revision layout only when a compatibility frame API requests
+  it, then cached in the same native LRU entry. This does not make packing
+  JSON-free: payload-table encoding and the current command hash still
+  construct transient JSON values.
 - `RITORB1` has a private, opt-in view-revision slice. Its Rust encoder and
   Rust/JavaScript decoders share a checked 574-byte cross-language golden
   vector; unsafe integers, malformed counts, and special object keys such as
@@ -605,13 +612,18 @@ Those names now belong to the old TS reference tree only.
      bundle/presentation/serialization clones still destroy their aggregate
      owners directly. Each generated cached-frame payload, detailed
      full-publication summary shell and those direct paths remain destructor
-     residuals. Frame-cache prefetch now warms entries without cloning an owned
-     JSON frame snapshot. WASM resource prefetch copies only the unique image
-     resource hrefs, while packed metadata and bytes use separate narrow core
-     projections instead of cloning both halves twice. The private cached-frame
-     owner and display-list construction carrier no longer implement `Clone`,
-     and page indexes move into the cached frame. These changes remove transient
-     full-payload copies without changing the frame or command-buffer wire.
+     residuals. Native frame-cache prefetch now warms a packed-only owner
+     without allocating or cloning the legacy JSON command tree. Compatibility
+     frame reads materialize that tree from the immutable revision layout on
+     demand; a projection mismatch fails before cache mutation or LRU refresh.
+     WASM resource prefetch reads unique image hrefs from packed metadata, while
+     packed metadata and bytes use separate narrow core projections instead of
+     cloning both halves twice. The private cached-frame owner and display-list
+     construction carrier no longer implement `Clone`, and page indexes move
+     only into a materialized compatibility frame. Packed-only and materialized
+     entries remain one native cache owner and preserve every cleanup formula.
+     These changes remove persistent and transient full-payload copies without
+     changing the frame or command-buffer wire.
      Partially deserialized
      configs that never form a complete owner and deferred follow-up/config
      serialization or adapter/transport-side `LayoutConfig` owners can still

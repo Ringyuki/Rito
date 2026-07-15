@@ -195,10 +195,17 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
 
         let stable_frame = if advance.revision.spread_count > 0 {
             let spread_index = advance.revision.spread_count - 1;
-            let hash = bounded
-                .get_frame(&advance.revision.revision_id, spread_index)
-                .expect("known frame exists")
-                .command_hash;
+            let hash = if advance.revision.revision_version.is_multiple_of(2) {
+                bounded
+                    .get_frame_command_buffer_metadata(&advance.revision.revision_id, spread_index)
+                    .expect("known packed frame exists")
+                    .command_hash
+            } else {
+                bounded
+                    .get_frame(&advance.revision.revision_id, spread_index)
+                    .expect("known JSON frame exists")
+                    .command_hash
+            };
             Some((spread_index, hash))
         } else {
             None
@@ -218,8 +225,8 @@ fn bounded_multichapter_completion_exactly_matches_eager_layout_and_frames() {
         if let Some((spread_index, hash)) = stable_frame {
             assert_eq!(
                 bounded
-                    .get_frame(&advance.revision.revision_id, spread_index)
-                    .expect("previously published frame remains available")
+                    .get_frame_command_buffer_metadata(&advance.revision.revision_id, spread_index)
+                    .expect("previously published packed frame remains available")
                     .command_hash,
                 hash,
                 "a published spread must never change across advances"

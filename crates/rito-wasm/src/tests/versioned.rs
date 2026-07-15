@@ -18,14 +18,6 @@ fn versioned_raw_reads_return_stamped_envelopes() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);
 
-    let frame = parse(
-        document
-            .get_frame_at_revision_json(&revision_id, 0, 0)
-            .expect("frame is returned"),
-    );
-    assert_revision(&frame, &revision_id, 0);
-    assert_eq!(frame["value"]["spreadIndex"], 0);
-
     let metadata = parse(
         document
             .get_frame_command_buffer_metadata_at_revision_json(&revision_id, 0, 0)
@@ -37,6 +29,13 @@ fn versioned_raw_reads_return_stamped_envelopes() {
         .read_frame_command_buffer_at_revision(&revision_id, 0, 0)
         .expect("command bytes are returned")
         .is_empty());
+    let frame = parse(
+        document
+            .get_frame_at_revision_json(&revision_id, 0, 0)
+            .expect("frame is returned after packed warmup"),
+    );
+    assert_revision(&frame, &revision_id, 0);
+    assert_eq!(frame["value"]["spreadIndex"], 0);
 
     let search = parse(
         document

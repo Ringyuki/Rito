@@ -158,11 +158,11 @@ fn creates_revisions_and_caches_frames() {
         .create_revision(&layout())
         .expect("revision is created");
     let frame = document
-        .get_frame(&revision.revision_id, 0)
-        .expect("frame is available");
+        .get_frame_summary(&revision.revision_id, 0)
+        .expect("frame summary is available");
     let cached_again = document
         .get_frame(&revision.revision_id, 0)
-        .expect("frame is cached");
+        .expect("the complete frame is cached");
 
     assert_eq!(revision.revision_id, "rev-1");
     assert!(revision.page_count >= 1);
@@ -254,9 +254,6 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
         .create_revision(&layout())
         .expect("revision is created");
 
-    let frame = document
-        .get_frame(&revision.revision_id, 0)
-        .expect("frame is available");
     let buffer = document
         .get_frame_command_buffer(&revision.revision_id, 0)
         .expect("command buffer is available");
@@ -269,10 +266,31 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
     let image_refs = document
         .get_frame_image_resource_hrefs(&revision.revision_id, 0)
         .expect("frame image refs are available");
+    assert!(document.revisions[&revision.revision_id].frame_cache[&0]
+        .frame
+        .is_none());
+    let frame = document
+        .get_frame(&revision.revision_id, 0)
+        .expect("frame is available");
+    assert!(document.revisions[&revision.revision_id].frame_cache[&0]
+        .frame
+        .is_some());
+    let repeated_frame = document
+        .get_frame(&revision.revision_id, 0)
+        .expect("materialized frame remains available");
+    let buffer_after_materialization = document
+        .get_frame_command_buffer(&revision.revision_id, 0)
+        .expect("packed frame remains available");
+    let image_refs_after_materialization = document
+        .get_frame_image_resource_hrefs(&revision.revision_id, 0)
+        .expect("packed image refs remain available");
     let missing = document
         .get_frame_command_buffer(&revision.revision_id, 99)
         .expect_err("missing spread fails");
 
+    assert_eq!(repeated_frame, frame);
+    assert_eq!(buffer_after_materialization, buffer);
+    assert_eq!(image_refs_after_materialization, image_refs);
     assert_eq!(metadata, buffer.metadata);
     assert_eq!(bytes, buffer.bytes);
     assert_eq!(image_refs, frame.resource_refs.images);
@@ -306,6 +324,67 @@ fn exposes_packed_frame_command_buffer_metadata_and_bytes() {
         );
     }
     assert_eq!(missing.message(), "unknown spread index: 99");
+}
+
+#[test]
+fn cold_and_packed_warmed_json_frames_are_exactly_equal() {
+    let bytes = fixture_epub();
+    let mut cold_document = RuntimeDocument::open(&bytes).expect("cold document opens");
+    let cold_revision = cold_document
+        .create_revision(&layout())
+        .expect("cold revision is created");
+    let cold_frame = cold_document
+        .get_frame(&cold_revision.revision_id, 0)
+        .expect("cold frame is available");
+
+    let mut warmed_document = RuntimeDocument::open(&bytes).expect("warmed document opens");
+    let warmed_revision = warmed_document
+        .create_revision(&layout())
+        .expect("warmed revision is created");
+    warmed_document
+        .get_frame_command_buffer_metadata(&warmed_revision.revision_id, 0)
+        .expect("packed frame is warmed");
+    let warmed_frame = warmed_document
+        .get_frame(&warmed_revision.revision_id, 0)
+        .expect("lazy JSON frame is available");
+
+    assert_eq!(warmed_frame, cold_frame);
+}
+
+#[test]
+fn rejects_lazy_json_materialization_when_the_packed_projection_drifts() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    document
+        .get_frame_command_buffer_metadata(&revision.revision_id, 0)
+        .expect("packed frame is warmed");
+    let revision_state = document
+        .revisions
+        .get_mut(&revision.revision_id)
+        .expect("revision remains stored");
+    revision_state
+        .frame_cache
+        .get_mut(&0)
+        .expect("packed frame remains cached")
+        .command_buffer
+        .metadata
+        .command_hash = "injected-drift".to_owned();
+    let order_before = revision_state.frame_cache_order.clone();
+
+    let error = document
+        .get_frame(&revision.revision_id, 0)
+        .expect_err("inconsistent packed and JSON projections fail closed");
+    let revision_state = &document.revisions[&revision.revision_id];
+
+    assert_eq!(
+        error.message(),
+        "cached frame projection does not match revision layout: spread 0"
+    );
+    assert!(revision_state.frame_cache[&0].frame.is_none());
+    assert_eq!(revision_state.frame_cache_order, order_before);
+    assert_eq!(revision_state.frame_cache.len(), 1);
 }
 
 #[test]
@@ -1330,6 +1409,44 @@ fn bounds_and_refreshes_the_revision_frame_cache() {
 }
 
 #[test]
+fn packed_only_and_json_frames_share_one_lru_capacity() {
+    let mut document = RuntimeDocument::open(&many_chapter_fixture_epub(FRAME_CACHE_CAPACITY + 4))
+        .expect("document opens");
+    let revision = document
+        .create_revision(&layout())
+        .expect("revision is created");
+    assert!(revision.spread_count > FRAME_CACHE_CAPACITY);
+
+    for spread_index in 0..FRAME_CACHE_CAPACITY {
+        document
+            .get_frame_command_buffer_metadata(&revision.revision_id, spread_index)
+            .expect("packed frame is available");
+    }
+    let revision_state = &document.revisions[&revision.revision_id];
+    assert!(revision_state
+        .frame_cache
+        .values()
+        .all(|cached| cached.frame.is_none()));
+
+    document
+        .get_frame(&revision.revision_id, 0)
+        .expect("oldest packed frame materializes");
+    document
+        .get_frame_command_buffer_metadata(&revision.revision_id, FRAME_CACHE_CAPACITY)
+        .expect("one more packed frame is available");
+    let revision_state = &document.revisions[&revision.revision_id];
+
+    assert_eq!(revision_state.frame_cache.len(), FRAME_CACHE_CAPACITY);
+    assert!(revision_state.frame_cache.contains_key(&0));
+    assert!(revision_state.frame_cache[&0].frame.is_some());
+    assert!(!revision_state.frame_cache.contains_key(&1));
+    assert!(revision_state.frame_cache[&FRAME_CACHE_CAPACITY]
+        .frame
+        .is_none());
+    assert!(document.cleanup_queue.is_empty());
+}
+
+#[test]
 fn creates_optimal_line_breaking_revisions() {
     let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
 
@@ -1956,6 +2073,9 @@ fn prefetches_frames_into_revision_cache() {
             },
         )
         .expect("prefetch succeeds");
+    assert!(document.revisions[&revision.revision_id].frame_cache[&0]
+        .frame
+        .is_none());
     let frame = document
         .get_frame(&revision.revision_id, 0)
         .expect("warmed frame remains available");
@@ -1966,6 +2086,9 @@ fn prefetches_frames_into_revision_cache() {
     assert_eq!(response.missing_spread_indexes, vec![99]);
     assert_eq!(response.cached_frame_count, 1);
     assert_eq!(frame.spread_index, 0);
+    assert!(document.revisions[&revision.revision_id].frame_cache[&0]
+        .frame
+        .is_some());
     assert_eq!(document.cached_frame_count(&revision.revision_id), Some(1));
 }
 

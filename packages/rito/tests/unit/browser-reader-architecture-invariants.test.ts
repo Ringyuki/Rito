@@ -270,6 +270,24 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     ).toEqual([]);
   });
 
+  it('keeps production reader frame loads off the legacy JSON frame APIs', () => {
+    const hits = scan(
+      [...BROWSER_READER_BINDING_FILES, BROWSER_READER_SESSION_HOST, BROWSER_CORE_CONTRACTS],
+      /\bgetFrame(?:AtRevision)?(?:Json)?\b/g,
+    );
+    expect(
+      hits,
+      `Browser reader must consume packed frame buffers instead of materializing legacy JSON frames:\n${JSON.stringify(
+        hits,
+        null,
+        2,
+      )}`,
+    ).toEqual([]);
+    expect(read(join(BROWSER_READER_BINDING, 'frame-cache.ts'))).toContain(
+      'warmFrameWindowAtRevision',
+    );
+  });
+
   it('keeps reflow scheduler state behind a nested runtime state object', () => {
     const source = read(BROWSER_READER_TYPES);
     const stateBody = source.match(/export interface BrowserReaderState \{([\s\S]*?)\n\}/)?.[1];

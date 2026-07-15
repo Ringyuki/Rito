@@ -4,13 +4,18 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
 };
 
-use super::super::test_support::{cached_frame, frame_cache_owner};
+use super::super::test_support::{cached_frame, frame_cache_owner, packed_only_cached_frame};
 use super::{PendingRuntimeCachedFrameCleanup, PendingRuntimeFrameCacheCleanup};
 
 #[test]
 fn single_cached_frame_has_one_exact_unit() {
-    for command_count in [0, 16_384] {
-        let mut cleanup = PendingRuntimeCachedFrameCleanup::new(cached_frame(0, command_count));
+    for frame in [
+        cached_frame(0, 0),
+        cached_frame(0, 16_384),
+        packed_only_cached_frame(0, 0),
+        packed_only_cached_frame(0, 16_384),
+    ] {
+        let mut cleanup = PendingRuntimeCachedFrameCleanup::new(frame);
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
         assert_eq!(progress.consumed_units, 1);
@@ -42,7 +47,7 @@ fn empty_cache_has_three_exact_units_and_repeated_completion_is_free() {
 fn each_cached_frame_has_one_structural_unit() {
     let frames = BTreeMap::from([
         (9, cached_frame(9, 0)),
-        (2, cached_frame(2, 3)),
+        (2, packed_only_cached_frame(2, 3)),
         (5, cached_frame(5, 127)),
     ]);
     let mut cleanup = PendingRuntimeFrameCacheCleanup::new(frame_cache_owner(frames));

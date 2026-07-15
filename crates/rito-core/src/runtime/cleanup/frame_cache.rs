@@ -6,9 +6,11 @@ use super::super::frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner};
 
 /// Releases one generated cached frame as an explicit scheduling unit.
 ///
-/// The frame's JSON commands and packed tables remain one indivisible
-/// destructor residual. This guard exists so LRU eviction can transfer the
-/// owner without allocating a singleton map or synchronously dropping it.
+/// The frame's optional legacy JSON commands and packed tables remain one
+/// indivisible destructor residual. This guard exists so LRU eviction can
+/// transfer the owner without allocating a singleton map or synchronously
+/// dropping it. Packed-only and JSON-materialized entries have the same
+/// structural cost because they remain one cache owner either way.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
     owner: Option<RuntimeCachedFrame>,
@@ -58,9 +60,9 @@ impl Drop for PendingRuntimeCachedFrameCleanup {
 /// Releases cached frame owners one at a time in spread-index order.
 ///
 /// A cache with `F` entries costs exactly `F + 3` units. Each generated frame
-/// remains an indivisible residual: its command JSON and packed string tables
-/// have engine-controlled depth but unbounded length. The runtime queue can
-/// therefore interleave cache entries, but this cursor alone is not a
+/// remains an indivisible residual: its optional command JSON and packed string
+/// tables have engine-controlled depth but unbounded length. The runtime queue
+/// can therefore interleave cache entries, but this cursor alone is not a
 /// wall-clock bound for one unusually large frame.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeFrameCacheCleanup {

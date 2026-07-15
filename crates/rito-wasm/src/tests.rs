@@ -183,10 +183,6 @@ fn returns_packed_frame_command_buffer_metadata_and_bytes() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
     let revision_id = revision_id(&mut document);
 
-    let frame = document
-        .get_frame_json(&revision_id, 0)
-        .expect("frame JSON is returned");
-    let frame: Value = serde_json::from_str(&frame).expect("frame JSON parses");
     let metadata_json = document
         .get_frame_command_buffer_metadata_json(&revision_id, 0)
         .expect("command buffer metadata JSON is returned");
@@ -195,6 +191,10 @@ fn returns_packed_frame_command_buffer_metadata_and_bytes() {
     let bytes = document
         .read_frame_command_buffer(&revision_id, 0)
         .expect("command buffer bytes are returned");
+    let frame = document
+        .get_frame_json(&revision_id, 0)
+        .expect("frame JSON is returned after packed warmup");
+    let frame: Value = serde_json::from_str(&frame).expect("frame JSON parses");
 
     assert_eq!(metadata["revisionId"], revision_id);
     assert_eq!(metadata["spreadIndex"], 0);

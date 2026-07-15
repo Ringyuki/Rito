@@ -407,12 +407,15 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
     assert_eq!(current.revision_version, 1);
     assert_eq!(
         document
-            .get_frame_at(&current, 0)
-            .expect("stable prefix frame")
+            .get_frame_command_buffer_metadata_at(&current, 0)
+            .expect("stable prefix packed frame")
             .value
             .command_hash,
         stable_hash
     );
+    assert!(document.revisions[&current.revision_id].frame_cache[&0]
+        .frame
+        .is_none());
 
     macro_rules! assert_stale {
         ($result:expr) => {{
@@ -441,6 +444,9 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
             spread_indexes: vec![0]
         }
     ));
+    assert!(document.revisions[&current.revision_id].frame_cache[&0]
+        .frame
+        .is_none());
     assert_stale!(document.initial_frame_decision_at(&stale, RuntimeInitialFrameRequest::default()));
     assert_stale!(document.cached_frame_count_at(&stale));
     assert_stale!(document.frame_resource_warm_plan_at(&stale, 0));

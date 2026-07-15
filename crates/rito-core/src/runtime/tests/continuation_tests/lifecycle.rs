@@ -240,8 +240,8 @@ fn failed_continuation_returns_the_new_handle_for_version_safe_cleanup() {
     let cursor = initial.continuation.expect("later chapters remain");
     let stale_handle = RuntimeRevisionHandle::new(&cursor.revision_id, cursor.revision_version);
     document
-        .get_frame(&cursor.revision_id, 0)
-        .expect("known frame is cached before continuation failure");
+        .get_frame_command_buffer_metadata(&cursor.revision_id, 0)
+        .expect("known packed frame is cached before continuation failure");
     assert_eq!(document.cached_frame_count(&cursor.revision_id), Some(1));
 
     make_chapter_unavailable(&mut document, 1);

@@ -487,7 +487,10 @@ These are the real gaps against this plan:
    - Keep resource transfer leases independent so duplicate consumers do not
      invalidate one another.
    - Keep JSON frame output and packed frame output sourced from the same
-     commands.
+     typed display-list commands. Rust revision-cache entries serving the
+     production reader retain only the packed owner; compatibility `getFrame`
+     reads materialize and retain the exact JSON projection on first demand. Do
+     not reconstruct that projection from lossy packed records.
    - The reader cache currently removes repeated serialization and cross-worker
      delivery of full chapter-text entries. Full revision records now use a
      document-owned lazy scope, so a reader cache hit also skips Rust index

@@ -1058,6 +1058,9 @@ fn assert_runtime_frames_match_render_command_golden(
 
     for case in &render_fixture.cases {
         counters.checked_case_count += 1;
+        document
+            .get_frame_command_buffer_metadata(&revision.revision_id, case.page.index)
+            .unwrap_or_else(|error| panic!("{}: warm packed runtime frame: {error}", case.id));
         let frame = document
             .get_frame(&revision.revision_id, case.page.index)
             .unwrap_or_else(|error| panic!("{}: get runtime frame: {error}", case.id));
