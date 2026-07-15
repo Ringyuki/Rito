@@ -10,13 +10,13 @@ use super::{
     RuntimeRevisionSummary,
 };
 
-#[allow(dead_code)] // Continuation-record retirement consumes this next.
 mod cleanup;
 mod error;
 mod publish;
 mod state;
 mod work;
 
+pub(in crate::runtime) use cleanup::PendingRuntimeContinuationRecordCleanup;
 use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
 };
@@ -62,7 +62,7 @@ impl RuntimeDocument {
             required_font_face_catalog,
             initial_revision_interactions(footnotes),
         );
-        self.revisions.insert(revision_id.clone(), revision);
+        self.insert_new_revision(revision_id.clone(), revision);
         let continuation = RuntimeContinuationRecord::new(
             revision_id,
             layout_key.clone(),
@@ -83,7 +83,11 @@ impl RuntimeDocument {
         let work = match self.advance_record(&mut continuation, budget) {
             Ok(work) => work,
             Err(error) => {
-                self.revisions.remove(&revision_id);
+                self.cleanup_queue.enqueue_continuation(continuation);
+                if let Some(revision) = self.revisions.remove(&revision_id) {
+                    self.cleanup_queue.enqueue_revision(revision);
+                }
+                self.service_cleanup_queue();
                 return Err(engine_error(error));
             }
         };
@@ -112,8 +116,10 @@ impl RuntimeDocument {
         let work = match self.advance_record(&mut continuation, budget) {
             Ok(work) => work,
             Err(error) => {
+                self.cleanup_queue.enqueue_continuation(continuation);
                 let revision =
                     self.mark_revision_failed(&request.revision_id, next_version, &layout_key);
+                self.service_cleanup_queue();
                 return Err(engine_error_with_revision(error, revision));
             }
         };
@@ -171,18 +177,36 @@ impl RuntimeDocument {
                 "revision version overflow",
             )
         })?;
-        self.continuations.remove_revision(&request.revision_id);
-        let revision = self
-            .revisions
-            .get_mut(&request.revision_id)
-            .expect("revision was validated");
-        revision.revision_version = next_version;
-        revision.status = RuntimeRevisionStatus::Cancelled;
-        revision.final_extent = None;
-        revision.clear_frame_cache();
-        let key =
-            layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?;
-        Ok(revision_summary(&request.revision_id, &key, revision))
+        let key = {
+            let revision = self
+                .revisions
+                .get(&request.revision_id)
+                .expect("revision was validated");
+            layout_key(&revision.layout_config, &self.pinned_font_policy).map_err(engine_error)?
+        };
+        if let Some(continuation) = self.continuations.remove_revision(&request.revision_id) {
+            self.cleanup_queue.enqueue_continuation(continuation);
+        }
+        let frame_cache = {
+            let revision = self
+                .revisions
+                .get_mut(&request.revision_id)
+                .expect("revision was validated");
+            revision.revision_version = next_version;
+            revision.status = RuntimeRevisionStatus::Cancelled;
+            revision.final_extent = None;
+            revision.take_frame_cache()
+        };
+        self.cleanup_queue.enqueue_frame_cache(frame_cache);
+        let summary = revision_summary(
+            &request.revision_id,
+            &key,
+            self.revisions
+                .get(&request.revision_id)
+                .expect("cancelled revision remains available"),
+        );
+        self.service_cleanup_queue();
+        Ok(summary)
     }
 
     pub fn get_revision_summary(

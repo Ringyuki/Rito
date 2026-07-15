@@ -2,7 +2,7 @@ pub const NAME: &str = "runtime";
 pub const OWNS: &str =
     "Engine-owned document handles, layout revisions, frame caches, and resource lifetimes";
 
-use std::{cell::OnceCell, collections::BTreeMap};
+use std::{cell::OnceCell, collections::BTreeMap, num::NonZeroUsize};
 
 mod access;
 mod bundle;
@@ -46,6 +46,7 @@ pub use bundle_wire::{
     RUNTIME_BUNDLE_VERSION,
 };
 use chapter_text::runtime_chapter_text_index_entries;
+use cleanup::{PendingRuntimeRevisionCleanup, RuntimeCleanupQueue, RUNTIME_CLEANUP_QUANTUM};
 use frame::{RuntimeChapterTextIndexSource, RuntimeRevision};
 use metadata::{chapter_sources_from_document, runtime_font_faces, runtime_publication_resources};
 use navigation::{active_chapter_preview, resolve_href_locator};
@@ -102,6 +103,7 @@ pub struct RuntimeDocument {
     next_continuation_index: usize,
     revisions: BTreeMap<String, RuntimeRevision>,
     continuations: continuation::RuntimeContinuationStore,
+    cleanup_queue: RuntimeCleanupQueue,
 }
 
 impl RuntimeDocument {
@@ -142,6 +144,7 @@ impl RuntimeDocument {
             next_continuation_index: 1,
             revisions: BTreeMap::new(),
             continuations: continuation::RuntimeContinuationStore::default(),
+            cleanup_queue: RuntimeCleanupQueue::default(),
         }
     }
 
@@ -163,11 +166,27 @@ impl RuntimeDocument {
     }
 
     pub fn release_revision(&mut self, revision_id: &str) -> bool {
-        let removed = self.revisions.remove(revision_id).is_some();
-        if removed {
-            self.continuations.remove_revision(revision_id);
+        let Some(revision) = self.revisions.remove(revision_id) else {
+            self.service_cleanup_queue();
+            return false;
+        };
+        self.cleanup_queue.enqueue_revision(revision);
+        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
+            self.cleanup_queue.enqueue_continuation(continuation);
         }
-        removed
+        self.service_cleanup_queue();
+        true
+    }
+
+    fn service_cleanup_queue(&mut self) {
+        let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM)
+            .expect("runtime cleanup quantum is non-zero");
+        self.cleanup_queue.advance(budget);
+        debug_assert_eq!(
+            self.cleanup_queue.pending_frame_owner_count(),
+            0,
+            "one legal runtime producer batch must not retain frame owners"
+        );
     }
 
     pub fn revision_count(&self) -> usize {
@@ -367,6 +386,19 @@ impl RuntimeDocument {
             .contains_key(revision_id)
             .then_some(())
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
+    }
+}
+
+impl Drop for RuntimeDocument {
+    fn drop(&mut self) {
+        self.cleanup_queue.drain_sync();
+        while let Some(continuation) = self.continuations.pop_first() {
+            continuation::PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
+        }
+        while let Some((_revision_id, revision)) = self.revisions.pop_first() {
+            PendingRuntimeRevisionCleanup::new(revision).drain();
+        }
+        debug_assert!(self.cleanup_queue.is_empty());
     }
 }
 

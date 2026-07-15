@@ -16,6 +16,8 @@ use crate::{
 use super::{
     error::{continuation_error, unknown_revision},
     state::{RuntimeChapterPageBatch, RuntimeContinuationRecord, RuntimeContinuationWork},
+    work::cleanup_orphaned_work,
+    PendingRuntimeContinuationRecordCleanup,
 };
 
 impl RuntimeDocument {
@@ -30,20 +32,35 @@ impl RuntimeDocument {
         let revision_id = continuation.revision_id.clone();
         let processed_top_level_nodes = work.processed_top_level_nodes;
         let complete = work.complete;
-        let summary = {
+        if !self.revisions.contains_key(&revision_id) {
+            self.cleanup_queue.enqueue_continuation(continuation);
+            cleanup_orphaned_work(work);
+            self.service_cleanup_queue();
+            return Err(unknown_revision(&revision_id));
+        }
+        let (summary, frame_cache) = {
             let revision = self
                 .revisions
                 .get_mut(&revision_id)
-                .ok_or_else(|| unknown_revision(&revision_id))?;
+                .expect("revision existence was checked");
             append_work_to_revision(revision, work);
             update_revision_publication(revision, revision_version, complete);
             debug_assert_eq!(
                 continuation.published_page_count,
                 revision.known_extent.page_count
             );
-            revision_summary(&revision_id, layout_key, revision)
+            let summary = revision_summary(&revision_id, layout_key, revision);
+            let frame_cache = revision.take_frame_cache();
+            (summary, frame_cache)
         };
-        let continuation = (!complete).then(|| self.store_continuation(continuation));
+        self.cleanup_queue.enqueue_frame_cache(frame_cache);
+        let continuation = if complete {
+            self.cleanup_queue.enqueue_continuation(continuation);
+            None
+        } else {
+            Some(self.store_continuation(continuation))
+        };
+        self.service_cleanup_queue();
         Ok(RuntimeRevisionAdvance {
             newly_known_pages: RuntimeRevisionPageRange {
                 start_page: previous_extent.page_count,
@@ -61,7 +78,11 @@ impl RuntimeDocument {
         continuation: RuntimeContinuationRecord,
     ) -> RuntimeRevisionCursor {
         let cursor = format!("cursor-{}", self.next_continuation_index);
-        self.next_continuation_index += 1;
+        let Some(next_continuation_index) = self.next_continuation_index.checked_add(1) else {
+            PendingRuntimeContinuationRecordCleanup::new(continuation).drain();
+            panic!("runtime continuation id space is exhausted");
+        };
+        self.next_continuation_index = next_continuation_index;
         let handle = RuntimeRevisionCursor {
             revision_id: continuation.revision_id.clone(),
             revision_version: continuation.revision_version,
@@ -91,16 +112,27 @@ impl RuntimeDocument {
         revision_version: u32,
         layout_key: &str,
     ) -> crate::runtime::RuntimeRevisionSummary {
-        self.continuations.remove_revision(revision_id);
-        let revision = self
-            .revisions
-            .get_mut(revision_id)
-            .expect("continuable revision remains available while work advances");
-        revision.revision_version = revision_version;
-        revision.status = RuntimeRevisionStatus::Failed;
-        revision.final_extent = None;
-        revision.clear_frame_cache();
-        revision_summary(revision_id, layout_key, revision)
+        if let Some(continuation) = self.continuations.remove_revision(revision_id) {
+            self.cleanup_queue.enqueue_continuation(continuation);
+        }
+        let frame_cache = {
+            let revision = self
+                .revisions
+                .get_mut(revision_id)
+                .expect("continuable revision remains available while work advances");
+            revision.revision_version = revision_version;
+            revision.status = RuntimeRevisionStatus::Failed;
+            revision.final_extent = None;
+            revision.take_frame_cache()
+        };
+        self.cleanup_queue.enqueue_frame_cache(frame_cache);
+        revision_summary(
+            revision_id,
+            layout_key,
+            self.revisions
+                .get(revision_id)
+                .expect("failed revision remains available"),
+        )
     }
 }
 
@@ -143,7 +175,6 @@ fn update_revision_publication(
         RuntimeRevisionStatus::Warming
     };
     revision.final_extent = complete.then_some(extent);
-    revision.clear_frame_cache();
     debug_assert_eq!(
         revision.layout.summary.pagination_flow.page_count,
         extent.page_count

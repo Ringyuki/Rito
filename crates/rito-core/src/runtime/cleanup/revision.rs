@@ -12,7 +12,6 @@ use super::{
 
 /// Copy-only remainder of a decomposed runtime revision.
 #[derive(Debug)]
-#[allow(dead_code)] // The runtime cleanup queue consumes this shell next.
 struct RuntimeRevisionShell {
     revision_version: u32,
     status: RuntimeRevisionStatus,
@@ -28,7 +27,6 @@ struct RuntimeRevisionShell {
 /// indivisible destructor residuals, so this is a structural stack-safety
 /// bound rather than a wall-clock bound.
 #[derive(Debug)]
-#[allow(dead_code)] // The runtime cleanup queue consumes this cursor next.
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
     owner: Option<RuntimeRevision>,
     frame_cache: Option<PendingRuntimeFrameCacheCleanup>,
@@ -41,7 +39,6 @@ pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Kept alongside the pending cursor until production scheduling lands.
 enum RuntimeRevisionCleanupStage {
     RevisionSource,
     FrameCache,
@@ -53,7 +50,6 @@ enum RuntimeRevisionCleanupStage {
     Complete,
 }
 
-#[allow(dead_code)] // Direct tests precede production revision retirement wiring.
 impl PendingRuntimeRevisionCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeRevision) -> Self {
         Self {
@@ -70,6 +66,18 @@ impl PendingRuntimeRevisionCleanup {
 
     pub(in crate::runtime) fn is_complete(&self) -> bool {
         self.stage == RuntimeRevisionCleanupStage::Complete
+    }
+
+    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
+        self.owner.as_ref().map_or_else(
+            || {
+                self.frame_cache.as_ref().map_or(
+                    0,
+                    PendingRuntimeFrameCacheCleanup::pending_frame_owner_count,
+                )
+            },
+            |owner| owner.frame_cache.len(),
+        )
     }
 
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {

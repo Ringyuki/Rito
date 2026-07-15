@@ -90,6 +90,18 @@ impl RuntimeContinuationStore {
         Some(continuation)
     }
 
+    pub(in crate::runtime) fn pop_first(&mut self) -> Option<RuntimeContinuationRecord> {
+        self.assert_matching_lengths();
+        let (cursor, continuation) = self.by_cursor.pop_first()?;
+        let indexed_cursor = self
+            .active_cursor_by_revision
+            .remove(&continuation.revision_id)
+            .expect("continuation reverse index exists");
+        assert_eq!(indexed_cursor, cursor);
+        self.assert_matching_lengths();
+        Some(continuation)
+    }
+
     fn assert_matching_lengths(&self) {
         assert_eq!(
             self.by_cursor.len(),
@@ -150,7 +162,7 @@ pub(in crate::runtime) struct RuntimeContinuationRecord {
 }
 
 impl RuntimeContinuationRecord {
-    pub(super) fn new(
+    pub(in crate::runtime) fn new(
         revision_id: String,
         layout_key: String,
         layout_config: LayoutConfig,

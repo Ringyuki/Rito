@@ -9,6 +9,7 @@ use crate::{
         image_size::ImageSizeIndex,
         pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter},
         runtime_session::{RuntimeChapterLayoutAdvance, RuntimeChapterLayoutSession},
+        PendingRuntimePageVectorCleanup,
     },
     resources::{binary_summary_from_metadata, BinaryResourceSummary},
     runtime::{revision::runtime_revision_interactions, RuntimeDocument},
@@ -214,4 +215,26 @@ fn live_image_sizes(document: &crate::epub::LoadedEpubDocument) -> ImageSizeInde
         })
         .collect::<Vec<BinaryResourceSummary>>();
     ImageSizeIndex::new(&images)
+}
+
+pub(super) fn cleanup_orphaned_work(work: RuntimeContinuationWork) {
+    let RuntimeContinuationWork {
+        batches,
+        available_interactions,
+        completed_chapter_idrefs,
+        processed_top_level_nodes,
+        complete,
+    } = work;
+    for batch in batches {
+        let RuntimeChapterPageBatch {
+            idref,
+            block_count,
+            pages,
+        } = batch;
+        PendingRuntimePageVectorCleanup::new(pages).drain();
+        let _ = (idref, block_count);
+    }
+    drop(available_interactions);
+    drop(completed_chapter_idrefs);
+    let _ = (processed_top_level_nodes, complete);
 }

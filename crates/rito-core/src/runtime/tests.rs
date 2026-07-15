@@ -1,4 +1,5 @@
 mod access_tests;
+mod cleanup_queue_tests;
 mod command_hash;
 mod continuation_tests;
 mod fixture;
@@ -990,6 +991,8 @@ fn bounds_and_refreshes_the_revision_frame_cache() {
     assert!(revision_state.frame_cache.contains_key(&oldest_cached));
     assert!(revision_state.frame_cache.contains_key(&0));
     assert_eq!(revision_state.frame_cache.len(), FRAME_CACHE_CAPACITY);
+    assert!(document.cleanup_queue.is_empty());
+    assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
 }
 
 #[test]

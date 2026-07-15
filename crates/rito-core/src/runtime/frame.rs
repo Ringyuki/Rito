@@ -108,12 +108,6 @@ impl RuntimeRevision {
         }
     }
 
-    pub(super) fn clear_frame_cache(&mut self) {
-        self.frame_cache.clear();
-        self.frame_cache_order.clear();
-    }
-
-    #[allow(dead_code)] // The runtime cleanup queue consumes detached cache owners next.
     pub(super) fn take_frame_cache(&mut self) -> RuntimeFrameCacheOwner {
         RuntimeFrameCacheOwner {
             frames: std::mem::take(&mut self.frame_cache),
@@ -289,36 +283,27 @@ impl RuntimeDocument {
     }
 
     fn ensure_frame_cached(&mut self, revision_id: &str, spread_index: usize) -> EpubResult<()> {
-        let revision = self
+        let result = self
             .revisions
             .get_mut(revision_id)
-            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        if spread_index >= revision.known_extent.spread_count {
-            return Err(EpubError::new(format!(
-                "unknown spread index: {spread_index}"
-            )));
-        }
-        if revision.frame_cache.contains_key(&spread_index) {
-            touch_cached_frame(revision, spread_index);
-            return Ok(());
-        }
-        let frame_commands = build_display_list_frame_commands(
-            &revision.layout.pages,
-            &revision.layout.chapter_start_pages,
-            &revision.layout_config,
-            spread_index,
-        )
-        .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
-        let cached_frame =
-            runtime_cached_frame(revision_id, &revision.layout_config, frame_commands);
-        revision.frame_cache.insert(spread_index, cached_frame);
-        touch_cached_frame(revision, spread_index);
-        while revision.frame_cache.len() > FRAME_CACHE_CAPACITY {
-            if let Some(evicted) = revision.frame_cache_order.pop_front() {
-                revision.frame_cache.remove(&evicted);
+            .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))
+            .and_then(|revision| cache_runtime_frame(revision, revision_id, spread_index));
+        match result {
+            Ok((replaced, evicted)) => {
+                if let Some(replaced) = replaced {
+                    self.cleanup_queue.enqueue_cached_frame(replaced);
+                }
+                if let Some(evicted) = evicted {
+                    self.cleanup_queue.enqueue_cached_frame(evicted);
+                }
+                self.service_cleanup_queue();
+                Ok(())
+            }
+            Err(error) => {
+                self.service_cleanup_queue();
+                Err(error)
             }
         }
-        Ok(())
     }
 
     fn cached_frame(
@@ -331,6 +316,50 @@ impl RuntimeDocument {
             .and_then(|revision| revision.frame_cache.get(&spread_index))
             .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))
     }
+}
+
+fn cache_runtime_frame(
+    revision: &mut RuntimeRevision,
+    revision_id: &str,
+    spread_index: usize,
+) -> EpubResult<(Option<RuntimeCachedFrame>, Option<RuntimeCachedFrame>)> {
+    if spread_index >= revision.known_extent.spread_count {
+        return Err(EpubError::new(format!(
+            "unknown spread index: {spread_index}"
+        )));
+    }
+    if revision.frame_cache.contains_key(&spread_index) {
+        touch_cached_frame(revision, spread_index);
+        return Ok((None, None));
+    }
+    let frame_commands = build_display_list_frame_commands(
+        &revision.layout.pages,
+        &revision.layout.chapter_start_pages,
+        &revision.layout_config,
+        spread_index,
+    )
+    .ok_or_else(|| EpubError::new(format!("unknown spread index: {spread_index}")))?;
+    let cached_frame = runtime_cached_frame(revision_id, &revision.layout_config, frame_commands);
+    let replaced = revision.frame_cache.insert(spread_index, cached_frame);
+    touch_cached_frame(revision, spread_index);
+    let evicted = evict_oldest_frame(revision);
+    Ok((replaced, evicted))
+}
+
+fn evict_oldest_frame(revision: &mut RuntimeRevision) -> Option<RuntimeCachedFrame> {
+    if revision.frame_cache.len() <= FRAME_CACHE_CAPACITY {
+        return None;
+    }
+    let spread_index = revision
+        .frame_cache_order
+        .pop_front()
+        .expect("over-capacity cache has an LRU entry");
+    let evicted = revision
+        .frame_cache
+        .remove(&spread_index)
+        .expect("LRU entry exists in the frame cache");
+    debug_assert!(revision.frame_cache.len() <= FRAME_CACHE_CAPACITY);
+    Some(evicted)
 }
 
 fn touch_cached_frame(revision: &mut RuntimeRevision, spread_index: usize) {

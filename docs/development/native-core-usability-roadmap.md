@@ -235,13 +235,19 @@ continuation-record cursor now immediately guards that active owner, then
 releases the chapter-start set, layout config, identity strings and scalar
 shell. Inactive records cost six units; active records cost the nested cursor
 plus seven. Its B-tree set and nested `LayoutConfig` maps remain indivisible
-destructor residuals. Built revisions and the cancellation scheduler remain to
-be composed. `RuntimeBlock`
-trees, standalone block/page vectors, direct child vectors, the open-page accumulator and
+destructor residuals. Built layouts, detached frame caches and runtime revisions
+now compose these primitives, and the production runtime schedules continuation,
+revision, cache and LRU-frame owners through a private two-lane cleanup queue.
+Each producer batch advances 64 structural units; the closed admission bound is
+at most 12 frame owners per lifecycle mutation, and repeated-batch tests keep
+that physical backlog at zero without starving regular work. Final document
+drop drains queued and still-active owners through the same iterative cursors.
+`RuntimeBlock` trees, standalone block/page vectors, direct child vectors, the
+open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. Built revisions still need to compose these primitives before
-end-to-end cancellation is stack-safe. Then make the
-currently atomic Liang point calculation bounded and
+line cleanup. Runtime-owner cancellation is structurally stack-safe but not
+wall-clock bounded because summary/config/interaction/frame payloads remain
+indivisible. Next make the currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
 Optimal paragraphs. Individual font calls remain indivisible even though their
@@ -316,14 +322,16 @@ Exact bounded publication has algorithmic constraints that must remain explicit:
   part vectors now preflight checked post-size growth and push only into retained
   capacity. Candidate cancellation now reuses existing child-vector slots, so
   its traversal needs no aggregate scratch allocation or growth; the drain and
-  enclosing continuation/session disposal remain synchronous and unbudgeted.
+  direct collector drop remain synchronous. Enclosing runtime continuation and
+  revision retirement is scheduled through the private cleanup queue, with any
+  remainder drained synchronously at final document drop.
   Chapter pagination now moves sealed batches into continuation ownership rather
   than retaining and cloning the same pages in the paginator; persistent page
   history keeps indexes and first-block spacing stable across those drains.
   Active continuations maintain an exact cursor/revision bidirectional index;
   terminal cursor lookup/removal is logarithmic in cursor count and invalid
-  requests do not mutate either side of the index. The removed continuation
-  payload is still destroyed synchronously.
+  requests do not mutate either side of the index. Removed continuation payloads
+  transfer to the runtime cleanup queue instead of being destroyed inline.
   Source-text sharing
   and context allocation remain atomic; style/value
   clones, line-break metadata and B-tree insertion remain indivisible operations.
@@ -610,9 +618,8 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, synchronous runtime/session cancellation around the
-   budgeted candidate, block and page cursors, uncomposed chapter-session /
-   revision owners and outer continuation/session disposal, remaining
+   allocation/growth, indivisible cleanup payloads inside the now-scheduled
+   runtime/session owners, remaining
    context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,

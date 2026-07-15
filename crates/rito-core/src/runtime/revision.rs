@@ -5,6 +5,7 @@ use crate::{
 
 use super::{
     chapter_text::runtime_chapter_text_index_entries,
+    cleanup::PendingRuntimeRevisionCleanup,
     frame::{
         chapter_window_layout_config, revision_summary, RuntimeChapterTextIndexSource,
         RuntimeRevision, RuntimeRevisionInteractions,
@@ -119,7 +120,7 @@ impl RuntimeDocument {
             interactions,
         );
         let summary = revision_summary(&revision_id, &layout_key, &revision);
-        self.revisions.insert(revision_id, revision);
+        self.insert_new_revision(revision_id, revision);
         Ok(summary)
     }
 
@@ -184,14 +185,25 @@ impl RuntimeDocument {
             partial_revision_interactions(&prepared, footnotes),
         );
         let summary = revision_summary(&revision_id, &layout_key, &revision);
-        self.revisions.insert(revision_id, revision);
+        self.insert_new_revision(revision_id, revision);
         Ok(summary)
     }
 
     pub(super) fn create_revision_id(&mut self) -> String {
         let revision_id = format!("rev-{}", self.next_revision_index);
-        self.next_revision_index += 1;
+        self.next_revision_index = self
+            .next_revision_index
+            .checked_add(1)
+            .expect("runtime revision id space is exhausted");
         revision_id
+    }
+
+    pub(super) fn insert_new_revision(&mut self, revision_id: String, revision: RuntimeRevision) {
+        if self.revisions.contains_key(&revision_id) {
+            PendingRuntimeRevisionCleanup::new(revision).drain();
+            panic!("runtime revision id must be unique");
+        }
+        assert!(self.revisions.insert(revision_id, revision).is_none());
     }
 
     pub(super) fn ensure_layout_font_resources(

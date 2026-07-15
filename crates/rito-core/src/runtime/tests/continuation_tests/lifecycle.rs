@@ -53,6 +53,13 @@ fn continuation_cursor_is_one_shot_versioned_cancelled_and_released() {
     );
 
     let next_cursor = next.continuation.expect("next continuation exists");
+    document
+        .get_frame(&next_cursor.revision_id, 0)
+        .expect("known frame is cached before cancellation");
+    assert_eq!(
+        document.cached_frame_count(&next_cursor.revision_id),
+        Some(1)
+    );
     let cancelled = document
         .cancel_revision(RuntimeCancelRevisionRequest {
             revision_id: next_cursor.revision_id.clone(),
@@ -61,6 +68,11 @@ fn continuation_cursor_is_one_shot_versioned_cancelled_and_released() {
         .expect("revision cancels");
     assert_eq!(cancelled.status, RuntimeRevisionStatus::Cancelled);
     assert_eq!(cancelled.revision_version, next_cursor.revision_version + 1);
+    assert_eq!(
+        document.cached_frame_count(&cancelled.revision_id),
+        Some(0),
+        "cancellation invalidates generated frames"
+    );
     let after_cancel = document
         .continue_revision(RuntimeContinueRevisionRequest {
             revision_id: cancelled.revision_id.clone(),
@@ -82,6 +94,25 @@ fn continuation_cursor_is_one_shot_versioned_cancelled_and_released() {
         after_release.kind,
         RuntimeContinuationErrorKind::UnknownRevision
     );
+}
+
+#[test]
+fn initial_engine_failure_retires_the_unpublished_revision() {
+    let bytes = multi_chapter_fixture_epub();
+    let mut document = RuntimeDocument::open(&bytes).expect("document opens");
+    document
+        .publication_footnote_index()
+        .expect("publication index is cached before the deferred load fails");
+    make_chapter_unavailable(&mut document, 0);
+
+    let error = document
+        .create_bounded_revision(bounded_request(layout(), 1))
+        .expect_err("missing first chapter fails after revision initialization");
+
+    assert_eq!(error.kind, RuntimeContinuationErrorKind::EngineFailure);
+    assert!(error.revision.is_none());
+    assert_eq!(document.revision_count(), 0);
+    assert!(document.continuations.is_empty());
 }
 
 #[test]
@@ -183,12 +214,12 @@ fn failed_continuation_returns_the_new_handle_for_version_safe_cleanup() {
         .expect("first chapter advances");
     let cursor = initial.continuation.expect("later chapters remain");
     let stale_handle = RuntimeRevisionHandle::new(&cursor.revision_id, cursor.revision_version);
+    document
+        .get_frame(&cursor.revision_id, 0)
+        .expect("known frame is cached before continuation failure");
+    assert_eq!(document.cached_frame_count(&cursor.revision_id), Some(1));
 
-    let next_chapter = &mut document.document.chapters[1];
-    next_chapter.href = "missing-chapter.xhtml".to_owned();
-    next_chapter.xhtml_source.clear();
-    next_chapter.source_loaded = false;
-    next_chapter.image_refs = None;
+    make_chapter_unavailable(&mut document, 1);
 
     let error = document
         .continue_revision(continue_request(&cursor, 1))
@@ -206,6 +237,11 @@ fn failed_continuation_returns_the_new_handle_for_version_safe_cleanup() {
         .expect("failure carries the new revision handle");
     assert_eq!(failed.revision_version, cursor.revision_version + 1);
     assert_eq!(failed.status, RuntimeRevisionStatus::Failed);
+    assert_eq!(
+        document.cached_frame_count(&failed.revision_id),
+        Some(0),
+        "failed continuation invalidates generated frames"
+    );
 
     let stale_release = document
         .release_revision_at(&stale_handle)
@@ -225,4 +261,12 @@ fn failed_continuation_returns_the_new_handle_for_version_safe_cleanup() {
     assert!(document
         .release_revision_at(&failed_handle)
         .expect("the returned handle releases the failed revision"));
+}
+
+fn make_chapter_unavailable(document: &mut RuntimeDocument, chapter_index: usize) {
+    let chapter = &mut document.document.chapters[chapter_index];
+    chapter.href = format!("missing-chapter-{chapter_index}.xhtml");
+    chapter.xhtml_source.clear();
+    chapter.source_loaded = false;
+    chapter.image_refs = None;
 }

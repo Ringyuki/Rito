@@ -527,7 +527,7 @@ Those names now belong to the old TS reference tree only.
      units, while a single 16K-deep block page remains stack-safe. A detached
      frame-cache owner keeps its frame map and LRU order together; its cursor
      costs `frame count + 3` units, and a separate one-unit cached-frame guard
-     lets future LRU eviction transfer an owner without manufacturing a
+     lets LRU eviction transfer an owner without manufacturing a
      singleton map. A runtime-revision cursor releases that cache before its
      built layout, config, optional font catalog, interactions and scalar shell.
      Its exact cost is `frame-cache units + built-layout units + 7`; empty and
@@ -539,30 +539,46 @@ Those names now belong to the old TS reference tree only.
      payload remain indivisible destructor residuals, so these cursors establish
      structural stack safety rather than a wall-clock bound. Ordinary
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
-     guarded owners. No runtime/session
-     cancellation path schedules these cursors yet, so
-     cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
-     still synchronously
-     removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
-     owners and queued node forests, and clears the revision frame cache. End-to-
-     end revision cancellation is not yet budgeted or wall-clock bounded.
+     guarded owners. Production runtime retirement now uses a private two-lane
+     queue: continuation records, revisions, detached frame caches and individual
+     LRU frames are removed from their logical indexes first, then advanced in
+     unit quanta. Low frame backlog alternates with regular work; backlog at the
+     24-owner high-water mark receives bursts of at most eight frame-lane units,
+     so regular retirement cannot starve. Every producer batch ends with a fixed
+     64-unit service call. The closed production admission bound is at most one
+     12-frame cache/revision owner per lifecycle mutation, or two individual
+     frame owners per cache miss, and focused repeated-batch tests show that this
+     service quantum returns pending frame ownership to zero even with permanent
+     regular backlog. High-water priority alone is not claimed as generic hard
+     backpressure; future bulk producers must preserve that admission/service
+     invariant. Each queued job also has a separate retirement unit, making the
+     minimum queue costs 7 for an inactive continuation, 17 for an empty
+     revision, 4 for an empty frame cache and 2 for one cached frame.
+     Release, cancel, successful/failed continuation publication, initial
+     continuation failure, cache invalidation and LRU eviction all transfer
+     owners through this queue without changing the core, WASM or browser wire
+     contract. `RuntimeDocument::Drop` synchronously drains already-retired jobs,
+     then iteratively drains every active continuation and revision; a focused
+     small-stack test combines queued and active 16K-deep revisions with an
+     active continuation. End-to-end runtime-owner destruction is therefore
+     structurally stack-safe, but it is not a wall-clock bound because the named
+     indivisible payloads remain.
      `RuntimeChapterLayoutSession` no longer amplifies that owner by cloning each
      newly sealed page from an ever-growing paginator snapshot. Sealed page
      batches now move directly into the advance result, while a persistent
      emitted-page count preserves chapter-local indexes and first-page spacing
      history after each drain. The open page remains private in the paginator.
      This removes the duplicate retained page tree; the single moved page owner
-     now has a stack-safe active-chapter cleanup cursor, but outer continuation
-     cleanup and scheduling are still synchronous.
+     now composes through the scheduled continuation-record cursor; final
+     document destruction drains the same cursor synchronously.
      Active layout continuations now live in a private bidirectional store:
      cursor-to-record lookups preserve the existing continuation error order,
      while revision-to-cursor lookup lets cancel, release and follow-up failure
      remove only their exact owner in `O(log C)` instead of scanning all active
      cursors. Partial continuation commit replaces only that revision's cursor;
      invalid, stale, missing and swapped-cursor requests leave both indexes
-     untouched. Only the table lookup/removal is logarithmic; destruction of the
-     removed continuation payload remains synchronous and unbudgeted. This
-     changes no core, WASM or browser wire contract.
+     untouched. Removed payloads are transferred to the runtime cleanup queue;
+     only final document destruction drains any remainder synchronously.
      Ordinary None/upper/lower/capitalize transforms now use a resumable exact
      UTF-8 and UTF-16 preflight, paid exact-capacity admission for their logical
      and painted buffers, and a second metered scalar assembly.
@@ -579,13 +595,13 @@ Those names now belong to the old TS reference tree only.
      remains stack-safe and scratch-stable, while discard, Ruby and complete
      collector ownership transitions now compose over it under an explicit
      budget. The collector's direct `Drop` entry point still drains
-     synchronously, and the enclosing
-     runtime and layout-session disposal does not schedule that cursor. Runtime
-     page trees, standalone block/page vectors, the open-page accumulator,
+     synchronously. Runtime page trees, standalone block/page vectors, the
+     open-page accumulator,
      pagination session, unpublished chapter batches and built revisions now
-     compose iterative cleanup cursors, but production lifecycle paths do not
-     schedule them yet. The
-     paid atomic parser-source `Arc<str>` conversion, source-path duplication,
+     compose iterative cleanup cursors; revision and continuation lifecycle paths
+     schedule their composed outer owners, while standalone/direct drops remain
+     synchronous. The paid atomic parser-source `Arc<str>` conversion,
+     source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
    - Literal U+FFFC inside a text segment is now preserved as text; only an
@@ -769,13 +785,12 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Continue the default-Greedy hard bound by scheduling the now-composed
-   continuation-record, built-revision and frame-cache cleanup guards through
-   an internal round-robin cancellation queue without changing the wire
-   contract. Preserve cache-detach atomicity and add backpressure so pending LRU
-   frame owners cannot make the physical cache backlog unbounded. Then split
-   the named summary/config/interaction/frame-payload destructor residuals
-   before claiming a wall-clock cleanup bound.
+1. Continue the default-Greedy hard bound by splitting the named
+   summary/config/interaction/frame-payload destructor residuals before claiming
+   a wall-clock cleanup bound. Preserve the cleanup queue's closed producer
+   admission rule when adding bulk lifecycle operations, and instrument atomic
+   frame-payload latency before deciding whether the current 64-unit service
+   quantum needs time-aware scheduling.
    Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream
    ruby tag/paint work and the leaf marker/paint seal. Keep contextual

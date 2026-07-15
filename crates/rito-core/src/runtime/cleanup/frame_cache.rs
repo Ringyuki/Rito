@@ -10,12 +10,10 @@ use super::super::frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner};
 /// destructor residual. This guard exists so LRU eviction can transfer the
 /// owner without allocating a singleton map or synchronously dropping it.
 #[derive(Debug)]
-#[allow(dead_code)] // LRU eviction scheduling consumes this cursor next.
 pub(in crate::runtime) struct PendingRuntimeCachedFrameCleanup {
     owner: Option<RuntimeCachedFrame>,
 }
 
-#[allow(dead_code)] // Direct tests precede production LRU scheduling.
 impl PendingRuntimeCachedFrameCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeCachedFrame) -> Self {
         Self { owner: Some(owner) }
@@ -23,6 +21,10 @@ impl PendingRuntimeCachedFrameCleanup {
 
     pub(in crate::runtime) fn is_complete(&self) -> bool {
         self.owner.is_none()
+    }
+
+    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
+        usize::from(self.owner.is_some())
     }
 
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {
@@ -42,7 +44,8 @@ impl PendingRuntimeCachedFrameCleanup {
     }
 
     pub(in crate::runtime) fn drain(&mut self) {
-        let _ = self.advance_one();
+        let progress = self.advance(NonZeroUsize::MIN);
+        debug_assert!(progress.complete);
     }
 }
 
@@ -60,7 +63,6 @@ impl Drop for PendingRuntimeCachedFrameCleanup {
 /// therefore interleave cache entries, but this cursor alone is not a
 /// wall-clock bound for one unusually large frame.
 #[derive(Debug)]
-#[allow(dead_code)] // The runtime cleanup queue consumes this cursor next.
 pub(in crate::runtime) struct PendingRuntimeFrameCacheCleanup {
     owner: Option<RuntimeFrameCacheOwner>,
     frames: Option<IntoIter<usize, RuntimeCachedFrame>>,
@@ -69,7 +71,6 @@ pub(in crate::runtime) struct PendingRuntimeFrameCacheCleanup {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)] // Kept alongside the pending cursor until production scheduling lands.
 enum FrameCacheCleanupStage {
     FramesSource,
     Frames,
@@ -77,7 +78,6 @@ enum FrameCacheCleanupStage {
     Complete,
 }
 
-#[allow(dead_code)] // Direct tests precede production frame-cache scheduling.
 impl PendingRuntimeFrameCacheCleanup {
     pub(in crate::runtime) fn new(owner: RuntimeFrameCacheOwner) -> Self {
         Self {
@@ -90,6 +90,13 @@ impl PendingRuntimeFrameCacheCleanup {
 
     pub(in crate::runtime) fn is_complete(&self) -> bool {
         self.stage == FrameCacheCleanupStage::Complete
+    }
+
+    pub(in crate::runtime) fn pending_frame_owner_count(&self) -> usize {
+        self.owner.as_ref().map_or_else(
+            || self.frames.as_ref().map_or(0, ExactSizeIterator::len),
+            |owner| owner.frames.len(),
+        )
     }
 
     pub(in crate::runtime) fn advance_one(&mut self) -> bool {
