@@ -218,10 +218,12 @@ full candidate collector compose over that primitive with explicit source,
 nested-retirement and ownership-transition units. The cursor now needs
 composition through continuous/chapter/runtime sessions and internal
 cancellation scheduling. `RuntimeBlock` trees, standalone block/page vectors,
-the open-page accumulator and `ContinuousPaginationSession` now have iterative
-cursors, including per-run line cleanup, but unpublished chapter pages and
-built revisions still need to compose them before end-to-end cancellation is
-stack-safe. Then make the
+direct child vectors, the open-page accumulator and
+`ContinuousPaginationSession` now have iterative cursors, including per-run
+line cleanup. The child-vector façade adds no synthetic root block and drains
+partial 16K-deep state safely during unwinding, but continuous-session fields,
+unpublished chapter pages and built revisions still need to compose these
+primitives before end-to-end cancellation is stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and

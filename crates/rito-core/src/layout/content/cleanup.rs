@@ -6,10 +6,12 @@ use crate::layout::{line::LineBox, CleanupProgress};
 type LayoutBlock = RuntimeBlock<LineBox>;
 type LayoutChild = RuntimeChild<LineBox>;
 
+mod child_vector;
 mod forest;
 mod line;
 mod vector;
 
+pub(crate) use child_vector::PendingRuntimeChildVectorCleanup;
 use forest::PendingRuntimeChildForestCleanup;
 pub(crate) use vector::PendingRuntimeBlockVectorCleanup;
 

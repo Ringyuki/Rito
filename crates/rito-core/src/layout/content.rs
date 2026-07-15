@@ -2,7 +2,10 @@ use serde_json::Value;
 
 mod cleanup;
 
-pub(crate) use cleanup::{PendingRuntimeBlockCleanup, PendingRuntimeBlockVectorCleanup};
+#[allow(unused_imports)] // Continuous leaf-session retirement consumes this next.
+pub(crate) use cleanup::{
+    PendingRuntimeBlockCleanup, PendingRuntimeBlockVectorCleanup, PendingRuntimeChildVectorCleanup,
+};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimeBlock<Line> {

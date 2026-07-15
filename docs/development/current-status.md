@@ -477,10 +477,16 @@ Those names now belong to the old TS reference tree only.
      tests cover 16K-deep and 16K-wide trees with zero carrier-capacity growth.
      JSON paint and each individual run payload, including a final
      `Arc<LogicalTextFlow>` owner, remain indivisible destructor residuals. The
-     Block-vector, page, page-vector, open-page-accumulator and
-     `ContinuousPaginationSession` cursors now compose that primitive over
-     sealed pages and open blocks, with explicit source activation/retirement,
-     nested cursor retirement, page paint, layout config and owner transitions;
+     direct child-vector façade now exposes the same forest cleanup without
+     manufacturing a synthetic root block: its source handoff and nested-cursor
+     retirement are explicit units, so an empty field costs two units and a
+     completed-line field costs `sum(run count + 3) + 2`. Partial destruction,
+     including panic unwinding over a 16K-deep child forest, drains the same
+     iterative state. The block-vector, page, page-vector,
+     open-page-accumulator and `ContinuousPaginationSession` cursors now compose
+     that primitive over sealed pages and open blocks, with explicit source
+     activation/retirement, nested cursor retirement, page paint, layout config
+     and owner transitions;
      partial cursor destruction drains the same state machines. A block vector
      costs `sum(block units) + block count + 2`; an accumulator costs
      `page-vector units + block-vector units + 6`; its pagination session costs
