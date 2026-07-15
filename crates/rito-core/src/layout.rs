@@ -3,6 +3,7 @@ pub const OWNS: &str = "Block layout, inline layout, line breaking, pagination, 
 
 use std::collections::{BTreeMap, BTreeSet};
 
+mod cleanup;
 mod content;
 mod continuous_float;
 mod continuous_image;
@@ -64,6 +65,9 @@ mod visual_geometry;
 
 use serde::{Deserialize, Serialize};
 
+pub(crate) use cleanup::CleanupProgress;
+#[allow(unused_imports)] // Runtime cancellation composition consumes this next.
+pub(crate) use content::PendingRuntimeBlockCleanup;
 pub(crate) use content::{RuntimeBlock, RuntimeChild};
 pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
 pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};

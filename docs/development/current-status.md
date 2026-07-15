@@ -464,11 +464,20 @@ Those names now belong to the old TS reference tree only.
      and nested-cursor retirement transitions are explicit units, partial cursor
      destruction drains the same state machine, and the normal collector keeps
      no cleanup-only state. Its existing `Drop` path constructs that state on the
-     stack and drains it synchronously. No runtime/session cancellation path
-     schedules the cursor yet, so cancellation remains synchronous O(n), and
-     each `String`, map, `Arc`, segment or retained vector-allocation destructor
-     remains one indivisible payload operation. `RuntimeDocument::cancel_revision`
-     also
+     stack and drains it synchronously. Paint-ready `RuntimeBlock<LineBox>` trees
+     now have a separate budget-capable cleanup cursor. The top-level root stays
+     unboxed, nested blocks reuse a vacated child-vector slot as their traversal
+     carrier, and every line run is released separately instead of hiding an
+     unbounded `LineBox.runs` drain in one unit. Root/line source transitions,
+     block shells, images, rules, source retirement and final root ownership are
+     explicit units; partial cursor destruction drains the same state. Focused
+     tests cover 16K-deep and 16K-wide trees with zero carrier-capacity growth.
+     JSON paint and each individual run payload, including a final
+     `Arc<LogicalTextFlow>` owner, remain indivisible destructor residuals. The
+     block cursor is not yet composed through page/session/revision owners, and
+     ordinary `RuntimeBlock` destruction remains recursive outside it. No
+     runtime/session cancellation path schedules either cursor yet, so
+     cancellation remains synchronous O(n). `RuntimeDocument::cancel_revision`
      still synchronously
      removes `RuntimeContinuationRecord`, drops its nested chapter/layout-session
      owners and queued node forests, and clears the revision frame cache. End-to-
@@ -507,8 +516,9 @@ Those names now belong to the old TS reference tree only.
      budget. The collector's direct `Drop` entry point still drains
      synchronously, and the enclosing
      runtime and layout-session disposal does not schedule that cursor. Runtime
-     page trees also retain recursively owned `RuntimeBlock` children without a
-     shared iterative cleanup cursor yet. The
+     page trees now have an iterative block primitive, but page vectors, open
+     pagination state, unpublished batches and built revisions do not compose it
+     yet. The
      paid atomic parser-source `Arc<str>` conversion, source-path duplication,
      context/style/value clones, line-break metadata normalization and B-tree
      node allocation remain separate indivisible residual operations.
@@ -696,9 +706,10 @@ Work in roadmap order:
 1. Complete the default-Greedy hard bound by composing the candidate cleanup
    cursor through queued `ContinuousLayoutSession` node forests, active leaf and
    container state, `RuntimeChapterLayoutSession` and
-   `RuntimeContinuationRecord`. Add a shared iterative `RuntimeBlock`/page-owner
-   cursor before treating pagination, unpublished pages or built revisions as
-   stack-safe, then retire those owners and revision frame caches through an
+   `RuntimeContinuationRecord`. Compose the existing iterative `RuntimeBlock`
+   primitive through page vectors, open pagination, unpublished pages and built
+   revisions before treating those owners as stack-safe, then retire them and
+   revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.
    Then cover candidate/context allocation, clones,
    metadata and seals, container startup, strict downstream

@@ -87,7 +87,12 @@ The remaining usability work is narrower but still release-blocking:
    ownership and the complete outer candidate collector now have composable
    budget-capable cleanup cursors. Direct collector `Drop` still drains the same
    state machine synchronously, and runtime/session cancellation does not
-   schedule it yet. Contextual Final_Sigma whole-string allocation/growth and
+   schedule it yet. Paint-ready `RuntimeBlock<LineBox>` trees now also have an
+   unboxed-root, intrusive-carrier cleanup cursor that releases each `LineRun`
+   separately and drains the same state on partial cursor `Drop`. It is not yet
+   composed through page/session/revision owners; JSON paint and a final shared
+   logical-flow owner remain indivisible payload residuals. Contextual
+   Final_Sigma whole-string allocation/growth and
    unbudgeted outer continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
@@ -206,8 +211,10 @@ scratch. Discard, Ruby annotation, every Ruby frame state, retained Ruby group
 payload and the full candidate collector compose over that primitive with
 explicit source, nested-retirement and ownership-transition units. The cursor
 now needs composition through continuous/chapter/runtime sessions and internal
-cancellation scheduling; recursively owned `RuntimeBlock` page trees need their
-own iterative cursor before end-to-end cancellation is stack-safe. Then make the
+cancellation scheduling. `RuntimeBlock` trees now have their own iterative
+cursor, including per-run line cleanup, but page vectors, open pagination,
+unpublished pages and built revisions still need to compose it before end-to-end
+cancellation is stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
@@ -578,8 +585,8 @@ architecture rather than make an eager whole-book pipeline faster.
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
    allocation/growth, synchronous runtime/session cancellation around the
-   budgeted full candidate cursor, recursively owned `RuntimeBlock` page trees
-   and outer continuation/session disposal, remaining
+   budgeted candidate and block cursors, uncomposed page/revision owners and
+   outer continuation/session disposal, remaining
    context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,

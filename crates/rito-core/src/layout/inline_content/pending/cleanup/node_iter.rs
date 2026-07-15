@@ -1,6 +1,6 @@
 use std::{num::NonZeroUsize, vec::IntoIter};
 
-use crate::style::StyledNode;
+use crate::{layout::CleanupProgress, style::StyledNode};
 
 use super::PendingStyledNodeDrop;
 
@@ -45,12 +45,6 @@ impl StyledNodeIterSource for &mut IntoIter<StyledNode> {
     fn is_empty(&self) -> bool {
         self.as_slice().is_empty()
     }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct CleanupProgress {
-    pub(crate) consumed_units: usize,
-    pub(crate) complete: bool,
 }
 
 /// Owns a sealed `Vec` node iterator source while releasing each tree under a

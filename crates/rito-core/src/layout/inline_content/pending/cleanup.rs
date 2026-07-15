@@ -7,8 +7,8 @@ use super::PendingInlineCandidateCollector;
 mod candidate;
 mod node_iter;
 
+pub(crate) use crate::layout::CleanupProgress;
 pub(crate) use candidate::PendingInlineCandidateCleanup;
-pub(crate) use node_iter::CleanupProgress;
 pub(super) use node_iter::PendingStyledNodeIterDrop;
 use node_iter::StyledNodeIterSource;
 

@@ -1,5 +1,9 @@
 use serde_json::Value;
 
+mod cleanup;
+
+pub(crate) use cleanup::PendingRuntimeBlockCleanup;
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimeBlock<Line> {
     pub(crate) x: f64,
