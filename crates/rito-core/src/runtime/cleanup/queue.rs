@@ -9,10 +9,10 @@ use probe::RuntimeCleanupProbe;
 use crate::layout::{CleanupProgress, LayoutConfig};
 
 use super::super::{
-    continuation::{RuntimeChapterContinuation, RuntimeContinuationRecord},
-    frame::{
-        RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision, RuntimeRevisionInteractions,
+    continuation::{
+        RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationWork,
     },
+    frame::{RuntimeCachedFrame, RuntimeFrameCacheOwner, RuntimeRevision},
 };
 use job::RuntimeCleanupJob;
 
@@ -63,14 +63,11 @@ impl RuntimeCleanupQueue {
         self.enqueue(RuntimeCleanupJob::revision(owner));
     }
 
-    pub(in crate::runtime) fn enqueue_revision_interactions(
-        &mut self,
-        owner: Vec<RuntimeRevisionInteractions>,
-    ) {
-        if owner.is_empty() {
+    pub(in crate::runtime) fn enqueue_continuation_work(&mut self, owner: RuntimeContinuationWork) {
+        if !owner.has_cleanup_owners() {
             return;
         }
-        self.enqueue(RuntimeCleanupJob::revision_interactions(owner));
+        self.enqueue(RuntimeCleanupJob::continuation_work(owner));
     }
 
     pub(in crate::runtime) fn enqueue_frame_cache(&mut self, owner: RuntimeFrameCacheOwner) {
@@ -216,7 +213,3 @@ impl Drop for RuntimeCleanupQueue {
 #[cfg(test)]
 #[path = "queue/tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "queue/revision_interactions_vector_tests.rs"]
-mod revision_interactions_vector_tests;

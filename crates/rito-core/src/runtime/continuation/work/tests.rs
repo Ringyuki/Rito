@@ -11,6 +11,7 @@ use crate::{
 
 const LARGE_CONFIG_JOB_UNITS: usize = 263;
 const COMPLETED_CHAPTER_JOB_UNITS: usize = 42;
+const ORPHANED_FIRST_CHAPTER_WORK_JOB_UNITS: usize = 41;
 
 #[test]
 fn completed_chapter_admission_services_its_exact_queue_cost() {
@@ -46,7 +47,7 @@ fn completed_chapter_admission_services_its_exact_queue_cost() {
 }
 
 #[test]
-fn later_chapter_start_failure_queues_prior_interactions_as_one_job() {
+fn later_chapter_start_failure_queues_prior_work_as_one_job() {
     let mut document = RuntimeDocument::open(&multi_chapter_fixture_epub())
         .expect("multi-chapter runtime document opens");
     document
@@ -72,7 +73,10 @@ fn later_chapter_start_failure_queues_prior_interactions_as_one_job() {
     assert_eq!(document.cleanup_queue.job_count(), 1);
     assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
     let remaining = document.cleanup_queue.advance(NonZeroUsize::MAX);
-    assert_eq!(remaining.consumed_units, 17);
+    assert_eq!(
+        remaining.consumed_units,
+        ORPHANED_FIRST_CHAPTER_WORK_JOB_UNITS
+    );
     assert!(remaining.complete);
 }
 

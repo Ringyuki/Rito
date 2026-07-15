@@ -612,25 +612,27 @@ Those names now belong to the old TS reference tree only.
      and 42 units including queue retirement, so every completion's immediate
      64-unit service has positive aggregate headroom; a repeated-arrival test
      keeps the job count bounded even behind permanent regular backlog. The
-     two non-panic orphan-work paths now also move the whole
-     `available_interactions` vector into one regular resumable queue job. A
-     later chapter-start failure retires the work inside `advance_record`, while
+     two non-panic orphan-work paths now also move the complete
+     `RuntimeContinuationWork` owner into one regular resumable queue job. A
+     later chapter-start failure retires it inside `advance_record`, while
      missing-revision publication retires it inside `apply_work`. The shared
      helper does not service this admission: the existing outer
      error/publication boundary performs the one fixed service after admitting
-     its continuation, revision/frame-cache and interaction owners, avoiding
-     either an early service miss or a double service. If nested interaction
-     owner `i` costs `I_i`, the vector cursor costs exactly
-     `2 + sum(I_i + 1)` units and its
-     queue job costs `3 + sum(I_i + 1)`. Production chapter interactions contain
-     no per-chapter footnotes, have already transferred their completed idrefs
-     and retain one materialized chapter index, so `N` chapters with `S_i` text
-     spans cost exactly `3 + 13N + sum(S_i)` queue units. Tests cover a
-     later-chapter startup failure, missing-revision publication, exact nested
-     retirement and partial/unwind cleanup. Orphan page batches still drain
-     their page-vector cursors synchronously, and the orphan completed-idref set
-     still destroys synchronously. `RuntimeDocument.full_chapter_text_indices`
-     and temporary bundle/presentation/serialization clones still destroy their
+     its continuation, revision/frame-cache and work owners, avoiding either an
+     early service miss or a double service. The outer cursor releases every
+     page batch through its page-vector cursor before advancing the whole
+     interactions vector as one nested cursor, then retires every completed
+     idref and the work shell. If page-vector batch `b` costs `P_b`, the work owns
+     `C` completed idrefs, its nested interactions-vector cursor costs `I`, and
+     `A` is one when that vector is non-empty and zero otherwise, the work cursor
+     costs exactly `W = 4 + Σ(P_b + 3) + C + A * (I + 1)`. Its single queue
+     job costs `Q = W + 1`. Production-shaped non-empty work containing `N`
+     chapter interactions with `S_i` text spans therefore costs exactly
+     `Q = 8 + Σ(P_b + 3) + C + 13N + ΣS_i`. Tests cover a later-chapter
+     startup failure, missing-revision publication, exact page/interaction/idref
+     boundaries, one-job admission and partial/panic-unwind cleanup across deep
+     pages and unread spans. `RuntimeDocument.full_chapter_text_indices` and
+     temporary bundle/presentation/serialization clones still destroy their
      aggregate owners directly. Each generated cached-frame payload, detailed
      full-publication summary shell and those direct paths remain destructor
      residuals. Native frame-cache prefetch now warms a packed-only owner
@@ -672,9 +674,9 @@ Those names now belong to the old TS reference tree only.
      `RuntimeBlock` / `RuntimePage` destruction remains recursive outside the
      guarded owners. Production runtime retirement now uses a private two-lane
      queue: continuation records, normally completed chapters, revisions,
-     orphan interaction vectors, detached frame caches, individual LRU frames
-     and complete transient configs are removed from their logical owners first,
-     then advanced in unit quanta.
+     complete orphan continuation-work results, detached frame caches,
+     individual LRU frames and complete transient configs are removed from their
+     logical owners first, then advanced in unit quanta.
      Low frame backlog alternates
      with regular work. At the 24-owner high-water mark it receives bursts of at
      most eight frame-lane units,
@@ -683,7 +685,7 @@ Those names now belong to the old TS reference tree only.
      job-admission bound is at most one
      cache (holding up to 12 frames), revision or config owner per lifecycle
      mutation, one 42-unit completed-chapter owner per chapter completion with
-     its own immediate service, one aggregate orphan-interaction vector per
+     its own immediate service, one aggregate orphan-continuation-work job per
      failed work batch, two individual frame owners per cache miss, or two
      separately admitted config owners when preview-clone construction fails.
      Focused tests
@@ -691,15 +693,16 @@ Those names now belong to the old TS reference tree only.
      service quantum returns pending frame ownership to zero even with permanent
      regular backlog. High-water priority alone is not claimed as generic hard
      backpressure; future bulk producers must preserve that admission/service
-     invariant. Aggregating `available_interactions` closes the per-batch job
-     admission count, not a global 64-unit hard-backpressure proof: the vector's
-     cost grows with chapter and span count, so one service guarantees progress
-     but may leave its single resumable regular job queued. An admitted vector
-     with one empty materialized interactions owner costs 10 units including
-     queue retirement; the production-shaped one-chapter, zero-span case costs 16. Each queued job also has a separate retirement unit, making the
-     minimum queue costs 12 for an inactive continuation, 42 for a completed
-     chapter, 31 for an empty `FullDocument` revision, 4 for an empty frame
-     cache, 2 for one cached frame and 7 for an empty transient config. An empty
+     invariant. Aggregating the entire `RuntimeContinuationWork` closes the
+     per-batch job-admission count, not a global 64-unit hard-backpressure proof:
+     the job's cost grows with page-tree, chapter and span counts, so one service
+     guarantees progress but may leave its single resumable regular job queued.
+     Empty work is not admitted; completed-idref-only work with one idref costs 6
+     units including queue retirement. Each queued job also has a separate
+     retirement unit, making the minimum queue costs 12 for an inactive
+     continuation, 42 for a completed chapter, 31 for an empty `FullDocument`
+     revision, 4 for an empty frame cache, 2 for one cached frame and 7 for an
+     empty transient config. An empty
      materialized-index revision plus the other empty real jobs, as used by the
      mixed fixture, costs 99 units
      including every queue retirement.

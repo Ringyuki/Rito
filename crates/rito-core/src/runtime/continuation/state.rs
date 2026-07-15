@@ -213,8 +213,8 @@ impl RuntimeChapterContinuation {
     }
 }
 
-#[derive(Default)]
-pub(super) struct RuntimeContinuationWork {
+#[derive(Debug, Default)]
+pub(in crate::runtime) struct RuntimeContinuationWork {
     pub(super) batches: Vec<RuntimeChapterPageBatch>,
     pub(super) available_interactions: Vec<RuntimeRevisionInteractions>,
     pub(super) completed_chapter_idrefs: BTreeSet<String>,
@@ -222,8 +222,17 @@ pub(super) struct RuntimeContinuationWork {
     pub(super) complete: bool,
 }
 
+#[derive(Debug)]
 pub(super) struct RuntimeChapterPageBatch {
     pub(super) idref: String,
     pub(super) block_count: usize,
     pub(super) pages: Vec<LayoutRuntimePage>,
+}
+
+impl RuntimeContinuationWork {
+    pub(in crate::runtime) fn has_cleanup_owners(&self) -> bool {
+        !self.batches.is_empty()
+            || !self.available_interactions.is_empty()
+            || !self.completed_chapter_idrefs.is_empty()
+    }
 }

@@ -9,7 +9,6 @@ use crate::{
         image_size::ImageSizeIndex,
         pagination_session::{LayoutAdvanceStatus, LayoutWorkBudget, LayoutWorkMeter},
         runtime_session::{RuntimeChapterLayoutAdvance, RuntimeChapterLayoutSession},
-        PendingRuntimePageVectorCleanup,
     },
     resources::{binary_summary_from_metadata, BinaryResourceSummary},
     runtime::{revision::runtime_chapter_revision_interactions, RuntimeDocument},
@@ -150,26 +149,7 @@ impl RuntimeDocument {
     }
 
     pub(super) fn retire_orphaned_work(&mut self, work: RuntimeContinuationWork) {
-        let RuntimeContinuationWork {
-            batches,
-            available_interactions,
-            completed_chapter_idrefs,
-            processed_top_level_nodes,
-            complete,
-        } = work;
-        self.cleanup_queue
-            .enqueue_revision_interactions(available_interactions);
-        for batch in batches {
-            let RuntimeChapterPageBatch {
-                idref,
-                block_count,
-                pages,
-            } = batch;
-            PendingRuntimePageVectorCleanup::new(pages).drain();
-            let _ = (idref, block_count);
-        }
-        drop(completed_chapter_idrefs);
-        let _ = (processed_top_level_nodes, complete);
+        self.cleanup_queue.enqueue_continuation_work(work);
     }
 }
 

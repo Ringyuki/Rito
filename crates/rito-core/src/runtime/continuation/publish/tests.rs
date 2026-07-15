@@ -89,7 +89,7 @@ fn complete_chapters_and_single_spreads_publish_every_candidate() {
 }
 
 #[test]
-fn missing_revision_queues_orphaned_interactions_as_one_resumable_job() {
+fn missing_revision_queues_orphaned_work_as_one_resumable_job() {
     let mut document =
         RuntimeDocument::open(&empty_chapter_fixture_epub()).expect("runtime document opens");
     let continuation = RuntimeContinuationRecord::new(
@@ -121,7 +121,7 @@ fn missing_revision_queues_orphaned_interactions_as_one_resumable_job() {
     assert_eq!(document.cleanup_queue.job_count(), 1);
     assert_eq!(document.cleanup_queue.pending_frame_owner_count(), 0);
     let remaining = document.cleanup_queue.advance(NonZeroUsize::MAX);
-    assert_eq!(remaining.consumed_units, 92);
+    assert_eq!(remaining.consumed_units, 97);
     assert!(remaining.complete);
 }
 

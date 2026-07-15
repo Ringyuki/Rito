@@ -101,14 +101,15 @@ The remaining usability work is narrower but still release-blocking:
    completed chapters now transfer their whole drained continuation owner to the
    same queue: 41 cursor units and 42 including queue retirement, with one fixed
    64-unit service per completion. Both non-panic orphan-work paths now transfer
-   the whole `available_interactions` vector into one regular resumable queue
-   job. A later chapter-start failure admits it inside `advance_record`, while
-   missing-revision publication admits it inside `apply_work`; the shared helper
-   does not service, leaving each existing outer error/publication boundary to
-   service once after all related owners are admitted. Orphan page batches still
-   drain synchronously through their page-vector cursors, and orphan completed
-   idrefs still destroy synchronously. The document-wide chapter-text-index
-   cache and temporary wire clones still drop directly;
+   the complete `RuntimeContinuationWork` owner into one regular resumable queue
+   job. Its outer cursor releases every page batch through the existing
+   page-vector cursor, then advances the interactions-vector cursor as one
+   nested owner and finally retires every completed idref. A later chapter-start
+   failure admits that job inside `advance_record`, while missing-revision
+   publication admits it inside `apply_work`; the shared helper does not service,
+   leaving each existing outer error/publication boundary to service once after
+   all related owners are admitted. The document-wide chapter-text-index cache
+   and temporary wire clones still drop directly;
    transient
    request/bundle configuration owners do too. JSON paint and a final shared
    logical-flow owner remain indivisible payload residuals. Contextual
@@ -310,31 +311,36 @@ built-layout, layout-config, required-font and interaction cleanup. An empty
 `FullDocument` revision costs 30 units. The minimal queue fixture uses an empty
 materialized source, so that revision plus its queue-job retirement costs 32.
 The production runtime schedules continuation, completed-chapter, revision,
-orphan-interaction-vector, cache, LRU-frame and complete transient-config owners
-through a private two-lane cleanup queue. For nested interaction costs `I_i`, an
-orphan vector cursor costs exactly `2 + sum(I_i + 1)` units and its queue job
-costs `3 + sum(I_i + 1)`. A production vector for `N` chapters containing
-`S_i` text spans costs `3 + 13N + sum(S_i)` queue units.
+orphan-continuation-work, cache, LRU-frame and complete transient-config owners
+through a private two-lane cleanup queue. If page-vector batch `b` costs `P_b`,
+the work owns `C` completed idrefs, its nested interactions-vector cursor costs
+`I`, and `A` is one when that vector is non-empty and zero otherwise, the outer
+work cursor costs exactly
+`W = 4 + Σ(P_b + 3) + C + A * (I + 1)` units. Its single queue job adds one
+retirement unit, so `Q = W + 1`. The interactions vector remains a nested cursor,
+not a separately admitted queue job. For production-shaped work containing `N`
+chapter interactions with `S_i` text spans, the non-empty case simplifies to
+`Q = 8 + Σ(P_b + 3) + C + 13N + ΣS_i`.
 Each cleanup-queue-admitting producer batch advances 64 structural units; the
 closed job-admission bound is at most 12 frame owners per lifecycle mutation,
 one ordinary config owner, one 42-unit owner per completed chapter with an
-immediate service, one aggregate orphan-interaction vector per failed work
+immediate service, one aggregate orphan-continuation-work job per failed work
 batch, or two separately admitted configs on preview-clone construction
 failure. Tests
 over repeated batches keep the physical frame backlog at zero without starving
-regular work. The vector aggregation bounds one failed batch to one new regular
-job; because its exact cost grows with chapter/span count, it does not turn the
-fixed 64-unit service into global hard backpressure. One quantum guarantees
-progress and may leave that single job resumable. Final document
+regular work. Work aggregation bounds one failed batch to one new regular job;
+because its exact cost grows with page-tree, chapter and span counts, it does not
+turn the fixed 64-unit service into global hard backpressure. One quantum
+guarantees progress and may leave that single job resumable. Final document
 drop drains queued and still-active owners through the same iterative cursors.
 `RuntimeBlock` trees, standalone block/page vectors, direct child vectors, the
 open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. This new interaction/font coverage applies only to scheduled
+line cleanup. This new interaction/font coverage applies to scheduled
 `RuntimeRevision` retirement, active `RuntimeChapterContinuation` cancellation,
-normal completed-chapter retirement and queued orphan `available_interactions`.
-Orphan page batches and completed-idref sets still retire synchronously;
-`RuntimeDocument.full_chapter_text_indices` and
+normal completed-chapter retirement and the complete queued orphan
+`RuntimeContinuationWork`, including its page batches, nested interaction vector
+and completed-idref set. `RuntimeDocument.full_chapter_text_indices` and
 temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Native revision-cache warming now retains only the packed
 frame owner; compatibility JSON frames materialize from the immutable revision
@@ -386,9 +392,8 @@ or the full publication. Once inline candidates are collected, logical-flow
 mapping, display-text line-context assembly, transparent-container descendant
 traversal and Greedy break/measure/shape, UTF-16 run-copy and whitespace work
 advance through metered stages across public quanta. Candidate-collection
-allocator, context/source-copy, frame payloads, the slim completed
-chapter-session shell and aggregate owners on orphaned-interaction,
-document-index and temporary wire-clone paths remain synchronous residuals,
+allocator, context/source-copy, frame payloads, document-index and temporary
+wire-clone paths remain synchronous residuals,
 alongside line-context metadata,
 one container/paragraph-preparation
 pass, the leaf marker/paint seal, decorated or floated composite, table or
@@ -735,9 +740,8 @@ architecture rather than make an eager whole-book pipeline faster.
    plus height-accounted incrementally. Ruby annotation output and each base
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
-   allocation/growth, frame cleanup payloads and aggregate interaction,
-   index, font or wire-clone owners outside the guarded scheduled
-   revision/active-continuation paths, remaining
+   allocation/growth, frame cleanup payloads and document-index, font-catalog or
+   wire-clone owners outside the guarded scheduled paths, remaining
    context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/
    paint work, the leaf marker/paint seal, atomic Liang point generation,

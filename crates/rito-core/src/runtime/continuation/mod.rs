@@ -21,6 +21,7 @@ mod work;
 
 pub(in crate::runtime) use cleanup::{
     PendingRuntimeChapterContinuationCleanup, PendingRuntimeContinuationRecordCleanup,
+    PendingRuntimeContinuationWorkCleanup,
 };
 use error::{
     checked_budget, continuation_error, engine_error, engine_error_with_revision, unknown_revision,
@@ -28,6 +29,7 @@ use error::{
 use publish::initial_revision_interactions;
 pub(in crate::runtime) use state::{
     RuntimeChapterContinuation, RuntimeContinuationRecord, RuntimeContinuationStore,
+    RuntimeContinuationWork,
 };
 
 struct BoundedRevisionPreflight {
