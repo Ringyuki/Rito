@@ -8,10 +8,11 @@ use fixture::{
 };
 use rito_core::runtime::{
     decode_runtime_bundle, RuntimeResourceKind, RuntimeResourceTransferPayload,
+    RuntimeRevisionHandle, RuntimeViewRevisionMetadata,
 };
 use serde_json::Value;
 
-use super::{WasmRuntimeDocument, WasmRuntimeErrorCode};
+use super::{WasmRuntimeDocument, WasmRuntimeError, WasmRuntimeErrorCode};
 
 #[test]
 fn links_against_core() {
@@ -893,6 +894,179 @@ fn releases_revision_state_and_its_pending_transfers() {
         .read_resource_transfer(&payload.transfer_id)
         .is_err());
     assert!(!document.release_revision(&revision_id));
+}
+
+#[test]
+fn failed_view_transport_preserves_previous_transfers_and_rolls_back_the_candidate() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let previous_revision_id = revision_id(&mut document);
+    let previous_transfer = resource_payload(&mut document, &previous_revision_id);
+    let error = WasmRuntimeError::internal_error("injected view encoder failure");
+    let mut candidate_transfer_ids = Vec::new();
+    let request = serde_json::json!({
+        "layoutConfig": layout(),
+        "lineBreaking": "greedy",
+        "activeSpreadIndex": 0,
+        "previousRevisionId": previous_revision_id,
+        "mode": "full",
+    });
+
+    let result = document.finish_view_revision_transport(
+        &request.to_string(),
+        RuntimeViewRevisionMetadata::Complete,
+        |response| {
+            candidate_transfer_ids = response
+                .result
+                .initial_frame_window
+                .as_ref()
+                .expect("candidate initial frame is prefetched")
+                .spreads
+                .iter()
+                .flat_map(|spread| &spread.payloads)
+                .map(|payload| payload.transfer_id.clone())
+                .collect();
+            assert!(!candidate_transfer_ids.is_empty());
+            Err::<String, _>(error.clone())
+        },
+    );
+
+    assert_eq!(result, Err(error));
+    assert_eq!(document.document.revision_count(), 1);
+    assert!(document.document.has_revision(&previous_revision_id));
+    assert!(!document.document.has_revision("rev-2"));
+    assert_eq!(document.pending_resource_transfer_count(), 1);
+    assert_eq!(
+        document
+            .read_resource_transfer(&previous_transfer.transfer_id)
+            .expect("previous transfer remains"),
+        minimal_png()
+    );
+    let next_transfer = resource_payload(&mut document, &previous_revision_id);
+    assert!(!candidate_transfer_ids.contains(&next_transfer.transfer_id));
+}
+
+#[test]
+fn successful_transport_releases_previous_transfers_only_after_finish() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let previous_revision_id = revision_id(&mut document);
+    let previous_transfer = resource_payload(&mut document, &previous_revision_id);
+    let revision = document
+        .document
+        .create_revision(&layout())
+        .expect("candidate revision is created");
+    let revision = RuntimeRevisionHandle::from(&revision);
+
+    let (new_transfer_id, released_count) = document
+        .finish_created_revision_transport(
+            revision.clone(),
+            Some(&previous_revision_id),
+            |document, revision, released_count| {
+                assert!(document
+                    .read_resource_transfer(&previous_transfer.transfer_id)
+                    .is_ok());
+                let payload = resource_payload(document, &revision.revision_id);
+                assert_eq!(document.pending_resource_transfer_count(), 2);
+                Ok((payload.transfer_id, released_count))
+            },
+        )
+        .expect("transport commits");
+
+    assert_eq!(released_count, 1);
+    assert!(document.document.has_revision(&revision.revision_id));
+    assert!(document
+        .read_resource_transfer(&previous_transfer.transfer_id)
+        .is_err());
+    assert_eq!(
+        document
+            .read_resource_transfer(&new_transfer_id)
+            .expect("candidate transfer remains"),
+        minimal_png()
+    );
+    assert_eq!(document.pending_resource_transfer_count(), 1);
+}
+
+#[test]
+fn full_transport_preserves_previous_release_and_pending_count_semantics() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+    let previous_revision_id = revision_id(&mut document);
+    let previous_transfer = resource_payload(&mut document, &previous_revision_id);
+    let unrelated_revision_id = revision_id(&mut document);
+    let unrelated_transfer = resource_payload(&mut document, &unrelated_revision_id);
+
+    let response = document
+        .create_full_revision_bundle_json(
+            &serde_json::json!({
+                "layoutConfig": layout(),
+                "lineBreaking": "greedy",
+                "activeSpreadIndex": 0,
+                "previousRevisionId": previous_revision_id,
+            })
+            .to_string(),
+        )
+        .expect("replacement transport commits");
+    let response: Value = serde_json::from_str(&response).expect("replacement response parses");
+    let pending_count = response["initialFrameWindow"]["pendingTransferCount"]
+        .as_u64()
+        .expect("pending transfer count is present") as usize;
+
+    assert_eq!(response["releasedPreviousRevisionTransferCount"], 1);
+    assert_eq!(pending_count, document.pending_resource_transfer_count());
+    let spread_pending_counts = response["initialFrameWindow"]["spreads"]
+        .as_array()
+        .expect("warm spreads are present")
+        .iter()
+        .map(|spread| {
+            spread["pendingTransferCount"]
+                .as_u64()
+                .expect("spread pending count is present") as usize
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(spread_pending_counts.last(), Some(&pending_count));
+    assert!(pending_count > 1);
+    assert!(document
+        .read_resource_transfer(&previous_transfer.transfer_id)
+        .is_err());
+    assert_eq!(
+        document
+            .read_resource_transfer(&unrelated_transfer.transfer_id)
+            .expect("unrelated transfer remains"),
+        minimal_png()
+    );
+}
+
+#[test]
+fn matching_previous_id_cannot_release_candidate_transfers() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
+
+    let response = document
+        .create_full_revision_bundle_json(
+            &serde_json::json!({
+                "layoutConfig": layout(),
+                "lineBreaking": "greedy",
+                "activeSpreadIndex": 0,
+                "previousRevisionId": "rev-1",
+            })
+            .to_string(),
+        )
+        .expect("colliding stale previous ID does not release candidate leases");
+    let response: Value = serde_json::from_str(&response).expect("replacement response parses");
+    let initial_window = &response["initialFrameWindow"];
+    let pending_count = initial_window["pendingTransferCount"]
+        .as_u64()
+        .expect("pending transfer count is present") as usize;
+    let transfer_id = initial_window["spreads"][0]["payloads"][0]["transferId"]
+        .as_str()
+        .expect("candidate transfer ID is present");
+
+    assert_eq!(response["bundle"]["revision"]["revisionId"], "rev-1");
+    assert_eq!(response["releasedPreviousRevisionTransferCount"], 0);
+    assert_eq!(pending_count, document.pending_resource_transfer_count());
+    assert_eq!(
+        document
+            .read_resource_transfer(transfer_id)
+            .expect("candidate transfer remains readable"),
+        minimal_png()
+    );
 }
 
 #[test]

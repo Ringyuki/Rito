@@ -17,7 +17,10 @@ impl WasmRuntimeDocument {
             .document
             .create_bounded_revision(request)
             .map_err(WasmRuntimeError::from_continuation)?;
-        serialize_json(&advance)
+        let revision = rito_core::runtime::RuntimeRevisionHandle::from(&advance.revision);
+        self.finish_created_revision_transport(revision, None, move |_, _, _| {
+            serialize_json(&advance)
+        })
     }
 
     /// Consumes one version-bound continuation cursor.

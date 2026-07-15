@@ -5,10 +5,16 @@ use serde::{Deserialize, Serialize};
 use super::{RuntimeResource, RuntimeResourceKind, RuntimeRevisionHandle};
 use crate::epub::{EpubError, EpubResult};
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct RuntimeResourceTransferStore {
     next_transfer_index: usize,
     transfers: BTreeMap<String, RuntimeResourceTransfer>,
+}
+
+impl Default for RuntimeResourceTransferStore {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl RuntimeResourceTransferStore {
@@ -91,6 +97,13 @@ impl RuntimeResourceTransferStore {
         before - self.transfers.len()
     }
 
+    pub fn revision_transfer_count(&self, revision_id: &str) -> usize {
+        self.transfers
+            .values()
+            .filter(|transfer| transfer.revision.revision_id == revision_id)
+            .count()
+    }
+
     pub fn len(&self) -> usize {
         self.transfers.len()
     }
@@ -166,6 +179,15 @@ mod tests {
     }
 
     #[test]
+    fn default_uses_the_same_transfer_id_sequence_as_new() {
+        let mut store = RuntimeResourceTransferStore::default();
+
+        let first = store.store(resource("rev-1", b"image-bytes"));
+
+        assert_eq!(first.transfer_id, "transfer-1");
+    }
+
+    #[test]
     fn takes_bytes_and_consumes_only_the_selected_transfer() {
         let mut store = RuntimeResourceTransferStore::new();
         let first = store.store(resource("rev-1", b"first"));
@@ -194,6 +216,9 @@ mod tests {
         let rev1 = store.store(resource("rev-1", b"one"));
         let rev2 = store.store(resource("rev-2", b"two"));
 
+        assert_eq!(store.revision_transfer_count("rev-1"), 1);
+        assert_eq!(store.revision_transfer_count("rev-2"), 1);
+        assert_eq!(store.revision_transfer_count("rev-missing"), 0);
         assert_eq!(store.release_revision("rev-1"), 1);
 
         assert!(store.read(&rev1.transfer_id).is_err());

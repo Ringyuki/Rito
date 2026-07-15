@@ -1,7 +1,11 @@
+use rito_core::{
+    layout::LineBreaking,
+    runtime::{RuntimeBoundedRevisionRequest, RuntimeRevisionHandle, RuntimeRevisionWorkBudget},
+};
 use serde_json::{json, Value};
 
 use super::fixture::{layout, multi_chapter_document};
-use crate::{WasmRuntimeDocument, WasmRuntimeErrorCode};
+use crate::{WasmRuntimeDocument, WasmRuntimeError, WasmRuntimeErrorCode};
 
 fn start_bounded(document: &mut WasmRuntimeDocument) -> Value {
     let response = document
@@ -203,4 +207,46 @@ fn bounded_revision_json_validates_requests_and_budget() {
         zero_budget.message(),
         "maxTopLevelNodes must be greater than zero"
     );
+}
+
+#[test]
+fn failed_bounded_create_transport_releases_the_revision_and_cursor() {
+    let mut document = WasmRuntimeDocument::from_loaded_document(multi_chapter_document());
+    let advance = document
+        .document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("bounded candidate is created");
+    let continuation = advance
+        .continuation
+        .clone()
+        .expect("partial candidate owns a continuation");
+    let revision = RuntimeRevisionHandle::from(&advance.revision);
+    let error = WasmRuntimeError::internal_error("injected bounded encoder failure");
+
+    let result = document.finish_created_revision_transport(revision.clone(), None, |_, _, _| {
+        Err::<String, _>(error.clone())
+    });
+
+    assert_eq!(result, Err(error));
+    assert_eq!(document.document.revision_count(), 0);
+    assert!(!document.document.has_revision(&revision.revision_id));
+    let continue_error = document
+        .continue_revision_json(
+            &json!({
+                "revisionId": continuation.revision_id,
+                "revisionVersion": continuation.revision_version,
+                "cursor": continuation.cursor,
+                "budget": { "maxTopLevelNodes": 1 }
+            })
+            .to_string(),
+        )
+        .expect_err("rolled-back candidate cannot continue");
+    assert_eq!(continue_error.code(), WasmRuntimeErrorCode::UnknownRevision);
+    assert_eq!(continue_error.message(), "unknown revision: rev-1");
 }

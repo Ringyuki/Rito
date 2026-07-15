@@ -607,7 +607,14 @@ Those names now belong to the old TS reference tree only.
      and full bundle creation now keep the inserted revision provisional through
      bundle metadata and initial-frame finalization; any post-insert error
      releases it through the same budgeted revision cleanup queue without
-     reusing its ID.
+     reusing its ID. The WASM eager, view, reader and bounded-create transports
+     now extend that provisional state through initial-frame warm/prefetch and
+     final JSON/`RITORB1` encoding. Previous-revision transfers remain owned
+     until commit while response counts expose the post-commit view; on a
+     recoverable transport error they remain intact while the exact new
+     revision and leases are released.
+     Continuation, cancellation and versioned-release mutations still commit
+     before their infallible-in-practice JSON response is encoded.
      These
      cursors establish structural stack safety for their guarded persistent
      owners rather than an end-to-end wall-clock hard bound. Ordinary

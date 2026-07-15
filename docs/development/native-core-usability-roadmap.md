@@ -308,6 +308,13 @@ dropped synchronously by legacy view endpoints outside that path. Eager preview
 and full bundle creation now keep each inserted revision provisional until
 bundle metadata and initial-frame finalization both succeed; post-insert errors
 release it through the budgeted revision cleanup queue without reusing its ID.
+The WASM eager, view, reader and bounded-create transports extend that
+provisional state through initial-frame warm/prefetch and final JSON/`RITORB1`
+encoding. Previous-revision transfers remain owned until commit while response
+counts expose the post-commit view; on a recoverable transport error they
+remain intact while the exact new revision and leases are released.
+Continuation, cancellation and versioned-release mutations still commit before
+their infallible-in-practice JSON response is encoded.
 Guarded persistent-owner cancellation is therefore structurally stack-safe,
 but this is not an end-to-end wall-clock hard bound. Next make the currently atomic Liang point
 calculation bounded and extend the same

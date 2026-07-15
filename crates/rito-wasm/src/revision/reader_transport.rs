@@ -75,26 +75,36 @@ impl WasmRuntimeDocument {
         omit_full_indices: bool,
     ) -> Result<String, WasmRuntimeError> {
         let measure = self.view_revision_wire_measurement.consume_arm();
-        let response = self.create_view_revision_bundle_response_with_metadata(
-            request_json,
-            reader_view_revision_metadata(omit_full_indices),
-        )?;
-        let projection = reader_view_revision_projection(&response, omit_full_indices);
         if !measure {
-            return serialize_json(&projection);
-        }
-
-        let timer = WireEncodeTimer::start();
-        let result = serialize_json(&projection);
-        let rust_encode_ms = timer.elapsed_ms();
-        if let Ok(payload) = &result {
-            self.view_revision_wire_measurement.record(
-                ViewRevisionWire::Json,
-                payload.len(),
-                rust_encode_ms,
+            return self.finish_view_revision_transport(
+                request_json,
+                reader_view_revision_metadata(omit_full_indices),
+                |response| {
+                    serialize_json(&reader_view_revision_projection(
+                        response,
+                        omit_full_indices,
+                    ))
+                },
             );
         }
-        result
+
+        let (payload, rust_encode_ms) = self.finish_view_revision_transport(
+            request_json,
+            reader_view_revision_metadata(omit_full_indices),
+            |response| {
+                let projection = reader_view_revision_projection(response, omit_full_indices);
+                let timer = WireEncodeTimer::start();
+                let result = serialize_json(&projection);
+                let rust_encode_ms = timer.elapsed_ms();
+                result.map(|payload| (payload, rust_encode_ms))
+            },
+        )?;
+        self.view_revision_wire_measurement.record(
+            ViewRevisionWire::Json,
+            payload.len(),
+            rust_encode_ms,
+        );
+        Ok(payload)
     }
 
     pub fn create_reader_view_revision_bundle_bytes(
@@ -103,27 +113,38 @@ impl WasmRuntimeDocument {
         omit_full_indices: bool,
     ) -> Result<Vec<u8>, WasmRuntimeError> {
         let measure = self.view_revision_wire_measurement.consume_arm();
-        let response = self.create_view_revision_bundle_response_with_metadata(
-            request_json,
-            reader_view_revision_metadata(omit_full_indices),
-        )?;
-        let projection = reader_view_revision_projection(&response, omit_full_indices);
         if !measure {
-            return encode_runtime_bundle(&projection).map_err(WasmRuntimeError::from_engine);
-        }
-
-        let timer = WireEncodeTimer::start();
-        let encoded = encode_runtime_bundle(&projection);
-        let rust_encode_ms = timer.elapsed_ms();
-        let result = encoded.map_err(WasmRuntimeError::from_engine);
-        if let Ok(payload) = &result {
-            self.view_revision_wire_measurement.record(
-                ViewRevisionWire::Ritorb1,
-                payload.len(),
-                rust_encode_ms,
+            return self.finish_view_revision_transport(
+                request_json,
+                reader_view_revision_metadata(omit_full_indices),
+                |response| {
+                    encode_runtime_bundle(&reader_view_revision_projection(
+                        response,
+                        omit_full_indices,
+                    ))
+                    .map_err(WasmRuntimeError::from_engine)
+                },
             );
         }
-        result
+
+        let (payload, rust_encode_ms) = self.finish_view_revision_transport(
+            request_json,
+            reader_view_revision_metadata(omit_full_indices),
+            |response| {
+                let projection = reader_view_revision_projection(response, omit_full_indices);
+                let timer = WireEncodeTimer::start();
+                let result =
+                    encode_runtime_bundle(&projection).map_err(WasmRuntimeError::from_engine);
+                let rust_encode_ms = timer.elapsed_ms();
+                result.map(|payload| (payload, rust_encode_ms))
+            },
+        )?;
+        self.view_revision_wire_measurement.record(
+            ViewRevisionWire::Ritorb1,
+            payload.len(),
+            rust_encode_ms,
+        );
+        Ok(payload)
     }
 }
 
