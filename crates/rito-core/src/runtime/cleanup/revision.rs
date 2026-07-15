@@ -1,6 +1,6 @@
 use std::num::NonZeroUsize;
 
-use crate::layout::{CleanupProgress, LayoutConfig, PendingBuiltLayoutCleanup};
+use crate::layout::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutConfigCleanup};
 
 use super::{
     super::{
@@ -22,16 +22,16 @@ struct RuntimeRevisionShell {
 /// Releases derived frames before the recursive built layout and flat fields.
 ///
 /// If frame-cache cleanup costs `FC` and built-layout cleanup costs `BL`, this
-/// cursor costs exactly `FC + BL + 7` units. Layout metadata, configuration,
-/// font catalogs, interactions and each generated cached frame retain
-/// indivisible destructor residuals, so this is a structural stack-safety
-/// bound rather than a wall-clock bound.
+/// cursor costs exactly `FC + BL + LC + 7` units when layout-configuration
+/// cleanup costs `LC`. Layout metadata, font catalogs, interactions and each
+/// generated cached frame retain indivisible destructor residuals, so this is a
+/// structural stack-safety bound rather than a wall-clock bound.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeRevisionCleanup {
     owner: Option<RuntimeRevision>,
     frame_cache: Option<PendingRuntimeFrameCacheCleanup>,
     layout: Option<PendingBuiltLayoutCleanup>,
-    layout_config: Option<LayoutConfig>,
+    layout_config: Option<PendingLayoutConfigCleanup>,
     required_font_face_catalog: Option<Option<Vec<RuntimeRequiredFontFace>>>,
     interactions: Option<RuntimeRevisionInteractions>,
     shell: Option<RuntimeRevisionShell>,
@@ -85,7 +85,7 @@ impl PendingRuntimeRevisionCleanup {
             RuntimeRevisionCleanupStage::RevisionSource => self.start_revision(),
             RuntimeRevisionCleanupStage::FrameCache => self.advance_frame_cache(),
             RuntimeRevisionCleanupStage::Layout => self.advance_layout(),
-            RuntimeRevisionCleanupStage::LayoutConfig => self.release_layout_config(),
+            RuntimeRevisionCleanupStage::LayoutConfig => self.advance_layout_config(),
             RuntimeRevisionCleanupStage::RequiredFontFaceCatalog => {
                 self.release_required_font_face_catalog()
             }
@@ -142,7 +142,7 @@ impl PendingRuntimeRevisionCleanup {
             },
         ));
         self.layout = Some(PendingBuiltLayoutCleanup::new(layout));
-        self.layout_config = Some(layout_config);
+        self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.required_font_face_catalog = Some(required_font_face_catalog);
         self.interactions = Some(interactions);
         self.shell = Some(RuntimeRevisionShell {
@@ -182,13 +182,18 @@ impl PendingRuntimeRevisionCleanup {
         true
     }
 
-    fn release_layout_config(&mut self) -> bool {
-        drop(
-            self.layout_config
-                .take()
-                .expect("revision layout config exists"),
-        );
-        self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
+    fn advance_layout_config(&mut self) -> bool {
+        let layout_config = self
+            .layout_config
+            .as_mut()
+            .expect("layout-config cleanup exists");
+        if layout_config.is_complete() {
+            self.layout_config = None;
+            self.stage = RuntimeRevisionCleanupStage::RequiredFontFaceCatalog;
+            return true;
+        }
+        let advanced = layout_config.advance_one();
+        debug_assert!(advanced, "incomplete layout-config cleanup has work");
         true
     }
 

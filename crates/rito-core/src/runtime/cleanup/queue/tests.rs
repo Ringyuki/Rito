@@ -24,7 +24,7 @@ use crate::{
     },
 };
 
-const MINIMAL_REAL_JOB_UNITS: usize = 7 + 17 + 4 + 2;
+const MINIMAL_REAL_JOB_UNITS: usize = 13 + 23 + 4 + 2;
 
 #[test]
 fn empty_queue_reports_complete_without_consuming_budget() {
@@ -182,6 +182,36 @@ fn repeated_legal_frame_batches_do_not_accumulate_owners() {
         queue.advance(budget);
         assert_eq!(queue.pending_frame_owner_count(), 0);
     }
+}
+
+#[test]
+fn default_quantum_resumes_a_large_persistent_layout_config() {
+    let mut layout_config = test_layout();
+    layout_config.generic_serif_advances = (0..256)
+        .map(|index| (format!("glyph-{index}"), index as f64))
+        .collect();
+    let mut queue = RuntimeCleanupQueue::default();
+    queue.enqueue_continuation(RuntimeContinuationRecord::new(
+        "revision".to_owned(),
+        "layout".to_owned(),
+        layout_config,
+        LineBreaking::Greedy,
+        0,
+    ));
+    let budget = NonZeroUsize::new(RUNTIME_CLEANUP_QUANTUM).expect("cleanup quantum is non-zero");
+
+    let first = queue.advance(budget);
+
+    assert_eq!(first.consumed_units, RUNTIME_CLEANUP_QUANTUM);
+    assert!(!first.complete);
+    assert_eq!(queue.pending_frame_owner_count(), 0);
+    assert_eq!(queue.job_count(), 1);
+
+    let mut consumed_units = first.consumed_units;
+    while !queue.is_empty() {
+        consumed_units += queue.advance(budget).consumed_units;
+    }
+    assert_eq!(consumed_units, 269);
 }
 
 #[test]

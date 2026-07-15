@@ -23,7 +23,7 @@ use super::super::chapter::PendingRuntimeChapterContinuationCleanup;
 const DEEP_NODE_COUNT: usize = 16_384;
 
 #[test]
-fn inactive_record_has_six_exact_units_for_all_scalar_values() {
+fn inactive_record_has_twelve_exact_units_for_all_scalar_values() {
     for line_breaking in [LineBreaking::Greedy, LineBreaking::Optimal] {
         let mut owner = record(None, line_breaking);
         owner.revision_version = u32::MAX;
@@ -33,7 +33,7 @@ fn inactive_record_has_six_exact_units_for_all_scalar_values() {
         let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-        assert_eq!(progress.consumed_units, 6);
+        assert_eq!(progress.consumed_units, 12);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
@@ -41,7 +41,7 @@ fn inactive_record_has_six_exact_units_for_all_scalar_values() {
 }
 
 #[test]
-fn atomic_payload_sizes_do_not_change_structural_units_or_release_order() {
+fn chapter_start_pages_release_one_per_unit_before_layout_config() {
     let mut owner = record(None, LineBreaking::Greedy);
     owner.chapter_start_pages.extend([0, 11, 99]);
     owner.layout_config.font_family_override = Some("Pinned Serif".to_owned());
@@ -61,23 +61,46 @@ fn atomic_payload_sizes_do_not_change_structural_units_or_release_order() {
         ContinuationRecordCleanupStage::ChapterStartPages
     );
     assert_eq!(
-        cleanup.chapter_start_pages.as_ref().map(BTreeSet::len),
+        cleanup
+            .chapter_start_pages
+            .as_ref()
+            .map(ExactSizeIterator::len),
         Some(3)
     );
     assert!(cleanup.layout_config.is_some());
     assert!(cleanup.layout_key.is_some());
     assert!(cleanup.revision_id.is_some());
 
+    for expected_remaining in [2, 1, 0] {
+        assert_one(&mut cleanup);
+        assert_eq!(
+            cleanup
+                .chapter_start_pages
+                .as_ref()
+                .map(ExactSizeIterator::len),
+            Some(expected_remaining)
+        );
+        assert_eq!(
+            cleanup.stage,
+            ContinuationRecordCleanupStage::ChapterStartPages
+        );
+    }
+
     assert_one(&mut cleanup);
     assert!(cleanup.chapter_start_pages.is_none());
-    assert_one(&mut cleanup);
+    assert_eq!(cleanup.stage, ContinuationRecordCleanupStage::LayoutConfig);
+    assert_eq!(drive_q1(&mut cleanup, 14), 14);
     assert!(cleanup.layout_config.is_none());
-    assert_one(&mut cleanup);
-    assert!(cleanup.layout_key.is_none());
-    assert_one(&mut cleanup);
-    assert!(cleanup.revision_id.is_none());
-    assert_one(&mut cleanup);
     assert!(cleanup.is_complete());
+}
+
+#[test]
+fn inactive_chapter_start_page_count_composes_exactly() {
+    let mut owner = record(None, LineBreaking::Greedy);
+    owner.chapter_start_pages.extend(0..4_096);
+    let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 4_108), 4_108);
 }
 
 #[test]
@@ -86,7 +109,7 @@ fn active_record_composes_empty_and_single_page_chapters_exactly() {
     let page = LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new());
     let one_page = record(Some(current(Vec::new(), vec![page])), LineBreaking::Greedy);
 
-    for (owner, expected) in [(empty, 49), (one_page, 54)] {
+    for (owner, expected) in [(empty, 61), (one_page, 66)] {
         let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
         assert_eq!(drive_q1(&mut cleanup, expected), expected);
     }
@@ -97,7 +120,7 @@ fn active_chapter_retirement_has_its_own_unit() {
     let owner = record(Some(current(Vec::new(), Vec::new())), LineBreaking::Greedy);
     let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
 
-    for _ in 0..43 {
+    for _ in 0..49 {
         assert_one(&mut cleanup);
     }
     assert_eq!(cleanup.stage, ContinuationRecordCleanupStage::Current);
@@ -112,14 +135,14 @@ fn active_chapter_retirement_has_its_own_unit() {
         cleanup.stage,
         ContinuationRecordCleanupStage::ChapterStartPages
     );
-    assert_eq!(drive_q1(&mut cleanup, 5), 5);
+    assert_eq!(drive_q1(&mut cleanup, 11), 11);
 }
 
 #[test]
 fn deep_active_record_has_exact_units_and_immediate_drop_is_linear() {
     let owner = deep_record();
     let mut cleanup = PendingRuntimeContinuationRecordCleanup::new(owner);
-    let expected = DEEP_NODE_COUNT * 2 + 48;
+    let expected = DEEP_NODE_COUNT * 2 + 60;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingRuntimeContinuationRecordCleanup::new(deep_record()));

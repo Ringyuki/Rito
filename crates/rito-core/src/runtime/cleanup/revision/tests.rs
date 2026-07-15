@@ -23,7 +23,7 @@ use super::super::test_support::cached_frame;
 const DEEP_BLOCK_COUNT: usize = 16_384;
 
 #[test]
-fn empty_revision_has_sixteen_exact_units_for_all_shell_values() {
+fn empty_revision_has_twenty_two_exact_units_for_all_shell_values() {
     for status in [
         RuntimeRevisionStatus::Warming,
         RuntimeRevisionStatus::Ready,
@@ -44,7 +44,7 @@ fn empty_revision_has_sixteen_exact_units_for_all_shell_values() {
                 owner.required_font_face_catalog = has_font_catalog.then(|| vec![font_face()]);
                 let mut cleanup = PendingRuntimeRevisionCleanup::new(owner);
 
-                assert_eq!(drive_q1(&mut cleanup, 16), 16);
+                assert_eq!(drive_q1(&mut cleanup, 22), 22);
             }
         }
     }
@@ -79,7 +79,7 @@ fn cache_layout_and_flat_fields_release_in_order() {
     assert!(cleanup.frame_cache.is_none());
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::Layout);
 
-    assert_eq!(drive_q1(&mut cleanup, 11), 11);
+    assert_eq!(drive_q1(&mut cleanup, 17), 17);
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn layout_retirement_is_separate_from_its_nested_completion() {
     assert_one(&mut cleanup);
     assert!(cleanup.layout.is_none());
     assert_eq!(cleanup.stage, RuntimeRevisionCleanupStage::LayoutConfig);
-    assert_eq!(drive_q1(&mut cleanup, 4), 4);
+    assert_eq!(drive_q1(&mut cleanup, 10), 10);
 }
 
 #[test]
@@ -126,13 +126,13 @@ fn one_empty_page_composes_built_layout_exactly() {
         .push(LayoutRuntimePage::new(0, 320.0, 120.0, None, Vec::new()));
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(layout));
 
-    assert_eq!(drive_q1(&mut cleanup, 21), 21);
+    assert_eq!(drive_q1(&mut cleanup, 27), 27);
 }
 
 #[test]
 fn deep_revision_is_exact_and_immediate_drop_is_stack_safe() {
     let mut cleanup = PendingRuntimeRevisionCleanup::new(revision(deep_layout()));
-    let expected = DEEP_BLOCK_COUNT * 2 + 22;
+    let expected = DEEP_BLOCK_COUNT * 2 + 28;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
     drop(PendingRuntimeRevisionCleanup::new(revision(deep_layout())));

@@ -27,7 +27,7 @@ fn empty_layout_has_six_exact_units_and_repeated_completion_is_free() {
 }
 
 #[test]
-fn metadata_sizes_do_not_change_structural_units_or_release_order() {
+fn chapter_start_pages_release_one_per_unit_after_diagnostic_metadata() {
     let mut owner = empty_layout();
     owner.chapter_start_pages.extend([0, 11, 99]);
     owner.summary.inline_segments.full_detail_hash = "diagnostic".repeat(128);
@@ -55,9 +55,31 @@ fn metadata_sizes_do_not_change_structural_units_or_release_order() {
 
     assert_one(&mut cleanup);
     assert!(cleanup.summary.is_none());
+
+    for expected_remaining in [2, 1, 0] {
+        assert_one(&mut cleanup);
+        assert_eq!(
+            cleanup
+                .chapter_start_pages
+                .as_ref()
+                .map(ExactSizeIterator::len),
+            Some(expected_remaining)
+        );
+        assert_eq!(cleanup.stage, BuiltLayoutCleanupStage::ChapterStartPages);
+    }
+
     assert_one(&mut cleanup);
     assert!(cleanup.chapter_start_pages.is_none());
     assert!(cleanup.is_complete());
+}
+
+#[test]
+fn chapter_start_page_count_composes_exactly() {
+    let mut owner = empty_layout();
+    owner.chapter_start_pages.extend(0..4_096);
+    let mut cleanup = PendingBuiltLayoutCleanup::new(owner);
+
+    assert_eq!(drive_q1(&mut cleanup, 4_102), 4_102);
 }
 
 #[test]

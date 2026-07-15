@@ -35,7 +35,7 @@ fn empty_finished_and_unfinished_sessions_have_the_same_exact_units() {
         let mut cleanup = PendingRuntimeChapterLayoutSessionCleanup::new(owner);
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-        assert_eq!(progress.consumed_units, 33);
+        assert_eq!(progress.consumed_units, 39);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
@@ -45,7 +45,7 @@ fn empty_finished_and_unfinished_sessions_have_the_same_exact_units() {
 #[test]
 fn deep_pending_layout_forest_composes_exactly_after_empty_pagination() {
     let mut cleanup = PendingRuntimeChapterLayoutSessionCleanup::new(session(vec![deep_tree()]));
-    let expected = 33 + DEEP_NODE_COUNT * 2 - 1;
+    let expected = 39 + DEEP_NODE_COUNT * 2 - 1;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 }
@@ -57,7 +57,7 @@ fn open_pagination_block_composes_before_the_empty_layout_session() {
     assert_eq!(pushed.processed_blocks, 1);
     let mut cleanup = PendingRuntimeChapterLayoutSessionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 37), 37);
+    assert_eq!(drive_q1(&mut cleanup, 43), 43);
 }
 
 #[test]
@@ -81,7 +81,7 @@ fn immediate_and_partial_unwind_drops_drain_the_nested_layout_cursor() {
 
 #[test]
 fn pagination_retirement_and_layout_source_boundaries_are_drop_safe() {
-    for consumed in [15, 16, 17] {
+    for consumed in [21, 22, 23] {
         let mut cleanup =
             PendingRuntimeChapterLayoutSessionCleanup::new(session(vec![deep_tree()]));
         let progress =

@@ -1,22 +1,22 @@
-use std::{collections::BTreeSet, num::NonZeroUsize};
+use std::{collections::btree_set::IntoIter, num::NonZeroUsize};
 
 use super::CleanupProgress;
 use crate::layout::{BuiltLayout, LayoutSummary, PendingRuntimePageVectorCleanup};
 
 /// Releases a built layout's recursive pages before its diagnostic metadata.
 ///
-/// If the nested page-vector cleanup costs `PV` units, this cursor costs
-/// exactly `PV + 4` units. `LayoutSummary` and `chapter_start_pages` retain
-/// unbounded vectors, JSON values and B-trees, so they remain indivisible
-/// destructor residuals. This cursor establishes structural stack safety, not
-/// a wall-clock cleanup bound.
+/// If the nested page-vector cleanup costs `PV` units and there are `CS`
+/// chapter-start pages, this cursor costs exactly `PV + CS + 4` units.
+/// `LayoutSummary` retains unbounded vectors and JSON values, so it remains an
+/// indivisible destructor residual. This cursor establishes structural stack
+/// safety, not a wall-clock cleanup bound.
 #[derive(Debug)]
 #[allow(dead_code)] // The runtime cleanup queue consumes this through revision retirement next.
 pub(crate) struct PendingBuiltLayoutCleanup {
     owner: Option<BuiltLayout>,
     pages: Option<PendingRuntimePageVectorCleanup>,
     summary: Option<LayoutSummary>,
-    chapter_start_pages: Option<BTreeSet<usize>>,
+    chapter_start_pages: Option<IntoIter<usize>>,
     stage: BuiltLayoutCleanupStage,
 }
 
@@ -51,7 +51,7 @@ impl PendingBuiltLayoutCleanup {
             BuiltLayoutCleanupStage::PagesSource => self.start_pages(),
             BuiltLayoutCleanupStage::Pages => self.advance_pages(),
             BuiltLayoutCleanupStage::Summary => self.release_summary(),
-            BuiltLayoutCleanupStage::ChapterStartPages => self.release_chapter_start_pages(),
+            BuiltLayoutCleanupStage::ChapterStartPages => self.release_next_chapter_start_page(),
             BuiltLayoutCleanupStage::Complete => false,
         }
     }
@@ -88,7 +88,7 @@ impl PendingBuiltLayoutCleanup {
         } = owner;
         self.pages = Some(PendingRuntimePageVectorCleanup::new(pages));
         self.summary = Some(summary);
-        self.chapter_start_pages = Some(chapter_start_pages);
+        self.chapter_start_pages = Some(chapter_start_pages.into_iter());
         self.stage = BuiltLayoutCleanupStage::Pages;
         true
     }
@@ -111,12 +111,15 @@ impl PendingBuiltLayoutCleanup {
         true
     }
 
-    fn release_chapter_start_pages(&mut self) -> bool {
-        drop(
-            self.chapter_start_pages
-                .take()
-                .expect("chapter-start pages exist"),
-        );
+    fn release_next_chapter_start_page(&mut self) -> bool {
+        let chapter_start_pages = self
+            .chapter_start_pages
+            .as_mut()
+            .expect("chapter-start page source exists");
+        if chapter_start_pages.next().is_some() {
+            return true;
+        }
+        self.chapter_start_pages = None;
         self.stage = BuiltLayoutCleanupStage::Complete;
         true
     }

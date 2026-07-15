@@ -65,7 +65,7 @@ mod visual_geometry;
 
 use serde::{Deserialize, Serialize};
 
-pub(crate) use cleanup::{CleanupProgress, PendingBuiltLayoutCleanup};
+pub(crate) use cleanup::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayoutConfigCleanup};
 pub(crate) use content::{RuntimeBlock, RuntimeChild};
 pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
 pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};

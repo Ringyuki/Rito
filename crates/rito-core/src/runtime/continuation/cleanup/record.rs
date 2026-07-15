@@ -1,6 +1,6 @@
-use std::{collections::BTreeSet, num::NonZeroUsize};
+use std::{collections::btree_set::IntoIter, num::NonZeroUsize};
 
-use crate::layout::{CleanupProgress, LayoutConfig, LineBreaking};
+use crate::layout::{CleanupProgress, LineBreaking, PendingLayoutConfigCleanup};
 
 use super::{
     super::state::RuntimeContinuationRecord, chapter::PendingRuntimeChapterContinuationCleanup,
@@ -18,19 +18,19 @@ struct ContinuationRecordShell {
 
 /// Releases an active chapter before the record's flat ownership fields.
 ///
-/// A record without an active chapter costs exactly six units. An active
-/// chapter adds its nested cleanup units plus one retirement boundary, so a
-/// populated record costs exactly `CC + 7` units.
+/// If layout-configuration cleanup costs `LC`, a record with `CS`
+/// chapter-start pages and no active chapter costs exactly `CS + LC + 6`
+/// units. An active chapter adds its nested cleanup units plus one retirement
+/// boundary, so a populated record costs exactly `CC + CS + LC + 7` units.
 ///
-/// `chapter_start_pages` and `LayoutConfig` contain unbounded B-tree payloads
-/// and remain indivisible destructor residuals. This cursor therefore does not
-/// establish a wall-clock cleanup bound.
+/// The layout configuration's unbounded font-measurement maps are delegated to
+/// their own budgeted cursor.
 #[derive(Debug)]
 pub(in crate::runtime) struct PendingRuntimeContinuationRecordCleanup {
     owner: Option<RuntimeContinuationRecord>,
     current: Option<PendingRuntimeChapterContinuationCleanup>,
-    chapter_start_pages: Option<BTreeSet<usize>>,
-    layout_config: Option<LayoutConfig>,
+    chapter_start_pages: Option<IntoIter<usize>>,
+    layout_config: Option<PendingLayoutConfigCleanup>,
     layout_key: Option<String>,
     revision_id: Option<String>,
     shell: Option<ContinuationRecordShell>,
@@ -71,8 +71,10 @@ impl PendingRuntimeContinuationRecordCleanup {
         match self.stage {
             ContinuationRecordCleanupStage::CurrentSource => self.start_current(),
             ContinuationRecordCleanupStage::Current => self.advance_current(),
-            ContinuationRecordCleanupStage::ChapterStartPages => self.release_chapter_start_pages(),
-            ContinuationRecordCleanupStage::LayoutConfig => self.release_layout_config(),
+            ContinuationRecordCleanupStage::ChapterStartPages => {
+                self.release_next_chapter_start_page()
+            }
+            ContinuationRecordCleanupStage::LayoutConfig => self.advance_layout_config(),
             ContinuationRecordCleanupStage::LayoutKey => self.release_layout_key(),
             ContinuationRecordCleanupStage::RevisionId => self.release_revision_id(),
             ContinuationRecordCleanupStage::Owner => self.release_owner(),
@@ -121,8 +123,8 @@ impl PendingRuntimeContinuationRecordCleanup {
             chapter_start_pages,
         } = owner;
         self.current = current.map(PendingRuntimeChapterContinuationCleanup::new);
-        self.chapter_start_pages = Some(chapter_start_pages);
-        self.layout_config = Some(layout_config);
+        self.chapter_start_pages = Some(chapter_start_pages.into_iter());
+        self.layout_config = Some(PendingLayoutConfigCleanup::new(layout_config));
         self.layout_key = Some(layout_key);
         self.revision_id = Some(revision_id);
         self.shell = Some(ContinuationRecordShell {
@@ -155,23 +157,31 @@ impl PendingRuntimeContinuationRecordCleanup {
         true
     }
 
-    fn release_chapter_start_pages(&mut self) -> bool {
-        drop(
-            self.chapter_start_pages
-                .take()
-                .expect("chapter-start pages exist"),
-        );
+    fn release_next_chapter_start_page(&mut self) -> bool {
+        let chapter_start_pages = self
+            .chapter_start_pages
+            .as_mut()
+            .expect("chapter-start page source exists");
+        if chapter_start_pages.next().is_some() {
+            return true;
+        }
+        self.chapter_start_pages = None;
         self.stage = ContinuationRecordCleanupStage::LayoutConfig;
         true
     }
 
-    fn release_layout_config(&mut self) -> bool {
-        drop(
-            self.layout_config
-                .take()
-                .expect("record layout config exists"),
-        );
-        self.stage = ContinuationRecordCleanupStage::LayoutKey;
+    fn advance_layout_config(&mut self) -> bool {
+        let layout_config = self
+            .layout_config
+            .as_mut()
+            .expect("layout-config cleanup exists");
+        if layout_config.is_complete() {
+            self.layout_config = None;
+            self.stage = ContinuationRecordCleanupStage::LayoutKey;
+            return true;
+        }
+        let advanced = layout_config.advance_one();
+        debug_assert!(advanced, "incomplete layout-config cleanup has work");
         true
     }
 

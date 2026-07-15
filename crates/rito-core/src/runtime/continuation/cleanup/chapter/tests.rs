@@ -34,7 +34,7 @@ fn empty_current_has_exact_units_for_both_scalar_flag_values() {
         ));
         let progress = cleanup.advance(NonZeroUsize::new(99).expect("test budget is non-zero"));
 
-        assert_eq!(progress.consumed_units, 42);
+        assert_eq!(progress.consumed_units, 48);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
         assert_eq!(cleanup.advance(NonZeroUsize::MIN).consumed_units, 0);
@@ -47,7 +47,7 @@ fn one_empty_unpublished_page_has_exact_units() {
     let mut cleanup =
         PendingRuntimeChapterContinuationCleanup::new(current(Vec::new(), pages, false));
 
-    assert_eq!(drive_q1(&mut cleanup, 47), 47);
+    assert_eq!(drive_q1(&mut cleanup, 53), 53);
 }
 
 #[test]
@@ -55,7 +55,7 @@ fn deep_unpublished_page_and_pending_session_compose_exactly() {
     let pages = vec![page(vec![deep_block(DEEP_OWNER_COUNT, None)])];
     let nodes = vec![deep_node_tree(DEEP_OWNER_COUNT)];
     let mut cleanup = PendingRuntimeChapterContinuationCleanup::new(current(nodes, pages, false));
-    let expected = DEEP_OWNER_COUNT * 4 + 47;
+    let expected = DEEP_OWNER_COUNT * 4 + 53;
 
     assert_eq!(drive_q1(&mut cleanup, expected), expected);
 }

@@ -92,10 +92,12 @@ The remaining usability work is narrower but still release-blocking:
    separately and drains the same state on partial cursor `Drop`. Page and
    block-vector, page, page-vector, open-page-accumulator and
    `ContinuousPaginationSession` cursors now compose it with explicit nested
-   retirement, page paint, layout config and owner units, but chapter and
-   revision owners do not yet compose those cursors; JSON paint, `LayoutConfig`
-   maps and a final shared logical-flow owner remain indivisible payload
-   residuals. Contextual
+   retirement, page paint, layout config and owner units. Chapter, continuation
+   and revision owners compose the same cursors in production. Persistent
+   `LayoutConfig` font-measurement maps and chapter-start indexes are released
+   entry by entry; transient request/bundle configuration owners still drop
+   directly. JSON paint and a final shared logical-flow owner remain
+   indivisible payload residuals. Contextual
    Final_Sigma whole-string allocation/growth and
    unbudgeted outer continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
@@ -225,17 +227,18 @@ destruction. Mapping-finalizer, context-builder and greedy-line owners remain
 declared atomic destructor residuals. A chapter-session cursor now composes the
 paginator and continuous-layout cursors in that order, costs their combined
 units plus five explicit boundaries, and drains 16K queued-node owners through
-the same path during partial or panic-unwind drops. An active-chapter cursor
-now composes it through unpublished pages, releasing that page vector
+the same path during partial or panic-unwind drops. Its empty cost is now 39
+units after composing the six-unit empty layout-config cursor. An
+active-chapter cursor now composes it through unpublished pages, releasing that page vector
 before the chapter session and explicit interactions/idref/scalar boundaries;
-it costs the two nested cursors plus seven units. Empty owners cost 42 units,
-one empty unpublished page costs 47, and combined 16K-deep page/node owners
+it costs the two nested cursors plus seven units. Empty owners cost 48 units,
+one empty unpublished page costs 53, and combined 16K-deep page/node owners
 remain stack-safe through immediate, boundary and panic-unwind drops. The
 continuation-record cursor now immediately guards that active owner, then
-releases the chapter-start set, layout config, identity strings and scalar
-shell. Inactive records cost six units; active records cost the nested cursor
-plus seven. Its B-tree set and nested `LayoutConfig` maps remain indivisible
-destructor residuals. Built layouts, detached frame caches and runtime revisions
+releases each chapter-start entry, the budgeted layout config, identity
+strings and scalar shell. With empty indexes and configuration maps, inactive
+records cost 12 units and empty active records cost 61. Built layouts,
+detached frame caches and runtime revisions
 now compose these primitives, and the production runtime schedules continuation,
 revision, cache and LRU-frame owners through a private two-lane cleanup queue.
 Each producer batch advances 64 structural units; the closed admission bound is
@@ -245,10 +248,11 @@ drop drains queued and still-active owners through the same iterative cursors.
 `RuntimeBlock` trees, standalone block/page vectors, direct child vectors, the
 open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. Runtime-owner cancellation is structurally stack-safe but not
-wall-clock bounded because summary/config/interaction/frame payloads remain
-indivisible. Next make the currently atomic Liang point calculation bounded and
-extend the same
+line cleanup. Persistent runtime-owner cancellation is structurally
+stack-safe, but not wall-clock bounded because summary, interaction,
+font-catalog and frame payloads remain indivisible; transient configuration
+owners also still drop directly. Next make the currently atomic Liang point
+calculation bounded and extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
 Optimal paragraphs. Individual font calls remain indivisible even though their
 surrounding measure/shape stages resume.

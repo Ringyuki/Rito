@@ -26,7 +26,7 @@ fn empty_finished_and_unfinished_sessions_have_the_same_exact_units() {
         let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
         let progress = cleanup.advance(NonZeroUsize::new(99).unwrap());
 
-        assert_eq!(progress.consumed_units, 14);
+        assert_eq!(progress.consumed_units, 20);
         assert!(progress.complete);
         assert!(!cleanup.advance_one());
     }
@@ -53,8 +53,16 @@ fn populated_session_composes_accumulator_config_and_owner_boundaries() {
         Some("Pinned Serif")
     );
     assert_eq!(retained.generic_serif_advances.len(), 1);
-    assert_one(&mut cleanup);
+    for _ in 0..7 {
+        assert_one(&mut cleanup);
+    }
     assert!(cleanup.layout_config().is_none());
+    assert!(cleanup
+        .layout_config
+        .as_ref()
+        .is_some_and(super::PendingLayoutConfigCleanup::is_complete));
+    assert_one(&mut cleanup);
+    assert!(cleanup.layout_config.is_none());
     assert_one(&mut cleanup);
     assert!(cleanup.is_complete());
 }
@@ -71,7 +79,7 @@ fn scalar_session_flags_do_not_add_hidden_cleanup_units() {
     owner.finished = true;
     let mut cleanup = PendingContinuousPaginationSessionCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 14), 14);
+    assert_eq!(drive_q1(&mut cleanup, 20), 20);
 }
 
 #[test]
