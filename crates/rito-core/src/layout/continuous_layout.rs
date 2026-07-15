@@ -37,8 +37,13 @@ use crate::{
     style::{StyledNode, StyledNodeKind},
 };
 
+#[allow(dead_code)] // The outer continuous-session cleanup is wired next.
+mod cleanup;
 mod container_session;
 
+pub(super) use cleanup::PendingContinuousLayoutCursorCleanup;
+#[cfg(test)]
+pub(super) use cleanup::{test_container_cursor, test_empty_leaf_cursor};
 use container_session::ContinuousContainerLayoutSession;
 
 pub(super) type ContinuousBlock = RuntimeBlock<LineBox>;

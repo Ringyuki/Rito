@@ -482,7 +482,19 @@ Those names now belong to the old TS reference tree only.
      retirement are explicit units, so an empty field costs two units and a
      completed-line field costs `sum(run count + 3) + 2`. Partial destruction,
      including panic unwinding over a 16K-deep child forest, drains the same
-     iterative state. The block-vector, page, page-vector,
+     iterative state. A single outer `ContinuousLayoutSession` cleanup driver
+     now composes that façade with all three queued-node forests, active leaf or
+     container state, float/list state and the shared image index. Leaf cleanup
+     reuses the candidate cursor while mapping finalization, line-context
+     building and greedy-line state remain explicit atomic destructor residuals.
+     Container cleanup releases its optional tail block and node forest, then
+     hands its unique boxed child session back to the outer driver; no inner
+     cursor owns a recursive `Drop` path. Empty sessions cost exactly 14 units,
+     every empty no-tail container layer adds 19, and a `k`-layer chain costs
+     `19k + 14`. Focused tests cover exact q=1 accounting, wrapped node deques,
+     leaf candidate composition, tail blocks, immediate and pre/post-child-
+     handoff drops, and 16K nested sessions during panic unwinding without a
+     cleanup-only traversal allocation. The block-vector, page, page-vector,
      open-page-accumulator and `ContinuousPaginationSession` cursors now compose
      that primitive over sealed pages and open blocks, with explicit source
      activation/retirement, nested cursor retirement, page paint, layout config
@@ -722,12 +734,10 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the default-Greedy hard bound by composing the candidate cleanup
-   cursor through queued `ContinuousLayoutSession` node forests, active leaf and
-   container state, `RuntimeChapterLayoutSession` and
-   `RuntimeContinuationRecord`. Compose the existing iterative `RuntimeBlock`,
-   page-vector, accumulator and pagination-session primitives through
-   `RuntimeChapterLayoutSession`, unpublished pages and built revisions before
+1. Complete the default-Greedy hard bound by composing the continuous-session,
+   block, page-vector, accumulator and pagination-session cleanup primitives
+   through `RuntimeChapterLayoutSession`, unpublished pages,
+   `RuntimeContinuationRecord` and built revisions before
    treating those owners as stack-safe, then retire them and
    revision frame caches through an
    internal round-robin cancellation queue without changing the wire contract.

@@ -215,15 +215,19 @@ synchronous `Drop` draining the same cursor without aggregate scratch. Wrapped
 deque storage is consumed directly without collection or reallocation. Discard,
 Ruby annotation, every Ruby frame state, retained Ruby group payload and the
 full candidate collector compose over that primitive with explicit source,
-nested-retirement and ownership-transition units. The cursor now needs
-composition through continuous/chapter/runtime sessions and internal
-cancellation scheduling. `RuntimeBlock` trees, standalone block/page vectors,
-direct child vectors, the open-page accumulator and
+nested-retirement and ownership-transition units. One outer linear driver now
+composes queued `ContinuousLayoutSession` node forests, active leaf/candidate
+state, completed children, optional container tails and unique boxed descendant
+sessions. Empty sessions cost 14 cleanup units and each empty no-tail container
+layer adds 19; 16K chains, immediate drops, child-handoff boundaries and panic
+unwinding all use that same allocation-free driver without recursive session
+destruction. Mapping-finalizer, context-builder and greedy-line owners remain
+declared atomic destructor residuals. The cursor still needs composition through
+chapter/runtime owners and internal cancellation scheduling. `RuntimeBlock`
+trees, standalone block/page vectors, direct child vectors, the open-page accumulator and
 `ContinuousPaginationSession` now have iterative cursors, including per-run
-line cleanup. The child-vector façade adds no synthetic root block and drains
-partial 16K-deep state safely during unwinding, but continuous-session fields,
-unpublished chapter pages and built revisions still need to compose these
-primitives before end-to-end cancellation is stack-safe. Then make the
+line cleanup. Unpublished chapter pages and built revisions still need to
+compose these primitives before end-to-end cancellation is stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and

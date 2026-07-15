@@ -1,5 +1,10 @@
 use std::sync::Arc;
 
+#[allow(dead_code)] // The outer continuous-session cleanup is wired next.
+mod cleanup;
+
+pub(super) use cleanup::PendingContinuousContainerCleanup;
+
 use super::{
     collapse_container_margin_top, resolve_collapsed_container_margin_bottom,
     resolve_horizontal_metrics, resolve_horizontal_offset, ContinuousBlock, ContinuousLayoutState,
@@ -156,5 +161,24 @@ impl ContinuousContainerLayoutSession {
             state.y = last_block_bottom + self.padding_bottom;
         }
         state.previous_margin_bottom = self.collapsed_margin_bottom;
+    }
+}
+
+#[cfg(test)]
+pub(super) fn test_container_session(
+    node: StyledNode,
+    child: ContinuousLayoutSession,
+    pending_tail: Option<ContinuousBlock>,
+) -> ContinuousContainerLayoutSession {
+    ContinuousContainerLayoutSession {
+        node,
+        padding_bottom: 0.0,
+        total_indent: 0.0,
+        collapsed_margin_bottom: 0.0,
+        child: Box::new(child),
+        borrowed_parent_list_ctx: false,
+        pending_tail,
+        saw_first_block: false,
+        last_block_bottom: None,
     }
 }
