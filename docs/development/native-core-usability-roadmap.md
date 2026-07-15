@@ -90,10 +90,11 @@ The remaining usability work is narrower but still release-blocking:
    schedule it yet. Paint-ready `RuntimeBlock<LineBox>` trees now also have an
    unboxed-root, intrusive-carrier cleanup cursor that releases each `LineRun`
    separately and drains the same state on partial cursor `Drop`. Page and
-   page-vector cursors now compose it with explicit nested retirement, page
-   paint and owner units, but open pagination, session and revision owners do
-   not yet compose those cursors; JSON paint and a final shared logical-flow
-   owner remain indivisible payload residuals. Contextual
+   block-vector, page, page-vector and open-page-accumulator cursors now compose
+   it with explicit nested retirement, page paint and owner units, but
+   `ContinuousPaginationSession`, chapter and revision owners do not yet compose
+   those cursors; JSON paint and a final shared logical-flow owner remain
+   indivisible payload residuals. Contextual
    Final_Sigma whole-string allocation/growth and
    unbudgeted outer continuation/session disposal,
    source sharing/allocation, remaining line-context metadata work, container
@@ -213,10 +214,11 @@ scratch. Discard, Ruby annotation, every Ruby frame state, retained Ruby group
 payload and the full candidate collector compose over that primitive with
 explicit source, nested-retirement and ownership-transition units. The cursor
 now needs composition through continuous/chapter/runtime sessions and internal
-cancellation scheduling. `RuntimeBlock` trees and standalone page vectors now
-have iterative cursors, including per-run line cleanup, but open pagination,
-unpublished pages and built revisions still need to compose them before end-to-
-end cancellation is stack-safe. Then make the
+cancellation scheduling. `RuntimeBlock` trees, standalone block/page vectors
+and the open-page accumulator now have iterative cursors, including per-run line
+cleanup, but `ContinuousPaginationSession`, unpublished pages and built
+revisions still need to compose them before end-to-end cancellation is
+stack-safe. Then make the
 currently atomic Liang point calculation bounded and
 extend the same
 coverage to visually decorated and floated containers, auto-layout tables and
@@ -587,7 +589,7 @@ architecture rather than make an eager whole-book pipeline faster.
    text copy use paid exact-capacity reservation and scalar assembly, followed
    by commit only after completion. Contextual Final_Sigma whole-string
    allocation/growth, synchronous runtime/session cancellation around the
-   budgeted candidate, block and page cursors, uncomposed open-pagination /
+   budgeted candidate, block and page cursors, uncomposed pagination-session /
    revision owners and outer continuation/session disposal, remaining
    context metadata, container
    startup, mapping seal and path/buffer boxing, downstream per-run ruby tag/

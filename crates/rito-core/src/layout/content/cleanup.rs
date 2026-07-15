@@ -8,8 +8,10 @@ type LayoutChild = RuntimeChild<LineBox>;
 
 mod forest;
 mod line;
+mod vector;
 
 use forest::PendingRuntimeChildForestCleanup;
+pub(crate) use vector::PendingRuntimeBlockVectorCleanup;
 
 /// Owns one paint-ready block while releasing its recursive child tree under
 /// an explicit structural and payload budget.

@@ -2,7 +2,7 @@ use serde_json::Value;
 
 mod cleanup;
 
-pub(crate) use cleanup::PendingRuntimeBlockCleanup;
+pub(crate) use cleanup::{PendingRuntimeBlockCleanup, PendingRuntimeBlockVectorCleanup};
 
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct RuntimeBlock<Line> {

@@ -78,7 +78,10 @@ pub(crate) use line::{LineBox, LineRun, TextRunBox};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
 pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
 #[allow(unused_imports)] // Runtime revision retirement consumes these next.
-pub(crate) use page::{PendingRuntimePageCleanup, PendingRuntimePageVectorCleanup};
+pub(crate) use page::{
+    PendingRuntimePageAccumulatorCleanup, PendingRuntimePageCleanup,
+    PendingRuntimePageVectorCleanup,
+};
 pub use pagination_flow::{
     PaginationFlowChapterRange, PaginationFlowCounts, PaginationFlowPageDigest,
     PaginationFlowSummary,

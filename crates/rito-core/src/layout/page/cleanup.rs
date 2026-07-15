@@ -7,8 +7,10 @@ use crate::layout::{
     CleanupProgress,
 };
 
+mod accumulator;
 mod vector;
 
+pub(crate) use accumulator::PendingRuntimePageAccumulatorCleanup;
 pub(crate) use vector::PendingRuntimePageVectorCleanup;
 
 type LayoutBlock = RuntimeBlock<LineBox>;
