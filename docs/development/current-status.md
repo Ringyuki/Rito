@@ -597,10 +597,13 @@ Those names now belong to the old TS reference tree only.
      those direct paths remain destructor residuals. Partially deserialized
      configs that never form a complete owner and deferred follow-up/config
      serialization or adapter/transport-side `LayoutConfig` owners can still
-     clone or drop directly. The bounded
-     production path also still materializes a complete layout-config JSON
-     buffer for `layout_key`; legacy JSON/`RITORB1` view endpoints synchronously
-     drop serialized follow-up configs but are not used by that production path.
+     clone or drop directly. Empty-policy `layout_key` hashing now streams the
+     compact layout-config JSON directly into SHA-256. The pinned-policy branch
+     retains one complete JSON buffer because the existing byte contract places
+     its length before the JSON, but segmented hashing removes the former second
+     identity buffer and full-config copy without adding a second serialization
+     pass. Legacy JSON/`RITORB1` view endpoints synchronously drop serialized
+     follow-up configs but are not used by that production path.
      These
      cursors establish structural stack safety for their guarded persistent
      owners rather than an end-to-end wall-clock hard bound. Ordinary

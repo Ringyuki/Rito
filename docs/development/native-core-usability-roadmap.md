@@ -299,10 +299,12 @@ temporary bundle/presentation/serialization clones still destroy aggregate
 owners directly. Summary and frame payloads remain indivisible, while partially
 deserialized configs and deferred follow-up/config serialization or
 adapter/transport-side configuration owners can still clone or drop directly.
-The bounded production path still materializes
-a complete layout-config JSON buffer for `layout_key`; serialized follow-up
-configs are still dropped synchronously by legacy view endpoints outside that
-path.
+Empty-policy `layout_key` hashing now streams compact layout-config JSON directly
+into SHA-256. The pinned-policy branch retains one complete JSON buffer because
+the existing byte contract places its length before the JSON, but segmented
+hashing removes the former second identity buffer and full-config copy without
+adding a second serialization pass. Serialized follow-up configs are still
+dropped synchronously by legacy view endpoints outside that path.
 Guarded persistent-owner cancellation is therefore structurally stack-safe,
 but this is not an end-to-end wall-clock hard bound. Next make the currently atomic Liang point
 calculation bounded and extend the same
