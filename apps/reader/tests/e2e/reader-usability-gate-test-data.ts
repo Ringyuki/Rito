@@ -4,10 +4,11 @@ import type {
   ReaderProfileMilestones,
   ReaderProfileStage,
   ReaderProfileTransition,
-  ReaderUsabilityMetrics,
 } from './reader-profile-model';
+import type { ReaderUsabilityMetrics } from './reader-usability-metrics';
 
 export const READER_GATE_TEST_SHA256 = 'a'.repeat(64);
+export type ReaderGateTestJson = Record<string, unknown>;
 
 export const READER_GATE_TEST_ENVIRONMENT: ReaderProfileEnvironment = {
   machineId: 'local-m3',
@@ -34,7 +35,7 @@ export function readerGateTestProfile(
 ): ReaderLoadProfileReport {
   const transition = profileTransition();
   return {
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: '2026-07-16T00:00:00.000Z',
     environment: overrides.environment ?? READER_GATE_TEST_ENVIRONMENT,
     fixture: {
@@ -42,6 +43,19 @@ export function readerGateTestProfile(
       path: '/fixture.epub',
       byteLength: 4,
       sha256: overrides.sha256 ?? READER_GATE_TEST_SHA256,
+    },
+    startup: {
+      browser: {
+        isolation: 'process-per-run',
+        channel: 'bundled',
+        headless: true,
+        locale: 'en-US',
+        colorScheme: 'light',
+      },
+      browserLaunchMs: value,
+      navigationToReaderReadyMs: value,
+      navigationToFirstCanvasMs: value,
+      longTasks: { count: 1, totalMs: value, maxMs: value },
     },
     milestones: profileMilestones(value),
     stages: {
@@ -60,6 +74,10 @@ export function readerGateTestProfile(
 
 export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
   return {
+    browserLaunchMs: value,
+    navigationToReaderReadyMs: value,
+    navigationToFirstCanvasMs: value,
+    startupMaxLongTaskMs: value,
     openRoundTripMs: value,
     boundedToPresentationMs: value,
     frameWarmRoundTripMs: value,
@@ -68,6 +86,44 @@ export function readerGateTestMetrics(value: number): ReaderUsabilityMetrics {
     deferredGrowthFirstFrameMs: value,
     reflowFirstFrameMs: value,
     maxLongTaskMs: value,
+  };
+}
+
+export function readerGateTestManifest(): ReaderGateTestJson {
+  return {
+    schemaVersion: 2,
+    machine: {
+      id: READER_GATE_TEST_ENVIRONMENT.machineId,
+      platform: READER_GATE_TEST_ENVIRONMENT.platform,
+      arch: READER_GATE_TEST_ENVIRONMENT.arch,
+      cpuModel: READER_GATE_TEST_ENVIRONMENT.cpuModel,
+      osRelease: READER_GATE_TEST_ENVIRONMENT.osRelease,
+      browserName: READER_GATE_TEST_ENVIRONMENT.browserName,
+      browserVersion: READER_GATE_TEST_ENVIRONMENT.browserVersion,
+    },
+    browser: {
+      isolation: 'process-per-run',
+      channel: 'bundled',
+      headless: true,
+      locale: 'en-US',
+      colorScheme: 'light',
+    },
+    pinnedFonts: [
+      { sha256: 'b'.repeat(64), byteLength: 10, genericRole: 'serif', language: 'und' },
+      { sha256: 'c'.repeat(64), byteLength: 20, genericRole: 'serif', language: 'zh-hans' },
+    ],
+    deviceScaleFactor: READER_GATE_TEST_ENVIRONMENT.deviceScaleFactor,
+    viewport: { ...READER_GATE_TEST_ENVIRONMENT.viewport },
+    reflowViewport: { ...READER_GATE_TEST_ENVIRONMENT.reflowViewport },
+    runs: 3,
+    cases: [
+      {
+        id: 'fixture',
+        epub: './fixture.epub',
+        sha256: READER_GATE_TEST_SHA256,
+        thresholds: readerGateTestMetrics(10),
+      },
+    ],
   };
 }
 

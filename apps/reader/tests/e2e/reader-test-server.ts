@@ -1,0 +1,2 @@
+export const READER_TEST_SERVER_PORT = 4173;
+export const READER_TEST_SERVER_BASE_URL = `http://127.0.0.1:${String(READER_TEST_SERVER_PORT)}/`;

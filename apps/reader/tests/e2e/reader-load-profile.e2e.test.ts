@@ -27,6 +27,14 @@ test.describe('production bounded reader load profile', () => {
       machineId: process.env['RITO_READER_MACHINE_ID'] ?? 'report-only',
       viewport: PROFILE_VIEWPORT,
       reflowViewport: PROFILE_REFLOW_VIEWPORT,
+      browserPolicy: {
+        isolation: 'shared-process',
+        channel: process.env['PLAYWRIGHT_BROWSER_CHANNEL'] ?? 'bundled',
+        headless: true,
+        locale: 'en-US',
+        colorScheme: 'light',
+      },
+      browserLaunchMs: null,
     });
     const json = JSON.stringify(report, null, 2);
     console.log(
@@ -42,6 +50,7 @@ function consoleSummary(report: ReaderLoadProfileReport) {
   return {
     fixture: report.fixture,
     environment: report.environment,
+    startup: report.startup,
     milestones: report.milestones,
     stages: {
       initial: stageSummary(report.stages.initial),

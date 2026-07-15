@@ -2,30 +2,23 @@ import { expect, test } from '@playwright/test';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import type { ReaderUsabilityMetrics } from './reader-profile-model';
+import { READER_USABILITY_METRIC_KEYS as METRIC_KEYS } from './reader-usability-metrics';
 import {
   evaluateReaderUsabilityCase,
   loadReaderUsabilityGate,
+  requireReaderUsabilityBrowserPolicy,
   requireReaderUsabilityEnvironment,
   type ReaderUsabilityGateCase,
 } from './reader-usability-gate';
 import {
   READER_GATE_TEST_ENVIRONMENT as ENVIRONMENT,
   READER_GATE_TEST_SHA256 as SHA256,
+  readerGateTestManifest as validManifest,
   readerGateTestMetrics as metrics,
   readerGateTestProfile as profile,
+  type ReaderGateTestJson as GateJson,
 } from './reader-usability-gate-test-data';
 
-const METRIC_KEYS = [
-  'openRoundTripMs',
-  'boundedToPresentationMs',
-  'frameWarmRoundTripMs',
-  'canvasReadyMs',
-  'cachedTurnFirstFrameMs',
-  'deferredGrowthFirstFrameMs',
-  'reflowFirstFrameMs',
-  'maxLongTaskMs',
-] as const satisfies readonly (keyof ReaderUsabilityMetrics)[];
 let directory = '';
 
 test.beforeEach(async () => {
@@ -41,8 +34,10 @@ test('strictly parses a manifest and resolves EPUB paths from its directory', as
   const path = await writeManifest(validManifest());
   const gate = await loadReaderUsabilityGate(path);
 
-  expect(gate.schemaVersion).toBe(1);
+  expect(gate.schemaVersion).toBe(2);
   expect(gate.runs).toBe(3);
+  expect(gate.browser.isolation).toBe('process-per-run');
+  expect(gate.pinnedFonts).toHaveLength(2);
   expect(gate.cases).toHaveLength(1);
   expect(gate.cases[0]?.epub).toBe(resolve(directory, 'fixture.epub'));
   expect(gate.cases[0]?.sha256).toBe(SHA256);
@@ -55,6 +50,10 @@ test('rejects unknown and missing fields at every schema layer', async () => {
     (manifest) => (manifest['extra'] = true),
     (manifest) => delete record(manifest['machine'])['arch'],
     (manifest) => (record(manifest['machine'])['extra'] = true),
+    (manifest) => delete record(manifest['browser'])['locale'],
+    (manifest) => (record(manifest['browser'])['extra'] = true),
+    (manifest) => delete record(firstPinnedFont(manifest))['byteLength'],
+    (manifest) => (record(firstPinnedFont(manifest))['extra'] = true),
     (manifest) => delete record(manifest['viewport'])['height'],
     (manifest) => (record(manifest['reflowViewport'])['extra'] = true),
     (manifest) => delete firstCase(manifest)['sha256'],
@@ -76,6 +75,28 @@ test('rejects invalid runs, threshold values, duplicate ids, and SHA-256 shape',
   const invalidManifests: GateJson[] = [];
   for (const runs of [0, 11, 1.5]) invalidManifests.push({ ...validManifest(), runs });
   invalidManifests.push({ ...validManifest(), deviceScaleFactor: 0 });
+
+  for (const [key, value] of [
+    ['isolation', 'shared-process'],
+    ['channel', 'msedge'],
+    ['headless', false],
+    ['colorScheme', 'sepia'],
+  ] as const) {
+    const invalidBrowser = validManifest();
+    record(invalidBrowser['browser'])[key] = value;
+    invalidManifests.push(invalidBrowser);
+  }
+
+  const duplicateFont = validManifest();
+  duplicateFont['pinnedFonts'] = [
+    firstPinnedFont(duplicateFont),
+    structuredClone(firstPinnedFont(duplicateFont)),
+  ];
+  invalidManifests.push(duplicateFont);
+
+  const uppercaseFontHash = validManifest();
+  firstPinnedFont(uppercaseFontHash)['sha256'] = 'A'.repeat(64);
+  invalidManifests.push(uppercaseFontHash);
 
   const badThreshold = validManifest();
   record(firstCase(badThreshold)['thresholds'])['cachedTurnFirstFrameMs'] = 0;
@@ -129,6 +150,20 @@ test('requires the supplied machine identity and full measured environment', asy
   ).toThrow(/browserVersion.*deviceScaleFactor.*viewport.width.*viewport.height/s);
 });
 
+test('requires the measured isolated browser policy', async () => {
+  const gate = await loadReaderUsabilityGate(await writeManifest(validManifest()));
+  expect(requireReaderUsabilityBrowserPolicy(gate, profile(1).startup.browser)).toEqual(
+    profile(1).startup.browser,
+  );
+  expect(() =>
+    requireReaderUsabilityBrowserPolicy(gate, {
+      ...profile(1).startup.browser,
+      isolation: 'shared-process',
+      locale: 'ja-JP',
+    }),
+  ).toThrow(/browser.isolation.*browser.locale/s);
+});
+
 test('reports every exceeded p95 threshold in one error', () => {
   const caseConfig = evaluationCase(0.5);
   const reports = [profile(1), profile(2), profile(3)];
@@ -179,29 +214,23 @@ test('rejects run count, fixture identity, SHA, and environment inconsistencies'
       2,
     ),
   ).toThrow(/environment mismatch/);
+  expect(() =>
+    evaluateReaderUsabilityCase(
+      evaluationCase(10),
+      [
+        profile(1),
+        {
+          ...profile(1),
+          startup: {
+            ...profile(1).startup,
+            browser: { ...profile(1).startup.browser, locale: 'ja-JP' },
+          },
+        },
+      ],
+      2,
+    ),
+  ).toThrow(/browser policy mismatch/);
 });
-
-type GateJson = Record<string, unknown>;
-
-function validManifest(): GateJson {
-  return {
-    schemaVersion: 1,
-    machine: {
-      id: ENVIRONMENT.machineId,
-      platform: ENVIRONMENT.platform,
-      arch: ENVIRONMENT.arch,
-      cpuModel: ENVIRONMENT.cpuModel,
-      osRelease: ENVIRONMENT.osRelease,
-      browserName: ENVIRONMENT.browserName,
-      browserVersion: ENVIRONMENT.browserVersion,
-    },
-    deviceScaleFactor: ENVIRONMENT.deviceScaleFactor,
-    viewport: { ...ENVIRONMENT.viewport },
-    reflowViewport: { ...ENVIRONMENT.reflowViewport },
-    runs: 3,
-    cases: [{ id: 'fixture', epub: './fixture.epub', sha256: SHA256, thresholds: metrics(10) }],
-  };
-}
 
 async function writeManifest(manifest: GateJson, suffix = 0): Promise<string> {
   const path = join(directory, `gate-${String(suffix)}.json`);
@@ -213,6 +242,12 @@ function firstCase(manifest: GateJson): Record<string, unknown> {
   const cases = manifest['cases'];
   if (!Array.isArray(cases) || cases.length === 0) throw new Error('test manifest has no case');
   return record(cases[0]);
+}
+
+function firstPinnedFont(manifest: GateJson): Record<string, unknown> {
+  const fonts = manifest['pinnedFonts'];
+  if (!Array.isArray(fonts) || fonts.length === 0) throw new Error('test manifest has no fonts');
+  return record(fonts[0]);
 }
 
 function record(value: unknown): Record<string, unknown> {

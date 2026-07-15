@@ -5,9 +5,11 @@ import { arch, cpus, platform, release } from 'node:os';
 import {
   buildReaderLoadProfileReport,
   type ReaderLoadProfileReport,
+  type ReaderProfileBrowserPolicy,
   type ReaderProfileEnvironment,
   type ReaderProfileViewport,
 } from './reader-profile-model';
+import { buildReaderProfileStartup } from './reader-profile-startup';
 import { readReaderLongTasks, readReaderWorkerOperations } from './reader-worker-probe';
 import {
   runCachedTurnProfile,
@@ -16,6 +18,11 @@ import {
   runReflowProfile,
 } from './reader-profile-stages';
 import { requireProfileProtocol } from './reader-profile-protocol';
+import {
+  installReaderStartupProbe,
+  waitForReaderStartup,
+  type ReaderStartupProbeSnapshot,
+} from './reader-startup-probe';
 
 export interface ReaderLoadProfileOptions {
   readonly fixtureId: string;
@@ -23,6 +30,8 @@ export interface ReaderLoadProfileOptions {
   readonly machineId: string;
   readonly viewport: ReaderProfileViewport;
   readonly reflowViewport: ReaderProfileViewport;
+  readonly browserPolicy: ReaderProfileBrowserPolicy;
+  readonly browserLaunchMs: number | null;
 }
 
 interface BrowserErrorCollector {
@@ -38,7 +47,8 @@ export async function runReaderLoadProfile(
   requireDistinctViewports(options.viewport, options.reflowViewport);
   const errors = collectBrowserErrors(page);
   try {
-    await prepareProfilePage(page, options.viewport);
+    await installReaderStartupProbe(page);
+    const startup = await prepareProfilePage(page, options.viewport);
     const initial = await runInitialProfile(page, options.epubPath);
     const cachedTurn = await runCachedTurnProfile(page, initial.checksum);
     const deferredGrowth = await runDeferredGrowthProfile(page, cachedTurn.checksum);
@@ -50,6 +60,13 @@ export async function runReaderLoadProfile(
       generatedAt: new Date().toISOString(),
       environment: await profileEnvironment(page, browser, options),
       fixture: profileFixture(options.fixtureId, options.epubPath),
+      startup: buildReaderProfileStartup({
+        browser: options.browserPolicy,
+        browserLaunchMs: options.browserLaunchMs,
+        snapshot: startup,
+        firstCanvasAt: initial.canvasAt,
+        longTasks,
+      }),
       startedAt: initial.startedAt,
       loadedAt: initial.loadedAt,
       canvasAt: initial.canvasAt,
@@ -68,10 +85,15 @@ export async function runReaderLoadProfile(
   }
 }
 
-async function prepareProfilePage(page: Page, viewport: ReaderProfileViewport): Promise<void> {
+async function prepareProfilePage(
+  page: Page,
+  viewport: ReaderProfileViewport,
+): Promise<ReaderStartupProbeSnapshot> {
   await page.setViewportSize(viewport);
   await page.goto('/');
+  const startup = await waitForReaderStartup(page);
   await expect(page.getByTestId('reader-empty')).toBeVisible();
+  return startup;
 }
 
 async function profileEnvironment(

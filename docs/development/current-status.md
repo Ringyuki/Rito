@@ -259,7 +259,8 @@ Those names now belong to the old TS reference tree only.
   The complete demo-reader parity matrix passed its strict zero-threshold pixel
   comparison across the single, narrow, wide, DPR 2 and double-page profiles.
   A strict named-machine Reader usability gate now complements those broad
-  regression results with warm shared-process latency thresholds.
+  regression results with isolated-browser-process cold-start and interaction
+  latency thresholds.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
 - Native revision-cache entries serving normal reader frame windows now retain
   only `RITOFCB2` metadata/bytes. The browser still keeps its decoded Canvas
@@ -902,20 +903,22 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
    - Keep browser operations in the host, but move reader state transitions and
      resource/window intent into Rust-authored session plans.
 4. **Usability and performance gates**
-   - The 74-EPUB smoke and complete strict reader parity run are green. The
-     strict named-machine gate now measures warm shared-process document load,
-     bounded presentation/frame work, first Canvas, cached turn, deferred
+   - The 74-EPUB smoke and complete strict reader parity run are green. Every
+     strict named-machine sample now uses a new bundled Chromium process and
+     measures browser launch, production pinned-font/app readiness, navigation
+     to first Canvas, bounded presentation/frame work, cached turn, deferred
      growth, reflow and measured-window Long Tasks across three pinned fixtures.
-   - Interaction coverage exists, but the formal Phase 1 declaration still
-     needs browser-process/pinned-font cold-start, memory limits, and
-     cancellation/disposal under a recorded release protocol.
+   - Cold-start and interaction coverage exist, but the formal Phase 1
+     declaration still needs memory limits and cancellation/disposal under a
+     recorded release protocol.
    - Minimum first-paint and page-turn latency is a usability requirement, not
      deferred micro-optimization.
    - The licensed Reader-app v1 serif fallback and its real-book
-     Rust-shaping/Canvas-paint proof are complete. Measure its cold-start,
-     duplicate-Worker memory, and first-layout cost under the named-machine gate,
-     then decide whether the remaining locale, `sansSerif`, `monospace`, and 626
-     host-fallback UTF-16 units require another Phase 1 preset.
+     Rust-shaping/Canvas-paint proof are complete. Its source fetch/hash,
+     browser registration and first-layout cost now enter the isolated-process
+     gate. Measure duplicate-Worker memory, then decide whether the remaining
+     locale, `sansSerif`, `monospace`, and 626 host-fallback UTF-16 units require
+     another Phase 1 preset.
 5. **Controlled baseline transition**
    - After the usability gate, build a pinned WebView/DOM reference harness and
      make it the visual authority for future rendering work.
@@ -990,10 +993,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the formal Phase 1 release protocol around the landed warm
-   shared-process gate: measure isolated browser-process and pinned-font cold
-   start, establish memory limits, and exercise cancellation/disposal with
-   recorded revision/resource cleanup evidence.
+1. Complete the formal Phase 1 release protocol around the landed
+   isolated-process cold-start gate: establish memory limits and exercise
+   cancellation/disposal with recorded revision/resource cleanup evidence.
 2. Move the publication-wide footnote scan inside a measured source-index
    budget.
 3. Replace eager completed-layout search with a durable publication source index

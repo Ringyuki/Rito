@@ -131,16 +131,18 @@ The remaining usability work is narrower but still release-blocking:
 3. Exact text and annotation geometry remains same-logical-flow; cross-flow
    selection is a deliberate capability gap.
 4. The Reader app now has a licensed, app-owned v1 serif fallback and real-book
-   shaping/paint proof. It is not a locale-complete, sans-serif, or monospace
-   policy, and its cold-start and memory cost still belong in the release gate.
+   shaping/paint proof. Its cold-start cost is covered by the isolated-process
+   gate; it is not a locale-complete, sans-serif, or monospace policy, and its
+   memory cost still belongs in the release gate.
 5. The browser shell still owns some candidate/current-session, commit,
    cache and font-reflow policy that should become explicit Rust-authored host
    operations.
 6. The 2026-07-13 74-EPUB smoke and complete strict reader parity matrix are
-   green. A strict three-fixture named-machine gate now covers the warm
-   shared-process document-load, cached-turn, growth and reflow path. Isolated
-   browser-process/pinned-font cold start, memory, and cancellation/disposal
-   release protocol remain before the formal Phase 1 declaration.
+   green. A strict three-fixture named-machine gate now launches a fresh bundled
+   Chromium process per sample and covers production pinned-font/app cold start,
+   document load, cached turn, growth and reflow. Memory limits and a recorded
+   cancellation/disposal release protocol remain before the formal Phase 1
+   declaration.
 
 ## Phase 1: A Usable Rust Reader
 
@@ -682,22 +684,25 @@ The Rust reader is usable only when a representative real-book corpus can:
 Current evidence is green: on 2026-07-13 the bounded production reader passed 74
 Downloads EPUBs, and the complete demo-reader parity matrix passed strict
 zero-threshold comparison across its single, narrow, wide, DPR 2 and double-page
-profiles. The warm shared-process named-machine gate also passes three runs each
+profiles. The isolated-process named-machine gate also passes three runs each
 for `book-01`, `book-04` and `book-10` on Apple M3, macOS release `25.5`, and
-Chromium `147.0.7727.15`. Its strict manifest pins machine/browser identity,
-DPR, normal/reflow viewports, EPUB SHA-256 digests, run count, and per-stage
-thresholds. Each case/run receives a fresh BrowserContext while sharing the
-browser process.
+bundled Chromium `147.0.7727.15`. Its strict schema-v2 manifest pins
+machine/browser identity, headless context policy, the two production fallback
+font identities, DPR, normal/reflow viewports, EPUB SHA-256 digests, run count,
+and per-stage thresholds. Each case/run launches and closes its own browser
+process and BrowserContext; the already-ready production preview server remains
+outside the measured region.
 
-The gate records `open` round-trip, bounded-to-presentation, frame warm,
-input-to-first-Canvas, cached-turn first changed frame, deferred-growth first
-changed frame, reflow first changed frame, and measured-action-window Long
-Tasks separately. Canvas settling isolates stages and covers animation Long
-Tasks; it is excluded from first-frame latency. A whole-book completion number
-is not a substitute for first-paint latency. This lands the warm
-shared-process document-load gate, not the formal Phase 1 declaration: isolated
-browser-process/pinned-font cold start, memory limits, and cancellation/disposal
-under a recorded release protocol remain.
+The gate records browser launch on the Node clock; navigation-to-reader-ready,
+navigation-to-first-Canvas and startup-window Long Tasks on the page clock; and
+`open` round-trip, bounded-to-presentation, frame warm, input-to-first-Canvas,
+cached-turn first changed frame, deferred-growth first changed frame, reflow
+first changed frame, and measured-action-window Long Tasks separately. Canvas
+settling isolates stages and covers animation Long Tasks; it is excluded from
+first-frame latency. A whole-book completion number is not a substitute for
+first-paint latency. This lands the isolated browser-process/pinned-font cold
+gate. Memory limits and cancellation/disposal under a recorded release protocol
+remain before the formal Phase 1 declaration.
 
 The TypeScript parity and golden suites remain migration gates during this
 phase. Intentional differences require explicit review; they are not silently
@@ -812,10 +817,10 @@ architecture rather than make an eager whole-book pipeline faster.
    remain separate search architecture work.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
-   **The strict warm shared-process document-load gate is implemented and has a
-   three-fixture Apple M3 baseline. Isolated browser-process/pinned-font cold
-   start, memory limits, cancellation/disposal release protocol, and the final
-   locale/role release decision remain.**
+   **The strict isolated browser-process/pinned-font cold-start and document-load
+   gate is implemented with a three-fixture Apple M3 baseline. Memory limits,
+   cancellation/disposal release protocol, and the final locale/role release
+   decision remain.**
 9. Build the pinned WebView/DOM reference harness.
 10. Declare the baseline transition, then resume broad rendering and performance
     work.

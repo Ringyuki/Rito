@@ -5,17 +5,14 @@ import {
   readPinnedFallbackProbe,
   type PinnedFallbackProbeSnapshot,
 } from './pinned-fallback-probe';
+import {
+  PRODUCTION_PINNED_FONT_ALIASES as EXPECTED_ALIASES,
+  PRODUCTION_PINNED_FONT_BYTE_LENGTHS as EXPECTED_BYTE_LENGTHS,
+  PRODUCTION_PINNED_FONT_HASHES as EXPECTED_HASHES,
+  PRODUCTION_PINNED_FONT_SELECTORS as EXPECTED_SELECTORS,
+} from './reader-production-pinned-font-contract';
 
 const LOAD_TIMEOUT_MS = 90_000;
-const TINOS_SHA256 = '60a0e8ef0c04dd5dd69ffe91025fa2ae5836cbd35600a82ba031977557e2cb61';
-const SOURCE_HAN_SHA256 = '3754ea669c530e2473354f8f6d9f79680a44d7e26ec7d00eeabee4a7e0753c5d';
-const EXPECTED_HASHES = [TINOS_SHA256, SOURCE_HAN_SHA256] as const;
-const EXPECTED_BYTE_LENGTHS = [521_588, 11_626_108] as const;
-const EXPECTED_ALIASES = EXPECTED_HASHES.map((hash) => `__RitoPinned_${hash}`);
-const EXPECTED_SELECTORS = [
-  { genericRole: 'serif', language: 'und' },
-  { genericRole: 'serif', language: 'zh-hans' },
-] as const;
 const TINOS_FILE_URL = new URL('../../src/assets/fonts/Tinos-Regular.ttf', import.meta.url);
 
 test.describe('reader app production pinned fallback', () => {

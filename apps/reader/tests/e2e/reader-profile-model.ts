@@ -2,8 +2,16 @@ import type {
   ReaderLongTaskObservation,
   ReaderWorkerOperationObservation,
 } from './reader-worker-probe';
+import type { ReaderProfileLongTaskSummary, ReaderProfileStartup } from './reader-profile-startup';
 
-export const READER_PROFILE_SCHEMA_VERSION = 1;
+export type {
+  ReaderProfileBrowserIsolation,
+  ReaderProfileBrowserPolicy,
+  ReaderProfileLongTaskSummary,
+  ReaderProfileStartup,
+} from './reader-profile-startup';
+
+export const READER_PROFILE_SCHEMA_VERSION = 2;
 
 export interface ReaderProfileViewport {
   readonly width: number;
@@ -34,12 +42,6 @@ export interface ReaderProfileOperationSummary {
   readonly kind: string;
   readonly count: number;
   readonly completed: number;
-  readonly totalMs: number;
-  readonly maxMs: number;
-}
-
-export interface ReaderProfileLongTaskSummary {
-  readonly count: number;
   readonly totalMs: number;
   readonly maxMs: number;
 }
@@ -78,6 +80,7 @@ export interface ReaderLoadProfileReport {
   readonly generatedAt: string;
   readonly environment: ReaderProfileEnvironment;
   readonly fixture: ReaderProfileFixture;
+  readonly startup: ReaderProfileStartup;
   readonly milestones: ReaderProfileMilestones;
   readonly stages: {
     readonly initial: ReaderProfileStage;
@@ -107,6 +110,7 @@ export interface ReaderLoadProfileReportInput {
   readonly generatedAt: string;
   readonly environment: ReaderProfileEnvironment;
   readonly fixture: ReaderProfileFixture;
+  readonly startup: ReaderProfileStartup;
   readonly startedAt: number;
   readonly loadedAt: number;
   readonly canvasAt: number;
@@ -121,17 +125,6 @@ export interface ReaderLoadProfileReportInput {
   readonly browserErrors: readonly string[];
 }
 
-export interface ReaderUsabilityMetrics {
-  readonly openRoundTripMs: number;
-  readonly boundedToPresentationMs: number;
-  readonly frameWarmRoundTripMs: number;
-  readonly canvasReadyMs: number;
-  readonly cachedTurnFirstFrameMs: number;
-  readonly deferredGrowthFirstFrameMs: number;
-  readonly reflowFirstFrameMs: number;
-  readonly maxLongTaskMs: number;
-}
-
 export function buildReaderLoadProfileReport(
   input: ReaderLoadProfileReportInput,
 ): ReaderLoadProfileReport {
@@ -140,6 +133,7 @@ export function buildReaderLoadProfileReport(
     generatedAt: input.generatedAt,
     environment: input.environment,
     fixture: input.fixture,
+    startup: input.startup,
     milestones: profileMilestones(input),
     stages: {
       initial: profileStage(input.initial),
@@ -155,24 +149,6 @@ export function buildReaderLoadProfileReport(
     operations: input.operations.map(roundOperation),
     longTasks: summarizeLongTasks(input.longTasks),
     browserErrors: [...input.browserErrors],
-  };
-}
-
-export function readerUsabilityMetrics(report: ReaderLoadProfileReport): ReaderUsabilityMetrics {
-  return {
-    openRoundTripMs: report.milestones.openRoundTripMs,
-    boundedToPresentationMs: report.milestones.boundedToPresentationMs,
-    frameWarmRoundTripMs: report.milestones.frameWarmRoundTripMs,
-    canvasReadyMs: report.milestones.canvasReadyMs,
-    cachedTurnFirstFrameMs: report.stages.cachedTurn.durationMs,
-    deferredGrowthFirstFrameMs: report.stages.deferredGrowth.durationMs,
-    reflowFirstFrameMs: report.stages.reflow.durationMs,
-    maxLongTaskMs: Math.max(
-      report.stages.initial.longTasks.maxMs,
-      report.stages.cachedTurn.longTasks.maxMs,
-      report.stages.deferredGrowth.longTasks.maxMs,
-      report.stages.reflow.longTasks.maxMs,
-    ),
   };
 }
 

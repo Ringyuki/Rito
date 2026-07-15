@@ -19,7 +19,7 @@ protect browser-rendered output.
 | DOM-free reference    | `pnpm --filter @ritojs/core test:dom-free:reference`                                                 | Built TypeScript reference parses and paginates an EPUB in a real Node worker without bundled DOM parser code. |
 | Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
 | Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
-| Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine, pinned-corpus latency thresholds for production Reader load and turn paths.              |
+| Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine isolated-process cold-start, pinned-corpus load, reflow, and turn thresholds.             |
 | Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
 | Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
 
@@ -373,38 +373,51 @@ The opt-in load-profile and usability-gate commands also write
 `apps/reader/playwright-report/index.html`; the gate report contains each raw
 run JSON attachment plus the aggregate threshold summary.
 
-The manifest schema is strict. It pins the machine ID, platform, architecture,
-CPU model, OS release, browser name and exact version, device-pixel ratio,
-normal and reflow viewports, EPUB paths and SHA-256 digests, run count, and the
-threshold for every measured stage. Unknown or mismatched environment and
-corpus fields fail rather than silently producing incomparable data. Every
-case/run gets a fresh `BrowserContext`; the browser process is shared, so this
-is a warm shared-process document-load gate rather than a browser-process or
-pinned-font cold-start measurement.
+The manifest schema is strict. Schema v2 pins the machine ID, platform,
+architecture, CPU model, OS release, browser name and exact version, bundled
+headless browser policy, locale/color scheme, the exact two production
+pinned-font policies, device-pixel ratio, normal and reflow viewports, EPUB paths
+and SHA-256 digests, run count, and the threshold for every measured stage.
+Unknown or mismatched environment and corpus fields fail rather than silently
+producing incomparable data. Every case/run launches and closes a fresh bundled
+Chromium process and `BrowserContext`. The command disables preview-server
+reuse; its build, server launch, and readiness probe finish before any browser
+sample clock starts.
 
-The gate records `open` round-trip, bounded-revision-to-presentation, frame
-warm, input-to-first-Canvas, cached-turn first changed frame, deferred-growth
-first changed frame, reflow first changed frame, and the maximum Long Task in
-each measured action window. Waiting for the Canvas to settle isolates one
-stage from the next and keeps animation Long Tasks in the observation window;
-that wait is not added to any first-frame latency.
+The gate records browser-process launch on the Node clock; navigation to the
+production Reader ready state, navigation to first Canvas, and startup-window
+Long Tasks on the page clock; then `open` round-trip,
+bounded-revision-to-presentation, frame warm, input-to-first-Canvas, cached-turn
+first changed frame, deferred-growth first changed frame, reflow first changed
+frame, and the maximum Long Task in each measured action window. Waiting for the
+Canvas to settle isolates one stage from the next and keeps animation Long Tasks
+in the observation window; that wait is not added to any first-frame latency.
 Long Tasks describe the Window main thread; Worker stalls remain visible in
 the separately recorded Worker-operation durations.
 
 The first three-run baseline was recorded on Apple M3, macOS release `25.5`,
 Chromium `147.0.7727.15`:
 
+| Fixture | Browser launch | Navigation -> ready | Navigation -> first Canvas | Startup max Long Task |
+| ------- | -------------: | ------------------: | -------------------------: | --------------------: |
+| book-01 |          311.5 |               139.3 |                      420.9 |                  76.0 |
+| book-04 |           72.5 |                75.6 |                      324.1 |                  70.0 |
+| book-10 |           73.4 |                80.3 |                      309.2 |                  71.0 |
+
 | Fixture | Open | Bounded -> presentation | Frame warm | Input -> first Canvas | Cached turn | Deferred growth | Reflow | Max Long Task |
 | ------- | ---: | ----------------------: | ---------: | --------------------: | ----------: | --------------: | -----: | ------------: |
-| book-01 | 67.5 |                    40.8 |        2.4 |                 249.3 |        13.3 |            45.1 |  141.5 |          70.0 |
-| book-04 | 63.5 |                    62.0 |        2.1 |                 246.4 |        12.9 |            47.8 |  201.4 |          70.0 |
-| book-10 | 61.1 |                    34.8 |        2.0 |                 207.8 |        14.0 |            40.7 |  119.3 |          69.0 |
+| book-01 | 71.6 |                    41.5 |        2.3 |                 259.5 |        14.1 |            47.8 |  144.6 |          76.0 |
+| book-04 | 64.4 |                    61.1 |        2.2 |                 236.2 |        13.9 |            47.6 |  184.5 |          70.0 |
+| book-10 | 66.0 |                    35.2 |        2.1 |                 212.2 |        13.6 |            60.8 |  120.3 |          71.0 |
 
 Values are nearest-rank p95 milliseconds across three runs, so each value is
-the maximum of those three samples. This baseline closes the warm shared-process
-document-load gate only. A formal Phase 1 usability declaration still requires
-isolated browser-process/pinned-font cold-start measurements, memory limits,
-and cancellation/disposal exercised under a recorded release protocol.
+the maximum of those three samples. The first browser launch after the preview
+server starts is intentionally visible, which explains the higher `book-01`
+launch sample; every measured Reader process still has empty process-local HTTP,
+WASM and FontFace caches. This baseline closes the isolated
+browser-process/pinned-font cold-start and interaction gate. A formal Phase 1
+usability declaration still requires memory limits and cancellation/disposal
+exercised under a recorded release protocol.
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 

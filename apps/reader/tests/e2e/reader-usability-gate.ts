@@ -1,156 +1,66 @@
-import { readFile, stat } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
-import {
-  readerUsabilityMetrics,
-  type ReaderLoadProfileReport,
-  type ReaderProfileEnvironment,
-  type ReaderProfileViewport,
-  type ReaderUsabilityMetrics,
+import type {
+  ReaderLoadProfileReport,
+  ReaderProfileBrowserPolicy,
+  ReaderProfileEnvironment,
+  ReaderProfileViewport,
 } from './reader-profile-model';
 import {
-  boundedInteger,
-  exactRecord,
-  invalid,
-  nonEmptyArray,
-  nonEmptyText,
-  parseJson,
-  positiveFinite,
-} from './reader-usability-gate-validation';
+  mapReaderUsabilityMetrics,
+  readerUsabilityMetrics,
+  READER_USABILITY_METRIC_KEYS,
+  type ReaderUsabilityMetrics,
+} from './reader-usability-metrics';
+import {
+  READER_USABILITY_MACHINE_ENVIRONMENT_KEYS,
+  type ReaderUsabilityCaseSummary,
+  type ReaderUsabilityGate,
+  type ReaderUsabilityGateCase,
+} from './reader-usability-gate-types';
+import { boundedInteger, invalid } from './reader-usability-gate-validation';
 
-export const READER_USABILITY_GATE_SCHEMA_VERSION = 1;
-
-export interface ReaderUsabilityGateMachine {
-  readonly id: string;
-  readonly platform: string;
-  readonly arch: string;
-  readonly cpuModel: string;
-  readonly osRelease: string;
-  readonly browserName: string;
-  readonly browserVersion: string;
-}
-
-export type ReaderUsabilityThresholds = ReaderUsabilityMetrics;
-
-export interface ReaderUsabilityGateCase {
-  readonly id: string;
-  /** Absolute path resolved from the manifest directory. */
-  readonly epub: string;
-  readonly sha256: string;
-  readonly thresholds: ReaderUsabilityThresholds;
-}
-
-export interface ReaderUsabilityGate {
-  readonly schemaVersion: typeof READER_USABILITY_GATE_SCHEMA_VERSION;
-  readonly machine: ReaderUsabilityGateMachine;
-  readonly deviceScaleFactor: number;
-  readonly viewport: ReaderProfileViewport;
-  readonly reflowViewport: ReaderProfileViewport;
-  readonly runs: number;
-  readonly cases: readonly ReaderUsabilityGateCase[];
-}
-
-export interface ReaderUsabilityCaseSummary {
-  readonly caseId: string;
-  readonly fixtureSha256: string;
-  readonly runs: number;
-  readonly p95: ReaderUsabilityMetrics;
-  readonly thresholds: ReaderUsabilityThresholds;
-}
-
-const MACHINE_KEYS = [
-  'id',
-  'platform',
-  'arch',
-  'cpuModel',
-  'osRelease',
-  'browserName',
-  'browserVersion',
-] as const;
-const MACHINE_ENVIRONMENT_KEYS = MACHINE_KEYS.slice(1) as readonly Exclude<
-  (typeof MACHINE_KEYS)[number],
-  'id'
->[];
-const VIEWPORT_KEYS = ['width', 'height'] as const;
-const THRESHOLD_KEYS = [
-  'openRoundTripMs',
-  'boundedToPresentationMs',
-  'frameWarmRoundTripMs',
-  'canvasReadyMs',
-  'cachedTurnFirstFrameMs',
-  'deferredGrowthFirstFrameMs',
-  'reflowFirstFrameMs',
-  'maxLongTaskMs',
-] as const satisfies readonly (keyof ReaderUsabilityMetrics)[];
-
-export async function loadReaderUsabilityGate(path: string): Promise<ReaderUsabilityGate> {
-  const manifestPath = resolve(path);
-  const value = parseJson(await readFile(manifestPath, 'utf8'), manifestPath);
-  const root = exactRecord(
-    value,
-    [
-      'schemaVersion',
-      'machine',
-      'deviceScaleFactor',
-      'viewport',
-      'reflowViewport',
-      'runs',
-      'cases',
-    ],
-    'manifest',
-  );
-  if (root['schemaVersion'] !== READER_USABILITY_GATE_SCHEMA_VERSION) {
-    throw invalid('manifest.schemaVersion', 'must equal 1');
-  }
-  const runs = boundedInteger(root['runs'], 'manifest.runs', 1, 10);
-  const rawCases = nonEmptyArray(root['cases'], 'manifest.cases');
-  const cases: ReaderUsabilityGateCase[] = [];
-  const ids = new Set<string>();
-  for (const [index, value] of rawCases.entries()) {
-    const parsed = await parseCase(value, dirname(manifestPath), index);
-    if (ids.has(parsed.id)) throw invalid('manifest.cases', `duplicate id "${parsed.id}"`);
-    ids.add(parsed.id);
-    cases.push(parsed);
-  }
-  return {
-    schemaVersion: READER_USABILITY_GATE_SCHEMA_VERSION,
-    machine: parseMachine(root['machine']),
-    deviceScaleFactor: positiveFinite(root['deviceScaleFactor'], 'manifest.deviceScaleFactor'),
-    viewport: parseViewport(root['viewport'], 'manifest.viewport'),
-    reflowViewport: parseViewport(root['reflowViewport'], 'manifest.reflowViewport'),
-    runs,
-    cases,
-  };
-}
+export { loadReaderUsabilityGate } from './reader-usability-gate-parser';
+export {
+  READER_USABILITY_GATE_SCHEMA_VERSION,
+  type ReaderUsabilityCaseSummary,
+  type ReaderUsabilityGate,
+  type ReaderUsabilityGateBrowser,
+  type ReaderUsabilityGateCase,
+  type ReaderUsabilityGateMachine,
+  type ReaderUsabilityPinnedFont,
+  type ReaderUsabilityThresholds,
+} from './reader-usability-gate-types';
 
 export function requireReaderUsabilityEnvironment(
   gate: ReaderUsabilityGate,
-  actualEnvironment: ReaderProfileEnvironment,
+  actual: ReaderProfileEnvironment,
   suppliedMachineId: string | undefined,
 ): ReaderProfileEnvironment {
   const expected = gate.machine;
   const mismatches: string[] = [];
   compare(mismatches, 'supplied machine id', suppliedMachineId, expected.id);
-  compare(mismatches, 'profile machine id', actualEnvironment.machineId, expected.id);
-  for (const key of MACHINE_ENVIRONMENT_KEYS) {
-    compare(mismatches, key, actualEnvironment[key], expected[key]);
+  compare(mismatches, 'profile machine id', actual.machineId, expected.id);
+  for (const key of READER_USABILITY_MACHINE_ENVIRONMENT_KEYS) {
+    compare(mismatches, key, actual[key], expected[key]);
   }
-  compare(
-    mismatches,
-    'deviceScaleFactor',
-    actualEnvironment.deviceScaleFactor,
-    gate.deviceScaleFactor,
-  );
-  compareViewport(mismatches, 'viewport', actualEnvironment.viewport, gate.viewport);
-  compareViewport(
-    mismatches,
-    'reflowViewport',
-    actualEnvironment.reflowViewport,
-    gate.reflowViewport,
-  );
-  if (mismatches.length > 0) {
-    throw new Error(`Reader usability environment mismatch:\n${mismatches.join('\n')}`);
-  }
-  return actualEnvironment;
+  compare(mismatches, 'deviceScaleFactor', actual.deviceScaleFactor, gate.deviceScaleFactor);
+  compareViewport(mismatches, 'viewport', actual.viewport, gate.viewport);
+  compareViewport(mismatches, 'reflowViewport', actual.reflowViewport, gate.reflowViewport);
+  if (mismatches.length > 0) failEnvironment(mismatches);
+  return actual;
+}
+
+export function requireReaderUsabilityBrowserPolicy(
+  gate: ReaderUsabilityGate,
+  actual: ReaderProfileBrowserPolicy,
+): ReaderProfileBrowserPolicy {
+  const mismatches: string[] = [];
+  compare(mismatches, 'browser.isolation', actual.isolation, gate.browser.isolation);
+  compare(mismatches, 'browser.channel', actual.channel, gate.browser.channel);
+  compare(mismatches, 'browser.headless', actual.headless, gate.browser.headless);
+  compare(mismatches, 'browser.locale', actual.locale, gate.browser.locale);
+  compare(mismatches, 'browser.colorScheme', actual.colorScheme, gate.browser.colorScheme);
+  if (mismatches.length > 0) failEnvironment(mismatches);
+  return actual;
 }
 
 export function evaluateReaderUsabilityCase(
@@ -164,30 +74,12 @@ export function evaluateReaderUsabilityCase(
       `Reader usability case "${caseConfig.id}" expected ${String(expectedRuns)} reports, received ${String(reports.length)}`,
     );
   }
-  const firstEnvironment = reports[0]?.environment;
-  for (const [index, report] of reports.entries()) {
-    if (report.fixture.id !== caseConfig.id || report.fixture.sha256 !== caseConfig.sha256) {
-      throw new Error(
-        `Reader usability case "${caseConfig.id}" report ${String(index + 1)} fixture identity mismatch`,
-      );
-    }
-    if (firstEnvironment && !sameEnvironment(report.environment, firstEnvironment)) {
-      throw new Error(
-        `Reader usability case "${caseConfig.id}" report ${String(index + 1)} environment mismatch`,
-      );
-    }
-  }
+  requireMatchingReports(caseConfig, reports);
   const samples = reports.map(readerUsabilityMetrics);
-  const p95 = metricMap((key) => nearestRank95(samples.map((sample) => sample[key])));
-  const exceeded = THRESHOLD_KEYS.filter((key) => p95[key] > caseConfig.thresholds[key]);
-  if (exceeded.length > 0) {
-    const details = exceeded.map(
-      (key) => `- ${key}: p95 ${String(p95[key])} ms > ${String(caseConfig.thresholds[key])} ms`,
-    );
-    throw new Error(
-      `Reader usability thresholds exceeded for "${caseConfig.id}":\n${details.join('\n')}`,
-    );
-  }
+  const p95 = mapReaderUsabilityMetrics((key) =>
+    nearestRank95(samples.map((sample) => sample[key])),
+  );
+  requireThresholds(caseConfig, p95);
   return {
     caseId: caseConfig.id,
     fixtureSha256: caseConfig.sha256,
@@ -197,65 +89,41 @@ export function evaluateReaderUsabilityCase(
   };
 }
 
-async function parseCase(
-  value: unknown,
-  manifestDirectory: string,
-  index: number,
-): Promise<ReaderUsabilityGateCase> {
-  const path = `manifest.cases[${String(index)}]`;
-  const record = exactRecord(value, ['id', 'epub', 'sha256', 'thresholds'], path);
-  const epub = resolve(manifestDirectory, nonEmptyText(record['epub'], `${path}.epub`));
-  const epubStat = await stat(epub).catch(() => undefined);
-  if (!epubStat?.isFile()) throw invalid(`${path}.epub`, `must identify a file: ${epub}`);
-  const sha256 = nonEmptyText(record['sha256'], `${path}.sha256`);
-  if (!/^[0-9a-f]{64}$/.test(sha256)) {
-    throw invalid(`${path}.sha256`, 'must be 64 lowercase hexadecimal characters');
+function requireMatchingReports(
+  caseConfig: ReaderUsabilityGateCase,
+  reports: readonly ReaderLoadProfileReport[],
+): void {
+  const first = reports[0];
+  for (const [index, report] of reports.entries()) {
+    if (report.fixture.id !== caseConfig.id || report.fixture.sha256 !== caseConfig.sha256) {
+      throw new Error(
+        `Reader usability case "${caseConfig.id}" report ${String(index + 1)} fixture identity mismatch`,
+      );
+    }
+    if (first && !sameEnvironment(report.environment, first.environment)) {
+      throw new Error(
+        `Reader usability case "${caseConfig.id}" report ${String(index + 1)} environment mismatch`,
+      );
+    }
+    if (first && !sameBrowserPolicy(report.startup.browser, first.startup.browser)) {
+      throw new Error(
+        `Reader usability case "${caseConfig.id}" report ${String(index + 1)} browser policy mismatch`,
+      );
+    }
   }
-  return {
-    id: nonEmptyText(record['id'], `${path}.id`),
-    epub,
-    sha256,
-    thresholds: parseThresholds(record['thresholds'], `${path}.thresholds`),
-  };
 }
 
-function parseMachine(value: unknown): ReaderUsabilityGateMachine {
-  const record = exactRecord(value, MACHINE_KEYS, 'manifest.machine');
-  return {
-    id: nonEmptyText(record['id'], 'manifest.machine.id'),
-    platform: nonEmptyText(record['platform'], 'manifest.machine.platform'),
-    arch: nonEmptyText(record['arch'], 'manifest.machine.arch'),
-    cpuModel: nonEmptyText(record['cpuModel'], 'manifest.machine.cpuModel'),
-    osRelease: nonEmptyText(record['osRelease'], 'manifest.machine.osRelease'),
-    browserName: nonEmptyText(record['browserName'], 'manifest.machine.browserName'),
-    browserVersion: nonEmptyText(record['browserVersion'], 'manifest.machine.browserVersion'),
-  };
-}
-
-function parseViewport(value: unknown, path: string): ReaderProfileViewport {
-  const record = exactRecord(value, VIEWPORT_KEYS, path);
-  return {
-    width: boundedInteger(record['width'], `${path}.width`, 1),
-    height: boundedInteger(record['height'], `${path}.height`, 1),
-  };
-}
-
-function parseThresholds(value: unknown, path: string): ReaderUsabilityThresholds {
-  const record = exactRecord(value, THRESHOLD_KEYS, path);
-  return metricMap((key) => positiveFinite(record[key], `${path}.${key}`));
-}
-
-function metricMap(value: (key: keyof ReaderUsabilityMetrics) => number): ReaderUsabilityMetrics {
-  return {
-    openRoundTripMs: value('openRoundTripMs'),
-    boundedToPresentationMs: value('boundedToPresentationMs'),
-    frameWarmRoundTripMs: value('frameWarmRoundTripMs'),
-    canvasReadyMs: value('canvasReadyMs'),
-    cachedTurnFirstFrameMs: value('cachedTurnFirstFrameMs'),
-    deferredGrowthFirstFrameMs: value('deferredGrowthFirstFrameMs'),
-    reflowFirstFrameMs: value('reflowFirstFrameMs'),
-    maxLongTaskMs: value('maxLongTaskMs'),
-  };
+function requireThresholds(caseConfig: ReaderUsabilityGateCase, p95: ReaderUsabilityMetrics): void {
+  const exceeded = READER_USABILITY_METRIC_KEYS.filter(
+    (key) => p95[key] > caseConfig.thresholds[key],
+  );
+  if (exceeded.length === 0) return;
+  const details = exceeded.map(
+    (key) => `- ${key}: p95 ${String(p95[key])} ms > ${String(caseConfig.thresholds[key])} ms`,
+  );
+  throw new Error(
+    `Reader usability thresholds exceeded for "${caseConfig.id}":\n${details.join('\n')}`,
+  );
 }
 
 function nearestRank95(values: readonly number[]): number {
@@ -269,13 +137,28 @@ function nearestRank95(values: readonly number[]): number {
 function sameEnvironment(left: ReaderProfileEnvironment, right: ReaderProfileEnvironment): boolean {
   return (
     left.machineId === right.machineId &&
-    MACHINE_ENVIRONMENT_KEYS.every((key) => left[key] === right[key]) &&
+    READER_USABILITY_MACHINE_ENVIRONMENT_KEYS.every((key) => left[key] === right[key]) &&
     left.deviceScaleFactor === right.deviceScaleFactor &&
-    left.viewport.width === right.viewport.width &&
-    left.viewport.height === right.viewport.height &&
-    left.reflowViewport.width === right.reflowViewport.width &&
-    left.reflowViewport.height === right.reflowViewport.height
+    sameViewport(left.viewport, right.viewport) &&
+    sameViewport(left.reflowViewport, right.reflowViewport)
   );
+}
+
+function sameBrowserPolicy(
+  left: ReaderProfileBrowserPolicy,
+  right: ReaderProfileBrowserPolicy,
+): boolean {
+  return (
+    left.isolation === right.isolation &&
+    left.channel === right.channel &&
+    left.headless === right.headless &&
+    left.locale === right.locale &&
+    left.colorScheme === right.colorScheme
+  );
+}
+
+function sameViewport(left: ReaderProfileViewport, right: ReaderProfileViewport): boolean {
+  return left.width === right.width && left.height === right.height;
 }
 
 function compareViewport(
@@ -289,8 +172,13 @@ function compareViewport(
 }
 
 function compare(errors: string[], label: string, actual: unknown, expected: unknown): void {
-  if (actual !== expected)
+  if (actual !== expected) {
     errors.push(
       `- ${label}: expected ${JSON.stringify(expected)}, received ${JSON.stringify(actual)}`,
     );
+  }
+}
+
+function failEnvironment(mismatches: readonly string[]): never {
+  throw new Error(`Reader usability environment mismatch:\n${mismatches.join('\n')}`);
 }

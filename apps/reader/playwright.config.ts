@@ -1,10 +1,13 @@
 import { defineConfig, devices } from '@playwright/test';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  READER_TEST_SERVER_BASE_URL as BASE_URL,
+  READER_TEST_SERVER_PORT as PORT,
+} from './tests/e2e/reader-test-server';
 
 const READER_APP_DIR = dirname(fileURLToPath(import.meta.url));
-const PORT = 4173;
-const BASE_URL = `http://127.0.0.1:${String(PORT)}/`;
+const STRICT_SERVER = process.env['RITO_READER_STRICT_SERVER'] === '1';
 
 process.env['NO_PROXY'] = appendNoProxy(process.env['NO_PROXY']);
 process.env['no_proxy'] = appendNoProxy(process.env['no_proxy']);
@@ -39,11 +42,10 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command:
-      'RITO_READER_BASE=/ pnpm run build:e2e && RITO_READER_BASE=/ pnpm exec vite preview --host 127.0.0.1 --port 4173',
+    command: `RITO_READER_BASE=/ pnpm run build:e2e && RITO_READER_BASE=/ pnpm exec vite preview --host 127.0.0.1 --port ${String(PORT)}`,
     cwd: READER_APP_DIR,
     url: BASE_URL,
-    reuseExistingServer: !process.env['CI'],
+    reuseExistingServer: STRICT_SERVER ? false : !process.env['CI'],
     timeout: 180_000,
   },
 });

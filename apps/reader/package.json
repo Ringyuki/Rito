@@ -11,7 +11,7 @@
     "test:e2e": "playwright test -c playwright.config.ts",
     "test:e2e:downloads-smoke": "playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts",
     "test:e2e:load-profile": "RITO_READER_HTML_REPORT=1 playwright test -c playwright.config.ts tests/e2e/reader-load-profile.e2e.test.ts",
-    "test:e2e:usability-gate": "RITO_READER_USABILITY_GATE_REQUIRED=1 RITO_READER_HTML_REPORT=1 playwright test -c playwright.config.ts tests/e2e/reader-usability-gate.e2e.test.ts",
+    "test:e2e:usability-gate": "RITO_READER_STRICT_SERVER=1 RITO_READER_USABILITY_GATE_REQUIRED=1 RITO_READER_HTML_REPORT=1 playwright test -c playwright.config.ts tests/e2e/reader-usability-gate.e2e.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.e2e.json"
   },
   "dependencies": {
