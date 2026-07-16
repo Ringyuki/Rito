@@ -4,7 +4,6 @@ import type {
   NativeSelectionEngine,
   NativeSelectionEngineOptions,
   NativeSelectionPoint,
-  NativeSelectionSnapshot,
 } from './native-types';
 import { copyNativeSelectionPoint, requireNativeSelectionPoint } from './native-point';
 import {
@@ -12,7 +11,6 @@ import {
   createNativeSelectionEngineData,
   disposeNativeSelection,
   finishNativeSelection,
-  finishWithLastNativeSelection,
   isCurrentNativeSelection,
   publishNativeSelection,
   reportNativeSelectionError,
@@ -21,7 +19,14 @@ import {
   type NativeSelectionEngineData,
   type NativeSelectionFocusSample,
   type NativeSelectionGestureSession,
+  type NativeSelectionMoveFallback,
 } from './native-engine-state';
+import {
+  finishEmptySelection,
+  handleCancelledSample,
+  handleUnresolvedSample,
+  settleMoveFallback,
+} from './native-engine-fallback';
 
 export function createNativeSelectionEngine(
   capability: NativeSelectionCapability,
@@ -71,7 +76,6 @@ function handlePointerDown(
     moveInFlight: false,
     finalInFlight: false,
     moveFallback: undefined,
-    moveFallbackSettled: false,
     finalFallbackRequested: false,
     ended: false,
   };
@@ -94,7 +98,7 @@ async function resolveAnchor(
     const result = await data.capability.resolveCaret(point);
     if (!isCurrentNativeSelection(data, session)) return;
     if (!result || result.status !== 'resolved') {
-      finishEmpty(data, session);
+      finishEmptySelection(data, session);
       return;
     }
     session.anchor = result.caret;
@@ -102,7 +106,7 @@ async function resolveAnchor(
   } catch (error: unknown) {
     if (!isCurrentNativeSelection(data, session)) return;
     reportNativeSelectionError(data, error);
-    finishEmpty(data, session);
+    finishEmptySelection(data, session);
   }
 }
 
@@ -134,7 +138,6 @@ function pump(data: NativeSelectionEngineData, session: NativeSelectionGestureSe
   else {
     session.moveInFlight = true;
     session.moveFallback = undefined;
-    session.moveFallbackSettled = false;
   }
   void resolveSample(data, session, sample);
 }
@@ -171,7 +174,7 @@ async function resolveCharacterSample(
   const focusResult = await data.capability.resolveCaret(sample.point);
   if (!isRelevant(data, session, sample)) return;
   if (!focusResult) {
-    finishEmpty(data, session);
+    handleCancelledSample(data, session, sample);
     return;
   }
   if (focusResult.status !== 'resolved') {
@@ -181,7 +184,7 @@ async function resolveCharacterSample(
   const rangeResult = await data.capability.resolveTextRange(anchor, focusResult.caret);
   if (!isRelevant(data, session, sample)) return;
   if (!rangeResult) {
-    finishEmpty(data, session);
+    handleCancelledSample(data, session, sample);
     return;
   }
   if (rangeResult.status !== 'resolved') {
@@ -199,7 +202,7 @@ async function resolveSemanticSample(
   const anchor = session.anchorPoint;
   const granularity = session.granularity;
   if (!anchor || granularity === 'character') {
-    finishEmpty(data, session);
+    finishEmptySelection(data, session);
     return;
   }
   const rangeResult = await data.capability.resolveTextRangeFromPoints({
@@ -209,7 +212,7 @@ async function resolveSemanticSample(
   });
   if (!isRelevant(data, session, sample)) return;
   if (!rangeResult) {
-    finishEmpty(data, session);
+    handleCancelledSample(data, session, sample);
     return;
   }
   if (rangeResult.status !== 'resolved') {
@@ -226,12 +229,15 @@ function installRange(
   range: ReaderTextRange,
 ): void {
   if (!sample.final && session.ended) {
-    const snapshot = range.selectedText.length === 0 ? undefined : toNativeSelectionSnapshot(range);
-    settleMoveFallback(data, session, snapshot);
+    const fallback: NativeSelectionMoveFallback =
+      range.selectedText.length === 0
+        ? { status: 'collapsed' }
+        : { status: 'resolved', snapshot: toNativeSelectionSnapshot(range) };
+    settleMoveFallback(data, session, fallback);
     return;
   }
   if (range.selectedText.length === 0) {
-    if (sample.final) finishEmpty(data, session);
+    if (sample.final) finishEmptySelection(data, session);
     else publishNativeSelection(data, 'selecting', null);
     return;
   }
@@ -241,47 +247,6 @@ function installRange(
   } else {
     publishNativeSelection(data, 'selecting', snapshot);
   }
-}
-
-function handleUnresolvedSample(
-  data: NativeSelectionEngineData,
-  session: NativeSelectionGestureSession,
-  sample: NativeSelectionFocusSample,
-): void {
-  if (!sample.final) {
-    if (session.ended) settleMoveFallback(data, session, undefined);
-    else if (session.granularity !== 'character' && sample.sequence === 0) {
-      finishEmpty(data, session);
-    }
-    return;
-  }
-  if (session.moveFallback) {
-    finishNativeSelection(data, session, session.moveFallback);
-  } else if (session.moveInFlight && !session.moveFallbackSettled) {
-    session.finalFallbackRequested = true;
-  } else {
-    finishWithLastNativeSelection(data, session);
-  }
-}
-
-function settleMoveFallback(
-  data: NativeSelectionEngineData,
-  session: NativeSelectionGestureSession,
-  snapshot: NativeSelectionSnapshot | undefined,
-): void {
-  if (!isCurrentNativeSelection(data, session)) return;
-  session.moveFallback = snapshot;
-  session.moveFallbackSettled = true;
-  if (!session.finalFallbackRequested) return;
-  if (snapshot) finishNativeSelection(data, session, snapshot);
-  else finishWithLastNativeSelection(data, session);
-}
-
-function finishEmpty(
-  data: NativeSelectionEngineData,
-  session: NativeSelectionGestureSession,
-): void {
-  finishNativeSelection(data, session, undefined);
 }
 
 function isRelevant(

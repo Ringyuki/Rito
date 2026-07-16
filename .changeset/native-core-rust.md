@@ -19,7 +19,8 @@ reads fail only their target instead of releasing a healthy session.
 Native text ranges now span exact retained flows within a chapter, preserve native line and block
 separators, survive reflow through durable source ranges, and expose TOC-backed destination labels
 for internal-link previews. Production Reader gestures retain their anchor while reversing direction
-and preserve the latest valid in-flight drag result when pointer release lands outside text.
+and preserve the latest valid in-flight drag result when pointer release lands outside text or races a
+cancelled exact-read response.
 Rust-authoritative ICU word and retained-flow paragraph selection now power mouse double/triple click,
 repeated-click drag, and touch long press while preserving exact cross-page source ranges.
 Released native selections now survive asynchronous image/frame content repaints. Candidate revisions

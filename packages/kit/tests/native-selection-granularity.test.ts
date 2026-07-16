@@ -120,7 +120,10 @@ describe('native semantic selection granularity', () => {
     expect(engine.getSnapshot()?.text).toBe('final');
   });
 
-  it('waits for a pending seed when an in-place final sample misses', async () => {
+  it.each([
+    { name: 'misses', resolution: { status: 'miss' } as const },
+    { name: 'is cancelled', resolution: undefined },
+  ])('waits for a pending seed when an in-place final sample $name', async ({ resolution }) => {
     const seedRead =
       deferred<
         Awaited<ReturnType<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>>
@@ -130,7 +133,7 @@ describe('native semantic selection granularity', () => {
     const resolveTextRangeFromPoints = vi
       .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
       .mockReturnValueOnce(seedRead.promise)
-      .mockResolvedValueOnce({ status: 'miss' });
+      .mockResolvedValueOnce(resolution);
     const engine = createNativeSelectionEngine(
       capabilityFrom(vi.fn(), vi.fn(), resolveTextRangeFromPoints),
     );

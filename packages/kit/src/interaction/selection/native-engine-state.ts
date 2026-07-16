@@ -15,6 +15,13 @@ export interface NativeSelectionFocusSample {
   readonly final: boolean;
 }
 
+/** A move result settled after release; cancellation invalidates older captured geometry. */
+export type NativeSelectionMoveFallback =
+  | { readonly status: 'resolved'; readonly snapshot: NativeSelectionSnapshot }
+  | { readonly status: 'collapsed' }
+  | { readonly status: 'unresolved' }
+  | { readonly status: 'cancelled' };
+
 export interface NativeSelectionGestureSession {
   readonly epoch: number;
   readonly granularity: NativeSelectionGranularity;
@@ -24,8 +31,7 @@ export interface NativeSelectionGestureSession {
   queued: NativeSelectionFocusSample | undefined;
   moveInFlight: boolean;
   finalInFlight: boolean;
-  moveFallback: NativeSelectionSnapshot | undefined;
-  moveFallbackSettled: boolean;
+  moveFallback: NativeSelectionMoveFallback | undefined;
   finalFallbackRequested: boolean;
   ended: boolean;
 }
