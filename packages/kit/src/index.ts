@@ -13,6 +13,10 @@ export {
   type ControllerOptions,
   type InteractionMode,
   type AddAnnotationInput,
+  type SelectionClientPoint,
+  type SelectionHandleDrag,
+  type SelectionHandleEdge,
+  type SelectionHandleState,
 } from './controller/index';
 
 export type {

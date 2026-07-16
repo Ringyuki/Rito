@@ -7,6 +7,7 @@ import type {
 
 export type NativeSelectionPoint = ReaderTextPoint;
 export type NativeSelectionGranularity = 'character' | 'word' | 'paragraph';
+export type NativeSelectionHandleEdge = 'start' | 'end';
 export type NativeSelectionCapability = ReaderTextSelectionInteractions;
 export type NativeSelectionState = 'idle' | 'selecting' | 'selected' | 'disposed';
 export type NativeSelectionFocusDirection = 'forward' | 'backward';
@@ -33,7 +34,14 @@ export interface NativeSelectionEngineOptions {
   readonly onError?: ((error: unknown) => void) | undefined;
 }
 
+export interface NativeSelectionHandleDrag {
+  update(point: NativeSelectionPoint): void;
+  finish(point: NativeSelectionPoint): void;
+  cancel(): void;
+}
+
 export interface NativeSelectionEngine {
+  beginHandleDrag(edge: NativeSelectionHandleEdge): NativeSelectionHandleDrag | null;
   handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
   handlePointerMove(point: NativeSelectionPoint): void;
   handlePointerUp(point: NativeSelectionPoint): void;

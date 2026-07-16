@@ -37,6 +37,10 @@ export function handleCancelledSample(
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
 ): void {
+  if (session.handleDrag && !sample.final) {
+    if (session.ended) settleMoveFallback(data, session, { status: 'unresolved' });
+    return;
+  }
   if (sample.final) handleUnresolvedSample(data, session, sample);
   else if (session.ended) settleMoveFallback(data, session, { status: 'cancelled' });
   else finishEmptySelection(data, session);

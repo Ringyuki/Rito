@@ -54,7 +54,12 @@ export type SearchActionsSlice = Pick<
 >;
 export type SelectionAccessorsSlice = Pick<
   ReaderController,
-  'clearSelection' | 'hasSelection' | 'selectionText' | 'selectionRange' | 'selectionSourceLocator'
+  | 'clearSelection'
+  | 'hasSelection'
+  | 'selectionText'
+  | 'selectionRange'
+  | 'selectionSourceLocator'
+  | 'beginSelectionHandleDrag'
 >;
 export type AnnotationActionsSlice = Pick<
   ReaderController,

@@ -1,6 +1,16 @@
-import type { ReaderTextPoint, ReaderTextSelectionInteractions } from '@ritojs/core';
+import type {
+  ReaderTextCaret,
+  ReaderTextPoint,
+  ReaderTextSelectionInteractions,
+} from '@ritojs/core';
 import type { Rect } from '../layout-types';
 import type { SelectionEngine, NativeSelectionProjection, PointerInput } from './engine';
+import type {
+  SelectionHandleCarets,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+} from './handle-types';
+import { adaptNativeSelectionHandleDrag } from './native-adapter-handle';
 import { createNativeSelectionEngine } from './native-engine';
 import type { NativeSelectionGranularity, NativeSelectionSnapshot } from './native-types';
 
@@ -12,6 +22,7 @@ interface AdapterData {
   lastValidPoint: ReaderTextPoint | undefined;
   projectedRects: readonly Rect[];
   projectedFocusRect: Rect | null;
+  projectedHandleCarets: SelectionHandleCarets | null;
   disposed: boolean;
 }
 
@@ -32,6 +43,7 @@ export function createNativeSelectionAdapter(
     lastValidPoint: undefined,
     projectedRects: [],
     projectedFocusRect: null,
+    projectedHandleCarets: null,
     disposed: false,
   };
   data.native.onChange(() => {
@@ -52,9 +64,12 @@ function buildPointerMethods(
   data: AdapterData,
 ): Pick<
   SelectionEngine,
-  'handlePointerDown' | 'handlePointerMove' | 'handlePointerUp' | 'setSpread'
+  'beginHandleDrag' | 'handlePointerDown' | 'handlePointerMove' | 'handlePointerUp' | 'setSpread'
 > {
   return {
+    beginHandleDrag(edge) {
+      return beginHandleDrag(data, edge);
+    },
     handlePointerDown(input, granularity) {
       handleDown(data, input, granularity);
     },
@@ -70,6 +85,14 @@ function buildPointerMethods(
   };
 }
 
+function beginHandleDrag(data: AdapterData, edge: SelectionHandleEdge): SelectionHandleDrag | null {
+  if (data.disposed || !data.projection) return null;
+  const nativeDrag = data.native.beginHandleDrag(edge);
+  return nativeDrag
+    ? adaptNativeSelectionHandleDrag(nativeDrag, (input) => projectPoint(input, data.projection))
+    : null;
+}
+
 function buildReadMethods(
   data: AdapterData,
 ): Pick<
@@ -82,6 +105,7 @@ function buildReadMethods(
   | 'getRects'
   | 'getFocusRect'
   | 'getFocusEdge'
+  | 'getHandleCarets'
   | 'getState'
 > {
   return {
@@ -93,6 +117,7 @@ function buildReadMethods(
     getRects: () => data.projectedRects,
     getFocusRect: () => data.projectedFocusRect,
     getFocusEdge: () => getFocusEdge(data),
+    getHandleCarets: () => data.projectedHandleCarets,
     getState: () => getState(data),
   };
 }
@@ -194,19 +219,18 @@ function projectSnapshot(data: AdapterData, snapshot: NativeSelectionSnapshot): 
     );
   const focus = snapshot.focusCaret;
   data.projectedRects = rects;
-  data.projectedFocusRect = projection.isPageVisible(focus.pageIndex)
-    ? projection.pageContentToSpread(focus.pageIndex, {
-        x: focus.geometry.x,
-        y: focus.geometry.y,
-        width: 0,
-        height: focus.geometry.height,
-      })
-    : null;
+  data.projectedFocusRect = projectCaret(projection, focus);
+  data.projectedHandleCarets = {
+    start: projectCaret(projection, snapshot.range.start),
+    end: projectCaret(projection, snapshot.range.end),
+    focusEdge: getSnapshotFocusEdge(snapshot),
+  };
 }
 
 function clearProjectedSelection(data: AdapterData): void {
   data.projectedRects = [];
   data.projectedFocusRect = null;
+  data.projectedHandleCarets = null;
 }
 
 function notifySelection(data: AdapterData): void {
@@ -218,9 +242,12 @@ function notifyError(data: AdapterData, error: unknown): void {
 }
 
 function getFocusEdge(data: AdapterData): 'start' | 'end' | null {
-  const direction = data.native.getSnapshot()?.focusDirection;
-  if (!direction) return null;
-  return direction === 'forward' ? 'end' : 'start';
+  const snapshot = data.native.getSnapshot();
+  return snapshot ? getSnapshotFocusEdge(snapshot) : null;
+}
+
+function getSnapshotFocusEdge(snapshot: NativeSelectionSnapshot): 'start' | 'end' {
+  return snapshot.focusDirection === 'forward' ? 'end' : 'start';
 }
 
 function getState(data: AdapterData): ReturnType<SelectionEngine['getState']> {
@@ -245,4 +272,17 @@ function projectPoint(
 ): ReaderTextPoint | undefined {
   if (!projection) return undefined;
   return projection.spreadContentToPage(input.x, input.y) ?? undefined;
+}
+
+function projectCaret(
+  projection: NativeSelectionProjection,
+  caret: Pick<ReaderTextCaret, 'pageIndex' | 'geometry'>,
+): Rect | null {
+  if (!projection.isPageVisible(caret.pageIndex)) return null;
+  return projection.pageContentToSpread(caret.pageIndex, {
+    x: caret.geometry.x,
+    y: caret.geometry.y,
+    width: 0,
+    height: caret.geometry.height,
+  });
 }

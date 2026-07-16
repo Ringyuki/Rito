@@ -132,8 +132,12 @@ The remaining usability work is narrower but still release-blocking:
    order within one chapter. Cross-chapter or source/shaping-unavailable ranges
    remain typed unavailable. Reverse drag across the anchor is covered by the
    production Reader path. Rust-authoritative ICU word and retained-flow paragraph
-   granularity now drive mouse repeated-click and touch long-press selection;
-   touch handles, edge autoscroll and platform keyboard extension remain usability
+   granularity now drive mouse repeated-click and touch long-press selection.
+   Exact start/end carets now project through Kit into React DOM touch handles;
+   endpoint adjustment fixes the opposite opaque caret, survives endpoint crossing,
+   preserves the grab offset, and uses an epoch-bound async session with cancel
+   rollback. Trusted Chromium input covers cross-line handle dragging through real
+   pointer capture. Edge autoscroll and platform keyboard extension remain usability
    work. Mouse repeated-click and trusted Chromium touch long-press both pass the
    production Worker/Canvas path; touch acceptance covers word seeding, cross-line
    extension with immediate release, retained highlight and cancellation in
@@ -660,9 +664,11 @@ explicit native-equivalent clearing action; copy uses that same retained range; 
 drag and secondary-click gestures do not dispatch link, page-turn or chrome actions.
 As in Chromium, the first ordinary click in a repeated-click sequence retains normal
 target activation ordering; an anchor can therefore activate before a later
-double-click is recognized. Word/paragraph granularity, touch handles and edge
-autoscroll must follow the host platform rather than introducing Rito-specific
-interaction rules. Browser acceptance uses real
+double-click is recognized. Word/paragraph granularity and same-spread touch-handle
+adjustment now follow that rule, including fixed-opposite-caret crossing, grab-offset
+preservation, pointer capture, fast release and cancellation rollback. Edge autoscroll,
+cross-revision spread extension and keyboard extension must likewise follow the host
+platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
 Canvas pointer input and the production Worker path, not only mocked caret/range
 unit tests. The controlled Browser proof passes real Canvas multi-line and
 cross-paragraph drags, pointer-up persistence and exact copied text with native

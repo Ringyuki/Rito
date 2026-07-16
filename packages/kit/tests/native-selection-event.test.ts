@@ -72,6 +72,11 @@ describe('native selection controller event', () => {
       rects: [{ x: 1, y: 2, width: 30, height: 18 }],
       viewportRects: [{ x: 41, y: 42, width: 30, height: 18 }],
       focusRect: { x: 45, y: 40, width: 0, height: 18 },
+      handles: {
+        start: { x: 41, y: 40, width: 0, height: 18 },
+        end: { x: 45, y: 40, width: 0, height: 18 },
+        focusEdge: 'end',
+      },
     });
 
     resolveCaret.mockRejectedValueOnce(new Error('selection read failed'));

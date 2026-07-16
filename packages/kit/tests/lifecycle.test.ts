@@ -46,6 +46,7 @@ describe('controller lifecycle', () => {
     const secondContainer = document.createElement('div');
     document.body.append(firstContainer, secondContainer);
     const canvas = document.createElement('canvas');
+    canvas.setAttribute('data-rito-reader-surface', 'host-owned');
     const unsubscribeSpread = vi.fn();
     const unsubscribeLayout = vi.fn();
     const onSpreadRendered = vi.fn(() => unsubscribeSpread);
@@ -69,6 +70,7 @@ describe('controller lifecycle', () => {
     lifecycle.mount(firstContainer);
     lifecycle.mount(firstContainer);
 
+    expect(canvas.getAttribute('data-rito-reader-surface')).toBe('true');
     expect(onSpreadRendered).toHaveBeenCalledOnce();
     expect(onLayoutCommitted).toHaveBeenCalledOnce();
     expect(document.body.querySelectorAll('[role="document"]')).toHaveLength(1);
@@ -83,6 +85,7 @@ describe('controller lifecycle', () => {
     expect(document.body.querySelectorAll('[role="document"]')).toHaveLength(1);
 
     lifecycle.dispose();
+    expect(canvas.getAttribute('data-rito-reader-surface')).toBe('host-owned');
     expect(unsubscribeSpread).toHaveBeenCalledTimes(2);
     expect(unsubscribeLayout).toHaveBeenCalledTimes(2);
     expect(document.body.querySelectorAll('[role="document"]')).toHaveLength(0);
@@ -121,15 +124,18 @@ describe('controller lifecycle', () => {
     } as unknown as WiringDeps;
     const lifecycle = buildLifecycle(createDisposableCollection(), runtime, deps);
     lifecycle.mount(firstContainer);
+    expect(canvas.getAttribute('data-rito-reader-surface')).toBe('true');
 
     expect(() => {
       lifecycle.mount(secondContainer);
     }).toThrow(failure);
 
     expect(canvas.parentElement).toBe(firstContainer);
+    expect(canvas.getAttribute('data-rito-reader-surface')).toBe('true');
     expect(unsubscribeSpread).not.toHaveBeenCalled();
     expect(document.body.querySelectorAll('[role="document"]')).toHaveLength(1);
     lifecycle.dispose();
+    expect(canvas.hasAttribute('data-rito-reader-surface')).toBe(false);
     expect(unsubscribeSpread).toHaveBeenCalledOnce();
   });
 

@@ -7,8 +7,10 @@ import type {
 } from './native-types';
 import { copyNativeSelectionPoint, requireNativeSelectionPoint } from './native-point';
 import {
+  beginNativeSelectionHandleDrag,
   cancelNativeSelection,
   createNativeSelectionEngineData,
+  createNativeSelectionGestureSession,
   disposeNativeSelection,
   finishNativeSelection,
   isCurrentNativeSelection,
@@ -34,14 +36,18 @@ export function createNativeSelectionEngine(
 ): NativeSelectionEngine {
   const data = createNativeSelectionEngineData(capability, options);
   return {
+    beginHandleDrag: (edge) =>
+      beginNativeSelectionHandleDrag(data, edge, (session, point, final) => {
+        queueHandleFocusSample(data, session, point, final);
+      }),
     handlePointerDown: (point, granularity) => {
       handlePointerDown(data, point, granularity);
     },
     handlePointerMove: (point) => {
-      queueFocusSample(data, point, false);
+      queuePointerFocusSample(data, point, false);
     },
     handlePointerUp: (point) => {
-      queueFocusSample(data, point, true);
+      queuePointerFocusSample(data, point, true);
     },
     clear: () => {
       cancelNativeSelection(data, 'idle', true);
@@ -66,19 +72,11 @@ function handlePointerDown(
   if (data.state === 'disposed') return;
   requireNativeSelectionPoint(point);
   const anchorPoint = copyNativeSelectionPoint(point);
-  const session: NativeSelectionGestureSession = {
-    epoch: ++data.epoch,
+  const session = createNativeSelectionGestureSession(
+    data,
     granularity,
-    anchorPoint: granularity === 'character' ? undefined : anchorPoint,
-    anchor: undefined,
-    latestSequence: 0,
-    queued: undefined,
-    moveInFlight: false,
-    finalInFlight: false,
-    moveFallback: undefined,
-    finalFallbackRequested: false,
-    ended: false,
-  };
+    granularity === 'character' ? undefined : anchorPoint,
+  );
   data.session = session;
   publishNativeSelection(data, 'selecting', null);
   if (granularity === 'character') {
@@ -110,13 +108,34 @@ async function resolveAnchor(
   }
 }
 
-function queueFocusSample(
+function queuePointerFocusSample(
   data: NativeSelectionEngineData,
   point: NativeSelectionPoint,
   final: boolean,
 ): void {
   const session = data.session;
-  if (!session || data.state !== 'selecting' || session.ended) return;
+  if (session?.handleDrag) return;
+  if (session) queueFocusSample(data, session, point, final);
+}
+
+function queueHandleFocusSample(
+  data: NativeSelectionEngineData,
+  session: NativeSelectionGestureSession,
+  point: NativeSelectionPoint,
+  final: boolean,
+): void {
+  if (!session.handleDrag) return;
+  queueFocusSample(data, session, point, final);
+}
+
+function queueFocusSample(
+  data: NativeSelectionEngineData,
+  session: NativeSelectionGestureSession,
+  point: NativeSelectionPoint,
+  final: boolean,
+): void {
+  if (!isCurrentNativeSelection(data, session) || data.state !== 'selecting' || session.ended)
+    return;
   requireNativeSelectionPoint(point);
   const sample: NativeSelectionFocusSample = {
     sequence: ++session.latestSequence,
@@ -231,14 +250,14 @@ function installRange(
   if (!sample.final && session.ended) {
     const fallback: NativeSelectionMoveFallback =
       range.selectedText.length === 0
-        ? { status: 'collapsed' }
+        ? { status: session.handleDrag ? 'unresolved' : 'collapsed' }
         : { status: 'resolved', snapshot: toNativeSelectionSnapshot(range) };
     settleMoveFallback(data, session, fallback);
     return;
   }
   if (range.selectedText.length === 0) {
     if (sample.final) finishEmptySelection(data, session);
-    else publishNativeSelection(data, 'selecting', null);
+    else if (!session.handleDrag) publishNativeSelection(data, 'selecting', null);
     return;
   }
   const snapshot = toNativeSelectionSnapshot(range);

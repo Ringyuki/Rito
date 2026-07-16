@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ReaderController } from '@ritojs/kit';
+import { SelectionHandles } from './selection-handles';
 
 export interface ReaderProps {
   readonly controller: ReaderController | null;
@@ -23,6 +24,7 @@ export function Reader({
 }: ReaderProps): React.JSX.Element {
   const containerRef = useRef<HTMLDivElement>(null);
   const mountedRef = useRef(false);
+  const [touchInput, setTouchInput] = useState(false);
 
   const mountController = useCallback(() => {
     const container = containerRef.current;
@@ -32,6 +34,7 @@ export function Reader({
   }, [controller]);
 
   useEffect(() => {
+    setTouchInput(false);
     mountController();
     return () => {
       mountedRef.current = false;
@@ -39,9 +42,20 @@ export function Reader({
   }, [mountController]);
 
   return (
-    <div ref={containerRef} className={className} style={{ position: 'relative' }}>
+    <div
+      ref={containerRef}
+      className={className}
+      style={{ position: 'relative' }}
+      onPointerDownCapture={(event) => {
+        setTouchInput(event.pointerType === 'touch' || event.pointerType === 'pen');
+      }}
+      onTouchStartCapture={() => {
+        setTouchInput(true);
+      }}
+    >
       {!controller && placeholder}
       {children}
+      <SelectionHandles controller={controller} rootRef={containerRef} touchInput={touchInput} />
     </div>
   );
 }

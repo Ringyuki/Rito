@@ -39,6 +39,7 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
         : rawRects;
 
       const focusRect = computeFocusRect(engines.selection, viewportRects, mapper);
+      const handles = computeSelectionHandles(engines.selection, mapper);
 
       emitter.emit('selectionChange', {
         range,
@@ -48,11 +49,27 @@ function wireSelectionEvents(deps: WiringDeps, disposables: DisposableCollection
         rects: rawRects,
         viewportRects,
         focusRect,
+        handles,
       });
       // Selection is per-spread — only invalidate current
       deps.frameDriver.markOverlayDirty(deps.getCurrentSpread());
     }),
   );
+}
+
+function computeSelectionHandles(
+  selection: WiringDeps['engines']['selection'],
+  mapper: WiringDeps['coordState']['mapper'],
+): ReaderControllerEvents['selectionChange']['handles'] {
+  const handles = selection.getHandleCarets();
+  if (!handles) return null;
+  const project = (rect: NonNullable<typeof handles.start>) =>
+    mapper ? mapper.spreadContentRectToViewport(rect) : rect;
+  return {
+    start: handles.start ? project(handles.start) : null,
+    end: handles.end ? project(handles.end) : null,
+    focusEdge: handles.focusEdge,
+  };
 }
 
 function computeFocusRect(

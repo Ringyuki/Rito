@@ -23,7 +23,18 @@ import type { AnchoredPosition, SpreadContext } from './spread';
 import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
 import { createNativeSelectionAdapter } from './native-adapter';
 import { getLegacySelectionText } from './legacy-text';
+import type {
+  SelectionHandleCarets,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+} from './handle-types';
 import type { NativeSelectionGranularity } from './native-types';
+
+export type {
+  SelectionHandleCarets,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+} from './handle-types';
 
 export type SelectionState = 'idle' | 'selecting' | 'selected';
 export type SelectionGranularity = NativeSelectionGranularity;
@@ -60,6 +71,7 @@ export interface NativeSelectionProjection {
 }
 
 export interface SelectionEngine {
+  beginHandleDrag(edge: SelectionHandleEdge): SelectionHandleDrag | null;
   handlePointerDown(input: PointerInput, granularity?: SelectionGranularity): void;
   handlePointerMove(input: PointerInput): void;
   handlePointerUp(input: PointerInput): void;
@@ -83,6 +95,8 @@ export interface SelectionEngine {
   getFocusRect(): Rect | null;
   /** Which document-order edge currently follows the pointer. */
   getFocusEdge(): 'start' | 'end' | null;
+  /** Exact document-order endpoints for native touch handles, when available. */
+  getHandleCarets(): SelectionHandleCarets | null;
   getState(): SelectionState;
   clear(): void;
   /** Cancel revision-bound work while retaining the engine for the next spread. */
@@ -202,6 +216,7 @@ function clearState(s: EngineState): void {
 
 function buildEngine(s: EngineState): SelectionEngine {
   return {
+    beginHandleDrag: () => null,
     handlePointerDown(input) {
       handleDown(s, input, () => {
         clearEngine(s);
@@ -232,6 +247,7 @@ function buildEngine(s: EngineState): SelectionEngine {
     getRects: () => getRectsFromState(s),
     getFocusRect: () => null,
     getFocusEdge: () => getFocusEdgeFromState(s),
+    getHandleCarets: () => null,
     getState: () => s.state,
     ...buildLifecycleMethods(s),
   };

@@ -68,6 +68,11 @@ describe('native SelectionEngine adapter', () => {
     expect(resolveCaret).not.toHaveBeenCalled();
     expect(engine.getText()).toBe('exact text');
     expect(engine.getFocusRect()).toEqual({ x: 360, y: 0, width: 0, height: 18 });
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 10, y: 0, width: 0, height: 18 },
+      end: { x: 360, y: 0, width: 0, height: 18 },
+      focusEdge: 'end',
+    });
 
     engine.handlePointerUp({ x: 10, y: 12 });
     await flushMicrotasks();
@@ -113,6 +118,88 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getRects()).toEqual([{ x: 330, y: 2, width: 30, height: 18 }]);
     expect(engine.getFocusRect()).toEqual({ x: 360, y: 0, width: 0, height: 18 });
     expect(engine.getFocusEdge()).toBe('end');
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 330, y: 0, width: 0, height: 18 },
+      end: { x: 360, y: 0, width: 0, height: 18 },
+      focusEdge: 'end',
+    });
+  });
+
+  it('projects normalized endpoints independently from a backward focus', async () => {
+    const anchor = caret(70, 1);
+    const focus = caret(6);
+    const range = exactRange(anchor, focus, 'backward');
+    const capability: ReaderTextSelectionInteractions = {
+      resolveCaret: vi
+        .fn<ReaderTextSelectionInteractions['resolveCaret']>()
+        .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: anchor })
+        .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: focus }),
+      resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveTextRangeFromPoints,
+    };
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+
+    engine.handlePointerDown({ x: 390, y: 12 });
+    engine.handlePointerUp({ x: 6, y: 12 });
+    await flushMicrotasks();
+
+    expect(engine.getFocusRect()).toEqual({ x: 6, y: 0, width: 0, height: 18 });
+    expect(engine.getFocusEdge()).toBe('start');
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 6, y: 0, width: 0, height: 18 },
+      end: { x: 390, y: 0, width: 0, height: 18 },
+      focusEdge: 'start',
+    });
+  });
+
+  it('projects an epoch-bound handle drag and restores its baseline on cancel', async () => {
+    const start = caret(10);
+    const end = caret(40, 1);
+    const movedStart = caret(20);
+    const baseline = exactRange(start, end);
+    const moved = exactRange(end, movedStart, 'backward');
+    const resolveCaret = vi
+      .fn<ReaderTextSelectionInteractions['resolveCaret']>()
+      .mockResolvedValue({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: movedStart });
+    const resolveTextRange = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
+      .mockResolvedValue({ status: 'resolved', range: moved });
+    const capability: ReaderTextSelectionInteractions = {
+      resolveCaret,
+      resolveTextRange,
+      resolveTextRangeFromPoints: vi
+        .fn()
+        .mockResolvedValue({ status: 'resolved', range: baseline }),
+    };
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    await flushMicrotasks();
+    engine.handlePointerUp({ x: 10, y: 12 });
+    await flushMicrotasks();
+
+    const drag = engine.beginHandleDrag('start');
+    expect(drag).not.toBeNull();
+    expect(engine.getState()).toBe('selecting');
+    drag?.update({ x: 20, y: 12 });
+    await flushMicrotasks();
+
+    expect(resolveCaret).toHaveBeenCalledWith({ pageIndex: 0, x: 20, y: 12 });
+    expect(resolveTextRange).toHaveBeenCalledWith(end, movedStart);
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 20, y: 0, width: 0, height: 18 },
+      end: { x: 360, y: 0, width: 0, height: 18 },
+      focusEdge: 'start',
+    });
+
+    drag?.cancel();
+    expect(engine.getState()).toBe('selected');
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 10, y: 0, width: 0, height: 18 },
+      end: { x: 360, y: 0, width: 0, height: 18 },
+      focusEdge: 'end',
+    });
   });
 
   it('keeps capability presence authoritative when the native revision is unavailable', async () => {
@@ -260,16 +347,31 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getSourceLocator()).toEqual(range.sourceLocator);
     expect(engine.getRects()).toEqual([{ x: 1, y: 2, width: 3, height: 18 }]);
     expect(engine.getFocusRect()).toBeNull();
+    expect(engine.getHandleCarets()).toEqual({
+      start: { x: 1, y: 0, width: 0, height: 18 },
+      end: null,
+      focusEdge: 'end',
+    });
     expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('does not synthesize exact handle carets for the legacy layout path', () => {
+    expect(createSelectionEngine().getHandleCarets()).toBeNull();
   });
 });
 
-function exactRange(anchor: ReaderTextCaret, focus: ReaderTextCaret): ReaderTextRange {
+function exactRange(
+  anchor: ReaderTextCaret,
+  focus: ReaderTextCaret,
+  direction: 'forward' | 'backward' = 'forward',
+): ReaderTextRange {
+  const start = direction === 'forward' ? anchor : focus;
+  const end = direction === 'forward' ? focus : anchor;
   return {
     anchor,
     focus,
-    start: anchor,
-    end: focus,
+    start,
+    end,
     selectedText: 'exact text',
     sourceLocator: {
       href: 'chapter.xhtml',

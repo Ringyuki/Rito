@@ -22,6 +22,10 @@ export type {
   InteractionMode,
   ReaderController,
   ReaderControllerEvents,
+  SelectionClientPoint,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+  SelectionHandleState,
 } from './types';
 
 export function createController(

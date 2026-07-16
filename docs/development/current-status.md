@@ -932,7 +932,14 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      anchor. Mouse behavior passes production Reader E2E. Trusted Chromium touch
      input now also drives the production Worker/Canvas path: long-press word
      selection, cross-line extension with immediate release, retained highlight and
-     cancellation semantics all pass alongside the synthetic lifecycle tests. The
+     cancellation semantics all pass alongside the synthetic lifecycle tests. Kit
+     now projects exact native start/end carets separately from highlight geometry,
+     and exposes an epoch-bound endpoint-adjustment session that preserves a fixed
+     opposite caret, grab offset, crossing direction, fast release and cancellation
+     rollback. React renders 44 CSS-pixel DOM hit targets and owns pointer capture;
+     trusted Chromium touch acceptance drags the exact end handle across lines.
+     Same-spread handles are complete; edge autoscroll, cross-revision spread
+     extension and platform keyboard semantics remain. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1044,8 +1051,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: touch handles, edge
-   autoscroll and platform keyboard semantics. Cross-flow and reverse-direction
+1. Complete the remaining host-native selection behavior: edge autoscroll,
+   cross-revision spread extension and platform keyboard semantics. Same-spread exact
+   touch handles, cross-flow and reverse-direction
    exact selection/copy, pointer-up persistence, word/paragraph granularity and
    link-preview chapter context are now green in production-path Reader E2E.
 2. Make the existing latency and memory gates green without weakening their limits. The
@@ -1092,8 +1100,10 @@ The revision/locator contract, bounded production switch and principal native
 interaction transports are complete. Cross-flow selection/copy and
 chapter-context link previews now pass production-path Reader E2E. ICU-backed
 word and retained-flow paragraph selection are wired to mouse repeated click and
-touch long press, and both now pass production-path input E2E; end-user interaction
-parity still needs touch handles, edge autoscroll and platform keyboard semantics. Greedy
+touch long press, and both now pass production-path input E2E. Exact same-spread touch
+handles now use Core endpoints, Kit-owned epoch sessions and React DOM pointer capture;
+end-user interaction parity still needs edge autoscroll, cross-revision spread extension
+and platform keyboard semantics. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

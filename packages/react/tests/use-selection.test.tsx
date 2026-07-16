@@ -58,6 +58,11 @@ describe('useSelection', () => {
         rects: [{ x: 1, y: 2, width: 3, height: 4 }],
         viewportRects: [{ x: 1, y: 2, width: 3, height: 4 }],
         focusRect: { x: 4, y: 2, width: 0, height: 4 },
+        handles: {
+          start: { x: 1, y: 2, width: 0, height: 4 },
+          end: { x: 4, y: 2, width: 0, height: 4 },
+          focusEdge: 'end',
+        },
       });
     });
     expect(latest?.hasSelection).toBe(true);
@@ -71,6 +76,7 @@ describe('useSelection', () => {
       rects: [],
       viewportRects: [],
       focusRect: null,
+      handles: null,
       hasSelection: false,
     });
   });

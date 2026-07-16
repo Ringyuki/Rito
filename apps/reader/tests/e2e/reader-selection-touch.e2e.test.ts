@@ -68,6 +68,54 @@ test.describe('reader native touch selection acceptance', () => {
     expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
   });
 
+  test('drags the exact end handle across lines through pointer capture', async ({ page }) => {
+    const bands = await requireTextBands(page, 2);
+    const firstLine = requireBand(bands, 0);
+    const secondLine = requireBand(bands, 1);
+    const input = requireTouchInput(touchInput);
+
+    await input.start(pointInsideFirstWord(firstLine));
+    await page.waitForTimeout(LONG_PRESS_SETTLE_MS);
+    await input.end();
+    await expectReleasedSelection(page, 'ALPHA'.length, 1);
+
+    const handleStart = await selectionHandleCenter(page, 'end');
+    const handleEnd = {
+      x: secondLine.right,
+      // Keep the finger on the lower knob while placing its caret on the second line.
+      y: secondLine.centerY + (handleStart.y - firstLine.centerY),
+    };
+    await input.start(handleStart);
+    await moveTouchAlongPath(input, handleStart, handleEnd);
+    await input.end();
+
+    await expectReleasedSelection(page, SAME_FLOW_SELECTION_TEXT.length, 2);
+    expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
+  });
+
+  test('rolls a cancelled handle drag back to its retained baseline', async ({ page }) => {
+    const firstLine = requireBand(await requireTextBands(page, 2), 0);
+    const input = requireTouchInput(touchInput);
+
+    await input.start(pointInsideFirstWord(firstLine));
+    await page.waitForTimeout(LONG_PRESS_SETTLE_MS);
+    await input.end();
+    await expectReleasedSelection(page, 'ALPHA'.length, 1);
+
+    const handleStart = await selectionHandleCenter(page, 'end');
+    await input.start(handleStart);
+    await moveTouchAlongPath(input, handleStart, {
+      x: firstLine.right,
+      y: handleStart.y,
+    });
+    await expect.poll(() => selectionTextLength(page)).toBeGreaterThan('ALPHA'.length);
+    await input.cancel();
+
+    await expectReleasedSelection(page, 'ALPHA'.length, 1);
+    expect(await selectionTextLength(page)).toBe('ALPHA'.length);
+    expect(await copySelection(page)).toBe('ALPHA');
+  });
+
   test('cancels an active long-press without committing it', async ({ page }) => {
     const firstLine = requireBand(await requireTextBands(page, 2), 0);
     const input = requireTouchInput(touchInput);
@@ -114,4 +162,15 @@ async function openEmptyReader(page: Page): Promise<void> {
     localStorage.clear();
   });
   await page.reload();
+}
+
+async function selectionHandleCenter(
+  page: Page,
+  edge: 'start' | 'end',
+): Promise<{ readonly x: number; readonly y: number }> {
+  const handle = page.getByTestId(`selection-handle-${edge}`);
+  await expect(handle).toBeVisible();
+  const bounds = await handle.boundingBox();
+  if (!bounds) throw new Error(`Selection ${edge} handle has no bounds`);
+  return { x: bounds.x + bounds.width / 2, y: bounds.y + bounds.height / 2 };
 }

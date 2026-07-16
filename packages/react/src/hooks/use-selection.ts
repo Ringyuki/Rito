@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { ReaderLocator } from '@ritojs/core';
-import type { ReaderController, TextRange } from '@ritojs/kit';
+import type { ReaderController, SelectionHandleState, TextRange } from '@ritojs/kit';
 import { useControllerEvent } from '../utils/use-controller-event';
 
 interface Rect {
@@ -20,6 +20,8 @@ export interface SelectionState {
   readonly viewportRects: readonly Rect[];
   /** Rect of the active endpoint (focus) in viewport-logical space. Follows the user's pointer. */
   readonly focusRect: Rect | null;
+  /** Exact native range endpoints in viewport-logical coordinates. */
+  readonly handles: SelectionHandleState | null;
   readonly hasSelection: boolean;
 }
 
@@ -30,6 +32,7 @@ const EMPTY_SELECTION_STATE: SelectionState = {
   rects: [],
   viewportRects: [],
   focusRect: null,
+  handles: null,
   hasSelection: false,
 };
 
@@ -45,8 +48,17 @@ export function useSelection(controller: ReaderController | null): SelectionStat
   useControllerEvent(
     controller,
     'selectionChange',
-    ({ range, sourceLocator, text, rects, viewportRects, focusRect, hasSelection }) => {
-      setState({ range, sourceLocator, text, rects, viewportRects, focusRect, hasSelection });
+    ({ range, sourceLocator, text, rects, viewportRects, focusRect, handles, hasSelection }) => {
+      setState({
+        range,
+        sourceLocator,
+        text,
+        rects,
+        viewportRects,
+        focusRect,
+        handles,
+        hasSelection,
+      });
     },
   );
 

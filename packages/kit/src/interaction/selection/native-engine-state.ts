@@ -4,6 +4,8 @@ import type {
   NativeSelectionChange,
   NativeSelectionEngineOptions,
   NativeSelectionGranularity,
+  NativeSelectionHandleDrag,
+  NativeSelectionHandleEdge,
   NativeSelectionPoint,
   NativeSelectionSnapshot,
   NativeSelectionState,
@@ -22,6 +24,11 @@ export type NativeSelectionMoveFallback =
   | { readonly status: 'unresolved' }
   | { readonly status: 'cancelled' };
 
+export interface NativeSelectionHandleDragSession {
+  readonly edge: NativeSelectionHandleEdge;
+  readonly baselineSnapshot: NativeSelectionSnapshot;
+}
+
 export interface NativeSelectionGestureSession {
   readonly epoch: number;
   readonly granularity: NativeSelectionGranularity;
@@ -34,6 +41,7 @@ export interface NativeSelectionGestureSession {
   moveFallback: NativeSelectionMoveFallback | undefined;
   finalFallbackRequested: boolean;
   ended: boolean;
+  readonly handleDrag: NativeSelectionHandleDragSession | undefined;
 }
 
 export interface NativeSelectionEngineData {
@@ -44,6 +52,83 @@ export interface NativeSelectionEngineData {
   state: NativeSelectionState;
   snapshot: NativeSelectionSnapshot | null;
   session: NativeSelectionGestureSession | undefined;
+}
+
+export function createNativeSelectionGestureSession(
+  data: NativeSelectionEngineData,
+  granularity: NativeSelectionGranularity,
+  anchorPoint: NativeSelectionPoint | undefined,
+  anchor?: ReaderTextCaret,
+  handleDrag?: NativeSelectionHandleDragSession,
+): NativeSelectionGestureSession {
+  return {
+    epoch: ++data.epoch,
+    granularity,
+    anchorPoint,
+    anchor,
+    latestSequence: 0,
+    queued: undefined,
+    moveInFlight: false,
+    finalInFlight: false,
+    moveFallback: undefined,
+    finalFallbackRequested: false,
+    ended: false,
+    handleDrag,
+  };
+}
+
+export function beginNativeSelectionHandleDrag(
+  data: NativeSelectionEngineData,
+  edge: NativeSelectionHandleEdge,
+  queue: (
+    session: NativeSelectionGestureSession,
+    point: NativeSelectionPoint,
+    final: boolean,
+  ) => void,
+): NativeSelectionHandleDrag | null {
+  const baselineSnapshot = data.snapshot;
+  if (data.state !== 'selected' || !baselineSnapshot || data.session) return null;
+  const fixedCaret = edge === 'start' ? baselineSnapshot.range.end : baselineSnapshot.range.start;
+  const session = createNativeSelectionGestureSession(data, 'character', undefined, fixedCaret, {
+    edge,
+    baselineSnapshot,
+  });
+  data.session = session;
+  publishNativeSelection(data, 'selecting', toHandleActiveSnapshot(baselineSnapshot, edge));
+  return {
+    update: (point) => {
+      queue(session, point, false);
+    },
+    finish: (point) => {
+      queue(session, point, true);
+    },
+    cancel: () => {
+      cancelNativeSelectionHandleDrag(data, session);
+    },
+  };
+}
+
+function toHandleActiveSnapshot(
+  baseline: NativeSelectionSnapshot,
+  edge: NativeSelectionHandleEdge,
+): NativeSelectionSnapshot {
+  const focus = baseline.range[edge];
+  return {
+    ...baseline,
+    focusDirection: edge === 'end' ? 'forward' : 'backward',
+    focusCaret: { pageIndex: focus.pageIndex, geometry: focus.geometry },
+  };
+}
+
+function cancelNativeSelectionHandleDrag(
+  data: NativeSelectionEngineData,
+  session: NativeSelectionGestureSession,
+): void {
+  const handleDrag = session.handleDrag;
+  if (!handleDrag || !isCurrentNativeSelection(data, session)) return;
+  data.epoch += 1;
+  data.session = undefined;
+  publishNativeSelection(data, 'selected', handleDrag.baselineSnapshot);
 }
 
 export function createNativeSelectionEngineData(

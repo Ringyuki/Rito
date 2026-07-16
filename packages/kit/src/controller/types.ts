@@ -23,6 +23,27 @@ import type { TypedEmitter } from '../utils/event-emitter';
 
 type ReaderThemeOptions = Parameters<Reader['setTheme']>[0];
 
+export type SelectionHandleEdge = 'start' | 'end';
+
+export interface SelectionClientPoint {
+  readonly clientX: number;
+  readonly clientY: number;
+}
+
+/** Exact native selection endpoints in viewport-logical coordinates. */
+export interface SelectionHandleState {
+  readonly start: Rect | null;
+  readonly end: Rect | null;
+  readonly focusEdge: SelectionHandleEdge | null;
+}
+
+/** An epoch-bound drag of one existing native selection endpoint. */
+export interface SelectionHandleDrag {
+  update(point: SelectionClientPoint): void;
+  finish(point: SelectionClientPoint): void;
+  cancel(): void;
+}
+
 /** Defaults matching `@ritojs/core` ReaderOptions defaults. */
 export const READER_DEFAULTS = { margin: 40, spreadGap: 20 } as const;
 
@@ -60,6 +81,8 @@ export interface ReaderControllerEvents {
     viewportRects: readonly Rect[];
     /** Rect of the active endpoint (focus / drag end) in viewport-logical space. Follows the user's pointer. */
     focusRect: Rect | null;
+    /** Exact range endpoints in viewport-logical space. Null for legacy selection. */
+    handles: SelectionHandleState | null;
   };
   searchResults: { results: readonly SearchResult[]; activeIndex: number };
   searchActiveChange: { activeIndex: number; result: SearchResult | undefined };
@@ -186,6 +209,14 @@ export interface ReaderController {
   readonly selectionRange: TextRange | null;
   /** Durable source locator for a native exact selection. */
   readonly selectionSourceLocator: ReaderLocator | null;
+  /**
+   * Begin dragging an exact native selection endpoint from a client-space pointer.
+   * Returns null when the endpoint is unavailable or the current selection is legacy.
+   */
+  beginSelectionHandleDrag(
+    edge: SelectionHandleEdge,
+    origin: SelectionClientPoint,
+  ): SelectionHandleDrag | null;
 
   addAnnotation(input: AddAnnotationInput): AnnotationRecord | undefined;
   removeAnnotation(id: string): boolean;

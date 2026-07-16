@@ -8,6 +8,8 @@ import {
   type DisposableCollection,
 } from '../../utils/disposable';
 
+const READER_SURFACE_ATTRIBUTE = 'data-rito-reader-surface';
+
 export function syncCanvasSize(internals: Internals, runtime: RuntimeComponents): void {
   // getCanvasSize(renderScale) returns CSS dimensions that already include renderScale.
   // Backing store = CSS × DPR only — do NOT multiply renderScale again.
@@ -41,6 +43,7 @@ export function buildLifecycle(
     disposed: false,
     mountedContainer: undefined,
     mountDisposables: createDisposableCollection(),
+    restoreSurfaceMarker: undefined,
   };
   return {
     mount(container: HTMLElement): void {
@@ -58,6 +61,7 @@ interface LifecycleState {
   disposed: boolean;
   mountedContainer: HTMLElement | undefined;
   mountDisposables: DisposableCollection;
+  restoreSurfaceMarker: (() => void) | undefined;
 }
 
 function mountLifecycle(
@@ -85,6 +89,7 @@ function mountLifecycle(
     restoreCanvasPosition(canvas, previousParent, previousNextSibling);
     throw error;
   }
+  installSurfaceMarker(state, canvas);
   state.mountDisposables = candidateDisposables;
   state.mountedContainer = container;
   try {
@@ -93,6 +98,17 @@ function mountLifecycle(
     // The new mount is already authoritative. A broken old disposer must not
     // make the committed mount look as though it failed or strand later cleanup.
   }
+}
+
+function installSurfaceMarker(state: LifecycleState, canvas: HTMLCanvasElement): void {
+  if (!state.restoreSurfaceMarker) {
+    const previous = canvas.getAttribute(READER_SURFACE_ATTRIBUTE);
+    state.restoreSurfaceMarker = () => {
+      if (previous === null) canvas.removeAttribute(READER_SURFACE_ATTRIBUTE);
+      else canvas.setAttribute(READER_SURFACE_ATTRIBUTE, previous);
+    };
+  }
+  canvas.setAttribute(READER_SURFACE_ATTRIBUTE, 'true');
 }
 
 function restoreCanvasPosition(
@@ -121,6 +137,10 @@ function disposeLifecycle(
     () => {
       state.mountedContainer = undefined;
       state.mountDisposables.disposeAll();
+    },
+    () => {
+      state.restoreSurfaceMarker?.();
+      state.restoreSurfaceMarker = undefined;
     },
     () => {
       disposables.disposeAll();
