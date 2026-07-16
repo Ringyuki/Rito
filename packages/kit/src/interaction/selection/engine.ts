@@ -14,8 +14,7 @@
  */
 
 import type { ReaderLocator, ReaderTextSelectionInteractions } from '@ritojs/core';
-import type { LayoutConfig, Rect, Spread } from '../layout-types';
-import type { TextMeasurer } from '../layout-types';
+import type { LayoutConfig, Rect, Spread, TextMeasurer } from '../layout-types';
 import { buildHitMap, resolveCharPosition } from '../core/hit-map';
 import type { TextPosition, TextRange } from '../core/types';
 import { compareTextPositions } from '../core/text-traversal';
@@ -82,6 +81,8 @@ export interface SelectionEngine {
     nativeProjection?: NativeSelectionProjection,
     update?: SelectionSpreadUpdate,
   ): void;
+  /** Accept an append-only reader revision without discarding stable selection state. */
+  acceptRevisionAppend(): void;
   /** Returns the selection range in document order (start <= end). */
   getSelection(): TextRange | null;
   /** Returns a snapshot with both pointer-semantic and document-order endpoints. */
@@ -113,8 +114,7 @@ export function createSelectionEngine(
   nativeCapability?: ReaderTextSelectionInteractions,
 ): SelectionEngine {
   if (nativeCapability) return createNativeSelectionAdapter(nativeCapability);
-  const s = createState();
-  return buildEngine(s);
+  return buildEngine(createState());
 }
 
 interface EngineState {
@@ -176,8 +176,8 @@ function resolve(input: PointerInput, s: EngineState): AnchoredPosition | undefi
   return { pageIndex: hit.pageIndex, position };
 }
 
-function handleDown(s: EngineState, input: PointerInput, clear: () => void): void {
-  if (s.state === 'selected') clear();
+function handleDown(s: EngineState, input: PointerInput): void {
+  if (s.state === 'selected') clearEngine(s);
   const pos = resolve(input, s);
   if (!pos) return;
   s.anchor = pos;
@@ -219,9 +219,7 @@ function buildEngine(s: EngineState): SelectionEngine {
   return {
     beginHandleDrag: () => null,
     handlePointerDown(input) {
-      handleDown(s, input, () => {
-        clearEngine(s);
-      });
+      handleDown(s, input);
     },
     handlePointerMove(input) {
       handleMove(s, input);
@@ -238,6 +236,9 @@ function buildEngine(s: EngineState): SelectionEngine {
       };
       s.spread = spread;
       clearEngine(s);
+    },
+    acceptRevisionAppend() {
+      // The legacy layout path has no revision-bound async reads to restart.
     },
     getSelection: () => getRange(s),
     getSnapshot: () => getSnapshotFromState(s),

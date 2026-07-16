@@ -1,13 +1,23 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type {
+  BrowserReaderBoundedSnapshot,
   CoreTextRangeResponse,
+  CoreTextRangeFromPointsResponse,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
   CoreVersioned,
 } from '../../src/bindings/browser/core-contracts';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
-import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import type {
+  BrowserReaderBoundedSessionOwner,
+  BrowserReaderState,
+} from '../../src/bindings/browser/reader/types';
 import { closeExactRevisionReadGate } from '../../src/bindings/browser/reader/pipeline/revision-handle';
+import {
+  recordBrowserReaderAcceptedRevision,
+  restoreBrowserReaderExactReads,
+  suspendBrowserReaderExactReads,
+} from '../../src/bindings/browser/reader-session-host';
 import type { ReaderTextCaret, ReaderTextCaretResolution } from '../../src/reader';
 import {
   createDeferred,
@@ -88,6 +98,48 @@ describe('Browser reader exact text selection races', () => {
     await expect(pending).resolves.toBeUndefined();
   });
 
+  it('rebinds a caret after an exact-read gate restores the same publication', async () => {
+    const fixture = readyFixture();
+    const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const [anchor, , anchorAddress, focusAddress] = await bindCaretPair(fixture, textSelection);
+    const before = fixture.state.revisionHandle;
+    if (!before) throw new Error('Expected an initial exact revision handle');
+    const owner = installBoundedOwner(fixture.state);
+    const gate = suspendBrowserReaderExactReads(fixture.state);
+    if (!gate) throw new Error('Expected an exact read gate');
+    expect(restoreBrowserReaderExactReads(fixture.state, gate)).toBe(true);
+    expect(fixture.state.revisionHandle?.commitGeneration).not.toBe(before.commitGeneration);
+    expect(fixture.state.revisionHandle?.publicationGeneration).toBe(before.publicationGeneration);
+    expect(fixture.state.boundedSessions.current).toBe(owner);
+    fixture.resolveTextRangeToPointAtRevision.mockResolvedValue(
+      versionedRangeToPoint(anchorAddress, focusAddress),
+    );
+
+    await expect(
+      textSelection.resolveTextRangeToPoint(anchor, { pageIndex: 0, x: 4, y: 1 }),
+    ).resolves.toMatchObject({ status: 'resolved' });
+    expect(fixture.resolveTextRangeToPointAtRevision).toHaveBeenCalledOnce();
+  });
+
+  it('does not rebind a caret across a same-version layout replacement', async () => {
+    const fixture = readyFixture();
+    const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const [anchor] = await bindCaretPair(fixture, textSelection);
+    const before = fixture.state.revisionHandle;
+    if (!before) throw new Error('Expected an initial exact revision handle');
+
+    setRevisionState(fixture.state, revisionSummary('rev', 4, 4));
+    expect(fixture.state.revisionHandle?.revisionVersion).toBe(before.revisionVersion);
+    expect(fixture.state.revisionHandle?.publicationGeneration).not.toBe(
+      before.publicationGeneration,
+    );
+
+    await expect(
+      textSelection.resolveTextRangeToPoint(anchor, { pageIndex: 0, x: 4, y: 1 }),
+    ).resolves.toBeUndefined();
+    expect(fixture.resolveTextRangeToPointAtRevision).not.toHaveBeenCalled();
+  });
+
   it('rejects cloned and cross-Reader carets before dispatch', async () => {
     const first = readyFixture('first-selection-session');
     const second = readyFixture('second-selection-session');
@@ -135,6 +187,29 @@ function readyFixture(sessionId = 'text-selection-race-session') {
   const state = createState(fixture.worker);
   setRevisionState(state, revisionSummary('rev', 4, 4));
   return { ...fixture, state };
+}
+
+function installBoundedOwner(state: BrowserReaderState): BrowserReaderBoundedSessionOwner {
+  const owner: BrowserReaderBoundedSessionOwner = {
+    controller: {
+      start: vi.fn(),
+      ensureSpread: vi.fn(),
+      ensureLocator: vi.fn(),
+      complete: vi.fn(),
+      currentSnapshot: vi.fn(
+        () => ({ revision: state.revisionBundle.revision }) as BrowserReaderBoundedSnapshot,
+      ),
+      cancel: vi.fn(),
+      dispose: vi.fn(),
+    },
+    worker: state.worker,
+    acceptedRevision: undefined,
+    gateGeneration: 0,
+    readsSuspended: false,
+  };
+  recordBrowserReaderAcceptedRevision(owner, state.revisionBundle.revision);
+  state.boundedSessions.current = owner;
+  return owner;
 }
 
 function requireTextSelection(interactions: ReturnType<typeof createBrowserReaderInteractions>) {
@@ -261,6 +336,37 @@ function versionedRange(
           ],
         },
       },
+    },
+  };
+}
+
+function versionedRangeToPoint(
+  anchor: CoreTextCaretAddress,
+  focus: CoreTextCaretAddress,
+): CoreVersioned<CoreTextRangeFromPointsResponse> {
+  const range = versionedRange(anchor, focus).value;
+  if (range.resolution.status !== 'resolved') throw new Error('Expected a resolved range fixture');
+  return {
+    revision: handle(),
+    value: {
+      revisionId: 'rev',
+      resolution: {
+        status: 'resolved',
+        anchorCaret: coreCaret(anchor),
+        focusCaret: coreCaret(focus),
+        range: range.resolution.range,
+      },
+    },
+  };
+}
+
+function coreCaret(address: CoreTextCaretAddress) {
+  return {
+    address,
+    geometry: { x: address.charIndex, y: 0, height: 18 },
+    sourceLocator: {
+      href: 'chapter.xhtml',
+      sourcePoint: { nodePath: [0], textOffset: address.charIndex },
     },
   };
 }

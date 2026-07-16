@@ -938,11 +938,13 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      opposite caret, grab offset, crossing direction, fast release and cancellation
      rollback. React renders 44 CSS-pixel DOM hit targets and owns pointer capture;
      trusted Chromium touch acceptance drags the exact end handle across lines and
-     exercises both handle directions across adjacent known spreads. Handle edge dwell
-     now snaps across an already-published adjacent spread in the
-     same revision, reprojects the active exact session and keeps its captured DOM
-     node mounted while the new focus resolves. Lazy-growth cross-revision extension,
-     primary-drag edge scrolling and platform keyboard semantics remain. The
+     exercises both handle directions across adjacent spreads. Handle edge dwell
+     now grows an unpublished bounded tail without claiming navigation ownership,
+     preserves the captured DOM node, atomically rebinds its stable-prefix caret to
+     the appended revision and replays only the latest sample. Ordinary same-owner
+     appends preserve selection state, while font-geometry/full-layout replacement
+     still invalidates it. Primary-drag edge scrolling and platform keyboard
+     semantics remain. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1105,9 +1107,9 @@ chapter-context link previews now pass production-path Reader E2E. ICU-backed
 word and retained-flow paragraph selection are wired to mouse repeated click and
 touch long press, and both now pass production-path input E2E. Exact touch handles use
 Core endpoints, Kit-owned epoch sessions and React DOM pointer capture; their edge dwell
-now continues across already-published spreads in the same revision. End-user interaction
-parity still needs lazy-growth cross-revision continuation, primary-drag edge autoscroll
-and platform keyboard semantics. Greedy
+now continues across already-published spreads and append-only bounded revision growth.
+End-user interaction parity still needs primary-drag edge autoscroll and platform
+keyboard semantics. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

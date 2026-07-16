@@ -97,6 +97,7 @@ describe('Browser reader frame window adapter', () => {
       workerSessionId: 'session-a',
       revisionId: 'rev-1',
       revisionVersion: 0,
+      publicationGeneration: 1,
       commitGeneration: 1,
     };
 
@@ -109,6 +110,7 @@ describe('Browser reader frame window adapter', () => {
       workerSessionId: 'session-b',
       revisionId: 'rev-1',
       revisionVersion: 0,
+      publicationGeneration: 2,
       commitGeneration: 2,
     };
     state.commitGeneration = 2;
@@ -146,6 +148,7 @@ describe('Browser reader frame window adapter', () => {
       workerSessionId: state.worker.sessionId,
       revisionId: 'rev',
       revisionVersion: 1,
+      publicationGeneration: 2,
       commitGeneration: 2,
     };
     state.commitGeneration = 2;

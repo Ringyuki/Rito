@@ -4,7 +4,7 @@ use crate::runtime::{
     RuntimePageSemantics, RuntimePageTargets, RuntimePageTextPositions, RuntimeTextCaretResponse,
     RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResponse,
     RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
-    RuntimeTextRangeResponse,
+    RuntimeTextRangeResponse, RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
 };
 
 impl RuntimeDocument {
@@ -86,6 +86,16 @@ impl RuntimeDocument {
     {
         self.versioned_read(handle, |document, revision_id| {
             document.resolve_text_range_from_points_for_revision(revision_id, request)
+        })
+    }
+
+    pub fn resolve_text_range_to_point_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeTextRangeToPointRequest,
+    ) -> Result<RuntimeVersioned<RuntimeTextRangeToPointResponse>, RuntimeRevisionAccessError> {
+        self.versioned_read(handle, |document, revision_id| {
+            document.resolve_text_range_to_point_for_revision(revision_id, request)
         })
     }
 }

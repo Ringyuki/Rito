@@ -11,7 +11,30 @@ export function capabilityFrom(
   resolveTextRangeFromPoints: ReaderTextSelectionInteractions['resolveTextRangeFromPoints'] = () =>
     Promise.resolve({ status: 'miss' }),
 ): ReaderTextSelectionInteractions {
-  return { resolveCaret, resolveTextRange, resolveTextRangeFromPoints };
+  return capabilityWithRangeToPoint({ resolveCaret, resolveTextRange, resolveTextRangeFromPoints });
+}
+
+export function capabilityWithRangeToPoint(
+  capability: Omit<ReaderTextSelectionInteractions, 'resolveTextRangeToPoint'>,
+): ReaderTextSelectionInteractions {
+  return {
+    ...capability,
+    resolveTextRangeToPoint: rangeToPointFrom(capability.resolveCaret, capability.resolveTextRange),
+  };
+}
+
+export function rangeToPointFrom(
+  resolveCaret: ReaderTextSelectionInteractions['resolveCaret'],
+  resolveTextRange: ReaderTextSelectionInteractions['resolveTextRange'],
+): NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']> {
+  return async (anchor, point) => {
+    const focus = await resolveCaret(point);
+    if (!focus || focus.status === 'miss') return focus;
+    if (focus.status === 'unavailable') {
+      return { status: 'unavailable', reason: focus.reason };
+    }
+    return resolveTextRange(anchor, focus.caret);
+  };
 }
 
 export function point(x: number) {

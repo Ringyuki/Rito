@@ -130,6 +130,29 @@ export function sameBoundRevision(left: BoundCaret, right: BoundCaret): boolean 
   return sameRevision(left.revision, right.revision);
 }
 
+/**
+ * A bounded continuation advance may reuse an exact stable-prefix address. A
+ * no-op mutation may also close and restore the exact-read lease without
+ * changing the published layout that owns the address.
+ */
+export function canRebindStablePrefixCaret(
+  binding: BoundCaret,
+  current: BrowserReaderRevisionHandle,
+): boolean {
+  const previous = binding.revision;
+  if (
+    previous.workerSessionId !== current.workerSessionId ||
+    previous.revisionId !== current.revisionId ||
+    previous.revisionVersion > current.revisionVersion
+  ) {
+    return false;
+  }
+  return (
+    previous.revisionVersion < current.revisionVersion ||
+    previous.publicationGeneration === current.publicationGeneration
+  );
+}
+
 function resolveNormalizedEndpoints(
   startAddress: CoreTextCaretAddress,
   endAddress: CoreTextCaretAddress,

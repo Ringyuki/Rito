@@ -10,9 +10,11 @@ import type {
   SelectionHandleDrag,
   SelectionHandleEdge,
 } from './handle-types';
-import { adaptNativeSelectionHandleDrag } from './native-adapter-handle';
+import { beginNativeSelectionHandleDrag } from './native-adapter-handle';
+import { getNativeSelectionFocusEdge } from './native-adapter-snapshot';
 import { createNativeSelectionEngine } from './native-engine';
 import type { NativeSelectionGranularity, NativeSelectionSnapshot } from './native-types';
+import { registerSelectionInteractionOwner } from './selection-interaction-owner';
 
 interface AdapterData {
   readonly native: ReturnType<typeof createNativeSelectionEngine>;
@@ -49,9 +51,10 @@ export function createNativeSelectionAdapter(
   data.native.onChange(() => {
     handleNativeChange(data);
   });
-  return buildAdapter(data);
+  return registerSelectionInteractionOwner(buildAdapter(data), () =>
+    data.native.getInteractionGeneration(),
+  );
 }
-
 function buildAdapter(data: AdapterData): SelectionEngine {
   return {
     ...buildPointerMethods(data),
@@ -67,9 +70,7 @@ function buildPointerMethods(
   'beginHandleDrag' | 'handlePointerDown' | 'handlePointerMove' | 'handlePointerUp' | 'setSpread'
 > {
   return {
-    beginHandleDrag(edge) {
-      return beginHandleDrag(data, edge);
-    },
+    beginHandleDrag: (edge) => beginHandleDrag(data, edge),
     handlePointerDown(input, granularity) {
       handleDown(data, input, granularity);
     },
@@ -87,10 +88,9 @@ function buildPointerMethods(
 
 function beginHandleDrag(data: AdapterData, edge: SelectionHandleEdge): SelectionHandleDrag | null {
   if (data.disposed || !data.projection) return null;
-  const nativeDrag = data.native.beginHandleDrag(edge);
-  return nativeDrag
-    ? adaptNativeSelectionHandleDrag(nativeDrag, (input) => projectPoint(input, data.projection))
-    : null;
+  return beginNativeSelectionHandleDrag(data.native, edge, (input) =>
+    projectPoint(input, data.projection),
+  );
 }
 
 function buildReadMethods(
@@ -124,8 +124,15 @@ function buildReadMethods(
 
 function buildLifecycleMethods(
   data: AdapterData,
-): Pick<SelectionEngine, 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'> {
+): Pick<
+  SelectionEngine,
+  'acceptRevisionAppend' | 'clear' | 'invalidate' | 'dispose' | 'onSelectionChange' | 'onError'
+> {
   return {
+    acceptRevisionAppend() {
+      if (data.disposed) return;
+      data.native.acceptRevisionAppend();
+    },
     clear() {
       data.lastValidPoint = undefined;
       data.native.clear();
@@ -231,7 +238,7 @@ function projectSnapshot(data: AdapterData, snapshot: NativeSelectionSnapshot): 
   data.projectedHandleCarets = {
     start: projectCaret(projection, snapshot.range.start),
     end: projectCaret(projection, snapshot.range.end),
-    focusEdge: getSnapshotFocusEdge(snapshot),
+    focusEdge: getNativeSelectionFocusEdge(snapshot),
   };
 }
 
@@ -251,11 +258,7 @@ function notifyError(data: AdapterData, error: unknown): void {
 
 function getFocusEdge(data: AdapterData): 'start' | 'end' | null {
   const snapshot = data.native.getSnapshot();
-  return snapshot ? getSnapshotFocusEdge(snapshot) : null;
-}
-
-function getSnapshotFocusEdge(snapshot: NativeSelectionSnapshot): 'start' | 'end' {
-  return snapshot.focusDirection === 'forward' ? 'end' : 'start';
+  return snapshot ? getNativeSelectionFocusEdge(snapshot) : null;
 }
 
 function getState(data: AdapterData): ReturnType<SelectionEngine['getState']> {

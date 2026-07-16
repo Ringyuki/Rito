@@ -82,7 +82,8 @@ pub use text_interaction::{
     RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
     RuntimeTextRange, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
     RuntimeTextRangeFromPointsResponse, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
-    RuntimeTextRangeResponse, RuntimeTextSelectionGranularity,
+    RuntimeTextRangeResponse, RuntimeTextRangeToPointRequest, RuntimeTextRangeToPointResponse,
+    RuntimeTextSelectionGranularity,
 };
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;

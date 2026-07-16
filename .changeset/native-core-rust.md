@@ -26,5 +26,8 @@ repeated-click drag, and touch long press while preserving exact cross-page sour
 Released native selections now survive asynchronous image/frame content repaints. Candidate revisions
 calibrate browser font advances and exact-size vertical font boxes before becoming interactive, so
 caret/highlight geometry matches native selection without shrinking the forgiving line-height hit area.
+Captured touch handles can now grow an unpublished bounded spread and continue across the appended
+revision through an atomic stable-prefix caret-to-point operation; replacement layouts still invalidate
+the selection, and stale growth cannot supersede a newer navigation or layout intent.
 The locale-aware ICU auto data increases the release WASM by about 2.5 MB raw (1.9 MB gzip) and
 37 initial memory pages; this preserves Chinese, Japanese, Thai, and locale-tailored word behavior.

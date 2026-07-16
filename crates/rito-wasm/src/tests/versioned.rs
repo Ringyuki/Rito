@@ -352,6 +352,29 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
         "shapeUnavailable"
     );
 
+    let range_to_point = parse(
+        document
+            .resolve_text_range_to_point_at_revision_json(
+                &revision_id,
+                0,
+                &json!({
+                    "anchor": address,
+                    "focus": point_request,
+                })
+                .to_string(),
+            )
+            .expect("range-to-point response is returned"),
+    );
+    assert_revision(&range_to_point, &revision_id, 0);
+    assert_eq!(
+        range_to_point["value"]["resolution"]["status"],
+        "unavailable"
+    );
+    assert_eq!(
+        range_to_point["value"]["resolution"]["reason"],
+        "shapeUnavailable"
+    );
+
     let source_point = &target["sourceLocator"]["sourcePoint"];
     let source_offset = source_point["textOffset"]
         .as_u64()
@@ -397,6 +420,13 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
             r#"{"anchor":{"pageIndex":0,"x":0,"y":0},"focus":{"pageIndex":0,"x":0,"y":0},"granularity":"sentence"}"#,
         )
         .expect_err("malformed point range request is rejected");
+    let bad_range_to_point = document
+        .resolve_text_range_to_point_at_revision_json(
+            &revision_id,
+            0,
+            r#"{"anchor":{"pageIndex":0},"focus":{"pageIndex":0,"x":0,"y":0}}"#,
+        )
+        .expect_err("malformed range-to-point request is rejected");
     let bad_source_range = document
         .resolve_exact_source_range_at_revision_json(
             &revision_id,
@@ -416,6 +446,10 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert!(bad_point_range
         .message()
         .contains("invalid text range from points request JSON"));
+    assert_eq!(bad_range_to_point.code(), WasmRuntimeErrorCode::BadRequest);
+    assert!(bad_range_to_point
+        .message()
+        .contains("invalid text range to point request JSON"));
     assert_eq!(bad_source_range.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_source_range
         .message()
@@ -547,6 +581,11 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         "granularity": "paragraph",
     })
     .to_string();
+    let range_to_point_request = json!({
+        "anchor": collapsed_range_request()["anchor"],
+        "focus": { "pageIndex": 0, "x": 24.0, "y": 24.0 },
+    })
+    .to_string();
     let source_range_request = exact_source_range_request().to_string();
     for error in [
         document
@@ -558,6 +597,9 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         document
             .resolve_text_range_from_points_at_revision_json("rev-1", 0, &point_range_request)
             .expect_err("old point range handle is stale"),
+        document
+            .resolve_text_range_to_point_at_revision_json("rev-1", 0, &range_to_point_request)
+            .expect_err("old range-to-point handle is stale"),
         document
             .resolve_exact_source_range_at_revision_json("rev-1", 0, &source_range_request)
             .expect_err("old exact source range handle is stale"),
@@ -574,6 +616,9 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
         document
             .resolve_text_range_from_points_at_revision_json("rev-missing", 0, &point_range_request)
             .expect_err("missing point range revision is typed"),
+        document
+            .resolve_text_range_to_point_at_revision_json("rev-missing", 0, &range_to_point_request)
+            .expect_err("missing range-to-point revision is typed"),
         document
             .resolve_exact_source_range_at_revision_json("rev-missing", 0, &source_range_request)
             .expect_err("missing exact source range revision is typed"),

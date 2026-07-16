@@ -165,6 +165,9 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
 
   test('autoscrolls a captured end handle into the next spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
+    const shell = page.getByTestId('reader-shell');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
     const firstLine = requireBand(await requireTextBands(page, 1), 0);
     await selectTouchWord(page, input, firstLine, EDGE_FIRST_PAGE_TEXT);
 
@@ -176,6 +179,8 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
     await moveTouchAlongPath(input, handleStart, edgePoint);
 
     await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
     await stableReaderCanvasChecksum(page);
     const secondLine = requireBand(await requireTextBands(page, 1), 0);
@@ -194,6 +199,11 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
   test('autoscrolls a captured start handle into the previous spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
     await page.keyboard.press('ArrowRight');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute(
+      'data-pagination-complete',
+      'true',
+    );
     await expect.poll(() => currentReaderSpread(page)).toBe(1);
     await waitForReaderTransitionEnd(page);
     await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
@@ -281,14 +291,8 @@ async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
   const shell = page.getByTestId('reader-shell');
   await expect(shell).toHaveAttribute('data-spread-mode', 'single');
   await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
-  await page.keyboard.press('ArrowRight');
-  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
-  await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
-  await expect.poll(() => currentReaderSpread(page)).toBe(1);
-  await waitForReaderTransitionEnd(page);
-  await page.keyboard.press('Home');
   await expect.poll(() => currentReaderSpread(page)).toBe(0);
-  await waitForReaderTransitionEnd(page);
+  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
   await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
   await stableReaderCanvasChecksum(page);
 }

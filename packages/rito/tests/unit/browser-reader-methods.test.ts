@@ -156,6 +156,7 @@ describe('Browser reader methods', () => {
     state.revisionHandle = {
       workerSessionId: 'search-session',
       ...revision,
+      publicationGeneration: 4,
       commitGeneration: 4,
     };
     const methods = buildBrowserReaderMethods(state, readerOptions());
@@ -231,6 +232,7 @@ describe('Browser reader methods', () => {
     state.revisionHandle = {
       workerSessionId: 'search-source-session',
       ...revision,
+      publicationGeneration: 8,
       commitGeneration: 8,
     };
     const methods = buildBrowserReaderMethods(state, readerOptions());
@@ -313,6 +315,7 @@ describe('Browser reader methods', () => {
     state.revisionHandle = {
       workerSessionId: 'search-session',
       ...requested,
+      publicationGeneration: 4,
       commitGeneration: 4,
     };
     const methods = buildBrowserReaderMethods(state, readerOptions());
@@ -325,6 +328,7 @@ describe('Browser reader methods', () => {
       workerSessionId: 'search-session',
       revisionId: 'rev',
       revisionVersion: 4,
+      publicationGeneration: 5,
       commitGeneration: 5,
     };
     resolveSearch?.({

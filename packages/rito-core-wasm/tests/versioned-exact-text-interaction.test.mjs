@@ -16,6 +16,9 @@ import {
   pointRangeTransport,
   rangeRequest,
   rangeResponse,
+  rangeToPointRequest,
+  rangeToPointResponse,
+  rangeToPointTransport,
   rangeTransport,
   resolvedCaret,
 } from './versioned-exact-text-interaction-fixtures.mjs';
@@ -45,6 +48,14 @@ test('worker client rejects malformed exact requests before dispatch', async () 
         pointRangeRequest({ granularity: 'sentence' }),
       ),
     /granularity must be word or paragraph/,
+  );
+  assert.throws(
+    () =>
+      client.resolveTextRangeToPointAtRevision(
+        handle(),
+        rangeToPointRequest({ focus: pointRequest({ x: Number.NaN }) }),
+      ),
+    /x must be finite/,
   );
   assert.equal(worker.messages.length, count);
   client.dispose();
@@ -137,6 +148,58 @@ test('worker client strictly binds granular point-range requests, endpoints, and
     const pending = client.resolveTextRangeFromPointsAtRevision(handle(), request);
     worker.respondLast({
       kind: 'resolveTextRangeFromPointsAtRevision',
+      revision: handle(),
+      result: fixture.result,
+    });
+    await assert.rejects(pending, fixture.pattern);
+  }
+  client.dispose();
+});
+
+test('worker client strictly binds range-to-point request echoes and current carets', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = rangeToPointRequest();
+  const cases = [
+    rangeToPointCase(
+      rangeToPointTransport(
+        rangeToPointRequest({ anchor: caretAddress({ charIndex: 0 }) }),
+        rangeToPointResponse(request),
+      ),
+      /request anchor does not match/,
+    ),
+    rangeToPointCase(
+      rangeToPointTransport(
+        rangeToPointRequest({ focus: pointRequest({ pageIndex: 5, x: 99, y: 44 }) }),
+        rangeToPointResponse(request),
+      ),
+      /mismatched normalized request/,
+    ),
+    rangeToPointMutation(
+      request,
+      (resolution) => {
+        resolution.anchorCaret.address.affinity = 'upstream';
+      },
+      /anchor caret does not match/,
+    ),
+    rangeToPointMutation(
+      request,
+      (resolution) => {
+        resolution.focusCaret.address = {
+          ...resolution.focusCaret.address,
+          pageIndex: request.focus.pageIndex + 1,
+        };
+        resolution.range.focus = resolution.focusCaret.address;
+        resolution.range.end = resolution.focusCaret.address;
+      },
+      /focusCaret for a mismatched pageIndex/,
+    ),
+  ];
+
+  for (const fixture of cases) {
+    const pending = client.resolveTextRangeToPointAtRevision(handle(), request);
+    worker.respondLast({
+      kind: 'resolveTextRangeToPointAtRevision',
       revision: handle(),
       result: fixture.result,
     });
@@ -368,6 +431,16 @@ function pointRangeMutation(request, mutate, pattern) {
   const response = structuredClone(pointRangeResponse(request));
   mutate(response.resolution);
   return pointRangeCase(pointRangeTransport(request, response), pattern);
+}
+
+function rangeToPointCase(result, pattern) {
+  return { result, pattern };
+}
+
+function rangeToPointMutation(request, mutate, pattern) {
+  const response = structuredClone(rangeToPointResponse(request));
+  mutate(response.resolution);
+  return rangeToPointCase(rangeToPointTransport(request, response), pattern);
 }
 
 async function openClient(worker) {

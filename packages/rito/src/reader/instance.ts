@@ -127,6 +127,11 @@ export interface ReaderTextSelectionInteractions {
     anchor: ReaderTextCaret,
     focus: ReaderTextCaret,
   ): Promise<ReaderTextRangeResolution | undefined>;
+  /** Atomically rebind a stable-prefix caret and resolve a point in the current revision. */
+  resolveTextRangeToPoint(
+    anchor: ReaderTextCaret,
+    focus: ReaderTextPoint,
+  ): Promise<ReaderTextRangeFromPointsResolution | undefined>;
   resolveTextRangeFromPoints(
     request: ReaderTextRangeFromPointsRequest,
   ): Promise<ReaderTextRangeFromPointsResolution | undefined>;

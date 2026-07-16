@@ -1,8 +1,10 @@
 import {
   equalExactTextCaretAddress,
+  requireExactTextCaretAddress,
   requireExactTextRecord,
   requireExactTextRevisionId,
   requireExactTextUnavailableReason,
+  requireMatchingExactTextCaretAddress,
   requireTextPointRequest,
   requireUnboundExactTextCaret,
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
@@ -22,9 +24,10 @@ export function requireTextRangeFromPointsRequest(value, operation) {
 export function requireTextRangeFromPointsResponse(value, revision, request, operation) {
   const response = requireExactTextRecord(value, `${operation} result`);
   requireExactTextRevisionId(response, revision, operation);
+  const resolution = requireResolution(response.resolution, operation);
   return {
     ...response,
-    resolution: requireResolution(response.resolution, request, operation),
+    resolution,
   };
 }
 
@@ -35,12 +38,49 @@ export function requireTextRangeFromPointsTransport(value, revision, expectedReq
   return requireTextRangeFromPointsResponse(transport.response, revision, request, operation);
 }
 
-function requireResolution(value, request, operation) {
+export function requireTextRangeToPointRequest(value, operation) {
+  const request = requireExactTextRecord(value, `${operation} request`);
+  return {
+    anchor: requireExactTextCaretAddress(request.anchor, `${operation} anchor`),
+    focus: requireTextPointRequest(request.focus, `${operation} focus`),
+  };
+}
+
+export function requireTextRangeToPointResponse(value, revision, request, operation) {
+  const response = requireExactTextRecord(value, `${operation} result`);
+  requireExactTextRevisionId(response, revision, operation);
+  const resolution = requireResolution(response.resolution, operation);
+  if (resolution.status === 'resolved') {
+    requireMatchingExactTextCaretAddress(
+      resolution.anchorCaret.address,
+      request.anchor,
+      `${operation} anchor caret`,
+    );
+    requireResolvedCaretPage(resolution, 'focusCaret', request.focus.pageIndex, operation);
+  }
+  return { ...response, resolution };
+}
+
+export function requireTextRangeToPointTransport(value, revision, expectedRequest, operation) {
+  const transport = requireExactTextRecord(value, `${operation} transport`);
+  const request = requireTextRangeToPointRequest(transport.request, operation);
+  requireMatchingExactTextCaretAddress(
+    request.anchor,
+    expectedRequest.anchor,
+    `${operation} request anchor`,
+  );
+  if (!samePoint(request.focus, expectedRequest.focus)) {
+    throw new Error(`${operation} returned a range-to-point for a mismatched normalized request`);
+  }
+  return requireTextRangeToPointResponse(transport.response, revision, request, operation);
+}
+
+function requireResolution(value, operation) {
   const resolution = requireExactTextRecord(value, `${operation} resolution`);
   switch (resolution.status) {
     case 'resolved':
       requireAbsentFields(resolution, ['reason'], operation);
-      return requireResolvedResolution(resolution, request, operation);
+      return requireResolvedResolution(resolution, operation);
     case 'unavailable':
       requireAbsentFields(resolution, ['anchorCaret', 'focusCaret', 'range'], operation);
       return {
@@ -55,7 +95,7 @@ function requireResolution(value, request, operation) {
   }
 }
 
-function requireResolvedResolution(resolution, request, operation) {
+function requireResolvedResolution(resolution, operation) {
   const anchorCaret = requireUnboundExactTextCaret(resolution.anchorCaret, `${operation} anchor`);
   const focusCaret = requireUnboundExactTextCaret(resolution.focusCaret, `${operation} focus`);
   const range = requireResolvedRange(
@@ -67,7 +107,7 @@ function requireResolvedResolution(resolution, request, operation) {
   return { status: 'resolved', anchorCaret, focusCaret, range };
 }
 
-function requireRangeSourceIdentity(range, anchorCaret, focusCaret, operation) {
+export function requireRangeSourceIdentity(range, anchorCaret, focusCaret, operation) {
   const startCaret = equalExactTextCaretAddress(range.start, anchorCaret.address)
     ? anchorCaret
     : focusCaret;
@@ -82,6 +122,12 @@ function requireRangeSourceIdentity(range, anchorCaret, focusCaret, operation) {
     !sameSourcePoint(sourceRange.end, endCaret.sourceLocator.sourcePoint)
   ) {
     throw new Error(`${operation} returned source endpoints unrelated to its resolved carets`);
+  }
+}
+
+function requireResolvedCaretPage(resolution, field, pageIndex, operation) {
+  if (resolution.status === 'resolved' && resolution[field].address.pageIndex !== pageIndex) {
+    throw new Error(`${operation} returned a ${field} for a mismatched pageIndex`);
   }
 }
 

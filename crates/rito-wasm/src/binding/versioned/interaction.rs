@@ -156,6 +156,22 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
+    #[wasm_bindgen(js_name = resolveTextRangeToPointAtRevisionJson)]
+    pub fn resolve_text_range_to_point_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+        request_json: &str,
+    ) -> Result<String, JsValue> {
+        self.inner
+            .resolve_text_range_to_point_at_revision_json(
+                revision_id,
+                revision_version,
+                request_json,
+            )
+            .map_err(error_to_js_value)
+    }
+
     #[wasm_bindgen(js_name = getFootnoteAtRevisionJson)]
     pub fn get_footnote_at_revision_json(
         &mut self,

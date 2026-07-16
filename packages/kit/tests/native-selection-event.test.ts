@@ -6,7 +6,13 @@ import type { WiringDeps } from '../src/controller/core/wiring-deps';
 import { wireEngineEvents } from '../src/controller/wiring/engine-events';
 import { createDisposableCollection } from '../src/utils/disposable';
 import { createEmitter } from '../src/utils/event-emitter';
-import { caret, exactRange, flushMicrotasks, resolvedCaret } from './helpers/native-selection';
+import {
+  capabilityWithRangeToPoint,
+  caret,
+  exactRange,
+  flushMicrotasks,
+  resolvedCaret,
+} from './helpers/native-selection';
 
 describe('native selection controller event', () => {
   it('reports exact selection independently of the legacy TextRange', async () => {
@@ -17,11 +23,11 @@ describe('native selection controller event', () => {
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockResolvedValueOnce(resolvedCaret(anchor))
       .mockResolvedValueOnce(resolvedCaret(focus));
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'miss' }),
-    };
+    });
     const selection = createSelectionEngine(capability);
     selection.setSpread({} as never, {} as never, {} as never, {
       spreadContentToPage: (x, y) => ({ pageIndex: 0, x, y }),

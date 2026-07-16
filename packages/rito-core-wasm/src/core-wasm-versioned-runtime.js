@@ -24,6 +24,8 @@ import {
 import {
   requireTextRangeFromPointsRequest,
   requireTextRangeFromPointsResponse,
+  requireTextRangeToPointRequest,
+  requireTextRangeToPointResponse,
 } from './reader-worker-text-range-from-points-validation-runtime.js';
 import {
   requireExactSourceRangeRequest,
@@ -238,6 +240,26 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
         (value, revision, operation) =>
           requireTextRangeFromPointsResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    resolveTextRangeToPointAtRevision(handle, request) {
+      const expectedRequest = requireTextRangeToPointRequest(
+        request,
+        'resolveTextRangeToPointAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'resolveTextRangeToPointAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveTextRangeToPointAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireTextRangeToPointResponse(value, revision, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision(handle, request) {

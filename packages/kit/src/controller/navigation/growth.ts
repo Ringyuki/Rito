@@ -102,6 +102,107 @@ export function navigationTarget(
   return { index: Math.max(0, Math.min(requested, reader.totalSpreads - 1)) };
 }
 
+/** Grow one forward spread for an active selection without stealing navigation ownership. */
+export async function ensureSelectionSpread(
+  state: NavigationState,
+  deps: NavigationDeps,
+  target: number,
+  signal: AbortSignal,
+): Promise<boolean | undefined> {
+  const reader = deps.getReader();
+  if (state.disposed || signal.aborted || !reader) return undefined;
+  if (target < reader.totalSpreads) return true;
+  const pagination = reader.pagination;
+  if (!pagination || pagination.complete || target !== reader.totalSpreads) return false;
+  const snapshot: SelectionGrowthSnapshot = {
+    reader,
+    pagination,
+    totalSpreads: reader.totalSpreads,
+    complete: pagination.complete,
+  };
+  try {
+    const available = await Promise.resolve(pagination.ensureSpread(target, signal));
+    return settleSelectionGrowth(state, deps, snapshot, target, signal, available);
+  } catch (error: unknown) {
+    if (!ownsSelectionGrowth(state, deps, snapshot)) return undefined;
+    publishSelectionExtentChange(deps, snapshot);
+    if (selectionGrowthWasAborted(signal)) {
+      return undefined;
+    }
+    failSelectionGrowth(deps, error);
+    return undefined;
+  }
+}
+
+interface SelectionGrowthSnapshot {
+  readonly reader: Reader;
+  readonly pagination: ReaderIncrementalPagination;
+  readonly totalSpreads: number;
+  readonly complete: boolean;
+}
+
+function settleSelectionGrowth(
+  state: NavigationState,
+  deps: NavigationDeps,
+  snapshot: SelectionGrowthSnapshot,
+  target: number,
+  signal: AbortSignal,
+  available: boolean | undefined,
+): boolean | undefined {
+  if (!ownsSelectionGrowth(state, deps, snapshot)) return undefined;
+  const extentChanged = selectionExtentChanged(snapshot);
+  if (selectionGrowthWasAborted(signal)) {
+    if (extentChanged) deps.onPaginationChanged?.();
+    return undefined;
+  }
+  if (available === false && !snapshot.pagination.complete) {
+    throw new Error('Reader returned a final pagination miss before committing completion');
+  }
+  if (available !== undefined || extentChanged) deps.onPaginationChanged?.();
+  if (available !== true) return available;
+  if (target < snapshot.reader.totalSpreads) return true;
+  failSelectionGrowth(deps, 'Reader did not publish the requested selection spread');
+  return undefined;
+}
+
+function ownsSelectionGrowth(
+  state: NavigationState,
+  deps: NavigationDeps,
+  snapshot: SelectionGrowthSnapshot,
+): boolean {
+  const currentReader = deps.getReader();
+  return (
+    !state.disposed &&
+    currentReader === snapshot.reader &&
+    currentReader.pagination === snapshot.pagination
+  );
+}
+
+function selectionExtentChanged(snapshot: SelectionGrowthSnapshot): boolean {
+  return (
+    snapshot.reader.totalSpreads !== snapshot.totalSpreads ||
+    snapshot.pagination.complete !== snapshot.complete
+  );
+}
+
+function selectionGrowthWasAborted(signal: AbortSignal): boolean {
+  return signal.aborted;
+}
+
+function publishSelectionExtentChange(
+  deps: NavigationDeps,
+  snapshot: SelectionGrowthSnapshot,
+): void {
+  if (selectionExtentChanged(snapshot)) deps.onPaginationChanged?.();
+}
+
+function failSelectionGrowth(deps: NavigationDeps, error: unknown): void {
+  deps.emitter.emit('error', {
+    message: error instanceof Error ? error.message : String(error),
+    source: 'reader pagination',
+  });
+}
+
 function settleSpreadGrowth(
   state: NavigationState,
   deps: NavigationDeps,

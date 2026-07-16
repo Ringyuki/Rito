@@ -10,7 +10,16 @@ import { createSelectionEngine } from '../src/interaction';
 import type { Spread } from '../src/interaction';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import type { NativeSelectionProjection } from '../src/interaction/selection/engine';
-import { caret, deferred, flushMicrotasks } from './helpers/native-selection';
+import {
+  captureSelectionInteraction,
+  ownsSelectionInteraction,
+} from '../src/interaction/selection/selection-interaction-owner';
+import {
+  capabilityWithRangeToPoint,
+  caret,
+  deferred,
+  flushMicrotasks,
+} from './helpers/native-selection';
 
 const config = createLayoutConfig({
   width: 620,
@@ -49,11 +58,11 @@ describe('native SelectionEngine adapter', () => {
     const resolveTextRangeFromPoints = vi
       .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
       .mockResolvedValue({ status: 'resolved', range });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange: vi.fn(),
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
 
@@ -87,11 +96,11 @@ describe('native SelectionEngine adapter', () => {
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: anchor })
       .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: focus });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
 
@@ -129,14 +138,14 @@ describe('native SelectionEngine adapter', () => {
     const anchor = caret(70, 1);
     const focus = caret(6);
     const range = exactRange(anchor, focus, 'backward');
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi
         .fn<ReaderTextSelectionInteractions['resolveCaret']>()
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: anchor })
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: focus }),
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
 
@@ -165,13 +174,13 @@ describe('native SelectionEngine adapter', () => {
     const resolveTextRange = vi
       .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
       .mockResolvedValue({ status: 'resolved', range: moved });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange,
       resolveTextRangeFromPoints: vi
         .fn()
         .mockResolvedValue({ status: 'resolved', range: baseline }),
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
@@ -181,6 +190,8 @@ describe('native SelectionEngine adapter', () => {
 
     const drag = engine.beginHandleDrag('start');
     expect(drag).not.toBeNull();
+    const interaction = captureSelectionInteraction(engine);
+    expect(interaction && ownsSelectionInteraction(interaction)).toBe(true);
     expect(engine.getState()).toBe('selecting');
     drag?.update({ x: 20, y: 12 });
     await flushMicrotasks();
@@ -194,6 +205,7 @@ describe('native SelectionEngine adapter', () => {
     });
 
     drag?.cancel();
+    expect(interaction && ownsSelectionInteraction(interaction)).toBe(false);
     expect(engine.getState()).toBe('selected');
     expect(engine.getHandleCarets()).toEqual({
       start: { x: 10, y: 0, width: 0, height: 18 },
@@ -202,13 +214,37 @@ describe('native SelectionEngine adapter', () => {
     });
   });
 
+  it('rejects a handle session cleared by a synchronous selection listener', async () => {
+    const range = exactRange(caret(10), caret(40));
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    engine.handlePointerUp({ x: 10, y: 12 });
+    await flushMicrotasks();
+
+    const stop = engine.onSelectionChange(() => {
+      if (engine.getState() === 'selecting') engine.clear();
+    });
+    const drag = engine.beginHandleDrag('end');
+
+    expect(drag).toBeNull();
+    expect(engine.getState()).toBe('idle');
+    expect(engine.hasSelection()).toBe(false);
+    stop();
+  });
+
   it('keeps capability presence authoritative when the native revision is unavailable', async () => {
     const resolveTextRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn().mockResolvedValue(undefined),
       resolveTextRange,
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
 
@@ -232,14 +268,14 @@ describe('native SelectionEngine adapter', () => {
         { pageIndex: 1, spreadIndex: 0, x: 1, y: 2, width: 30, height: 18 },
       ],
     };
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi
         .fn<ReaderTextSelectionInteractions['resolveCaret']>()
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: anchor })
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: focus }),
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
 
@@ -254,6 +290,37 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getFocusRect()).toEqual({ x: 330, y: 0, width: 0, height: 18 });
   });
 
+  it('forwards an append revision and replays the latest projected sample', async () => {
+    const range = exactRange(caret(10), caret(40));
+    const resolveTextRangeFromPoints = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
+      .mockResolvedValue({ status: 'resolved', range });
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints,
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    await flushMicrotasks();
+    engine.handlePointerMove({ x: 40, y: 12 });
+    await flushMicrotasks();
+
+    engine.acceptRevisionAppend();
+    await flushMicrotasks();
+
+    expect(resolveTextRangeFromPoints).toHaveBeenCalledTimes(3);
+    expect(resolveTextRangeFromPoints).toHaveBeenLastCalledWith({
+      anchor: { pageIndex: 0, x: 10, y: 12 },
+      focus: { pageIndex: 0, x: 40, y: 12 },
+      granularity: 'paragraph',
+    });
+    expect(engine.getState()).toBe('selecting');
+    expect(engine.getText()).toBe('exact text');
+    expect(engine.getRects()).toEqual([{ x: 330, y: 2, width: 30, height: 18 }]);
+  });
+
   it('reprojects an active handle session onto a known spread without invalidating it', async () => {
     const start = caret(10);
     const end = caret(40);
@@ -263,13 +330,13 @@ describe('native SelectionEngine adapter', () => {
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockResolvedValue({ status: 'resolved', pageIndex: 1, spreadIndex: 1, caret: movedEnd });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range: moved }),
       resolveTextRangeFromPoints: vi
         .fn()
         .mockResolvedValue({ status: 'resolved', range: baseline }),
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, singlePageProjection(0));
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
@@ -305,11 +372,11 @@ describe('native SelectionEngine adapter', () => {
 
   it('does not preserve a retained range when no handle session owns the transfer', async () => {
     const range = exactRange(caret(10), caret(40));
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn(),
       resolveTextRange: vi.fn(),
       resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, singlePageProjection(0));
     engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
@@ -328,11 +395,11 @@ describe('native SelectionEngine adapter', () => {
     const pending =
       deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveCaret']>>>();
     const resolveTextRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn().mockReturnValue(pending.promise),
       resolveTextRange,
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
     engine.handlePointerDown({ x: 10, y: 12 });
@@ -354,11 +421,11 @@ describe('native SelectionEngine adapter', () => {
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockReturnValue(pending.promise);
     const resolveTextRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret,
       resolveTextRange,
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
     engine.handlePointerDown({ x: 10, y: 12 });
@@ -386,11 +453,11 @@ describe('native SelectionEngine adapter', () => {
     const resolveTextRangeFromPoints = vi
       .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
       .mockResolvedValue({ status: 'resolved', range });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn(),
       resolveTextRange: vi.fn(),
       resolveTextRangeFromPoints,
-    };
+    });
     const singleConfig = createLayoutConfig({
       width: 300,
       height: 400,

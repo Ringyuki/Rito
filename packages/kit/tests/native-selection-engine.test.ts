@@ -60,36 +60,48 @@ describe('native exact selection engine', () => {
   });
 
   it('keeps one focus pipeline in flight and coalesces queued moves to the latest point', async () => {
-    const firstFocus = deferred<ReaderTextCaretResolution | undefined>();
-    const latestFocus = deferred<ReaderTextCaretResolution | undefined>();
+    const firstRange =
+      deferred<
+        Awaited<ReturnType<NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']>>>
+      >();
+    const latestRange =
+      deferred<
+        Awaited<ReturnType<NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']>>>
+      >();
     const anchor = caret(0);
     const latest = caret(9);
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
-      .mockResolvedValueOnce(resolvedCaret(anchor))
-      .mockReturnValueOnce(firstFocus.promise)
-      .mockReturnValueOnce(latestFocus.promise);
-    const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
-      .mockResolvedValue({ status: 'resolved', range: exactRange(anchor, latest) });
-    const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
+      .mockResolvedValueOnce(resolvedCaret(anchor));
+    const resolveTextRangeToPoint = vi
+      .fn<NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']>>()
+      .mockReturnValueOnce(firstRange.promise)
+      .mockReturnValueOnce(latestRange.promise);
+    const engine = createNativeSelectionEngine({
+      resolveCaret,
+      resolveTextRange: vi.fn(),
+      resolveTextRangeToPoint,
+      resolveTextRangeFromPoints: vi.fn(),
+    });
 
     engine.handlePointerDown(point(0));
     await flushMicrotasks();
     engine.handlePointerMove(point(2));
     engine.handlePointerMove(point(5));
     engine.handlePointerMove(point(9));
-    expect(resolveCaret).toHaveBeenCalledTimes(2);
+    expect(resolveTextRangeToPoint).toHaveBeenCalledOnce();
 
-    firstFocus.resolve(resolvedCaret(caret(2)));
+    firstRange.resolve({
+      status: 'resolved',
+      range: exactRange(anchor, caret(2), 'forward', 'obsolete'),
+    });
     await flushMicrotasks();
-    expect(resolveRange).not.toHaveBeenCalled();
-    expect(resolveCaret).toHaveBeenCalledTimes(3);
-    expect(resolveCaret).toHaveBeenLastCalledWith(point(9));
+    expect(resolveTextRangeToPoint).toHaveBeenCalledTimes(2);
+    expect(resolveTextRangeToPoint).toHaveBeenLastCalledWith(anchor, point(9));
 
-    latestFocus.resolve(resolvedCaret(latest));
+    latestRange.resolve({ status: 'resolved', range: exactRange(anchor, latest) });
     await flushMicrotasks();
-    expect(resolveRange).toHaveBeenCalledOnce();
+    expect(resolveCaret).toHaveBeenCalledOnce();
     expect(engine.getSnapshot()?.text).toBe('selected text');
   });
 

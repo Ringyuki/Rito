@@ -155,6 +155,7 @@ export function setRevisionState(
     workerSessionId: state.worker.sessionId,
     revisionId: revision.revisionId,
     revisionVersion: revision.revisionVersion,
+    publicationGeneration: state.commitGeneration,
     commitGeneration: state.commitGeneration,
   };
   state.revisionBundle = {

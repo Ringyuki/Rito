@@ -13,8 +13,8 @@ use crate::{
         RuntimeRevisionWorkBudget, RuntimeSearchRequest, RuntimeSearchSource,
         RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
         RuntimeSourceRange, RuntimeTextCaretResolution, RuntimeTextCaretResponse,
-        RuntimeTextPointRequest, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
-        RuntimeVersioned,
+        RuntimeTextPointRequest, RuntimeTextRangeFromPointsResolution, RuntimeTextRangeRequest,
+        RuntimeTextRangeResolution, RuntimeTextRangeToPointRequest, RuntimeVersioned,
     },
 };
 use serde_json::json;
@@ -375,6 +375,28 @@ fn exact_text_contract_uses_stable_camel_case_serde_shapes() {
         serde_json::to_value(RuntimeTextCaretResolution::Miss).expect("miss serializes"),
         json!({ "status": "miss" })
     );
+    assert_eq!(
+        serde_json::to_value(RuntimeTextRangeToPointRequest {
+            anchor: address,
+            focus: RuntimeTextPointRequest {
+                page_index: 7,
+                x: 12.5,
+                y: 24.0,
+            },
+        })
+        .expect("range-to-point request serializes"),
+        json!({
+            "anchor": {
+                "pageIndex": 2,
+                "blockIndex": 3,
+                "lineIndex": 4,
+                "runIndex": 5,
+                "charIndex": 6,
+                "affinity": "downstream",
+            },
+            "focus": { "pageIndex": 7, "x": 12.5, "y": 24.0 },
+        })
+    );
 }
 
 #[test]
@@ -486,6 +508,92 @@ fn exact_source_range_waits_for_both_endpoints_to_be_paginated() {
     };
     assert_eq!(range.selected_text, "second");
     assert!(!range.rects.is_empty());
+}
+
+#[test]
+fn bounded_follow_up_rebinds_an_old_address_to_a_live_point_atomically() {
+    let bytes = content_epub(
+        "en",
+        r#"<p style="font-family: serif; page-break-after: always">first</p><p style="font-family: serif; page-break-after: always">second</p><p style="font-family: serif">third</p>"#,
+        "",
+        None,
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            title_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("pinned document opens");
+    let initial = document
+        .create_bounded_revision(RuntimeBoundedRevisionRequest {
+            layout_config: font_aware_layout(),
+            line_breaking: LineBreaking::Greedy,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 2,
+            },
+        })
+        .expect("first block is paginated");
+    let initial_handle = RuntimeRevisionHandle::from(&initial.revision);
+    let first = text_run_bounds_by_text(&document, &initial.revision.revision_id, "first");
+    let anchor = document
+        .resolve_text_caret_at(
+            &initial_handle,
+            RuntimeTextPointRequest {
+                page_index: first.0,
+                x: first.1 - 100.0,
+                y: first.2 + first.4 / 2.0,
+            },
+        )
+        .expect("initial anchor resolves");
+    let RuntimeTextCaretResolution::Resolved { caret: anchor } = anchor.value.resolution else {
+        panic!("initial anchor is exact");
+    };
+
+    let cursor = initial.continuation.expect("third block remains");
+    let advanced = document
+        .continue_revision(RuntimeContinueRevisionRequest {
+            revision_id: cursor.revision_id,
+            revision_version: cursor.revision_version,
+            cursor: cursor.cursor,
+            budget: RuntimeRevisionWorkBudget {
+                max_top_level_nodes: 1,
+            },
+        })
+        .expect("third block is paginated");
+    let current_handle = RuntimeRevisionHandle::from(&advanced.revision);
+    assert!(current_handle.revision_version > initial_handle.revision_version);
+    let third = text_run_bounds_by_text(&document, &advanced.revision.revision_id, "third");
+
+    let response = document
+        .resolve_text_range_to_point_at(
+            &current_handle,
+            RuntimeTextRangeToPointRequest {
+                anchor: anchor.address,
+                focus: RuntimeTextPointRequest {
+                    page_index: third.0,
+                    x: third.1 + third.3 + 100.0,
+                    y: third.2 + third.4 / 2.0,
+                },
+            },
+        )
+        .expect("old stable-prefix address resolves against the current version");
+    let RuntimeTextRangeFromPointsResolution::Resolved {
+        anchor_caret,
+        focus_caret,
+        range,
+    } = response.value.resolution
+    else {
+        panic!("cross-version range resolves atomically");
+    };
+
+    assert_eq!(response.revision, current_handle);
+    assert_eq!(anchor_caret.address, anchor.address);
+    assert_eq!(focus_caret.address.page_index, third.0);
+    assert_eq!(range.selected_text, "first\n\nsecond\n\nthird");
+    assert!(range.rects.len() >= 3);
 }
 
 #[test]

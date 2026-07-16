@@ -240,6 +240,8 @@ test('generated type surface does not expose publication and layout as generic J
   assert.match(declaration, /readonly bundle: RitoCoreWasmRevisionBundle;/);
   assert.match(declaration, /getPageSemanticsAtRevision\(/);
   assert.match(declaration, /getPageReadingAnchorAtRevision\(/);
+  assert.match(declaration, /export interface RitoCoreWasmTextRangeToPointRequest/);
+  assert.match(declaration, /resolveTextRangeToPointAtRevision\(/);
   assert.match(declaration, /export interface RitoCoreWasmPageSemantics/);
   assert.match(declaration, /export type RitoCoreWasmPageReadingAnchor/);
   assert.match(declaration, /readonly preserveLocator\?: RitoCoreWasmSourceLocator/);

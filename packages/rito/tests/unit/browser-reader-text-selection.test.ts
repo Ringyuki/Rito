@@ -3,6 +3,7 @@ import type {
   CoreTextRangeResponse,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
+  CoreTextRangeFromPointsResponse,
   CoreVersioned,
 } from '../../src/bindings/browser/core-contracts';
 import { createBrowserReaderInteractions } from '../../src/bindings/browser/reader/interaction';
@@ -140,6 +141,42 @@ describe('Browser reader exact text selection', () => {
     });
   });
 
+  it('atomically rebinds a stable-prefix caret in a later bounded revision', async () => {
+    const fixture = readyFixture();
+    const anchorAddress = caretAddress(0, 1, 'downstream');
+    const focusAddress = caretAddress(0, 4, 'upstream');
+    fixture.resolveTextCaretAtRevision.mockResolvedValue(versionedCaret(anchorAddress));
+    const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
+    const anchor = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 1, y: 1 }));
+    setRevisionState(fixture.state, {
+      ...revisionSummary('rev', 4, 4),
+      revisionVersion: 1,
+    });
+    fixture.resolveTextRangeToPointAtRevision.mockResolvedValue(
+      versionedRangeToPoint(anchorAddress, focusAddress, 1),
+    );
+
+    const result = await textSelection.resolveTextRangeToPoint(anchor, {
+      pageIndex: 0,
+      x: 40,
+      y: 10,
+    });
+
+    expect(fixture.resolveTextRangeToPointAtRevision).toHaveBeenCalledWith(
+      { revisionId: 'rev', revisionVersion: 1 },
+      {
+        anchor: anchorAddress,
+        focus: { pageIndex: 0, x: 40, y: 10 },
+      },
+    );
+    expect(result?.status).toBe('resolved');
+    if (!result || result.status !== 'resolved') throw new Error('Expected a resolved range');
+    expect(result.range.anchor).not.toBe(anchor);
+    expect(result.range.anchor.pageIndex).toBe(0);
+    expect(result.range.focus.pageIndex).toBe(0);
+    expect(result.range.selectedText).toBe('selected');
+  });
+
   it('validates point coordinates before dispatch', async () => {
     const fixture = readyFixture();
     const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
@@ -253,6 +290,38 @@ function resolvedRange(
           },
         ],
       },
+    },
+  };
+}
+
+function versionedRangeToPoint(
+  anchor: CoreTextCaretAddress,
+  focus: CoreTextCaretAddress,
+  revisionVersion: number,
+): CoreVersioned<CoreTextRangeFromPointsResponse> {
+  const range = resolvedRange(anchor, focus, anchor, focus);
+  if (range.resolution.status !== 'resolved') throw new Error('Expected a resolved fixture range');
+  return {
+    revision: { revisionId: 'rev', revisionVersion },
+    value: {
+      revisionId: 'rev',
+      resolution: {
+        status: 'resolved',
+        anchorCaret: coreCaret(anchor),
+        focusCaret: coreCaret(focus),
+        range: range.resolution.range,
+      },
+    },
+  };
+}
+
+function coreCaret(address: CoreTextCaretAddress) {
+  return {
+    address,
+    geometry: { x: address.charIndex * 10, y: 12, height: 18 },
+    sourceLocator: {
+      href: 'chapter.xhtml',
+      sourcePoint: { nodePath: [0, 1], textOffset: address.charIndex },
     },
   };
 }

@@ -74,6 +74,20 @@ pub struct RuntimeTextRangeFromPointsResponse {
     pub resolution: RuntimeTextRangeFromPointsResolution,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextRangeToPointRequest {
+    pub anchor: TextCaretAddress,
+    pub focus: RuntimeTextPointRequest,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextRangeToPointResponse {
+    pub revision_id: String,
+    pub resolution: RuntimeTextRangeFromPointsResolution,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(
     tag = "status",

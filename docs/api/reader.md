@@ -185,6 +185,11 @@ next-block boundary. When the following flow is retained in the same chapter,
 `selectedText` still includes the native paragraph separator; at a bounded
 retention edge that trailing separator can appear only after the following flow
 has been retained.
+`resolveTextRangeToPoint()` is the atomic continuation path for an exact caret
+whose bounded revision has since appended an immutable page prefix. It rebinds
+that opaque caret and resolves the live point against one currently committed
+revision, so callers never combine geometry from two versions. A replacement
+layout, worker session, or unrelated revision still fails closed.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact

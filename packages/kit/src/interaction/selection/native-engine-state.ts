@@ -34,7 +34,9 @@ export interface NativeSelectionGestureSession {
   readonly granularity: NativeSelectionGranularity;
   readonly anchorPoint: NativeSelectionPoint | undefined;
   anchor: ReaderTextCaret | undefined;
+  readGeneration: number;
   latestSequence: number;
+  latestSample: NativeSelectionFocusSample | undefined;
   queued: NativeSelectionFocusSample | undefined;
   moveInFlight: boolean;
   finalInFlight: boolean;
@@ -66,7 +68,9 @@ export function createNativeSelectionGestureSession(
     granularity,
     anchorPoint,
     anchor,
+    readGeneration: 0,
     latestSequence: 0,
+    latestSample: undefined,
     queued: undefined,
     moveInFlight: false,
     finalInFlight: false,

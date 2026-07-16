@@ -17,6 +17,8 @@ import {
 import {
   requireTextRangeFromPointsRequest,
   requireTextRangeFromPointsTransport,
+  requireTextRangeToPointRequest,
+  requireTextRangeToPointTransport,
 } from './reader-worker-text-range-from-points-validation-runtime.js';
 import {
   requireExactSourceRangeRequest,
@@ -210,6 +212,20 @@ export function createVersionedReaderClientMethods(send) {
         { request: expectedRequest },
         (result, handle, operation) =>
           requireTextRangeFromPointsTransport(result, handle, expectedRequest, operation),
+      );
+    },
+    resolveTextRangeToPointAtRevision: (revision, request) => {
+      const expectedRequest = requireTextRangeToPointRequest(
+        request,
+        'resolveTextRangeToPointAtRevision',
+      );
+      return currentRevisionResult(
+        send,
+        'resolveTextRangeToPointAtRevision',
+        revision,
+        { request: expectedRequest },
+        (result, handle, operation) =>
+          requireTextRangeToPointTransport(result, handle, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision: (revision, request) => {

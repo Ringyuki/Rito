@@ -4,6 +4,7 @@ import { bindPointerEvents } from '../src/controller/wiring/pointer';
 import { createSelectionEngine } from '../src/interaction';
 import { createDomTarget, mouseDown, pointer, pointerPosition } from './helpers/dom-input';
 import {
+  capabilityWithRangeToPoint,
   caret,
   deferred,
   exactRange,
@@ -20,11 +21,11 @@ describe('native pointer granularity wiring', () => {
     const resolveTextRangeFromPoints = vi
       .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
       .mockResolvedValue({ status: 'resolved', range: wordRange });
-    const capability: ReaderTextSelectionInteractions = {
+    const capability = capabilityWithRangeToPoint({
       resolveCaret: vi.fn().mockReturnValue(oldCaretRead.promise),
       resolveTextRange,
       resolveTextRangeFromPoints,
-    };
+    });
     const engine = createSelectionEngine(capability);
     engine.setSpread({} as never, {} as never, {} as never, {
       spreadContentToPage: (x, y) => ({ pageIndex: 0, x, y }),

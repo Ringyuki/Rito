@@ -50,10 +50,13 @@ export interface NativeSelectionEngine {
   handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
   handlePointerMove(point: NativeSelectionPoint): void;
   handlePointerUp(point: NativeSelectionPoint): void;
+  /** Preserve revision-stable state and replay the latest gesture sample on an appended revision. */
+  acceptRevisionAppend(): void;
   clear(): void;
   invalidate(): void;
   dispose(): void;
   getState(): NativeSelectionState;
+  getInteractionGeneration(): number;
   getSnapshot(): NativeSelectionSnapshot | null;
   hasActiveHandleDrag(): boolean;
   onChange(listener: (change: NativeSelectionChange) => void): () => void;

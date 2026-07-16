@@ -32,6 +32,8 @@ export interface BrowserReaderExactReadGate {
   readonly owner: BrowserReaderBoundedSessionOwner;
   readonly generation: number;
   readonly commitGeneration: number;
+  /** The published layout identity that may be restored after a no-op mutation failure. */
+  readonly publicationGeneration: number | undefined;
 }
 
 export function recordBrowserReaderAcceptedRevision(
@@ -50,6 +52,7 @@ export function suspendBrowserReaderExactReads(
 ): BrowserReaderExactReadGate | undefined {
   const owner = state.boundedSessions.current;
   if (!owner) return undefined;
+  const publicationGeneration = state.revisionHandle?.publicationGeneration;
   owner.gateGeneration += 1;
   owner.readsSuspended = true;
   if (state.revisionHandle) {
@@ -60,6 +63,7 @@ export function suspendBrowserReaderExactReads(
     owner,
     generation: owner.gateGeneration,
     commitGeneration: state.commitGeneration,
+    publicationGeneration,
   };
 }
 
@@ -73,6 +77,7 @@ export function restoreBrowserReaderExactReads(
   if (
     state.disposed ||
     state.revisionHandle ||
+    gate.publicationGeneration === undefined ||
     state.commitGeneration !== gate.commitGeneration ||
     state.boundedSessions.current !== gate.owner ||
     gate.owner.gateGeneration !== gate.generation ||
@@ -90,6 +95,7 @@ export function restoreBrowserReaderExactReads(
   state.commitGeneration += 1;
   state.revisionHandle = {
     ...accepted,
+    publicationGeneration: gate.publicationGeneration,
     commitGeneration: state.commitGeneration,
   };
   gate.owner.readsSuspended = false;

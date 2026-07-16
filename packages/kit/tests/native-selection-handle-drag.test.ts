@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { ReaderTextCaretResolution, ReaderTextSelectionInteractions } from '@ritojs/core';
+import type { ReaderTextSelectionInteractions } from '@ritojs/core';
 import { createNativeSelectionEngine } from '../src/interaction/selection/native-engine';
 import type { NativeSelectionHandleDrag } from '../src/interaction/selection/native-types';
 import {
@@ -202,32 +202,42 @@ describe('native selection handle drag', () => {
   });
 
   it('invalidates a pending handle lookup and rejects every late callback', async () => {
-    const pendingCaret = deferred<ReaderTextCaretResolution | undefined>();
+    const pendingRange =
+      deferred<
+        Awaited<ReturnType<NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']>>>
+      >();
     const start = caret(1);
     const end = caret(8);
     const baseline = exactRange(start, end, 'forward', 'baseline');
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
-      .mockResolvedValueOnce(resolvedCaret(start))
-      .mockResolvedValueOnce(resolvedCaret(end))
-      .mockReturnValueOnce(pendingCaret.promise);
-    const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
-      .mockResolvedValueOnce({ status: 'resolved', range: baseline });
-    const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
+      .mockResolvedValueOnce(resolvedCaret(start));
+    const resolveTextRangeToPoint = vi
+      .fn<NonNullable<ReaderTextSelectionInteractions['resolveTextRangeToPoint']>>()
+      .mockResolvedValueOnce({ status: 'resolved', range: baseline })
+      .mockReturnValueOnce(pendingRange.promise);
+    const engine = createNativeSelectionEngine({
+      resolveCaret,
+      resolveTextRange: vi.fn(),
+      resolveTextRangeToPoint,
+      resolveTextRangeFromPoints: vi.fn(),
+    });
 
     await seedSelection(engine, 1, 8);
     const drag = requireDrag(engine.beginHandleDrag('end'));
     drag.update(point(5));
     engine.invalidate();
-    pendingCaret.resolve(resolvedCaret(caret(5)));
+    pendingRange.resolve({
+      status: 'resolved',
+      range: exactRange(start, caret(5), 'forward', 'stale'),
+    });
     await flushMicrotasks();
     drag.finish(point(5));
     drag.cancel();
 
     expect(engine.getState()).toBe('idle');
     expect(engine.getSnapshot()).toBeNull();
-    expect(resolveRange).toHaveBeenCalledOnce();
+    expect(resolveTextRangeToPoint).toHaveBeenCalledTimes(2);
   });
 
   it('uses an in-flight move when a fast final lookup is cancelled', async () => {

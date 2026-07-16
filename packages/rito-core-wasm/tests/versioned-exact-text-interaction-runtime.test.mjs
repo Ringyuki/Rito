@@ -18,6 +18,9 @@ import {
   pointRangeTransport,
   rangeRequest,
   rangeResponse,
+  rangeToPointRequest,
+  rangeToPointResponse,
+  rangeToPointTransport,
   rangeTransport,
   rawExactTextDocument,
 } from './versioned-exact-text-interaction-fixtures.mjs';
@@ -39,6 +42,8 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
   const range = await client.resolveTextRangeAtRevision(handle(3), rangeInput);
   const granularInput = pointRangeRequest();
   const granular = await client.resolveTextRangeFromPointsAtRevision(handle(3), granularInput);
+  const rangeToPointInput = rangeToPointRequest();
+  const rangeToPoint = await client.resolveTextRangeToPointAtRevision(handle(3), rangeToPointInput);
 
   assert.deepEqual(caret, { revision: handle(3), value: caretResponse() });
   assert.deepEqual(range, { revision: handle(3), value: rangeResponse(rangeInput) });
@@ -52,12 +57,17 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
     revision: handle(3),
     value: pointRangeResponse(granularInput),
   });
+  assert.deepEqual(rangeToPoint, {
+    revision: handle(3),
+    value: rangeToPointResponse(rangeToPointInput),
+  });
   assert.deepEqual(
     calls.filter(([name]) => name.includes('AtRevision')),
     [
       ['resolveTextCaretAtRevisionJson', ['rev-1', 3, JSON.stringify(point)]],
       ['resolveTextRangeAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeInput)]],
       ['resolveTextRangeFromPointsAtRevisionJson', ['rev-1', 3, JSON.stringify(granularInput)]],
+      ['resolveTextRangeToPointAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeToPointInput)]],
     ],
   );
   client.dispose();
@@ -111,6 +121,26 @@ test('payload dispatch echoes normalized exact requests and validates both envel
     result: pointRangeTransport(granularInput),
   });
 
+  const rangeToPointInput = rangeToPointRequest();
+  const rangeToPoint = versionedReaderWorkerPayload(
+    {
+      resolveTextRangeToPointAtRevision: () => ({
+        revision: handle(),
+        value: rangeToPointResponse(rangeToPointInput),
+      }),
+    },
+    {
+      kind: 'resolveTextRangeToPointAtRevision',
+      revision: handle(),
+      request: rangeToPointInput,
+    },
+  );
+  assert.deepEqual(rangeToPoint, {
+    kind: 'resolveTextRangeToPointAtRevision',
+    revision: handle(),
+    result: rangeToPointTransport(rangeToPointInput),
+  });
+
   assert.throws(
     () =>
       versionedReaderWorkerPayload(
@@ -162,6 +192,21 @@ test('direct granular point range rejects forged durable source endpoints', () =
   );
 });
 
+test('direct range-to-point rejects an anchor caret unrelated to its stable-prefix request', () => {
+  const request = rangeToPointRequest();
+  const response = structuredClone(rangeToPointResponse(request));
+  response.resolution.anchorCaret.address.charIndex += 1;
+  const raw = rawExactTextDocument([]);
+  raw.resolveTextRangeToPointAtRevisionJson = () =>
+    JSON.stringify({ revision: handle(), value: response });
+  const document = new RitoCoreWasmDocument(raw);
+
+  assert.throws(
+    () => document.resolveTextRangeToPointAtRevision(handle(), request),
+    /anchor caret does not match its request/,
+  );
+});
+
 test('real worker handler dispatches granular point ranges through the validated payload path', async () => {
   const document = new RitoCoreWasmDocument(rawExactTextDocument([]));
   const scope = new HandlerScope();
@@ -186,6 +231,23 @@ test('real worker handler dispatches granular point ranges through the validated
       kind: 'resolveTextRangeFromPointsAtRevision',
       revision: handle(),
       result: pointRangeTransport(request),
+    },
+  });
+
+  const rangeToPointInput = rangeToPointRequest();
+  const rangeToPoint = await scope.send({
+    id: 3,
+    kind: 'resolveTextRangeToPointAtRevision',
+    revision: handle(),
+    request: rangeToPointInput,
+  });
+  assert.deepEqual(rangeToPoint, {
+    id: 3,
+    ok: true,
+    payload: {
+      kind: 'resolveTextRangeToPointAtRevision',
+      revision: handle(),
+      result: rangeToPointTransport(rangeToPointInput),
     },
   });
 });

@@ -23,6 +23,7 @@ export function commitRevisionHandle(
   state.commitGeneration += 1;
   return {
     ...createWorkerRevisionHandle(worker, revisionId, revisionVersion),
+    publicationGeneration: state.commitGeneration,
     commitGeneration: state.commitGeneration,
   };
 }

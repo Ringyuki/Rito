@@ -10,6 +10,8 @@ import type {
   RitoCoreWasmTextRangeResponse,
   RitoCoreWasmTextRangeFromPointsRequest,
   RitoCoreWasmTextRangeFromPointsResponse,
+  RitoCoreWasmTextRangeToPointRequest,
+  RitoCoreWasmTextRangeToPointResponse,
   RitoCoreWasmSourceLocator,
   RitoCoreWasmSourceLocatorResolution,
   RitoCoreWasmTextCaretResponse,
@@ -116,6 +118,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmTextRangeFromPointsRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmTextRangeFromPointsResponse>>;
+  resolveTextRangeToPointAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmTextRangeToPointRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmTextRangeToPointResponse>>;
   resolveExactSourceRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
@@ -223,6 +229,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmTextRangeFromPointsRequest,
   ): RitoCoreWasmVersioned<RitoCoreWasmTextRangeFromPointsResponse>;
+  resolveTextRangeToPointAtRevision(
+    revision: RitoCoreWasmRevisionHandle,
+    request: RitoCoreWasmTextRangeToPointRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmTextRangeToPointResponse>;
   resolveExactSourceRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
@@ -296,6 +306,12 @@ export interface RitoCoreWasmReaderTextRangeTransport {
 export interface RitoCoreWasmReaderTextRangeFromPointsTransport {
   readonly request: RitoCoreWasmTextRangeFromPointsRequest;
   readonly response: RitoCoreWasmTextRangeFromPointsResponse;
+}
+
+/** Private Worker echo binding a stable-prefix anchor and live focus point. */
+export interface RitoCoreWasmReaderTextRangeToPointTransport {
+  readonly request: RitoCoreWasmTextRangeToPointRequest;
+  readonly response: RitoCoreWasmTextRangeToPointResponse;
 }
 
 /** Private Worker echo binding exact source projection to its durable request. */
@@ -376,6 +392,10 @@ export type RitoCoreWasmReaderWorkerResolveTextRangeFromPointsAtRevisionRequest 
   RevisionRequest<'resolveTextRangeFromPointsAtRevision'> & {
     readonly request: RitoCoreWasmTextRangeFromPointsRequest;
   };
+export type RitoCoreWasmReaderWorkerResolveTextRangeToPointAtRevisionRequest =
+  RevisionRequest<'resolveTextRangeToPointAtRevision'> & {
+    readonly request: RitoCoreWasmTextRangeToPointRequest;
+  };
 export type RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest =
   RevisionRequest<'resolveExactSourceRangeAtRevision'> & {
     readonly request: RitoCoreWasmExactSourceRangeRequest;
@@ -427,6 +447,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextRangeFromPointsAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolveTextRangeToPointAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
@@ -509,6 +530,10 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveTextRangeFromPointsAtRevision',
       RitoCoreWasmReaderTextRangeFromPointsTransport
+    >
+  | RitoCoreWasmReaderWorkerVersionedResponse<
+      'resolveTextRangeToPointAtRevision',
+      RitoCoreWasmReaderTextRangeToPointTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveExactSourceRangeAtRevision',

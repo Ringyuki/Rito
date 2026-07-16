@@ -81,7 +81,10 @@ function createMocks(options?: {
     }),
   );
   const invalidateSelection = vi.fn();
+  const acceptRevisionAppend = vi.fn();
   const coordState = {
+    contentInteractionGeneration: 6,
+    selectionProjectionTransfer: null,
     positionUpdateMode: { kind: 'capture' },
     resolvedAnnotations: [{}],
     nativeAnnotationGeometry: {
@@ -115,7 +118,7 @@ function createMocks(options?: {
     renderScale: 1,
     options: {},
     engines: {
-      selection: { invalidate: invalidateSelection },
+      selection: { acceptRevisionAppend, invalidate: invalidateSelection },
       search: { setPages },
       position: {
         getCurrent,
@@ -162,6 +165,7 @@ function createMocks(options?: {
       claimPositionIntent,
       prepareLayoutCommit,
       positionIntent,
+      acceptRevisionAppend,
       invalidateSelection,
     },
     get annotationStateAtComposite() {
@@ -220,7 +224,9 @@ describe('buildLayoutActions', () => {
     expect(fixture.internals.coordState.resolvedAnnotations).toHaveLength(1);
     expect(fixture.internals.coordState.resolvedAnnotations[0]?.record).toBe(annotation);
     expect(fixture.spies.setPages).toHaveBeenCalledWith(fixture.reader.pages);
-    expect(fixture.spies.invalidateSelection).toHaveBeenCalledOnce();
+    expect(fixture.spies.acceptRevisionAppend).toHaveBeenCalledOnce();
+    expect(fixture.spies.invalidateSelection).not.toHaveBeenCalled();
+    expect(fixture.internals.coordState.contentInteractionGeneration).toBe(6);
     expect(markAllOverlaysDirty).toHaveBeenCalledOnce();
     expect(fixture.spies.invalidateAllContent).not.toHaveBeenCalled();
     expect(fixture.spies.reset).not.toHaveBeenCalled();
@@ -281,6 +287,8 @@ describe('buildLayoutActions', () => {
     });
     expect(spies.notifyActiveSpread).toHaveBeenCalledWith(1);
     expect(spies.invalidateSelection).toHaveBeenCalledOnce();
+    expect(spies.acceptRevisionAppend).not.toHaveBeenCalled();
+    expect(internals.coordState.contentInteractionGeneration).toBe(7);
   });
 
   it('invalidates native annotation geometry before compositing a replacement revision', () => {

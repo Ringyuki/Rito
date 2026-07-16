@@ -232,7 +232,9 @@ async function mutateCurrent(
         state,
         owner,
         replacementTarget,
-        notifyLayoutCommitted,
+        // A font-geometry candidate is a full replacement, even when the
+        // mutation started as a stable-prefix pagination append.
+        true,
         startBrowserReaderBoundedCandidate,
       );
       if (replacement) return replacement;

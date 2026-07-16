@@ -52,6 +52,9 @@ export interface BrowserReaderWorkerRevisionHandle {
 }
 
 export interface BrowserReaderRevisionHandle extends BrowserReaderWorkerRevisionHandle {
+  /** Identifies the published layout; unlike commitGeneration it survives a pure read-gate restore. */
+  readonly publicationGeneration: number;
+  /** Identifies the current exact-read lease and changes whenever its gate closes or reopens. */
   readonly commitGeneration: number;
 }
 

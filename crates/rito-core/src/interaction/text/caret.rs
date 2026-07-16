@@ -55,19 +55,25 @@ pub(super) fn resolve_address<'a>(
                 && caret_affinity(stop.affinity) == address.affinity
         })
         .ok_or(TextInteractionUnavailableReason::InvalidCaret)?;
-    let (interaction_y, interaction_height) = run.interaction_vertical_bounds();
-    if run
-        .visual
-        .resolve_vertical_segment(
-            run.x + f64::from(stop.visual_offset),
-            interaction_y,
-            interaction_height,
-        )
-        .is_none()
-    {
-        return Err(TextInteractionUnavailableReason::VisualGeometryUnavailable);
-    }
+    caret_geometry(run, stop)?;
     resolved_run_caret(run, slice, stop)
+}
+
+pub(super) fn resolve_address_caret(
+    runs: &[CollectedTextRun<'_>],
+    address: TextCaretAddress,
+) -> Result<LayoutTextCaret, TextInteractionUnavailableReason> {
+    let resolved = resolve_address(runs, address)?;
+    let run = runs
+        .iter()
+        .copied()
+        .find(|run| run.matches_address(address))
+        .ok_or(TextInteractionUnavailableReason::InvalidCaret)?;
+    Ok(LayoutTextCaret {
+        address: resolved.address,
+        geometry: caret_geometry(run, resolved.stop)?,
+        source_point: resolved.source_point,
+    })
 }
 
 pub(super) fn exact_run_parts(
@@ -158,20 +164,9 @@ fn resolve_point_in_run(run: CollectedTextRun<'_>, x: f64, y: f64) -> LayoutText
             TextInteractionUnavailableReason::InvalidCaret,
         );
     };
-    let (interaction_y, interaction_height) = run.interaction_vertical_bounds();
-    let Some(bounds) = run.visual.resolve_vertical_segment(
-        run.x + f64::from(stop.visual_offset),
-        interaction_y,
-        interaction_height,
-    ) else {
-        return LayoutTextCaretResolution::Unavailable(
-            TextInteractionUnavailableReason::VisualGeometryUnavailable,
-        );
-    };
-    let geometry = TextCaretGeometry {
-        x: bounds.x,
-        y: bounds.y,
-        height: bounds.height,
+    let geometry = match caret_geometry(run, stop) {
+        Ok(geometry) => geometry,
+        Err(reason) => return LayoutTextCaretResolution::Unavailable(reason),
     };
     let resolved = match resolved_run_caret(run, slice, stop) {
         Ok(resolved) => resolved,
@@ -181,6 +176,26 @@ fn resolve_point_in_run(run: CollectedTextRun<'_>, x: f64, y: f64) -> LayoutText
         address: resolved.address,
         geometry,
         source_point: resolved.source_point,
+    })
+}
+
+fn caret_geometry(
+    run: CollectedTextRun<'_>,
+    stop: RunShapeCaretStop,
+) -> Result<TextCaretGeometry, TextInteractionUnavailableReason> {
+    let (interaction_y, interaction_height) = run.interaction_vertical_bounds();
+    let bounds = run
+        .visual
+        .resolve_vertical_segment(
+            run.x + f64::from(stop.visual_offset),
+            interaction_y,
+            interaction_height,
+        )
+        .ok_or(TextInteractionUnavailableReason::VisualGeometryUnavailable)?;
+    Ok(TextCaretGeometry {
+        x: bounds.x,
+        y: bounds.y,
+        height: bounds.height,
     })
 }
 

@@ -3,7 +3,11 @@ import type {
   ReaderTextRangeFromPointsResolution,
 } from '../../../reader';
 import type { CoreTextRangeFromPointsResponse, CoreTextRangeResponse } from '../core-contracts';
-import { captureInteraction, readCapturedInteraction } from './interaction-capture';
+import {
+  captureInteraction,
+  readCapturedInteraction,
+  type BrowserReaderInteractionCapture,
+} from './interaction-capture';
 import {
   bindReaderCaret,
   mapRangeResolution,
@@ -31,6 +35,15 @@ export async function resolveTextRangeFromPoints(
     }),
   );
   if (!value) return undefined;
+  return mapTextRangeFromPointResponse(state, bindings, capture, value);
+}
+
+export function mapTextRangeFromPointResponse(
+  state: BrowserReaderState,
+  bindings: CaretBindings,
+  capture: BrowserReaderInteractionCapture,
+  value: CoreTextRangeFromPointsResponse,
+): ReaderTextRangeFromPointsResolution {
   requireMatchingRevision(value.revisionId, capture);
   if (value.resolution.status === 'miss') return { status: 'miss' };
   if (value.resolution.status === 'unavailable') {
@@ -57,7 +70,7 @@ export async function resolveTextRangeFromPoints(
     requireBoundCaret(bindings, focus),
   );
   if (mapped.status !== 'resolved') {
-    throw new Error('Reader granular point range lost its resolved range');
+    throw new Error('Reader point range lost its resolved range');
   }
   return mapped;
 }

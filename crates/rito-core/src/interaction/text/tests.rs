@@ -3,8 +3,9 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use super::{
-    resolve_text_caret, resolve_text_range, LayoutExactTextRangeResolution,
-    LayoutTextCaretResolution, TextCaretAddress, TextCaretAffinity,
+    resolve_text_caret, resolve_text_range, resolve_text_range_to_point,
+    LayoutExactTextRangeResolution, LayoutTextCaretResolution, LayoutTextPoint,
+    LayoutTextRangeFromPointsResolution, TextCaretAddress, TextCaretAffinity,
     TextInteractionUnavailableReason,
 };
 use crate::layout::{
@@ -369,6 +370,87 @@ fn text_range_crosses_pages_without_losing_geometry() {
             .map(|rect| rect.page_index)
             .collect::<Vec<_>>(),
         [0, 1]
+    );
+}
+
+#[test]
+fn text_range_to_point_rebinds_a_stable_prefix_address_across_pages() {
+    let flow = exact_flow("ab");
+    let pages = vec![
+        page(
+            0,
+            vec![vec![run(
+                "a",
+                slice(&flow, 0, 0, 1),
+                0.0,
+                10.0,
+                uniform_shape(1),
+            )]],
+            None,
+        ),
+        page(
+            1,
+            vec![vec![run(
+                "b",
+                slice(&flow, 0, 1, 2),
+                0.0,
+                10.0,
+                uniform_shape(1),
+            )]],
+            None,
+        ),
+    ];
+    let anchor = address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream);
+
+    let LayoutTextRangeFromPointsResolution::Resolved(selection) = resolve_text_range_to_point(
+        &pages,
+        anchor,
+        LayoutTextPoint {
+            page_index: 1,
+            x: 100.0,
+            y: 25.0,
+        },
+    ) else {
+        panic!("stable-prefix address and live point resolve atomically");
+    };
+
+    assert_eq!(selection.anchor_caret.address, anchor);
+    assert_eq!(selection.focus_caret.address.page_index, 1);
+    assert_eq!(selection.focus_caret.address.char_index, 1);
+    assert_eq!(selection.range.selected_text, "ab");
+    assert_eq!(selection.range.rects.len(), 2);
+}
+
+#[test]
+fn text_range_to_point_rejects_an_address_with_the_wrong_affinity() {
+    let flow = exact_flow("a");
+    let pages = vec![page(
+        0,
+        vec![vec![run(
+            "a",
+            slice(&flow, 0, 0, 1),
+            0.0,
+            10.0,
+            uniform_shape(1),
+        )]],
+        None,
+    )];
+
+    let resolution = resolve_text_range_to_point(
+        &pages,
+        address(0, 0, 0, 0, 0, TextCaretAffinity::Upstream),
+        LayoutTextPoint {
+            page_index: 0,
+            x: 100.0,
+            y: 25.0,
+        },
+    );
+
+    assert_eq!(
+        resolution,
+        LayoutTextRangeFromPointsResolution::Unavailable(
+            TextInteractionUnavailableReason::InvalidCaret
+        )
     );
 }
 

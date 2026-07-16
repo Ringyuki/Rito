@@ -9,6 +9,8 @@ import {
   pointRequest,
   rangeRequest,
   rangeResponse,
+  rangeToPointRequest,
+  rangeToPointResponse,
 } from './versioned-exact-text-interaction-fixtures.mjs';
 
 const { RitoCoreWasmDocument } = createRitoCoreWasmDocumentRuntime(
@@ -164,6 +166,7 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.resolveTextCaretAtRevision(handle, pointRequest()),
     () => document.resolveTextRangeAtRevision(handle, rangeRequest()),
     () => document.resolveTextRangeFromPointsAtRevision(handle, pointRangeRequest()),
+    () => document.resolveTextRangeToPointAtRevision(handle, rangeToPointRequest()),
     () => document.getFootnoteAtRevision(handle, 'chapter.xhtml#fn1'),
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),
@@ -316,6 +319,9 @@ function versionedValue(property, args, version) {
   }
   if (property === 'resolveTextRangeFromPointsAtRevisionJson') {
     return pointRangeResponse(JSON.parse(args[2]), { revisionId });
+  }
+  if (property === 'resolveTextRangeToPointAtRevisionJson') {
+    return rangeToPointResponse(JSON.parse(args[2]), { revisionId });
   }
   if (property === 'getFootnotesAtRevisionJson') {
     return { revisionId, entries: {} };

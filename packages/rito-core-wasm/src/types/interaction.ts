@@ -216,6 +216,18 @@ export interface RitoCoreWasmTextRangeFromPointsResponse {
   readonly resolution: RitoCoreWasmTextRangeFromPointsResolution;
 }
 
+/**
+ * Atomically rebinds a stable-prefix caret address to one current revision and
+ * resolves the live focus point against that same revision.
+ */
+export interface RitoCoreWasmTextRangeToPointRequest {
+  readonly anchor: RitoCoreWasmTextCaretAddress;
+  readonly focus: RitoCoreWasmTextPointRequest;
+}
+
+export type RitoCoreWasmTextRangeToPointResolution = RitoCoreWasmTextRangeFromPointsResolution;
+export type RitoCoreWasmTextRangeToPointResponse = RitoCoreWasmTextRangeFromPointsResponse;
+
 export type RitoCoreWasmSourceLocatorMatchedBy =
   | 'sourceRange'
   | 'sourcePoint'

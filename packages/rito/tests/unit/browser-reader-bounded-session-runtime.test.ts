@@ -19,6 +19,7 @@ import {
 import { isCurrentRevisionHandle } from '../../src/bindings/browser/reader/pipeline/revision-handle';
 import { toCoreLayoutConfig } from '../../src/bindings/browser/reader/layout';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
+import { createFontGeometryReplacementWorker } from './browser-reader-bounded-session-runtime-fixtures';
 import {
   createDeferred,
   createState,
@@ -477,6 +478,41 @@ describe('Browser bounded session runtime', () => {
     expect(fixture.state.revisionBundle.revision).toBe(next.revision);
     expect(fixture.owner.readsSuspended).toBe(false);
     expect(committed).not.toHaveBeenCalled();
+  });
+
+  it('keeps an ordinary same-owner spread append silent', async () => {
+    const fixture = currentFixture();
+    const next = boundedSnapshot('current', 1, 2, 'ready');
+    fixture.owner.controller.ensureSpread = vi.fn(() => {
+      recordBrowserReaderAcceptedRevision(fixture.owner, next.revision);
+      return Promise.resolve(next);
+    });
+    mockAggregates(fixture.worker, next);
+    const committed = vi.fn();
+    fixture.state.layoutCommittedListeners.add(committed);
+    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).resolves.toBe(true);
+    expect(committed).not.toHaveBeenCalled();
+  });
+
+  it('publishes a layout commit when spread growth requires a font-geometry replacement', async () => {
+    const fixture = currentFixture();
+    const uncalibrated = boundedSnapshot('current', 1, 2, 'ready');
+    fixture.owner.controller.ensureSpread = vi.fn(() => {
+      recordBrowserReaderAcceptedRevision(fixture.owner, uncalibrated.revision);
+      return Promise.resolve(uncalibrated);
+    });
+    mockAggregates(fixture.worker, uncalibrated);
+
+    const calibrated = boundedSnapshot('calibrated', 1, 2, 'ready', { revisionVersion: 0 });
+    const candidate = createFontGeometryReplacementWorker(fixture.state, calibrated);
+    const committed = vi.fn();
+    fixture.state.layoutCommittedListeners.add(committed);
+    await expect(ensureBrowserReaderBoundedSpread(fixture.state, 1)).resolves.toBe(true);
+
+    expect(fixture.state.boundedSessions.current?.worker).toBe(candidate);
+    expect(fixture.state.revisionBundle.revision.revisionId).toBe('calibrated');
+    expect(committed).toHaveBeenCalledOnce();
+    expect(committed).toHaveBeenCalledWith(1);
   });
 
   it('commits a complete final miss before returning false', async () => {

@@ -320,6 +320,7 @@ describe('Browser reader resource-backed rendering', () => {
       workerSessionId: state.worker.sessionId,
       revisionId: 'rev-1',
       revisionVersion: 1,
+      publicationGeneration: 2,
       commitGeneration: 2,
     };
     finishLoads[0]?.();
@@ -476,6 +477,7 @@ describe('Browser reader resource-backed rendering', () => {
       workerSessionId: state.worker.sessionId,
       revisionId: 'rev-1',
       revisionVersion: 1,
+      publicationGeneration: 2,
       commitGeneration: 2,
     };
     expectDefined(finishLoad)();
@@ -510,6 +512,7 @@ describe('Browser reader resource-backed rendering', () => {
       workerSessionId: state.worker.sessionId,
       revisionId: 'rev-1',
       revisionVersion: 1,
+      publicationGeneration: 2,
       commitGeneration: 2,
     };
     resolveOld?.(

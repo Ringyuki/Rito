@@ -3,6 +3,49 @@ import type { Reader } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
 
 describe('partial-extent navigation', () => {
+  it('grows a selection-owned target without claiming or starting navigation', async () => {
+    const fixture = createFixture();
+    const abort = new AbortController();
+
+    const pending = fixture.nav.ensureSelectionSpread(1, abort.signal);
+    fixture.commitSpread(1);
+    fixture.growth(0).resolve(true);
+
+    await expect(pending).resolves.toBe(true);
+    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
+    expect(fixture.current()).toBe(0);
+    expect(fixture.goToTarget).not.toHaveBeenCalled();
+    expect(fixture.assignSlot).not.toHaveBeenCalled();
+  });
+
+  it('drops a late selection-owned growth after its handle aborts', async () => {
+    const fixture = createFixture();
+    const abort = new AbortController();
+    const pending = fixture.nav.ensureSelectionSpread(1, abort.signal);
+
+    abort.abort();
+    fixture.commitSpread(1);
+    fixture.growth(0).resolve(true);
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
+  });
+
+  it('publishes a committed selection extent before reporting a growth rejection', async () => {
+    const fixture = createFixture();
+    const pending = fixture.nav.ensureSelectionSpread(1, new AbortController().signal);
+
+    fixture.commitSpread(1);
+    fixture.growth(0).reject(new Error('growth failed after commit'));
+
+    await expect(pending).resolves.toBeUndefined();
+    expect(fixture.onPaginationChanged).toHaveBeenCalledOnce();
+    expect(fixture.emit).toHaveBeenCalledWith('error', {
+      message: 'growth failed after commit',
+      source: 'reader pagination',
+    });
+  });
+
   it('grows a known tail once and resumes deferred content navigation', async () => {
     const fixture = createFixture({ contentReady: false });
 

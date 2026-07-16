@@ -5,10 +5,10 @@ mod text;
 
 pub(crate) use text::{
     resolve_exact_source_range, resolve_text_caret, resolve_text_range,
-    resolve_text_range_from_points, ExactTextRangeRect, LayoutExactTextRange,
-    LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret, LayoutTextCaretResolution,
-    LayoutTextPageRange, LayoutTextPoint, LayoutTextRangeFromPointsResolution,
-    LayoutTextSelectionGranularity,
+    resolve_text_range_from_points, resolve_text_range_to_point, ExactTextRangeRect,
+    LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret,
+    LayoutTextCaretResolution, LayoutTextPageRange, LayoutTextPoint,
+    LayoutTextRangeFromPointsResolution, LayoutTextSelectionGranularity,
 };
 pub use text::{
     TextCaretAddress, TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,

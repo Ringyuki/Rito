@@ -56,6 +56,8 @@ export interface NavigationActions {
   ): jump.NavigationJumpOutcome;
   /** Prepare a paintable snap without claiming navigation or position ownership. */
   prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
+  /** Grow a selection-owned forward target without claiming navigation ownership. */
+  ensureSelectionSpread(index: number, signal: AbortSignal): Promise<boolean | undefined>;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
   /** Retry a TOC target that was unavailable in a partial preview revision. */
@@ -101,6 +103,8 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     prepareSpreadForJump(index) {
       return state.disposed ? 'superseded' : jump.prepareSpreadForJump(deps, index);
     },
+    ensureSelectionSpread: (index, signal) =>
+      growth.ensureSelectionSpread(state, deps, index, signal),
     notifyContentReady(spreadIndex) {
       if (state.disposed) return;
       growth.continuePendingNavigation(state, deps, spreadIndex);
@@ -110,14 +114,18 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       retryPendingTocEntry(state, deps, locatorNavigator);
     },
     supersedeForPositionIntent: () => {
-      if (state.disposed) return;
-      deps.onContentInteractionIntent?.();
-      navState.supersedeNavigationForPositionIntent(state, deps.td);
+      supersedeForPositionIntent(state, deps);
     },
     dispose() {
       disposeNavigation(state);
     },
   };
+}
+
+function supersedeForPositionIntent(state: State, deps: NavigationDeps): void {
+  if (state.disposed) return;
+  deps.onContentInteractionIntent?.();
+  navState.supersedeNavigationForPositionIntent(state, deps.td);
 }
 
 function disposeNavigation(state: State): void {

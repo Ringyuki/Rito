@@ -143,7 +143,7 @@ export function publishPaginationChange(
   emitter: Emitter,
   frameDriver: Pick<FrameDriver, 'markAllOverlaysDirty'>,
 ): void {
-  invalidateSelectionForLayout(internals);
+  internals.engines.selection.acceptRevisionAppend();
   if (usesNativeSearchGeometry(internals.reader)) {
     invalidateNativeSearchLayout(internals.coordState);
   }
@@ -158,6 +158,7 @@ export function publishPaginationChange(
 }
 
 function invalidateSelectionForLayout(internals: Internals): void {
+  internals.coordState.contentInteractionGeneration += 1;
   internals.coordState.selectionProjectionTransfer = null;
   internals.engines.selection.invalidate();
 }

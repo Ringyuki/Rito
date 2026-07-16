@@ -672,9 +672,10 @@ target activation ordering; an anchor can therefore activate before a later
 double-click is recognized. Word/paragraph granularity and same-spread touch-handle
 adjustment now follow that rule, including fixed-opposite-caret crossing, grab-offset
 preservation, pointer capture, fast release and cancellation rollback. Exact-handle
-edge autoscroll now covers already-published spreads in one revision. Primary-drag edge
-scrolling, cross-revision spread extension and keyboard extension must likewise follow the host
-platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
+edge autoscroll now covers already-published spreads and append-only bounded growth. It
+atomically rebinds the stable-prefix caret against the appended revision and rejects
+replacement layouts. Primary-drag edge scrolling and keyboard extension must likewise
+follow the host platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
 Canvas pointer input and the production Worker path, not only mocked caret/range
 unit tests. The controlled Browser proof passes real Canvas multi-line and
 cross-paragraph drags, pointer-up persistence and exact copied text with native

@@ -4,7 +4,7 @@ use crate::{
         parse_exact_source_range_request, parse_locator_request, parse_search_request,
         parse_source_locator_request, parse_text_point_request,
         parse_text_range_from_points_request, parse_text_range_geometry_request,
-        parse_text_range_request, serialize_json,
+        parse_text_range_request, parse_text_range_to_point_request, serialize_json,
     },
     WasmRuntimeDocument, WasmRuntimeError,
 };
@@ -170,6 +170,23 @@ impl WasmRuntimeDocument {
         let response = self
             .document
             .resolve_text_range_from_points_at(
+                &revision_handle(revision_id, revision_version),
+                request,
+            )
+            .map_err(WasmRuntimeError::from_revision_access)?;
+        serialize_json(&response)
+    }
+
+    pub fn resolve_text_range_to_point_at_revision_json(
+        &self,
+        revision_id: &str,
+        revision_version: u32,
+        request_json: &str,
+    ) -> Result<String, WasmRuntimeError> {
+        let request = parse_text_range_to_point_request(request_json)?;
+        let response = self
+            .document
+            .resolve_text_range_to_point_at(
                 &revision_handle(revision_id, revision_version),
                 request,
             )

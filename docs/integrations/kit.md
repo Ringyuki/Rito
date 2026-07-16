@@ -88,6 +88,11 @@ for legacy readers but is intentionally `null` for an exact native selection; us
 changes, render-scale changes, cancellation, and disposal discard late async results. A
 content-only resource repaint, such as an image decode or frame warmup completing, keeps
 the committed selection because its Rust revision and source range remain valid.
+Append-only bounded pagination also preserves the native selection session: Kit
+invalidates reads from the older revision, replays only the latest pointer or
+handle sample through the atomic caret-to-point API, and can continue a captured
+handle into a newly published spread after edge dwell. A replacement layout or
+new worker session still invalidates the selection before it is painted.
 Persistent annotation target creation now preserves the exact native source range;
 when `interactions.resolveExactSourceRange` is present, Kit also treats it as
 authoritative for annotation re-projection. It resolves selector fallbacks to a

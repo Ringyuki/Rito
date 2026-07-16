@@ -2,6 +2,7 @@ import type {
   ReaderTextCaret,
   ReaderTextCaretResolution,
   ReaderTextPoint,
+  ReaderTextRangeFromPointsResolution,
   ReaderTextRangeResolution,
   ReaderTextSelectionInteractions,
 } from '../../../reader';
@@ -12,9 +13,13 @@ import {
   sameRevision,
   type BrowserReaderInteractionCapture,
 } from './interaction-capture';
-import { resolveTextRangeFromPoints } from './text-selection-from-points';
+import {
+  mapTextRangeFromPointResponse,
+  resolveTextRangeFromPoints,
+} from './text-selection-from-points';
 import {
   bindReaderCaret,
+  canRebindStablePrefixCaret,
   copyCoreAddress,
   mapRangeResolution,
   requireBoundCaret,
@@ -33,8 +38,30 @@ export function createBrowserReaderTextSelection(
   return {
     resolveCaret: (point) => resolveCaret(state, bindings, point),
     resolveTextRange: (anchor, focus) => resolveTextRange(state, bindings, anchor, focus),
+    resolveTextRangeToPoint: (anchor, focus) =>
+      resolveTextRangeToPoint(state, bindings, anchor, focus),
     resolveTextRangeFromPoints: (request) => resolveTextRangeFromPoints(state, bindings, request),
   };
+}
+
+async function resolveTextRangeToPoint(
+  state: BrowserReaderState,
+  bindings: CaretBindings,
+  anchor: ReaderTextCaret,
+  focus: ReaderTextPoint,
+): Promise<ReaderTextRangeFromPointsResolution | undefined> {
+  requireTextPoint(focus);
+  const anchorBinding = requireBoundCaret(bindings, anchor);
+  const capture = captureInteraction(state);
+  if (!capture || !canRebindStablePrefixCaret(anchorBinding, capture.revision)) return undefined;
+  const value = await readCapturedInteraction(state, capture, (worker, revision) =>
+    worker.resolveTextRangeToPointAtRevision(revision, {
+      anchor: copyCoreAddress(anchorBinding.address),
+      focus: { ...focus },
+    }),
+  );
+  if (!value) return undefined;
+  return mapTextRangeFromPointResponse(state, bindings, capture, value);
 }
 
 async function resolveCaret(

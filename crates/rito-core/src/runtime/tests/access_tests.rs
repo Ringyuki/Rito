@@ -11,7 +11,8 @@ use crate::{
         RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
         RuntimeSearchRequest, RuntimeSemanticRole, RuntimeSourceLocator,
         RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeTextPointRequest,
-        RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeVersioned,
+        RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeTextRangeToPointRequest,
+        RuntimeVersioned,
     },
 };
 
@@ -587,6 +588,17 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
         RuntimeTextRangeRequest {
             anchor: address,
             focus: address
+        }
+    ));
+    assert_stale!(document.resolve_text_range_to_point_at(
+        &stale,
+        RuntimeTextRangeToPointRequest {
+            anchor: address,
+            focus: RuntimeTextPointRequest {
+                page_index: 0,
+                x: 0.0,
+                y: 0.0
+            }
         }
     ));
     assert_stale!(document.get_footnote_at(&stale, "missing"));
