@@ -628,6 +628,10 @@ pub struct RuntimePageTarget {
     /// have no target locator.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub target_locator: Option<RuntimeSourceLocator>,
+    /// Publication TOC label for the canonical internal destination. This is
+    /// independent of whether the destination has been paginated yet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub destination_label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image_src: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

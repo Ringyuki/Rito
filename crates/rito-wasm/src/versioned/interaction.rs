@@ -1,9 +1,9 @@
 use super::revision_handle;
 use crate::{
     wire::{
-        parse_exact_source_range_request, parse_locator_request,
-        parse_same_flow_text_range_request, parse_search_request, parse_source_locator_request,
-        parse_text_point_request, parse_text_range_geometry_request, serialize_json,
+        parse_exact_source_range_request, parse_locator_request, parse_search_request,
+        parse_source_locator_request, parse_text_point_request, parse_text_range_geometry_request,
+        parse_text_range_request, serialize_json,
     },
     WasmRuntimeDocument, WasmRuntimeError,
 };
@@ -145,19 +145,16 @@ impl WasmRuntimeDocument {
         serialize_json(&response)
     }
 
-    pub fn resolve_same_flow_text_range_at_revision_json(
+    pub fn resolve_text_range_at_revision_json(
         &self,
         revision_id: &str,
         revision_version: u32,
         request_json: &str,
     ) -> Result<String, WasmRuntimeError> {
-        let request = parse_same_flow_text_range_request(request_json)?;
+        let request = parse_text_range_request(request_json)?;
         let response = self
             .document
-            .resolve_same_flow_text_range_at(
-                &revision_handle(revision_id, revision_version),
-                request,
-            )
+            .resolve_text_range_at(&revision_handle(revision_id, revision_version), request)
             .map_err(WasmRuntimeError::from_revision_access)?;
         serialize_json(&response)
     }

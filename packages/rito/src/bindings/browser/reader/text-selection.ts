@@ -1,13 +1,13 @@
 import type {
   ReaderExactTextRangeRect,
-  ReaderSameFlowTextRangeResolution,
+  ReaderTextRangeResolution,
   ReaderTextCaret,
   ReaderTextCaretResolution,
   ReaderTextPoint,
   ReaderTextSelectionInteractions,
 } from '../../../reader';
 import type {
-  CoreSameFlowTextRangeResponse,
+  CoreTextRangeResponse,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
 } from '../core-contracts';
@@ -31,7 +31,7 @@ type CoreResolvedCaret = Extract<
   { readonly status: 'resolved' }
 >['caret'];
 type CoreResolvedRange = Extract<
-  CoreSameFlowTextRangeResponse['resolution'],
+  CoreTextRangeResponse['resolution'],
   { readonly status: 'resolved' }
 >['range'];
 
@@ -41,7 +41,7 @@ export function createBrowserReaderTextSelection(
   const bindings: CaretBindings = new WeakMap();
   return {
     resolveCaret: (point) => resolveCaret(state, bindings, point),
-    resolveSameFlowRange: (anchor, focus) => resolveSameFlowRange(state, bindings, anchor, focus),
+    resolveTextRange: (anchor, focus) => resolveTextRange(state, bindings, anchor, focus),
   };
 }
 
@@ -86,12 +86,12 @@ function mapCaretResolution(
   }
 }
 
-async function resolveSameFlowRange(
+async function resolveTextRange(
   state: BrowserReaderState,
   bindings: CaretBindings,
   anchor: ReaderTextCaret,
   focus: ReaderTextCaret,
-): Promise<ReaderSameFlowTextRangeResolution | undefined> {
+): Promise<ReaderTextRangeResolution | undefined> {
   const anchorBinding = requireBoundCaret(bindings, anchor);
   const focusBinding = requireBoundCaret(bindings, focus);
   if (!sameRevision(anchorBinding.revision, focusBinding.revision)) return undefined;
@@ -99,7 +99,7 @@ async function resolveSameFlowRange(
   if (!capture || !sameRevision(capture.revision, anchorBinding.revision)) return undefined;
 
   const value = await readCapturedInteraction(state, capture, (worker, revision) =>
-    worker.resolveSameFlowTextRangeAtRevision(revision, {
+    worker.resolveTextRangeAtRevision(revision, {
       anchor: copyCoreAddress(anchorBinding.address),
       focus: copyCoreAddress(focusBinding.address),
     }),
@@ -111,12 +111,12 @@ async function resolveSameFlowRange(
 
 function mapRangeResolution(
   state: BrowserReaderState,
-  value: CoreSameFlowTextRangeResponse,
+  value: CoreTextRangeResponse,
   anchor: ReaderTextCaret,
   focus: ReaderTextCaret,
   anchorBinding: BoundCaret,
   focusBinding: BoundCaret,
-): ReaderSameFlowTextRangeResolution {
+): ReaderTextRangeResolution {
   if (value.resolution.status === 'unavailable') {
     return { status: 'unavailable', reason: value.resolution.reason };
   }

@@ -13,6 +13,7 @@ pub(super) struct CollectedTextRun<'a> {
     pub(super) y: f64,
     pub(super) run: &'a TextRunBox,
     pub(super) visual: VisualGeometry,
+    pub(super) semantic_tag: Option<&'a str>,
 }
 
 impl CollectedTextRun<'_> {
@@ -32,6 +33,16 @@ impl CollectedTextRun<'_> {
     }
 }
 
+pub(super) fn axis_distance(start: f64, extent: f64, point: f64) -> f64 {
+    if point < start {
+        start - point
+    } else if point > start + extent {
+        point - start - extent
+    } else {
+        0.0
+    }
+}
+
 pub(super) fn collect_page_text_runs(
     page_index: usize,
     page: &LayoutRuntimePage,
@@ -47,6 +58,7 @@ pub(super) fn collect_page_text_runs(
             0.0,
             0.0,
             page_visual,
+            None,
             &mut line_index,
             &mut runs,
         );
@@ -77,12 +89,14 @@ fn collect_block_runs<'a>(
     offset_x: f64,
     offset_y: f64,
     parent_visual: VisualGeometry,
+    inherited_semantic_tag: Option<&'a str>,
     line_index: &mut usize,
     runs: &mut Vec<CollectedTextRun<'a>>,
 ) {
     let block_x = offset_x + block.x;
     let block_y = offset_y + block.y;
     let visual = parent_visual.enter_block(block, block_x, block_y);
+    let semantic_tag = block.semantic_tag.as_deref().or(inherited_semantic_tag);
     for child in &block.children {
         match child {
             RuntimeChild::Line(line) => {
@@ -94,6 +108,7 @@ fn collect_block_runs<'a>(
                     block_x,
                     block_y,
                     visual,
+                    semantic_tag,
                     runs,
                 );
                 *line_index += 1;
@@ -105,6 +120,7 @@ fn collect_block_runs<'a>(
                 block_x,
                 block_y,
                 visual,
+                semantic_tag,
                 line_index,
                 runs,
             ),
@@ -122,6 +138,7 @@ fn collect_line_runs<'a>(
     offset_x: f64,
     offset_y: f64,
     visual: VisualGeometry,
+    semantic_tag: Option<&'a str>,
     runs: &mut Vec<CollectedTextRun<'a>>,
 ) {
     let line_x = offset_x + line.x;
@@ -137,6 +154,7 @@ fn collect_line_runs<'a>(
                 y: line_y + run.y,
                 run,
                 visual,
+                semantic_tag,
             });
         }
     }

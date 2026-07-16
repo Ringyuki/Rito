@@ -128,19 +128,15 @@ impl RitoWasmDocument {
             .map_err(error_to_js_value)
     }
 
-    #[wasm_bindgen(js_name = resolveSameFlowTextRangeAtRevisionJson)]
-    pub fn resolve_same_flow_text_range_at_revision_json(
+    #[wasm_bindgen(js_name = resolveTextRangeAtRevisionJson)]
+    pub fn resolve_text_range_at_revision_json(
         &self,
         revision_id: &str,
         revision_version: u32,
         request_json: &str,
     ) -> Result<String, JsValue> {
         self.inner
-            .resolve_same_flow_text_range_at_revision_json(
-                revision_id,
-                revision_version,
-                request_json,
-            )
+            .resolve_text_range_at_revision_json(revision_id, revision_version, request_json)
             .map_err(error_to_js_value)
     }
 

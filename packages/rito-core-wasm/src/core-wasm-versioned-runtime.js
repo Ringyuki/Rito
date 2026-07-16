@@ -18,8 +18,8 @@ import {
   requireTextPointRequest,
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
 import {
-  requireSameFlowTextRangeRequest,
-  requireSameFlowTextRangeResponse,
+  requireTextRangeRequest,
+  requireTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
   requireExactSourceRangeRequest,
@@ -199,24 +199,21 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           requireTextCaretResponse(value, revision, expectedRequest, operation),
       );
     },
-    resolveSameFlowTextRangeAtRevision(handle, request) {
-      const expectedRequest = requireSameFlowTextRangeRequest(
-        request,
-        'resolveSameFlowTextRangeAtRevision',
-      );
+    resolveTextRangeAtRevision(handle, request) {
+      const expectedRequest = requireTextRangeRequest(request, 'resolveTextRangeAtRevision');
       return versionedRequest(
         this,
-        'resolveSameFlowTextRangeAtRevision',
+        'resolveTextRangeAtRevision',
         handle,
         expectedRequest,
         (revision, json) =>
-          this._inner.resolveSameFlowTextRangeAtRevisionJson(
+          this._inner.resolveTextRangeAtRevisionJson(
             revision.revisionId,
             revision.revisionVersion,
             json,
           ),
         (value, revision, operation) =>
-          requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
+          requireTextRangeResponse(value, revision, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision(handle, request) {

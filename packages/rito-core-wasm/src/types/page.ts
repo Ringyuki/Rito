@@ -31,6 +31,8 @@ export interface RitoCoreWasmPageTarget {
   readonly sourceLocator?: RitoCoreWasmSourceLocator | undefined;
   /** Canonical internal destination. External links deliberately omit it. */
   readonly targetLocator?: RitoCoreWasmSourceLocator | undefined;
+  /** Publication TOC label for the canonical internal destination. */
+  readonly destinationLabel?: string | undefined;
   readonly imageSrc?: string | undefined;
   readonly imageAlt?: string | undefined;
   /** Exact canonical key in this revision's footnote table. */

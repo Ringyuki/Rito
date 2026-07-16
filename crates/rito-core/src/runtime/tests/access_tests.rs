@@ -9,9 +9,9 @@ use crate::{
         RuntimeExactSourceRangeRequest, RuntimeInitialFrameRequest, RuntimeLocatorRequest,
         RuntimePageTargetKind, RuntimePrefetchRequest, RuntimeResourceKind,
         RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle, RuntimeRevisionWorkBudget,
-        RuntimeSameFlowTextRangeRequest, RuntimeSearchRequest, RuntimeSemanticRole,
-        RuntimeSourceLocator, RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution,
-        RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest, RuntimeVersioned,
+        RuntimeSearchRequest, RuntimeSemanticRole, RuntimeSourceLocator,
+        RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeTextPointRequest,
+        RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeVersioned,
     },
 };
 
@@ -278,14 +278,14 @@ fn eager_version_zero_supports_all_versioned_read_surfaces() {
         affinity: TextCaretAffinity::Downstream,
     };
     document
-        .resolve_same_flow_text_range_at(
+        .resolve_text_range_at(
             &handle,
-            RuntimeSameFlowTextRangeRequest {
+            RuntimeTextRangeRequest {
                 anchor: address,
                 focus: address,
             },
         )
-        .expect("same-flow range capability");
+        .expect("text-range range capability");
     document
         .get_footnote_at(&handle, "chapter.xhtml#fn1")
         .expect("footnote");
@@ -502,9 +502,9 @@ fn stale_access_and_release_cannot_observe_or_destroy_a_newer_revision() {
         char_index: 0,
         affinity: TextCaretAffinity::Downstream,
     };
-    assert_stale!(document.resolve_same_flow_text_range_at(
+    assert_stale!(document.resolve_text_range_at(
         &stale,
-        RuntimeSameFlowTextRangeRequest {
+        RuntimeTextRangeRequest {
             anchor: address,
             focus: address
         }

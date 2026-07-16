@@ -35,7 +35,7 @@ pub use layout_bridge::{
     load_publication, load_publication_with_layout, load_publication_with_layout_and_line_breaking,
     summarize_loaded_document_with_layout, summarize_loaded_document_with_layout_and_line_breaking,
 };
-pub(crate) use paths::{join_epub_href, join_zip_path, opf_dir};
+pub(crate) use paths::{is_external_href, join_epub_href, join_zip_path, opf_dir};
 pub(crate) use prepared::{
     loaded_document_resources, parsed_loaded_chapter_source, prepare_loaded_document,
     prepare_loaded_document_base, prepare_loaded_document_with_base_and_footnote_targets,

@@ -19,7 +19,7 @@ describe('native selection controller event', () => {
       .mockResolvedValueOnce(resolvedCaret(focus));
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret,
-      resolveSameFlowRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
     };
     const selection = createSelectionEngine(capability);
     selection.setSpread({} as never, {} as never, {} as never, {

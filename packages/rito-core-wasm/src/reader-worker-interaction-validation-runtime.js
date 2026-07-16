@@ -1,3 +1,5 @@
+import { requirePageTargetSemantics } from './reader-worker-page-target-validation-runtime.js';
+
 export function requirePageIndex(value, operation) {
   if (!Number.isSafeInteger(value) || value < 0) {
     throw new TypeError(`${operation} pageIndex must be a non-negative safe integer`);
@@ -69,12 +71,13 @@ function requirePageTarget(value, operation) {
   }
   requireTextSummary(target.text, operation);
   requireOptionalString(target, 'href', operation, false);
+  requireOptionalString(target, 'destinationLabel', operation, true);
   requireOptionalString(target, 'imageSrc', operation, true);
   requireOptionalString(target, 'imageAlt', operation, false);
   requireOptionalString(target, 'footnoteKey', operation, true);
   if (target.sourceLocator !== undefined) requireSourceLocator(target.sourceLocator, operation);
   if (target.targetLocator !== undefined) requireSourceLocator(target.targetLocator, operation);
-  requireTargetSemantics(target, operation);
+  requirePageTargetSemantics(target, operation);
 }
 
 function requireBounds(value, operation) {
@@ -104,41 +107,6 @@ function requireOptionalString(record, field, operation, nonEmpty) {
   if (value === undefined) return;
   if (typeof value !== 'string' || (nonEmpty && value.length === 0)) {
     throw new Error(`${operation} returned an invalid page target ${field}`);
-  }
-}
-
-function requireTargetSemantics(target, operation) {
-  if (target.kind === 'footnote') {
-    if (target.href === undefined || target.footnoteKey === undefined) {
-      throw new Error(`${operation} returned an incomplete footnote target`);
-    }
-    if (target.targetLocator === undefined) {
-      throw new Error(`${operation} returned a footnote target without a destination`);
-    }
-    return;
-  }
-  if (target.footnoteKey !== undefined) {
-    throw new Error(`${operation} returned a footnote key for a non-footnote target`);
-  }
-  if (target.kind === 'link' && target.href === undefined) {
-    throw new Error(`${operation} returned a link target without href`);
-  }
-  if (target.kind === 'image' && target.imageSrc === undefined) {
-    throw new Error(`${operation} returned an image target without imageSrc`);
-  }
-  if (
-    target.kind === 'image' &&
-    (target.href !== undefined || target.targetLocator !== undefined)
-  ) {
-    throw new Error(`${operation} returned link fields on a standalone image target`);
-  }
-  if (
-    target.kind === 'text' &&
-    (target.href !== undefined ||
-      target.targetLocator !== undefined ||
-      target.imageSrc !== undefined)
-  ) {
-    throw new Error(`${operation} returned interactive fields on a text target`);
   }
 }
 

@@ -10,11 +10,11 @@ use crate::{
         RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
         RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
         RuntimePinnedFontGenericRole, RuntimeRevisionAccessErrorKind, RuntimeRevisionHandle,
-        RuntimeRevisionWorkBudget, RuntimeSameFlowTextRangeRequest,
-        RuntimeSameFlowTextRangeResolution, RuntimeSearchRequest, RuntimeSearchSource,
+        RuntimeRevisionWorkBudget, RuntimeSearchRequest, RuntimeSearchSource,
         RuntimeSourceLocatorPendingReason, RuntimeSourceLocatorResolution, RuntimeSourcePoint,
         RuntimeSourceRange, RuntimeTextCaretResolution, RuntimeTextCaretResponse,
-        RuntimeTextPointRequest, RuntimeVersioned,
+        RuntimeTextPointRequest, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
+        RuntimeVersioned,
     },
 };
 use serde_json::json;
@@ -68,15 +68,15 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     assert!(left.source_locator.href.ends_with("chapter.xhtml"));
 
     let range = document
-        .resolve_same_flow_text_range_at(
+        .resolve_text_range_at(
             &handle,
-            RuntimeSameFlowTextRangeRequest {
+            RuntimeTextRangeRequest {
                 anchor: right.address,
                 focus: left.address,
             },
         )
         .expect("exact range resolves");
-    let RuntimeSameFlowTextRangeResolution::Resolved { range } = range.value.resolution else {
+    let RuntimeTextRangeResolution::Resolved { range } = range.value.resolution else {
         panic!("pinned range is exact");
     };
     assert_eq!(range.selected_text, "Wi");
@@ -116,19 +116,116 @@ fn pinned_revision_resolves_exact_point_range_and_source_locator() {
     assert_eq!(projected.rects, range.rects);
 
     let collapsed = document
-        .resolve_same_flow_text_range_at(
+        .resolve_text_range_at(
             &handle,
-            RuntimeSameFlowTextRangeRequest {
+            RuntimeTextRangeRequest {
                 anchor: left.address,
                 focus: left.address,
             },
         )
         .expect("collapsed range resolves");
-    let RuntimeSameFlowTextRangeResolution::Resolved { range } = collapsed.value.resolution else {
+    let RuntimeTextRangeResolution::Resolved { range } = collapsed.value.resolution else {
         panic!("collapsed range stays exact");
     };
     assert!(range.selected_text.is_empty());
     assert!(range.rects.is_empty());
+}
+
+#[test]
+fn cross_paragraph_text_range_round_trips_after_reflow() {
+    let bytes = content_epub(
+        "en",
+        r#"<p style="font-family: serif">first</p>
+          <p style="font-family: serif">second</p>"#,
+        "",
+        None,
+    );
+    let mut document = RuntimeDocument::open_with_pinned_font_policy(
+        &bytes,
+        policy(vec![face(
+            title_font(),
+            RuntimePinnedFontGenericRole::Serif,
+            Some("en"),
+        )]),
+    )
+    .expect("pinned document opens");
+    let initial = document
+        .create_revision(&font_aware_layout())
+        .expect("initial revision is created");
+    let initial_handle = RuntimeRevisionHandle::from(&initial);
+    let first = text_run_bounds_by_text(&document, &initial.revision_id, "first");
+    let second = text_run_bounds_by_text(&document, &initial.revision_id, "second");
+    let start = document
+        .resolve_text_caret_at(
+            &initial_handle,
+            RuntimeTextPointRequest {
+                page_index: first.0,
+                x: first.1 - 100.0,
+                y: first.2 + first.4 / 2.0,
+            },
+        )
+        .expect("first paragraph start resolves");
+    let end = document
+        .resolve_text_caret_at(
+            &initial_handle,
+            RuntimeTextPointRequest {
+                page_index: second.0,
+                x: second.1 + second.3 + 100.0,
+                y: second.2 + second.4 / 2.0,
+            },
+        )
+        .expect("second paragraph end resolves");
+    let (start, end) = match (start.value.resolution, end.value.resolution) {
+        (
+            RuntimeTextCaretResolution::Resolved { caret: start },
+            RuntimeTextCaretResolution::Resolved { caret: end },
+        ) => (start, end),
+        resolutions => panic!("cross-paragraph carets are exact: {resolutions:?}"),
+    };
+    let selected = document
+        .resolve_text_range_at(
+            &initial_handle,
+            RuntimeTextRangeRequest {
+                anchor: start.address,
+                focus: end.address,
+            },
+        )
+        .expect("cross-paragraph range resolves");
+    let RuntimeTextRangeResolution::Resolved { range: selected } = selected.value.resolution else {
+        panic!("cross-paragraph range stays exact");
+    };
+    assert_eq!(selected.selected_text, "first\n\nsecond");
+    assert!(selected.rects.len() >= 2);
+    let href = selected.source_locator.href.clone();
+    let source_range = selected
+        .source_locator
+        .source_range
+        .clone()
+        .expect("cross-paragraph selection owns one durable source range");
+    assert_ne!(source_range.start.node_path, source_range.end.node_path);
+
+    let mut reflow_config = font_aware_layout();
+    reflow_config.root_font_size = 22.0;
+    let reflowed = document
+        .create_revision(&reflow_config)
+        .expect("reflowed revision is created");
+    let projected = document
+        .resolve_exact_source_range_at(
+            &RuntimeRevisionHandle::from(&reflowed),
+            RuntimeExactSourceRangeRequest {
+                href,
+                source_range: source_range.clone(),
+            },
+        )
+        .expect("cross-paragraph source range projects after reflow");
+    let RuntimeExactSourceRangeResolution::Resolved { range: projected } =
+        projected.value.resolution
+    else {
+        panic!("cross-paragraph source range remains exact after reflow: {projected:#?}");
+    };
+    assert_eq!(projected.selected_text, "first\n\nsecond");
+    assert_eq!(projected.source_locator.source_range, Some(source_range));
+    assert!(projected.rects.len() >= 2);
 }
 
 #[test]
@@ -482,6 +579,49 @@ fn first_text_run_bounds(document: &RuntimeDocument, revision_id: &str) -> (f64,
         .get(revision_id)
         .expect("stored revision exists");
     first_page_text_run(&revision.layout.pages[0]).expect("revision has a text run")
+}
+
+fn text_run_bounds_by_text(
+    document: &RuntimeDocument,
+    revision_id: &str,
+    expected: &str,
+) -> (usize, f64, f64, f64, f64) {
+    let revision = document
+        .revisions
+        .get(revision_id)
+        .expect("stored revision exists");
+    revision
+        .layout
+        .pages
+        .iter()
+        .enumerate()
+        .find_map(|(page_index, page)| {
+            page.content.iter().find_map(|block| {
+                block_text_run_by_text(block, 0.0, 0.0, expected)
+                    .map(|(x, y, width, height)| (page_index, x, y, width, height))
+            })
+        })
+        .unwrap_or_else(|| panic!("revision has a text run for {expected:?}"))
+}
+
+fn block_text_run_by_text(
+    block: &RuntimeBlock<LineBox>,
+    offset_x: f64,
+    offset_y: f64,
+    expected: &str,
+) -> Option<(f64, f64, f64, f64)> {
+    let block_x = offset_x + block.x;
+    let block_y = offset_y + block.y;
+    block.children.iter().find_map(|child| match child {
+        RuntimeChild::Line(line) => line.runs.iter().find_map(|run| match run {
+            LineRun::Text(run) if run.text == expected => {
+                Some(run_bounds(run, block_x + line.x, block_y + line.y))
+            }
+            LineRun::Text(_) | LineRun::Atom(_) | LineRun::Ruby(_) => None,
+        }),
+        RuntimeChild::Block(child) => block_text_run_by_text(child, block_x, block_y, expected),
+        RuntimeChild::Image(_) | RuntimeChild::Hr(_) => None,
+    })
 }
 
 fn first_page_text_run(page: &LayoutRuntimePage) -> Option<(f64, f64, f64, f64)> {

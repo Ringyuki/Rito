@@ -78,10 +78,10 @@ pub use source_locator::{
 };
 pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
-    RuntimeExactSourceRangeResponse, RuntimeExactTextRangeRect, RuntimeSameFlowTextRange,
-    RuntimeSameFlowTextRangeRequest, RuntimeSameFlowTextRangeResolution,
-    RuntimeSameFlowTextRangeResponse, RuntimeTextCaret, RuntimeTextCaretResolution,
-    RuntimeTextCaretResponse, RuntimeTextPointRequest,
+    RuntimeExactSourceRangeResponse, RuntimeExactTextRangeRect, RuntimeTextCaret,
+    RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
+    RuntimeTextRange, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
+    RuntimeTextRangeResponse,
 };
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;
@@ -95,6 +95,7 @@ pub struct RuntimeDocument {
     #[cfg(test)]
     publication_footnote_scan_count: usize,
     full_chapter_text_indices: OnceCell<BTreeMap<String, RuntimeChapterTextIndex>>,
+    page_target_context: OnceCell<page_target::RuntimePageTargetContext>,
     source_chapter_indices: BTreeMap<String, source_locator::RuntimeSourceChapterIndex>,
     parsed_chapters: BTreeMap<usize, crate::epub::ParsedLoadedChapterSource>,
     text_measurement_cache: TextMeasurementCache,
@@ -136,6 +137,7 @@ impl RuntimeDocument {
             #[cfg(test)]
             publication_footnote_scan_count: 0,
             full_chapter_text_indices: OnceCell::new(),
+            page_target_context: OnceCell::new(),
             source_chapter_indices: BTreeMap::new(),
             parsed_chapters: BTreeMap::new(),
             text_measurement_cache: TextMeasurementCache::default(),
@@ -302,7 +304,10 @@ impl RuntimeDocument {
             .revisions
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
-        page_targets(&self.document, revision_id, revision, page_index)
+        let context = self
+            .page_target_context
+            .get_or_init(|| page_target::RuntimePageTargetContext::new(&self.document));
+        page_targets(&self.document, context, revision_id, revision, page_index)
     }
 
     pub fn get_page_semantics(

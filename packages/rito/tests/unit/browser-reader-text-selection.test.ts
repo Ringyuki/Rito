@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  CoreSameFlowTextRangeResponse,
+  CoreTextRangeResponse,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
   CoreVersioned,
@@ -72,7 +72,7 @@ describe('Browser reader exact text selection', () => {
     fixture.resolveTextCaretAtRevision
       .mockResolvedValueOnce(versionedCaret(anchorAddress))
       .mockResolvedValueOnce(versionedCaret(focusAddress));
-    fixture.resolveSameFlowTextRangeAtRevision.mockResolvedValue({
+    fixture.resolveTextRangeAtRevision.mockResolvedValue({
       revision: handle(),
       value: resolvedRange(focusAddress, anchorAddress, anchorAddress, focusAddress),
     });
@@ -80,9 +80,9 @@ describe('Browser reader exact text selection', () => {
     const anchor = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 40, y: 10 }));
     const focus = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 10, y: 10 }));
 
-    const result = await textSelection.resolveSameFlowRange(anchor, focus);
+    const result = await textSelection.resolveTextRange(anchor, focus);
 
-    expect(fixture.resolveSameFlowTextRangeAtRevision).toHaveBeenCalledWith(handle(), {
+    expect(fixture.resolveTextRangeAtRevision).toHaveBeenCalledWith(handle(), {
       anchor: anchorAddress,
       focus: focusAddress,
     });
@@ -115,27 +115,27 @@ describe('Browser reader exact text selection', () => {
     expect(result.range.rects[0]).not.toHaveProperty('blockIndex');
   });
 
-  it('maps an unavailable same-flow range without publishing geometry', async () => {
+  it('maps an unavailable text-range range without publishing geometry', async () => {
     const fixture = readyFixture();
     const anchorAddress = caretAddress(0, 1, 'downstream');
     const focusAddress = caretAddress(0, 3, 'upstream');
     fixture.resolveTextCaretAtRevision
       .mockResolvedValueOnce(versionedCaret(anchorAddress))
       .mockResolvedValueOnce(versionedCaret(focusAddress));
-    fixture.resolveSameFlowTextRangeAtRevision.mockResolvedValue({
+    fixture.resolveTextRangeAtRevision.mockResolvedValue({
       revision: handle(),
       value: {
         revisionId: 'rev',
-        resolution: { status: 'unavailable', reason: 'differentLogicalFlow' },
+        resolution: { status: 'unavailable', reason: 'differentChapter' },
       },
     });
     const textSelection = requireTextSelection(createBrowserReaderInteractions(fixture.state));
     const anchor = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 1, y: 1 }));
     const focus = resolvedCaret(await textSelection.resolveCaret({ pageIndex: 0, x: 3, y: 1 }));
 
-    await expect(textSelection.resolveSameFlowRange(anchor, focus)).resolves.toEqual({
+    await expect(textSelection.resolveTextRange(anchor, focus)).resolves.toEqual({
       status: 'unavailable',
-      reason: 'differentLogicalFlow',
+      reason: 'differentChapter',
     });
   });
 
@@ -218,7 +218,7 @@ function resolvedRange(
   end: CoreTextCaretAddress,
   anchor: CoreTextCaretAddress,
   focus: CoreTextCaretAddress,
-): CoreSameFlowTextRangeResponse {
+): CoreTextRangeResponse {
   return {
     revisionId: 'rev',
     resolution: {

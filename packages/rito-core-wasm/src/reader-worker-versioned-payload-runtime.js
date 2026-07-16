@@ -5,8 +5,8 @@ import {
   requireTextPointRequest,
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
 import {
-  requireSameFlowTextRangeRequest,
-  requireSameFlowTextRangeResponse,
+  requireTextRangeRequest,
+  requireTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
   requireExactSourceRangeRequest,
@@ -90,8 +90,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return textRangeGeometryResponse(document, request);
     case 'resolveTextCaretAtRevision':
       return textCaretResponse(document, request);
-    case 'resolveSameFlowTextRangeAtRevision':
-      return sameFlowTextRangeResponse(document, request);
+    case 'resolveTextRangeAtRevision':
+      return textRangeResponse(document, request);
     case 'resolveExactSourceRangeAtRevision':
       return exactSourceRangeResponse(document, request);
     case 'getFootnoteAtRevision':
@@ -203,14 +203,14 @@ function textCaretResponse(document, request) {
   }));
 }
 
-function sameFlowTextRangeResponse(document, request) {
+function textRangeResponse(document, request) {
   const operation = request.kind;
   const revision = requireRevisionHandle(request.revision, operation);
-  const expectedRequest = requireSameFlowTextRangeRequest(request.request, operation);
-  const envelope = document.resolveSameFlowTextRangeAtRevision(revision, expectedRequest);
+  const expectedRequest = requireTextRangeRequest(request.request, operation);
+  const envelope = document.resolveTextRangeAtRevision(revision, expectedRequest);
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     request: expectedRequest,
-    response: requireSameFlowTextRangeResponse(value, revision, expectedRequest, operation),
+    response: requireTextRangeResponse(value, revision, expectedRequest, operation),
   }));
 }
 

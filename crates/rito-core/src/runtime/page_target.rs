@@ -1,16 +1,41 @@
+use std::collections::BTreeMap;
+
 use crate::{
-    epub::{join_epub_href, opf_dir, LoadedChapter, LoadedEpubDocument},
+    epub::{
+        is_external_href, join_epub_href, opf_dir, LoadedChapter, LoadedEpubDocument, TocEntry,
+    },
     layout::LayoutHitTarget,
 };
 
 use super::{
-    source_locator::canonical_runtime_source_locator, RuntimePageTarget, RuntimePageTargetBounds,
+    source_locator::RuntimeSourceLocatorCanonicalizer, RuntimePageTarget, RuntimePageTargetBounds,
     RuntimePageTargetKind, RuntimePageTargetText, RuntimeRevision, RuntimeSourceLocator,
     RuntimeSourcePoint,
 };
 
+#[cfg(test)]
+mod tests;
+
+#[derive(Debug)]
+pub(super) struct RuntimePageTargetContext {
+    canonicalizer: RuntimeSourceLocatorCanonicalizer,
+    toc_labels: TocDestinationLabels,
+}
+
+impl RuntimePageTargetContext {
+    pub(super) fn new(document: &LoadedEpubDocument) -> Self {
+        let canonicalizer = RuntimeSourceLocatorCanonicalizer::new(document);
+        let toc_labels = TocDestinationLabels::new(document, &canonicalizer);
+        Self {
+            canonicalizer,
+            toc_labels,
+        }
+    }
+}
+
 pub(super) fn runtime_page_targets(
     document: &LoadedEpubDocument,
+    context: &RuntimePageTargetContext,
     revision: &RuntimeRevision,
     page_index: usize,
     targets: Vec<LayoutHitTarget>,
@@ -18,12 +43,13 @@ pub(super) fn runtime_page_targets(
     let chapter = chapter_for_page(document, revision, page_index);
     targets
         .into_iter()
-        .map(|target| runtime_page_target(document, revision, chapter, target))
+        .map(|target| runtime_page_target(document, context, revision, chapter, target))
         .collect()
 }
 
 fn runtime_page_target(
     document: &LoadedEpubDocument,
+    context: &RuntimePageTargetContext,
     revision: &RuntimeRevision,
     chapter: Option<&LoadedChapter>,
     target: LayoutHitTarget,
@@ -32,7 +58,7 @@ fn runtime_page_target(
     let href = target.href.clone();
     let destination = href
         .as_deref()
-        .map(|href| canonical_destination(document, chapter, href));
+        .map(|href| canonical_destination(document, context, chapter, href));
     let canonical_href = destination
         .as_ref()
         .map(|destination| destination.href.clone());
@@ -47,6 +73,11 @@ fn runtime_page_target(
     } else {
         None
     };
+    let destination_label = (kind == RuntimePageTargetKind::Link)
+        .then_some(target_locator.as_ref())
+        .flatten()
+        .and_then(|locator| context.toc_labels.label(locator))
+        .map(str::to_owned);
     let bounds = target.rounded_bounds();
     let label = if target.text.is_empty() {
         target.image_alt.clone().unwrap_or_default()
@@ -73,9 +104,72 @@ fn runtime_page_target(
         href,
         source_locator,
         target_locator,
+        destination_label,
         image_src: target.image_src,
         image_alt: target.image_alt,
         footnote_key,
+    }
+}
+
+#[derive(Debug)]
+struct TocDestinationLabels {
+    by_chapter: BTreeMap<String, Vec<TocDestinationLabel>>,
+}
+
+#[derive(Debug)]
+struct TocDestinationLabel {
+    anchor_id: Option<String>,
+    label: String,
+}
+
+impl TocDestinationLabels {
+    fn new(
+        document: &LoadedEpubDocument,
+        canonicalizer: &RuntimeSourceLocatorCanonicalizer,
+    ) -> Self {
+        let mut labels = Self {
+            by_chapter: BTreeMap::new(),
+        };
+        labels.collect(document, canonicalizer, &document.package.toc);
+        labels
+    }
+
+    fn collect(
+        &mut self,
+        document: &LoadedEpubDocument,
+        canonicalizer: &RuntimeSourceLocatorCanonicalizer,
+        entries: &[TocEntry],
+    ) {
+        for entry in entries {
+            if let Ok(locator) = canonicalizer.canonicalize_locator(
+                document,
+                RuntimeSourceLocator {
+                    href: entry.href.clone(),
+                    anchor_id: None,
+                    source_point: None,
+                    source_range: None,
+                    progression: None,
+                },
+            ) {
+                self.by_chapter
+                    .entry(locator.href)
+                    .or_default()
+                    .push(TocDestinationLabel {
+                        anchor_id: locator.anchor_id,
+                        label: entry.label.clone(),
+                    });
+            }
+            self.collect(document, canonicalizer, &entry.children);
+        }
+    }
+
+    fn label<'a>(&'a self, destination: &RuntimeSourceLocator) -> Option<&'a str> {
+        let entries = self.by_chapter.get(destination.href.as_str())?;
+        entries
+            .iter()
+            .find(|entry| entry.anchor_id == destination.anchor_id)
+            .or_else(|| entries.iter().find(|entry| entry.anchor_id.is_none()))
+            .map(|entry| entry.label.as_str())
     }
 }
 
@@ -139,6 +233,7 @@ struct CanonicalDestination {
 
 fn canonical_destination(
     document: &LoadedEpubDocument,
+    context: &RuntimePageTargetContext,
     chapter: Option<&LoadedChapter>,
     href: &str,
 ) -> CanonicalDestination {
@@ -149,17 +244,19 @@ fn canonical_destination(
         };
     }
     let contextual_href = contextual_internal_href(chapter, href);
-    let locator = canonical_runtime_source_locator(
-        document,
-        RuntimeSourceLocator {
-            href: contextual_href.clone(),
-            anchor_id: None,
-            source_point: None,
-            source_range: None,
-            progression: None,
-        },
-    )
-    .ok();
+    let locator = context
+        .canonicalizer
+        .canonicalize_locator(
+            document,
+            RuntimeSourceLocator {
+                href: contextual_href.clone(),
+                anchor_id: None,
+                source_point: None,
+                source_range: None,
+                progression: None,
+            },
+        )
+        .ok();
     let canonical_href = locator
         .as_ref()
         .map(canonical_locator_href)
@@ -193,35 +290,4 @@ fn canonical_locator_href(locator: &RuntimeSourceLocator) -> String {
         .as_ref()
         .map(|anchor| format!("{}#{anchor}", locator.href))
         .unwrap_or_else(|| locator.href.clone())
-}
-
-fn is_external_href(href: &str) -> bool {
-    if href.starts_with("//") {
-        return true;
-    }
-    let path_end = href.find(['?', '#']).unwrap_or(href.len());
-    let path = &href[..path_end];
-    path.find(':').is_some_and(|colon| {
-        colon > 0
-            && path[..colon].chars().enumerate().all(|(index, character)| {
-                character.is_ascii_alphabetic()
-                    || (index > 0
-                        && (character.is_ascii_digit() || matches!(character, '+' | '-' | '.')))
-            })
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::is_external_href;
-
-    #[test]
-    fn distinguishes_external_and_epub_relative_hrefs() {
-        assert!(is_external_href("https://example.com/note#one"));
-        assert!(is_external_href("mailto:reader@example.com"));
-        assert!(is_external_href("//example.com/note"));
-        assert!(!is_external_href("chapter.xhtml#one"));
-        assert!(!is_external_href("../Text/chapter.xhtml#one"));
-        assert!(!is_external_href("#one"));
-    }
 }

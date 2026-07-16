@@ -160,7 +160,7 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getPageTextPositionsAtRevision(handle, 0),
     () => document.getTextRangeGeometryAtRevision(handle, { pageIndex: 0 }),
     () => document.resolveTextCaretAtRevision(handle, pointRequest()),
-    () => document.resolveSameFlowTextRangeAtRevision(handle, rangeRequest()),
+    () => document.resolveTextRangeAtRevision(handle, rangeRequest()),
     () => document.getFootnoteAtRevision(handle, 'chapter.xhtml#fn1'),
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),
@@ -308,7 +308,7 @@ function versionedValue(property, args, version) {
   }
   if (property === 'getShapeProvenanceDiagnosticAtRevisionJson') return shapeDiagnostic();
   if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
-  if (property === 'resolveSameFlowTextRangeAtRevisionJson') {
+  if (property === 'resolveTextRangeAtRevisionJson') {
     return rangeResponse(JSON.parse(args[2]), { revisionId });
   }
   if (property === 'getFootnotesAtRevisionJson') {

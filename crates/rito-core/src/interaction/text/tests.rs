@@ -3,7 +3,7 @@ use std::sync::Arc;
 use serde_json::{json, Value};
 
 use super::{
-    resolve_same_flow_text_range, resolve_text_caret, LayoutExactTextRangeResolution,
+    resolve_text_caret, resolve_text_range, LayoutExactTextRangeResolution,
     LayoutTextCaretResolution, TextCaretAddress, TextCaretAffinity,
     TextInteractionUnavailableReason,
 };
@@ -43,6 +43,56 @@ fn point_hit_uses_variable_width_cluster_carets() {
 }
 
 #[test]
+fn point_hit_snaps_vertical_line_gaps_to_the_nearest_text_run() {
+    let flow = exact_flow("ab");
+    let page = page(
+        0,
+        vec![
+            vec![run("a", slice(&flow, 0, 0, 1), 0.0, 10.0, uniform_shape(1))],
+            vec![run("b", slice(&flow, 0, 1, 2), 0.0, 10.0, uniform_shape(1))],
+        ],
+        None,
+    );
+
+    let LayoutTextCaretResolution::Resolved(upper) = resolve_text_caret(0, &page, 15.0, 44.0)
+    else {
+        panic!("upper half of the line gap resolves");
+    };
+    let LayoutTextCaretResolution::Resolved(lower) = resolve_text_caret(0, &page, 15.0, 46.0)
+    else {
+        panic!("lower half of the line gap resolves");
+    };
+
+    assert_eq!(upper.address.line_index, 0);
+    assert_eq!(lower.address.line_index, 1);
+}
+
+#[test]
+fn point_hit_does_not_snap_distant_page_whitespace_to_text() {
+    let flow = exact_flow("a");
+    let page = page(
+        0,
+        vec![vec![run(
+            "a",
+            slice(&flow, 0, 0, 1),
+            0.0,
+            10.0,
+            uniform_shape(1),
+        )]],
+        None,
+    );
+
+    assert_eq!(
+        resolve_text_caret(0, &page, 15.0, -100.0),
+        LayoutTextCaretResolution::Miss
+    );
+    assert_eq!(
+        resolve_text_caret(0, &page, 15.0, 500.0),
+        LayoutTextCaretResolution::Miss
+    );
+}
+
+#[test]
 fn complex_clusters_do_not_expose_interior_carets() {
     let flow = exact_flow("e\u{301}");
     let page = page(
@@ -62,7 +112,7 @@ fn complex_clusters_do_not_expose_interior_carets() {
         panic!("cluster edge resolves");
     };
     assert_eq!(caret.address.char_index, 2);
-    let invalid = resolve_same_flow_text_range(
+    let invalid = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 1, TextCaretAffinity::Upstream),
         address(0, 0, 0, 0, 2, TextCaretAffinity::Upstream),
@@ -95,7 +145,7 @@ fn non_bmp_cluster_uses_utf16_edges_and_source_offsets() {
     assert_eq!(caret.address.char_index, 2);
     assert_eq!(caret.source_point.text_offset, 2);
     assert_eq!(
-        resolve_same_flow_text_range(
+        resolve_text_range(
             std::slice::from_ref(&page),
             address(0, 0, 0, 0, 1, TextCaretAffinity::Upstream),
             address(0, 0, 0, 0, 2, TextCaretAffinity::Upstream),
@@ -128,7 +178,7 @@ fn rtl_hit_and_reverse_range_use_logical_cluster_edges() {
     };
     assert_eq!(caret.address.char_index, 0);
     assert_eq!(caret.geometry.x, 40.0);
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 1, TextCaretAffinity::Downstream),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
@@ -143,7 +193,7 @@ fn rtl_hit_and_reverse_range_use_logical_cluster_edges() {
 }
 
 #[test]
-fn same_flow_range_keeps_unpainted_soft_wrap_text() {
+fn text_range_keeps_unpainted_soft_wrap_text() {
     let flow = exact_flow("one two");
     let page = page(
         0,
@@ -166,7 +216,7 @@ fn same_flow_range_keeps_unpainted_soft_wrap_text() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 1, 0, 3, TextCaretAffinity::Upstream),
@@ -182,7 +232,7 @@ fn same_flow_range_keeps_unpainted_soft_wrap_text() {
 }
 
 #[test]
-fn same_flow_range_keeps_forced_source_newlines() {
+fn text_range_keeps_forced_source_newlines() {
     let flow = exact_flow("a\nb");
     let page = page(
         0,
@@ -193,7 +243,7 @@ fn same_flow_range_keeps_forced_source_newlines() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 1, 0, 1, TextCaretAffinity::Upstream),
@@ -223,7 +273,7 @@ fn equal_logical_offsets_normalize_source_boundaries_by_layout_order() {
     let earlier = address(0, 0, 0, 0, 1, TextCaretAffinity::Upstream);
     let later = address(0, 0, 0, 1, 0, TextCaretAffinity::Downstream);
 
-    let resolution = resolve_same_flow_text_range(std::slice::from_ref(&page), later, earlier);
+    let resolution = resolve_text_range(std::slice::from_ref(&page), later, earlier);
     let LayoutExactTextRangeResolution::Resolved(range) = resolution else {
         panic!("collapsed source boundary resolves");
     };
@@ -238,7 +288,7 @@ fn equal_logical_offsets_normalize_source_boundaries_by_layout_order() {
 }
 
 #[test]
-fn same_flow_range_crosses_pages_without_losing_geometry() {
+fn text_range_crosses_pages_without_losing_geometry() {
     let flow = exact_flow("ab");
     let pages = vec![
         page(
@@ -265,7 +315,7 @@ fn same_flow_range_crosses_pages_without_losing_geometry() {
         ),
     ];
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         &pages,
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(1, 0, 0, 0, 1, TextCaretAffinity::Upstream),
@@ -286,9 +336,9 @@ fn same_flow_range_crosses_pages_without_losing_geometry() {
 }
 
 #[test]
-fn different_flows_are_rejected_after_resolving_only_their_endpoints() {
-    let first_flow = exact_flow("a");
-    let second_flow = exact_flow("b");
+fn paragraph_flows_resolve_in_document_order_with_native_separators() {
+    let first_flow = fixture_logical_text_flow("a", vec![(0, 1, Some((vec![1], 0)))]);
+    let second_flow = fixture_logical_text_flow("b", vec![(0, 1, Some((vec![2], 0)))]);
     let pages = vec![
         page(
             0,
@@ -315,16 +365,91 @@ fn different_flows_are_rejected_after_resolving_only_their_endpoints() {
         ),
     ];
 
-    assert_eq!(
-        resolve_same_flow_text_range(
-            &pages,
-            address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
-            address(2, 0, 0, 0, 1, TextCaretAffinity::Upstream),
-        ),
-        LayoutExactTextRangeResolution::Unavailable(
-            TextInteractionUnavailableReason::DifferentLogicalFlow
-        )
+    let resolution = resolve_text_range(
+        &pages,
+        address(2, 0, 0, 0, 1, TextCaretAffinity::Upstream),
+        address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
     );
+    let LayoutExactTextRangeResolution::Resolved(range) = resolution else {
+        panic!("cross-paragraph range resolves");
+    };
+
+    assert_eq!(range.selected_text, "a\n\nb");
+    assert_eq!(range.source_start.node_path, [1]);
+    assert_eq!(range.source_end.node_path, [2]);
+    assert_eq!(
+        range
+            .rects
+            .iter()
+            .map(|rect| rect.page_index)
+            .collect::<Vec<_>>(),
+        [0, 2]
+    );
+}
+
+#[test]
+fn many_paragraph_flows_resolve_with_complete_geometry() {
+    let flow_count = 64;
+    let flows = (0..flow_count)
+        .map(|index| fixture_logical_text_flow("x", vec![(0, 1, Some((vec![index], 0)))]))
+        .collect::<Vec<_>>();
+    let lines = flows
+        .iter()
+        .map(|flow| vec![run("x", slice(flow, 0, 0, 1), 0.0, 10.0, uniform_shape(1))])
+        .collect();
+    let page = page(0, lines, None);
+
+    let LayoutExactTextRangeResolution::Resolved(range) = resolve_text_range(
+        std::slice::from_ref(&page),
+        address(0, 0, flow_count - 1, 0, 1, TextCaretAffinity::Upstream),
+        address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
+    ) else {
+        panic!("many-flow selection resolves");
+    };
+
+    assert_eq!(range.selected_text, vec!["x"; flow_count].join("\n\n"));
+    assert_eq!(range.rects.len(), flow_count);
+}
+
+#[test]
+fn non_paragraph_flow_boundaries_use_one_conservative_newline() {
+    let first_flow = fixture_logical_text_flow("a", vec![(0, 1, Some((vec![1], 0)))]);
+    let second_flow = fixture_logical_text_flow("b", vec![(0, 1, Some((vec![2], 0)))]);
+    let mut first = page(
+        0,
+        vec![vec![run(
+            "a",
+            slice(&first_flow, 0, 0, 1),
+            0.0,
+            10.0,
+            uniform_shape(1),
+        )]],
+        None,
+    );
+    first.content[0].semantic_tag = Some("h1".to_owned());
+    let pages = vec![
+        first,
+        page(
+            1,
+            vec![vec![run(
+                "b",
+                slice(&second_flow, 0, 0, 1),
+                0.0,
+                10.0,
+                uniform_shape(1),
+            )]],
+            None,
+        ),
+    ];
+
+    let LayoutExactTextRangeResolution::Resolved(range) = resolve_text_range(
+        &pages,
+        address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
+        address(1, 0, 0, 0, 1, TextCaretAffinity::Upstream),
+    ) else {
+        panic!("cross-block range resolves");
+    };
+    assert_eq!(range.selected_text, "a\nb");
 }
 
 #[test]
@@ -346,7 +471,7 @@ fn unavailable_source_span_blocks_an_otherwise_exact_range() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 0, 1, 1, TextCaretAffinity::Upstream),
@@ -378,7 +503,7 @@ fn unavailable_shape_blocks_the_complete_range() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 0, 2, 1, TextCaretAffinity::Upstream),
@@ -416,7 +541,7 @@ fn discretionary_hyphen_mapping_gap_blocks_exact_range() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 0, 2, 5, TextCaretAffinity::Upstream),
@@ -441,7 +566,7 @@ fn unpainted_non_whitespace_gap_blocks_exact_range() {
         None,
     );
 
-    let resolution = resolve_same_flow_text_range(
+    let resolution = resolve_text_range(
         std::slice::from_ref(&page),
         address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
         address(0, 0, 0, 1, 1, TextCaretAffinity::Upstream),
@@ -452,6 +577,33 @@ fn unpainted_non_whitespace_gap_blocks_exact_range() {
             TextInteractionUnavailableReason::SourceUnavailable
         )
     );
+}
+
+#[test]
+fn unpainted_non_collapsible_unicode_space_blocks_exact_range() {
+    for whitespace in ['\u{00A0}', '\u{3000}'] {
+        let text = format!("a{whitespace}b");
+        let flow = exact_flow(&text);
+        let page = page(
+            0,
+            vec![vec![
+                run("a", slice(&flow, 0, 0, 1), 0.0, 10.0, uniform_shape(1)),
+                run("b", slice(&flow, 0, 2, 3), 10.0, 10.0, uniform_shape(1)),
+            ]],
+            None,
+        );
+
+        assert_eq!(
+            resolve_text_range(
+                std::slice::from_ref(&page),
+                address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
+                address(0, 0, 0, 1, 1, TextCaretAffinity::Upstream),
+            ),
+            LayoutExactTextRangeResolution::Unavailable(
+                TextInteractionUnavailableReason::SourceUnavailable
+            )
+        );
+    }
 }
 
 #[test]
@@ -476,7 +628,7 @@ fn rotated_text_is_typed_unavailable_instead_of_using_its_aabb() {
         )
     );
     assert_eq!(
-        resolve_same_flow_text_range(
+        resolve_text_range(
             std::slice::from_ref(&page),
             address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
             address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
@@ -510,7 +662,7 @@ fn clipping_cannot_replace_the_nearest_logical_caret() {
         )
     );
     assert_eq!(
-        resolve_same_flow_text_range(
+        resolve_text_range(
             std::slice::from_ref(&page),
             address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
             address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),

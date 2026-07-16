@@ -30,15 +30,21 @@ test('in-process exact text reads use versioned raw methods and unwrap request-b
   const point = pointRequest();
   const caret = await client.resolveTextCaretAtRevision(handle(3), point);
   const rangeInput = rangeRequest();
-  const range = await client.resolveSameFlowTextRangeAtRevision(handle(3), rangeInput);
+  const range = await client.resolveTextRangeAtRevision(handle(3), rangeInput);
 
   assert.deepEqual(caret, { revision: handle(3), value: caretResponse() });
   assert.deepEqual(range, { revision: handle(3), value: rangeResponse(rangeInput) });
+  assert.equal(range.value.resolution.range.selectedText, 'i\n\nTe');
+  assert.notDeepEqual(
+    range.value.resolution.range.sourceLocator.sourceRange.start.nodePath,
+    range.value.resolution.range.sourceLocator.sourceRange.end.nodePath,
+  );
+  assert.equal(range.value.resolution.range.rects.length, 2);
   assert.deepEqual(
     calls.filter(([name]) => name.includes('AtRevision')),
     [
       ['resolveTextCaretAtRevisionJson', ['rev-1', 3, JSON.stringify(point)]],
-      ['resolveSameFlowTextRangeAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeInput)]],
+      ['resolveTextRangeAtRevisionJson', ['rev-1', 3, JSON.stringify(rangeInput)]],
     ],
   );
   client.dispose();
@@ -59,15 +65,15 @@ test('payload dispatch echoes normalized exact requests and validates both envel
   const rangeInput = rangeRequest();
   const range = versionedReaderWorkerPayload(
     {
-      resolveSameFlowTextRangeAtRevision: () => ({
+      resolveTextRangeAtRevision: () => ({
         revision: handle(),
         value: rangeResponse(rangeInput),
       }),
     },
-    { kind: 'resolveSameFlowTextRangeAtRevision', revision: handle(), request: rangeInput },
+    { kind: 'resolveTextRangeAtRevision', revision: handle(), request: rangeInput },
   );
   assert.deepEqual(range, {
-    kind: 'resolveSameFlowTextRangeAtRevision',
+    kind: 'resolveTextRangeAtRevision',
     revision: handle(),
     result: rangeTransport(rangeInput),
   });
@@ -100,7 +106,7 @@ test('direct exact range rejects content forged onto a collapsed caret', () => {
 
   assert.throws(
     () =>
-      document.resolveSameFlowTextRangeAtRevision(handle(), {
+      document.resolveTextRangeAtRevision(handle(), {
         anchor: endpoint,
         focus: endpoint,
       }),

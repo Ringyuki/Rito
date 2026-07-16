@@ -293,12 +293,12 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     });
     let range = parse(
         document
-            .resolve_same_flow_text_range_at_revision_json(
+            .resolve_text_range_at_revision_json(
                 &revision_id,
                 0,
                 &json!({ "anchor": address, "focus": address }).to_string(),
             )
-            .expect("same-flow range response is returned"),
+            .expect("text range response is returned"),
     );
 
     assert_revision(&range, &revision_id, 0);
@@ -341,11 +341,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
         .resolve_text_caret_at_revision_json(&revision_id, 0, r#"{"pageIndex":0,"x":"bad","y":0}"#)
         .expect_err("malformed point request is rejected");
     let bad_range = document
-        .resolve_same_flow_text_range_at_revision_json(
-            &revision_id,
-            0,
-            r#"{"anchor":{"pageIndex":0}}"#,
-        )
+        .resolve_text_range_at_revision_json(&revision_id, 0, r#"{"anchor":{"pageIndex":0}}"#)
         .expect_err("malformed range request is rejected");
     let bad_source_range = document
         .resolve_exact_source_range_at_revision_json(
@@ -361,7 +357,7 @@ fn versioned_exact_text_reads_return_stamped_typed_responses() {
     assert_eq!(bad_range.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_range
         .message()
-        .contains("invalid same-flow text range request JSON"));
+        .contains("invalid text range request JSON"));
     assert_eq!(bad_source_range.code(), WasmRuntimeErrorCode::BadRequest);
     assert!(bad_source_range
         .message()
@@ -493,7 +489,7 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
             .resolve_text_caret_at_revision_json("rev-1", 0, &request)
             .expect_err("old caret handle is stale"),
         document
-            .resolve_same_flow_text_range_at_revision_json("rev-1", 0, &range_request)
+            .resolve_text_range_at_revision_json("rev-1", 0, &range_request)
             .expect_err("old range handle is stale"),
         document
             .resolve_exact_source_range_at_revision_json("rev-1", 0, &source_range_request)
@@ -506,7 +502,7 @@ fn stale_unknown_and_exact_revision_release_are_distinct() {
             .resolve_text_caret_at_revision_json("rev-missing", 0, &request)
             .expect_err("missing caret revision is typed"),
         document
-            .resolve_same_flow_text_range_at_revision_json("rev-missing", 0, &range_request)
+            .resolve_text_range_at_revision_json("rev-missing", 0, &range_request)
             .expect_err("missing range revision is typed"),
         document
             .resolve_exact_source_range_at_revision_json("rev-missing", 0, &source_range_request)

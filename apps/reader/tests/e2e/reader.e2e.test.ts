@@ -57,6 +57,9 @@ test.describe('reader app', () => {
     const knownBeforeNavigation = await readerNumberAttribute(page, 'data-total-spreads');
     await link.dispatchEvent('click');
     await expect(page.getByRole('heading', { name: 'Navigate to Chapter' })).toBeVisible();
+    await expect(
+      page.getByRole('dialog').getByText('第14话　两人共度圣诞节', { exact: true }),
+    ).toBeVisible();
     await page.getByRole('button', { name: 'Go' }).click();
 
     await expect

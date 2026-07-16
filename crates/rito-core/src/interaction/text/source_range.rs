@@ -3,14 +3,15 @@ use crate::layout::{LayoutRuntimePage, LogicalTextSource, RunShapeCaretAffinity,
 use super::{
     caret::exact_run_parts,
     collect::{collect_text_runs_in_page_range, CollectedTextRun},
-    range::resolve_same_flow_text_range,
+    range::resolve_text_range,
     LayoutExactTextRangeResolution, LayoutSourcePoint, TextCaretAddress, TextCaretAffinity,
     TextInteractionUnavailableReason,
 };
 
 /// Resolves one durable source range against retained exact shapes. Source
 /// boundaries are never interpolated: both endpoints must coincide with real
-/// shaped cluster edges in one logical flow.
+/// shaped cluster edges in document order. The endpoints may belong to
+/// different logical text flows in the same source document.
 pub(crate) fn resolve_exact_source_range(
     pages: &[LayoutRuntimePage],
     first_page: usize,
@@ -28,24 +29,20 @@ pub(crate) fn resolve_exact_source_range(
         Err(reason) => return LayoutExactTextRangeResolution::Unavailable(reason),
     };
 
-    let mut fallback = TextInteractionUnavailableReason::DifferentLogicalFlow;
+    let mut fallback = TextInteractionUnavailableReason::SourceUnavailable;
     // A start boundary belongs to the following run; an end boundary belongs
     // to the preceding run. This also selects downstream/upstream bidi carets
     // deterministically when one logical boundary has two visual positions.
     for start_address in starts.iter().rev().copied() {
         for end_address in ends.iter().copied() {
-            match resolve_same_flow_text_range(pages, start_address, end_address) {
+            match resolve_text_range(pages, start_address, end_address) {
                 LayoutExactTextRangeResolution::Resolved(range)
                     if range.source_start == *start && range.source_end == *end =>
                 {
                     return LayoutExactTextRangeResolution::Resolved(range);
                 }
                 LayoutExactTextRangeResolution::Resolved(_) => {}
-                LayoutExactTextRangeResolution::Unavailable(reason) => {
-                    if reason != TextInteractionUnavailableReason::DifferentLogicalFlow {
-                        fallback = reason;
-                    }
-                }
+                LayoutExactTextRangeResolution::Unavailable(reason) => fallback = reason,
             }
         }
     }

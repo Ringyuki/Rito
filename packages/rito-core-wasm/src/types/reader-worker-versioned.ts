@@ -6,8 +6,8 @@ import type {
   RitoCoreWasmExactSourceRangeResponse,
   RitoCoreWasmFootnote,
   RitoCoreWasmFootnotes,
-  RitoCoreWasmSameFlowTextRangeRequest,
-  RitoCoreWasmSameFlowTextRangeResponse,
+  RitoCoreWasmTextRangeRequest,
+  RitoCoreWasmTextRangeResponse,
   RitoCoreWasmSourceLocator,
   RitoCoreWasmSourceLocatorResolution,
   RitoCoreWasmTextCaretResponse,
@@ -106,10 +106,10 @@ export interface RitoCoreWasmReaderVersionedClient {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmTextPointRequest,
   ): Promise<RitoCoreWasmVersioned<RitoCoreWasmTextCaretResponse>>;
-  resolveSameFlowTextRangeAtRevision(
+  resolveTextRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
-    request: RitoCoreWasmSameFlowTextRangeRequest,
-  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmSameFlowTextRangeResponse>>;
+    request: RitoCoreWasmTextRangeRequest,
+  ): Promise<RitoCoreWasmVersioned<RitoCoreWasmTextRangeResponse>>;
   resolveExactSourceRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
@@ -209,10 +209,10 @@ export interface RitoCoreWasmReaderVersionedDocumentRuntime {
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmTextPointRequest,
   ): RitoCoreWasmVersioned<RitoCoreWasmTextCaretResponse>;
-  resolveSameFlowTextRangeAtRevision(
+  resolveTextRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
-    request: RitoCoreWasmSameFlowTextRangeRequest,
-  ): RitoCoreWasmVersioned<RitoCoreWasmSameFlowTextRangeResponse>;
+    request: RitoCoreWasmTextRangeRequest,
+  ): RitoCoreWasmVersioned<RitoCoreWasmTextRangeResponse>;
   resolveExactSourceRangeAtRevision(
     revision: RitoCoreWasmRevisionHandle,
     request: RitoCoreWasmExactSourceRangeRequest,
@@ -277,9 +277,9 @@ export interface RitoCoreWasmReaderTextCaretTransport {
 }
 
 /** Private Worker echo that binds a range response to its exact endpoint pair. */
-export interface RitoCoreWasmReaderSameFlowTextRangeTransport {
-  readonly request: RitoCoreWasmSameFlowTextRangeRequest;
-  readonly response: RitoCoreWasmSameFlowTextRangeResponse;
+export interface RitoCoreWasmReaderTextRangeTransport {
+  readonly request: RitoCoreWasmTextRangeRequest;
+  readonly response: RitoCoreWasmTextRangeResponse;
 }
 
 /** Private Worker echo binding exact source projection to its durable request. */
@@ -352,9 +352,9 @@ export type RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest =
   RevisionRequest<'resolveTextCaretAtRevision'> & {
     readonly request: RitoCoreWasmTextPointRequest;
   };
-export type RitoCoreWasmReaderWorkerResolveSameFlowTextRangeAtRevisionRequest =
-  RevisionRequest<'resolveSameFlowTextRangeAtRevision'> & {
-    readonly request: RitoCoreWasmSameFlowTextRangeRequest;
+export type RitoCoreWasmReaderWorkerResolveTextRangeAtRevisionRequest =
+  RevisionRequest<'resolveTextRangeAtRevision'> & {
+    readonly request: RitoCoreWasmTextRangeRequest;
   };
 export type RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest =
   RevisionRequest<'resolveExactSourceRangeAtRevision'> & {
@@ -405,7 +405,7 @@ export type RitoCoreWasmReaderVersionedWorkerRequest =
   | RitoCoreWasmReaderWorkerGetPageTextPositionsAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetTextRangeGeometryAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveTextCaretAtRevisionRequest
-  | RitoCoreWasmReaderWorkerResolveSameFlowTextRangeAtRevisionRequest
+  | RitoCoreWasmReaderWorkerResolveTextRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerResolveExactSourceRangeAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnoteAtRevisionRequest
   | RitoCoreWasmReaderWorkerGetFootnotesAtRevisionRequest
@@ -482,8 +482,8 @@ export type RitoCoreWasmReaderVersionedWorkerResponse =
       RitoCoreWasmReaderTextCaretTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
-      'resolveSameFlowTextRangeAtRevision',
-      RitoCoreWasmReaderSameFlowTextRangeTransport
+      'resolveTextRangeAtRevision',
+      RitoCoreWasmReaderTextRangeTransport
     >
   | RitoCoreWasmReaderWorkerVersionedResponse<
       'resolveExactSourceRangeAtRevision',

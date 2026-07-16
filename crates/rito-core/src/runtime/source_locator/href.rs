@@ -8,61 +8,91 @@ pub(super) struct CanonicalSourceLocator {
     pub(super) locator: RuntimeSourceLocator,
 }
 
+#[derive(Debug)]
+pub(in crate::runtime) struct RuntimeSourceLocatorCanonicalizer {
+    href_index: ResourceHrefIndex<usize>,
+}
+
 pub(super) fn canonicalize_source_locator(
     document: &LoadedEpubDocument,
     locator: RuntimeSourceLocator,
 ) -> Result<CanonicalSourceLocator, RuntimeSourceLocatorError> {
-    if locator.source_point.is_some() && locator.source_range.is_some() {
-        return Err(RuntimeSourceLocatorError::invalid_selector(
-            "sourcePoint and sourceRange are mutually exclusive",
-        ));
-    }
-    if locator
-        .progression
-        .is_some_and(|value| !value.is_finite() || !(0.0..=1.0).contains(&value))
-    {
-        return Err(RuntimeSourceLocatorError::invalid_selector(
-            "progression must be a finite value in [0, 1]",
-        ));
-    }
+    RuntimeSourceLocatorCanonicalizer::new(document).canonicalize(document, locator)
+}
 
-    let (href_path, legacy_anchor) = split_href_fragment(&locator.href);
-    if href_path.is_empty() {
-        return Err(RuntimeSourceLocatorError::href_not_found(&locator.href));
-    }
-    let href_index = ResourceHrefIndex::new(
-        document
-            .chapters
-            .iter()
-            .enumerate()
-            .map(|(index, chapter)| (chapter.href.as_str(), index)),
-    );
-    let chapter_index = href_index
-        .resolve(href_path)
-        .ok_or_else(|| RuntimeSourceLocatorError::href_not_found(&locator.href))?;
-    let chapter = &document.chapters[chapter_index];
-    let legacy_anchor = legacy_anchor
-        .filter(|anchor| !anchor.is_empty())
-        .map(decode_fragment);
-    if let (Some(explicit), Some(legacy)) = (&locator.anchor_id, &legacy_anchor) {
-        if explicit != legacy {
-            return Err(RuntimeSourceLocatorError::invalid_selector(
-                "anchorId does not match the legacy href fragment",
-            ));
+impl RuntimeSourceLocatorCanonicalizer {
+    pub(in crate::runtime) fn new(document: &LoadedEpubDocument) -> Self {
+        Self {
+            href_index: ResourceHrefIndex::new(
+                document
+                    .chapters
+                    .iter()
+                    .enumerate()
+                    .map(|(index, chapter)| (chapter.href.as_str(), index)),
+            ),
         }
     }
-    let anchor_id = locator.anchor_id.or(legacy_anchor);
-    Ok(CanonicalSourceLocator {
-        chapter_index,
-        spine_idref: chapter.idref.clone(),
-        locator: RuntimeSourceLocator {
-            href: chapter.href.clone(),
-            anchor_id,
-            source_point: locator.source_point,
-            source_range: locator.source_range,
-            progression: locator.progression,
-        },
-    })
+
+    pub(in crate::runtime) fn canonicalize_locator(
+        &self,
+        document: &LoadedEpubDocument,
+        locator: RuntimeSourceLocator,
+    ) -> Result<RuntimeSourceLocator, RuntimeSourceLocatorError> {
+        self.canonicalize(document, locator)
+            .map(|canonical| canonical.locator)
+    }
+
+    fn canonicalize(
+        &self,
+        document: &LoadedEpubDocument,
+        locator: RuntimeSourceLocator,
+    ) -> Result<CanonicalSourceLocator, RuntimeSourceLocatorError> {
+        if locator.source_point.is_some() && locator.source_range.is_some() {
+            return Err(RuntimeSourceLocatorError::invalid_selector(
+                "sourcePoint and sourceRange are mutually exclusive",
+            ));
+        }
+        if locator
+            .progression
+            .is_some_and(|value| !value.is_finite() || !(0.0..=1.0).contains(&value))
+        {
+            return Err(RuntimeSourceLocatorError::invalid_selector(
+                "progression must be a finite value in [0, 1]",
+            ));
+        }
+
+        let (href_path, legacy_anchor) = split_href_fragment(&locator.href);
+        if href_path.is_empty() {
+            return Err(RuntimeSourceLocatorError::href_not_found(&locator.href));
+        }
+        let chapter_index = self
+            .href_index
+            .resolve(href_path)
+            .ok_or_else(|| RuntimeSourceLocatorError::href_not_found(&locator.href))?;
+        let chapter = &document.chapters[chapter_index];
+        let legacy_anchor = legacy_anchor
+            .filter(|anchor| !anchor.is_empty())
+            .map(decode_fragment);
+        if let (Some(explicit), Some(legacy)) = (&locator.anchor_id, &legacy_anchor) {
+            if explicit != legacy {
+                return Err(RuntimeSourceLocatorError::invalid_selector(
+                    "anchorId does not match the legacy href fragment",
+                ));
+            }
+        }
+        let anchor_id = locator.anchor_id.or(legacy_anchor);
+        Ok(CanonicalSourceLocator {
+            chapter_index,
+            spine_idref: chapter.idref.clone(),
+            locator: RuntimeSourceLocator {
+                href: chapter.href.clone(),
+                anchor_id,
+                source_point: locator.source_point,
+                source_range: locator.source_range,
+                progression: locator.progression,
+            },
+        })
+    }
 }
 
 fn split_href_fragment(href: &str) -> (&str, Option<&str>) {

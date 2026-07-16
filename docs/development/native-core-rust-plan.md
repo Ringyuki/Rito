@@ -642,10 +642,10 @@ roadmap in this order:
    Worker and the public Reader;
 4. add precise native point/range geometry, then migrate Kit selection,
    highlights, annotations, positions and accessibility; **the version-gated
-   Rust core, WASM/Worker transport, opaque Browser Reader point/same-flow
+   Rust core, WASM/Worker transport, opaque Browser Reader point/document-order
    capability, and Kit exact selection/highlight/copy/source-annotation target
    creation plus revision-safe native annotation re-projection are implemented;
-   reading positions, accessibility, and cross-logical-flow ranges remain;**
+   reading positions, accessibility, and cross-logical-flow ranges are implemented;**
 5. reduce the browser shell to core-requested host operations;
 6. pass the real-book usability and stage-specific performance gate;
 7. build the controlled WebView/DOM harness and deliberately transition the
@@ -827,9 +827,10 @@ active usability roadmap.
    - Keep search, annotations, and selection either backed by Rust APIs or
      explicitly compatibility-limited until the kit contract is narrowed.
    - Do not fake successful behavior where geometry is not available.
-   - Exact Rust point-to-caret and same-flow range resolution now rejects
-     host-shaped, source-unavailable and transform-unsupported runs instead of
-     interpolating them. Its strict WASM/Worker transport and revision-bound
+   - Exact Rust point-to-caret and document-order range resolution across retained
+     logical flows now rejects chapter boundaries plus host-shaped,
+     source-unavailable and transform-unsupported runs instead of interpolating
+     them. Its strict WASM/Worker transport and revision-bound
      Browser Reader capability are implemented. Kit uses that capability
      authoritatively with async cancellation and source-range annotations;
      Readers without it retain the legacy selection engine.

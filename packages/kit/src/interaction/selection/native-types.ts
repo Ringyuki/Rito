@@ -1,6 +1,6 @@
 import type {
   ReaderLocator,
-  ReaderSameFlowTextRange,
+  ReaderTextRange,
   ReaderTextPoint,
   ReaderTextSelectionInteractions,
 } from '@ritojs/core';
@@ -12,14 +12,14 @@ export type NativeSelectionFocusDirection = 'forward' | 'backward';
 
 /** Exact native selection data. Rectangles remain in page-content coordinates. */
 export interface NativeSelectionSnapshot {
-  readonly range: ReaderSameFlowTextRange;
+  readonly range: ReaderTextRange;
   readonly text: string;
-  readonly rects: ReaderSameFlowTextRange['rects'];
+  readonly rects: ReaderTextRange['rects'];
   readonly sourceLocator: ReaderLocator;
   readonly focusDirection: NativeSelectionFocusDirection;
   readonly focusCaret: {
     readonly pageIndex: number;
-    readonly geometry: ReaderSameFlowTextRange['focus']['geometry'];
+    readonly geometry: ReaderTextRange['focus']['geometry'];
   };
 }
 

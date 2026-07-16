@@ -11,8 +11,8 @@ import {
   requireTextPointRequest,
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
 import {
-  requireSameFlowTextRangeRequest,
-  requireSameFlowTextRangeTransport,
+  requireTextRangeRequest,
+  requireTextRangeTransport,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
   requireExactSourceRangeRequest,
@@ -183,18 +183,15 @@ export function createVersionedReaderClientMethods(send) {
           requireTextCaretTransport(result, handle, expectedRequest, operation),
       );
     },
-    resolveSameFlowTextRangeAtRevision: (revision, request) => {
-      const expectedRequest = requireSameFlowTextRangeRequest(
-        request,
-        'resolveSameFlowTextRangeAtRevision',
-      );
+    resolveTextRangeAtRevision: (revision, request) => {
+      const expectedRequest = requireTextRangeRequest(request, 'resolveTextRangeAtRevision');
       return currentRevisionResult(
         send,
-        'resolveSameFlowTextRangeAtRevision',
+        'resolveTextRangeAtRevision',
         revision,
         { request: expectedRequest },
         (result, handle, operation) =>
-          requireSameFlowTextRangeTransport(result, handle, expectedRequest, operation),
+          requireTextRangeTransport(result, handle, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision: (revision, request) => {

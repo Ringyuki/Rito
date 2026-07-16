@@ -121,10 +121,10 @@ disposal abort the old intent, and position storage never falls back to a stale
 page index. Readers without the native capability retain the legacy synchronous
 projection internally, exposed through the same Promise API.
 
-The current native projection accepts ranges within one logical text flow and
-requires deterministic retained shapes. Cross-paragraph legacy annotations and
-host-measured text can therefore remain unavailable until those native capabilities
-are expanded.
+The current native projection accepts exact source-backed ranges across retained
+logical text flows in document order within one chapter and requires deterministic
+shapes. Cross-chapter ranges and host-measured text remain typed unavailable rather
+than using interpolated geometry.
 
 ## When Not To Use It
 

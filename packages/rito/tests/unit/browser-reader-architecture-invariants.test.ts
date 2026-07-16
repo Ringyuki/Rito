@@ -380,7 +380,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(sourceRangeSource).toContain('resolveExactSourceRangeAtRevision');
     expect(sourceRangeSource).toContain('readCapturedInteraction');
     expect(textSelectionSource).toContain('resolveTextCaretAtRevision');
-    expect(textSelectionSource).toContain('resolveSameFlowTextRangeAtRevision');
+    expect(textSelectionSource).toContain('resolveTextRangeAtRevision');
     expect(textSelectionSource).toContain('WeakMap<ReaderTextCaret, BoundCaret>');
   });
 

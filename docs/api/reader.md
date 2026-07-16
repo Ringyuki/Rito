@@ -172,8 +172,10 @@ footnote and source-locator reads. Its `enabled` flag is false while a visual-on
 preview is displayed; callers must not reuse targets from the previous canonical
 revision during that interval. Page targets intentionally cover semantic click
 sources only. When supported, `interactions.textSelection` exposes revision-bound
-point-to-caret and same-flow range resolution. Its carets are opaque and must be
-passed back by identity; range rectangles use page-content coordinates.
+point-to-caret and exact document-order range resolution across retained logical
+flows within one chapter. Its carets are opaque and must be passed back by
+identity; selected text preserves native line/block separators and range
+rectangles use page-content coordinates.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact

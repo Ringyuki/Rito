@@ -104,7 +104,7 @@ export type RitoCoreWasmTextInteractionUnavailableReason =
   | 'unsupportedTransform'
   | 'visualGeometryUnavailable'
   | 'invalidCaret'
-  | 'differentLogicalFlow';
+  | 'differentChapter';
 
 export interface RitoCoreWasmTextCaret {
   readonly address: RitoCoreWasmTextCaretAddress;
@@ -127,7 +127,7 @@ export interface RitoCoreWasmTextCaretResponse {
   readonly resolution: RitoCoreWasmTextCaretResolution;
 }
 
-export interface RitoCoreWasmSameFlowTextRangeRequest {
+export interface RitoCoreWasmTextRangeRequest {
   readonly anchor: RitoCoreWasmTextCaretAddress;
   readonly focus: RitoCoreWasmTextCaretAddress;
 }
@@ -168,7 +168,7 @@ export interface RitoCoreWasmExactSourceRangeResponse {
   readonly resolution: RitoCoreWasmExactSourceRangeResolution;
 }
 
-export interface RitoCoreWasmSameFlowTextRange {
+export interface RitoCoreWasmTextRange {
   readonly anchor: RitoCoreWasmTextCaretAddress;
   readonly focus: RitoCoreWasmTextCaretAddress;
   readonly start: RitoCoreWasmTextCaretAddress;
@@ -178,16 +178,16 @@ export interface RitoCoreWasmSameFlowTextRange {
   readonly rects: readonly RitoCoreWasmExactTextRangeRect[];
 }
 
-export type RitoCoreWasmSameFlowTextRangeResolution =
-  | { readonly status: 'resolved'; readonly range: RitoCoreWasmSameFlowTextRange }
+export type RitoCoreWasmTextRangeResolution =
+  | { readonly status: 'resolved'; readonly range: RitoCoreWasmTextRange }
   | {
       readonly status: 'unavailable';
       readonly reason: RitoCoreWasmTextInteractionUnavailableReason;
     };
 
-export interface RitoCoreWasmSameFlowTextRangeResponse {
+export interface RitoCoreWasmTextRangeResponse {
   readonly revisionId: string;
-  readonly resolution: RitoCoreWasmSameFlowTextRangeResolution;
+  readonly resolution: RitoCoreWasmTextRangeResolution;
 }
 
 export type RitoCoreWasmSourceLocatorMatchedBy =

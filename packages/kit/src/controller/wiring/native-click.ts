@@ -101,7 +101,13 @@ function dispatchInternalLink(
   };
   emitNativeClickEvent(
     'linkClick',
-    { href, text: target.label, type: 'internal', navigate },
+    {
+      href,
+      text: target.label,
+      type: 'internal',
+      resolvedLabel: target.destinationLabel,
+      navigate,
+    },
     'native-link-publication',
     deps,
   );

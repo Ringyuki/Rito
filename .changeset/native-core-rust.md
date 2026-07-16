@@ -16,3 +16,7 @@ Bounded sessions now publish a slim exact-version presentation without cumulativ
 chapter-text payloads, can grow directly to a durable source locator, and can explicitly drain to a
 complete revision. Locator transport echoes its normalized request, and recoverable locator/frame
 reads fail only their target instead of releasing a healthy session.
+Native text ranges now span exact retained flows within a chapter, preserve native line and block
+separators, survive reflow through durable source ranges, and expose TOC-backed destination labels
+for internal-link previews. Production Reader gestures retain their anchor while reversing direction
+and preserve the latest valid in-flight drag result when pointer release lands outside text.

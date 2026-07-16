@@ -63,7 +63,7 @@ export function rangeResponse(request = rangeRequest(), overrides = {}) {
         focus: request.focus,
         start: request.anchor,
         end: request.focus,
-        selectedText: 'i\nTe',
+        selectedText: 'i\n\nTe',
         sourceLocator: {
           href: 'Text/chapter.xhtml',
           sourceRange: {
@@ -120,7 +120,7 @@ export function rawExactTextDocument(calls) {
       pinnedFontPolicyJson,
       free() {},
       resolveTextCaretAtRevisionJson: (_revisionId, version) => envelope(version, caretResponse()),
-      resolveSameFlowTextRangeAtRevisionJson: (_revisionId, version, requestJson) => {
+      resolveTextRangeAtRevisionJson: (_revisionId, version, requestJson) => {
         const request = JSON.parse(requestJson);
         return envelope(version, rangeResponse(request));
       },

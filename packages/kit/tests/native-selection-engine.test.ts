@@ -16,7 +16,7 @@ describe('native exact selection engine', () => {
     const anchorRead = deferred<ReaderTextCaretResolution | undefined>();
     const focusRead = deferred<ReaderTextCaretResolution | undefined>();
     const rangeRead =
-      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveSameFlowRange']>>>();
+      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveTextRange']>>>();
     const anchor = caret(1);
     const focus = caret(8);
     const resolveCaret = vi
@@ -24,7 +24,7 @@ describe('native exact selection engine', () => {
       .mockReturnValueOnce(anchorRead.promise)
       .mockReturnValueOnce(focusRead.promise);
     const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>()
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
       .mockReturnValue(rangeRead.promise);
     const capability = capabilityFrom(resolveCaret, resolveRange);
     const engine = createNativeSelectionEngine(capability);
@@ -70,7 +70,7 @@ describe('native exact selection engine', () => {
       .mockReturnValueOnce(firstFocus.promise)
       .mockReturnValueOnce(latestFocus.promise);
     const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>()
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
       .mockResolvedValue({ status: 'resolved', range: exactRange(anchor, latest) });
     const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
 
@@ -95,7 +95,7 @@ describe('native exact selection engine', () => {
 
   it('drops a range result when a newer move arrives and publishes only the latest range', async () => {
     const oldRange =
-      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveSameFlowRange']>>>();
+      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveTextRange']>>>();
     const anchor = caret(0);
     const oldFocus = caret(3);
     const latestFocus = caret(7);
@@ -105,7 +105,7 @@ describe('native exact selection engine', () => {
       .mockResolvedValueOnce(resolvedCaret(oldFocus))
       .mockResolvedValueOnce(resolvedCaret(latestFocus));
     const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>()
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
       .mockReturnValueOnce(oldRange.promise)
       .mockResolvedValueOnce({
         status: 'resolved',
@@ -140,7 +140,7 @@ describe('native exact selection engine', () => {
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockReturnValue(anchorRead.promise);
-    const resolveRange = vi.fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>();
+    const resolveRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
     const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
 
     engine.handlePointerDown(point(1));
@@ -157,7 +157,7 @@ describe('native exact selection engine', () => {
 
   it('dispose cancels a pending range and suppresses later input and publication', async () => {
     const pendingRange =
-      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveSameFlowRange']>>>();
+      deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveTextRange']>>>();
     const anchor = caret(1);
     const focus = caret(5);
     const resolveCaret = vi
@@ -165,7 +165,7 @@ describe('native exact selection engine', () => {
       .mockResolvedValueOnce(resolvedCaret(anchor))
       .mockResolvedValueOnce(resolvedCaret(focus));
     const resolveRange = vi
-      .fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>()
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
       .mockReturnValue(pendingRange.promise);
     const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
     const listener = vi.fn();
@@ -190,7 +190,7 @@ describe('native exact selection engine', () => {
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
       .mockResolvedValue(undefined);
-    const resolveRange = vi.fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>();
+    const resolveRange = vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>();
     const capability = capabilityFrom(resolveCaret, resolveRange);
     const engine = createNativeSelectionEngine(capability);
 
@@ -213,7 +213,7 @@ describe('native exact selection engine', () => {
         .mockResolvedValueOnce(resolvedCaret(anchor))
         .mockResolvedValueOnce(resolvedCaret(focus)),
       vi
-        .fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>()
+        .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
         .mockResolvedValue({ status: 'resolved', range }),
     );
     const engine = createNativeSelectionEngine(capability);
@@ -233,6 +233,43 @@ describe('native exact selection engine', () => {
     });
   });
 
+  it('keeps the original anchor while one gesture crosses it and reverses direction', async () => {
+    const anchor = caret(5);
+    const forwardFocus = caret(9);
+    const backwardFocus = caret(2);
+    const forwardRange = exactRange(anchor, forwardFocus, 'forward', 'forward');
+    const backwardRange = exactRange(anchor, backwardFocus, 'backward', 'backward');
+    const resolveCaret = vi
+      .fn<ReaderTextSelectionInteractions['resolveCaret']>()
+      .mockResolvedValueOnce(resolvedCaret(anchor))
+      .mockResolvedValueOnce(resolvedCaret(forwardFocus))
+      .mockResolvedValueOnce(resolvedCaret(backwardFocus))
+      .mockResolvedValueOnce(resolvedCaret(backwardFocus));
+    const resolveRange = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRange']>()
+      .mockResolvedValueOnce({ status: 'resolved', range: forwardRange })
+      .mockResolvedValueOnce({ status: 'resolved', range: backwardRange })
+      .mockResolvedValueOnce({ status: 'resolved', range: backwardRange });
+    const engine = createNativeSelectionEngine(capabilityFrom(resolveCaret, resolveRange));
+
+    engine.handlePointerDown(point(5));
+    await flushMicrotasks();
+    engine.handlePointerMove(point(9));
+    await flushMicrotasks();
+    expect(engine.getSnapshot()?.focusDirection).toBe('forward');
+
+    engine.handlePointerMove(point(2));
+    await flushMicrotasks();
+    expect(engine.getSnapshot()?.focusDirection).toBe('backward');
+    expect(engine.getSnapshot()?.text).toBe('backward');
+
+    engine.handlePointerUp(point(2));
+    await flushMicrotasks();
+    expect(engine.getState()).toBe('selected');
+    expect(engine.getSnapshot()?.focusDirection).toBe('backward');
+    expect(resolveRange.mock.calls.map(([start]) => start)).toEqual([anchor, anchor, anchor]);
+  });
+
   it('reports only current errors and never creates a stale result', async () => {
     const first = deferred<ReaderTextCaretResolution | undefined>();
     const second = deferred<ReaderTextCaretResolution | undefined>();
@@ -242,7 +279,7 @@ describe('native exact selection engine', () => {
         .fn<ReaderTextSelectionInteractions['resolveCaret']>()
         .mockReturnValueOnce(first.promise)
         .mockReturnValueOnce(second.promise),
-      vi.fn<ReaderTextSelectionInteractions['resolveSameFlowRange']>(),
+      vi.fn<ReaderTextSelectionInteractions['resolveTextRange']>(),
     );
     const engine = createNativeSelectionEngine(capability, { onError });
 

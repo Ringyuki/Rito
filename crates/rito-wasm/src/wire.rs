@@ -4,8 +4,8 @@ use rito_core::runtime::{
     RuntimeFrameResourceWarmPlan, RuntimeFullRevisionBundleRequest,
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
-    RuntimeSameFlowTextRangeRequest, RuntimeSearchRequest, RuntimeSourceLocator,
-    RuntimeTextPointRequest, RuntimeTextRangeGeometryRequest, RuntimeViewRevisionRequest,
+    RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
+    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeViewRevisionRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -186,13 +186,9 @@ pub fn parse_text_point_request(json: &str) -> Result<RuntimeTextPointRequest, W
     })
 }
 
-pub fn parse_same_flow_text_range_request(
-    json: &str,
-) -> Result<RuntimeSameFlowTextRangeRequest, WasmRuntimeError> {
+pub fn parse_text_range_request(json: &str) -> Result<RuntimeTextRangeRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
-        WasmRuntimeError::bad_request(format!(
-            "invalid same-flow text range request JSON: {error}"
-        ))
+        WasmRuntimeError::bad_request(format!("invalid text range request JSON: {error}"))
     })
 }
 

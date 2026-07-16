@@ -9,7 +9,7 @@ const UNAVAILABLE_REASONS = new Set([
   'unsupportedTransform',
   'visualGeometryUnavailable',
   'invalidCaret',
-  'differentLogicalFlow',
+  'differentChapter',
 ]);
 
 export function requireTextPointRequest(value, operation) {
@@ -71,7 +71,7 @@ function requireCaretResolution(value, pageIndex, operation) {
 
 function requirePointUnavailableReason(value, operation) {
   const reason = requireExactTextUnavailableReason(value, operation);
-  if (reason === 'differentLogicalFlow') {
+  if (reason === 'differentChapter') {
     throw new Error(`${operation} returned a range-only unavailable reason for a point`);
   }
   return reason;

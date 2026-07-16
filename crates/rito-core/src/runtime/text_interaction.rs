@@ -1,16 +1,18 @@
 use crate::{
     epub::{EpubError, EpubResult, LoadedEpubDocument},
     interaction::{
-        resolve_exact_source_range, resolve_same_flow_text_range, resolve_text_caret,
-        ExactTextRangeRect, LayoutExactTextRange, LayoutExactTextRangeResolution,
-        LayoutSourcePoint, LayoutTextCaret, LayoutTextCaretResolution,
-        TextInteractionUnavailableReason,
+        resolve_exact_source_range, resolve_text_caret, resolve_text_range, ExactTextRangeRect,
+        LayoutExactTextRange, LayoutExactTextRangeResolution, LayoutSourcePoint, LayoutTextCaret,
+        LayoutTextCaretResolution, TextInteractionUnavailableReason,
     },
 };
 
+mod source_match;
 mod types;
 
 pub use types::*;
+
+use source_match::source_segments_match;
 
 use super::source_locator::{ExactSourceRangePageWindow, PreparedExactSourceRange};
 use super::{
@@ -63,7 +65,10 @@ impl RuntimeDocument {
             resolve_exact_source_range(&revision.layout.pages, first_page, last_page, &start, &end);
         match resolution {
             LayoutExactTextRangeResolution::Resolved(range)
-                if range.selected_text == prepared.selected_text =>
+                if source_segments_match(
+                    &prepared.normalized_source_text,
+                    &range.exact_source_segments,
+                ) =>
             {
                 RuntimeExactSourceRangeResolution::Resolved {
                     range: Box::new(RuntimeExactSourceRange {
@@ -117,26 +122,23 @@ impl RuntimeDocument {
         })
     }
 
-    pub(super) fn resolve_same_flow_text_range_for_revision(
+    pub(super) fn resolve_text_range_for_revision(
         &self,
         revision_id: &str,
-        request: RuntimeSameFlowTextRangeRequest,
-    ) -> EpubResult<RuntimeSameFlowTextRangeResponse> {
+        request: RuntimeTextRangeRequest,
+    ) -> EpubResult<RuntimeTextRangeResponse> {
         let revision = self.require_text_interaction_revision(revision_id)?;
         require_endpoint_pages(revision, request)?;
-        let resolution = match resolve_same_flow_text_range(
-            &revision.layout.pages,
-            request.anchor,
-            request.focus,
-        ) {
-            LayoutExactTextRangeResolution::Resolved(range) => {
-                runtime_text_range(&self.document, revision, *range)?
-            }
-            LayoutExactTextRangeResolution::Unavailable(reason) => {
-                RuntimeSameFlowTextRangeResolution::Unavailable { reason }
-            }
-        };
-        Ok(RuntimeSameFlowTextRangeResponse {
+        let resolution =
+            match resolve_text_range(&revision.layout.pages, request.anchor, request.focus) {
+                LayoutExactTextRangeResolution::Resolved(range) => {
+                    runtime_text_range(&self.document, revision, *range)?
+                }
+                LayoutExactTextRangeResolution::Unavailable(reason) => {
+                    RuntimeTextRangeResolution::Unavailable { reason }
+                }
+            };
+        Ok(RuntimeTextRangeResponse {
             revision_id: revision_id.to_owned(),
             resolution,
         })
@@ -178,12 +180,12 @@ fn runtime_text_range(
     document: &LoadedEpubDocument,
     revision: &RuntimeRevision,
     range: LayoutExactTextRange,
-) -> EpubResult<RuntimeSameFlowTextRangeResolution> {
+) -> EpubResult<RuntimeTextRangeResolution> {
     let start_chapter = require_chapter(document, revision, range.start.page_index)?;
     let end_chapter = require_chapter(document, revision, range.end.page_index)?;
     if start_chapter.href != end_chapter.href {
-        return Ok(RuntimeSameFlowTextRangeResolution::Unavailable {
-            reason: TextInteractionUnavailableReason::DifferentLogicalFlow,
+        return Ok(RuntimeTextRangeResolution::Unavailable {
+            reason: TextInteractionUnavailableReason::DifferentChapter,
         });
     }
     let source_locator = RuntimeSourceLocator {
@@ -196,8 +198,8 @@ fn runtime_text_range(
         }),
         progression: None,
     };
-    Ok(RuntimeSameFlowTextRangeResolution::Resolved {
-        range: Box::new(RuntimeSameFlowTextRange {
+    Ok(RuntimeTextRangeResolution::Resolved {
+        range: Box::new(RuntimeTextRange {
             anchor: range.anchor,
             focus: range.focus,
             start: range.start,
@@ -272,7 +274,7 @@ fn require_finite_point(request: RuntimeTextPointRequest) -> EpubResult<()> {
 
 fn require_endpoint_pages(
     revision: &RuntimeRevision,
-    request: RuntimeSameFlowTextRangeRequest,
+    request: RuntimeTextRangeRequest,
 ) -> EpubResult<()> {
     for page_index in [request.anchor.page_index, request.focus.page_index] {
         if page_index >= revision.layout.pages.len() {

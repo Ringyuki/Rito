@@ -253,7 +253,9 @@ indexes. Page/spread numbers are revision-local display hints.
 - Center tap toggles chrome.
 - Left/right edge tap navigates previous/next.
 - Horizontal swipe navigates previous/next.
-- Long press on text enters selection mode when selection support lands.
+- Long press selects the platform-equivalent word and enters selection mode.
+- Selection handles extend across visual lines, paragraphs and page boundaries;
+  dragging near an available edge autoscrolls or grows the next frame as needed.
 - Tap link/image/footnote target dispatches based on `ReaderInteractionTarget`.
 - Tap outside a panel dismisses it.
 
@@ -267,9 +269,36 @@ Edge tap zones should be adaptive:
 
 - Pointer move near top/bottom shows chrome in `peek`.
 - Click targets behave like touch tap.
+- Primary-button drag selects continuously across visual lines, paragraphs and
+  visible pages in either direction.
+- Double-click and triple-click use the platform's word and paragraph granularity.
 - Right click or secondary click opens contextual UI without triggering target
   activation.
 - Trackpad horizontal swipe may navigate when it is clearly intentional.
+
+### Text Selection Acceptance
+
+Canvas or a native painter does not relax the interaction contract. Selection must
+be observably equivalent to platform-native text selection:
+
+- pointer/touch release keeps the final range and visible highlight until the same
+  explicit action that would clear a native selection;
+- reversing direction across the anchor updates the active endpoint without
+  collapsing or swapping user-visible text;
+- soft wraps, forced line breaks, adjacent blocks/paragraphs and visible page or
+  spread boundaries remain one continuous selection when the source is selectable;
+- copy, search-selection and annotation actions consume exactly the retained text
+  and source range;
+- selection drag never activates links, images, footnotes, page turns or chrome;
+- unavailable shaping or source provenance fails closed, without fabricated caret
+  interpolation, while unrelated selectable text remains usable;
+- mouse, touch, pen, keyboard extension, word/paragraph granularity, handles and
+  edge autoscroll follow the conventions of the current host platform.
+
+Acceptance requires integration tests that send real pointer/touch/keyboard input
+to the production reader surface. Mocked caret/range unit tests remain necessary
+for races, but cannot substitute for multi-line, cross-paragraph and pointer-up
+persistence tests against the painted frame.
 
 ### Keyboard
 
@@ -278,6 +307,8 @@ Baseline shortcuts:
 - `ArrowRight` / `PageDown` / `Space`: next spread
 - `ArrowLeft` / `PageUp`: previous spread
 - `Home` / `End`: first/last available position when supported
+- `Shift` plus the platform navigation keys extends an active selection.
+- `Cmd/Ctrl+C` copies the retained selection without changing its range.
 - `Escape`: close panel, then hide chrome
 - `Cmd/Ctrl+F`: search
 - `Cmd/Ctrl+B`: bookmark
@@ -496,8 +527,12 @@ pixel remains the gate for layout/render correctness.
 ### PR UI-4: Gesture And Shortcut Layer
 
 - Add center tap, edge tap, swipe, keyboard shortcuts, and pointer peek.
-- Ensure secondary click and drag do not activate targets.
-- Add interaction tests for touch, mouse, and keyboard paths.
+- Keep the implemented mouse cross-flow range extension and add host-native
+  word/paragraph granularity, drag handles and edge autoscroll.
+- Ensure secondary click and selection drag do not activate targets.
+- Keep the production-surface mouse tests for multi-line, cross-paragraph and
+  pointer-up persistence and reverse-direction anchor crossing, then add touch
+  and keyboard cases.
 
 ### PR UI-5: Motion System
 

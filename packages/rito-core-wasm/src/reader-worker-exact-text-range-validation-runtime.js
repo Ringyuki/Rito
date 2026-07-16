@@ -10,7 +10,7 @@ import {
 } from './reader-worker-exact-text-interaction-validation-runtime.js';
 import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
-export function requireSameFlowTextRangeRequest(value, operation) {
+export function requireTextRangeRequest(value, operation) {
   const request = requireExactTextRecord(value, `${operation} request`);
   return {
     anchor: requireExactTextCaretAddress(request.anchor, `${operation} anchor`),
@@ -18,16 +18,16 @@ export function requireSameFlowTextRangeRequest(value, operation) {
   };
 }
 
-export function requireSameFlowTextRangeResponse(value, revision, request, operation) {
+export function requireTextRangeResponse(value, revision, request, operation) {
   const response = requireExactTextRecord(value, `${operation} result`);
   requireExactTextRevisionId(response, revision, operation);
   const resolution = requireRangeResolution(response.resolution, request, operation);
   return { ...response, resolution };
 }
 
-export function requireSameFlowTextRangeTransport(value, revision, expectedRequest, operation) {
+export function requireTextRangeTransport(value, revision, expectedRequest, operation) {
   const transport = requireExactTextRecord(value, `${operation} transport`);
-  const request = requireSameFlowTextRangeRequest(transport.request, operation);
+  const request = requireTextRangeRequest(transport.request, operation);
   requireMatchingExactTextCaretAddress(
     request.anchor,
     expectedRequest.anchor,
@@ -38,7 +38,7 @@ export function requireSameFlowTextRangeTransport(value, revision, expectedReque
     expectedRequest.focus,
     `${operation} request focus`,
   );
-  return requireSameFlowTextRangeResponse(transport.response, revision, request, operation);
+  return requireTextRangeResponse(transport.response, revision, request, operation);
 }
 
 function requireRangeResolution(value, request, operation) {
@@ -57,7 +57,7 @@ function requireRangeResolution(value, request, operation) {
         reason: requireExactTextUnavailableReason(resolution.reason, operation),
       };
     default:
-      throw new Error(`${operation} returned an invalid same-flow range status`);
+      throw new Error(`${operation} returned an invalid text range status`);
   }
 }
 

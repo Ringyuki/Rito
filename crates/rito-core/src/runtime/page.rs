@@ -7,13 +7,15 @@ use crate::{
 };
 
 use super::{
-    navigation::spread_index_for_page, page_target::runtime_page_targets, RuntimePageTargets,
-    RuntimePageTextPositions, RuntimeRevision, RuntimeTextRangeGeometry,
+    navigation::spread_index_for_page,
+    page_target::{runtime_page_targets, RuntimePageTargetContext},
+    RuntimePageTargets, RuntimePageTextPositions, RuntimeRevision, RuntimeTextRangeGeometry,
     RuntimeTextRangeGeometryRequest,
 };
 
 pub(super) fn page_targets(
     document: &LoadedEpubDocument,
+    context: &RuntimePageTargetContext,
     revision_id: &str,
     revision: &RuntimeRevision,
     page_index: usize,
@@ -24,7 +26,7 @@ pub(super) fn page_targets(
         .get(page_index)
         .ok_or_else(|| EpubError::new(format!("unknown page index: {page_index}")))?;
     let (entries, text_hash) = build_hit_targets(page);
-    let entries = runtime_page_targets(document, revision, page_index, entries);
+    let entries = runtime_page_targets(document, context, revision, page_index, entries);
     Ok(RuntimePageTargets {
         revision_id: revision_id.to_owned(),
         page_index,

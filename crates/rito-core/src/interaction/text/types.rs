@@ -49,7 +49,7 @@ pub enum TextInteractionUnavailableReason {
     UnsupportedTransform,
     VisualGeometryUnavailable,
     InvalidCaret,
-    DifferentLogicalFlow,
+    DifferentChapter,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -79,6 +79,7 @@ pub(crate) struct LayoutExactTextRange {
     pub(crate) start: TextCaretAddress,
     pub(crate) end: TextCaretAddress,
     pub(crate) selected_text: String,
+    pub(crate) exact_source_segments: Vec<String>,
     pub(crate) source_start: LayoutSourcePoint,
     pub(crate) source_end: LayoutSourcePoint,
     pub(crate) rects: Vec<ExactTextRangeRect>,

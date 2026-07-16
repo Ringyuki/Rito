@@ -131,11 +131,12 @@ Those names now belong to the old TS reference tree only.
   hit-map diagnostic JSON and golden hashes remain unchanged.
 - Rust core now exposes version-gated exact text interaction independently of
   the legacy interpolated geometry diagnostic. Point hit testing chooses only
-  retained shaped cluster edges, and same-flow ranges revalidate both carets,
-  require one `Arc`-identified logical flow, preserve unpainted soft-wrap text,
-  return source locators and exact per-page rectangles, and work across
-  pagination. Host-measured runs, unavailable source spans, illegal grapheme
-  interiors and unsupported transforms return typed unavailable results. The
+  retained shaped cluster edges, and document-order ranges revalidate both
+  carets, traverse exact retained logical flows within one chapter, preserve
+  unpainted soft-wrap text and native block separators, return source locators
+  and exact per-page rectangles, and work across pagination. Cross-chapter
+  ranges, host-measured runs, unavailable source spans, illegal grapheme interiors
+  and unsupported transforms return typed unavailable results. The
   versioned WASM/direct/Worker transport validates request echoes and response
   semantics, and Browser Reader exposes an optional atomic `textSelection`
   capability. Browser carets are opaque objects whose raw Rust addresses are
@@ -149,10 +150,11 @@ Those names now belong to the old TS reference tree only.
   endpoints, request identity, exact shapes and page/spread ownership; Kit uses
   it for cached annotation overlays and hit testing without reconstructing a
   legacy HitMap. Pending, unavailable, preview and stale results fail closed.
-  The first implementation deliberately supports one logical text flow; old
-  cross-paragraph annotations and runs without deterministic shapes remain
-  typed unavailable. Legacy layout-local selection and annotation projection
-  remain only for Readers without the native capabilities.
+  Cross-flow selection/annotation geometry now resolves exact source-backed flows
+  in document order, including across pages, while chapter boundaries and runs
+  without deterministic shapes remain unavailable rather than using interpolated
+  geometry. Legacy layout-local selection and annotation projection remain only
+  for Readers without the native capabilities.
 - Rust core now also derives a revision-bound, document-order accessibility tree
   from retained page layout. The exact-version WASM/direct/Worker path validates
   recursive roles, heading levels, link/image fields, finite page-content bounds,
@@ -918,8 +920,12 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      Kit resolves visible-result highlights lazily without a legacy fallback.
      Full-publication search itself still forces eager completion and needs a
      source/chapter index rather than scanning only laid-out pages.
-   - Exact text/annotation geometry remains deliberately same-logical-flow.
-     Cross-flow ranges are a future capability, not a reason to interpolate.
+   - Exact text/annotation geometry now spans retained logical flows in document
+     order within one chapter and continues to fail closed for unsupported source
+     or shaping provenance. Controlled Reader E2E sends real Canvas drags across
+     visual lines and adjacent paragraphs, preserves the highlight after pointer-up
+     and verifies exact clipboard separators (`\n` within the fixture flow and
+     `\n\n` between paragraphs).
    - Image-only or blank pages still need a durable source-anchor fallback.
      After that, remove compatibility geometry required only by legacy Readers.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
@@ -1026,15 +1032,19 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Make the existing Phase 1 gates green without weakening their limits. The
+1. Complete the remaining host-native selection behavior: word/paragraph
+   granularity, touch handles, edge autoscroll and platform keyboard semantics.
+   Cross-flow and reverse-direction exact selection/copy, pointer-up persistence
+   and link-preview chapter context are now green in production-path Reader E2E.
+2. Make the existing latency and memory gates green without weakening their limits. The
    cancellation/disposal protocol is already green; investigate the main-thread
    Canvas/frame presentation long tasks and the replacement backing-store
    high-water that currently fail the latency and memory gates.
-2. Move the publication-wide footnote scan inside a measured source-index
+3. Move the publication-wide footnote scan inside a measured source-index
    budget.
-3. Replace eager completed-layout search with a durable publication source index
+4. Replace eager completed-layout search with a durable publication source index
    while retaining the implemented lazy, fail-closed exact-source geometry.
-4. Continue the default-Greedy hard bound by addressing the remaining
+5. Continue the default-Greedy hard bound by addressing the remaining
    per-command nested JSON and flat-allocation frame residuals, the document-wide
    chapter-text-index and font/catalog owners that still bypass scheduled
    revision or active-continuation cleanup, and transient configuration owners
@@ -1053,15 +1063,19 @@ Work in roadmap order:
    eager/bounded final equivalence. Measurement and shaping stages are already
    scheduled resumably, although each underlying font call remains
    indivisible.
-5. Reduce remaining browser session policy to explicit core-requested host
+6. Reduce remaining browser session policy to explicit core-requested host
    operations.
-6. Build the pinned WebView/DOM reference harness and declare the baseline
+7. Build the pinned WebView/DOM reference harness and declare the baseline
    transition before broad display or performance work resumes.
 
 ## Immediate Remaining Implementation Plan
 
 The revision/locator contract, bounded production switch and principal native
-interaction slices are complete. Greedy leaf layout is resumable through
+interaction transports are complete. Cross-flow selection/copy and
+chapter-context link previews now pass production-path Reader E2E; end-user
+interaction parity still needs word/paragraph granularity, touch handles, edge
+autoscroll and platform keyboard semantics. Greedy
+leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,
 leading-space, trailing-trim, ASCII-hyphen candidate and line-finalization

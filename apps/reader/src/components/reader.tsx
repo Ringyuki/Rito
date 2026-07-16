@@ -53,6 +53,9 @@ export function Reader({
       data-search-results={reader.search.results.length}
       data-search-active-index={reader.search.activeIndex}
       data-search-active-page={reader.search.activeResult?.pageIndex ?? ''}
+      data-selection-active={reader.selection.hasSelection ? 'true' : 'false'}
+      data-selection-text-length={reader.selection.text.length}
+      data-selection-rect-count={reader.selection.viewportRects.length}
       className="relative flex flex-1 bg-muted/30 select-none"
     >
       {reader.isLoading && (

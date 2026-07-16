@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type {
-  CoreSameFlowTextRangeResponse,
+  CoreTextRangeResponse,
   CoreTextCaretAddress,
   CoreTextCaretResponse,
   CoreVersioned,
@@ -66,8 +66,8 @@ describe('Browser reader exact text selection races', () => {
 
       changeIdentity(fixture.state, change);
 
-      await expect(textSelection.resolveSameFlowRange(anchor, focus)).resolves.toBeUndefined();
-      expect(fixture.resolveSameFlowTextRangeAtRevision).not.toHaveBeenCalled();
+      await expect(textSelection.resolveTextRange(anchor, focus)).resolves.toBeUndefined();
+      expect(fixture.resolveTextRangeAtRevision).not.toHaveBeenCalled();
     },
   );
 
@@ -78,9 +78,9 @@ describe('Browser reader exact text selection races', () => {
       fixture,
       textSelection,
     );
-    const deferred = createDeferred<CoreVersioned<CoreSameFlowTextRangeResponse>>();
-    fixture.resolveSameFlowTextRangeAtRevision.mockReturnValue(deferred.promise);
-    const pending = textSelection.resolveSameFlowRange(anchor, focus);
+    const deferred = createDeferred<CoreVersioned<CoreTextRangeResponse>>();
+    fixture.resolveTextRangeAtRevision.mockReturnValue(deferred.promise);
+    const pending = textSelection.resolveTextRange(anchor, focus);
 
     closeExactRevisionReadGate(fixture.state);
     deferred.resolve(versionedRange(anchorAddress, focusAddress));
@@ -103,13 +103,13 @@ describe('Browser reader exact text selection races', () => {
     );
     const clonedCaret = { ...firstCaret };
 
-    await expect(firstSelection.resolveSameFlowRange(firstCaret, secondCaret)).rejects.toThrow(
+    await expect(firstSelection.resolveTextRange(firstCaret, secondCaret)).rejects.toThrow(
       'does not belong',
     );
-    await expect(firstSelection.resolveSameFlowRange(firstCaret, clonedCaret)).rejects.toThrow(
+    await expect(firstSelection.resolveTextRange(firstCaret, clonedCaret)).rejects.toThrow(
       'does not belong',
     );
-    expect(first.resolveSameFlowTextRangeAtRevision).not.toHaveBeenCalled();
+    expect(first.resolveTextRangeAtRevision).not.toHaveBeenCalled();
   });
 
   it('rejects a mismatched response revision while the request remains current', async () => {
@@ -224,7 +224,7 @@ function caretResponse(address: CoreTextCaretAddress): CoreTextCaretResponse {
 function versionedRange(
   anchor: CoreTextCaretAddress,
   focus: CoreTextCaretAddress,
-): CoreVersioned<CoreSameFlowTextRangeResponse> {
+): CoreVersioned<CoreTextRangeResponse> {
   return {
     revision: handle(),
     value: {

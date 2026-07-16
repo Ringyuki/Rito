@@ -140,6 +140,43 @@ describe('native click dispatch', () => {
     expect(fixture.goToSpread).toHaveBeenCalledWith(6);
   });
 
+  it('publishes the core-owned TOC label for an internal native link', () => {
+    const fixture = createFixture(interactions());
+    fixture.install({
+      ...target('link', {
+        href: '#target',
+        targetLocator: locator,
+        destinationLabel: 'Chapter from TOC',
+      }),
+      label: 'Link text',
+    });
+    let event: ReaderControllerEvents['linkClick'] | undefined;
+    fixture.emitter.on('linkClick', (value) => {
+      event = value;
+    });
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+
+    expect(event?.resolvedLabel).toBe('Chapter from TOC');
+  });
+
+  it('does not misrepresent semantic link text as a destination label', () => {
+    const fixture = createFixture(interactions());
+    fixture.install({
+      ...target('link', { href: 'later.xhtml', targetLocator: { href: 'Text/later.xhtml' } }),
+      label: 'Later chapter',
+    });
+    let event: ReaderControllerEvents['linkClick'] | undefined;
+    fixture.emitter.on('linkClick', (value) => {
+      event = value;
+    });
+
+    dispatchClick({ x: 15, y: 15 }, fixture.deps);
+
+    expect(event?.text).toBe('Later chapter');
+    expect(event?.resolvedLabel).toBeUndefined();
+  });
+
   it('does not navigate when exact resolution disappears', async () => {
     const resolveLocator = vi.fn(() => Promise.resolve(undefined));
     const fixture = createFixture(interactions({ resolveLocator }));

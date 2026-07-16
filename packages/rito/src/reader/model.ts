@@ -153,7 +153,6 @@ export type ReaderLocatorResolution =
     };
 
 export type ReaderInteractionTargetKind = 'text' | 'link' | 'image' | 'footnote';
-
 /** Paint-order semantic target with bounds in page-content coordinates. */
 export interface ReaderInteractionTarget {
   readonly kind: ReaderInteractionTargetKind;
@@ -162,6 +161,7 @@ export interface ReaderInteractionTarget {
   readonly href?: string;
   readonly sourceLocator?: ReaderLocator;
   readonly targetLocator?: ReaderLocator;
+  readonly destinationLabel?: string;
   readonly imageSrc?: string;
   readonly imageAlt?: string;
   readonly footnoteKey?: string;

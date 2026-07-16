@@ -1,5 +1,5 @@
 import type {
-  ReaderSameFlowTextRange,
+  ReaderTextRange,
   ReaderTextCaret,
   ReaderTextCaretResolution,
   ReaderTextSelectionInteractions,
@@ -7,9 +7,9 @@ import type {
 
 export function capabilityFrom(
   resolveCaret: ReaderTextSelectionInteractions['resolveCaret'],
-  resolveSameFlowRange: ReaderTextSelectionInteractions['resolveSameFlowRange'],
+  resolveTextRange: ReaderTextSelectionInteractions['resolveTextRange'],
 ): ReaderTextSelectionInteractions {
-  return { resolveCaret, resolveSameFlowRange };
+  return { resolveCaret, resolveTextRange };
 }
 
 export function point(x: number) {
@@ -35,7 +35,7 @@ export function exactRange(
   focus: ReaderTextCaret,
   direction: 'forward' | 'backward' = 'forward',
   text = 'selected text',
-): ReaderSameFlowTextRange {
+): ReaderTextRange {
   const start = direction === 'forward' ? anchor : focus;
   const end = direction === 'forward' ? focus : anchor;
   const startOffset = start.sourceLocator.sourcePoint?.textOffset ?? 0;

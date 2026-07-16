@@ -128,8 +128,11 @@ The remaining usability work is narrower but still release-blocking:
 2. Search still drains pagination eagerly and searches laid-out page text. It
    now returns a proven durable source range and resolves visible geometry
    lazily, but still needs a publication source/chapter index.
-3. Exact text and annotation geometry remains same-logical-flow; cross-flow
-   selection is a deliberate capability gap.
+3. Exact text and annotation geometry now spans retained logical flows in document
+   order within one chapter. Cross-chapter or source/shaping-unavailable ranges
+   remain typed unavailable. Reverse drag across the anchor is covered by the
+   production Reader path; host-native word/paragraph granularity, touch handles
+   and edge autoscroll remain usability work.
 4. The Reader app now has a licensed, app-owned v1 serif fallback and real-book
    shaping/paint proof. Its cold-start cost is covered by the isolated-process
    gate; it is not a locale-complete, sans-serif, or monospace policy, and its
@@ -531,10 +534,10 @@ geometry operations for:
 
 The first vertical slice was current-visible-spread link, image and footnote
 targets plus typed href locator resolution. Exact point-to-caret hit testing,
-shaped character boundaries, selected text and precise same-flow range geometry
-now back selection/copy/annotation UI. Linear interpolation across a
-variable-width run is not an acceptable extension for cross-flow or unavailable
-content.
+shaped character boundaries, selected text and precise document-order range
+geometry across retained logical flows now back selection/copy/annotation UI.
+Linear interpolation across a variable-width run is not an acceptable fallback
+for unavailable content.
 
 Exact text interaction also requires shaping provenance from the same font
 bytes used to paint the run. EPUB-provided fonts can satisfy that invariant
@@ -614,9 +617,10 @@ not hit-test an older page snapshot against newer bounded layout state.
 The Rust target DTO, exact-version Worker transport, Browser Reader cache and
 bounded-growth gate are implemented. Kit consumes native current-spread link,
 footnote and standalone-image targets without legacy hit-map fallback. Rust
-core now also resolves exact cluster carets and same-logical-flow ranges through
-version-gated APIs, including selected source text, durable source locators and
-cross-page geometry. The WASM/direct/Worker transport and opaque Browser Reader
+core now also resolves exact cluster carets and document-order ranges across
+retained logical flows within one chapter through version-gated APIs, including
+selected source text, durable source locators and cross-page geometry. The
+WASM/direct/Worker transport and opaque Browser Reader
 `textSelection` capability are implemented with full session, revision, and
 commit-generation ownership. Kit now consumes it for exact selection geometry,
 copy text and source-range annotation target creation with coalesced latest-wins
@@ -625,9 +629,23 @@ separate atomic exact-projection API across Rust, WASM/Worker and Browser Reader
 Kit caches those revision-owned rectangles, invalidates them before a new layout
 is painted, and never falls back to compatibility HitMaps while the capability
 exists. Selector fallbacks produce a source range before asking Rust for geometry.
-The initial API is intentionally limited to a single logical text flow and exact
-retained shapes. The legacy interpolated diagnostic has not been promoted to
-selection-ready geometry and remains only for Readers without native capabilities.
+The current API traverses exact retained logical flows within one chapter;
+chapter boundaries and unavailable source/shaping provenance fail closed. The
+legacy interpolated diagnostic has not been promoted to selection-ready geometry
+and remains only for Readers without native capabilities.
+
+Core geometry alone does not complete selection. The production Reader must match
+the host platform's observable selection behavior: a primary-pointer drag extends
+continuously across visual lines, block/paragraph flows and visible pages in either
+direction; pointer release preserves the final text and painted highlight until an
+explicit native-equivalent clearing action; copy uses that same retained range; and
+selection gestures do not dispatch link, page-turn or chrome actions. Word/paragraph
+granularity, touch handles and edge autoscroll must follow the host platform rather
+than introducing Rito-specific interaction rules. Browser acceptance uses real
+Canvas pointer input and the production Worker path, not only mocked caret/range
+unit tests. The controlled Browser proof passes real Canvas multi-line and
+cross-paragraph drags, pointer-up persistence and exact copied text with native
+line/paragraph separators.
 
 Visible-spread accessibility semantics now populate the Kit mirror across page
 navigation, and mirrored links return to revision-bound native target dispatch.
@@ -677,8 +695,10 @@ The Rust reader is usable only when a representative real-book corpus can:
 - open, paint, navigate, resize and change typography reliably;
 - produce first paint without full-chapter or full-book layout;
 - turn cached and uncached pages within documented stage-specific budgets;
-- select, copy, follow links, search, highlight, annotate, restore position,
-  open footnotes and expose accessible reading order through the native path;
+- select with host-native observable behavior across visual lines, paragraphs and
+  visible pages, retain and copy the range after pointer release, follow links,
+  search, highlight, annotate, restore position, open footnotes and expose
+  accessible reading order through the native path;
 - cancel and dispose stale work without revision mismatches or leaked state;
 - recover from malformed-but-tolerable EPUB content with actionable errors;
 - keep the production graph free of TypeScript reference-core imports.
@@ -820,8 +840,9 @@ architecture rather than make an eager whole-book pipeline faster.
    capture, persistence, legacy archive migration, reflow projection and
    revision-safe restore/go-to. Reader-owned locator intents now atomically take
    over bounded growth, select the target Rust frame and verify its final exact
-   projection. Cross-logical-flow annotation geometry and richer
-   list/table semantic retention are follow-up capability extensions. Native
+   projection. Cross-logical-flow selection/annotation geometry is implemented
+   in document order within one chapter; cross-chapter ranges and richer
+   list/table semantic retention remain follow-up capability extensions. Native
    search now transports durable exact source ranges and Kit resolves visible
    overlays lazily; eager completion and a missing publication source index
    remain separate search architecture work.**

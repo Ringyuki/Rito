@@ -3,7 +3,8 @@ use std::borrow::Cow;
 use roxmltree::{Document, Node};
 
 use super::{
-    archive::EpubArchive, join_epub_href, EpubResult, ManifestItem, PackageDocument, TocEntry,
+    archive::EpubArchive, is_external_href, join_epub_href, opf_dir, EpubResult, ManifestItem,
+    PackageDocument, TocEntry,
 };
 
 const EPUB_OPS_NAMESPACE: &str = "http://www.idpf.org/2007/ops";
@@ -33,7 +34,9 @@ fn load_nav_toc(
         .find(|item| item.properties.iter().any(|property| property == "nav"))?;
     let path = join_epub_href(opf_dir, &nav_item.href);
     let xhtml = archive.read_text(&path).ok()?;
-    parse_nav_document(&xhtml).ok()
+    let mut entries = parse_nav_document(&xhtml).ok()?;
+    contextualize_toc_hrefs(&mut entries, &nav_item.href);
+    Some(entries)
 }
 
 fn load_ncx_toc(
@@ -46,7 +49,31 @@ fn load_ncx_toc(
         .find(|item| item.media_type == NCX_MEDIA_TYPE)?;
     let path = join_epub_href(opf_dir, &ncx_item.href);
     let xml = archive.read_text(&path).ok()?;
-    parse_ncx(&xml).ok()
+    let mut entries = parse_ncx(&xml).ok()?;
+    contextualize_toc_hrefs(&mut entries, &ncx_item.href);
+    Some(entries)
+}
+
+fn contextualize_toc_hrefs(entries: &mut [TocEntry], toc_document_href: &str) {
+    for entry in entries {
+        entry.href = contextual_toc_href(toc_document_href, &entry.href);
+        contextualize_toc_hrefs(&mut entry.children, toc_document_href);
+    }
+}
+
+fn contextual_toc_href(toc_document_href: &str, href: &str) -> String {
+    if is_external_href(href) {
+        return href.to_owned();
+    }
+    let suffix_start = href.find(['?', '#']).unwrap_or(href.len());
+    let suffix = &href[suffix_start..];
+    let path = join_epub_href(opf_dir(toc_document_href), href);
+    let path = if path.is_empty() {
+        join_epub_href("", toc_document_href)
+    } else {
+        path
+    };
+    format!("{path}{suffix}")
 }
 
 fn parse_nav_document(xhtml: &str) -> EpubResult<Vec<TocEntry>> {
@@ -189,7 +216,7 @@ fn doctype_end(value: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_nav_document, parse_ncx};
+    use super::{contextualize_toc_hrefs, parse_nav_document, parse_ncx};
 
     #[test]
     fn parses_epub3_nav_toc() {
@@ -256,5 +283,25 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].label, "Chapter 1");
         assert_eq!(entries[0].href, "Text/ch1.xhtml");
+    }
+
+    #[test]
+    fn resolves_toc_entries_relative_to_their_nav_or_ncx_resource() {
+        let mut entries = parse_nav_document(
+            r#"<html xmlns:epub="http://www.idpf.org/2007/ops"><body>
+              <nav epub:type="toc"><ol>
+                <li><a href="chapter.xhtml#one">Local</a></li>
+                <li><a href="../Text/chapter.xhtml#two">Sibling</a></li>
+                <li><a href="https://example.com/chapter.xhtml">External</a></li>
+              </ol></nav>
+            </body></html>"#,
+        )
+        .expect("nav toc");
+
+        contextualize_toc_hrefs(&mut entries, "Navigation/nav.xhtml");
+
+        assert_eq!(entries[0].href, "Navigation/chapter.xhtml#one");
+        assert_eq!(entries[1].href, "Text/chapter.xhtml#two");
+        assert_eq!(entries[2].href, "https://example.com/chapter.xhtml");
     }
 }

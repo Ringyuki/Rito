@@ -41,6 +41,7 @@ test('in-process versioned interaction reads preserve exact visible-page fields'
   assert.equal(targets.value.pageIndex, 4);
   assert.equal(targets.value.spreadIndex, 2);
   assert.equal(targets.value.entryCount, 1);
+  assert.equal(targets.value.entries[0].destinationLabel, 'Introduction');
   assert.equal(footnote.value.key, 'Text/chapter.xhtml#fn1');
   assert.equal(locator.value.href, 'Text/chapter.xhtml#intro');
   assert.equal(locator.value.pageIndex, 4);
@@ -149,6 +150,7 @@ test('worker client rejects matching envelopes with forged interaction results',
       kind: 'getPageTargetsAtRevision',
       result: pageTargets('rev-1', 4, {
         kind: 'footnote',
+        destinationLabel: undefined,
         footnoteKey: undefined,
       }),
       pattern: /incomplete footnote target/,
@@ -299,6 +301,7 @@ function pageTarget(overrides = {}) {
     lineIndex: 0,
     runIndex: 0,
     label: 'intro',
+    destinationLabel: 'Introduction',
     text: { hash: 'text-hash', length: 5 },
     href: '#intro',
     targetLocator: { href: 'Text/chapter.xhtml', anchorId: 'intro' },

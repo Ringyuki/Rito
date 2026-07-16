@@ -37,6 +37,22 @@ pub(crate) fn join_epub_href(base_dir: &str, href: &str) -> String {
     join_zip_path(base_dir, &href[..end])
 }
 
+pub(crate) fn is_external_href(href: &str) -> bool {
+    if href.starts_with("//") {
+        return true;
+    }
+    let path_end = href.find(['?', '#']).unwrap_or(href.len());
+    let path = &href[..path_end];
+    path.find(':').is_some_and(|colon| {
+        colon > 0
+            && path[..colon].chars().enumerate().all(|(index, character)| {
+                character.is_ascii_alphabetic()
+                    || (index > 0
+                        && (character.is_ascii_digit() || matches!(character, '+' | '-' | '.')))
+            })
+    })
+}
+
 pub(crate) fn relative_zip_path(base_dir: &str, path: &str) -> String {
     let base = base_dir
         .trim_end_matches('/')
@@ -87,7 +103,19 @@ pub(super) fn normalize_href_path(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{join_epub_href, join_zip_path, relative_epub_href, relative_zip_path};
+    use super::{
+        is_external_href, join_epub_href, join_zip_path, relative_epub_href, relative_zip_path,
+    };
+
+    #[test]
+    fn distinguishes_external_and_epub_relative_hrefs() {
+        assert!(is_external_href("https://example.com/note#one"));
+        assert!(is_external_href("mailto:reader@example.com"));
+        assert!(is_external_href("//example.com/note"));
+        assert!(!is_external_href("chapter.xhtml#one"));
+        assert!(!is_external_href("../Text/chapter.xhtml#one"));
+        assert!(!is_external_href("#one"));
+    }
 
     #[test]
     fn expresses_archive_paths_relative_to_the_opf_directory() {

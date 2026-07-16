@@ -36,7 +36,7 @@ export type ReaderTextInteractionUnavailableReason =
   | 'unsupportedTransform'
   | 'visualGeometryUnavailable'
   | 'invalidCaret'
-  | 'differentLogicalFlow';
+  | 'differentChapter';
 declare const readerTextCaretBrand: unique symbol;
 /** Exact caret for one Reader revision; pass this branded object itself to range resolution. */
 export interface ReaderTextCaret {
@@ -86,7 +86,7 @@ export type ReaderExactSourceRangeResolution =
       readonly reason: ReaderTextInteractionUnavailableReason;
     };
 
-export interface ReaderSameFlowTextRange {
+export interface ReaderTextRange {
   readonly anchor: ReaderTextCaret;
   readonly focus: ReaderTextCaret;
   readonly start: ReaderTextCaret;
@@ -96,8 +96,8 @@ export interface ReaderSameFlowTextRange {
   readonly rects: readonly ReaderExactTextRangeRect[];
 }
 
-export type ReaderSameFlowTextRangeResolution =
-  | { readonly status: 'resolved'; readonly range: ReaderSameFlowTextRange }
+export type ReaderTextRangeResolution =
+  | { readonly status: 'resolved'; readonly range: ReaderTextRange }
   | {
       readonly status: 'unavailable';
       readonly reason: ReaderTextInteractionUnavailableReason;
@@ -105,10 +105,10 @@ export type ReaderSameFlowTextRangeResolution =
 
 export interface ReaderTextSelectionInteractions {
   resolveCaret(point: ReaderTextPoint): Promise<ReaderTextCaretResolution | undefined>;
-  resolveSameFlowRange(
+  resolveTextRange(
     anchor: ReaderTextCaret,
     focus: ReaderTextCaret,
-  ): Promise<ReaderSameFlowTextRangeResolution | undefined>;
+  ): Promise<ReaderTextRangeResolution | undefined>;
 }
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */

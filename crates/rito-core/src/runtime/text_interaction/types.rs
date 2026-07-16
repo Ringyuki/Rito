@@ -87,16 +87,16 @@ pub struct RuntimeTextCaret {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeSameFlowTextRangeRequest {
+pub struct RuntimeTextRangeRequest {
     pub anchor: TextCaretAddress,
     pub focus: TextCaretAddress,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeSameFlowTextRangeResponse {
+pub struct RuntimeTextRangeResponse {
     pub revision_id: String,
-    pub resolution: RuntimeSameFlowTextRangeResolution,
+    pub resolution: RuntimeTextRangeResolution,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -105,9 +105,9 @@ pub struct RuntimeSameFlowTextRangeResponse {
     rename_all = "camelCase",
     rename_all_fields = "camelCase"
 )]
-pub enum RuntimeSameFlowTextRangeResolution {
+pub enum RuntimeTextRangeResolution {
     Resolved {
-        range: Box<RuntimeSameFlowTextRange>,
+        range: Box<RuntimeTextRange>,
     },
     Unavailable {
         reason: TextInteractionUnavailableReason,
@@ -116,7 +116,7 @@ pub enum RuntimeSameFlowTextRangeResolution {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct RuntimeSameFlowTextRange {
+pub struct RuntimeTextRange {
     pub anchor: TextCaretAddress,
     pub focus: TextCaretAddress,
     pub start: TextCaretAddress,

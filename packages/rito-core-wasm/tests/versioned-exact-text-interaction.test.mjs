@@ -29,7 +29,7 @@ test('worker client rejects malformed exact requests before dispatch', async () 
   );
   assert.throws(
     () =>
-      client.resolveSameFlowTextRangeAtRevision(
+      client.resolveTextRangeAtRevision(
         handle(),
         rangeRequest({ focus: caretAddress({ affinity: 'middle' }) }),
       ),
@@ -90,7 +90,7 @@ test('worker client rejects swapped or forged exact caret responses', async () =
       caretTransport(
         pointRequest(),
         caretResponse({
-          resolution: { status: 'unavailable', reason: 'differentLogicalFlow' },
+          resolution: { status: 'unavailable', reason: 'differentChapter' },
         }),
       ),
       /range-only unavailable reason/,
@@ -109,7 +109,7 @@ test('worker client rejects swapped or forged exact caret responses', async () =
   client.dispose();
 });
 
-test('worker client rejects forged same-flow endpoint, source, and rect semantics', async () => {
+test('worker client rejects forged text-range endpoint, source, and rect semantics', async () => {
   const worker = new ManualWorker();
   const client = await openClient(worker);
   const request = rangeRequest();
@@ -170,9 +170,9 @@ test('worker client rejects forged same-flow endpoint, source, and rect semantic
   ];
 
   for (const fixture of cases) {
-    const pending = client.resolveSameFlowTextRangeAtRevision(handle(), request);
+    const pending = client.resolveTextRangeAtRevision(handle(), request);
     worker.respondLast({
-      kind: 'resolveSameFlowTextRangeAtRevision',
+      kind: 'resolveTextRangeAtRevision',
       revision: handle(),
       result: fixture.result,
     });
@@ -186,9 +186,9 @@ test('worker exact range rejects content forged onto a collapsed caret', async (
   const client = await openClient(worker);
   const endpoint = caretAddress();
   const request = { anchor: endpoint, focus: endpoint };
-  const pending = client.resolveSameFlowTextRangeAtRevision(handle(), request);
+  const pending = client.resolveTextRangeAtRevision(handle(), request);
   worker.respondLast({
-    kind: 'resolveSameFlowTextRangeAtRevision',
+    kind: 'resolveTextRangeAtRevision',
     revision: handle(),
     result: rangeTransport(request, rangeResponse(request)),
   });

@@ -13,6 +13,7 @@ mod index;
 mod projection;
 mod types;
 
+pub(super) use href::RuntimeSourceLocatorCanonicalizer;
 use href::{canonicalize_source_locator, CanonicalSourceLocator};
 use index::RuntimeSourceAnchor;
 pub(super) use index::RuntimeSourceChapterIndex;
@@ -23,7 +24,7 @@ pub(super) struct PreparedExactSourceRange {
     pub(super) locator: RuntimeSourceLocator,
     pub(super) spine_idref: String,
     pub(super) source_range: RuntimeSourceRange,
-    pub(super) selected_text: String,
+    pub(super) normalized_source_text: String,
 }
 
 pub(super) enum ExactSourceRangePageWindow {
@@ -35,13 +36,6 @@ struct PageReadingAnchorCapture {
     spread_index: usize,
     source_starts: Vec<LayoutSourceRunStart>,
     chapter_index: Option<usize>,
-}
-
-pub(super) fn canonical_runtime_source_locator(
-    document: &crate::epub::LoadedEpubDocument,
-    locator: RuntimeSourceLocator,
-) -> Result<RuntimeSourceLocator, RuntimeSourceLocatorError> {
-    canonicalize_source_locator(document, locator).map(|canonical| canonical.locator)
 }
 
 fn unavailable_page_reading_anchor(
@@ -213,14 +207,14 @@ impl RuntimeDocument {
             .expect("exact source range request installs a sourceRange");
         let start = require_source_point_offset(source_index, &source_range.start)?;
         let end = require_source_point_offset(source_index, &source_range.end)?;
-        let selected_text = utf16_slice(&source_index.text.normalized_text, start, end)
+        let normalized_source_text = utf16_slice(&source_index.text.normalized_text, start, end)
             .ok_or_else(|| RuntimeSourceLocatorError::invalid_selector("invalid UTF-16 range"))?
             .to_owned();
         Ok(PreparedExactSourceRange {
             locator: canonical.locator,
             spine_idref: canonical.spine_idref,
             source_range,
-            selected_text,
+            normalized_source_text,
         })
     }
 

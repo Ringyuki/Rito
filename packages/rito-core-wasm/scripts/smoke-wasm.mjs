@@ -136,7 +136,7 @@ const rangeAddress =
         ...diagnosticRangeRequest.start,
         affinity: 'downstream',
       };
-const versionedExactTextRange = await diagnosticClient.resolveSameFlowTextRangeAtRevision(
+const versionedExactTextRange = await diagnosticClient.resolveTextRangeAtRevision(
   diagnosticHandle,
   { anchor: rangeAddress, focus: rangeAddress },
 );
@@ -341,7 +341,7 @@ if (
   !['resolved', 'unavailable'].includes(versionedExactTextRange.value.resolution.status)
 ) {
   throw new Error(
-    'Expected exact Worker caret and same-flow range reads to preserve their handle.',
+    'Expected exact Worker caret and text-range range reads to preserve their handle.',
   );
 }
 assertDecodedFrameMatchesRuntimeFrame(imageFrame, decodedImageFrameCommandBuffer);

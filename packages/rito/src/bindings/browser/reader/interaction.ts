@@ -196,6 +196,7 @@ function toReaderInteractionTarget(
     ...(target.href !== undefined ? { href: target.href } : {}),
     ...(target.sourceLocator ? { sourceLocator: copyReaderLocator(target.sourceLocator) } : {}),
     ...(target.targetLocator ? { targetLocator: copyReaderLocator(target.targetLocator) } : {}),
+    ...(target.destinationLabel ? { destinationLabel: target.destinationLabel } : {}),
     ...(target.imageSrc !== undefined ? { imageSrc: target.imageSrc } : {}),
     ...(target.imageAlt !== undefined ? { imageAlt: target.imageAlt } : {}),
     ...(target.footnoteKey !== undefined ? { footnoteKey: target.footnoteKey } : {}),

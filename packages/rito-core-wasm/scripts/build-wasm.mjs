@@ -26,6 +26,7 @@ const runtimeSources = [
   'reader-worker-client-runtime.js',
   'reader-worker-pinned-font-runtime.js',
   'reader-worker-interaction-validation-runtime.js',
+  'reader-worker-page-target-validation-runtime.js',
   'reader-worker-page-semantics-validation-runtime.js',
   'reader-worker-page-semantics-runtime.js',
   'reader-worker-page-reading-anchor-validation-runtime.js',

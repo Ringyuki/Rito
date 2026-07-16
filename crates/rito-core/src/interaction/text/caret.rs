@@ -6,7 +6,7 @@ use crate::layout::{
 };
 
 use super::{
-    collect::{collect_page_text_runs, CollectedTextRun},
+    collect::{axis_distance, collect_page_text_runs, CollectedTextRun},
     LayoutSourcePoint, LayoutTextCaret, LayoutTextCaretResolution, TextCaretAddress,
     TextCaretAffinity, TextCaretGeometry, TextInteractionUnavailableReason,
 };
@@ -107,8 +107,13 @@ fn nearest_text_run(
         .enumerate()
         .filter_map(|(paint_order, run)| {
             let bounds = run.visible_rect()?;
-            contains_y(bounds.y, bounds.height, y).then_some((
-                horizontal_distance(bounds.x, bounds.width, x),
+            let vertical_distance = axis_distance(bounds.y, bounds.height, y);
+            if vertical_distance > bounds.height.max(1.0) {
+                return None;
+            }
+            Some((
+                vertical_distance,
+                axis_distance(bounds.x, bounds.width, x),
                 paint_order,
                 run,
             ))
@@ -116,9 +121,10 @@ fn nearest_text_run(
         .min_by(|left, right| {
             left.0
                 .total_cmp(&right.0)
-                .then_with(|| right.1.cmp(&left.1))
+                .then_with(|| left.1.total_cmp(&right.1))
+                .then_with(|| right.2.cmp(&left.2))
         })
-        .map(|(_, _, run)| run)
+        .map(|(_, _, _, run)| run)
 }
 
 fn resolve_point_in_run(run: CollectedTextRun<'_>, x: f64, y: f64) -> LayoutTextCaretResolution {
@@ -267,20 +273,6 @@ fn caret_affinity(affinity: RunShapeCaretAffinity) -> TextCaretAffinity {
     match affinity {
         RunShapeCaretAffinity::Upstream => TextCaretAffinity::Upstream,
         RunShapeCaretAffinity::Downstream => TextCaretAffinity::Downstream,
-    }
-}
-
-fn contains_y(top: f64, height: f64, y: f64) -> bool {
-    y >= top && y <= top + height
-}
-
-fn horizontal_distance(left: f64, width: f64, x: f64) -> f64 {
-    if x < left {
-        left - x
-    } else if x > left + width {
-        x - left - width
-    } else {
-        0.0
     }
 }
 
