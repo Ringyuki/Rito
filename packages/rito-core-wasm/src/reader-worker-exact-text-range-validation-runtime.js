@@ -61,7 +61,7 @@ function requireRangeResolution(value, request, operation) {
   }
 }
 
-function requireResolvedRange(value, request, operation) {
+export function requireResolvedRange(value, request, operation) {
   const range = requireExactTextRecord(value, `${operation} range`);
   const anchor = requireExactTextCaretAddress(range.anchor, `${operation} range anchor`);
   const focus = requireExactTextCaretAddress(range.focus, `${operation} range focus`);

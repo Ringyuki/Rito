@@ -527,8 +527,8 @@ pixel remains the gate for layout/render correctness.
 ### PR UI-4: Gesture And Shortcut Layer
 
 - Add center tap, edge tap, swipe, keyboard shortcuts, and pointer peek.
-- Keep the implemented mouse cross-flow range extension and add host-native
-  word/paragraph granularity, drag handles and edge autoscroll.
+- Keep the implemented mouse cross-flow and word/paragraph range extension, then
+  add drag handles and edge autoscroll.
 - Ensure secondary click and selection drag do not activate targets.
 - Keep the production-surface mouse tests for multi-line, cross-paragraph and
   pointer-up persistence and reverse-direction anchor crossing, then add touch

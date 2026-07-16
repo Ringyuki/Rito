@@ -20,10 +20,12 @@ describe('native selection controller event', () => {
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret,
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'miss' }),
     };
     const selection = createSelectionEngine(capability);
     selection.setSpread({} as never, {} as never, {} as never, {
       spreadContentToPage: (x, y) => ({ pageIndex: 0, x, y }),
+      isPageVisible: (pageIndex) => pageIndex === 0,
       pageContentToSpread: (_pageIndex, rect) => rect,
     });
     const emitter = createEmitter<ReaderControllerEvents>();

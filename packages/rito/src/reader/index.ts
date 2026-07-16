@@ -47,6 +47,8 @@ export type {
   ReaderOptions,
   ReaderPinnedFontPolicy,
   ReaderTextRange,
+  ReaderTextRangeFromPointsRequest,
+  ReaderTextRangeFromPointsResolution,
   ReaderTextRangeResolution,
   ReaderThemeOptions,
   ReaderTextCaret,
@@ -55,4 +57,5 @@ export type {
   ReaderTextInteractionUnavailableReason,
   ReaderTextPoint,
   ReaderTextSelectionInteractions,
+  ReaderTextSelectionGranularity,
 } from './instance';

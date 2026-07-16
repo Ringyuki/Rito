@@ -175,7 +175,16 @@ sources only. When supported, `interactions.textSelection` exposes revision-boun
 point-to-caret and exact document-order range resolution across retained logical
 flows within one chapter. Its carets are opaque and must be passed back by
 identity; selected text preserves native line/block separators and range
-rectangles use page-content coordinates.
+rectangles use page-content coordinates. A caret exposes its `pageIndex` because
+word and paragraph endpoints can cross the page containing the original input
+point. `resolveTextRangeFromPoints()` expands two raw points to complete ICU word
+or retained logical-flow paragraph units; missing or malformed package-language
+metadata falls back to locale-invariant word boundaries. Paragraph carets remain
+exact text/source positions rather than forging the DOM's structural
+next-block boundary. When the following flow is retained in the same chapter,
+`selectedText` still includes the native paragraph separator; at a bounded
+retention edge that trailing separator can appear only after the following flow
+has been retained.
 `interactions.resolveExactSourceRange`, when supported, atomically projects a
 durable `{ href, sourceRange }` through that same committed revision. `href` is
 the canonical manifest resource href, not a spine idref. It returns exact

@@ -2,7 +2,7 @@ import type { ReaderTextPoint, ReaderTextSelectionInteractions } from '@ritojs/c
 import type { Rect } from '../layout-types';
 import type { SelectionEngine, NativeSelectionProjection, PointerInput } from './engine';
 import { createNativeSelectionEngine } from './native-engine';
-import type { NativeSelectionSnapshot } from './native-types';
+import type { NativeSelectionGranularity, NativeSelectionSnapshot } from './native-types';
 
 interface AdapterData {
   readonly native: ReturnType<typeof createNativeSelectionEngine>;
@@ -55,8 +55,8 @@ function buildPointerMethods(
   'handlePointerDown' | 'handlePointerMove' | 'handlePointerUp' | 'setSpread'
 > {
   return {
-    handlePointerDown(input) {
-      handleDown(data, input);
+    handlePointerDown(input, granularity) {
+      handleDown(data, input, granularity);
     },
     handlePointerMove(input) {
       handleMove(data, input);
@@ -125,11 +125,15 @@ function buildLifecycleMethods(
   };
 }
 
-function handleDown(data: AdapterData, input: PointerInput): void {
+function handleDown(
+  data: AdapterData,
+  input: PointerInput,
+  granularity: NativeSelectionGranularity | undefined,
+): void {
   if (data.disposed) return;
   const point = projectPoint(input, data.projection);
   data.lastValidPoint = point;
-  if (point) data.native.handlePointerDown(point);
+  if (point) data.native.handlePointerDown(point, granularity);
   else data.native.clear();
 }
 
@@ -178,22 +182,26 @@ function handleNativeChange(data: AdapterData): void {
 function projectSnapshot(data: AdapterData, snapshot: NativeSelectionSnapshot): void {
   const projection = data.projection;
   if (!projection) throw new Error('Native selection has no coordinate projection');
-  const rects = snapshot.rects.map((rect) =>
-    projection.pageContentToSpread(rect.pageIndex, {
-      x: rect.x,
-      y: rect.y,
-      width: rect.width,
-      height: rect.height,
-    }),
-  );
+  const rects = snapshot.rects
+    .filter((rect) => projection.isPageVisible(rect.pageIndex))
+    .map((rect) =>
+      projection.pageContentToSpread(rect.pageIndex, {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height,
+      }),
+    );
   const focus = snapshot.focusCaret;
   data.projectedRects = rects;
-  data.projectedFocusRect = projection.pageContentToSpread(focus.pageIndex, {
-    x: focus.geometry.x,
-    y: focus.geometry.y,
-    width: 0,
-    height: focus.geometry.height,
-  });
+  data.projectedFocusRect = projection.isPageVisible(focus.pageIndex)
+    ? projection.pageContentToSpread(focus.pageIndex, {
+        x: focus.geometry.x,
+        y: focus.geometry.y,
+        width: 0,
+        height: focus.geometry.height,
+      })
+    : null;
 }
 
 function clearProjectedSelection(data: AdapterData): void {

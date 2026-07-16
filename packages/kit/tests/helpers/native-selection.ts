@@ -8,16 +8,19 @@ import type {
 export function capabilityFrom(
   resolveCaret: ReaderTextSelectionInteractions['resolveCaret'],
   resolveTextRange: ReaderTextSelectionInteractions['resolveTextRange'],
+  resolveTextRangeFromPoints: ReaderTextSelectionInteractions['resolveTextRangeFromPoints'] = () =>
+    Promise.resolve({ status: 'miss' }),
 ): ReaderTextSelectionInteractions {
-  return { resolveCaret, resolveTextRange };
+  return { resolveCaret, resolveTextRange, resolveTextRangeFromPoints };
 }
 
 export function point(x: number) {
   return { pageIndex: 0, x, y: 10 };
 }
 
-export function caret(textOffset: number): ReaderTextCaret {
+export function caret(textOffset: number, pageIndex = 0): ReaderTextCaret {
   return {
+    pageIndex,
     geometry: { x: textOffset, y: 0, height: 18 },
     sourceLocator: {
       href: 'chapter.xhtml',
@@ -27,7 +30,7 @@ export function caret(textOffset: number): ReaderTextCaret {
 }
 
 export function resolvedCaret(caretValue: ReaderTextCaret): ReaderTextCaretResolution {
-  return { status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: caretValue };
+  return { status: 'resolved', pageIndex: caretValue.pageIndex, spreadIndex: 0, caret: caretValue };
 }
 
 export function exactRange(

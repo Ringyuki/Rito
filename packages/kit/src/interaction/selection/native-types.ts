@@ -5,8 +5,9 @@ import type {
   ReaderTextSelectionInteractions,
 } from '@ritojs/core';
 
-export type NativeSelectionCapability = ReaderTextSelectionInteractions;
 export type NativeSelectionPoint = ReaderTextPoint;
+export type NativeSelectionGranularity = 'character' | 'word' | 'paragraph';
+export type NativeSelectionCapability = ReaderTextSelectionInteractions;
 export type NativeSelectionState = 'idle' | 'selecting' | 'selected' | 'disposed';
 export type NativeSelectionFocusDirection = 'forward' | 'backward';
 
@@ -33,7 +34,7 @@ export interface NativeSelectionEngineOptions {
 }
 
 export interface NativeSelectionEngine {
-  handlePointerDown(point: NativeSelectionPoint): void;
+  handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
   handlePointerMove(point: NativeSelectionPoint): void;
   handlePointerUp(point: NativeSelectionPoint): void;
   clear(): void;

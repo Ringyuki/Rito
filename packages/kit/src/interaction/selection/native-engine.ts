@@ -1,4 +1,4 @@
-import type { ReaderTextRange, ReaderTextCaret } from '@ritojs/core';
+import type { ReaderTextRange } from '@ritojs/core';
 import type {
   NativeSelectionCapability,
   NativeSelectionEngine,
@@ -29,8 +29,8 @@ export function createNativeSelectionEngine(
 ): NativeSelectionEngine {
   const data = createNativeSelectionEngineData(capability, options);
   return {
-    handlePointerDown: (point) => {
-      handlePointerDown(data, point);
+    handlePointerDown: (point, granularity) => {
+      handlePointerDown(data, point, granularity);
     },
     handlePointerMove: (point) => {
       queueFocusSample(data, point, false);
@@ -53,11 +53,18 @@ export function createNativeSelectionEngine(
   };
 }
 
-function handlePointerDown(data: NativeSelectionEngineData, point: NativeSelectionPoint): void {
+function handlePointerDown(
+  data: NativeSelectionEngineData,
+  point: NativeSelectionPoint,
+  granularity: NativeSelectionGestureSession['granularity'] = 'character',
+): void {
   if (data.state === 'disposed') return;
   requireNativeSelectionPoint(point);
+  const anchorPoint = copyNativeSelectionPoint(point);
   const session: NativeSelectionGestureSession = {
     epoch: ++data.epoch,
+    granularity,
+    anchorPoint: granularity === 'character' ? undefined : anchorPoint,
     anchor: undefined,
     latestSequence: 0,
     queued: undefined,
@@ -70,7 +77,12 @@ function handlePointerDown(data: NativeSelectionEngineData, point: NativeSelecti
   };
   data.session = session;
   publishNativeSelection(data, 'selecting', null);
-  void resolveAnchor(data, session, copyNativeSelectionPoint(point));
+  if (granularity === 'character') {
+    void resolveAnchor(data, session, anchorPoint);
+  } else {
+    session.queued = { sequence: 0, point: anchorPoint, final: false };
+    pump(data, session);
+  }
 }
 
 async function resolveAnchor(
@@ -114,8 +126,8 @@ function queueFocusSample(
 
 function pump(data: NativeSelectionEngineData, session: NativeSelectionGestureSession): void {
   const sample = session.queued;
-  const anchor = session.anchor;
-  if (!isCurrentNativeSelection(data, session) || !sample || !anchor) return;
+  const ready = session.granularity !== 'character' || session.anchor !== undefined;
+  if (!isCurrentNativeSelection(data, session) || !sample || !ready) return;
   if (sample.final ? session.finalInFlight : session.moveInFlight) return;
   session.queued = undefined;
   if (sample.final) session.finalInFlight = true;
@@ -124,37 +136,20 @@ function pump(data: NativeSelectionEngineData, session: NativeSelectionGestureSe
     session.moveFallback = undefined;
     session.moveFallbackSettled = false;
   }
-  void resolveSample(data, session, anchor, sample);
+  void resolveSample(data, session, sample);
 }
 
 async function resolveSample(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
-  anchor: ReaderTextCaret,
   sample: NativeSelectionFocusSample,
 ): Promise<void> {
   try {
-    const focusResult = await data.capability.resolveCaret(sample.point);
-    if (!isRelevant(data, session, sample)) return;
-    if (!focusResult) {
-      finishEmpty(data, session);
-      return;
+    if (session.granularity === 'character') {
+      await resolveCharacterSample(data, session, sample);
+    } else {
+      await resolveSemanticSample(data, session, sample);
     }
-    if (focusResult.status !== 'resolved') {
-      handleUnresolvedSample(data, session, sample);
-      return;
-    }
-    const rangeResult = await data.capability.resolveTextRange(anchor, focusResult.caret);
-    if (!isRelevant(data, session, sample)) return;
-    if (!rangeResult) {
-      finishEmpty(data, session);
-      return;
-    }
-    if (rangeResult.status !== 'resolved') {
-      handleUnresolvedSample(data, session, sample);
-      return;
-    }
-    installRange(data, session, sample, rangeResult.range, focusResult.pageIndex);
   } catch (error: unknown) {
     if (!isRelevant(data, session, sample)) return;
     reportNativeSelectionError(data, error);
@@ -166,18 +161,72 @@ async function resolveSample(
   }
 }
 
+async function resolveCharacterSample(
+  data: NativeSelectionEngineData,
+  session: NativeSelectionGestureSession,
+  sample: NativeSelectionFocusSample,
+): Promise<void> {
+  const anchor = session.anchor;
+  if (!anchor) return;
+  const focusResult = await data.capability.resolveCaret(sample.point);
+  if (!isRelevant(data, session, sample)) return;
+  if (!focusResult) {
+    finishEmpty(data, session);
+    return;
+  }
+  if (focusResult.status !== 'resolved') {
+    handleUnresolvedSample(data, session, sample);
+    return;
+  }
+  const rangeResult = await data.capability.resolveTextRange(anchor, focusResult.caret);
+  if (!isRelevant(data, session, sample)) return;
+  if (!rangeResult) {
+    finishEmpty(data, session);
+    return;
+  }
+  if (rangeResult.status !== 'resolved') {
+    handleUnresolvedSample(data, session, sample);
+    return;
+  }
+  installRange(data, session, sample, rangeResult.range);
+}
+
+async function resolveSemanticSample(
+  data: NativeSelectionEngineData,
+  session: NativeSelectionGestureSession,
+  sample: NativeSelectionFocusSample,
+): Promise<void> {
+  const anchor = session.anchorPoint;
+  const granularity = session.granularity;
+  if (!anchor || granularity === 'character') {
+    finishEmpty(data, session);
+    return;
+  }
+  const rangeResult = await data.capability.resolveTextRangeFromPoints({
+    anchor,
+    focus: sample.point,
+    granularity,
+  });
+  if (!isRelevant(data, session, sample)) return;
+  if (!rangeResult) {
+    finishEmpty(data, session);
+    return;
+  }
+  if (rangeResult.status !== 'resolved') {
+    handleUnresolvedSample(data, session, sample);
+    return;
+  }
+  installRange(data, session, sample, rangeResult.range);
+}
+
 function installRange(
   data: NativeSelectionEngineData,
   session: NativeSelectionGestureSession,
   sample: NativeSelectionFocusSample,
   range: ReaderTextRange,
-  focusPageIndex: number,
 ): void {
   if (!sample.final && session.ended) {
-    const snapshot =
-      range.selectedText.length === 0
-        ? undefined
-        : toNativeSelectionSnapshot(range, focusPageIndex);
+    const snapshot = range.selectedText.length === 0 ? undefined : toNativeSelectionSnapshot(range);
     settleMoveFallback(data, session, snapshot);
     return;
   }
@@ -186,7 +235,7 @@ function installRange(
     else publishNativeSelection(data, 'selecting', null);
     return;
   }
-  const snapshot = toNativeSelectionSnapshot(range, focusPageIndex);
+  const snapshot = toNativeSelectionSnapshot(range);
   if (sample.final) {
     finishNativeSelection(data, session, snapshot);
   } else {
@@ -201,6 +250,9 @@ function handleUnresolvedSample(
 ): void {
   if (!sample.final) {
     if (session.ended) settleMoveFallback(data, session, undefined);
+    else if (session.granularity !== 'character' && sample.sequence === 0) {
+      finishEmpty(data, session);
+    }
     return;
   }
   if (session.moveFallback) {

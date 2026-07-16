@@ -41,6 +41,13 @@ pub(super) fn title_font() -> Vec<u8> {
     read_font_from_epub("apps/reader/src/assets/demo.epub", "OEBPS/Fonts/title.ttf")
 }
 
+pub(super) fn serif_text_font() -> Vec<u8> {
+    std::fs::read(workspace_path(
+        "apps/reader/src/assets/fonts/Tinos-Regular.ttf",
+    ))
+    .expect("bundled serif text font reads")
+}
+
 pub(super) fn illustration_font() -> Vec<u8> {
     read_font_from_epub(
         "packages/rito/tests/fixtures/books/book-01.epub",

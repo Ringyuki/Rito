@@ -66,6 +66,9 @@ interface TestWorkerFixture {
   readonly resolveTextRangeAtRevision: Mock<
     BrowserReaderWorkerClient['resolveTextRangeAtRevision']
   >;
+  readonly resolveTextRangeFromPointsAtRevision: Mock<
+    BrowserReaderWorkerClient['resolveTextRangeFromPointsAtRevision']
+  >;
   readonly resolveExactSourceRangeAtRevision: Mock<
     BrowserReaderWorkerClient['resolveExactSourceRangeAtRevision']
   >;
@@ -163,6 +166,8 @@ export function createWorker(
     vi.fn<BrowserReaderWorkerClient['resolveTextCaretAtRevision']>();
   const resolveTextRangeAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveTextRangeAtRevision']>();
+  const resolveTextRangeFromPointsAtRevision =
+    vi.fn<BrowserReaderWorkerClient['resolveTextRangeFromPointsAtRevision']>();
   const resolveExactSourceRangeAtRevision =
     vi.fn<BrowserReaderWorkerClient['resolveExactSourceRangeAtRevision']>();
   const getFootnoteAtRevision = vi.fn<BrowserReaderWorkerClient['getFootnoteAtRevision']>();
@@ -195,6 +200,7 @@ export function createWorker(
     getTextRangeGeometryAtRevision,
     resolveTextCaretAtRevision,
     resolveTextRangeAtRevision,
+    resolveTextRangeFromPointsAtRevision,
     resolveExactSourceRangeAtRevision,
     getFootnoteAtRevision,
     getFootnotesAtRevision: vi.fn<BrowserReaderWorkerClient['getFootnotesAtRevision']>(),
@@ -229,6 +235,7 @@ export function createWorker(
     getTextRangeGeometryAtRevision,
     resolveTextCaretAtRevision,
     resolveTextRangeAtRevision,
+    resolveTextRangeFromPointsAtRevision,
     resolveExactSourceRangeAtRevision,
     getFootnoteAtRevision,
     resolveSourceLocatorAtRevision,

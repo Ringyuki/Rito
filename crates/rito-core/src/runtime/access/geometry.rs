@@ -2,8 +2,9 @@ use super::{RuntimeRevisionAccessError, RuntimeRevisionHandle, RuntimeVersioned}
 use crate::runtime::{
     RuntimeDocument, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResponse,
     RuntimePageSemantics, RuntimePageTargets, RuntimePageTextPositions, RuntimeTextCaretResponse,
-    RuntimeTextPointRequest, RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest,
-    RuntimeTextRangeRequest, RuntimeTextRangeResponse,
+    RuntimeTextPointRequest, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResponse,
+    RuntimeTextRangeGeometry, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
+    RuntimeTextRangeResponse,
 };
 
 impl RuntimeDocument {
@@ -74,6 +75,17 @@ impl RuntimeDocument {
     ) -> Result<RuntimeVersioned<RuntimeTextRangeResponse>, RuntimeRevisionAccessError> {
         self.versioned_read(handle, |document, revision_id| {
             document.resolve_text_range_for_revision(revision_id, request)
+        })
+    }
+
+    pub fn resolve_text_range_from_points_at(
+        &self,
+        handle: &RuntimeRevisionHandle,
+        request: RuntimeTextRangeFromPointsRequest,
+    ) -> Result<RuntimeVersioned<RuntimeTextRangeFromPointsResponse>, RuntimeRevisionAccessError>
+    {
+        self.versioned_read(handle, |document, revision_id| {
+            document.resolve_text_range_from_points_for_revision(revision_id, request)
         })
     }
 }

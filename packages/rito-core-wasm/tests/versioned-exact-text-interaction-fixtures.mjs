@@ -113,6 +113,47 @@ export function rangeTransport(request = rangeRequest(), response = rangeRespons
   return { request, response };
 }
 
+export function pointRangeRequest(overrides = {}) {
+  return {
+    anchor: pointRequest(),
+    focus: pointRequest({ pageIndex: 5, x: 28, y: 44 }),
+    granularity: 'word',
+    ...overrides,
+  };
+}
+
+export function pointRangeResponse(request = pointRangeRequest(), overrides = {}) {
+  const addresses = rangeRequest({
+    anchor: caretAddress({ pageIndex: request.anchor.pageIndex, charIndex: 1 }),
+    focus: caretAddress({ pageIndex: request.focus.pageIndex, lineIndex: 1, charIndex: 2 }),
+  });
+  const range = rangeResponse(addresses).resolution.range;
+  return {
+    revisionId: 'rev-1',
+    resolution: {
+      status: 'resolved',
+      anchorCaret: resolvedCaret({ address: addresses.anchor }).caret,
+      focusCaret: resolvedCaret({
+        address: addresses.focus,
+        geometry: { x: 28, y: 44, height: 16 },
+        sourceLocator: {
+          href: 'Text/chapter.xhtml',
+          sourcePoint: { nodePath: [2, 0], textOffset: 2 },
+        },
+      }).caret,
+      range,
+    },
+    ...overrides,
+  };
+}
+
+export function pointRangeTransport(
+  request = pointRangeRequest(),
+  response = pointRangeResponse(request),
+) {
+  return { request, response };
+}
+
 export function rawExactTextDocument(calls) {
   return new Proxy(
     {
@@ -123,6 +164,10 @@ export function rawExactTextDocument(calls) {
       resolveTextRangeAtRevisionJson: (_revisionId, version, requestJson) => {
         const request = JSON.parse(requestJson);
         return envelope(version, rangeResponse(request));
+      },
+      resolveTextRangeFromPointsAtRevisionJson: (_revisionId, version, requestJson) => {
+        const request = JSON.parse(requestJson);
+        return envelope(version, pointRangeResponse(request));
       },
     },
     {

@@ -73,6 +73,19 @@ describe('Selection engine coordinate behavior', () => {
 
       expect(engine.getText()).toBe('Hello');
     });
+
+    it('keeps the legacy fallback usable when a semantic hint is supplied', () => {
+      const page = makePage([makeBlock([makeLine([makeRun('Hello world', 0)], 0)])], 0);
+      const engine = createSelectionEngine();
+      engine.setSpread({ index: 0, left: page }, config, measurer);
+
+      engine.handlePointerDown({ x: 0, y: 10 }, 'word');
+      engine.handlePointerMove({ x: 50, y: 10 });
+      engine.handlePointerUp({ x: 50, y: 10 });
+
+      expect(engine.getState()).toBe('selected');
+      expect(engine.getText()).toBe('Hello');
+    });
   });
 
   describe('non-zero margin config (needs synthetic content config)', () => {

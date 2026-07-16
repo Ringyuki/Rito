@@ -8,6 +8,7 @@ import { createDisposableCollection } from '../src/utils/disposable';
 import {
   createDomTarget,
   createSelectionHarness,
+  mouseDown,
   pointer,
   pointerPosition,
   touch,
@@ -15,6 +16,137 @@ import {
 } from './helpers/dom-input';
 
 describe('pointer selection wiring', () => {
+  it.each([
+    { detail: 2, granularity: 'word' },
+    { detail: 3, granularity: 'paragraph' },
+    { detail: 4, granularity: 'paragraph' },
+  ] as const)(
+    'upgrades mousedown detail $detail to $granularity and suppresses target activation',
+    ({ detail, granularity }) => {
+      const dom = createDomTarget();
+      const selection = createSelectionHarness();
+      const click = vi.fn();
+      const dispose = bindPointerEvents(
+        dom.target as HTMLCanvasElement,
+        selection.engine,
+        pointerPosition,
+        click,
+      );
+
+      dom.emit('pointerdown', pointer(1, 10, 20));
+      dom.emit('mousedown', mouseDown(detail));
+      dom.emit('pointerup', pointer(1, 10, 20));
+
+      expect(selection.down.mock.calls).toEqual([
+        [{ x: 10, y: 20 }],
+        [{ x: 10, y: 20 }, granularity],
+      ]);
+      expect(selection.up).toHaveBeenCalledWith({ x: 10, y: 20 });
+      expect(click).not.toHaveBeenCalled();
+      dispose();
+    },
+  );
+
+  it.each([
+    { detail: 2, granularity: 'word' },
+    { detail: 3, granularity: 'paragraph' },
+  ] as const)(
+    'keeps the original $granularity anchor while dragging',
+    ({ detail, granularity }) => {
+      const dom = createDomTarget();
+      const selection = createSelectionHarness();
+      const click = vi.fn();
+      const dispose = bindPointerEvents(
+        dom.target as HTMLCanvasElement,
+        selection.engine,
+        pointerPosition,
+        click,
+      );
+
+      dom.emit('pointerdown', pointer(7, 10, 20));
+      dom.emit('mousedown', mouseDown(detail));
+      dom.emit('pointermove', pointer(7, 50, 60));
+      dom.emit('pointerup', pointer(7, 70, 80));
+
+      expect(selection.down).toHaveBeenLastCalledWith({ x: 10, y: 20 }, granularity);
+      expect(selection.move).toHaveBeenCalledWith({ x: 50, y: 60 });
+      expect(selection.up).toHaveBeenCalledWith({ x: 70, y: 80 });
+      expect(click).not.toHaveBeenCalled();
+      dispose();
+    },
+  );
+
+  it('does not infer click count from PointerEvent.detail', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const click = vi.fn();
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      click,
+    );
+
+    dom.emit('pointerdown', pointer(1, 10, 20, 'mouse', 3));
+    dom.emit('pointerup', pointer(1, 10, 20, 'mouse', 3));
+
+    expect(selection.down).toHaveBeenCalledOnce();
+    expect(selection.down).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(click).toHaveBeenCalledOnce();
+    dispose();
+  });
+
+  it('keeps pen input on the character path and preserves single-click dispatch', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const click = vi.fn();
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      click,
+    );
+
+    dom.emit('pointerdown', pointer(3, 10, 20, 'pen'));
+    dom.emit('mousedown', mouseDown(2));
+    dom.emit('pointerup', pointer(3, 10, 20, 'pen'));
+
+    expect(selection.down).toHaveBeenCalledOnce();
+    expect(selection.down).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(selection.up).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(click).toHaveBeenCalledWith({ x: 10, y: 20 });
+    dispose();
+  });
+
+  it('dispatches the first native click cycle but suppresses the word-selection cycle', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const click = vi.fn();
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      click,
+    );
+
+    dom.emit('pointerdown', pointer(1, 10, 20));
+    dom.emit('mousedown', mouseDown(1));
+    dom.emit('pointerup', pointer(1, 10, 20));
+    expect(click).toHaveBeenCalledOnce();
+
+    dom.emit('pointerdown', pointer(2, 10, 20));
+    dom.emit('mousedown', mouseDown(2));
+    dom.emit('pointerup', pointer(2, 10, 20));
+
+    expect(selection.down.mock.calls).toEqual([
+      [{ x: 10, y: 20 }],
+      [{ x: 10, y: 20 }],
+      [{ x: 10, y: 20 }, 'word'],
+    ]);
+    expect(click).toHaveBeenCalledTimes(1);
+    dispose();
+  });
+
   it('routes only the active pointer and preserves single-click dispatch', () => {
     const dom = createDomTarget();
     const selection = createSelectionHarness();
@@ -143,21 +275,41 @@ describe('touch selection wiring', () => {
     vi.advanceTimersByTime(350);
 
     expect(harness.selection.down).toHaveBeenCalledTimes(1);
-    expect(harness.selection.down).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(harness.selection.down).toHaveBeenCalledWith({ x: 10, y: 20 }, 'word');
 
     const movedFirst = touch(1, 30, 40);
     const movedSecond = touch(2, 90, 100);
     harness.dom.emit('touchmove', touchEvent([first, movedSecond], [movedSecond]));
     expect(harness.selection.move).not.toHaveBeenCalled();
 
-    harness.dom.emit('touchmove', touchEvent([movedSecond, movedFirst], [movedFirst]));
+    const preventDefault = vi.fn();
+    const selectionMove = touchEvent([movedSecond, movedFirst], [movedFirst], 0, preventDefault);
+    harness.dom.emit('touchmove', selectionMove);
     expect(harness.selection.move).toHaveBeenCalledWith({ x: 30, y: 40 });
+    expect(preventDefault).toHaveBeenCalledOnce();
 
     harness.dom.emit('touchend', touchEvent([movedFirst], [movedSecond]));
     expect(harness.selection.up).not.toHaveBeenCalled();
 
     harness.dom.emit('touchend', touchEvent([], [movedFirst]));
     expect(harness.selection.up).toHaveBeenCalledWith({ x: 30, y: 40 });
+    expect(harness.tap).not.toHaveBeenCalled();
+    harness.disposables.disposeAll();
+  });
+
+  it('keeps a word seed when long-press is released without moving', () => {
+    vi.useFakeTimers();
+    const harness = createTouchHarness();
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    harness.dom.emit('touchend', touchEvent([], [first]));
+
+    expect(harness.selection.down).toHaveBeenCalledWith({ x: 10, y: 20 }, 'word');
+    expect(harness.selection.move).not.toHaveBeenCalled();
+    expect(harness.selection.up).toHaveBeenCalledWith({ x: 10, y: 20 });
+    expect(harness.selection.clear).not.toHaveBeenCalled();
     expect(harness.tap).not.toHaveBeenCalled();
     harness.disposables.disposeAll();
   });
@@ -201,6 +353,7 @@ describe('touch selection wiring', () => {
     harness.dom.emit('touchend', touchEvent([], [first]));
 
     expect(harness.selection.clear).toHaveBeenCalledTimes(1);
+    expect(harness.selection.down).toHaveBeenCalledWith({ x: 10, y: 20 }, 'word');
     expect(harness.selection.up).not.toHaveBeenCalled();
     expect(harness.tap).not.toHaveBeenCalled();
     expect(harness.setMode).toHaveBeenLastCalledWith('gesture');

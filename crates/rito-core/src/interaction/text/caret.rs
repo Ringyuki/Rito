@@ -98,7 +98,7 @@ pub(super) fn stop_at(
         .ok_or(TextInteractionUnavailableReason::InvalidCaret)
 }
 
-fn nearest_text_run(
+pub(super) fn nearest_text_run(
     runs: Vec<CollectedTextRun<'_>>,
     x: f64,
     y: f64,
@@ -197,7 +197,7 @@ fn nearest_stop(shape: &ExactRunShape, local_x: f64) -> Option<RunShapeCaretStop
         .map(|(_, _, stop)| stop)
 }
 
-fn resolved_run_caret<'a>(
+pub(super) fn resolved_run_caret<'a>(
     run: CollectedTextRun<'a>,
     slice: &'a TextFlowSlice,
     stop: RunShapeCaretStop,

@@ -1,8 +1,10 @@
-import type { SelectionEngine } from '../../interaction/index';
+import type { SelectionEngine, SelectionGranularity } from '../../interaction/index';
 
 interface ActivePointer {
   readonly pointerId: number;
+  readonly pointerType: string;
   readonly downPos: { readonly x: number; readonly y: number };
+  readonly granularity: SelectionGranularity;
 }
 
 interface PointerBindingContext {
@@ -26,6 +28,9 @@ export function bindPointerEvents(
   const onMove = (event: PointerEvent): void => {
     handlePointerMove(context, event);
   };
+  const onMouseDown = (event: MouseEvent): void => {
+    handleMouseDown(context, event);
+  };
   const onUp = (event: PointerEvent): void => {
     handlePointerUp(context, event);
   };
@@ -38,6 +43,7 @@ export function bindPointerEvents(
 
   const remove = (): void => {
     canvas.removeEventListener('pointerdown', onDown);
+    canvas.removeEventListener('mousedown', onMouseDown);
     canvas.removeEventListener('pointermove', onMove);
     canvas.removeEventListener('pointerup', onUp);
     canvas.removeEventListener('pointercancel', onCancel);
@@ -46,6 +52,7 @@ export function bindPointerEvents(
   };
   try {
     canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('mousedown', onMouseDown);
     canvas.addEventListener('pointermove', onMove);
     canvas.addEventListener('pointerup', onUp);
     canvas.addEventListener('pointercancel', onCancel);
@@ -60,7 +67,12 @@ export function bindPointerEvents(
 function handlePointerDown(context: PointerBindingContext, event: PointerEvent): void {
   if (event.pointerType === 'touch' || event.button !== 0 || context.active) return;
   const downPos = context.toContent(event);
-  context.active = { pointerId: event.pointerId, downPos };
+  context.active = {
+    pointerId: event.pointerId,
+    pointerType: event.pointerType,
+    downPos,
+    granularity: 'character',
+  };
   try {
     context.engine.handlePointerDown(downPos);
   } catch (error) {
@@ -75,6 +87,14 @@ function handlePointerDown(context: PointerBindingContext, event: PointerEvent):
   }
 }
 
+function handleMouseDown(context: PointerBindingContext, event: MouseEvent): void {
+  const active = context.active;
+  const granularity = semanticGranularity(event.detail);
+  if (event.button !== 0 || active?.pointerType !== 'mouse' || !granularity) return;
+  context.active = { ...active, granularity };
+  context.engine.handlePointerDown(active.downPos, granularity);
+}
+
 function handlePointerMove(context: PointerBindingContext, event: PointerEvent): void {
   if (event.pointerType === 'touch' || context.active?.pointerId !== event.pointerId) return;
   context.engine.handlePointerMove(context.toContent(event));
@@ -87,7 +107,9 @@ function handlePointerUp(context: PointerBindingContext, event: PointerEvent): v
   try {
     const position = context.toContent(event);
     context.engine.handlePointerUp(position);
-    if (isSingleClick(completed.downPos, position)) context.onSingleClick?.(position);
+    if (completed.granularity === 'character' && isSingleClick(completed.downPos, position)) {
+      context.onSingleClick?.(position);
+    }
   } finally {
     releaseCapture(context.canvas, event.pointerId);
   }
@@ -132,6 +154,12 @@ function isSingleClick(
   up: { readonly x: number; readonly y: number },
 ): boolean {
   return Math.abs(up.x - down.x) < 3 && Math.abs(up.y - down.y) < 3;
+}
+
+function semanticGranularity(detail: number): 'word' | 'paragraph' | undefined {
+  if (detail === 2) return 'word';
+  if (detail >= 3) return 'paragraph';
+  return undefined;
 }
 
 function releaseCapture(canvas: HTMLCanvasElement, pointerId: number): void {

@@ -22,6 +22,10 @@ import {
   requireTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
+  requireTextRangeFromPointsRequest,
+  requireTextRangeFromPointsResponse,
+} from './reader-worker-text-range-from-points-validation-runtime.js';
+import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
@@ -214,6 +218,26 @@ export function installRitoCoreWasmVersionedDocumentMethods(Document) {
           ),
         (value, revision, operation) =>
           requireTextRangeResponse(value, revision, expectedRequest, operation),
+      );
+    },
+    resolveTextRangeFromPointsAtRevision(handle, request) {
+      const expectedRequest = requireTextRangeFromPointsRequest(
+        request,
+        'resolveTextRangeFromPointsAtRevision',
+      );
+      return versionedRequest(
+        this,
+        'resolveTextRangeFromPointsAtRevision',
+        handle,
+        expectedRequest,
+        (revision, json) =>
+          this._inner.resolveTextRangeFromPointsAtRevisionJson(
+            revision.revisionId,
+            revision.revisionVersion,
+            json,
+          ),
+        (value, revision, operation) =>
+          requireTextRangeFromPointsResponse(value, revision, expectedRequest, operation),
       );
     },
     resolveExactSourceRangeAtRevision(handle, request) {

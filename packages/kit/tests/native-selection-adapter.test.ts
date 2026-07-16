@@ -8,6 +8,7 @@ import type {
 } from '@ritojs/core';
 import { createSelectionEngine } from '../src/interaction';
 import type { Spread } from '../src/interaction';
+import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import type { NativeSelectionProjection } from '../src/interaction/selection/engine';
 import { caret, deferred, flushMicrotasks } from './helpers/native-selection';
 
@@ -32,16 +33,50 @@ const projection: NativeSelectionProjection = {
     if (x >= 0 && x <= 300) return { pageIndex: 0, x, y };
     return null;
   },
+  isPageVisible: (pageIndex) => pageIndex === 0 || pageIndex === 1,
   pageContentToSpread(pageIndex, value) {
     if (pageIndex !== 0 && pageIndex !== 1) throw new RangeError('not visible');
     return { ...value, x: value.x + (pageIndex === 1 ? 320 : 0) };
   },
 };
+const resolveTextRangeFromPoints: ReaderTextSelectionInteractions['resolveTextRangeFromPoints'] =
+  () => Promise.resolve({ status: 'miss' });
 
 describe('native SelectionEngine adapter', () => {
+  it('projects a cross-page semantic focus through the real adapter entry', async () => {
+    const range = exactRange(caret(10), caret(40, 1));
+    const resolveCaret = vi.fn<ReaderTextSelectionInteractions['resolveCaret']>();
+    const resolveTextRangeFromPoints = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
+      .mockResolvedValue({ status: 'resolved', range });
+    const capability: ReaderTextSelectionInteractions = {
+      resolveCaret,
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints,
+    };
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    await flushMicrotasks();
+
+    expect(resolveTextRangeFromPoints).toHaveBeenCalledWith({
+      anchor: { pageIndex: 0, x: 10, y: 12 },
+      focus: { pageIndex: 0, x: 10, y: 12 },
+      granularity: 'paragraph',
+    });
+    expect(resolveCaret).not.toHaveBeenCalled();
+    expect(engine.getText()).toBe('exact text');
+    expect(engine.getFocusRect()).toEqual({ x: 360, y: 0, width: 0, height: 18 });
+
+    engine.handlePointerUp({ x: 10, y: 12 });
+    await flushMicrotasks();
+    expect(engine.getState()).toBe('selected');
+  });
+
   it('maps right-page points and exact rects without exposing a legacy range', async () => {
-    const anchor = caret(10);
-    const focus = caret(40);
+    const anchor = caret(10, 1);
+    const focus = caret(40, 1);
     const range = exactRange(anchor, focus);
     const resolveCaret = vi
       .fn<ReaderTextSelectionInteractions['resolveCaret']>()
@@ -50,6 +85,7 @@ describe('native SelectionEngine adapter', () => {
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret,
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveTextRangeFromPoints,
     };
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
@@ -84,6 +120,7 @@ describe('native SelectionEngine adapter', () => {
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret: vi.fn().mockResolvedValue(undefined),
       resolveTextRange,
+      resolveTextRangeFromPoints,
     };
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
@@ -100,7 +137,7 @@ describe('native SelectionEngine adapter', () => {
 
   it('projects a text-range range across both visible pages', async () => {
     const anchor = caret(1);
-    const focus = caret(10);
+    const focus = caret(10, 1);
     const range = {
       ...exactRange(anchor, focus),
       rects: [
@@ -114,6 +151,7 @@ describe('native SelectionEngine adapter', () => {
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: anchor })
         .mockResolvedValueOnce({ status: 'resolved', pageIndex: 1, spreadIndex: 0, caret: focus }),
       resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveTextRangeFromPoints,
     };
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
@@ -136,6 +174,7 @@ describe('native SelectionEngine adapter', () => {
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret: vi.fn().mockReturnValue(pending.promise),
       resolveTextRange,
+      resolveTextRangeFromPoints,
     };
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
@@ -161,6 +200,7 @@ describe('native SelectionEngine adapter', () => {
     const capability: ReaderTextSelectionInteractions = {
       resolveCaret,
       resolveTextRange,
+      resolveTextRangeFromPoints,
     };
     const engine = createSelectionEngine(capability);
     engine.setSpread(spread, config, measurer, projection);
@@ -176,33 +216,51 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getState()).toBe('idle');
   });
 
-  it('fails closed when native range geometry references an invisible page', async () => {
+  it('keeps cross-page native selection while a strict single-page mapper hides offscreen geometry', async () => {
     const anchor = caret(1);
-    const focus = caret(5);
+    const focus = caret(5, 1);
     const range = {
       ...exactRange(anchor, focus),
-      rects: [{ pageIndex: 99, spreadIndex: 49, x: 1, y: 2, width: 3, height: 18 }],
+      rects: [
+        { pageIndex: 0, spreadIndex: 0, x: 1, y: 2, width: 3, height: 18 },
+        { pageIndex: 1, spreadIndex: 1, x: 1, y: 2, width: 4, height: 18 },
+      ],
     };
+    const resolveTextRangeFromPoints = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
+      .mockResolvedValue({ status: 'resolved', range });
     const capability: ReaderTextSelectionInteractions = {
-      resolveCaret: vi
-        .fn<ReaderTextSelectionInteractions['resolveCaret']>()
-        .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: anchor })
-        .mockResolvedValueOnce({ status: 'resolved', pageIndex: 0, spreadIndex: 0, caret: focus }),
-      resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints,
     };
+    const singleConfig = createLayoutConfig({
+      width: 300,
+      height: 400,
+      margin: 0,
+      spread: 'single',
+    });
+    const singleSpread: Spread = {
+      index: 0,
+      left: { index: 0, bounds: rect(0, 0), content: [] },
+    };
+    const singleMapper = createCoordinateMapper(singleConfig, singleSpread, 1);
     const engine = createSelectionEngine(capability);
     const onError = vi.fn();
     engine.onError(onError);
-    engine.setSpread(spread, config, measurer, projection);
+    engine.setSpread(singleSpread, singleMapper.selectionConfig, measurer, singleMapper);
 
-    engine.handlePointerDown({ x: 1, y: 10 });
-    engine.handlePointerUp({ x: 5, y: 10 });
+    engine.handlePointerDown({ x: 1, y: 10 }, 'paragraph');
+    engine.handlePointerUp({ x: 1, y: 10 });
     await flushMicrotasks();
 
-    expect(engine.getState()).toBe('idle');
-    expect(engine.hasSelection()).toBe(false);
-    expect(engine.getRects()).toEqual([]);
-    expect(onError).toHaveBeenCalledWith(expect.any(RangeError));
+    expect(engine.getState()).toBe('selected');
+    expect(engine.hasSelection()).toBe(true);
+    expect(engine.getText()).toBe('exact text');
+    expect(engine.getSourceLocator()).toEqual(range.sourceLocator);
+    expect(engine.getRects()).toEqual([{ x: 1, y: 2, width: 3, height: 18 }]);
+    expect(engine.getFocusRect()).toBeNull();
+    expect(onError).not.toHaveBeenCalled();
   });
 });
 

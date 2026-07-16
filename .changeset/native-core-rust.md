@@ -20,3 +20,7 @@ Native text ranges now span exact retained flows within a chapter, preserve nati
 separators, survive reflow through durable source ranges, and expose TOC-backed destination labels
 for internal-link previews. Production Reader gestures retain their anchor while reversing direction
 and preserve the latest valid in-flight drag result when pointer release lands outside text.
+Rust-authoritative ICU word and retained-flow paragraph selection now power mouse double/triple click,
+repeated-click drag, and touch long press while preserving exact cross-page source ranges.
+The locale-aware ICU auto data increases the release WASM by about 2.5 MB raw (1.9 MB gzip) and
+37 initial memory pages; this preserves Chinese, Japanese, Thai, and locale-tailored word behavior.

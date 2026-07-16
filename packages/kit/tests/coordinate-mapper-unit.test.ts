@@ -63,6 +63,8 @@ describe('CoordinateMapper', () => {
     });
 
     it('pageContentToSpread is strict about the visible page', () => {
+      expect(mapper.isPageVisible(0)).toBe(true);
+      expect(mapper.isPageVisible(99)).toBe(false);
       expect(mapper.pageContentToSpread(0, { x: 10, y: 20, width: 50, height: 15 })).toEqual({
         x: 10,
         y: 20,
@@ -208,6 +210,9 @@ describe('CoordinateMapper', () => {
     });
 
     it('pageContentToSpread offsets a right-page native rect exactly once', () => {
+      expect(mapper.isPageVisible(0)).toBe(true);
+      expect(mapper.isPageVisible(1)).toBe(true);
+      expect(mapper.isPageVisible(2)).toBe(false);
       expect(mapper.pageContentToSpread(1, { x: 50, y: 10, width: 20, height: 15 })).toEqual({
         x: contentWidth + contentGap + 50,
         y: 10,

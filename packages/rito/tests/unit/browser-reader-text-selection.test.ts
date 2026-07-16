@@ -33,6 +33,7 @@ describe('Browser reader exact text selection', () => {
       pageIndex: 0,
       spreadIndex: 0,
       caret: {
+        pageIndex: 0,
         geometry: { x: 20, y: 12, height: 18 },
         sourceLocator: {
           href: 'chapter.xhtml',

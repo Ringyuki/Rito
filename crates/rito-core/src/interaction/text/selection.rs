@@ -138,7 +138,7 @@ fn range_has_exact_source(flow: &LogicalTextFlow, start: u32, end: u32) -> bool 
     })
 }
 
-fn native_flow_separator(previous: Option<&str>, current: Option<&str>) -> &'static str {
+pub(super) fn native_flow_separator(previous: Option<&str>, current: Option<&str>) -> &'static str {
     if previous.is_some_and(|tag| tag.eq_ignore_ascii_case("p"))
         && current.is_some_and(|tag| tag.eq_ignore_ascii_case("p"))
     {

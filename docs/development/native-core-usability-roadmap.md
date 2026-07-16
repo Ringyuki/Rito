@@ -131,8 +131,20 @@ The remaining usability work is narrower but still release-blocking:
 3. Exact text and annotation geometry now spans retained logical flows in document
    order within one chapter. Cross-chapter or source/shaping-unavailable ranges
    remain typed unavailable. Reverse drag across the anchor is covered by the
-   production Reader path; host-native word/paragraph granularity, touch handles
-   and edge autoscroll remain usability work.
+   production Reader path. Rust-authoritative ICU word and retained-flow paragraph
+   granularity now drive mouse repeated-click and touch long-press selection;
+   touch handles, edge autoscroll and platform keyboard extension remain usability
+   work. Mouse repeated-click passes production-path E2E; touch long press still
+   needs a real touch-environment production-path E2E in addition to its Kit event
+   tests. Paragraph copy/highlight preserves the native trailing separator once a
+   following same-chapter flow is retained. The exact-source caret remains at the
+   current flow's text end instead of pretending to be the DOM's structural
+   next-block boundary, and a bounded retention edge can temporarily omit that
+   trailing separator. ICU auto is the smallest official constructor that keeps
+   the required CJK/Japanese/Thai and locale behavior, but it currently costs
+   about 2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli plus 37 initial WASM memory
+   pages. Treat a scoped ICU data provider or an explicit host segmentation
+   boundary as later bundle work; do not silently downgrade the selection model.
 4. The Reader app now has a licensed, app-owned v1 serif fallback and real-book
    shaping/paint proof. Its cold-start cost is covered by the isolated-process
    gate; it is not a locale-complete, sans-serif, or monospace policy, and its
@@ -639,9 +651,12 @@ the host platform's observable selection behavior: a primary-pointer drag extend
 continuously across visual lines, block/paragraph flows and visible pages in either
 direction; pointer release preserves the final text and painted highlight until an
 explicit native-equivalent clearing action; copy uses that same retained range; and
-selection gestures do not dispatch link, page-turn or chrome actions. Word/paragraph
-granularity, touch handles and edge autoscroll must follow the host platform rather
-than introducing Rito-specific interaction rules. Browser acceptance uses real
+drag and secondary-click gestures do not dispatch link, page-turn or chrome actions.
+As in Chromium, the first ordinary click in a repeated-click sequence retains normal
+target activation ordering; an anchor can therefore activate before a later
+double-click is recognized. Word/paragraph granularity, touch handles and edge
+autoscroll must follow the host platform rather than introducing Rito-specific
+interaction rules. Browser acceptance uses real
 Canvas pointer input and the production Worker path, not only mocked caret/range
 unit tests. The controlled Browser proof passes real Canvas multi-line and
 cross-paragraph drags, pointer-up persistence and exact copied text with native

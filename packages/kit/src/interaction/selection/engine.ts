@@ -23,8 +23,10 @@ import type { AnchoredPosition, SpreadContext } from './spread';
 import { computeSelectionRects, isSamePosition, resolvePageHit } from './spread';
 import { createNativeSelectionAdapter } from './native-adapter';
 import { getLegacySelectionText } from './legacy-text';
+import type { NativeSelectionGranularity } from './native-types';
 
 export type SelectionState = 'idle' | 'selecting' | 'selected';
+export type SelectionGranularity = NativeSelectionGranularity;
 
 export interface PointerInput {
   readonly x: number;
@@ -52,11 +54,13 @@ export interface SelectionSnapshot {
 /** Controller-owned projection between spread-content and page-content spaces. */
 export interface NativeSelectionProjection {
   spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
+  /** Whether page-local geometry belongs to the currently projected spread. */
+  isPageVisible(pageIndex: number): boolean;
   pageContentToSpread(pageIndex: number, rect: Rect): Rect;
 }
 
 export interface SelectionEngine {
-  handlePointerDown(input: PointerInput): void;
+  handlePointerDown(input: PointerInput, granularity?: SelectionGranularity): void;
   handlePointerMove(input: PointerInput): void;
   handlePointerUp(input: PointerInput): void;
   setSpread(

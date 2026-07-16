@@ -190,6 +190,32 @@ export interface RitoCoreWasmTextRangeResponse {
   readonly resolution: RitoCoreWasmTextRangeResolution;
 }
 
+export type RitoCoreWasmTextSelectionGranularity = 'word' | 'paragraph';
+
+export interface RitoCoreWasmTextRangeFromPointsRequest {
+  readonly anchor: RitoCoreWasmTextPointRequest;
+  readonly focus: RitoCoreWasmTextPointRequest;
+  readonly granularity: RitoCoreWasmTextSelectionGranularity;
+}
+
+export type RitoCoreWasmTextRangeFromPointsResolution =
+  | {
+      readonly status: 'resolved';
+      readonly anchorCaret: RitoCoreWasmTextCaret;
+      readonly focusCaret: RitoCoreWasmTextCaret;
+      readonly range: RitoCoreWasmTextRange;
+    }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: RitoCoreWasmTextInteractionUnavailableReason;
+    }
+  | { readonly status: 'miss' };
+
+export interface RitoCoreWasmTextRangeFromPointsResponse {
+  readonly revisionId: string;
+  readonly resolution: RitoCoreWasmTextRangeFromPointsResolution;
+}
+
 export type RitoCoreWasmSourceLocatorMatchedBy =
   | 'sourceRange'
   | 'sourcePoint'

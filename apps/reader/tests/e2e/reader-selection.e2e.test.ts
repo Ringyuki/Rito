@@ -5,6 +5,7 @@ import {
   CROSS_FLOW_LINE,
   CROSS_FLOW_SELECTION_TEXT,
   SAME_FLOW_FIRST_LINE,
+  SAME_FLOW_PARAGRAPH_SELECTION_TEXT,
   SAME_FLOW_SECOND_LINE,
   SAME_FLOW_SELECTION_TEXT,
 } from './selection-fixture';
@@ -98,6 +99,40 @@ test.describe('reader native text selection acceptance', () => {
     await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(2);
     expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
   });
+
+  test('uses native word and paragraph granularity for repeated mouse clicks', async ({ page }) => {
+    const firstLine = requireBand(await requireTextBands(page, 2), 0);
+    const point = pointInsideFirstWord(firstLine);
+
+    await page.mouse.dblclick(point.x, point.y);
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute(
+      'data-selection-text-length',
+      String('ALPHA'.length),
+    );
+    expect(await copySelection(page)).toBe('ALPHA');
+
+    await page.mouse.click(point.x, point.y, { clickCount: 3 });
+    await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(2);
+    expect(await copySelection(page)).toBe(SAME_FLOW_PARAGRAPH_SELECTION_TEXT);
+
+    const lastParagraph = pointInsideFirstWord(requireBand(await requireTextBands(page, 4), 3));
+    await page.mouse.click(lastParagraph.x, lastParagraph.y, { clickCount: 3 });
+    expect(await copySelection(page)).toBe(CROSS_FLOW_LINE);
+  });
+
+  test('extends a double-click word selection across paragraph flows', async ({ page }) => {
+    const bands = await requireTextBands(page, 4);
+    const start = pointInsideFirstWord(requireBand(bands, 0));
+    const end = requireBand(bands, 3);
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down({ clickCount: 2 });
+    await page.mouse.move(end.right, end.centerY, { steps: 12 });
+    await page.mouse.up({ clickCount: 2 });
+
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-selection-active', 'true');
+    expect(await copySelection(page)).toBe(CROSS_FLOW_SELECTION_TEXT);
+  });
 });
 
 async function loadSelectionFixture(page: Page): Promise<void> {
@@ -136,6 +171,10 @@ function requireBand(bands: readonly CanvasTextBand[], index: number): CanvasTex
   const band = bands[index];
   if (!band) throw new Error(`Missing Canvas text band ${String(index)}`);
   return band;
+}
+
+function pointInsideFirstWord(band: CanvasTextBand): { readonly x: number; readonly y: number } {
+  return { x: band.left + 10, y: band.centerY };
 }
 
 async function readCanvasTextBands(page: Page): Promise<readonly CanvasTextBand[]> {

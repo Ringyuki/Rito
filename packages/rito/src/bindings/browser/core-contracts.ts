@@ -78,8 +78,11 @@ export type {
   RitoCoreWasmSearchResponse as CoreSearchResponse,
   RitoCoreWasmTextRangeRequest as CoreTextRangeRequest,
   RitoCoreWasmTextRangeResponse as CoreTextRangeResponse,
+  RitoCoreWasmTextRangeFromPointsRequest as CoreTextRangeFromPointsRequest,
+  RitoCoreWasmTextRangeFromPointsResponse as CoreTextRangeFromPointsResponse,
   RitoCoreWasmViewRevisionRequest as CoreViewRevisionRequest,
   RitoCoreWasmViewRevisionResponse as CoreViewRevisionResponse,
   RitoCoreWasmTextCaretAddress as CoreTextCaretAddress,
+  RitoCoreWasmTextCaret as CoreTextCaret,
   RitoCoreWasmTextCaretResponse as CoreTextCaretResponse,
 } from '@ritojs/core-wasm';

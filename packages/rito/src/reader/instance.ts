@@ -41,6 +41,8 @@ declare const readerTextCaretBrand: unique symbol;
 /** Exact caret for one Reader revision; pass this branded object itself to range resolution. */
 export interface ReaderTextCaret {
   readonly [readerTextCaretBrand]: true;
+  /** Page owning this caret's page-local geometry. */
+  readonly pageIndex: number;
   readonly geometry: ReaderTextCaretGeometry;
   readonly sourceLocator: ReaderLocator;
 }
@@ -103,12 +105,31 @@ export type ReaderTextRangeResolution =
       readonly reason: ReaderTextInteractionUnavailableReason;
     };
 
+export type ReaderTextSelectionGranularity = 'word' | 'paragraph';
+
+export interface ReaderTextRangeFromPointsRequest {
+  readonly anchor: ReaderTextPoint;
+  readonly focus: ReaderTextPoint;
+  readonly granularity: ReaderTextSelectionGranularity;
+}
+
+export type ReaderTextRangeFromPointsResolution =
+  | { readonly status: 'resolved'; readonly range: ReaderTextRange }
+  | {
+      readonly status: 'unavailable';
+      readonly reason: ReaderTextInteractionUnavailableReason;
+    }
+  | { readonly status: 'miss' };
+
 export interface ReaderTextSelectionInteractions {
   resolveCaret(point: ReaderTextPoint): Promise<ReaderTextCaretResolution | undefined>;
   resolveTextRange(
     anchor: ReaderTextCaret,
     focus: ReaderTextCaret,
   ): Promise<ReaderTextRangeResolution | undefined>;
+  resolveTextRangeFromPoints(
+    request: ReaderTextRangeFromPointsRequest,
+  ): Promise<ReaderTextRangeFromPointsResolution | undefined>;
 }
 
 /** Optional atomic capability for revision-safe semantic interaction reads. */

@@ -11,6 +11,9 @@ import {
   handle,
   ManualWorker,
   pointRequest,
+  pointRangeRequest,
+  pointRangeResponse,
+  pointRangeTransport,
   rangeRequest,
   rangeResponse,
   rangeTransport,
@@ -35,7 +38,153 @@ test('worker client rejects malformed exact requests before dispatch', async () 
       ),
     /affinity/,
   );
+  assert.throws(
+    () =>
+      client.resolveTextRangeFromPointsAtRevision(
+        handle(),
+        pointRangeRequest({ granularity: 'sentence' }),
+      ),
+    /granularity must be word or paragraph/,
+  );
   assert.equal(worker.messages.length, count);
+  client.dispose();
+});
+
+test('worker client strictly binds granular point-range requests, endpoints, and sources', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = pointRangeRequest();
+  const cases = [
+    pointRangeCase(
+      pointRangeTransport(
+        pointRangeRequest({ granularity: 'paragraph' }),
+        pointRangeResponse(request),
+      ),
+      /mismatched normalized request/,
+    ),
+    pointRangeCase(
+      pointRangeTransport(
+        pointRangeRequest({ anchor: pointRequest({ x: 99 }) }),
+        pointRangeResponse(request),
+      ),
+      /mismatched normalized request/,
+    ),
+    pointRangeMutation(
+      request,
+      (resolution) => {
+        resolution.anchorCaret.address = {
+          ...resolution.anchorCaret.address,
+          pageIndex: 5,
+        };
+      },
+      /range anchor does not match/,
+    ),
+    pointRangeMutation(
+      request,
+      (resolution) => {
+        resolution.focusCaret.geometry.height = 0;
+      },
+      /height must be positive/,
+    ),
+    pointRangeMutation(
+      request,
+      (resolution) => {
+        resolution.range.anchor = { ...resolution.range.anchor, charIndex: 0 };
+      },
+      /range anchor does not match/,
+    ),
+    pointRangeMutation(
+      request,
+      (resolution) => {
+        resolution.range.sourceLocator.sourceRange.start.textOffset = 2;
+      },
+      /source endpoints unrelated/,
+    ),
+    pointRangeMutation(
+      request,
+      (resolution) => {
+        resolution.anchorCaret.sourceLocator = {
+          href: 'Text/chapter.xhtml',
+          sourceRange: resolution.range.sourceLocator.sourceRange,
+        };
+      },
+      /exact source point/,
+    ),
+    pointRangeCase(
+      pointRangeTransport(request, {
+        revisionId: 'rev-1',
+        resolution: {
+          status: 'miss',
+          range: pointRangeResponse(request).resolution.range,
+        },
+      }),
+      /returned range for status miss/,
+    ),
+    pointRangeCase(
+      pointRangeTransport(request, {
+        revisionId: 'rev-1',
+        resolution: {
+          status: 'unavailable',
+          reason: 'shapeUnavailable',
+          anchorCaret: pointRangeResponse(request).resolution.anchorCaret,
+        },
+      }),
+      /returned anchorCaret for status unavailable/,
+    ),
+  ];
+
+  for (const fixture of cases) {
+    const pending = client.resolveTextRangeFromPointsAtRevision(handle(), request);
+    worker.respondLast({
+      kind: 'resolveTextRangeFromPointsAtRevision',
+      revision: handle(),
+      result: fixture.result,
+    });
+    await assert.rejects(pending, fixture.pattern);
+  }
+  client.dispose();
+});
+
+test('worker granular point range preserves miss and unavailable resolutions', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = pointRangeRequest();
+  for (const resolution of [
+    { status: 'miss' },
+    { status: 'unavailable', reason: 'shapeUnavailable' },
+  ]) {
+    const pending = client.resolveTextRangeFromPointsAtRevision(handle(), request);
+    worker.respondLast({
+      kind: 'resolveTextRangeFromPointsAtRevision',
+      revision: handle(),
+      result: pointRangeTransport(request, { revisionId: 'rev-1', resolution }),
+    });
+    assert.deepEqual((await pending).value.resolution, resolution);
+  }
+  client.dispose();
+});
+
+test('worker granular point range accepts an expanded endpoint on an adjacent page', async () => {
+  const worker = new ManualWorker();
+  const client = await openClient(worker);
+  const request = pointRangeRequest();
+  const response = structuredClone(pointRangeResponse(request));
+  const expanded = caretAddress({ pageIndex: 3 });
+  response.resolution.anchorCaret.address = expanded;
+  response.resolution.range.anchor = expanded;
+  response.resolution.range.start = expanded;
+  response.resolution.range.rects[0].pageIndex = 3;
+  response.resolution.range.rects[0].spreadIndex = 1;
+  const pending = client.resolveTextRangeFromPointsAtRevision(handle(), request);
+  worker.respondLast({
+    kind: 'resolveTextRangeFromPointsAtRevision',
+    revision: handle(),
+    result: pointRangeTransport(request, response),
+  });
+
+  const result = await pending;
+  assert.equal(result.value.resolution.status, 'resolved');
+  assert.equal(result.value.resolution.anchorCaret.address.pageIndex, 3);
   client.dispose();
 });
 
@@ -209,6 +358,16 @@ function rangeMutation(request, mutate, pattern) {
   const response = structuredClone(rangeResponse(request));
   mutate(response.resolution.range);
   return rangeCase(rangeTransport(request, response), pattern);
+}
+
+function pointRangeCase(result, pattern) {
+  return { result, pattern };
+}
+
+function pointRangeMutation(request, mutate, pattern) {
+  const response = structuredClone(pointRangeResponse(request));
+  mutate(response.resolution);
+  return pointRangeCase(pointRangeTransport(request, response), pattern);
 }
 
 async function openClient(worker) {

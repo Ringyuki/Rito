@@ -18,7 +18,6 @@ import {
 
 const LONG_PRESS_MS = 350;
 const MOVE_SLOP_PX = 5;
-
 type TouchPhase = 'idle' | 'waiting' | 'gesture' | 'long-press';
 
 interface TouchState {
@@ -158,7 +157,7 @@ function scheduleLongPress(context: TouchHandlerContext): void {
     if (state.phase !== 'waiting' || !start) return;
     state.phase = 'long-press';
     modeManager.setMode('selection');
-    selection.handlePointerDown(start);
+    selection.handlePointerDown(start, 'word');
   }, LONG_PRESS_MS);
 }
 
@@ -171,6 +170,7 @@ function handleTouchMove(context: TouchHandlerContext, event: TouchEvent): void 
   } else if (context.state.phase === 'gesture') {
     handleGestureMove(context, event, touch);
   } else if (context.state.phase === 'long-press') {
+    if (event.cancelable) event.preventDefault();
     context.selection.handlePointerMove(context.toContent(touch));
   }
 }

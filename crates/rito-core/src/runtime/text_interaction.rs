@@ -7,6 +7,7 @@ use crate::{
     },
 };
 
+mod granularity;
 mod source_match;
 mod types;
 

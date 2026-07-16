@@ -925,7 +925,17 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      or shaping provenance. Controlled Reader E2E sends real Canvas drags across
      visual lines and adjacent paragraphs, preserves the highlight after pointer-up
      and verifies exact clipboard separators (`\n` within the fixture flow and
-     `\n\n` between paragraphs).
+     `\n\n` between paragraphs). Rust also owns ICU dictionary word boundaries and
+     retained-flow paragraph boundaries, with package-language tailoring and an
+     invariant fallback. Kit maps mouse double/triple click and touch long press to
+     those units; repeated-click drag keeps the original semantic unit as its
+     anchor. Mouse behavior passes production Reader E2E; touch long press has
+     synthetic event coverage but still needs a real touch-device production-path
+     E2E before release. The correctness-complete ICU auto constructor adds approximately
+     2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
+     initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
+     LSTM-only and non-complex constructors fail CJK/Japanese/Thai parity, so this
+     is an explicit bundle/memory debt rather than a constructor downgrade.
    - Image-only or blank pages still need a durable source-anchor fallback.
      After that, remove compatibility geometry required only by legacy Readers.
    - Remove empty-page-content and synthetic-measurer compatibility stubs after
@@ -1032,14 +1042,20 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: word/paragraph
-   granularity, touch handles, edge autoscroll and platform keyboard semantics.
-   Cross-flow and reverse-direction exact selection/copy, pointer-up persistence
-   and link-preview chapter context are now green in production-path Reader E2E.
+1. Complete the remaining host-native selection behavior: touch handles, edge
+   autoscroll and platform keyboard semantics. Cross-flow and reverse-direction
+   exact selection/copy, pointer-up persistence, word/paragraph granularity and
+   link-preview chapter context are now green in production-path Reader E2E.
 2. Make the existing latency and memory gates green without weakening their limits. The
    cancellation/disposal protocol is already green; investigate the main-thread
    Canvas/frame presentation long tasks and the replacement backing-store
-   high-water that currently fail the latency and memory gates.
+   high-water that currently fail the latency and memory gates. Include the ICU
+   word-segmentation code/data and eager linear-memory increase in that work;
+   shrinking it requires a scoped data provider or a deliberate host-segmenter
+   boundary, not a less-correct ICU constructor. Granular pointer samples also
+   rescan retained chapter runs and recompute ICU boundaries today; measure that
+   path and add revision-scoped indexes/caches only when the latency data calls for
+   them.
 3. Move the publication-wide footnote scan inside a measured source-index
    budget.
 4. Replace eager completed-layout search with a durable publication source index
@@ -1072,8 +1088,9 @@ Work in roadmap order:
 
 The revision/locator contract, bounded production switch and principal native
 interaction transports are complete. Cross-flow selection/copy and
-chapter-context link previews now pass production-path Reader E2E; end-user
-interaction parity still needs word/paragraph granularity, touch handles, edge
+chapter-context link previews now pass production-path Reader E2E. ICU-backed
+word and retained-flow paragraph selection are wired to mouse repeated click and
+touch long press; end-user interaction parity still needs touch handles, edge
 autoscroll and platform keyboard semantics. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A

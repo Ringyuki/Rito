@@ -80,8 +80,9 @@ pub use text_interaction::{
     RuntimeExactSourceRange, RuntimeExactSourceRangeRequest, RuntimeExactSourceRangeResolution,
     RuntimeExactSourceRangeResponse, RuntimeExactTextRangeRect, RuntimeTextCaret,
     RuntimeTextCaretResolution, RuntimeTextCaretResponse, RuntimeTextPointRequest,
-    RuntimeTextRange, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
-    RuntimeTextRangeResponse,
+    RuntimeTextRange, RuntimeTextRangeFromPointsRequest, RuntimeTextRangeFromPointsResolution,
+    RuntimeTextRangeFromPointsResponse, RuntimeTextRangeRequest, RuntimeTextRangeResolution,
+    RuntimeTextRangeResponse, RuntimeTextSelectionGranularity,
 };
 pub use transfer_store::{RuntimeResourceTransferPayload, RuntimeResourceTransferStore};
 pub use types::*;

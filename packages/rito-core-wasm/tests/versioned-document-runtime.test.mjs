@@ -4,6 +4,8 @@ import { test } from 'node:test';
 import { createRitoCoreWasmDocumentRuntime } from '../dist/core-wasm-document-runtime.js';
 import {
   caretResponse,
+  pointRangeRequest,
+  pointRangeResponse,
   pointRequest,
   rangeRequest,
   rangeResponse,
@@ -161,6 +163,7 @@ test('all versioned direct methods validate and echo the complete handle', () =>
     () => document.getTextRangeGeometryAtRevision(handle, { pageIndex: 0 }),
     () => document.resolveTextCaretAtRevision(handle, pointRequest()),
     () => document.resolveTextRangeAtRevision(handle, rangeRequest()),
+    () => document.resolveTextRangeFromPointsAtRevision(handle, pointRangeRequest()),
     () => document.getFootnoteAtRevision(handle, 'chapter.xhtml#fn1'),
     () => document.getFootnotesAtRevision(handle),
     () => document.getChapterTextIndicesAtRevision(handle),
@@ -310,6 +313,9 @@ function versionedValue(property, args, version) {
   if (property === 'resolveTextCaretAtRevisionJson') return caretResponse({ revisionId });
   if (property === 'resolveTextRangeAtRevisionJson') {
     return rangeResponse(JSON.parse(args[2]), { revisionId });
+  }
+  if (property === 'resolveTextRangeFromPointsAtRevisionJson') {
+    return pointRangeResponse(JSON.parse(args[2]), { revisionId });
   }
   if (property === 'getFootnotesAtRevisionJson') {
     return { revisionId, entries: {} };

@@ -72,6 +72,39 @@ pub(crate) enum LayoutTextCaretResolution {
     Miss,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LayoutTextSelectionGranularity {
+    Word,
+    Paragraph,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct LayoutTextPoint {
+    pub(crate) page_index: usize,
+    pub(crate) x: f64,
+    pub(crate) y: f64,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct LayoutTextPageRange {
+    pub(crate) first_page: usize,
+    pub(crate) last_page: usize,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct LayoutTextRangeFromPoints {
+    pub(crate) anchor_caret: LayoutTextCaret,
+    pub(crate) focus_caret: LayoutTextCaret,
+    pub(crate) range: Box<LayoutExactTextRange>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum LayoutTextRangeFromPointsResolution {
+    Resolved(Box<LayoutTextRangeFromPoints>),
+    Unavailable(TextInteractionUnavailableReason),
+    Miss,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) struct LayoutExactTextRange {
     pub(crate) anchor: TextCaretAddress,

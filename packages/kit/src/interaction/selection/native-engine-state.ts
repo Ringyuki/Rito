@@ -3,6 +3,7 @@ import type {
   NativeSelectionCapability,
   NativeSelectionChange,
   NativeSelectionEngineOptions,
+  NativeSelectionGranularity,
   NativeSelectionPoint,
   NativeSelectionSnapshot,
   NativeSelectionState,
@@ -16,6 +17,8 @@ export interface NativeSelectionFocusSample {
 
 export interface NativeSelectionGestureSession {
   readonly epoch: number;
+  readonly granularity: NativeSelectionGranularity;
+  readonly anchorPoint: NativeSelectionPoint | undefined;
   anchor: ReaderTextCaret | undefined;
   latestSequence: number;
   queued: NativeSelectionFocusSample | undefined;
@@ -97,17 +100,14 @@ export function isCurrentNativeSelection(
   return data.state !== 'disposed' && data.session === session && data.epoch === session.epoch;
 }
 
-export function toNativeSelectionSnapshot(
-  range: ReaderTextRange,
-  focusPageIndex: number,
-): NativeSelectionSnapshot {
+export function toNativeSelectionSnapshot(range: ReaderTextRange): NativeSelectionSnapshot {
   return {
     range,
     text: range.selectedText,
     rects: range.rects,
     sourceLocator: range.sourceLocator,
     focusDirection: range.focus === range.end ? 'forward' : 'backward',
-    focusCaret: { pageIndex: focusPageIndex, geometry: range.focus.geometry },
+    focusCaret: { pageIndex: range.focus.pageIndex, geometry: range.focus.geometry },
   };
 }
 

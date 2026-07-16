@@ -9,6 +9,8 @@ mod pinned_font_policy_validation_tests;
 mod pinned_font_wiring_tests;
 mod reading_anchor_tests;
 mod reading_anchor_view_tests;
+mod text_granularity_chapter_tests;
+mod text_granularity_tests;
 mod text_interaction_tests;
 
 use std::num::NonZeroUsize;

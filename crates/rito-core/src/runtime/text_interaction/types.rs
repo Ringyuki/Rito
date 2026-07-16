@@ -52,6 +52,46 @@ pub struct RuntimeTextPointRequest {
     pub y: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum RuntimeTextSelectionGranularity {
+    Word,
+    Paragraph,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextRangeFromPointsRequest {
+    pub anchor: RuntimeTextPointRequest,
+    pub focus: RuntimeTextPointRequest,
+    pub granularity: RuntimeTextSelectionGranularity,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct RuntimeTextRangeFromPointsResponse {
+    pub revision_id: String,
+    pub resolution: RuntimeTextRangeFromPointsResolution,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(
+    tag = "status",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
+pub enum RuntimeTextRangeFromPointsResolution {
+    Resolved {
+        anchor_caret: Box<RuntimeTextCaret>,
+        focus_caret: Box<RuntimeTextCaret>,
+        range: Box<RuntimeTextRange>,
+    },
+    Unavailable {
+        reason: TextInteractionUnavailableReason,
+    },
+    Miss,
+}
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeTextCaretResponse {

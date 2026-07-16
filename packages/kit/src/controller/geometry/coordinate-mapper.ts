@@ -71,6 +71,8 @@ export interface CoordinateMapper {
   ): { pageIndex: number; x: number; y: number } | null;
   /** spread-content → page-content (resolves which page the point is on). */
   spreadContentToPage(x: number, y: number): { pageIndex: number; x: number; y: number } | null;
+  /** Whether a page is present in this mapper's spread. */
+  isPageVisible(pageIndex: number): boolean;
 
   // ── Render / UI conversion chain ─────────────────────────────────
   /** page-content rect → spread-content rect. Throws when the page is not in this spread. */
@@ -131,6 +133,7 @@ function buildMapperObject(
       return resolveSpreadPage(pages, point.x, point.y);
     },
     spreadContentToPage: (x, y) => resolveSpreadPage(pages, x, y),
+    isPageVisible: (pageIndex) => pageMap.has(pageIndex),
     pageContentToSpread: (pageIndex, rect) => pageContentRectToSpread(pageMap, pageIndex, rect),
     spreadContentRectToViewport: (rect) => spreadContentRectToViewport(g, rect),
     pageContentToViewport: (pageIndex, rect) => toViewport(pageMap, pageIndex, rect),

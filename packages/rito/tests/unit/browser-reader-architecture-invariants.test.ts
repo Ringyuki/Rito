@@ -30,6 +30,14 @@ const BROWSER_READER_INTERACTION = join(BROWSER_READER_BINDING, 'interaction.ts'
 const BROWSER_READER_INTERACTION_CAPTURE = join(BROWSER_READER_BINDING, 'interaction-capture.ts');
 const BROWSER_READER_SOURCE_RANGE = join(BROWSER_READER_BINDING, 'source-range.ts');
 const BROWSER_READER_TEXT_SELECTION = join(BROWSER_READER_BINDING, 'text-selection.ts');
+const BROWSER_READER_TEXT_SELECTION_FROM_POINTS = join(
+  BROWSER_READER_BINDING,
+  'text-selection-from-points.ts',
+);
+const BROWSER_READER_TEXT_SELECTION_SUPPORT = join(
+  BROWSER_READER_BINDING,
+  'text-selection-support.ts',
+);
 const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
 const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
 const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
@@ -38,13 +46,14 @@ const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resource
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership, stale-result guards, exact selection, durable
-// source reads, double-page anchors, atomic reflow, locator navigation, and
+// source reads, granular point ranges, double-page anchors, atomic reflow, locator navigation, and
 // exact-version frame/resource/search ownership, failure-isolated disposal, and
 // host-task disposal barriers are required orchestration capabilities.
-const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 22;
+const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 24;
 const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3060;
-// Exact native interaction DTOs stay public without exposing revision-local addresses.
-const READER_PUBLIC_CONTRACT_LINE_BUDGET = 620;
+// Exact native interaction and point-granularity DTOs stay public without exposing
+// revision-local addresses.
+const READER_PUBLIC_CONTRACT_LINE_BUDGET = 650;
 
 function walkTs(root: string): string[] {
   const out: string[] = [];
@@ -372,6 +381,8 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     const captureSource = read(BROWSER_READER_INTERACTION_CAPTURE);
     const sourceRangeSource = read(BROWSER_READER_SOURCE_RANGE);
     const textSelectionSource = read(BROWSER_READER_TEXT_SELECTION);
+    const pointRangeSource = read(BROWSER_READER_TEXT_SELECTION_FROM_POINTS);
+    const textSelectionSupport = read(BROWSER_READER_TEXT_SELECTION_SUPPORT);
     expect(source).toContain('getPageTargetsAtRevision');
     expect(source).toContain('getFootnoteAtRevision');
     expect(source).toContain('resolveSourceLocatorAtRevision');
@@ -381,7 +392,8 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     expect(sourceRangeSource).toContain('readCapturedInteraction');
     expect(textSelectionSource).toContain('resolveTextCaretAtRevision');
     expect(textSelectionSource).toContain('resolveTextRangeAtRevision');
-    expect(textSelectionSource).toContain('WeakMap<ReaderTextCaret, BoundCaret>');
+    expect(pointRangeSource).toContain('resolveTextRangeFromPointsAtRevision');
+    expect(textSelectionSupport).toContain('WeakMap<ReaderTextCaret, BoundCaret>');
   });
 
   it('commits only Rust-selected revision bundle frames without browser-side warm fallback', () => {

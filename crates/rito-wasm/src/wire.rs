@@ -5,7 +5,8 @@ use rito_core::runtime::{
     RuntimeInitialPreviewRevisionRequest, RuntimeLocatorRequest,
     RuntimePreviewRevisionBundleRequest, RuntimeResourceKind, RuntimeResourceTransferPayload,
     RuntimeSearchRequest, RuntimeSourceLocator, RuntimeTextPointRequest,
-    RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest, RuntimeViewRevisionRequest,
+    RuntimeTextRangeFromPointsRequest, RuntimeTextRangeGeometryRequest, RuntimeTextRangeRequest,
+    RuntimeViewRevisionRequest,
 };
 use serde::{Deserialize, Serialize};
 
@@ -189,6 +190,16 @@ pub fn parse_text_point_request(json: &str) -> Result<RuntimeTextPointRequest, W
 pub fn parse_text_range_request(json: &str) -> Result<RuntimeTextRangeRequest, WasmRuntimeError> {
     serde_json::from_str(json).map_err(|error| {
         WasmRuntimeError::bad_request(format!("invalid text range request JSON: {error}"))
+    })
+}
+
+pub fn parse_text_range_from_points_request(
+    json: &str,
+) -> Result<RuntimeTextRangeFromPointsRequest, WasmRuntimeError> {
+    serde_json::from_str(json).map_err(|error| {
+        WasmRuntimeError::bad_request(format!(
+            "invalid text range from points request JSON: {error}"
+        ))
     })
 }
 

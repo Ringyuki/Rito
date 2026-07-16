@@ -52,7 +52,7 @@ function requireCaretResolution(value, pageIndex, operation) {
       requireAbsent(resolution, 'reason', operation);
       return {
         status: 'resolved',
-        caret: requireCaret(resolution.caret, pageIndex, operation),
+        caret: requireExactTextCaret(resolution.caret, pageIndex, operation),
       };
     case 'unavailable':
       requireAbsent(resolution, 'caret', operation);
@@ -77,12 +77,17 @@ function requirePointUnavailableReason(value, operation) {
   return reason;
 }
 
-function requireCaret(value, pageIndex, operation) {
-  const caret = requireExactTextRecord(value, `${operation} caret`);
-  const address = requireExactTextCaretAddress(caret.address, `${operation} caret address`);
-  if (address.pageIndex !== pageIndex) {
+export function requireExactTextCaret(value, pageIndex, operation) {
+  const caret = requireUnboundExactTextCaret(value, operation);
+  if (caret.address.pageIndex !== pageIndex) {
     throw new Error(`${operation} returned a caret for a mismatched pageIndex`);
   }
+  return caret;
+}
+
+export function requireUnboundExactTextCaret(value, operation) {
+  const caret = requireExactTextRecord(value, `${operation} caret`);
+  const address = requireExactTextCaretAddress(caret.address, `${operation} caret address`);
   const geometry = requireExactTextRecord(caret.geometry, `${operation} caret geometry`);
   const normalizedGeometry = {
     x: requireExactTextFinite(geometry.x, `${operation} caret geometry x`),

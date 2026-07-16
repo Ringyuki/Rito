@@ -9,6 +9,10 @@ import {
   requireTextRangeResponse,
 } from './reader-worker-exact-text-range-validation-runtime.js';
 import {
+  requireTextRangeFromPointsRequest,
+  requireTextRangeFromPointsResponse,
+} from './reader-worker-text-range-from-points-validation-runtime.js';
+import {
   requireExactSourceRangeRequest,
   requireExactSourceRangeResponse,
 } from './reader-worker-exact-source-range-validation-runtime.js';
@@ -92,6 +96,8 @@ export function versionedReaderWorkerPayload(document, request) {
       return textCaretResponse(document, request);
     case 'resolveTextRangeAtRevision':
       return textRangeResponse(document, request);
+    case 'resolveTextRangeFromPointsAtRevision':
+      return textRangeFromPointsResponse(document, request);
     case 'resolveExactSourceRangeAtRevision':
       return exactSourceRangeResponse(document, request);
     case 'getFootnoteAtRevision':
@@ -211,6 +217,17 @@ function textRangeResponse(document, request) {
   return validatedValueResponse(operation, revision, envelope, (value) => ({
     request: expectedRequest,
     response: requireTextRangeResponse(value, revision, expectedRequest, operation),
+  }));
+}
+
+function textRangeFromPointsResponse(document, request) {
+  const operation = request.kind;
+  const revision = requireRevisionHandle(request.revision, operation);
+  const expectedRequest = requireTextRangeFromPointsRequest(request.request, operation);
+  const envelope = document.resolveTextRangeFromPointsAtRevision(revision, expectedRequest);
+  return validatedValueResponse(operation, revision, envelope, (value) => ({
+    request: expectedRequest,
+    response: requireTextRangeFromPointsResponse(value, revision, expectedRequest, operation),
   }));
 }
 

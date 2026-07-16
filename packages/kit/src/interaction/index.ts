@@ -21,6 +21,7 @@ export type {
   PagedPosition,
   PointerInput,
   SelectionEngine,
+  SelectionGranularity,
   SelectionSnapshot,
   SelectionState,
 } from './selection';

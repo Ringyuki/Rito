@@ -66,8 +66,13 @@ export function pointer(
   clientX: number,
   clientY: number,
   pointerType = 'mouse',
+  detail = 0,
 ): PointerEvent {
-  return { pointerId, pointerType, button: 0, clientX, clientY } as PointerEvent;
+  return { pointerId, pointerType, button: 0, clientX, clientY, detail } as PointerEvent;
+}
+
+export function mouseDown(detail: number): MouseEvent {
+  return { button: 0, detail } as MouseEvent;
 }
 
 export function pointerPosition(event: PointerEvent): { x: number; y: number } {
@@ -82,12 +87,13 @@ export function touchEvent(
   touches: readonly Touch[],
   changedTouches: readonly Touch[],
   timeStamp = 0,
+  preventDefault: Mock = vi.fn(),
 ): TouchEvent {
   return {
     touches: touches as unknown as TouchList,
     changedTouches: changedTouches as unknown as TouchList,
     timeStamp,
     cancelable: true,
-    preventDefault: vi.fn(),
+    preventDefault,
   } as unknown as TouchEvent;
 }
