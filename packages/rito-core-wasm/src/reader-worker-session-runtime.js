@@ -4,6 +4,7 @@ export function createReaderSessionState() {
   return {
     corePromise: undefined,
     document: undefined,
+    generation: 0,
     phase: 'idle',
   };
 }
@@ -13,10 +14,11 @@ export async function openReaderSessionDocument(state, initialize, open, label) 
     throw new Error(`${label} cannot open while ${state.phase}`);
   }
   state.phase = 'opening';
+  const generation = state.generation;
   let candidate;
   try {
     const core = await initializedCore(state, initialize);
-    if (state.phase !== 'opening') {
+    if (state.phase !== 'opening' || state.generation !== generation) {
       throw new Error(`${label} was disposed while opening`);
     }
     candidate = core.openDocument(new Uint8Array(open.data), open.options);
@@ -26,7 +28,7 @@ export async function openReaderSessionDocument(state, initialize, open, label) 
       { publication, pinnedFontPolicy },
       open.expectedFaces,
     );
-    if (state.phase !== 'opening') {
+    if (state.phase !== 'opening' || state.generation !== generation) {
       throw new Error(`${label} was disposed while opening`);
     }
     state.document = candidate;
@@ -39,17 +41,33 @@ export async function openReaderSessionDocument(state, initialize, open, label) 
     } catch {
       // Preserve the open failure; the candidate is never committed to state.
     }
-    if (state.phase === 'opening') state.phase = 'idle';
+    if (state.phase === 'opening' && state.generation === generation) state.phase = 'idle';
     throw error;
   }
 }
 
 export function disposeReaderSession(state) {
-  if (state.phase === 'disposed') return;
+  if (state.phase === 'disposed') return { releasedDocument: false };
   state.phase = 'disposed';
   const document = state.document;
   state.document = undefined;
   document?.free();
+  return { releasedDocument: document !== undefined };
+}
+
+export function beginReaderSessionRelease(state) {
+  if (state.phase === 'disposed') return;
+  state.generation += 1;
+  state.phase = 'releasing';
+}
+
+export function releaseReaderSessionDocument(state) {
+  if (state.phase === 'disposed') return { releasedDocument: false };
+  const document = state.document;
+  state.document = undefined;
+  state.phase = 'idle';
+  document?.free();
+  return { releasedDocument: document !== undefined };
 }
 
 async function initializedCore(state, initialize) {

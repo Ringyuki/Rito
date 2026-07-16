@@ -6,6 +6,7 @@ import {
 import { openBrowserReaderWorker } from '../../pinned-fonts';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../layout';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
+import { trackBrowserReaderHostTask } from '../host-tasks';
 import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
 import {
   isNoOpReflow,
@@ -28,6 +29,7 @@ export function scheduleBrowserReaderReflow(
   onCommitted?: () => void,
   force = false,
 ): boolean {
+  if (state.disposed) return false;
   const config = applyLayoutOverrides(state, makeBrowserReaderLayoutConfig(options, spreadMode));
   if (isNoOpReflow(state, config, spreadMode, lineBreaking, force)) return false;
   const request: Request = {
@@ -226,5 +228,8 @@ function finishActiveRequest(state: State, request: Request, abort: AbortControl
 
 function scheduleReflowDrain(state: State): void {
   if (state.disposed || state.reflow.active) return;
-  scheduleReaderMicrotask(state, () => void drainReflowQueue(state));
+  scheduleReaderMicrotask(state, () => {
+    if (state.disposed) return;
+    void trackBrowserReaderHostTask(state, drainReflowQueue(state));
+  });
 }

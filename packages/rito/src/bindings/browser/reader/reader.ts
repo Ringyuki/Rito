@@ -22,6 +22,8 @@ import {
 import { warmBrowserReaderFrameWindow } from './frame-cache';
 import { createBrowserReaderResourceState, preloadCurrentReaderFonts } from '../resources';
 import { buildBrowserReaderMethods } from './reader-methods';
+import { disposeBrowserReaderState } from './reader-dispose';
+import { trackBrowserReaderHostTask } from './host-tasks';
 import { createHostFontMetrics } from '../font-metrics';
 import { createBrowserReaderWorkerClientFactory } from './worker-client';
 import {
@@ -41,7 +43,6 @@ import {
   type BrowserReaderPinnedFonts,
 } from '../pinned-fonts';
 import { ensureBrowserReaderBoundedSpread } from '../bounded-session-runtime';
-import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 import {
   createEmptyBrowserReaderReflowState,
   createEmptyBrowserReaderRevisionState,
@@ -54,16 +55,15 @@ export async function createReader(
 ): Promise<Reader> {
   const module = await loadRuntimeCoreModule();
   const workerFactory = createBrowserReaderWorkerClientFactory(module);
-  const worker = workerFactory();
   let pinnedFonts: BrowserReaderPinnedFonts | undefined;
-  let workerLifecycleTransferred = false;
-  let committedState: BrowserReaderState | undefined;
+  let state: BrowserReaderState | undefined;
   try {
+    const worker = workerFactory();
     const ctx = canvas.getContext('2d') as CanvasRenderingTarget | null;
     if (!ctx) throw new Error('Rito reader core requires a 2D canvas context');
     const opened = await openBrowserReaderDocument(worker, data, options.pinnedFontPolicy);
     pinnedFonts = opened.pinnedFonts;
-    const state = createInitialState(
+    state = createInitialState(
       worker,
       workerFactory,
       module,
@@ -74,23 +74,24 @@ export async function createReader(
       ctx,
       options,
     );
-    workerLifecycleTransferred = true;
     await startInitialReflow(state, options);
-    committedState = state;
     const reader: Partial<Reader> = buildBrowserReaderMethods(state, readerLayoutOptions(options));
     defineBrowserReaderAccessors(reader, state);
     return reader as Reader;
   } catch (error) {
-    if (pinnedFonts) disposeBrowserReaderPinnedFonts(pinnedFonts);
-    if (committedState) {
-      committedState.disposed = true;
-      disposeBrowserReaderSessionHosts(committedState);
-      await committedState.disposeTask;
-    } else if (!workerLifecycleTransferred) {
+    if (state) {
+      disposeBrowserReaderState(state);
+      await state.disposeTask;
+    } else {
       try {
-        worker.dispose();
+        if (pinnedFonts) disposeBrowserReaderPinnedFonts(pinnedFonts);
       } catch {
-        // Preserve the primary creation error when best-effort cleanup fails.
+        // Preserve the primary creation error while releasing the factory below.
+      }
+      try {
+        await workerFactory.dispose?.();
+      } catch {
+        // Preserve the primary creation error after all factory clients settle.
       }
     }
     throw await normalizeBrowserReaderError(error, 'createReader');
@@ -209,22 +210,25 @@ async function startInitialReflow(
     options.spread ?? 'single',
     options.lineBreaking ?? 'greedy',
   );
-  void warmInitialResources(state)
-    .then((metricsChanged) => {
-      if (metricsChanged) {
-        scheduleBrowserReaderReflow(
-          state,
-          options,
-          options.spread ?? 'single',
-          options.lineBreaking ?? 'greedy',
-          undefined,
-          true,
-        );
-      }
-    })
-    .catch((error: unknown) => {
-      state.logger.warn('initial reader resource warm failed', error);
-    });
+  void trackBrowserReaderHostTask(
+    state,
+    warmInitialResources(state)
+      .then((metricsChanged) => {
+        if (metricsChanged) {
+          scheduleBrowserReaderReflow(
+            state,
+            options,
+            options.spread ?? 'single',
+            options.lineBreaking ?? 'greedy',
+            undefined,
+            true,
+          );
+        }
+      })
+      .catch((error: unknown) => {
+        state.logger.warn('initial reader resource warm failed', error);
+      }),
+  );
 }
 
 async function warmInitialResources(state: BrowserReaderState): Promise<boolean> {

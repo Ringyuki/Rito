@@ -14,6 +14,26 @@ const mocks = vi.hoisted(() => ({
     registeredFontFaces: new Map(),
   })),
   createBrowserReaderWorkerClientFactory: vi.fn(),
+  disposeBrowserReaderState: vi.fn(
+    (state: {
+      disposed: boolean;
+      disposeTask: Promise<void> | undefined;
+      workerFactory: { dispose?: (() => Promise<void>) | undefined };
+      pinnedFonts: {
+        registry: { delete(face: FontFace): boolean } | undefined;
+        readonly faces: Map<string, FontFace>;
+      };
+    }) => {
+      state.disposed = true;
+      for (const face of state.pinnedFonts.faces.values()) {
+        state.pinnedFonts.registry?.delete(face);
+      }
+      state.pinnedFonts.faces.clear();
+      state.disposeTask = (state.workerFactory.dispose?.() ?? Promise.resolve()).catch(
+        () => undefined,
+      );
+    },
+  ),
   loadRuntimeCoreModule: vi.fn(),
   preloadCurrentReaderFonts: vi.fn(),
   startBrowserReaderInitialReflow: vi.fn<InitialReflow>(() => Promise.resolve()),
@@ -22,6 +42,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../../src/bindings/browser/reader/reader-methods', () => ({
   buildBrowserReaderMethods: mocks.buildBrowserReaderMethods,
+}));
+
+vi.mock('../../src/bindings/browser/reader/reader-dispose', () => ({
+  disposeBrowserReaderState: mocks.disposeBrowserReaderState,
 }));
 
 vi.mock('../../src/bindings/browser/reader/worker-client', () => ({
@@ -76,7 +100,7 @@ describe('Browser reader creation', () => {
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    installWorkerFactory(worker);
     const measureText = vi.fn(() => ({ width: 16 }));
     const canvas = {
       getContext: vi.fn(() => ({
@@ -117,21 +141,40 @@ describe('Browser reader creation', () => {
     expect(mocks.warmBrowserReaderFrameWindow).toHaveBeenCalledOnce();
   });
 
-  it('preserves the primary creation error after the initial session owns cleanup', async () => {
+  it('awaits factory release while preserving the primary creation error', async () => {
     const primaryError = new Error('initial revision failed');
     mocks.startBrowserReaderInitialReflow.mockRejectedValue(primaryError);
+    const cleanup = deferredVoid();
     const worker = {
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(() => {
         throw new Error('cleanup failed');
       }),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    const factory = installWorkerFactory(worker, cleanup.promise);
 
-    await expect(
-      createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
-    ).rejects.toBe(primaryError);
-    expect(worker.dispose).not.toHaveBeenCalled();
+    const creation = createReader(new ArrayBuffer(0), readerCanvas(), {
+      width: 800,
+      height: 600,
+    });
+    let settled = false;
+    void creation.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await waitForCall(factory.dispose);
+
+    expect(factory.dispose).toHaveBeenCalledOnce();
+    expect(worker.dispose).toHaveBeenCalledOnce();
+    expect(settled).toBe(false);
+    cleanup.resolve();
+
+    await expect(creation).rejects.toBe(primaryError);
+    expect(settled).toBe(true);
   });
 
   it('disposes a committed initial session when facade construction fails', async () => {
@@ -143,12 +186,13 @@ describe('Browser reader creation', () => {
       open: vi.fn(() => Promise.resolve(openResultWithFont())),
       dispose: vi.fn(),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    const factory = installWorkerFactory(worker);
 
     await expect(
       createReader(new ArrayBuffer(0), readerCanvas(), { width: 800, height: 600 }),
     ).rejects.toBe(primaryError);
 
+    expect(factory.dispose).toHaveBeenCalledOnce();
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
@@ -180,7 +224,7 @@ describe('Browser reader creation', () => {
       ),
       dispose: vi.fn(),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    installWorkerFactory(worker);
     const callerBytes = new Uint8Array([1, 2, 3]).buffer;
 
     const readerPromise = createReader(readerData(), readerCanvas(), {
@@ -245,7 +289,7 @@ describe('Browser reader creation', () => {
       ),
       dispose: vi.fn(),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    const factory = installWorkerFactory(worker);
 
     await expect(
       createReader(readerData(), readerCanvas(), {
@@ -266,7 +310,8 @@ describe('Browser reader creation', () => {
 
     expect(add).toHaveBeenCalledOnce();
     expect(remove).toHaveBeenCalledWith(add.mock.calls[0]?.[0]);
-    expect(worker.dispose).not.toHaveBeenCalled();
+    expect(factory.dispose).toHaveBeenCalledOnce();
+    expect(worker.dispose).toHaveBeenCalledOnce();
   });
 
   it('disposes the worker without registering faces when pinned open fails', async () => {
@@ -286,7 +331,7 @@ describe('Browser reader creation', () => {
       ),
       dispose: vi.fn(),
     };
-    mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(() => worker);
+    const factory = installWorkerFactory(worker);
 
     await expect(
       createReader(readerData(), readerCanvas(), {
@@ -306,14 +351,43 @@ describe('Browser reader creation', () => {
     ).rejects.toBe(openError);
 
     expect(add).not.toHaveBeenCalled();
+    expect(factory.dispose).toHaveBeenCalledOnce();
     expect(worker.dispose).toHaveBeenCalledOnce();
     expect(mocks.startBrowserReaderInitialReflow).not.toHaveBeenCalled();
   });
 });
 
+function installWorkerFactory(
+  worker: { dispose(): void },
+  completion: Promise<void> = Promise.resolve(),
+): { readonly dispose: ReturnType<typeof vi.fn> } {
+  const dispose = vi.fn(async () => {
+    let failure: unknown;
+    try {
+      worker.dispose();
+    } catch (error: unknown) {
+      failure = error;
+    }
+    await completion;
+    if (failure !== undefined) {
+      throw failure instanceof Error ? failure : new Error('Worker disposal failed');
+    }
+  });
+  mocks.createBrowserReaderWorkerClientFactory.mockReturnValue(
+    Object.assign(() => worker, { dispose }),
+  );
+  return { dispose };
+}
+
 async function flushPromises(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
+  for (let attempt = 0; attempt < 8; attempt += 1) await Promise.resolve();
+}
+
+async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
+  for (let attempt = 0; attempt < 32 && mock.mock.calls.length === 0; attempt += 1) {
+    await Promise.resolve();
+  }
+  expect(mock).toHaveBeenCalledOnce();
 }
 
 function readerCanvas(): HTMLCanvasElement {

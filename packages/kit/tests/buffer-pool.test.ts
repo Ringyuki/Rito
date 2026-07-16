@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createPageBufferPool } from '../src/painter/buffer-pool';
 
 // Polyfill OffscreenCanvas for Node/happy-dom test environment
@@ -26,12 +26,47 @@ beforeAll(() => {
   }
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 describe('PageBufferPool', () => {
   it('starts with three empty slots', () => {
     const pool = createPageBufferPool();
     expect(pool.prev.spreadIndex).toBeNull();
     expect(pool.curr.spreadIndex).toBeNull();
     expect(pool.next.spreadIndex).toBeNull();
+  });
+
+  it('releases earlier slots when a later backing-store allocation fails', () => {
+    const sentinel = new Error('backing-store allocation failed');
+    const allocated: Array<{ width: number; height: number }> = [];
+    let allocationCount = 0;
+    vi.stubGlobal(
+      'OffscreenCanvas',
+      class ThrowingOffscreenCanvas {
+        width: number;
+        height: number;
+
+        constructor(width: number, height: number) {
+          allocationCount += 1;
+          if (allocationCount === 3) throw sentinel;
+          this.width = width;
+          this.height = height;
+          allocated.push(this);
+        }
+
+        getContext(): null {
+          return null;
+        }
+      },
+    );
+
+    expect(() => {
+      createPageBufferPool();
+    }).toThrow(sentinel);
+    expect(allocated).toHaveLength(2);
+    expect(allocated.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
   });
 
   it('assignSlot sets spreadIndex and marks dirty', () => {
@@ -244,5 +279,61 @@ describe('PageBufferPool', () => {
     expect(pool.prev.spreadIndex).toBe(2);
     expect(pool.curr.spreadIndex).toBe(3);
     expect(pool.next.spreadIndex).toBeNull();
+  });
+
+  it('dispose releases content and overlay backing stores', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 2);
+    pool.assignSlot('curr', 0);
+    pool.ensureOverlay(
+      'curr',
+      () => [
+        { id: 'sel', rects: [{ x: 0, y: 0, width: 10, height: 10 }], color: 'blue', zIndex: 0 },
+      ],
+      1,
+    );
+
+    pool.dispose();
+
+    for (const slot of [pool.prev, pool.curr, pool.next]) {
+      expect(slot.spreadIndex).toBeNull();
+      expect(slot.content.width).toBe(0);
+      expect(slot.content.height).toBe(0);
+      expect(slot.overlay).toBeNull();
+    }
+    expect(() => {
+      pool.dispose();
+    }).not.toThrow();
+  });
+
+  it('remains terminal when stale work reaches it after disposal', () => {
+    const pool = createPageBufferPool();
+    pool.resize(800, 600, 2);
+    pool.assignSlot('curr', 4);
+    pool.dispose();
+    const renderer = vi.fn(() => true);
+    const overlays = vi.fn(() => [{ id: 'late', rects: [], color: 'blue', zIndex: 0 }]);
+
+    pool.resize(1200, 900, 2);
+    pool.assignSlot('curr', 5);
+    pool.jump(6);
+    pool.rotateForward();
+    pool.rotateBackward();
+    pool.invalidateAllContent();
+    pool.invalidateContentForSpread(4);
+    pool.invalidateOverlayForSpread(4);
+    pool.invalidateAllOverlays();
+
+    expect(pool.ensureContent('curr', renderer)).toBe(false);
+    pool.ensureOverlay('curr', overlays, 1);
+    expect(renderer).not.toHaveBeenCalled();
+    expect(overlays).not.toHaveBeenCalled();
+    expect(pool.getSlotFor(4)).toBeNull();
+    for (const slot of [pool.prev, pool.curr, pool.next]) {
+      expect(slot.spreadIndex).toBeNull();
+      expect(slot.content.width).toBe(0);
+      expect(slot.content.height).toBe(0);
+      expect(slot.overlay).toBeNull();
+    }
   });
 });

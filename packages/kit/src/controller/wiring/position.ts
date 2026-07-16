@@ -5,9 +5,6 @@ export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCol
   const { engines, emitter } = deps;
   if (!engines.position) return;
   const tracker = engines.position;
-  disposables.add(() => {
-    tracker.dispose();
-  });
   disposables.add(
     tracker.onPositionChange((position) => {
       emitter.emit('positionChange', { position });
@@ -15,12 +12,20 @@ export function wirePositionTracker(deps: WiringDeps, disposables: DisposableCol
       const serialized = tracker.serialize();
       if (serialized !== undefined) {
         void deps.positionPersistence.save(serialized).catch((error: unknown) => {
-          emitter.emit('error', {
-            message: error instanceof Error ? error.message : String(error),
-            source: 'position-storage',
-          });
+          reportPositionStorageFailure(error, emitter);
         });
       }
     }),
   );
+}
+
+function reportPositionStorageFailure(error: unknown, emitter: WiringDeps['emitter']): void {
+  try {
+    emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source: 'position-storage',
+    });
+  } catch {
+    // Consumer error listeners must not create an unhandled storage rejection.
+  }
 }

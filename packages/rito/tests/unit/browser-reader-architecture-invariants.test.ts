@@ -39,7 +39,9 @@ const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
 const READER_ROOT_FILES = walkTs(READER_ROOT);
 // Worker-scoped revision ownership, stale-result guards, exact selection, durable
 // source reads, double-page anchors, atomic reflow, locator navigation, and
-// exact-version frame/resource/search ownership are required orchestration capabilities.
+// exact-version frame/resource/search ownership, failure-isolated disposal, and
+// host-task disposal barriers are required orchestration capabilities.
+const BROWSER_READER_THIN_SHELL_FILE_BUDGET = 22;
 const BROWSER_READER_THIN_SHELL_LINE_BUDGET = 3060;
 // Exact native interaction DTOs stay public without exposing revision-local addresses.
 const READER_PUBLIC_CONTRACT_LINE_BUDGET = 620;
@@ -89,7 +91,9 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
   });
 
   it('stays within the counted thin-shell budget', () => {
-    expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(20);
+    expect(BROWSER_READER_BINDING_FILES.length).toBeLessThanOrEqual(
+      BROWSER_READER_THIN_SHELL_FILE_BUDGET,
+    );
     expect(lineCount(BROWSER_READER_BINDING_FILES)).toBeLessThanOrEqual(
       BROWSER_READER_THIN_SHELL_LINE_BUDGET,
     );
@@ -456,11 +460,15 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
     const stateSource = read(BROWSER_READER_TYPES);
 
     expect(workerClientSource).toContain('createBrowserReaderWorkerClientFactory');
-    expect(workerClientSource).toContain('const cache: BrowserReaderSessionCache = {}');
-    expect(workerClientSource).toContain('createInProcessBrowserReaderSession(module, cache)');
+    expect(workerClientSource).toContain('let cache: BrowserReaderSessionCache | undefined = {}');
+    expect(workerClientSource).toContain('const activeCache = cache');
     expect(workerClientSource).toContain(
-      'createRitoCoreWasmWorkerReaderClient(createBrowserWorker(), cache)',
+      'createInProcessBrowserReaderSession(module, activeCache)',
     );
+    expect(workerClientSource).toContain('createRitoCoreWasmWorkerReaderClient(worker, cache');
+    expect(workerClientSource).toContain('createBrowserReaderWorkerShellPool');
+    expect(workerClientSource).toContain('factory.dispose = () =>');
+    expect(workerClientSource).toContain('cache = undefined');
     expect(facadeSource).toContain('const workerFactory = createBrowserReaderWorkerClientFactory');
     expect(facadeSource).toContain('const worker = workerFactory()');
     expect(stateSource).toContain('readonly workerFactory: BrowserReaderWorkerClientFactory');

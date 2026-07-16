@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '../../src/reader';
 import {
   completeBrowserReaderBoundedSession,
@@ -6,11 +6,13 @@ import {
   ensureBrowserReaderBoundedSpread,
   startBrowserReaderBoundedCandidate,
 } from '../../src/bindings/browser/bounded-session-runtime';
+import { retireBrowserReaderBoundedOwner } from '../../src/bindings/browser/bounded-session-owner';
 import type {
   BrowserReaderBoundedSnapshot,
   BrowserReaderWorkerClient,
 } from '../../src/bindings/browser/core-contracts';
 import {
+  disposeBrowserReaderSessionHosts,
   recordBrowserReaderAcceptedRevision,
   type BrowserReaderBoundedSessionOwner,
 } from '../../src/bindings/browser/reader-session-host';
@@ -27,6 +29,10 @@ import {
 } from './browser-reader-reflow-fixtures';
 
 describe('Browser bounded session runtime', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('starts a finite candidate and retires the previous owner after atomic commit', async () => {
     const previous = createWorker(() => undefined, 'previous');
     const candidate = createWorker(() => undefined, 'candidate');
@@ -61,6 +67,44 @@ describe('Browser bounded session runtime', () => {
     expect(state.boundedSessions.current).toBe(candidateOwner);
     expect(previousControllerDispose).toHaveBeenCalledOnce();
     expect(previous.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('forces previous worker retirement when its controller never settles', async () => {
+    vi.useFakeTimers();
+    const previous = createWorker(() => undefined, 'stalled-previous');
+    const candidate = createWorker(() => undefined, 'candidate-after-stalled-previous');
+    const state = createState(previous.worker);
+    const initial = boundedSnapshot('old', 0, 1, 'ready');
+    setRevisionState(state, initial.revision, initial.navigation);
+    const previousControllerDispose = vi.fn(() => new Promise<void>(() => undefined));
+    const previousOwner = owner(previous.worker, { dispose: previousControllerDispose });
+    recordBrowserReaderAcceptedRevision(previousOwner, initial.revision);
+    state.boundedSessions.current = previousOwner;
+    const next = boundedSnapshot('next', 0, 1, 'ready');
+    const candidateOwner = owner(candidate.worker, {
+      start: vi.fn(() => Promise.resolve(next)),
+    });
+    recordBrowserReaderAcceptedRevision(candidateOwner, next.revision);
+    mockAggregates(candidate.worker, next);
+
+    const task = startBrowserReaderBoundedCandidate(state, candidateOwner, {
+      config: state.config,
+      spreadMode: state.spreadMode,
+      lineBreaking: state.lineBreaking,
+      targetSpreadIndex: 0,
+    });
+    await waitForCall(previousControllerDispose);
+
+    expect(previous.dispose).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await expect(task).resolves.toBe(next);
+
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'bounded reader session retirement failed',
+      expect.objectContaining({ message: 'bounded reader dispose timed out after 1000ms' }),
+    );
+    expect(previous.dispose).toHaveBeenCalledOnce();
+    expect(previous.whenDisposed).toHaveBeenCalledOnce();
   });
 
   it('drops a candidate when navigation moves after its anchor was captured', async () => {
@@ -200,6 +244,131 @@ describe('Browser bounded session runtime', () => {
     expect(fixture.state.boundedSessions.current).toBe(fixture.owner);
     expect(controllerDispose).toHaveBeenCalled();
     expect(candidate.dispose).toHaveBeenCalled();
+  });
+
+  it('drains detached candidate retirement before disposing the worker factory', async () => {
+    const fixture = currentFixture();
+    const candidate = createWorker(() => undefined, 'detached-candidate');
+    const startResult = createDeferred<BrowserReaderBoundedSnapshot>();
+    const retirement = createDeferred<undefined>();
+    const start = vi.fn(() => startResult.promise);
+    const controllerDispose = vi.fn(() => retirement.promise);
+    const candidateOwner = owner(candidate.worker, { start, dispose: controllerDispose });
+    const abort = new AbortController();
+    const factoryDispose = vi.fn(async () => {
+      fixture.worker.dispose();
+      await fixture.worker.whenDisposed();
+    });
+    Object.defineProperty(fixture.state, 'workerFactory', {
+      value: Object.assign(() => fixture.worker, { dispose: factoryDispose }),
+    });
+    const candidateTask = startBrowserReaderBoundedCandidate(
+      fixture.state,
+      candidateOwner,
+      {
+        config: fixture.state.config,
+        spreadMode: fixture.state.spreadMode,
+        lineBreaking: fixture.state.lineBreaking,
+        targetSpreadIndex: 0,
+      },
+      abort.signal,
+    );
+    await waitForCall(start);
+
+    abort.abort();
+    disposeBrowserReaderSessionHosts(fixture.state);
+    await waitForCall(controllerDispose);
+
+    expect(fixture.state.boundedSessions).toEqual({ current: undefined, candidate: undefined });
+    expect(candidate.dispose).not.toHaveBeenCalled();
+    expect(factoryDispose).not.toHaveBeenCalled();
+
+    retirement.resolve(undefined);
+    await fixture.state.disposeTask;
+
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+    expect(candidate.whenDisposed).toHaveBeenCalledOnce();
+    expect(factoryDispose).toHaveBeenCalledOnce();
+    startResult.reject(new Error('candidate stopped'));
+    await expect(candidateTask).resolves.toBeUndefined();
+    expect(controllerDispose).toHaveBeenCalledOnce();
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('forces full idempotent retirement when an aborted candidate controller stalls', async () => {
+    vi.useFakeTimers();
+    const fixture = currentFixture();
+    const candidate = createWorker(() => undefined, 'stalled-aborted-candidate');
+    const startResult = createDeferred<BrowserReaderBoundedSnapshot>();
+    const start = vi.fn(() => startResult.promise);
+    const controllerDispose = vi.fn(() => new Promise<void>(() => undefined));
+    const candidateOwner = owner(candidate.worker, { start, dispose: controllerDispose });
+    const abort = new AbortController();
+    const loggingFailure = new Error('retirement logger failed');
+    vi.mocked(fixture.state.logger.warn).mockImplementation(() => {
+      throw loggingFailure;
+    });
+    const candidateTask = startBrowserReaderBoundedCandidate(
+      fixture.state,
+      candidateOwner,
+      {
+        config: fixture.state.config,
+        spreadMode: fixture.state.spreadMode,
+        lineBreaking: fixture.state.lineBreaking,
+        targetSpreadIndex: 0,
+      },
+      abort.signal,
+    );
+    await waitForCall(start);
+
+    abort.abort();
+    await waitForCall(controllerDispose);
+    expect(candidate.dispose).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1_000);
+    await waitForCall(candidate.dispose);
+
+    expect(fixture.state.logger.warn).toHaveBeenCalledWith(
+      'bounded reader session retirement failed',
+      expect.objectContaining({ message: 'bounded reader dispose timed out after 1000ms' }),
+    );
+    expect(candidate.whenDisposed).toHaveBeenCalledOnce();
+    startResult.reject(new Error('candidate stopped'));
+    await expect(candidateTask).resolves.toBeUndefined();
+    expect(controllerDispose).toHaveBeenCalledOnce();
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('drops completed retirements from the reader pending drain without losing idempotence', async () => {
+    const foreground = createWorker(() => undefined, 'completed-retirement-foreground');
+    const state = createState(foreground.worker);
+    for (let index = 0; index < 3; index += 1) {
+      const retired = createWorker(() => undefined, `completed-retirement-${String(index)}`);
+      const controllerDispose = vi.fn(() => Promise.resolve());
+      const retiredOwner = owner(retired.worker, { dispose: controllerDispose });
+
+      await Promise.all([
+        retireBrowserReaderBoundedOwner(state, retiredOwner),
+        retireBrowserReaderBoundedOwner(state, retiredOwner),
+      ]);
+
+      expect(controllerDispose).toHaveBeenCalledOnce();
+      expect(retired.dispose).toHaveBeenCalledOnce();
+      expect(retired.whenDisposed).toHaveBeenCalledOnce();
+    }
+    const factoryDispose = vi.fn(() => Promise.resolve());
+    Object.defineProperty(state, 'workerFactory', {
+      value: Object.assign(() => foreground.worker, { dispose: factoryDispose }),
+    });
+    const allSettled = vi.spyOn(Promise, 'allSettled');
+
+    disposeBrowserReaderSessionHosts(state);
+    await state.disposeTask;
+
+    expect(factoryDispose).toHaveBeenCalledOnce();
+    expect(allSettled).toHaveBeenCalledOnce();
+    expect(Array.from(allSettled.mock.calls[0]?.[0] ?? [])).toEqual([]);
+    allSettled.mockRestore();
   });
 
   it('uses a one-node startup quantum for spread zero and a larger growth quantum', async () => {
@@ -588,7 +757,7 @@ function revisionHandle(snapshot: BrowserReaderBoundedSnapshot) {
 }
 
 async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
-  for (let attempt = 0; attempt < 8 && mock.mock.calls.length === 0; attempt += 1) {
+  for (let attempt = 0; attempt < 32 && mock.mock.calls.length === 0; attempt += 1) {
     await Promise.resolve();
   }
   expect(mock).toHaveBeenCalledOnce();

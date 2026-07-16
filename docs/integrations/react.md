@@ -97,6 +97,8 @@ Important behavior:
 
 - rendering the hook itself is SSR-safe
 - `load()` still needs a browser document and should run in an effect or event handler
+- replacement `load()` calls wait for the previous Reader's Worker/native release before opening
+  the next document
 - `load()` is separate from later responsive resizes; call `resize()` when container size changes after load
 - sizing remains your responsibility; pair it with `useContainerSize()` or your own layout observer
 

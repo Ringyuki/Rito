@@ -204,7 +204,7 @@ async function readExactFallbackProof(page: Page, origin: string): Promise<Exact
           samples: geometry,
         };
       } finally {
-        reader.dispose();
+        await reader.dispose();
       }
 
       function decode(base64: string): ArrayBuffer {

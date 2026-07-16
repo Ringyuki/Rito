@@ -8,6 +8,11 @@ import type {
   BrowserReaderState,
   BrowserReaderWorkerRevisionHandle,
 } from './reader/types';
+import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
+
+const READER_SESSION_DISPOSE_TIMEOUT_MS = 1_000;
+const boundedOwnerRetirements = new WeakMap<BrowserReaderBoundedSessionOwner, Promise<void>>();
+const pendingBoundedOwnerRetirements = new WeakMap<BrowserReaderState, Set<Promise<void>>>();
 
 export interface BrowserReaderBoundedSessionOwner {
   readonly controller: BrowserReaderBoundedSession;
@@ -131,32 +136,123 @@ export function disposeBrowserReaderSessionHosts(state: BrowserReaderState): voi
   slots.candidate = undefined;
   const workers = new Set([state.worker, ...owners.map(({ worker }) => worker)]);
   const controllers = new Set(owners.map(({ controller }) => controller));
-  if (controllers.size === 0) {
-    disposeWorkers(state, workers);
-    return;
-  }
-  state.disposeTask = Promise.allSettled([...controllers].map((controller) => controller.dispose()))
-    .then((results) => {
-      for (const result of results) {
-        if (result.status === 'rejected')
-          state.logger.warn('bounded reader dispose failed', result.reason);
-      }
-    })
-    .finally(() => {
-      disposeWorkers(state, workers);
-    });
+  state.disposeTask = Promise.all([
+    drainBrowserReaderControllers(state, controllers),
+    drainBrowserReaderBoundedOwnerRetirements(state),
+  ]).then(() => releaseBrowserReaderWorkers(state, workers));
 }
 
-function disposeWorkers(
+export function scheduleBrowserReaderBoundedOwnerRetirement(
   state: BrowserReaderState,
-  workers: ReadonlySet<BrowserReaderWorkerClient>,
-): void {
-  for (const worker of workers) {
-    try {
-      worker.dispose();
-    } catch (error) {
-      state.logger.warn('reader worker dispose failed', error);
+  owner: BrowserReaderBoundedSessionOwner,
+  retire: () => Promise<void>,
+): Promise<void> {
+  const existing = boundedOwnerRetirements.get(owner);
+  if (existing) return existing;
+  const task = Promise.resolve()
+    .then(retire)
+    .catch((error: unknown) => {
+      warnReaderDisposal(state, 'bounded reader owner retirement failed', error);
+    });
+  boundedOwnerRetirements.set(owner, task);
+  const pending = pendingBoundedOwnerRetirements.get(state) ?? new Set<Promise<void>>();
+  pending.add(task);
+  pendingBoundedOwnerRetirements.set(state, pending);
+  void task.then(() => {
+    pending.delete(task);
+    if (pending.size === 0 && pendingBoundedOwnerRetirements.get(state) === pending) {
+      pendingBoundedOwnerRetirements.delete(state);
     }
+  });
+  return task;
+}
+
+export function withReaderSessionDisposeTimeout(task: Promise<void>): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const timer = globalThis.setTimeout(() => {
+      reject(
+        new Error(
+          `bounded reader dispose timed out after ${String(READER_SESSION_DISPOSE_TIMEOUT_MS)}ms`,
+        ),
+      );
+    }, READER_SESSION_DISPOSE_TIMEOUT_MS);
+    void task.then(
+      () => {
+        globalThis.clearTimeout(timer);
+        resolve();
+      },
+      (error: unknown) => {
+        globalThis.clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      },
+    );
+  });
+}
+
+async function drainBrowserReaderControllers(
+  state: BrowserReaderState,
+  controllers: ReadonlySet<BrowserReaderBoundedSession>,
+): Promise<void> {
+  const results = await Promise.allSettled(
+    [...controllers].map((controller) =>
+      withReaderSessionDisposeTimeout(Promise.resolve().then(() => controller.dispose())),
+    ),
+  );
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      warnReaderDisposal(state, 'bounded reader dispose failed', result.reason);
+    }
+  }
+}
+
+async function drainBrowserReaderBoundedOwnerRetirements(state: BrowserReaderState): Promise<void> {
+  const drained = new Set<Promise<void>>();
+  for (
+    let pending = unseenBoundedOwnerRetirements(state, drained);
+    pending.length > 0;
+    pending = unseenBoundedOwnerRetirements(state, drained)
+  ) {
+    for (const task of pending) drained.add(task);
+    await Promise.allSettled(pending);
+  }
+}
+
+function unseenBoundedOwnerRetirements(
+  state: BrowserReaderState,
+  drained: ReadonlySet<Promise<void>>,
+): Promise<void>[] {
+  const retirements = pendingBoundedOwnerRetirements.get(state);
+  return [...(retirements ?? [])].filter((task) => !drained.has(task));
+}
+
+async function releaseBrowserReaderWorkers(
+  state: BrowserReaderState,
+  fallbackWorkers: ReadonlySet<BrowserReaderWorkerClient>,
+): Promise<void> {
+  const disposeFactory = state.workerFactory.dispose;
+  if (disposeFactory) {
+    try {
+      await disposeFactory.call(state.workerFactory);
+      return;
+    } catch (error: unknown) {
+      warnReaderDisposal(state, 'reader worker factory dispose failed', error);
+    }
+  }
+  const results = await Promise.allSettled(
+    [...fallbackWorkers].map((worker) => disposeAndWaitBrowserReaderWorkerClient(worker)),
+  );
+  for (const result of results) {
+    if (result.status === 'rejected') {
+      warnReaderDisposal(state, 'reader worker dispose failed', result.reason);
+    }
+  }
+}
+
+function warnReaderDisposal(state: BrowserReaderState, message: string, reason: unknown): void {
+  try {
+    state.logger.warn(message, reason);
+  } catch {
+    // Logging must never interrupt the remaining reader release protocol.
   }
 }
 

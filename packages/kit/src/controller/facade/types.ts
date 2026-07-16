@@ -8,6 +8,7 @@ import type { TransitionDriver } from '../../driver/transition-driver';
 import type { FrameDriver } from '../../driver/frame-driver';
 import type { PageBufferPool } from '../../painter/buffer-pool';
 import type { DisplaySurface } from '../../painter/display-surface';
+import type { PrerenderScheduler } from '../prerender';
 
 export type { Internals } from '../core/internals';
 export type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
@@ -74,5 +75,7 @@ export interface RuntimeComponents {
   readonly td: TransitionDriver;
   readonly frameDriver: FrameDriver;
   readonly pool: PageBufferPool;
+  readonly prerenderScheduler: PrerenderScheduler;
+  readonly disposeSettledEvents: () => void;
   readonly surface: DisplaySurface;
 }

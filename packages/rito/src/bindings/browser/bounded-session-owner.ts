@@ -2,8 +2,11 @@ import { createRitoCoreWasmBoundedReaderSession } from './core-contracts';
 import type { BrowserReaderWorkerClient } from './core-contracts';
 import {
   recordBrowserReaderAcceptedRevision,
+  scheduleBrowserReaderBoundedOwnerRetirement,
   type BrowserReaderBoundedSessionOwner,
+  withReaderSessionDisposeTimeout,
 } from './reader-session-host';
+import { disposeAndWaitBrowserReaderWorkerClient } from './reader/worker-client';
 import type { BrowserReaderState } from './reader/types';
 
 const candidateGenerations = new WeakMap<BrowserReaderState, number>();
@@ -80,7 +83,7 @@ export function watchBrowserReaderBoundedCandidateAbort(
   const abort = (): void => {
     if (!ownsBrowserReaderBoundedCandidate(state, owner, generation)) return;
     state.boundedSessions.candidate = undefined;
-    void disposeController(state, owner);
+    void retireBrowserReaderBoundedOwner(state, owner);
   };
   signal.addEventListener('abort', abort, { once: true });
   if (signal.aborted) abort();
@@ -101,12 +104,14 @@ export async function retireBrowserReaderBoundedOwner(
   state: BrowserReaderState,
   owner: BrowserReaderBoundedSessionOwner,
 ): Promise<void> {
-  await disposeController(state, owner);
-  try {
-    owner.worker.dispose();
-  } catch (error) {
-    state.logger.warn('bounded reader worker retirement failed', error);
-  }
+  await scheduleBrowserReaderBoundedOwnerRetirement(state, owner, async () => {
+    await disposeController(state, owner);
+    try {
+      await disposeAndWaitBrowserReaderWorkerClient(owner.worker);
+    } catch (error: unknown) {
+      warnBoundedRetirement(state, 'bounded reader worker retirement failed', error);
+    }
+  });
 }
 
 async function disposeController(
@@ -114,9 +119,17 @@ async function disposeController(
   owner: BrowserReaderBoundedSessionOwner,
 ): Promise<void> {
   try {
-    await owner.controller.dispose();
-  } catch (error) {
-    state.logger.warn('bounded reader session retirement failed', error);
+    await withReaderSessionDisposeTimeout(Promise.resolve().then(() => owner.controller.dispose()));
+  } catch (error: unknown) {
+    warnBoundedRetirement(state, 'bounded reader session retirement failed', error);
+  }
+}
+
+function warnBoundedRetirement(state: BrowserReaderState, message: string, reason: unknown): void {
+  try {
+    state.logger.warn(message, reason);
+  } catch {
+    // Logging must not interrupt controller or worker retirement.
   }
 }
 

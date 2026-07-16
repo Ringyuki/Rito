@@ -199,7 +199,13 @@ function commitReaderFontFace(
 export function unregisterReaderFonts(state: BrowserReaderState): void {
   const registry = browserFontFaceRegistry();
   if (registry) {
-    for (const face of state.registeredFontFaces.values()) registry.delete(face);
+    for (const face of state.registeredFontFaces.values()) {
+      try {
+        registry.delete(face);
+      } catch {
+        // Font cleanup is best effort and must not block Reader session release.
+      }
+    }
   }
   state.registeredFontFaces.clear();
 }

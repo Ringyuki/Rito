@@ -27,7 +27,6 @@ interface TouchState {
   activeTouchId: number | null;
   startTouch: { x: number; y: number } | null;
   selectionStart: { x: number; y: number } | null;
-  /** Whether a transition was active when this touch started. */
   wasAnimating: boolean;
 }
 
@@ -67,7 +66,7 @@ export function wireUnifiedTouchHandler(
 ): void {
   const context = createTouchHandlerContext(gestureDeps, selection, modeManager, toContent, onTap);
   const stopWatchingSettled = watchOwnedTransition(context);
-  const removeTouchListeners = bindTouchListeners(target, context);
+  let removeTouchListeners = (): void => undefined;
   disposables.add(() => {
     removeTouchListeners();
     cancelActiveTouch(context);
@@ -75,6 +74,7 @@ export function wireUnifiedTouchHandler(
     settleOwnedTransition(context);
     stopWatchingSettled();
   });
+  removeTouchListeners = bindTouchListeners(target, context);
 }
 
 function createTouchHandlerContext(
@@ -117,16 +117,22 @@ function bindTouchListeners(target: HTMLElement, context: TouchHandlerContext): 
     handleTouchCancel(context, event);
   };
 
-  target.addEventListener('touchstart', onStart, { passive: false });
-  target.addEventListener('touchmove', onMove, { passive: false });
-  target.addEventListener('touchend', onEnd);
-  target.addEventListener('touchcancel', onCancel);
-  return () => {
+  const remove = (): void => {
     target.removeEventListener('touchstart', onStart);
     target.removeEventListener('touchmove', onMove);
     target.removeEventListener('touchend', onEnd);
     target.removeEventListener('touchcancel', onCancel);
   };
+  try {
+    target.addEventListener('touchstart', onStart, { passive: false });
+    target.addEventListener('touchmove', onMove, { passive: false });
+    target.addEventListener('touchend', onEnd);
+    target.addEventListener('touchcancel', onCancel);
+    return remove;
+  } catch (error: unknown) {
+    remove();
+    throw error;
+  }
 }
 
 function handleTouchStart(context: TouchHandlerContext, event: TouchEvent): void {

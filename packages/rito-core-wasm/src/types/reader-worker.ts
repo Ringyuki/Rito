@@ -61,6 +61,8 @@ export interface RitoCoreWasmReaderWorkerClient extends RitoCoreWasmReaderVersio
   releaseRevisionTransfers(revisionId: string): Promise<void>;
   releaseRevision(revisionId: string): Promise<void>;
   dispose(): void;
+  /** Resolves after in-process release or Worker acknowledgement/forced termination. */
+  whenDisposed(): Promise<void>;
 }
 
 /** Opaque cache shared by reader clients for one publication session. */
@@ -128,8 +130,22 @@ export interface RitoCoreWasmReaderWorkerLike {
   addEventListener(type: 'message', listener: (event: { readonly data: unknown }) => void): void;
   addEventListener(type: 'error', listener: (event: { readonly message?: string }) => void): void;
   addEventListener(type: 'messageerror', listener: () => void): void;
+  removeEventListener(type: 'message', listener: (event: { readonly data: unknown }) => void): void;
+  removeEventListener(
+    type: 'error',
+    listener: (event: { readonly message?: string }) => void,
+  ): void;
+  removeEventListener(type: 'messageerror', listener: () => void): void;
   postMessage(message: RitoCoreWasmReaderWorkerRequest, transfer?: readonly Transferable[]): void;
   terminate(): void;
+}
+
+export interface RitoCoreWasmWorkerReaderClientOptions {
+  /**
+   * Accepts ownership after a valid acknowledgement released a document and
+   * all listeners belonging to the logical client have been detached.
+   */
+  readonly recycleWorker?: ((worker: RitoCoreWasmReaderWorkerLike) => boolean) | undefined;
 }
 
 export interface RitoCoreWasmReaderDocumentRuntime extends RitoCoreWasmReaderVersionedDocumentRuntime {
@@ -295,4 +311,4 @@ export type RitoCoreWasmReaderWorkerResponsePayload =
   | { readonly kind: 'search'; readonly result: RitoCoreWasmSearchResponse }
   | { readonly kind: 'releaseRevisionTransfers' }
   | { readonly kind: 'releaseRevision' }
-  | { readonly kind: 'dispose' };
+  | { readonly kind: 'dispose'; readonly releasedDocument: boolean };

@@ -1,41 +1,74 @@
 import type { Reader } from '@ritojs/core';
-import type { PageBufferPool, ContentRenderer } from '../painter/buffer-pool';
+import type { ContentRenderer, PageBufferPool } from '../painter/buffer-pool';
 
-/**
- * Schedule prerendering of adjacent spreads for the next paint turn.
- * Adjacent page buffers are part of the navigation hot path, so this uses
- * rAF instead of idle time; otherwise the first flip after load can miss its
- * buffer while background full reflow is still active.
- *
- * Uses a live getCurrentSpread getter so the callback always reads the
- * current spread at execution time, not the value captured at scheduling time.
- */
-export function scheduleIdlePrerender(
-  getCurrentSpread: () => number,
-  isAnimating: () => boolean,
-  reader: Reader,
-  pool: PageBufferPool,
-  contentRenderer: ContentRenderer,
-): void {
-  const schedule =
-    typeof requestAnimationFrame !== 'undefined'
-      ? requestAnimationFrame
-      : (cb: () => void) => setTimeout(cb, 1);
+export interface PrerenderJob {
+  readonly getCurrentSpread: () => number;
+  readonly isAnimating: () => boolean;
+  readonly reader: Reader;
+  readonly pool: PageBufferPool;
+  readonly contentRenderer: ContentRenderer;
+}
 
-  schedule(() => {
-    // Skip if a navigation is in progress — goToSpread has already set up
-    // the incoming slot, and overwriting it with prerender data would corrupt it.
-    if (isAnimating()) return;
+interface PrerenderSchedulerState {
+  disposed: boolean;
+  job: PrerenderJob | null;
+  cancelPending: (() => void) | null;
+}
 
-    const cs = getCurrentSpread();
-    const total = reader.totalSpreads;
-    if (cs + 1 < total) {
-      pool.assignSlot('next', cs + 1);
-      pool.ensureContent('next', contentRenderer);
-    }
-    if (cs - 1 >= 0) {
-      pool.assignSlot('prev', cs - 1);
-      pool.ensureContent('prev', contentRenderer);
-    }
-  });
+export interface PrerenderScheduler {
+  schedule(job: PrerenderJob): void;
+  dispose(): void;
+}
+
+/** Owns the single pending adjacent-spread prerender callback. */
+export function createPrerenderScheduler(): PrerenderScheduler {
+  const state: PrerenderSchedulerState = { disposed: false, job: null, cancelPending: null };
+  return {
+    schedule(job): void {
+      if (state.disposed) return;
+      state.job = job;
+      if (state.cancelPending) return;
+      state.cancelPending = scheduleCancelable(() => {
+        runPrerender(state);
+      });
+    },
+    dispose(): void {
+      if (state.disposed) return;
+      state.disposed = true;
+      state.job = null;
+      state.cancelPending?.();
+      state.cancelPending = null;
+    },
+  };
+}
+
+function runPrerender(state: PrerenderSchedulerState): void {
+  state.cancelPending = null;
+  if (state.disposed) return;
+  const job = state.job;
+  state.job = null;
+  if (!job || job.isAnimating()) return;
+
+  const current = job.getCurrentSpread();
+  if (current + 1 < job.reader.totalSpreads) {
+    job.pool.assignSlot('next', current + 1);
+    job.pool.ensureContent('next', job.contentRenderer);
+  }
+  if (current - 1 >= 0) {
+    job.pool.assignSlot('prev', current - 1);
+    job.pool.ensureContent('prev', job.contentRenderer);
+  }
+}
+
+function scheduleCancelable(callback: () => void): () => void {
+  if (typeof requestAnimationFrame === 'function' && typeof cancelAnimationFrame === 'function') {
+    const id = requestAnimationFrame(callback);
+    return () => {
+      cancelAnimationFrame(id);
+    };
+  }
+  const id = setTimeout(callback, 1);
+  return () => {
+    clearTimeout(id);
+  };
 }

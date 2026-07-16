@@ -36,12 +36,7 @@ export function bindPointerEvents(
     cancelPointer(context, event, false);
   };
 
-  canvas.addEventListener('pointerdown', onDown);
-  canvas.addEventListener('pointermove', onMove);
-  canvas.addEventListener('pointerup', onUp);
-  canvas.addEventListener('pointercancel', onCancel);
-  canvas.addEventListener('lostpointercapture', onLostCapture);
-  return () => {
+  const remove = (): void => {
     canvas.removeEventListener('pointerdown', onDown);
     canvas.removeEventListener('pointermove', onMove);
     canvas.removeEventListener('pointerup', onUp);
@@ -49,6 +44,17 @@ export function bindPointerEvents(
     canvas.removeEventListener('lostpointercapture', onLostCapture);
     cancelActivePointer(context);
   };
+  try {
+    canvas.addEventListener('pointerdown', onDown);
+    canvas.addEventListener('pointermove', onMove);
+    canvas.addEventListener('pointerup', onUp);
+    canvas.addEventListener('pointercancel', onCancel);
+    canvas.addEventListener('lostpointercapture', onLostCapture);
+    return remove;
+  } catch (error: unknown) {
+    remove();
+    throw error;
+  }
 }
 
 function handlePointerDown(context: PointerBindingContext, event: PointerEvent): void {

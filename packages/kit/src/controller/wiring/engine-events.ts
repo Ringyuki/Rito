@@ -15,9 +15,6 @@ import { scheduleNativeSearchForCurrentSpread } from './native-search';
 import type { ReaderControllerEvents } from '../types';
 
 export function wireEngineEvents(deps: WiringDeps, disposables: DisposableCollection): void {
-  disposables.add(() => {
-    deps.engines.selection.dispose();
-  });
   wireSelectionEvents(deps, disposables);
   disposables.add(
     deps.engines.selection.onError((error) => {
@@ -135,6 +132,10 @@ function emitContainedSearchEvent<K extends 'searchResults' | 'searchActiveChang
 function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableCollection): void {
   const store = deps.coordState.annotationStore;
   if (!store) return;
+  let alive = true;
+  disposables.add(() => {
+    alive = false;
+  });
   disposables.add(
     store.onChange((records) => {
       deps.emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
@@ -169,4 +170,21 @@ function wireAnnotationStoreEvents(deps: WiringDeps, disposables: DisposableColl
       deps.frameDriver.markAllOverlaysDirty();
     }),
   );
+  const storage = deps.options.annotationStorage;
+  if (storage) {
+    void store.init(storage).catch((error: unknown) => {
+      if (alive) containAnnotationStorageFailure(error, deps);
+    });
+  }
+}
+
+function containAnnotationStorageFailure(error: unknown, deps: WiringDeps): void {
+  try {
+    deps.emitter.emit('error', {
+      message: error instanceof Error ? error.message : String(error),
+      source: 'annotation-storage',
+    });
+  } catch {
+    // Consumer error listeners must not create an unhandled storage rejection.
+  }
 }

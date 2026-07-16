@@ -23,6 +23,9 @@ export function wireKeyboard(
   disposables: DisposableCollection,
 ): KeyboardManager {
   const keyboard = createKeyboardManager(document.documentElement);
+  disposables.add(() => {
+    keyboard.dispose();
+  });
 
   keyboard.registerPreset('reader-navigation', {
     next: deps.nextSpread,
@@ -44,8 +47,5 @@ export function wireKeyboard(
     prev: deps.searchPrev,
   });
 
-  disposables.add(() => {
-    keyboard.dispose();
-  });
   return keyboard;
 }

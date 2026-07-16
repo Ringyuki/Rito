@@ -85,7 +85,7 @@ describe('renderSpreadTo', () => {
   it('is a function on the reader', async () => {
     const reader = await buildReader();
     expect(typeof reader.renderSpreadTo).toBe('function');
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('renders to an external context without firing onSpreadRendered', async () => {
@@ -103,7 +103,7 @@ describe('renderSpreadTo', () => {
     // Should have drawn something (clearRect at minimum)
     expect(mockCtx.getCalls('clearRect').length).toBeGreaterThan(0);
 
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('silently ignores out-of-range indices', async () => {
@@ -114,7 +114,7 @@ describe('renderSpreadTo', () => {
     reader.renderSpreadTo(-1, ctx);
     reader.renderSpreadTo(999, ctx);
 
-    reader.dispose();
+    await reader.dispose();
   });
 });
 
@@ -122,7 +122,7 @@ describe('notifyActiveSpread', () => {
   it('is a function on the reader', async () => {
     const reader = await buildReader();
     expect(typeof reader.notifyActiveSpread).toBe('function');
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('fires onSpreadRendered listeners with correct arguments', async () => {
@@ -135,7 +135,7 @@ describe('notifyActiveSpread', () => {
     expect(listener).toHaveBeenCalledTimes(1);
     expect(listener).toHaveBeenCalledWith(0, reader.spreads[0]);
 
-    reader.dispose();
+    await reader.dispose();
   });
 
   it('does not fire for out-of-range index', async () => {
@@ -147,7 +147,7 @@ describe('notifyActiveSpread', () => {
 
     expect(listener).not.toHaveBeenCalled();
 
-    reader.dispose();
+    await reader.dispose();
   });
 });
 
@@ -172,6 +172,6 @@ describe('renderSpread vs renderSpreadTo + notifyActiveSpread', () => {
     reader.notifyActiveSpread(0);
     expect(listener).toHaveBeenCalledTimes(1);
 
-    reader.dispose();
+    await reader.dispose();
   });
 });

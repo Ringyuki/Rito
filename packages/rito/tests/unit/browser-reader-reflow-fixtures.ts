@@ -79,6 +79,7 @@ interface TestWorkerFixture {
   readonly releaseRevision: Mock<(revisionId: string) => void>;
   readonly releaseRevisionAtRevision: Mock<BrowserReaderWorkerClient['releaseRevisionAtRevision']>;
   readonly dispose: Mock<BrowserReaderWorkerClient['dispose']>;
+  readonly whenDisposed: Mock<BrowserReaderWorkerClient['whenDisposed']>;
   readonly activeChapterPreview: Mock<
     (revisionId: string, spreadIndex: number) => Promise<TestActiveChapterPreview | undefined>
   >;
@@ -116,6 +117,7 @@ export function createWorker(
     },
   );
   const dispose = vi.fn();
+  const whenDisposed = vi.fn<BrowserReaderWorkerClient['whenDisposed']>(() => Promise.resolve());
   const warmFrameWindow = vi.fn<BrowserReaderWorkerClient['warmFrameWindowAtRevision']>(
     (revision, centerSpreadIndex) =>
       Promise.resolve({
@@ -212,6 +214,7 @@ export function createWorker(
     releaseRevisionTransfers: vi.fn<BrowserReaderWorkerClient['releaseRevisionTransfers']>(),
     releaseRevision: vi.fn<BrowserReaderWorkerClient['releaseRevision']>(),
     dispose,
+    whenDisposed,
   };
   return {
     worker,
@@ -233,6 +236,7 @@ export function createWorker(
     releaseRevision,
     releaseRevisionAtRevision,
     dispose,
+    whenDisposed,
     activeChapterPreview,
   };
 }

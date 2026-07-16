@@ -1,8 +1,8 @@
 import type { Reader, ReaderOptions, SearchResult } from '../../../reader';
 import type { CoreSearchResponse } from '../core-contracts';
 import { warmBrowserReaderFrameWindow } from './frame-cache';
-import { cancelBrowserReaderReflow, scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
-import { getImageObjectUrl, preloadReaderFonts, unregisterReaderFonts } from '../resources';
+import { scheduleBrowserReaderReflow } from './pipeline/bounded-reflow';
+import { getImageObjectUrl, preloadReaderFonts } from '../resources';
 import { browserReaderSpreads } from './layout';
 import {
   findRitoCoreWasmReaderActiveTocEntry,
@@ -16,18 +16,18 @@ import {
 } from '../rendering';
 import type { BrowserReaderState } from './types';
 import { fallbackBrowserTextMeasurer } from '../host-runtime';
-import { createBrowserReaderInteractions, resetBrowserReaderInteractionCache } from './interaction';
+import { createBrowserReaderInteractions } from './interaction';
 import {
   captureCommittedSourceRead,
   copyReaderSourcePoint,
   readCapturedSource,
 } from './interaction-capture';
-import { disposeBrowserReaderPinnedFonts } from '../pinned-fonts';
-import { disposeBrowserReaderSessionHosts } from '../reader-session-host';
 import {
   completeBrowserReaderBoundedSession,
   ensureBrowserReaderBoundedLocator,
 } from '../bounded-session-runtime';
+import { disposeBrowserReaderState } from './reader-dispose';
+import { trackBrowserReaderHostTask } from './host-tasks';
 
 export type BrowserReaderAccessorKey =
   | 'metadata'
@@ -58,14 +58,17 @@ export function buildBrowserReaderMethods(
       spreadMode,
       lineBreaking,
       () => {
-        void preloadReaderFonts(state)
-          .then((metricsChanged) => {
-            if (metricsChanged) reflow(layoutOptions, true);
-            void warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
-          })
-          .catch((error: unknown) => {
-            state.logger.warn('reader font preload failed', error);
-          });
+        void trackBrowserReaderHostTask(
+          state,
+          preloadReaderFonts(state)
+            .then((metricsChanged) => {
+              if (metricsChanged) reflow(layoutOptions, true);
+              return warmBrowserReaderFrameWindow(state, state.activeSpreadIndex);
+            })
+            .catch((error: unknown) => {
+              state.logger.warn('reader font preload failed', error);
+            }),
+        );
       },
       force,
     );
@@ -80,12 +83,8 @@ export function buildBrowserReaderMethods(
     ...resourceMethods(state),
     ...listenerMethods(state),
     dispose() {
-      if (state.disposed) return;
-      cancelBrowserReaderReflow(state);
-      state.spreadRenderedListeners.clear();
-      state.spreadContentInvalidatedListeners.clear();
-      state.layoutCommittedListeners.clear();
-      disposeResources(state);
+      disposeBrowserReaderState(state);
+      return state.disposeTask ?? Promise.resolve();
     },
   };
 }
@@ -258,17 +257,6 @@ function listenerMethods(
       return () => state.layoutCommittedListeners.delete(cb);
     },
   };
-}
-
-function disposeResources(state: BrowserReaderState): void {
-  if (state.disposed) return;
-  state.disposed = true;
-  resetBrowserReaderInteractionCache(state);
-  unregisterReaderFonts(state);
-  disposeBrowserReaderPinnedFonts(state.pinnedFonts);
-  for (const image of state.images.values()) image.close();
-  state.images.clear();
-  disposeBrowserReaderSessionHosts(state);
 }
 
 function toSearchResult(result: CoreSearchResponse['results'][number]): SearchResult {

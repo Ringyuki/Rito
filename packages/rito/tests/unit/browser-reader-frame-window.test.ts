@@ -285,6 +285,7 @@ describe('Browser reader frame window adapter', () => {
     const state = {
       images: new Map(),
       pendingImageLoads: new Map(),
+      pendingHostTasks: new Set(),
       disposed: false,
     } as unknown as BrowserReaderState;
 
@@ -312,6 +313,7 @@ describe('Browser reader frame window adapter', () => {
     const state = {
       images: new Map(),
       pendingImageLoads: new Map(),
+      pendingHostTasks: new Set(),
       disposed: false,
     } as unknown as BrowserReaderState;
 
@@ -388,6 +390,7 @@ function frameWindowState(
     commitGeneration: 1,
     boundedSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
+    pendingHostTasks: new Set(),
     decodeFrameCommandBuffer: vi.fn(() => ({ commands: [] })),
     activeSpreadIndex: 0,
     registeredFontFaces: new Map(),

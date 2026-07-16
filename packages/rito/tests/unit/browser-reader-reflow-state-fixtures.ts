@@ -106,6 +106,7 @@ export function createState(
     commitGeneration: 0,
     boundedSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
+    pendingHostTasks: new Set(),
     interaction: { pageTargets: new Map(), pendingPageTargets: new Map() },
     frames: new Map(),
     pendingImageLoads: new Map(),

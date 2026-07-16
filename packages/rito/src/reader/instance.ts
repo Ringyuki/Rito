@@ -228,5 +228,5 @@ export interface Reader {
   onSpreadRendered(cb: (spreadIndex: number, spread: Spread) => void): () => void;
   onSpreadContentInvalidated(cb: (spreadIndex: number) => void): () => void;
   onLayoutCommitted(cb: (activeSpreadIndex: number) => void): () => void;
-  dispose(): void;
+  dispose(): void | Promise<void>;
 }

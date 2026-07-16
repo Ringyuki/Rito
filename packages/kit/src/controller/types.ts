@@ -118,7 +118,7 @@ export interface AddAnnotationInput {
 export type InteractionMode = 'selection' | 'gesture';
 
 export interface ReaderController {
-  /** Inject transition wrapper + overlay into container. */
+  /** Inject into a container. Repeating the same mount is a no-op; throws after disposal. */
   mount(container: HTMLElement): void;
   /** Clean up all engines, DOM elements, and listeners. Does NOT dispose the Reader. */
   dispose(): void;

@@ -34,26 +34,56 @@ function useReaderRefs(): ReaderRefs {
   };
 }
 
-function useReaderLifecycle(refs: ReaderRefs): () => void {
-  const detachEvents = useCallback((): void => {
-    refs.detachEventsRef.current?.();
+function useReaderLifecycle(refs: ReaderRefs): () => Promise<void> {
+  const disposeTaskRef = useRef(Promise.resolve());
+  const disposeCurrent = useCallback(async (): Promise<void> => {
+    const detachEvents = refs.detachEventsRef.current;
+    const controller = refs.ctrlRef.current;
+    const reader = refs.readerRef.current;
     refs.detachEventsRef.current = null;
-  }, [refs.detachEventsRef]);
-
-  const disposeCurrent = useCallback((): void => {
-    detachEvents();
-    refs.ctrlRef.current?.dispose();
-    refs.readerRef.current?.dispose();
     refs.ctrlRef.current = null;
     refs.readerRef.current = null;
-  }, [detachEvents, refs.ctrlRef, refs.readerRef]);
+    if (!detachEvents && !controller && !reader) {
+      return disposeTaskRef.current;
+    }
+    runBestEffortCleanup(detachEvents);
+    runBestEffortCleanup(
+      controller
+        ? () => {
+            controller.dispose();
+          }
+        : undefined,
+    );
+    const previousTask = disposeTaskRef.current;
+    const readerTask = runBestEffortAsyncCleanup(reader ? () => reader.dispose() : undefined);
+    disposeTaskRef.current = Promise.all([previousTask, readerTask]).then(() => undefined);
+    return disposeTaskRef.current;
+  }, [refs.ctrlRef, refs.detachEventsRef, refs.readerRef]);
 
   useEffect(
     () => () => {
       refs.loadRequestIdRef.current++;
-      disposeCurrent();
+      void disposeCurrent();
     },
     [disposeCurrent, refs.loadRequestIdRef],
   );
   return disposeCurrent;
+}
+
+function runBestEffortCleanup(cleanup: (() => void) | null | undefined): void {
+  try {
+    cleanup?.();
+  } catch {
+    // One failed cleanup step must not retain the rest of the reader stack.
+  }
+}
+
+async function runBestEffortAsyncCleanup(
+  cleanup: (() => void | Promise<void>) | undefined,
+): Promise<void> {
+  try {
+    await cleanup?.();
+  } catch {
+    // A rejected release must not block a later reader load.
+  }
 }

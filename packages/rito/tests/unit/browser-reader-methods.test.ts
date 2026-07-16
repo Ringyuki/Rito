@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildBrowserReaderMethods } from '../../src/bindings/browser/reader/reader-methods';
+import { trackBrowserReaderHostTask } from '../../src/bindings/browser/reader/host-tasks';
 import type { ReaderOptions } from '../../src/reader';
 import type { BrowserReaderState } from '../../src/bindings/browser/reader/types';
 import {
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   loadFrame: vi.fn(),
   preloadReaderFonts: vi.fn(() => Promise.resolve(false)),
   unregisterReaderFonts: vi.fn(),
+  resetFrameCache: vi.fn(),
   warmBrowserReaderFrameWindow: vi.fn(),
 }));
 
@@ -41,6 +43,7 @@ vi.mock('../../src/bindings/browser/pinned-fonts', () => ({
 vi.mock('../../src/bindings/browser/reader/frame-cache', () => ({
   ensureFrameLoaded: mocks.ensureFrameLoaded,
   loadFrame: mocks.loadFrame,
+  resetFrameCache: mocks.resetFrameCache,
   warmBrowserReaderFrameWindow: mocks.warmBrowserReaderFrameWindow,
 }));
 
@@ -55,6 +58,10 @@ describe('Browser reader methods', () => {
     vi.clearAllMocks();
     mocks.completeBrowserReaderBoundedSession.mockResolvedValue(true);
     mocks.ensureBrowserReaderBoundedLocator.mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('warms neighboring spreads when the active spread changes', () => {
@@ -352,16 +359,192 @@ describe('Browser reader methods', () => {
     expect(size.height * state.dpr).toBe(1080);
   });
 
-  it('disposes the reader-owned pinned font session', () => {
+  it('disposes the reader-owned pinned font session', async () => {
     const worker = createWorker(() => undefined);
     const state = createCompleteState(worker.worker);
+    const disposeFactory = vi.fn(async () => {
+      worker.worker.dispose();
+      await worker.worker.whenDisposed();
+    });
+    Object.defineProperty(state, 'workerFactory', {
+      value: Object.assign(() => worker.worker, { dispose: disposeFactory }),
+    });
+    state.documentData = new Uint8Array([1, 2, 3]).buffer;
+    const revisionBundle = state.revisionBundle;
+    const footnotes = state.footnotes;
+    const chapterTextIndices = state.chapterTextIndices;
+    const tocTargets = state.tocTargets;
+    state.fontMetrics.fontFamilies['book-face'] = { advances: {}, pairAdjustments: {} };
+    const failedImageClose = vi.fn(() => {
+      throw new Error('image close failed');
+    });
+    const remainingImageClose = vi.fn();
+    state.images = new Map([
+      ['failed', { close: failedImageClose } as unknown as ImageBitmap],
+      ['remaining', { close: remainingImageClose } as unknown as ImageBitmap],
+    ]);
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
-    methods.dispose();
+    const disposeTask = methods.dispose();
+
+    expect(disposeTask).toBe(state.disposeTask);
+    await disposeTask;
 
     expect(mocks.cancelBrowserReaderReflow).toHaveBeenCalledWith(state);
+    expect(mocks.resetFrameCache).toHaveBeenCalledWith(state);
+    expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
+    expect(state.documentData.byteLength).toBe(0);
+    expect(state.revisionBundle).not.toBe(revisionBundle);
+    expect(state.revisionBundle.revision.revisionId).toBe('');
+    expect(state.footnotes).not.toBe(footnotes);
+    expect(state.chapterTextIndices).not.toBe(chapterTextIndices);
+    expect(state.tocTargets).not.toBe(tocTargets);
+    expect(state.fontMetrics.fontFamilies).toEqual({});
+    expect(failedImageClose).toHaveBeenCalledOnce();
+    expect(remainingImageClose).toHaveBeenCalledOnce();
+    expect(state.images.size).toBe(0);
+    expect(disposeFactory).toHaveBeenCalledOnce();
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('waits for tracked host work before completing disposal', async () => {
+    const worker = createWorker(() => undefined, 'pending-host-task-worker');
+    const state = createCompleteState(worker.worker);
+    const pendingHostTask = createDeferred<undefined>();
+    void trackBrowserReaderHostTask(state, pendingHostTask.promise);
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    const disposeTask = state.disposeTask;
+    if (disposeTask === undefined) throw new Error('expected reader disposal task');
+    let disposalCompleted = false;
+    void disposeTask.then(() => {
+      disposalCompleted = true;
+    });
+    await Promise.resolve();
+
+    expect(disposalCompleted).toBe(false);
+    expect(state.pendingHostTasks.size).toBe(1);
+
+    pendingHostTask.resolve(undefined);
+    await disposeTask;
+
+    expect(disposalCompleted).toBe(true);
+    expect(state.pendingHostTasks.size).toBe(0);
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('continues releasing the reader after an earlier cleanup throws', async () => {
+    const worker = createWorker(() => undefined, 'cleanup-failure-worker');
+    const state = createCompleteState(worker.worker);
+    const failure = new Error('reflow cleanup failed');
+    mocks.cancelBrowserReaderReflow.mockImplementationOnce(() => {
+      throw failure;
+    });
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    await state.disposeTask;
+
+    expect(state.logger.warn).toHaveBeenCalledWith('reader reflow cancellation failed', failure);
+    expect(mocks.unregisterReaderFonts).toHaveBeenCalledWith(state);
     expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
     expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('continues releasing the reader when cleanup failure logging also throws', async () => {
+    const worker = createWorker(() => undefined, 'cleanup-logger-failure-worker');
+    const state = createCompleteState(worker.worker);
+    const cleanupFailure = new Error('reflow cleanup failed');
+    const loggerFailure = new Error('logger failed');
+    mocks.cancelBrowserReaderReflow.mockImplementationOnce(() => {
+      throw cleanupFailure;
+    });
+    vi.mocked(state.logger.warn).mockImplementationOnce(() => {
+      throw loggerFailure;
+    });
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    expect(() => {
+      void methods.dispose();
+    }).not.toThrow();
+    await state.disposeTask;
+
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'reader reflow cancellation failed',
+      cleanupFailure,
+    );
+    expect(mocks.unregisterReaderFonts).toHaveBeenCalledWith(state);
+    expect(mocks.disposeBrowserReaderPinnedFonts).toHaveBeenCalledWith(state.pinnedFonts);
+    expect(state.documentData.byteLength).toBe(0);
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('falls back to known workers when worker factory disposal rejects', async () => {
+    const current = createWorker(() => undefined, 'factory-failure-current-worker');
+    const candidate = createWorker(() => undefined, 'factory-failure-candidate-worker');
+    const state = createCompleteState(current.worker);
+    const failure = new Error('factory disposal failed');
+    const disposeFactory = vi.fn(() => Promise.reject(failure));
+    Object.defineProperty(state, 'workerFactory', {
+      value: Object.assign(() => current.worker, { dispose: disposeFactory }),
+    });
+    state.boundedSessions.candidate = boundedOwner(candidate.worker, Promise.resolve());
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    await state.disposeTask;
+
+    expect(disposeFactory).toHaveBeenCalledOnce();
+    expect(state.logger.warn).toHaveBeenCalledWith('reader worker factory dispose failed', failure);
+    expect(current.dispose).toHaveBeenCalledOnce();
+    expect(current.whenDisposed).toHaveBeenCalledOnce();
+    expect(candidate.dispose).toHaveBeenCalledOnce();
+    expect(candidate.whenDisposed).toHaveBeenCalledOnce();
+  });
+
+  it('releases an opening candidate whose request never settles', async () => {
+    const foreground = createWorker(() => undefined, 'opening-candidate-foreground');
+    const opening = createWorker(() => undefined, 'opening-candidate-worker');
+    const openingCompletion = createDeferred<undefined>();
+    opening.whenDisposed.mockReturnValue(openingCompletion.promise);
+    opening.open.mockReturnValue(new Promise(() => undefined));
+    const clients = [foreground.worker, opening.worker];
+    const workerFactory = Object.assign(
+      vi.fn(() => opening.worker),
+      {
+        dispose: vi.fn(async () => {
+          await Promise.all(
+            clients.map(async (client) => {
+              client.dispose();
+              await client.whenDisposed();
+            }),
+          );
+        }),
+      },
+    );
+    const state = createCompleteState(foreground.worker);
+    Object.defineProperty(state, 'workerFactory', { value: workerFactory });
+    const unregisteredCandidate = workerFactory();
+    void unregisteredCandidate.open(new ArrayBuffer(0));
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    await waitForCall(workerFactory.dispose);
+    let released = false;
+    void state.disposeTask?.then(() => {
+      released = true;
+    });
+    await Promise.resolve();
+
+    expect(released).toBe(false);
+    openingCompletion.resolve(undefined);
+    await state.disposeTask;
+
+    expect(released).toBe(true);
+    expect(workerFactory.dispose).toHaveBeenCalledOnce();
+    expect(opening.dispose).toHaveBeenCalledOnce();
+    expect(opening.whenDisposed).toHaveBeenCalled();
   });
 
   it('drains bounded sessions before disposing their workers', async () => {
@@ -374,8 +557,8 @@ describe('Browser reader methods', () => {
     state.boundedSessions.candidate = boundedOwner(candidate.worker, candidateDrain.promise);
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
-    methods.dispose();
-    methods.dispose();
+    void methods.dispose();
+    void methods.dispose();
 
     expect(state.disposed).toBe(true);
     expect(state.boundedSessions).toEqual({ current: undefined, candidate: undefined });
@@ -401,12 +584,53 @@ describe('Browser reader methods', () => {
     );
     const methods = buildBrowserReaderMethods(state, readerOptions());
 
-    methods.dispose();
+    void methods.dispose();
     await state.disposeTask;
 
     expect(state.logger.warn).toHaveBeenCalledWith(
       'bounded reader dispose failed',
       expect.objectContaining({ message: 'cleanup failed' }),
+    );
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('still closes workers when bounded cleanup throws synchronously', async () => {
+    const worker = createWorker(() => undefined, 'throwing-bounded-worker');
+    const state = createCompleteState(worker.worker);
+    const owner = boundedOwner(worker.worker, Promise.resolve());
+    const failure = new Error('synchronous cleanup failed');
+    Object.defineProperty(owner.controller, 'dispose', {
+      value: vi.fn(() => {
+        throw failure;
+      }),
+    });
+    state.boundedSessions.current = owner;
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    await state.disposeTask;
+
+    expect(state.logger.warn).toHaveBeenCalledWith('bounded reader dispose failed', failure);
+    expect(worker.dispose).toHaveBeenCalledOnce();
+  });
+
+  it('forces worker disposal when bounded cleanup never settles', async () => {
+    vi.useFakeTimers();
+    const worker = createWorker(() => undefined, 'stalled-bounded-worker');
+    const state = createCompleteState(worker.worker);
+    state.boundedSessions.current = boundedOwner(
+      worker.worker,
+      createDeferred<undefined>().promise,
+    );
+    const methods = buildBrowserReaderMethods(state, readerOptions());
+
+    void methods.dispose();
+    await vi.advanceTimersByTimeAsync(1_000);
+    await state.disposeTask;
+
+    expect(state.logger.warn).toHaveBeenCalledWith(
+      'bounded reader dispose failed',
+      expect.objectContaining({ message: 'bounded reader dispose timed out after 1000ms' }),
     );
     expect(worker.dispose).toHaveBeenCalledOnce();
   });
@@ -441,6 +665,13 @@ function readerOptions(): ReaderOptions {
     spread: 'single',
     lineBreaking: 'greedy',
   };
+}
+
+async function waitForCall(mock: ReturnType<typeof vi.fn>): Promise<void> {
+  for (let attempt = 0; attempt < 16 && mock.mock.calls.length === 0; attempt += 1) {
+    await Promise.resolve();
+  }
+  expect(mock).toHaveBeenCalledOnce();
 }
 
 function createState(): BrowserReaderState {
@@ -496,6 +727,7 @@ function createState(): BrowserReaderState {
     activeSpreadIndex: 0,
     boundedSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
+    pendingHostTasks: new Set(),
     spreadRenderedListeners: new Set(),
     spreadContentInvalidatedListeners: new Set(),
     layoutCommittedListeners: new Set(),

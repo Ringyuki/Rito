@@ -7,6 +7,7 @@ import type {
   BrowserReaderFrameWindowWarmResult,
 } from '../core-contracts';
 import { isCurrentRevisionHandle } from './pipeline/revision-handle';
+import { trackBrowserReaderHostTask } from './host-tasks';
 
 const FRAME_CACHE_CAPACITY = 12;
 
@@ -97,12 +98,15 @@ export function applyBrowserReaderFrameWindow(
       )
       .map((resource) => resource.payload.href);
     if (missingImageHrefs.length === 0) continue;
-    void preloadFrameResourceBytes(state, spread.resources).then(() => {
-      if (!isCurrentRevisionHandle(state, revision)) return;
-      if (missingImageHrefs.some((href) => state.images.has(href))) {
-        notifySpreadContentInvalidated(state, spread.spreadIndex);
-      }
-    });
+    void trackBrowserReaderHostTask(
+      state,
+      preloadFrameResourceBytes(state, spread.resources).then(() => {
+        if (!isCurrentRevisionHandle(state, revision)) return;
+        if (missingImageHrefs.some((href) => state.images.has(href))) {
+          notifySpreadContentInvalidated(state, spread.spreadIndex);
+        }
+      }),
+    );
   }
 }
 
@@ -131,22 +135,25 @@ function loadFrameWindow(
   if (worker.sessionId !== revision.workerSessionId) {
     return Promise.reject(new Error('Reader revision owner does not match its worker session'));
   }
-  const task = worker
-    .warmFrameWindowAtRevision(
-      {
-        revisionId: revision.revisionId,
-        revisionVersion: revision.revisionVersion,
-      },
-      centerSpreadIndex,
-    )
-    .then(({ value: frameWindow }) => {
-      if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
-      applyBrowserReaderFrameWindow(state, revision, frameWindow);
-    })
-    .finally(() => {
-      if (state.pendingFrameLoads.get(centerSpreadIndex) === task)
-        state.pendingFrameLoads.delete(centerSpreadIndex);
-    });
+  const task = trackBrowserReaderHostTask(
+    state,
+    worker
+      .warmFrameWindowAtRevision(
+        {
+          revisionId: revision.revisionId,
+          revisionVersion: revision.revisionVersion,
+        },
+        centerSpreadIndex,
+      )
+      .then(({ value: frameWindow }) => {
+        if (state.disposed || !isCurrentRevisionHandle(state, revision)) return;
+        applyBrowserReaderFrameWindow(state, revision, frameWindow);
+      })
+      .finally(() => {
+        if (state.pendingFrameLoads.get(centerSpreadIndex) === task)
+          state.pendingFrameLoads.delete(centerSpreadIndex);
+      }),
+  );
   state.pendingFrameLoads.set(centerSpreadIndex, task);
   return task;
 }

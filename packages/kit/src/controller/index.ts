@@ -1,44 +1,20 @@
 import type { Reader } from '@ritojs/core';
-import type { FrameDriver } from '../driver/frame-driver';
-import { createTransitionDriver } from '../driver/transition-driver';
-import type { ContentRenderer } from '../painter/buffer-pool';
-import { createPageBufferPool } from '../painter/buffer-pool';
-import { createDisplaySurface } from '../painter/display-surface';
 import { createDisposableCollection } from '../utils/disposable';
 import { createEmitter } from '../utils/event-emitter';
-import { createCoordinatorState } from './core/index';
-import { buildWiringDeps } from './core/wiring-deps';
-import { createEngines } from './engines/index';
-import { buildController, syncCanvasSize, type Internals } from './facade';
-import {
-  commitLayoutChange,
-  publishPaginationChange,
-  requireRenderScale,
-} from './facade/layout-actions';
+import { bootstrapRuntime } from './bootstrap';
+import { createConstructionOwner } from './construction-owner';
+import { buildController, type Internals } from './facade';
+import { requireRenderScale } from './facade/layout-actions';
 import type { RuntimeComponents } from './facade/types';
 import { createInteractionModeManager, detectDefaultMode } from './interaction-mode/index';
-import { createNavigation } from './navigation/index';
-import {
-  createRuntimeFrameParts,
-  scheduleControllerPrerender,
-  startInitialControllerFrame,
-  wireSettledEvents,
-} from './runtime-frame';
+import type { createNavigation } from './navigation/index';
+import { startInitialControllerFrame } from './runtime-frame';
 import type { ControllerOptions, ReaderController, ReaderControllerEvents } from './types';
-import {
-  wireDomHelpers,
-  wireEngineEvents,
-  wireKeyboard,
-  wirePositionTracker,
-  wireSpreadRendered,
-} from './wiring/index';
-import { createPositionPersistence } from './position-persistence';
+import { wireKeyboard } from './wiring/index';
 import { wireTouchGestures } from './wiring/touch';
 
 type Emitter = ReturnType<typeof createEmitter<ReaderControllerEvents>>;
 type Disposables = ReturnType<typeof createDisposableCollection>;
-type TransitionDriverInstance = ReturnType<typeof createTransitionDriver>;
-type PageBufferPoolInstance = ReturnType<typeof createPageBufferPool>;
 
 export type {
   AddAnnotationInput,
@@ -55,41 +31,12 @@ export function createController(
 ): ReaderController {
   const controllerOptions = options ?? {};
   requireRenderScale(controllerOptions.renderScale ?? 1);
-  const emitter = createEmitter<ReaderControllerEvents>();
-  const disposables = createDisposableCollection();
-  const { internals, runtime, nav, contentRenderer } = bootstrapRuntime(
-    reader,
-    canvas,
-    controllerOptions,
-    emitter,
-    disposables,
-  );
-
+  const construction = createConstructionOwner();
   try {
-    const { keyboard, modeManager } = wireIntegrations(
-      internals,
-      runtime,
-      emitter,
-      nav,
-      reader,
-      canvas,
-      disposables,
-    );
-    startInitialControllerFrame(internals, runtime, reader, contentRenderer);
-    return buildController(
-      internals,
-      emitter,
-      disposables,
-      runtime,
-      keyboard,
-      modeManager,
-      nav,
-      canvas,
-    );
+    return constructController(reader, canvas, controllerOptions, construction);
   } catch (error: unknown) {
-    runtime.frameDriver.dispose();
     try {
-      disposables.disposeAll();
+      construction.rollback();
     } catch {
       // Preserve the construction error after best-effort cleanup.
     }
@@ -97,125 +44,47 @@ export function createController(
   }
 }
 
-function bootstrapRuntime(
+function constructController(
   reader: Reader,
   canvas: HTMLCanvasElement,
   options: ControllerOptions,
-  emitter: Emitter,
-  disposables: Disposables,
-) {
-  const surface = createDisplaySurface(canvas);
-  const pool = createPageBufferPool();
-  const transitionDriver = createTransitionDriver(options.transition);
-  const internals = createControllerInternals(reader, options);
-
-  const { contentRenderer, frameDriver } = createRuntimeFrameParts(
-    reader,
-    internals,
-    surface,
-    pool,
-    transitionDriver,
-  );
-  wireSettledEvents(
-    internals,
-    transitionDriver,
-    pool,
-    emitter,
-    frameDriver,
-    reader,
-    contentRenderer,
-  );
-  const runtime: RuntimeComponents = { td: transitionDriver, frameDriver, pool, surface };
-  const nav = createRuntimeNavigation(
-    internals,
-    emitter,
-    transitionDriver,
-    frameDriver,
-    pool,
-    contentRenderer,
-  );
-  wireRuntimeEvents(internals, emitter, runtime, canvas, nav, contentRenderer, disposables);
-  return { internals, runtime, nav, contentRenderer };
-}
-
-function createControllerInternals(reader: Reader, options: ControllerOptions): Internals {
-  const coordState = createCoordinatorState();
-  return {
-    reader,
-    currentSpread: 0,
-    renderScale: options.renderScale ?? 1,
-    options,
-    engines: createEngines(reader, options, coordState),
-    coordState,
-    positionPersistence: createPositionPersistence(options.positionStorage),
-    pendingPositionAction: undefined,
-    restoreCompleted: false,
-  };
-}
-
-function createRuntimeNavigation(
-  internals: Internals,
-  emitter: Emitter,
-  transitionDriver: TransitionDriverInstance,
-  frameDriver: FrameDriver,
-  pool: PageBufferPoolInstance,
-  contentRenderer: ContentRenderer,
-) {
-  return createNavigation({
-    getReader: () => internals.reader,
-    getCurrentSpread: () => internals.currentSpread,
-    setCurrentSpread: (index) => {
-      internals.currentSpread = index;
-    },
-    getRenderScale: () => internals.renderScale,
-    emitter,
-    td: transitionDriver,
-    frameDriver,
-    pool,
-    contentRenderer,
-    onNavigationIntent: () => {
-      internals.engines.position?.claimIntent();
-    },
-    onContentInteractionIntent: () => {
-      internals.coordState.contentInteractionGeneration += 1;
-    },
-    onNavigationCancelled: () => {
-      internals.engines.position?.update(internals.currentSpread);
-    },
-    onPaginationChanged: () => {
-      publishPaginationChange(internals, emitter, frameDriver);
-    },
-  });
-}
-
-function wireRuntimeEvents(
-  internals: Internals,
-  emitter: Emitter,
-  runtime: RuntimeComponents,
-  canvas: HTMLCanvasElement,
-  nav: ReturnType<typeof createNavigation>,
-  contentRenderer: ContentRenderer,
-  disposables: Disposables,
-): void {
+  construction: ReturnType<typeof createConstructionOwner>,
+): ReaderController {
+  const emitter = createEmitter<ReaderControllerEvents>();
+  const disposables = createDisposableCollection();
   disposables.add(() => {
-    nav.dispose();
+    emitter.dispose();
   });
-  const deps = buildWiringDeps(internals, emitter, runtime.frameDriver, canvas, nav, () => {
-    syncCanvasSize(internals, runtime);
-  });
-  wireSpreadRendered(deps, disposables);
-  if (typeof internals.reader.onLayoutCommitted === 'function') {
-    disposables.add(
-      internals.reader.onLayoutCommitted((activeSpreadIndex) => {
-        commitLayoutChange(internals, emitter, runtime, undefined, activeSpreadIndex);
-        nav.notifyLayoutCommitted();
-        scheduleControllerPrerender(internals, runtime, contentRenderer);
-      }),
-    );
-  }
-  wireEngineEvents(deps, disposables);
-  wirePositionTracker(deps, disposables);
-  wireDomHelpers(deps, disposables);
+  const { internals, runtime, nav, contentRenderer } = bootstrapRuntime(
+    reader,
+    canvas,
+    options,
+    emitter,
+    disposables,
+    construction,
+  );
+  const { keyboard, modeManager } = wireIntegrations(
+    internals,
+    runtime,
+    emitter,
+    nav,
+    reader,
+    canvas,
+    disposables,
+  );
+  startInitialControllerFrame(internals, runtime, reader, contentRenderer);
+  const controller = buildController(
+    internals,
+    emitter,
+    disposables,
+    runtime,
+    keyboard,
+    modeManager,
+    nav,
+    canvas,
+  );
+  construction.commit();
+  return controller;
 }
 
 function wireIntegrations(

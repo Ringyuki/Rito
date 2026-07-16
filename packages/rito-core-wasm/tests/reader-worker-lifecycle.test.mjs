@@ -47,8 +47,10 @@ test('in-process reader allows only one document open', async () => {
   });
   await assert.rejects(client.open(new ArrayBuffer(1)), /cannot open while open/);
   assert.equal(openCalls, 1);
+  const disposed = client.whenDisposed();
   client.dispose();
   assert.equal(entry.state.freeCalls, 1);
+  await disposed;
 });
 
 test('in-process dispose prevents a pending open from reviving the session', async () => {
@@ -60,7 +62,9 @@ test('in-process dispose prevents a pending open from reviving the session', asy
 
   const opening = client.open(new ArrayBuffer(1));
   const rejected = assert.rejects(opening, /disposed while opening/);
+  const disposed = client.whenDisposed();
   client.dispose();
+  await disposed;
   ready.resolve({
     openDocument: () => {
       openCalls += 1;
@@ -116,7 +120,11 @@ test('worker endpoint rejects concurrent document opens without leaking', async 
   });
   assert.equal((await firstOpen).ok, true);
   assert.equal(openCalls, 1);
-  assert.equal((await scope.send({ id: 3, kind: 'dispose' })).ok, true);
+  assert.deepEqual(await scope.send({ id: 3, kind: 'dispose' }), {
+    id: 3,
+    ok: true,
+    payload: { kind: 'dispose', releasedDocument: true },
+  });
   assert.equal(entry.state.freeCalls, 1);
 });
 
@@ -126,7 +134,11 @@ test('worker endpoint dispose invalidates an open waiting for initialization', a
   const scope = workerHandlerScope(async () => ready.promise);
 
   const opening = scope.send({ id: 1, kind: 'open', data: new ArrayBuffer(1) });
-  assert.equal((await scope.send({ id: 2, kind: 'dispose' })).ok, true);
+  assert.deepEqual(await scope.send({ id: 2, kind: 'dispose' }), {
+    id: 2,
+    ok: true,
+    payload: { kind: 'dispose', releasedDocument: false },
+  });
   ready.resolve({
     openDocument: () => {
       openCalls += 1;
@@ -140,6 +152,26 @@ test('worker endpoint dispose invalidates an open waiting for initialization', a
   assert.equal(openCalls, 0);
 });
 
+test('worker endpoint reuses its initialized engine after releasing a document', async () => {
+  const first = fakeDocument('first-worker-document');
+  const second = fakeDocument('second-worker-document');
+  const documents = [first.document, second.document];
+  let initializeCalls = 0;
+  const scope = workerHandlerScope(async () => {
+    initializeCalls += 1;
+    return { openDocument: () => documents.shift() };
+  });
+
+  assert.equal((await scope.send({ id: 1, kind: 'open', data: new ArrayBuffer(1) })).ok, true);
+  assert.equal((await scope.send({ id: 2, kind: 'dispose' })).payload.releasedDocument, true);
+  assert.equal((await scope.send({ id: 3, kind: 'open', data: new ArrayBuffer(1) })).ok, true);
+  assert.equal((await scope.send({ id: 4, kind: 'dispose' })).payload.releasedDocument, true);
+
+  assert.equal(initializeCalls, 1);
+  assert.equal(first.state.freeCalls, 1);
+  assert.equal(second.state.freeCalls, 1);
+});
+
 test('worker client terminates after disposal and fatal worker errors', async () => {
   const disposalWorker = new FakeWorker();
   disposalWorker.throwOnDispose = true;
@@ -147,6 +179,7 @@ test('worker client terminates after disposal and fatal worker errors', async ()
 
   assert.doesNotThrow(() => disposalClient.dispose());
   assert.equal(disposalWorker.terminateCalls, 1);
+  await disposalClient.whenDisposed();
   await assert.rejects(disposalClient.open(new ArrayBuffer(1)), /cannot open while disposed/);
 
   const failedWorker = new FakeWorker();
@@ -157,9 +190,205 @@ test('worker client terminates after disposal and fatal worker errors', async ()
 
   await rejected;
   assert.equal(failedWorker.terminateCalls, 1);
+  await failedClient.whenDisposed();
   await assert.rejects(failedClient.open(new ArrayBuffer(1)), /worker crashed/);
   failedClient.dispose();
   assert.equal(failedWorker.terminateCalls, 1);
+});
+
+test('worker client rolls back partial listener installation', () => {
+  for (const failureIndex of [1, 2, 3]) {
+    const worker = new FakeWorker();
+    const sentinel = new Error(`listener ${String(failureIndex)} failed`);
+    let addCalls = 0;
+    const addEventListener = worker.addEventListener.bind(worker);
+    worker.addEventListener = (type, listener) => {
+      addCalls += 1;
+      if (addCalls === failureIndex) throw sentinel;
+      addEventListener(type, listener);
+    };
+
+    assert.throws(() => createRitoCoreWasmWorkerReaderClient(worker), sentinel);
+    assert.equal(worker.listenerCount(), 0);
+    assert.equal(worker.terminateCalls, 1);
+  }
+});
+
+test('worker client waits for the document-release acknowledgement before termination', async () => {
+  const worker = new FakeWorker();
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+  const disposed = client.whenDisposed();
+
+  client.dispose();
+
+  assert.equal(worker.terminateCalls, 0);
+  assert.equal(client.whenDisposed(), disposed);
+  const request = worker.messages.at(-1);
+  assert.equal(request.kind, 'dispose');
+  worker.emit('message', {
+    data: {
+      id: request.id,
+      ok: true,
+      payload: { kind: 'dispose', releasedDocument: false },
+    },
+  });
+  await disposed;
+  assert.equal(worker.terminateCalls, 1);
+});
+
+test('worker client rejects a malformed disposal acknowledgement', async () => {
+  const worker = new FakeWorker();
+  let recycleCalls = 0;
+  const client = createRitoCoreWasmWorkerReaderClient(worker, undefined, {
+    recycleWorker: () => {
+      recycleCalls += 1;
+      return true;
+    },
+  });
+
+  client.dispose();
+  const request = worker.messages.at(-1);
+  worker.emit('message', {
+    data: { id: request.id, ok: true, payload: { kind: 'dispose' } },
+  });
+
+  await client.whenDisposed();
+  assert.equal(worker.terminateCalls, 1);
+  assert.equal(recycleCalls, 0);
+});
+
+test('worker client rejects disposal completion when termination fails', async () => {
+  const worker = new FakeWorker();
+  worker.terminateError = new Error('worker termination failed');
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+
+  client.dispose();
+  const request = worker.messages.at(-1);
+  worker.emit('message', {
+    data: {
+      id: request.id,
+      ok: true,
+      payload: { kind: 'dispose', releasedDocument: false },
+    },
+  });
+
+  await assert.rejects(client.whenDisposed(), /worker termination failed/);
+  assert.equal(worker.terminateCalls, 1);
+  assert.equal(worker.listenerCount(), 0);
+});
+
+test('worker client rejects releasedDocument false after a successful open', async () => {
+  const worker = new FakeWorker();
+  let recycleCalls = 0;
+  const client = createRitoCoreWasmWorkerReaderClient(worker, undefined, {
+    recycleWorker: () => {
+      recycleCalls += 1;
+      return true;
+    },
+  });
+  const opening = client.open(new ArrayBuffer(1));
+  await Promise.resolve();
+  const openRequest = worker.messages.at(-1);
+  worker.emit('message', {
+    data: {
+      id: openRequest.id,
+      ok: true,
+      payload: {
+        kind: 'open',
+        result: { publication: { title: 'opened' }, pinnedFontPolicy: emptyPolicySummary() },
+      },
+    },
+  });
+  await opening;
+
+  client.dispose();
+  const disposeRequest = worker.messages.at(-1);
+  worker.emit('message', {
+    data: {
+      id: disposeRequest.id,
+      ok: true,
+      payload: { kind: 'dispose', releasedDocument: false },
+    },
+  });
+
+  await client.whenDisposed();
+  assert.equal(worker.terminateCalls, 1);
+  assert.equal(recycleCalls, 0);
+});
+
+test('worker client recycles only after a confirmed document release and detaches listeners', async () => {
+  const worker = new FakeWorker();
+  const recycled = [];
+  const client = createRitoCoreWasmWorkerReaderClient(worker, undefined, {
+    recycleWorker: (candidate) => {
+      recycled.push(candidate);
+      return true;
+    },
+  });
+  const opening = client.open(new ArrayBuffer(1));
+  await Promise.resolve();
+  const openRequest = worker.messages.at(-1);
+  worker.emit('message', {
+    data: {
+      id: openRequest.id,
+      ok: true,
+      payload: {
+        kind: 'open',
+        result: { publication: { title: 'opened' }, pinnedFontPolicy: emptyPolicySummary() },
+      },
+    },
+  });
+  await opening;
+
+  client.dispose();
+  const disposeRequest = worker.messages.at(-1);
+  worker.emit('message', {
+    data: {
+      id: disposeRequest.id,
+      ok: true,
+      payload: { kind: 'dispose', releasedDocument: true },
+    },
+  });
+  await client.whenDisposed();
+
+  assert.deepEqual(recycled, [worker]);
+  assert.equal(worker.terminateCalls, 0);
+  assert.equal(worker.listenerCount(), 0);
+});
+
+test('worker client accepts either release result while an open is unconfirmed', async () => {
+  for (const releasedDocument of [false, true]) {
+    const worker = new FakeWorker();
+    const client = createRitoCoreWasmWorkerReaderClient(worker);
+    const opening = client.open(new ArrayBuffer(1));
+    await Promise.resolve();
+    const rejected = assert.rejects(opening, /disposed/);
+
+    client.dispose();
+    const disposeRequest = worker.messages.at(-1);
+    worker.emit('message', {
+      data: {
+        id: disposeRequest.id,
+        ok: true,
+        payload: { kind: 'dispose', releasedDocument },
+      },
+    });
+
+    await Promise.all([rejected, client.whenDisposed()]);
+    assert.equal(worker.terminateCalls, 1);
+  }
+});
+
+test('worker client force-terminates when disposal is not acknowledged', async () => {
+  const worker = new FakeWorker();
+  const client = createRitoCoreWasmWorkerReaderClient(worker);
+
+  client.dispose();
+  assert.equal(worker.terminateCalls, 0);
+
+  await client.whenDisposed();
+
+  assert.equal(worker.terminateCalls, 1);
 });
 
 function fakeDocument(name, publicationError) {
@@ -239,12 +468,21 @@ class FakeWorker {
   listeners = new Map();
   messages = [];
   terminateCalls = 0;
+  terminateError = undefined;
   throwOnDispose = false;
 
   addEventListener(type, listener) {
     const listeners = this.listeners.get(type) ?? [];
     listeners.push(listener);
     this.listeners.set(type, listeners);
+  }
+
+  removeEventListener(type, listener) {
+    const listeners = this.listeners.get(type) ?? [];
+    this.listeners.set(
+      type,
+      listeners.filter((candidate) => candidate !== listener),
+    );
   }
 
   postMessage(message) {
@@ -256,9 +494,14 @@ class FakeWorker {
 
   terminate() {
     this.terminateCalls += 1;
+    if (this.terminateError) throw this.terminateError;
   }
 
   emit(type, event) {
     for (const listener of this.listeners.get(type) ?? []) listener(event);
+  }
+
+  listenerCount() {
+    return [...this.listeners.values()].reduce((count, listeners) => count + listeners.length, 0);
   }
 }

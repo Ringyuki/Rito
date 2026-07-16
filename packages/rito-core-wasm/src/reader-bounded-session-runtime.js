@@ -89,15 +89,24 @@ export function createRitoCoreWasmBoundedReaderSession(client, options = {}) {
   };
 
   const dispose = async () => {
-    if (phase === 'disposed') return;
+    if (phase === 'disposed') {
+      throwTerminalError();
+      return;
+    }
     if (phase === 'idle' || phase === 'stopped') {
       phase = 'disposed';
       snapshot = undefined;
+      throwTerminalError();
       return;
     }
     requestStop('dispose');
     while (phase === 'running') await drain();
+    throwTerminalError();
   };
+
+  function throwTerminalError() {
+    if (terminalError !== undefined) throw terminalError;
+  }
 
   function requestStop(reason) {
     if (reason === 'dispose' || stopRequested === undefined) stopRequested = reason;

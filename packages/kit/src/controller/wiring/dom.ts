@@ -55,8 +55,8 @@ export function wireDomHelpers(deps: WiringDeps, disposables: DisposableCollecti
       y: center.y,
     });
   };
-  canvas.addEventListener('pointermove', onMove);
   disposables.add(() => {
     canvas.removeEventListener('pointermove', onMove);
   });
+  canvas.addEventListener('pointermove', onMove);
 }

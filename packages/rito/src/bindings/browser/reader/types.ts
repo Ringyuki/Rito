@@ -99,13 +99,16 @@ export interface BrowserReaderReflowState {
   lastError: Error | undefined;
 }
 
-export type BrowserReaderWorkerClientFactory = () => BrowserReaderWorkerClient;
+export interface BrowserReaderWorkerClientFactory {
+  (): BrowserReaderWorkerClient;
+  dispose?: (() => Promise<void>) | undefined;
+}
 
 export interface BrowserReaderState {
   worker: BrowserReaderWorkerClient;
   readonly workerFactory: BrowserReaderWorkerClientFactory;
   readonly decodeFrameCommandBuffer: typeof decodeRitoFrameCommandBuffer;
-  readonly documentData: ArrayBuffer;
+  documentData: ArrayBuffer;
   readonly pinnedFonts: BrowserReaderPinnedFonts;
   readonly canvas: HTMLCanvasElement | OffscreenCanvas;
   readonly ctx: CanvasRenderingTarget;
@@ -124,6 +127,7 @@ export interface BrowserReaderState {
   readonly boundedSessions: BrowserReaderBoundedSessionSlots;
   disposeTask: Promise<void> | undefined;
   readonly interaction: BrowserReaderInteractionState;
+  readonly pendingHostTasks: Set<Promise<unknown>>;
   frames: Map<number, BrowserReaderFrame>;
   pendingImageLoads: Map<string, Promise<void>>;
   footnotes: BrowserReaderFootnoteMap;

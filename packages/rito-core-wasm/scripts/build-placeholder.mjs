@@ -192,6 +192,7 @@ function readerClientDeclarations() {
     'export declare function createRitoCoreWasmWorkerReaderClient(',
     '  worker: RitoCoreWasmReaderWorkerLike,',
     '  cache?: RitoCoreWasmReaderSessionCache,',
+    '  options?: RitoCoreWasmWorkerReaderClientOptions,',
     '): RitoCoreWasmReaderWorkerClient;',
     'export declare function createRitoCoreWasmInProcessReaderClient(',
     '  module: RitoCoreWasmReaderBindingRuntimeModule,',

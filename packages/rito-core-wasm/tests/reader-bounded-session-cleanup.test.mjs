@@ -11,7 +11,7 @@ import {
   versioned,
 } from './reader-bounded-session-fixture.mjs';
 
-test('cancel reports cleanup failures while dispose remains best effort', async () => {
+test('cancel and dispose report cleanup failures after best-effort release', async () => {
   for (const operation of ['cancel', 'dispose']) {
     const client = fixtureClient({
       create: async () => versioned(advance(0, 1, false)),
@@ -21,25 +21,24 @@ test('cancel reports cleanup failures while dispose remains best effort', async 
     });
     const session = createRitoCoreWasmBoundedReaderSession(client);
     await session.start(startRequest(0));
-    if (operation === 'cancel') {
-      await assert.rejects(session.cancel(), /release failed/);
-    } else {
-      await session.dispose();
-    }
+    await assert.rejects(session[operation](), /release failed/);
+    if (operation === 'dispose') await assert.rejects(session.dispose(), /release failed/);
   }
 });
 
-test('cancel rejects a response that did not release the exact revision', async () => {
-  const client = fixtureClient({
-    create: async () => versioned(advance(0, 1, false)),
-    releaseResponse: (value) => ({
-      revision: value,
-      value: { releasedRevision: false, releasedTransferCount: 0 },
-    }),
-  });
-  const session = createRitoCoreWasmBoundedReaderSession(client);
-  await session.start(startRequest(0));
-  await assert.rejects(session.cancel(), /did not release its exact revision/);
+test('cancel and dispose reject a response that did not release the exact revision', async () => {
+  for (const operation of ['cancel', 'dispose']) {
+    const client = fixtureClient({
+      create: async () => versioned(advance(0, 1, false)),
+      releaseResponse: (value) => ({
+        revision: value,
+        value: { releasedRevision: false, releasedTransferCount: 0 },
+      }),
+    });
+    const session = createRitoCoreWasmBoundedReaderSession(client);
+    await session.start(startRequest(0));
+    await assert.rejects(session[operation](), /did not release its exact revision/);
+  }
 });
 
 test('dispose remains terminal when cancel races the same in-flight quantum', async () => {

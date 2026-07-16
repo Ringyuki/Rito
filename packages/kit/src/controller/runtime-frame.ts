@@ -8,7 +8,7 @@ import type { Emitter, RuntimeComponents } from './facade/types';
 import { createCoordinateMapper } from './geometry/coordinate-mapper';
 import { mergeOverlayLayers } from './overlay/merger';
 import { buildAdjacentOverlayData, buildOverlayData } from './overlay/projection';
-import { scheduleIdlePrerender } from './prerender';
+import type { PrerenderScheduler } from './prerender';
 
 interface RuntimeFrameParts {
   readonly contentRenderer: ContentRenderer;
@@ -54,13 +54,13 @@ export function scheduleControllerPrerender(
   runtime: RuntimeComponents,
   contentRenderer: ContentRenderer,
 ): void {
-  scheduleIdlePrerender(
-    () => internals.currentSpread,
-    () => runtime.td.isAnimating,
-    internals.reader,
-    runtime.pool,
+  runtime.prerenderScheduler.schedule({
+    getCurrentSpread: () => internals.currentSpread,
+    isAnimating: () => runtime.td.isAnimating,
+    reader: internals.reader,
+    pool: runtime.pool,
     contentRenderer,
-  );
+  });
 }
 
 export function wireSettledEvents(
@@ -71,19 +71,20 @@ export function wireSettledEvents(
   frameDriver: FrameDriver,
   reader: Reader,
   contentRenderer: ContentRenderer,
-): void {
-  transitionDriver.onSettled((event) => {
+  prerenderScheduler: PrerenderScheduler,
+): () => void {
+  return transitionDriver.onSettled((event) => {
     if (event.committed) {
       if (event.direction === 'forward') pool.rotateForward();
       else pool.rotateBackward();
       internals.currentSpread = event.targetSpread;
-      scheduleIdlePrerender(
-        () => internals.currentSpread,
-        () => transitionDriver.isAnimating,
+      prerenderScheduler.schedule({
+        getCurrentSpread: () => internals.currentSpread,
+        isAnimating: () => transitionDriver.isAnimating,
         reader,
         pool,
         contentRenderer,
-      );
+      });
     } else {
       restoreCanceledTransition(internals, emitter, reader, event.targetSpread);
     }

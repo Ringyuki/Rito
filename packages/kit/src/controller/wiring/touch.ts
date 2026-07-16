@@ -56,14 +56,14 @@ function wireTouchRectCache(
   const clearCanvasRect = (): void => {
     rect.current = null;
   };
-  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
-  canvas.addEventListener('touchend', clearCanvasRect);
-  canvas.addEventListener('touchcancel', clearCanvasRect);
   disposables.add(() => {
     canvas.removeEventListener('touchstart', cacheCanvasRect);
     canvas.removeEventListener('touchend', clearCanvasRect);
     canvas.removeEventListener('touchcancel', clearCanvasRect);
   });
+  canvas.addEventListener('touchstart', cacheCanvasRect, { passive: true });
+  canvas.addEventListener('touchend', clearCanvasRect);
+  canvas.addEventListener('touchcancel', clearCanvasRect);
   return rect;
 }
 

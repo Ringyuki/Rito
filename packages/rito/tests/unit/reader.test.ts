@@ -558,15 +558,13 @@ describe('createReader', () => {
   describe('dispose', () => {
     it('does not throw', async () => {
       const reader = await buildReader();
-      expect(() => {
-        reader.dispose();
-      }).not.toThrow();
+      await expect(Promise.resolve().then(() => reader.dispose())).resolves.toBeUndefined();
     });
 
     it('calls disposeAssets', async () => {
       const { disposeAssets } = await import('../../src/reference/ts-core/render/web/resources');
       const reader = await buildReader();
-      reader.dispose();
+      await reader.dispose();
       expect(disposeAssets).toHaveBeenCalled();
     });
   });

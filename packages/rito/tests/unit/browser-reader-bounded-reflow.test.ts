@@ -53,6 +53,22 @@ describe('Browser bounded reflow coordinator', () => {
     mocks.startCandidate.mockResolvedValue(snapshot());
   });
 
+  it('does not queue reflow work after disposal', () => {
+    const state = createState(createWorker(() => undefined, 'disposed').worker);
+    state.disposed = true;
+
+    expect(
+      scheduleBrowserReaderReflow(
+        state,
+        { ...BASE_READER_OPTIONS, width: 900 },
+        'single',
+        'greedy',
+      ),
+    ).toBe(false);
+    expect(state.reflow.queued).toBeUndefined();
+    expect(state.reflow.microtaskScheduled).toBe(false);
+  });
+
   it('starts the initial bounded session at spread zero on the already-open worker', async () => {
     const foreground = createWorker(() => undefined, 'initial');
     const state = createState(foreground.worker);
@@ -273,11 +289,13 @@ describe('Browser bounded reflow coordinator', () => {
       'greedy',
     );
     await started.promise;
+    expect(current.state.pendingHostTasks.size).toBe(1);
     current.state.disposed = true;
     cancelBrowserReaderReflow(current.state);
     await waitUntil(() => current.state.reflow.active === undefined);
 
     expect(signal?.aborted).toBe(true);
+    expect(current.state.pendingHostTasks.size).toBe(0);
     expect(current.state.reflow.queued).toBeUndefined();
     expect(current.state.boundedSessions.current).toBe(current.owner);
 

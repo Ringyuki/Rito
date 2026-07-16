@@ -3,6 +3,7 @@ import {
   getImageObjectUrl,
   preloadCurrentReaderFonts,
   preloadReaderFonts,
+  unregisterReaderFonts,
 } from '../../src/bindings/browser/resources';
 import { renderSpreadToContext } from '../../src/bindings/browser/rendering';
 import { loadFrame } from '../../src/bindings/browser/reader/frame-cache';
@@ -20,6 +21,27 @@ afterEach(() => {
 });
 
 describe('Browser reader resource-backed rendering', () => {
+  it('unregisters every reader font when one registry deletion throws', () => {
+    const first = {} as FontFace;
+    const second = {} as FontFace;
+    const remove = vi.fn((face: FontFace) => {
+      if (face === first) throw new Error('font removal failed');
+      return true;
+    });
+    vi.stubGlobal('document', { fonts: { delete: remove } });
+    const state = createState({
+      registeredFontFaces: new Map([
+        ['first', first],
+        ['second', second],
+      ]),
+    });
+
+    unregisterReaderFonts(state);
+
+    expect(remove).toHaveBeenCalledTimes(2);
+    expect(state.registeredFontFaces.size).toBe(0);
+  });
+
   it('does not dispatch exact resource reads while the revision gate is closed', async () => {
     const readResourceAtRevision = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>();
     vi.stubGlobal('FontFace', FakeFontFace);
@@ -520,6 +542,7 @@ function createState(overrides: object = {}): BrowserReaderState {
     commitGeneration: 1,
     boundedSessions: { current: undefined, candidate: undefined },
     disposeTask: undefined,
+    pendingHostTasks: new Set(),
     frames: new Map(),
     pendingFrameLoads: new Map(),
     images: new Map(),

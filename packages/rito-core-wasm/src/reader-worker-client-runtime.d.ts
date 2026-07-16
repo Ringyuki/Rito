@@ -5,11 +5,13 @@ import type {
   RitoCoreWasmReaderWorkerClient,
   RitoCoreWasmReaderWorkerLike,
   RitoCoreWasmReaderWorkerScope,
+  RitoCoreWasmWorkerReaderClientOptions,
 } from './types';
 
 export function createRitoCoreWasmWorkerReaderClient(
   worker: RitoCoreWasmReaderWorkerLike,
   cache?: RitoCoreWasmReaderSessionCache,
+  options?: RitoCoreWasmWorkerReaderClientOptions,
 ): RitoCoreWasmReaderWorkerClient;
 
 export function createRitoCoreWasmInProcessReaderClient(

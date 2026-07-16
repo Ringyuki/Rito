@@ -8,6 +8,7 @@ import { createEmitter } from '../../src/utils/event-emitter';
 import { createDisposableCollection } from '../../src/utils/disposable';
 import { createInteractionModeManager } from '../../src/controller/interaction-mode';
 import { createNavigation, type NavigationDeps } from '../../src/controller/navigation';
+import { createPrerenderScheduler } from '../../src/controller/prerender';
 import { wireSettledEvents } from '../../src/controller/runtime-frame';
 import type { ReaderControllerEvents } from '../../src/controller/types';
 import type { Internals } from '../../src/controller/facade';
@@ -54,8 +55,19 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
   emitter.on('transitionStart', transitionStart);
   const internals = { reader, currentSpread: 0 } as unknown as Internals;
   const contentRenderer = vi.fn(() => true);
+  const disposables = createDisposableCollection();
+  const prerenderScheduler = createPrerenderScheduler();
 
-  wireSettledEvents(internals, td, poolHarness.pool, emitter, frameDriver, reader, contentRenderer);
+  const disposeSettledEvents = wireSettledEvents(
+    internals,
+    td,
+    poolHarness.pool,
+    emitter,
+    frameDriver,
+    reader,
+    contentRenderer,
+    prerenderScheduler,
+  );
   const nav = createNavigation({
     getReader: () => reader,
     getCurrentSpread: () => internals.currentSpread,
@@ -82,7 +94,6 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
       if (td.isAnimating) td.forceSettle();
     },
   };
-  const disposables = createDisposableCollection();
   wireUnifiedTouchHandler(
     dom.target,
     gestureDeps,
@@ -92,6 +103,10 @@ export function createTouchNavigationScenario(initialContentReady = true): Touch
     vi.fn(),
     disposables,
   );
+  disposables.add(disposeSettledEvents);
+  disposables.add(() => {
+    prerenderScheduler.dispose();
+  });
 
   return {
     dom,

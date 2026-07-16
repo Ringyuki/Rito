@@ -202,7 +202,12 @@ rewrite them through an explicit caller-owned resource URL.
 | Member                 | What it does                                         |
 | ---------------------- | ---------------------------------------------------- |
 | `onSpreadRendered(cb)` | Subscribe to spread render notifications             |
-| `dispose()`            | Release decoded assets and close the loaded document |
+| `dispose()`            | Start releasing assets and close the loaded document |
+
+Disposal invalidates the Reader synchronously. A browser-backed Reader returns
+a promise that settles after its Worker and native document have been released;
+`await reader.dispose()` before creating a replacement Reader. Synchronous
+Reader implementations may return `void`, which is also safe to `await`.
 
 ## Usage Guidance
 

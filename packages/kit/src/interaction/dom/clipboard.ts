@@ -20,7 +20,12 @@ export function bindClipboard(canvas: HTMLCanvasElement, engine: SelectionEngine
   }
 
   canvas.addEventListener('keydown', onKeyDown);
-  canvas.setAttribute('tabindex', '0');
+  try {
+    canvas.setAttribute('tabindex', '0');
+  } catch (error: unknown) {
+    canvas.removeEventListener('keydown', onKeyDown);
+    throw error;
+  }
 
   return () => {
     canvas.removeEventListener('keydown', onKeyDown);

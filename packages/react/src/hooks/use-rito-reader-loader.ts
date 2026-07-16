@@ -1,4 +1,4 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { createReader, type Reader } from '@ritojs/core';
 import { createController, type ReaderController } from '@ritojs/kit';
 import {
@@ -9,42 +9,30 @@ import {
   type RefBox,
   type UseRitoReaderOptions,
 } from './use-rito-reader-model';
+import { waitForInitialReaderLayout } from './use-rito-reader-layout';
+import { subscribeReaderControllerEvents } from './use-rito-reader-subscriptions';
 
-const INITIAL_LAYOUT_TIMEOUT_MS = 15_000;
 const LOADING_INDICATOR_DELAY_MS = 120;
 
 export function useReaderLoader(
   refs: ReaderRefs,
   optionsRef: RefBox<UseRitoReaderOptions>,
   setState: Dispatch<SetStateAction<InternalState>>,
-  disposeCurrent: () => void,
+  disposeCurrent: () => Promise<void>,
 ): (data: ArrayBuffer | PromiseLike<ArrayBuffer>) => Promise<void> {
+  const creationTailRef = useRef(Promise.resolve());
   return useCallback(
-    async (data) => {
+    (data) => {
       const requestId = ++refs.loadRequestIdRef.current;
-      const hadVisibleStack = refs.ctrlRef.current !== null || refs.readerRef.current !== null;
-      disposeCurrent();
-      if (hadVisibleStack) setState(INITIAL);
-      const cancelLoadingIndicator = scheduleLoadingIndicator(
+      return loadReader(
+        data,
         requestId,
-        refs.loadRequestIdRef,
+        creationTailRef,
+        refs,
+        optionsRef,
         setState,
+        disposeCurrent,
       );
-      try {
-        const loaded = await loadReaderStack(
-          data,
-          requestId,
-          optionsRef.current,
-          refs.canvasRef,
-          refs.loadRequestIdRef,
-        );
-        if (!loaded) return;
-        commitLoadedStack(loaded, refs, setState, cancelLoadingIndicator, disposeCurrent);
-      } catch (err) {
-        cancelLoadingIndicator();
-        if (requestId !== refs.loadRequestIdRef.current) return;
-        setState((s) => ({ ...s, isLoading: false, error: getErrorMessage(err) }));
-      }
     },
     [
       disposeCurrent,
@@ -59,19 +47,119 @@ export function useReaderLoader(
   );
 }
 
-function commitLoadedStack(
+async function loadReader(
+  data: ArrayBuffer | PromiseLike<ArrayBuffer>,
+  requestId: number,
+  creationTailRef: RefBox<Promise<void>>,
+  refs: ReaderRefs,
+  optionsRef: RefBox<UseRitoReaderOptions>,
+  setState: Dispatch<SetStateAction<InternalState>>,
+  disposeCurrent: () => Promise<void>,
+): Promise<void> {
+  const hadVisibleStack = refs.ctrlRef.current !== null || refs.readerRef.current !== null;
+  const disposeTask = disposeCurrent();
+  if (hadVisibleStack) setState(INITIAL);
+  const cancelLoadingIndicator = scheduleLoadingIndicator(
+    requestId,
+    refs.loadRequestIdRef,
+    setState,
+  );
+  try {
+    const resolvedData = await data;
+    if (requestId !== refs.loadRequestIdRef.current) {
+      cancelLoadingIndicator();
+      return;
+    }
+    await enqueueReaderCreation(creationTailRef, () =>
+      createAndCommitReader(
+        resolvedData,
+        requestId,
+        disposeTask,
+        refs,
+        optionsRef.current,
+        setState,
+        cancelLoadingIndicator,
+        disposeCurrent,
+      ),
+    );
+  } catch (err) {
+    cancelLoadingIndicator();
+    if (requestId !== refs.loadRequestIdRef.current) return;
+    setState((s) => ({ ...s, isLoading: false, error: getErrorMessage(err) }));
+  }
+}
+
+function enqueueReaderCreation(
+  tailRef: RefBox<Promise<void>>,
+  operation: () => Promise<void>,
+): Promise<void> {
+  const task = tailRef.current.catch(() => undefined).then(operation);
+  tailRef.current = task.then(
+    () => undefined,
+    () => undefined,
+  );
+  return task;
+}
+
+async function createAndCommitReader(
+  data: ArrayBuffer,
+  requestId: number,
+  disposeTask: Promise<void>,
+  refs: ReaderRefs,
+  options: UseRitoReaderOptions,
+  setState: Dispatch<SetStateAction<InternalState>>,
+  cancelLoadingIndicator: () => void,
+  disposeCurrent: () => Promise<void>,
+): Promise<void> {
+  await disposeTask;
+  if (requestId !== refs.loadRequestIdRef.current) return;
+  const loaded = await loadReaderStack(
+    data,
+    requestId,
+    options,
+    refs.canvasRef,
+    refs.loadRequestIdRef,
+  );
+  if (!loaded) return;
+  await commitLoadedStack(
+    loaded,
+    requestId,
+    refs,
+    setState,
+    cancelLoadingIndicator,
+    disposeCurrent,
+  );
+}
+
+async function commitLoadedStack(
   loaded: LoadedReaderStack,
+  requestId: number,
   refs: ReaderRefs,
   setState: Dispatch<SetStateAction<InternalState>>,
   cancelLoadingIndicator: () => void,
-  disposeCurrent: () => void,
-): void {
+  disposeCurrent: () => Promise<void>,
+): Promise<void> {
   cancelLoadingIndicator();
-  disposeCurrent();
-  refs.readerRef.current = loaded.reader;
-  refs.ctrlRef.current = loaded.ctrl;
-  refs.detachEventsRef.current = subscribeEvents(loaded.ctrl, setState);
-  setState(createLoadedState(loaded.reader));
+  await disposeCurrent();
+  if (requestId !== refs.loadRequestIdRef.current) {
+    await disposeLoadedStack(loaded);
+    return;
+  }
+  let detachEvents: (() => void) | undefined;
+  try {
+    detachEvents = subscribeReaderControllerEvents(loaded.ctrl, setState);
+    refs.readerRef.current = loaded.reader;
+    refs.ctrlRef.current = loaded.ctrl;
+    refs.detachEventsRef.current = detachEvents;
+    setState(createLoadedState(loaded.reader));
+  } catch (error) {
+    detachEvents?.();
+    if (refs.readerRef.current === loaded.reader) refs.readerRef.current = null;
+    if (refs.ctrlRef.current === loaded.ctrl) refs.ctrlRef.current = null;
+    if (refs.detachEventsRef.current === detachEvents) refs.detachEventsRef.current = null;
+    await disposeLoadedStack(loaded);
+    throw error;
+  }
 }
 
 function scheduleLoadingIndicator(
@@ -89,21 +177,18 @@ function scheduleLoadingIndicator(
 }
 
 async function loadReaderStack(
-  data: ArrayBuffer | PromiseLike<ArrayBuffer>,
+  data: ArrayBuffer,
   requestId: number,
   opts: UseRitoReaderOptions,
   canvasRef: RefBox<HTMLCanvasElement | null>,
   loadRequestIdRef: RefBox<number>,
 ): Promise<LoadedReaderStack | null> {
-  const resolvedData = await data;
-  if (requestId !== loadRequestIdRef.current) return null;
-
   const canvas = getOrCreateCanvas(canvasRef);
   if (!canvas) throw new Error('useRitoReader requires a browser document to create a canvas');
 
-  const reader = await createReader(resolvedData, canvas, opts.reader);
+  const reader = await createReader(data, canvas, opts.reader);
   if (requestId !== loadRequestIdRef.current) {
-    reader.dispose();
+    await disposeReader(reader);
     return null;
   }
 
@@ -117,22 +202,22 @@ async function waitForLayoutOrDispose(
   loadRequestIdRef: RefBox<number>,
 ): Promise<void> {
   try {
-    await waitForInitialLayout(reader, requestId, loadRequestIdRef);
+    await waitForInitialReaderLayout(reader, requestId, loadRequestIdRef);
   } catch (error) {
-    reader.dispose();
+    await disposeReader(reader);
     throw error;
   }
 }
 
-function createControllerStack(
+async function createControllerStack(
   reader: Reader,
   canvas: HTMLCanvasElement,
   opts: UseRitoReaderOptions,
   requestId: number,
   loadRequestIdRef: RefBox<number>,
-): LoadedReaderStack | null {
+): Promise<LoadedReaderStack | null> {
   if (requestId !== loadRequestIdRef.current) {
-    reader.dispose();
+    await disposeReader(reader);
     return null;
   }
 
@@ -140,45 +225,34 @@ function createControllerStack(
   try {
     ctrl = createController(reader, canvas, opts.controller);
   } catch (error: unknown) {
-    reader.dispose();
+    await disposeReader(reader);
     throw error;
   }
   if (requestId === loadRequestIdRef.current) return { reader, ctrl };
-  ctrl.dispose();
-  reader.dispose();
+  disposeController(ctrl);
+  await disposeReader(reader);
   return null;
 }
 
-function waitForInitialLayout(
-  reader: Reader,
-  requestId: number,
-  loadRequestIdRef: RefBox<number>,
-): Promise<void> {
-  if (reader.totalSpreads > 0 || requestId !== loadRequestIdRef.current) {
-    return Promise.resolve();
+async function disposeLoadedStack(stack: LoadedReaderStack): Promise<void> {
+  disposeController(stack.ctrl);
+  await disposeReader(stack.reader);
+}
+
+function disposeController(controller: ReaderController): void {
+  try {
+    controller.dispose();
+  } catch {
+    // Reader release still needs to run if controller cleanup fails.
   }
-  return new Promise((resolve, reject) => {
-    let done = false;
-    let unsubscribe = (): void => {};
-    const timeoutId = setTimeout(() => {
-      finish(new Error('Reader initial layout timed out'));
-    }, INITIAL_LAYOUT_TIMEOUT_MS);
-    const staleCheckId = setInterval(() => {
-      if (requestId !== loadRequestIdRef.current) finish();
-    }, 50);
-    const finish = (error?: Error): void => {
-      if (done) return;
-      done = true;
-      clearTimeout(timeoutId);
-      clearInterval(staleCheckId);
-      unsubscribe();
-      if (error) reject(error);
-      else resolve();
-    };
-    unsubscribe = reader.onLayoutCommitted(() => {
-      if (reader.totalSpreads > 0) finish();
-    });
-  });
+}
+
+async function disposeReader(reader: Reader): Promise<void> {
+  try {
+    await reader.dispose();
+  } catch {
+    // A rejected release must not block cancellation or a replacement load.
+  }
 }
 
 function createLoadedState(reader: Reader): InternalState {
@@ -192,33 +266,6 @@ function createLoadedState(reader: Reader): InternalState {
     metadata: reader.metadata,
     toc: reader.toc,
     spreads: reader.spreads,
-  };
-}
-
-function subscribeEvents(
-  ctrl: ReaderController,
-  setState: Dispatch<SetStateAction<InternalState>>,
-): () => void {
-  const unsubscribers = [
-    ctrl.on('spreadChange', ({ spreadIndex }) => {
-      setState((s) => ({ ...s, currentSpread: spreadIndex }));
-    }),
-    ctrl.on('layoutChange', ({ spreads, totalSpreads }) => {
-      const hasLayout = totalSpreads > 0;
-      setState((s) => ({
-        ...s,
-        isLoaded: hasLayout,
-        isLoading: !hasLayout,
-        spreads,
-        totalSpreads,
-      }));
-    }),
-    ctrl.on('error', ({ message }) => {
-      setState((s) => ({ ...s, error: message }));
-    }),
-  ];
-  return () => {
-    for (const unsubscribe of unsubscribers) unsubscribe();
   };
 }
 
