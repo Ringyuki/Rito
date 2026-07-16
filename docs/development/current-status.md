@@ -254,13 +254,20 @@ Those names now belong to the old TS reference tree only.
 - The milestone parity suites are green for the current selected surface: all
   10 fixture books across 4 package/layout configurations, plus 30 exhaustive
   runtime render-command groups covering 189 cases and 378 render summaries.
-- The production bounded reader also passed a 74-EPUB Downloads smoke run on
-  2026-07-13.
-  The complete demo-reader parity matrix passed its strict zero-threshold pixel
-  comparison across the single, narrow, wide, DPR 2 and double-page profiles.
-  A strict named-machine Reader usability gate now complements those broad
-  regression results with isolated-browser-process cold-start and interaction
-  latency thresholds.
+- On 2026-07-16 the production bounded reader passed all 75 EPUBs then present
+  in Downloads in 29.6 seconds with three Playwright workers. The strict
+  TypeScript-reference/Rust Reader parity review also passed all 237
+  case/profile records with zero differing pixels across the single, narrow,
+  wide, DPR 2 and double-page profiles.
+- The production release-protocol E2E now records request and response revision
+  handles through continuation, transfer release, cancellation, exact revision
+  release and Worker dispose acknowledgement. It passed three consecutive runs;
+  a replacement session cannot reuse or replace the physical Worker until the
+  old session has acknowledged disposal.
+- Strict named-machine latency and physical-footprint gates now complement the
+  functional and pixel evidence. They intentionally remain red when a threshold
+  is exceeded; current results are recorded below rather than hidden by widening
+  the limits.
 - `RITOFCB2` is the current packed frame command-buffer ABI.
 - Native revision-cache entries serving normal reader frame windows now retain
   only `RITOFCB2` metadata/bytes. The browser still keeps its decoded Canvas
@@ -316,13 +323,35 @@ Those names now belong to the old TS reference tree only.
 RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
   manifest that pins machine, OS, browser/version, DPR, normal/reflow viewports,
   EPUB SHA-256 digests, run count and every stage threshold. Each case/run uses
-  a fresh BrowserContext in one shared browser process. The first three-run
-  Apple M3 / macOS release `25.5` / Chromium `147.0.7727.15` baseline covers
-  `book-01`, `book-04` and `book-10`; its worst fixture p95s are 67.5 ms
-  `open`, 62.0 ms bounded-to-presentation, 2.4 ms frame warm, 249.3 ms
-  input-to-first-Canvas, 14.0 ms cached turn, 47.8 ms deferred growth, 201.4 ms
-  reflow and 70.0 ms measured-window Long Task. Canvas settling isolates stages
-  and observes animation Long Tasks but is excluded from first-frame latency.
+  a fresh bundled Chromium process and BrowserContext. The first process-per-run
+  three-run calibration added by `b0b192a` covers `book-01`, `book-04` and
+  `book-10`; its worst fixture p95s are 71.6 ms `open`, 61.1 ms
+  bounded-to-presentation, 2.3 ms frame warm, 259.5 ms input-to-first-Canvas,
+  14.1 ms cached turn, 60.8 ms deferred growth, 184.5 ms reflow and 76.0 ms
+  measured-window Long Task. The earlier `12e4f82` shared-browser-process
+  calibration produced the separate 67.5/62.0/2.4/249.3/14.0/47.8/201.4/70.0
+  ms series; it is pre-isolation history, not the same baseline. Canvas settling
+  isolates stages and observes animation Long Tasks but is excluded from
+  first-frame latency.
+- The 2026-07-16 release-candidate rerun did not pass the latency gate. `book-01`
+  reached 809.6 ms navigation-to-first-Canvas, 549.3 ms input-to-first-Canvas,
+  98.5 ms cached turn, 474.5 ms reflow and a 140 ms maximum Long Task, exceeding
+  their recorded 700/500/50/300/120 ms limits. The gate stopped before later
+  fixtures, so this is an active release blocker rather than a new baseline. An
+  isolated `b0b192a` worktree reproduced the same class of failure while three
+  shared-process profiles stayed below their limits; the red result is a
+  pre-existing cold-process/outlier problem, not a regression from the current
+  lifecycle changes.
+- `pnpm test:e2e:memory-gate` launches three isolated browser scenarios, records
+  stable physical-footprint checkpoints around load, growth, reflow, eight
+  replacements and terminal disposal, and verifies the complete Worker-session
+  release sequence. On 2026-07-16 every one of 33 sessions acknowledged dispose,
+  all six physical Workers terminated and no Worker remained live. One run's
+  replacement growth was 107.719 MiB against a 96 MiB limit (the other two were
+  38.188 and 65.860 MiB), so the aggregate gate remains red. The outlier carried
+  a roughly 52 MiB page backing-store peak while page JS/DOM/Worker ownership
+  stayed bounded; current evidence points to Chromium/Canvas allocator high-water
+  behavior, not an unreleased Rust document or Worker session.
 - JSON remains the production default. The local evidence matrix now includes
   15 fresh-process decode runs across `book-01`, `book-06`, and `book-10`, plus
   three full WebWorker ABBA runs for `book-01`. Binary payloads are consistently
@@ -903,14 +932,16 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
    - Keep browser operations in the host, but move reader state transitions and
      resource/window intent into Rust-authored session plans.
 4. **Usability and performance gates**
-   - The 74-EPUB smoke and complete strict reader parity run are green. Every
+   - The 75-EPUB smoke and complete strict reader parity run are green. Every
      strict named-machine sample now uses a new bundled Chromium process and
      measures browser launch, production pinned-font/app readiness, navigation
      to first Canvas, bounded presentation/frame work, cached turn, deferred
      growth, reflow and measured-window Long Tasks across three pinned fixtures.
-   - Cold-start and interaction coverage exist, but the formal Phase 1
-     declaration still needs memory limits and cancellation/disposal under a
-     recorded release protocol.
+   - Memory limits and the cancellation/disposal release protocol are now
+     executable and recorded. The release protocol is green; the current
+     latency and replacement-growth measurements exceed their pinned limits.
+     Those two red gates, rather than missing instrumentation, block the formal
+     Phase 1 declaration.
    - Minimum first-paint and page-turn latency is a usability requirement, not
      deferred micro-optimization.
    - The licensed Reader-app v1 serif fallback and its real-book
@@ -964,6 +995,8 @@ pnpm --filter @ritojs/core run typecheck
 pnpm --filter @ritojs/core run test
 RITO_READER_PROFILE_EPUB=/absolute/path/book.epub pnpm test:e2e:load-profile
 RITO_READER_USABILITY_GATE=/absolute/path/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate
+pnpm test:e2e:release-protocol
+pnpm test:e2e:memory-gate
 RITO_EPUB_SMOKE_DIR="$HOME/Downloads" pnpm --filter @ritojs/reader exec playwright test -c playwright.config.ts tests/e2e/reader-downloads-smoke.e2e.test.ts --workers=3
 ```
 
@@ -993,9 +1026,10 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the formal Phase 1 release protocol around the landed
-   isolated-process cold-start gate: establish memory limits and exercise
-   cancellation/disposal with recorded revision/resource cleanup evidence.
+1. Make the existing Phase 1 gates green without weakening their limits. The
+   cancellation/disposal protocol is already green; investigate the main-thread
+   Canvas/frame presentation long tasks and the replacement backing-store
+   high-water that currently fail the latency and memory gates.
 2. Move the publication-wide footnote scan inside a measured source-index
    budget.
 3. Replace eager completed-layout search with a durable publication source index
@@ -1093,8 +1127,9 @@ through decorated/floated containers, tables and Optimal layout.
 Individual font calls and the Liang dictionary call remain indivisible; the
 oversized-operation escape means the public quantum is not yet a complete
 wall-clock hard bound.
-Complete the cold browser-process/pinned-font, memory and cancellation/disposal
-release protocol around the warm named-machine baseline. Then move the
+The cold browser-process/pinned-font, memory and cancellation/disposal gates are
+now reproducible. Keep the release protocol green and close the measured latency
+and replacement-memory overruns without changing the recorded limits. Then move the
 single-pass source scan under an explicit budget and reuse a durable source
 index for full-publication search. Keep search result geometry lazy and
 active-window only. Classify the v1 serif preset's residual locale/role gaps

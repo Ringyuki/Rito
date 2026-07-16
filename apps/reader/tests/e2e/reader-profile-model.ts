@@ -247,6 +247,7 @@ function roundOperation(
     startedAt: rounded(operation.startedAt),
     completedAt: operation.completedAt === null ? null : rounded(operation.completedAt),
     durationMs: operation.durationMs === null ? null : rounded(operation.durationMs),
+    requestedRevision: operation.requestedRevision ? { ...operation.requestedRevision } : null,
     revision: operation.revision ? { ...operation.revision } : null,
   };
 }

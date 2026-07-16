@@ -137,12 +137,14 @@ The remaining usability work is narrower but still release-blocking:
 5. The browser shell still owns some candidate/current-session, commit,
    cache and font-reflow policy that should become explicit Rust-authored host
    operations.
-6. The 2026-07-13 74-EPUB smoke and complete strict reader parity matrix are
-   green. A strict three-fixture named-machine gate now launches a fresh bundled
-   Chromium process per sample and covers production pinned-font/app cold start,
-   document load, cached turn, growth and reflow. Memory limits and a recorded
-   cancellation/disposal release protocol remain before the formal Phase 1
-   declaration.
+6. The 2026-07-16 75-EPUB smoke and complete strict Reader parity matrix are
+   green; the latter contains 237 zero-diff case/profile records. A strict
+   three-fixture named-machine gate launches a fresh bundled Chromium process
+   per sample and covers production pinned-font/app cold start, document load,
+   cached turn, growth and reflow. The cancellation/disposal release protocol
+   is recorded and green. The latency gate currently fails on `book-01`, and
+   the physical-footprint gate fails one replacement-growth p95 limit; these
+   measured failures block the formal Phase 1 declaration.
 
 ## Phase 1: A Usable Rust Reader
 
@@ -681,12 +683,13 @@ The Rust reader is usable only when a representative real-book corpus can:
 - recover from malformed-but-tolerable EPUB content with actionable errors;
 - keep the production graph free of TypeScript reference-core imports.
 
-Current evidence is green: on 2026-07-13 the bounded production reader passed 74
-Downloads EPUBs, and the complete demo-reader parity matrix passed strict
-zero-threshold comparison across its single, narrow, wide, DPR 2 and double-page
-profiles. The isolated-process named-machine gate also passes three runs each
-for `book-01`, `book-04` and `book-10` on Apple M3, macOS release `25.5`, and
-bundled Chromium `147.0.7727.15`. Its strict schema-v2 manifest pins
+Functional and visual migration evidence is green: on 2026-07-16 the bounded
+production reader passed all 75 Downloads EPUBs, and the complete
+TypeScript-reference/Rust Reader parity review passed all 237 records with
+strict zero-threshold comparison across its single, narrow, wide, DPR 2 and
+double-page profiles. The isolated-process named-machine gate runs three
+samples each for `book-01`, `book-04` and `book-10` on Apple M3, macOS release
+`25.5`, and bundled Chromium `147.0.7727.15`. Its strict schema-v2 manifest pins
 machine/browser identity, headless context policy, the two production fallback
 font identities, DPR, normal/reflow viewports, EPUB SHA-256 digests, run count,
 and per-stage thresholds. Each case/run launches and closes its own browser
@@ -700,9 +703,16 @@ cached-turn first changed frame, deferred-growth first changed frame, reflow
 first changed frame, and measured-action-window Long Tasks separately. Canvas
 settling isolates stages and covers animation Long Tasks; it is excluded from
 first-frame latency. A whole-book completion number is not a substitute for
-first-paint latency. This lands the isolated browser-process/pinned-font cold
-gate. Memory limits and cancellation/disposal under a recorded release protocol
-remain before the formal Phase 1 declaration.
+first-paint latency. The 2026-07-16 rerun is red: `book-01` exceeded the
+navigation/Canvas, cached-turn, reflow and Long-Task limits. The release-protocol
+scenario is green across repeated runs and proves exact accepted-revision
+cancellation after a continuation response remains pending at the main-thread
+delivery boundary, followed by release, dispose acknowledgement and safe Worker
+reuse/termination. It does not claim Worker-computation preemption. The memory
+gate also proves every session and Worker is released, but one of three runs
+grew 107.719 MiB across replacements against a 96 MiB limit. Phase 1 therefore
+remains open on measured latency and Canvas/backing-store memory, not on missing
+release instrumentation.
 
 The TypeScript parity and golden suites remain migration gates during this
 phase. Intentional differences require explicit review; they are not silently
@@ -817,10 +827,11 @@ architecture rather than make an eager whole-book pipeline faster.
    remain separate search architecture work.**
 7. Reduce browser session policy to explicit core-requested host operations.
 8. Establish the real-book usability and stage-specific performance gate.
-   **The strict isolated browser-process/pinned-font cold-start and document-load
-   gate is implemented with a three-fixture Apple M3 baseline. Memory limits,
-   cancellation/disposal release protocol, and the final locale/role release
-   decision remain.**
+   **The strict isolated browser-process/pinned-font latency gate, physical-
+   footprint gate and cancellation/disposal release protocol are implemented.
+   The release protocol is green; the current latency and replacement-growth
+   results are red and must be fixed without widening their limits. The final
+   locale/role release decision also remains.**
 9. Build the pinned WebView/DOM reference harness.
 10. Declare the baseline transition, then resume broad rendering and performance
     work.

@@ -153,7 +153,7 @@ export async function runPinnedFallbackCycle(
           pinnedFacePresentBeforeDispose: hasFontFamily(alias),
         };
       } finally {
-        reader.dispose();
+        await reader.dispose();
         await waitUntil(
           () =>
             !hasFontFamily(alias) && probe.terminatedWorkerIds.length > terminatedWorkerCountBefore,

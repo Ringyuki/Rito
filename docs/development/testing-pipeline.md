@@ -20,6 +20,8 @@ protect browser-rendered output.
 | Reader e2e            | `pnpm test:e2e`                                                                                      | Demo reader behavior: load, navigation, TOC, search, settings, and reflow.                                     |
 | Reader load profile   | `RITO_READER_PROFILE_EPUB=/abs/book.epub pnpm test:e2e:load-profile`                                 | Opt-in production bounded-Worker phase timings, revision extents, Long Tasks, and browser errors.              |
 | Reader usability gate | `RITO_READER_USABILITY_GATE=/abs/gate.json RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` | Strict named-machine isolated-process cold-start, pinned-corpus load, reflow, and turn thresholds.             |
+| Reader release gate   | `pnpm test:e2e:release-protocol`                                                                     | Pending-response drain, transfer/revision release, dispose ACK, and safe Worker reuse/termination.             |
+| Reader memory gate    | `pnpm test:e2e:memory-gate`                                                                          | Named-machine physical-footprint checkpoints, replacement growth, terminal release, and Worker lifecycle.      |
 | Coverage              | `pnpm test:coverage`                                                                                 | V8 coverage for all published packages, checked against package baselines.                                     |
 | Dependency audit      | `pnpm audit:dependencies`                                                                            | Fails on high-severity advisories in the resolved workspace dependency graph.                                  |
 
@@ -395,8 +397,8 @@ in the observation window; that wait is not added to any first-frame latency.
 Long Tasks describe the Window main thread; Worker stalls remain visible in
 the separately recorded Worker-operation durations.
 
-The first three-run baseline was recorded on Apple M3, macOS release `25.5`,
-Chromium `147.0.7727.15`:
+The first process-per-run three-run calibration added by `b0b192a` was recorded
+on Apple M3, macOS release `25.5`, Chromium `147.0.7727.15`:
 
 | Fixture | Browser launch | Navigation -> ready | Navigation -> first Canvas | Startup max Long Task |
 | ------- | -------------: | ------------------: | -------------------------: | --------------------: |
@@ -414,10 +416,40 @@ Values are nearest-rank p95 milliseconds across three runs, so each value is
 the maximum of those three samples. The first browser launch after the preview
 server starts is intentionally visible, which explains the higher `book-01`
 launch sample; every measured Reader process still has empty process-local HTTP,
-WASM and FontFace caches. This baseline closes the isolated
-browser-process/pinned-font cold-start and interaction gate. A formal Phase 1
-usability declaration still requires memory limits and cancellation/disposal
-exercised under a recorded release protocol.
+WASM and FontFace caches. The earlier `12e4f82` calibration reused one browser
+process across fresh contexts; its worst p95s (67.5 ms open, 62.0 ms
+bounded-to-presentation, 249.3 ms input-to-Canvas, 47.8 ms growth, 201.4 ms
+reflow and 70.0 ms Long Task) are retained only as pre-isolation history and are
+not directly comparable to this table. Neither calibration is permission to
+silently rebase a red result. The 2026-07-16 release-candidate run exceeded
+`book-01` limits for navigation/input-to-Canvas, cached turn, reflow and Long
+Tasks, so the latency gate is currently red. An isolated `b0b192a` comparison
+reproduced a 608.3 ms Canvas, 516.5 ms reflow and 171 ms Long-Task outlier even
+though three shared-process profiles were stable, ruling out the current
+lifecycle patch as the source of this cold-process instability.
+
+The two lifecycle gates are:
+
+```bash
+pnpm test:e2e:release-protocol
+pnpm test:e2e:memory-gate
+```
+
+The release test holds a completed bounded-continuation response at the
+Worker-to-main-thread delivery boundary while replacing the Reader. It verifies
+the exact continuation -> transfer release -> cancel -> revision release ->
+dispose-ack sequence, then requires the old physical Worker to be either the
+replacement Worker or terminated, with exactly the replacement Worker left
+live. This scenario covers a main-thread-pending RPC response; it does not claim
+to preempt Worker-side computation before a response exists. The memory gate
+pins the same machine/browser/font environment, runs
+load/growth/reflow/eight-replacement/dispose scenarios in three isolated browser
+processes, samples stable physical footprint, records page-isolate diagnostics,
+and rejects incomplete Worker-session histories. On 2026-07-16 the protocol
+test passed repeatedly and every memory-gate session/Worker released, but
+replacement-growth p95 was 107.719 MiB against a 96 MiB limit. The formal Phase
+1 declaration therefore remains blocked by measured latency and
+replacement-memory limits.
 
 For a repeatable decode-only comparison on one fixed real payload, run:
 
