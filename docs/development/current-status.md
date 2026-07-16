@@ -929,9 +929,11 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      retained-flow paragraph boundaries, with package-language tailoring and an
      invariant fallback. Kit maps mouse double/triple click and touch long press to
      those units; repeated-click drag keeps the original semantic unit as its
-     anchor. Mouse behavior passes production Reader E2E; touch long press has
-     synthetic event coverage but still needs a real touch-device production-path
-     E2E before release. The correctness-complete ICU auto constructor adds approximately
+     anchor. Mouse behavior passes production Reader E2E. Trusted Chromium touch
+     input now also drives the production Worker/Canvas path: long-press word
+     selection, cross-line extension with immediate release, retained highlight and
+     cancellation semantics all pass alongside the synthetic lifecycle tests. The
+     correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
      LSTM-only and non-complex constructors fail CJK/Japanese/Thai parity, so this
@@ -1090,8 +1092,8 @@ The revision/locator contract, bounded production switch and principal native
 interaction transports are complete. Cross-flow selection/copy and
 chapter-context link previews now pass production-path Reader E2E. ICU-backed
 word and retained-flow paragraph selection are wired to mouse repeated click and
-touch long press; end-user interaction parity still needs touch handles, edge
-autoscroll and platform keyboard semantics. Greedy
+touch long press, and both now pass production-path input E2E; end-user interaction
+parity still needs touch handles, edge autoscroll and platform keyboard semantics. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

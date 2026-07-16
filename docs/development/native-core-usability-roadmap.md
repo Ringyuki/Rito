@@ -134,10 +134,12 @@ The remaining usability work is narrower but still release-blocking:
    production Reader path. Rust-authoritative ICU word and retained-flow paragraph
    granularity now drive mouse repeated-click and touch long-press selection;
    touch handles, edge autoscroll and platform keyboard extension remain usability
-   work. Mouse repeated-click passes production-path E2E; touch long press still
-   needs a real touch-environment production-path E2E in addition to its Kit event
-   tests. Paragraph copy/highlight preserves the native trailing separator once a
-   following same-chapter flow is retained. The exact-source caret remains at the
+   work. Mouse repeated-click and trusted Chromium touch long-press both pass the
+   production Worker/Canvas path; touch acceptance covers word seeding, cross-line
+   extension with immediate release, retained highlight and cancellation in
+   addition to the Kit lifecycle tests. Paragraph copy/highlight preserves the
+   native trailing separator once a following same-chapter flow is retained. The
+   exact-source caret remains at the
    current flow's text end instead of pretending to be the DOM's structural
    next-block boundary, and a bounded retention edge can temporarily omit that
    trailing separator. Content-only image/frame repaints retain a released selection.
