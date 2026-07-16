@@ -937,9 +937,12 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      and exposes an epoch-bound endpoint-adjustment session that preserves a fixed
      opposite caret, grab offset, crossing direction, fast release and cancellation
      rollback. React renders 44 CSS-pixel DOM hit targets and owns pointer capture;
-     trusted Chromium touch acceptance drags the exact end handle across lines.
-     Same-spread handles are complete; edge autoscroll, cross-revision spread
-     extension and platform keyboard semantics remain. The
+     trusted Chromium touch acceptance drags the exact end handle across lines and
+     exercises both handle directions across adjacent known spreads. Handle edge dwell
+     now snaps across an already-published adjacent spread in the
+     same revision, reprojects the active exact session and keeps its captured DOM
+     node mounted while the new focus resolves. Lazy-growth cross-revision extension,
+     primary-drag edge scrolling and platform keyboard semantics remain. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1051,9 +1054,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: edge autoscroll,
-   cross-revision spread extension and platform keyboard semantics. Same-spread exact
-   touch handles, cross-flow and reverse-direction
+1. Complete the remaining host-native selection behavior: lazy-growth cross-revision
+   spread extension, primary-drag edge autoscroll and platform keyboard semantics.
+   Exact touch handles, same-revision known-spread edge dwell, cross-flow and reverse-direction
    exact selection/copy, pointer-up persistence, word/paragraph granularity and
    link-preview chapter context are now green in production-path Reader E2E.
 2. Make the existing latency and memory gates green without weakening their limits. The
@@ -1100,9 +1103,10 @@ The revision/locator contract, bounded production switch and principal native
 interaction transports are complete. Cross-flow selection/copy and
 chapter-context link previews now pass production-path Reader E2E. ICU-backed
 word and retained-flow paragraph selection are wired to mouse repeated click and
-touch long press, and both now pass production-path input E2E. Exact same-spread touch
-handles now use Core endpoints, Kit-owned epoch sessions and React DOM pointer capture;
-end-user interaction parity still needs edge autoscroll, cross-revision spread extension
+touch long press, and both now pass production-path input E2E. Exact touch handles use
+Core endpoints, Kit-owned epoch sessions and React DOM pointer capture; their edge dwell
+now continues across already-published spreads in the same revision. End-user interaction
+parity still needs lazy-growth cross-revision continuation, primary-drag edge autoscroll
 and platform keyboard semantics. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A

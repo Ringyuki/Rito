@@ -447,10 +447,12 @@ describe('buildLayoutActions', () => {
   it('does not overwrite navigation triggered while clearing active search results', () => {
     const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
     const order: string[] = [];
+    fixture.internals.coordState.selectionProjectionTransfer = { targetSpreadIndex: 1 };
     fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
     fixture.spies.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
       order.push(`notify:${String(spreadIndex)}`);
       expect(fixture.internals.currentSpread).toBe(1);
+      expect(fixture.internals.coordState.selectionProjectionTransfer).toBeNull();
       expect(fixture.internals.coordState.positionUpdateMode).toEqual({
         kind: 'skip',
         spreadIndex: 1,
@@ -458,7 +460,7 @@ describe('buildLayoutActions', () => {
     });
     fixture.spies.invalidateSelection.mockImplementation(() => {
       order.push('selection');
-      expect(fixture.spies.notifyActiveSpread).toHaveBeenCalledWith(1);
+      expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalled();
     });
     fixture.spies.setPages.mockImplementation(() => {
       order.push('search');
@@ -475,8 +477,24 @@ describe('buildLayoutActions', () => {
     commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
 
     expect(fixture.internals.currentSpread).toBe(2);
-    expect(order).toEqual(['notify:1', 'selection', 'search', 'composite', 'layoutChange']);
+    expect(order).toEqual(['selection', 'notify:1', 'search', 'composite', 'layoutChange']);
     expect(fixture.spies.emit).not.toHaveBeenCalledWith('spreadChange', expect.anything());
+  });
+
+  it('does not reactivate the committed spread after selection invalidation redirects', () => {
+    const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
+    fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
+    fixture.spies.invalidateSelection.mockImplementation(() => {
+      fixture.internals.currentSpread = 2;
+      fixture.reader.notifyActiveSpread(2);
+    });
+
+    commitLayoutChange(fixture.internals, fixture.emitter, fixture.runtime, undefined, 1);
+
+    expect(fixture.internals.currentSpread).toBe(2);
+    expect(fixture.spies.notifyActiveSpread).toHaveBeenCalledOnce();
+    expect(fixture.spies.notifyActiveSpread).toHaveBeenCalledWith(2);
+    expect(fixture.spies.notifyActiveSpread).not.toHaveBeenCalledWith(1);
   });
 
   it('clears native annotation state before hover listeners can redirect', () => {

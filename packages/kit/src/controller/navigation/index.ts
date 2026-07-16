@@ -4,29 +4,15 @@ import type { TransitionDriver } from '../../driver/transition-driver';
 import type { ContentRenderer, PageBufferPool } from '../../painter/buffer-pool';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
-import {
-  clearPendingNavigation,
-  createNavigationState,
-  settleNavigationForContinuity,
-  supersedeNavigationForPositionIntent,
-  type GestureNavigationRequest,
-  type NavigationAttempt,
-  type NavigationState,
-} from './state';
-import {
-  claimNavigationAttempt,
-  jumpToSpread,
-  jumpToSpreadIfReady,
-  type NavigationJumpOutcome,
-} from './jump';
-import {
-  continuePendingNavigation,
-  createSpreadGrowthAttempt,
-  ensureIncomingSlot,
-  navigationTarget,
-} from './growth';
+import * as navState from './state';
+import * as jump from './jump';
+import * as growth from './growth';
 import { emitNavigationStart } from './start';
 import { navigateReaderLocator, navigateTocEntry, retryPendingTocEntry } from './toc-growth';
+
+type State = navState.NavigationState;
+type Attempt = navState.NavigationAttempt;
+type GestureRequest = navState.GestureNavigationRequest;
 
 export interface NavigationDeps {
   getReader: () => Reader | null;
@@ -45,6 +31,8 @@ export interface NavigationDeps {
   onNavigationCancelled?: () => void;
   /** Publishes a newly committed known/final spread extent without resetting layout state. */
   onPaginationChanged?: () => void;
+  /** Scope a same-revision native handle projection transfer to one ready jump attempt. */
+  beginSelectionProjectionTransfer?: ((spreadIndex: number) => () => void) | undefined;
 }
 
 export interface NavigationActions {
@@ -62,7 +50,12 @@ export interface NavigationActions {
   /** Snap to a spread without playing a transition animation. */
   jumpToSpread(index: number, preservePositionIntent?: boolean): boolean;
   /** Snap only when the target is immediately paintable. */
-  jumpToSpreadIfReady(index: number): NavigationJumpOutcome;
+  jumpToSpreadIfReady(
+    index: number,
+    preserveNativeHandleDrag?: boolean,
+  ): jump.NavigationJumpOutcome;
+  /** Prepare a paintable snap without claiming navigation or position ownership. */
+  prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
   /** Continue a deferred navigation once its async content slot is ready. */
   notifyContentReady(spreadIndex: number): void;
   /** Retry a TOC target that was unavailable in a partial preview revision. */
@@ -77,7 +70,7 @@ export interface GestureNavigationToken {
 }
 
 export function createNavigation(deps: NavigationDeps): NavigationActions {
-  const state = createNavigationState();
+  const state = navState.createNavigationState();
   const locatorNavigator = createLocatorNavigator(state, deps);
   return {
     goToSpread(index) {
@@ -100,17 +93,17 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     },
     jumpToSpread(index, preservePositionIntent) {
       if (state.disposed) return false;
-      const attemptId = claimNavigationAttempt(state, deps, preservePositionIntent);
-      return jumpToSpread(state, deps, attemptId, index);
+      const attemptId = jump.claimNavigationAttempt(state, deps, preservePositionIntent);
+      return jump.jumpToSpread(state, deps, attemptId, index);
     },
-    jumpToSpreadIfReady(index) {
-      if (state.disposed) return 'superseded';
-      const attemptId = claimNavigationAttempt(state, deps);
-      return jumpToSpreadIfReady(state, deps, attemptId, index);
+    jumpToSpreadIfReady: (index, preserveNativeHandleDrag) =>
+      jump.performReadyJump(state, deps, index, preserveNativeHandleDrag),
+    prepareSpreadForJump(index) {
+      return state.disposed ? 'superseded' : jump.prepareSpreadForJump(deps, index);
     },
     notifyContentReady(spreadIndex) {
       if (state.disposed) return;
-      continuePendingNavigation(state, deps, spreadIndex);
+      growth.continuePendingNavigation(state, deps, spreadIndex);
     },
     notifyLayoutCommitted() {
       if (state.disposed) return;
@@ -119,7 +112,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
     supersedeForPositionIntent: () => {
       if (state.disposed) return;
       deps.onContentInteractionIntent?.();
-      supersedeNavigationForPositionIntent(state, deps.td);
+      navState.supersedeNavigationForPositionIntent(state, deps.td);
     },
     dispose() {
       disposeNavigation(state);
@@ -127,28 +120,25 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
   };
 }
 
-function disposeNavigation(state: NavigationState): void {
+function disposeNavigation(state: State): void {
   if (state.disposed) return;
   state.disposed = true;
   state.navigationAttemptId += 1;
-  clearPendingNavigation(state);
+  navState.clearPendingNavigation(state);
 }
 
-function createLocatorNavigator(
-  state: NavigationState,
-  deps: NavigationDeps,
-): (spreadIndex: number) => void {
+function createLocatorNavigator(state: State, deps: NavigationDeps): (spreadIndex: number) => void {
   return (spreadIndex): void => {
     replaceWithNavigation(state, deps, goToSpread(state, deps, spreadIndex));
   };
 }
 
-function startNavigation(state: NavigationState, deps: NavigationDeps, index: number): void {
+function startNavigation(state: State, deps: NavigationDeps, index: number): void {
   replaceWithNavigation(state, deps, goToSpread(state, deps, index));
 }
 
 function startGestureNavigation(
-  state: NavigationState,
+  state: State,
   deps: NavigationDeps,
   index: number,
   onTransitionStart: () => void,
@@ -158,7 +148,7 @@ function startGestureNavigation(
     onUnavailable?.();
     return { cancel() {} };
   }
-  const request: GestureNavigationRequest = {
+  const request: GestureRequest = {
     onTransitionStart,
     ...(onUnavailable ? { onUnavailable } : {}),
     started: false,
@@ -171,7 +161,7 @@ function startGestureNavigation(
       request.cancelled = true;
       if (state.pendingNavigation?.gesture === request) {
         state.navigationAttemptId += 1;
-        clearPendingNavigation(state);
+        navState.clearPendingNavigation(state);
         deps.onNavigationCancelled?.();
       }
     },
@@ -179,33 +169,33 @@ function startGestureNavigation(
 }
 
 function goToSpread(
-  state: NavigationState,
+  state: State,
   deps: NavigationDeps,
   index: number,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
+  gesture?: GestureRequest,
+): Attempt {
   const initialReader = deps.getReader();
   if (state.disposed || !initialReader) return { claimedIntent: false };
-  const initialTarget = navigationTarget(initialReader, index);
+  const initialTarget = growth.navigationTarget(initialReader, index);
   const initialPrevious = deps.getCurrentSpread();
-  const attemptId = claimNavigationAttempt(state, deps);
+  const attemptId = jump.claimNavigationAttempt(state, deps);
   if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
   if (initialTarget.index === initialPrevious && !initialTarget.pagination) {
     return completeNoOpNavigation(deps, attemptId, gesture);
   }
 
-  const continuityDx = deps.td.isAnimating ? settleNavigationForContinuity(deps.td) : 0;
+  const continuityDx = deps.td.isAnimating ? navState.settleNavigationForContinuity(deps.td) : 0;
   const previous = deps.getCurrentSpread();
   if (attemptId !== state.navigationAttemptId) return { claimedIntent: true, attemptId };
   const reader = deps.getReader();
   if (!reader) return { claimedIntent: true, attemptId };
-  const target = navigationTarget(reader, index);
+  const target = growth.navigationTarget(reader, index);
   if (target.index === previous && !target.pagination) {
     return completeNoOpNavigation(deps, attemptId, gesture);
   }
 
   if (target.pagination) {
-    return createSpreadGrowthAttempt(
+    return growth.createSpreadGrowthAttempt(
       state,
       deps,
       target.pagination,
@@ -230,17 +220,17 @@ function goToSpread(
 }
 
 function createKnownSpreadAttempt(
-  state: NavigationState,
+  state: State,
   deps: NavigationDeps,
   reader: Reader,
   attemptId: number,
   target: number,
   previous: number,
   continuityDx: number,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
+  gesture?: GestureRequest,
+): Attempt {
   const direction = target > previous ? 'forward' : 'backward';
-  if (!ensureIncomingSlot(deps, target, direction)) {
+  if (!growth.ensureIncomingSlot(deps, target, direction)) {
     deps.frameDriver.scheduleComposite();
     return {
       claimedIntent: true,
@@ -272,8 +262,8 @@ function createKnownSpreadAttempt(
 function completeNoOpNavigation(
   deps: NavigationDeps,
   attemptId: number,
-  gesture?: GestureNavigationRequest,
-): NavigationAttempt {
+  gesture?: GestureRequest,
+): Attempt {
   if (gesture && !gesture.started) {
     gesture.cancelled = true;
     gesture.onUnavailable?.();
@@ -282,13 +272,9 @@ function completeNoOpNavigation(
   return { claimedIntent: true, attemptId };
 }
 
-function replaceWithNavigation(
-  state: NavigationState,
-  deps: NavigationDeps,
-  attempt: NavigationAttempt,
-): void {
+function replaceWithNavigation(state: State, deps: NavigationDeps, attempt: Attempt): void {
   if (!attempt.claimedIntent) {
-    const cancelledIntent = clearPendingNavigation(state);
+    const cancelledIntent = navState.clearPendingNavigation(state);
     if (cancelledIntent) {
       state.navigationAttemptId += 1;
       deps.onNavigationCancelled?.();

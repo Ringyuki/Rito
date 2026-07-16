@@ -79,8 +79,8 @@ function buildPointerMethods(
     handlePointerUp(input) {
       handleUp(data, input);
     },
-    setSpread(_spread, _config, _measurer, projection) {
-      setSpread(data, projection);
+    setSpread(_spread, _config, _measurer, projection, update) {
+      setSpread(data, projection, update?.preserveNativeHandleDrag === true);
     },
   };
 }
@@ -178,10 +178,18 @@ function handleUp(data: AdapterData, input: PointerInput): void {
   else data.native.clear();
 }
 
-function setSpread(data: AdapterData, projection: NativeSelectionProjection | undefined): void {
+function setSpread(
+  data: AdapterData,
+  projection: NativeSelectionProjection | undefined,
+  preserveNativeHandleDrag: boolean,
+): void {
   if (data.disposed) return;
   data.projection = projection;
   data.lastValidPoint = undefined;
+  if (preserveNativeHandleDrag && data.native.hasActiveHandleDrag()) {
+    handleNativeChange(data);
+    return;
+  }
   clearProjectedSelection(data);
   data.native.invalidate();
 }

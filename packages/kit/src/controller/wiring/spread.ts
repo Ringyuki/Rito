@@ -32,12 +32,15 @@ export function coordinateOnSpreadRendered(
   const generation = ++state.spreadCoordinationGeneration;
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
+  const preserveNativeHandleDrag =
+    state.selectionProjectionTransfer?.targetSpreadIndex === spreadIndex;
 
   engines.selection.setSpread(
     asLegacySpread(spread),
     mapper.selectionConfig,
     reader.measurer,
     mapper,
+    { preserveNativeHandleDrag },
   );
   if (generation !== state.spreadCoordinationGeneration) return false;
   rebuildHitMaps(spread, state);

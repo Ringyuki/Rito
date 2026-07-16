@@ -1,6 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildSelectionAccessors } from '../src/controller/facade/selection-accessors';
+import { SELECTION_EDGE_DWELL_MS } from '../src/controller/facade/selection-edge-navigation';
 import type { Internals } from '../src/controller/facade/types';
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe('selection handle controller facade', () => {
   it('keeps the initial grab offset while converting client input to spread content', () => {
@@ -33,7 +38,7 @@ describe('selection handle controller facade', () => {
     const canvas = {
       getBoundingClientRect: () => ({ left: 100, top: 50 }),
     } as unknown as HTMLCanvasElement;
-    const accessors = buildSelectionAccessors(internals, canvas);
+    const accessors = buildSelectionAccessors(internals, canvas, navStub());
 
     // End caret center is (240, 180) in client space; grab it 10px right / 15px below.
     const drag = accessors.beginSelectionHandleDrag('end', { clientX: 250, clientY: 195 });
@@ -61,7 +66,7 @@ describe('selection handle controller facade', () => {
       },
       coordState: { mapper: null },
     } as unknown as Internals;
-    const accessors = buildSelectionAccessors(internals, {} as HTMLCanvasElement);
+    const accessors = buildSelectionAccessors(internals, {} as HTMLCanvasElement, navStub());
 
     expect(
       accessors.beginSelectionHandleDrag('start', { clientX: Number.NaN, clientY: 0 }),
@@ -92,6 +97,51 @@ describe('selection handle controller facade', () => {
     expect(fixture.nativeDrag.finish).toHaveBeenCalledOnce();
     expect(fixture.nativeDrag.cancel).not.toHaveBeenCalled();
   });
+
+  it('snaps to a known adjacent spread and replays against its clamped content edge', () => {
+    vi.useFakeTimers();
+    const nativeDrag = { update: vi.fn(), finish: vi.fn(), cancel: vi.fn() };
+    const coordState = {
+      mapper: mapperWithWidth(300),
+      selectionProjectionTransfer: null as { readonly targetSpreadIndex: number } | null,
+    };
+    const internals = {
+      currentSpread: 0,
+      renderScale: 1,
+      reader: { totalSpreads: 2 },
+      engines: {
+        selection: {
+          getHandleCarets: () => ({
+            start: { x: 10, y: 20, width: 0, height: 10 },
+            end: { x: 30, y: 20, width: 0, height: 10 },
+            focusEdge: 'end',
+          }),
+          beginHandleDrag: () => nativeDrag,
+        },
+      },
+      coordState,
+    } as unknown as Internals;
+    const canvas = {
+      getBoundingClientRect: () => ({ left: 0, right: 300, top: 0, bottom: 200 }),
+    } as unknown as HTMLCanvasElement;
+    const jumpToSpreadIfReady = vi.fn((target: number) => {
+      internals.currentSpread = target;
+      coordState.mapper = mapperWithWidth(100);
+      return 'committed' as const;
+    });
+    const accessors = buildSelectionAccessors(internals, canvas, {
+      jumpToSpreadIfReady,
+      prepareSpreadForJump: vi.fn(() => 'ready'),
+    } as never);
+    const drag = accessors.beginSelectionHandleDrag('end', { clientX: 30, clientY: 25 });
+
+    drag?.update({ clientX: 298, clientY: 25 });
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
+
+    expect(jumpToSpreadIfReady).toHaveBeenCalledWith(1, true);
+    expect(nativeDrag.update).toHaveBeenNthCalledWith(1, { x: 298, y: 25 });
+    expect(nativeDrag.update).toHaveBeenNthCalledWith(2, { x: 100, y: 25 });
+  });
 });
 
 function handleAccessorsFixture() {
@@ -120,9 +170,34 @@ function handleAccessorsFixture() {
     getBoundingClientRect: () => ({ left: 0, top: 0 }),
   } as unknown as HTMLCanvasElement;
   return {
-    accessors: buildSelectionAccessors(internals, canvas),
+    accessors: buildSelectionAccessors(internals, canvas, navStub()),
     cssToSpreadContent,
     nativeDrag,
     origin: { clientX: 10, clientY: 25 },
+  };
+}
+
+function navStub() {
+  return {
+    jumpToSpreadIfReady: vi.fn(() => 'not-ready'),
+    prepareSpreadForJump: vi.fn(() => 'not-ready'),
+  } as never;
+}
+
+function mapperWithWidth(contentWidth: number) {
+  return {
+    spreadContentRectToViewport: (rect: { readonly x: number; readonly y: number }) => rect,
+    cssToSpreadContent: (x: number, y: number) => ({ x, y }),
+    getPages: () => [
+      {
+        pageIndex: 0,
+        side: 'single' as const,
+        contentOriginX: 0,
+        contentOriginY: 0,
+        spreadContentOriginX: 0,
+        contentWidth,
+        contentHeight: 100,
+      },
+    ],
   };
 }

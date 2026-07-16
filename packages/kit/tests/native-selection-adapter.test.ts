@@ -254,6 +254,76 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getFocusRect()).toEqual({ x: 330, y: 0, width: 0, height: 18 });
   });
 
+  it('reprojects an active handle session onto a known spread without invalidating it', async () => {
+    const start = caret(10);
+    const end = caret(40);
+    const movedEnd = caret(80, 1);
+    const baseline = exactRange(start, end);
+    const moved = exactRange(start, movedEnd);
+    const resolveCaret = vi
+      .fn<ReaderTextSelectionInteractions['resolveCaret']>()
+      .mockResolvedValue({ status: 'resolved', pageIndex: 1, spreadIndex: 1, caret: movedEnd });
+    const capability: ReaderTextSelectionInteractions = {
+      resolveCaret,
+      resolveTextRange: vi.fn().mockResolvedValue({ status: 'resolved', range: moved }),
+      resolveTextRangeFromPoints: vi
+        .fn()
+        .mockResolvedValue({ status: 'resolved', range: baseline }),
+    };
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    engine.handlePointerUp({ x: 10, y: 12 });
+    await flushMicrotasks();
+
+    const drag = engine.beginHandleDrag('end');
+    expect(drag).not.toBeNull();
+    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
+      preserveNativeHandleDrag: true,
+    });
+
+    expect(engine.getState()).toBe('selecting');
+    expect(engine.hasSelection()).toBe(true);
+    expect(engine.getHandleCarets()).toEqual({
+      start: null,
+      end: null,
+      focusEdge: 'end',
+    });
+
+    drag?.finish({ x: 80, y: 12 });
+    await flushMicrotasks();
+
+    expect(resolveCaret).toHaveBeenCalledWith({ pageIndex: 1, x: 80, y: 12 });
+    expect(engine.getState()).toBe('selected');
+    expect(engine.getText()).toBe('exact text');
+    expect(engine.getHandleCarets()).toEqual({
+      start: null,
+      end: { x: 80, y: 0, width: 0, height: 18 },
+      focusEdge: 'end',
+    });
+  });
+
+  it('does not preserve a retained range when no handle session owns the transfer', async () => {
+    const range = exactRange(caret(10), caret(40));
+    const capability: ReaderTextSelectionInteractions = {
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+    };
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    engine.handlePointerUp({ x: 10, y: 12 });
+    await flushMicrotasks();
+
+    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
+      preserveNativeHandleDrag: true,
+    });
+
+    expect(engine.getState()).toBe('idle');
+    expect(engine.hasSelection()).toBe(false);
+  });
+
   it('invalidates an in-flight caret when the visible spread changes', async () => {
     const pending =
       deferred<Awaited<ReturnType<ReaderTextSelectionInteractions['resolveCaret']>>>();
@@ -386,4 +456,12 @@ function exactRange(
 
 function rect(x: number, y: number) {
   return { x, y, width: 300, height: 400 };
+}
+
+function singlePageProjection(pageIndex: number): NativeSelectionProjection {
+  return {
+    spreadContentToPage: (x, y) => ({ pageIndex, x, y }),
+    isPageVisible: (candidate) => candidate === pageIndex,
+    pageContentToSpread: (_candidate, value) => value,
+  };
 }

@@ -133,6 +133,38 @@ describe('Reader touch selection handles', () => {
 
     expect(session.cancel).toHaveBeenCalledOnce();
   });
+
+  it('keeps the captured handle mounted at its latest visible caret during spread transfer', () => {
+    const session = handleDragStub();
+    const stub = controllerStub(session);
+    act(() => {
+      root.render(<Reader controller={stub.controller} />);
+    });
+    showTouchSelection(container, stub);
+    const captured = requireHandle(container, 'end');
+    installPointerCaptureStub(captured);
+
+    act(() => {
+      captured.dispatchEvent(pointerEvent('pointerdown', 'touch'));
+      stub.emit('selectionChange', selectionEvent(emptyHandleProjection('end')));
+    });
+
+    expect(requireHandle(container, 'end')).toBe(captured);
+    expect(captured.style.left).toBe('58px');
+
+    act(() => {
+      stub.emit('selectionChange', selectionEvent(crossedHandleProjection()));
+    });
+    expect(requireHandle(container, 'end')).toBe(captured);
+    expect(captured.style.left).toBe('108px');
+
+    act(() => {
+      stub.emit('selectionChange', selectionEvent(emptyHandleProjection('start')));
+    });
+    expect(requireHandle(container, 'end')).toBe(captured);
+    expect(captured.style.left).toBe('108px');
+    expect(session.cancel).not.toHaveBeenCalled();
+  });
 });
 
 function showTouchSelection(
@@ -191,7 +223,9 @@ function rect(left: number, top: number): DOMRect {
   } as DOMRect;
 }
 
-function selectionEvent(): ReaderControllerEvents['selectionChange'] {
+function selectionEvent(
+  handles: ReaderControllerEvents['selectionChange']['handles'] = defaultHandleProjection(),
+): ReaderControllerEvents['selectionChange'] {
   return {
     range: null,
     sourceLocator: {
@@ -206,11 +240,33 @@ function selectionEvent(): ReaderControllerEvents['selectionChange'] {
     rects: [{ x: 10, y: 10, width: 30, height: 10 }],
     viewportRects: [{ x: 10, y: 10, width: 30, height: 10 }],
     focusRect: { x: 40, y: 10, width: 0, height: 10 },
-    handles: {
-      start: { x: 10, y: 10, width: 0, height: 10 },
-      end: { x: 40, y: 10, width: 0, height: 10 },
-      focusEdge: 'end',
-    },
+    handles,
+  };
+}
+
+function defaultHandleProjection(): NonNullable<
+  ReaderControllerEvents['selectionChange']['handles']
+> {
+  return {
+    start: { x: 10, y: 10, width: 0, height: 10 },
+    end: { x: 40, y: 10, width: 0, height: 10 },
+    focusEdge: 'end',
+  };
+}
+
+function emptyHandleProjection(
+  focusEdge: 'start' | 'end',
+): NonNullable<ReaderControllerEvents['selectionChange']['handles']> {
+  return { start: null, end: null, focusEdge };
+}
+
+function crossedHandleProjection(): NonNullable<
+  ReaderControllerEvents['selectionChange']['handles']
+> {
+  return {
+    start: { x: 65, y: 10, width: 0, height: 10 },
+    end: { x: 40, y: 10, width: 0, height: 10 },
+    focusEdge: 'start',
   };
 }
 

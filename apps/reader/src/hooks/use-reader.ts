@@ -74,6 +74,7 @@ export function useReader(
   const selection = useSelection(rito.controller);
   const search = useSearch(rito.controller);
   const annotations = useAnnotations(rito.controller);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Content interaction events
   const [pendingLink, setPendingLink] = useState<ReaderControllerEvents['linkClick'] | null>(null);
@@ -92,6 +93,16 @@ export function useReader(
   useControllerEvent(rito.controller, 'searchOpen', () => {
     setSearchOpen(true);
   });
+  useControllerEvent(rito.controller, 'transitionStart', () => {
+    setIsTransitioning(true);
+  });
+  useControllerEvent(rito.controller, 'transitionEnd', () => {
+    setIsTransitioning(false);
+  });
+
+  useEffect(() => {
+    setIsTransitioning(false);
+  }, [rito.controller]);
 
   // Disable keyboard navigation while lightbox is open (including exit animation)
   useEffect(() => {
@@ -230,6 +241,7 @@ export function useReader(
     lineHeightForce,
     fontFamily,
     lineBreaking,
+    isTransitioning,
     bookTitle,
     activeChapterHref,
     loadFromArrayBuffer,

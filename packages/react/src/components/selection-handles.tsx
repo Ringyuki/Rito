@@ -45,6 +45,10 @@ function SelectionHandlesLayer({
   controller,
   drag,
 }: SelectionHandlesLayerProps): React.JSX.Element {
+  const projectedMovingCaret = handles.focusEdge ? handles[handles.focusEdge] : null;
+  useLayoutEffect(() => {
+    drag.rememberVisibleCaret(projectedMovingCaret);
+  }, [drag, projectedMovingCaret]);
   const displayed = resolveDisplayedCarets(handles, drag.activeVisual);
   return (
     <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
@@ -60,7 +64,7 @@ function SelectionHandlesLayer({
             scale={controller.renderScale}
             active={drag.activeVisual?.edge === edge}
             onPointerDown={(event) => {
-              drag.begin(edge, event);
+              drag.begin(edge, caret, event);
             }}
             onPointerMove={drag.move}
             onPointerUp={drag.finish}
@@ -122,7 +126,7 @@ function resolveDisplayedCarets(
   active: ActiveDragVisual | null,
 ): Pick<SelectionHandleState, 'start' | 'end'> {
   if (!active || !handles.focusEdge) return handles;
-  const moving = handles[handles.focusEdge];
+  const moving = handles[handles.focusEdge] ?? active.fallbackCaret;
   const fixed = handles[handles.focusEdge === 'start' ? 'end' : 'start'];
   return active.edge === 'start' ? { start: moving, end: fixed } : { start: fixed, end: moving };
 }

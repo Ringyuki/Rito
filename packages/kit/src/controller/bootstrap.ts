@@ -225,6 +225,7 @@ function createRuntimeNavigation(
       internals.engines.position?.claimIntent();
     },
     onContentInteractionIntent: () => {
+      internals.coordState.selectionProjectionTransfer = null;
       internals.coordState.contentInteractionGeneration += 1;
     },
     onNavigationCancelled: () => {
@@ -232,6 +233,15 @@ function createRuntimeNavigation(
     },
     onPaginationChanged: () => {
       publishPaginationChange(internals, emitter, frameDriver);
+    },
+    beginSelectionProjectionTransfer: (targetSpreadIndex) => {
+      const transfer = { targetSpreadIndex };
+      internals.coordState.selectionProjectionTransfer = transfer;
+      return () => {
+        if (internals.coordState.selectionProjectionTransfer === transfer) {
+          internals.coordState.selectionProjectionTransfer = null;
+        }
+      };
     },
   });
 }

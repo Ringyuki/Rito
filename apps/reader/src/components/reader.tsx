@@ -44,6 +44,8 @@ export function Reader({
       data-loading={reader.isLoading ? 'true' : 'false'}
       data-current-spread={reader.currentSpread}
       data-total-spreads={reader.totalSpreads}
+      data-pagination-complete={reader.controller?.paginationComplete === true ? 'true' : 'false'}
+      data-transitioning={reader.isTransitioning ? 'true' : 'false'}
       data-book-title={reader.bookTitle}
       data-active-chapter-href={reader.activeChapterHref}
       data-spread-mode={reader.spreadMode}

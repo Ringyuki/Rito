@@ -60,6 +60,7 @@ export function createNativeSelectionEngine(
     },
     getState: () => data.state,
     getSnapshot: () => data.snapshot,
+    hasActiveHandleDrag: () => data.session?.handleDrag !== undefined,
     onChange: (listener) => subscribeNativeSelection(data, listener),
   };
 }

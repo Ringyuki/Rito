@@ -28,7 +28,7 @@ import type {
   SelectionHandleDrag,
   SelectionHandleEdge,
 } from './handle-types';
-import type { NativeSelectionGranularity } from './native-types';
+import type { NativeSelectionGranularity, SelectionSpreadUpdate } from './native-types';
 
 export type {
   SelectionHandleCarets,
@@ -80,6 +80,7 @@ export interface SelectionEngine {
     config: LayoutConfig,
     measurer: TextMeasurer,
     nativeProjection?: NativeSelectionProjection,
+    update?: SelectionSpreadUpdate,
   ): void;
   /** Returns the selection range in document order (start <= end). */
   getSelection(): TextRange | null;

@@ -26,6 +26,31 @@ function createReader() {
 }
 
 describe('coordinateOnSpreadRendered position updates', () => {
+  it('applies a matching same-revision projection transfer without consuming its scope', () => {
+    const state = createCoordinatorState();
+    const setSpread = vi.fn();
+    const transfer = { targetSpreadIndex: 0 };
+    state.selectionProjectionTransfer = transfer;
+
+    coordinateOnSpreadRendered(
+      0,
+      spread,
+      { selection: { setSpread }, search: {}, position: null } as never,
+      createReader() as never,
+      state,
+      1,
+    );
+
+    expect(setSpread).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      expect.anything(),
+      { preserveNativeHandleDrag: true },
+    );
+    expect(state.selectionProjectionTransfer).toBe(transfer);
+  });
+
   it('projects a preserved position instead of recapturing from the rendered spread', () => {
     const state = createCoordinatorState();
     const position = {

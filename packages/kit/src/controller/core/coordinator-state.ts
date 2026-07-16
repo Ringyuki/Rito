@@ -42,6 +42,10 @@ export type PositionUpdateMode =
       readonly intent?: PositionIntent;
     };
 
+export interface SelectionProjectionTransfer {
+  readonly targetSpreadIndex: number;
+}
+
 export interface CoordinatorState {
   /** Invalidates an outer spread coordination pass when callbacks re-enter with a newer spread. */
   spreadCoordinationGeneration: number;
@@ -72,6 +76,8 @@ export interface CoordinatorState {
   contentInteractionGeneration: number;
   /** One-shot position behavior for the next active spread notification. */
   positionUpdateMode: PositionUpdateMode;
+  /** Synchronous same-revision projection transaction for an active handle drag. */
+  selectionProjectionTransfer: SelectionProjectionTransfer | null;
 }
 
 export function createCoordinatorState(): CoordinatorState {
@@ -91,5 +97,6 @@ export function createCoordinatorState(): CoordinatorState {
     activeImageBlobUrl: null,
     contentInteractionGeneration: 0,
     positionUpdateMode: { kind: 'capture' },
+    selectionProjectionTransfer: null,
   };
 }

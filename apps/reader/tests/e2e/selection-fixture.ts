@@ -12,6 +12,9 @@ export const CJK_FIRST_LINE = '独居生活开始';
 export const CJK_SECOND_LINE = '帮他做饭打扫';
 export const CJK_CROSS_FLOW_LINE = '高亮区域精确对齐';
 export const CJK_SELECTION_TEXT = `${CJK_FIRST_LINE}\n${CJK_SECOND_LINE}`;
+export const EDGE_FIRST_PAGE_TEXT = 'EDGEALPHA';
+export const EDGE_SECOND_PAGE_TEXT = 'EDGEBRAVO';
+export const EDGE_SELECTION_TEXT = `${EDGE_FIRST_PAGE_TEXT}\n\n${EDGE_SECOND_PAGE_TEXT}`;
 
 type ZipEntry = Uint8Array | [Uint8Array, { readonly level: number }];
 
@@ -19,9 +22,10 @@ interface FflateApi {
   zipSync(files: Record<string, ZipEntry>): Uint8Array;
 }
 
-interface SelectionFixtureOptions {
+export interface SelectionFixtureOptions {
   readonly includeImage?: boolean;
   readonly locale?: 'latin' | 'cjk';
+  readonly layout?: 'compact' | 'edge-pages';
 }
 
 export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}): Buffer {
@@ -31,10 +35,17 @@ export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}
   const firstLine = cjk ? CJK_FIRST_LINE : SAME_FLOW_FIRST_LINE;
   const secondLine = cjk ? CJK_SECOND_LINE : SAME_FLOW_SECOND_LINE;
   const crossFlowLine = cjk ? CJK_CROSS_FLOW_LINE : CROSS_FLOW_LINE;
+  const edgePages = options.layout === 'edge-pages';
   const imageManifest = options.includeImage
     ? '<item id="pixel" href="Images/pixel.png" media-type="image/png"/>'
     : '';
   const imageElement = options.includeImage ? '<img src="../Images/pixel.png" alt=""/>' : '';
+  const body = edgePages
+    ? `<p>${EDGE_FIRST_PAGE_TEXT}</p>
+    <p class="edge-page">${EDGE_SECOND_PAGE_TEXT}</p>`
+    : `<p>${firstLine}<br/>${secondLine}</p>
+    <p>${crossFlowLine}</p>
+    ${imageElement}`;
   const files: Record<string, ZipEntry> = {
     mimetype: [encoder.encode('application/epub+zip'), { level: 0 }],
     'META-INF/container.xml': encoder.encode(`<?xml version="1.0" encoding="UTF-8"?>
@@ -61,9 +72,7 @@ export function createSelectionFixtureEpub(options: SelectionFixtureOptions = {}
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en">
   <head><link rel="stylesheet" type="text/css" href="../book.css"/></head>
   <body>
-    <p>${firstLine}<br/>${secondLine}</p>
-    <p>${crossFlowLine}</p>
-    ${imageElement}
+    ${body}
   </body>
 </html>`),
     'OEBPS/book.css': encoder.encode(`
@@ -78,6 +87,10 @@ body {
 }
 p { margin: 0; }
 p + p { margin-top: 64px; }
+.edge-page {
+  margin-top: 0;
+  break-before: page;
+}
 img {
   display: block;
   width: 64px;

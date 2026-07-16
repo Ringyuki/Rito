@@ -58,7 +58,7 @@ export function buildLayoutActions(
 function applyRenderScale(scale: number, internals: Internals, runtime: RuntimeComponents): void {
   requireRenderScale(scale);
   if (scale === internals.renderScale) return;
-  internals.engines.selection.invalidate();
+  invalidateSelectionForLayout(internals);
   internals.renderScale = scale;
   syncCanvasSize(internals, runtime);
   runtime.pool.invalidateAllContent();
@@ -101,11 +101,7 @@ export function commitLayoutChange(
     committedSpreadIndex ?? internals.currentSpread,
   );
   const preserved = positionPlan?.kind === 'legacy' ? positionPlan.position : null;
-  const clearedNativeAnnotationHover = usesNativeAnnotationGeometry(internals.reader);
-  if (clearedNativeAnnotationHover) invalidateNativeAnnotationGeometry(internals.coordState);
-  if (usesNativeSearchGeometry(internals.reader)) {
-    invalidateNativeSearchLayout(internals.coordState);
-  }
+  const clearedNativeAnnotationHover = invalidateNativeLayoutGeometry(internals);
   const previousSpread = internals.currentSpread;
   internals.currentSpread =
     committedSpreadIndex === undefined
@@ -127,8 +123,10 @@ export function commitLayoutChange(
   } else {
     internals.coordState.positionUpdateMode = { kind: 'capture' };
   }
-  internals.reader.notifyActiveSpread(committedSpread);
-  internals.engines.selection.invalidate();
+  invalidateSelectionForLayout(internals);
+  if (internals.currentSpread === committedSpread) {
+    internals.reader.notifyActiveSpread(committedSpread);
+  }
   internals.engines.search.setPages(asLegacyPages(internals.reader.pages));
   runtime.frameDriver.compositeNow();
 
@@ -145,7 +143,7 @@ export function publishPaginationChange(
   emitter: Emitter,
   frameDriver: Pick<FrameDriver, 'markAllOverlaysDirty'>,
 ): void {
-  internals.engines.selection.invalidate();
+  invalidateSelectionForLayout(internals);
   if (usesNativeSearchGeometry(internals.reader)) {
     invalidateNativeSearchLayout(internals.coordState);
   }
@@ -157,6 +155,20 @@ export function publishPaginationChange(
     emitter.emit('annotationHover', { annotation: null, x: 0, y: 0 });
   }
   emitLayoutChange(internals, emitter);
+}
+
+function invalidateSelectionForLayout(internals: Internals): void {
+  internals.coordState.selectionProjectionTransfer = null;
+  internals.engines.selection.invalidate();
+}
+
+function invalidateNativeLayoutGeometry(internals: Internals): boolean {
+  const clearedAnnotationHover = usesNativeAnnotationGeometry(internals.reader);
+  if (clearedAnnotationHover) invalidateNativeAnnotationGeometry(internals.coordState);
+  if (usesNativeSearchGeometry(internals.reader)) {
+    invalidateNativeSearchLayout(internals.coordState);
+  }
+  return clearedAnnotationHover;
 }
 
 function refreshPaginationAnnotations(internals: Internals): boolean {

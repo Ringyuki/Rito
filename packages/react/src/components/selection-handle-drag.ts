@@ -5,15 +5,25 @@ import {
   type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from 'react';
-import type { ReaderController, SelectionHandleDrag, SelectionHandleEdge } from '@ritojs/kit';
+import type {
+  ReaderController,
+  SelectionHandleDrag,
+  SelectionHandleEdge,
+  SelectionHandleState,
+} from '@ritojs/kit';
+
+type SelectionHandleCaret = NonNullable<SelectionHandleState['start']>;
 
 export interface ActiveDragVisual {
   readonly edge: SelectionHandleEdge;
+  readonly fallbackCaret: SelectionHandleCaret;
 }
 
 interface ActiveDragSession {
   readonly pointerId: number;
   readonly drag: SelectionHandleDrag;
+  readonly edge: SelectionHandleEdge;
+  fallbackCaret: SelectionHandleCaret;
   lastPoint: { readonly clientX: number; readonly clientY: number };
 }
 
@@ -25,7 +35,12 @@ interface DragContext {
 
 interface SelectionHandleDragBindings {
   readonly activeVisual: ActiveDragVisual | null;
-  readonly begin: (edge: SelectionHandleEdge, event: ReactPointerEvent<HTMLDivElement>) => void;
+  readonly begin: (
+    edge: SelectionHandleEdge,
+    caret: SelectionHandleCaret,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => void;
+  readonly rememberVisibleCaret: (caret: SelectionHandleCaret | null) => void;
   readonly move: (event: ReactPointerEvent<HTMLDivElement>) => void;
   readonly finish: (event: ReactPointerEvent<HTMLDivElement>) => void;
   readonly cancel: (event: ReactPointerEvent<HTMLDivElement>) => void;
@@ -50,8 +65,11 @@ export function useSelectionHandleDrag(
   }, [controller]);
   return {
     activeVisual,
-    begin: (edge, event) => {
-      beginDrag(context, edge, event);
+    begin: (edge, caret, event) => {
+      beginDrag(context, edge, caret, event);
+    },
+    rememberVisibleCaret: (caret) => {
+      rememberVisibleCaret(context, caret);
     },
     move: (event) => {
       moveDrag(context, event);
@@ -71,6 +89,7 @@ export function useSelectionHandleDrag(
 function beginDrag(
   context: DragContext,
   edge: SelectionHandleEdge,
+  caret: SelectionHandleCaret,
   event: ReactPointerEvent<HTMLDivElement>,
 ): void {
   if (!context.controller || context.activeRef.current || !isTouchLikePointer(event.pointerType))
@@ -79,13 +98,26 @@ function beginDrag(
   const point = clientPoint(event);
   const drag = context.controller.beginSelectionHandleDrag(edge, point);
   if (!drag) return;
-  context.activeRef.current = { pointerId: event.pointerId, drag, lastPoint: point };
-  context.setVisual({ edge });
+  context.activeRef.current = {
+    pointerId: event.pointerId,
+    drag,
+    edge,
+    fallbackCaret: caret,
+    lastPoint: point,
+  };
+  context.setVisual({ edge, fallbackCaret: caret });
   try {
     event.currentTarget.setPointerCapture(event.pointerId);
   } catch {
     cancelActiveDrag(context);
   }
+}
+
+function rememberVisibleCaret(context: DragContext, caret: SelectionHandleCaret | null): void {
+  const active = context.activeRef.current;
+  if (!active || !caret || sameCaret(active.fallbackCaret, caret)) return;
+  active.fallbackCaret = caret;
+  context.setVisual({ edge: active.edge, fallbackCaret: caret });
 }
 
 function moveDrag(context: DragContext, event: ReactPointerEvent<HTMLDivElement>): void {
@@ -160,6 +192,15 @@ function stopPointerEvent(event: ReactPointerEvent): void {
 
 function isTouchLikePointer(pointerType: string): boolean {
   return pointerType === 'touch' || pointerType === 'pen';
+}
+
+function sameCaret(left: SelectionHandleCaret, right: SelectionHandleCaret): boolean {
+  return (
+    left.x === right.x &&
+    left.y === right.y &&
+    left.width === right.width &&
+    left.height === right.height
+  );
 }
 
 function releasePointerCapture(target: HTMLDivElement, pointerId: number): void {

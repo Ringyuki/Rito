@@ -1,21 +1,33 @@
 import { expect, test, type Page } from '@playwright/test';
 import {
   copySelection,
+  currentReaderSpread,
+  loadEdgeSelectionFixture,
   loadSelectionFixture,
   pointInsideFirstWord,
+  readerSurfaceBounds,
   requireBand,
   requireTextBands,
   selectionRectCount,
   selectionTextLength,
+  waitForVisibleDocumentText,
+  waitForReaderTransitionEnd,
 } from './reader-selection-harness';
 import {
   createReaderTouchInput,
   moveTouchAlongPath,
   type ReaderTouchInput,
 } from './reader-touch-input';
-import { SAME_FLOW_SELECTION_TEXT } from './selection-fixture';
+import { stableReaderCanvasChecksum } from './reader-page-harness';
+import {
+  EDGE_FIRST_PAGE_TEXT,
+  EDGE_SECOND_PAGE_TEXT,
+  EDGE_SELECTION_TEXT,
+  SAME_FLOW_SELECTION_TEXT,
+} from './selection-fixture';
 
 const LONG_PRESS_SETTLE_MS = 400;
+const EDGE_INSET_PX = 4;
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
@@ -136,9 +148,102 @@ test.describe('reader native touch selection acceptance', () => {
   });
 });
 
+test.describe('reader touch selection edge autoscroll acceptance', () => {
+  let touchInput: ReaderTouchInput | null = null;
+
+  test.beforeEach(async ({ page }) => {
+    touchInput = await createReaderTouchInput(page);
+    await openEmptyReader(page);
+    await loadEdgeSelectionFixture(page);
+    await prepareEdgeSelectionFixture(page);
+  });
+
+  test.afterEach(async () => {
+    await touchInput?.dispose();
+    touchInput = null;
+  });
+
+  test('autoscrolls a captured end handle into the next spread', async ({ page }) => {
+    const input = requireTouchInput(touchInput);
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    await selectTouchWord(page, input, firstLine, EDGE_FIRST_PAGE_TEXT);
+
+    const handleStart = await selectionHandleCenter(page, 'end');
+    const surface = await readerSurfaceBounds(page);
+    const edgePoint = { x: surface.right - EDGE_INSET_PX, y: handleStart.y };
+    const knobOffsetY = handleStart.y - firstLine.centerY;
+    await input.start(handleStart);
+    await moveTouchAlongPath(input, handleStart, edgePoint);
+
+    await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const secondLine = requireBand(await requireTextBands(page, 1), 0);
+    const handleEnd = {
+      x: secondLine.right,
+      y: secondLine.centerY + knobOffsetY,
+    };
+    await moveTouchAlongPath(input, edgePoint, handleEnd);
+    await input.end();
+
+    await expectReleasedSelection(page, EDGE_SELECTION_TEXT.length, 1);
+    expect(await currentReaderSpread(page)).toBe(1);
+    expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+
+  test('autoscrolls a captured start handle into the previous spread', async ({ page }) => {
+    const input = requireTouchInput(touchInput);
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const secondLine = requireBand(await requireTextBands(page, 1), 0);
+    await selectTouchWord(page, input, secondLine, EDGE_SECOND_PAGE_TEXT);
+
+    const handleStart = await selectionHandleCenter(page, 'start');
+    const surface = await readerSurfaceBounds(page);
+    const edgePoint = { x: surface.left + EDGE_INSET_PX, y: handleStart.y };
+    const knobOffsetY = handleStart.y - secondLine.centerY;
+    await input.start(handleStart);
+    await moveTouchAlongPath(input, handleStart, edgePoint);
+
+    await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(0);
+    await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const handleEnd = {
+      x: Math.max(surface.left + EDGE_INSET_PX, firstLine.left - 8),
+      y: firstLine.centerY + knobOffsetY,
+    };
+    await moveTouchAlongPath(input, edgePoint, handleEnd);
+    await input.end();
+
+    await expectReleasedSelection(page, EDGE_SELECTION_TEXT.length, 1);
+    expect(await currentReaderSpread(page)).toBe(0);
+    expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+});
+
 function requireTouchInput(input: ReaderTouchInput | null): ReaderTouchInput {
   if (!input) throw new Error('Reader touch input is unavailable');
   return input;
+}
+
+async function selectTouchWord(
+  page: Page,
+  input: ReaderTouchInput,
+  line: { readonly left: number; readonly centerY: number },
+  expectedText: string,
+): Promise<void> {
+  await input.start({ x: line.left + 10, y: line.centerY });
+  await page.waitForTimeout(LONG_PRESS_SETTLE_MS);
+  await expect(page.getByTestId('reader-shell')).toHaveAttribute(
+    'data-selection-text-length',
+    String(expectedText.length),
+  );
+  await input.end();
+  await expectReleasedSelection(page, expectedText.length, 1);
 }
 
 async function expectReleasedSelection(
@@ -162,6 +267,34 @@ async function openEmptyReader(page: Page): Promise<void> {
     localStorage.clear();
   });
   await page.reload();
+}
+
+async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
+  await page.getByTestId('reader-context-trigger').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
+  const heading = page.getByRole('heading', { name: 'Reader Settings' });
+  await expect(heading).toBeVisible();
+  await page.getByRole('button', { name: 'Single Page' }).click();
+  await page.keyboard.press('Escape');
+  await expect(heading).toBeHidden();
+
+  const shell = page.getByTestId('reader-shell');
+  await expect(shell).toHaveAttribute('data-spread-mode', 'single');
+  await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+  await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+  await expect.poll(() => currentReaderSpread(page)).toBe(1);
+  await waitForReaderTransitionEnd(page);
+  await page.keyboard.press('Home');
+  await expect.poll(() => currentReaderSpread(page)).toBe(0);
+  await waitForReaderTransitionEnd(page);
+  await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
+  await stableReaderCanvasChecksum(page);
+}
+
+async function readerNumberAttribute(page: Page, name: string): Promise<number> {
+  return Number((await page.getByTestId('reader-shell').getAttribute(name)) ?? '0');
 }
 
 async function selectionHandleCenter(
