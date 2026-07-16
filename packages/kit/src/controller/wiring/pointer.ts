@@ -38,7 +38,7 @@ export function bindPointerEvents(
     cancelPointer(context, event, true);
   };
   const onLostCapture = (event: PointerEvent): void => {
-    cancelPointer(context, event, false);
+    handleLostPointerCapture(context, event);
   };
 
   const remove = (): void => {
@@ -113,6 +113,14 @@ function handlePointerUp(context: PointerBindingContext, event: PointerEvent): v
   } finally {
     releaseCapture(context.canvas, event.pointerId);
   }
+}
+
+function handleLostPointerCapture(context: PointerBindingContext, event: PointerEvent): void {
+  if (event.buttons === 0) {
+    handlePointerUp(context, event);
+    return;
+  }
+  cancelPointer(context, event, false);
 }
 
 function cancelPointer(

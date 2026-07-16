@@ -181,6 +181,29 @@ describe('pointer selection wiring', () => {
     dispose();
   });
 
+  it('finalizes an active pointer when capture is lost after button release', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const click = vi.fn();
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      click,
+    );
+
+    dom.emit('pointerdown', pointer(7, 10, 20));
+    dom.emit('pointermove', pointer(7, 30, 40));
+    dom.emit('lostpointercapture', lostPointerCapture(7, 50, 60, 0));
+    dom.emit('pointerup', pointer(7, 70, 80));
+
+    expect(selection.up).toHaveBeenCalledOnce();
+    expect(selection.up).toHaveBeenCalledWith({ x: 50, y: 60 });
+    expect(selection.clear).not.toHaveBeenCalled();
+    expect(click).not.toHaveBeenCalled();
+    dispose();
+  });
+
   it('cancels only the active pointer without pointer-up or click dispatch', () => {
     const dom = createDomTarget();
     const selection = createSelectionHarness();
@@ -205,7 +228,7 @@ describe('pointer selection wiring', () => {
     expect(click).not.toHaveBeenCalled();
 
     dom.emit('pointerdown', pointer(9, 10, 20));
-    dom.emit('lostpointercapture', pointer(9, 10, 20));
+    dom.emit('lostpointercapture', lostPointerCapture(9, 10, 20, 1));
     dom.emit('pointerup', pointer(9, 10, 20));
     expect(selection.clear).toHaveBeenCalledTimes(2);
     expect(selection.up).not.toHaveBeenCalled();
@@ -258,6 +281,23 @@ describe('pointer selection wiring', () => {
     dispose();
   });
 });
+
+function lostPointerCapture(
+  pointerId: number,
+  clientX: number,
+  clientY: number,
+  buttons: number,
+): PointerEvent {
+  return {
+    pointerId,
+    pointerType: 'mouse',
+    button: -1,
+    buttons,
+    clientX,
+    clientY,
+    detail: 0,
+  } as PointerEvent;
+}
 
 describe('touch selection wiring', () => {
   afterEach(() => {
