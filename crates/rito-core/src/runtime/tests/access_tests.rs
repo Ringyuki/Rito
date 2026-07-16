@@ -3,7 +3,7 @@ use serde_json::json;
 use super::fixture::{fixture_epub, layout, multi_chapter_fixture_epub};
 use crate::{
     interaction::{TextCaretAddress, TextCaretAffinity},
-    layout::{LineBreaking, SearchTextPosition},
+    layout::{FontVerticalMetricSample, LineBreaking, SearchTextPosition, TextMeasurementMode},
     runtime::{
         RuntimeBoundedRevisionRequest, RuntimeContinueRevisionRequest, RuntimeDocument,
         RuntimeExactSourceRangeRequest, RuntimeInitialFrameRequest, RuntimeLocatorRequest,
@@ -357,6 +357,10 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
     assert_eq!(presentation.value.toc_targets, bundle.value.toc_targets);
     assert_eq!(presentation.value.font_families, bundle.value.font_families);
     assert_eq!(
+        presentation.value.font_vertical_metric_demands,
+        bundle.value.font_vertical_metric_demands
+    );
+    assert_eq!(
         presentation.value.required_font_faces,
         bundle.value.required_font_faces
     );
@@ -371,6 +375,82 @@ fn revision_presentation_is_exact_and_omits_heavy_aggregates() {
     }
     assert!(!serialized.contains_key("footnotes"));
     assert!(!serialized.contains_key("chapterTextIndices"));
+    assert!(!serialized.contains_key("fontVerticalMetricDemands"));
+    assert!(!serde_json::to_value(&bundle.value)
+        .expect("revision bundle serializes")
+        .as_object()
+        .expect("revision bundle is an object")
+        .contains_key("fontVerticalMetricDemands"));
+}
+
+#[test]
+fn font_aware_revision_demands_exact_vertical_metric_samples() {
+    let mut document = RuntimeDocument::open(&fixture_epub()).expect("document opens");
+    let mut missing_config = layout();
+    missing_config.text_measurement = TextMeasurementMode::FontAware;
+    let missing = document
+        .create_revision(&missing_config)
+        .expect("font-aware revision exists");
+    let missing_handle = handle_for(&missing);
+    let presentation = document
+        .revision_presentation_at(&missing_handle)
+        .expect("font-aware presentation resolves");
+    let bundle = document
+        .revision_bundle_at(&missing_handle, true)
+        .expect("font-aware bundle resolves");
+    let demands = presentation
+        .value
+        .font_vertical_metric_demands
+        .clone()
+        .expect("missing samples produce demands");
+
+    assert!(!demands.is_empty());
+    assert_eq!(
+        presentation.value.font_vertical_metric_demands,
+        bundle.value.font_vertical_metric_demands
+    );
+    assert!(serde_json::to_value(&presentation.value)
+        .expect("font-aware presentation serializes")
+        .as_object()
+        .expect("font-aware presentation is an object")
+        .contains_key("fontVerticalMetricDemands"));
+
+    let mut fulfilled_config = missing_config;
+    fulfilled_config.font_vertical_metrics = demands
+        .into_iter()
+        .map(|demand| FontVerticalMetricSample {
+            font_family: demand.font_family,
+            font_style: demand.font_style,
+            font_weight: demand.font_weight,
+            font_size_px: demand.font_size_px,
+            top_baseline_ascent_px: demand.font_size_px * 0.8,
+            top_baseline_descent_px: demand.font_size_px * 0.2,
+        })
+        .collect();
+    let fulfilled = document
+        .create_revision(&fulfilled_config)
+        .expect("revision with exact samples exists");
+    let fulfilled_handle = handle_for(&fulfilled);
+    let fulfilled_presentation = document
+        .revision_presentation_at(&fulfilled_handle)
+        .expect("fulfilled presentation resolves");
+    let fulfilled_bundle = document
+        .revision_bundle_at(&fulfilled_handle, true)
+        .expect("fulfilled bundle resolves");
+
+    assert_eq!(
+        fulfilled_presentation.value.font_vertical_metric_demands,
+        None
+    );
+    assert_eq!(
+        fulfilled_presentation.value.font_vertical_metric_demands,
+        fulfilled_bundle.value.font_vertical_metric_demands
+    );
+    assert!(!serde_json::to_value(&fulfilled_presentation.value)
+        .expect("fulfilled presentation serializes")
+        .as_object()
+        .expect("fulfilled presentation is an object")
+        .contains_key("fontVerticalMetricDemands"));
 }
 
 #[test]

@@ -7,7 +7,9 @@ use serde_json::{Map, Value};
 
 use super::{
     inline_segment::{AtomSegment, InlineSegment},
-    line::{AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox},
+    line::{
+        AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox, TextRunInteractionGeometry,
+    },
     line_break::{utf16_len, LineBreakOptions, Utf16Text},
     line_metrics::{line_height_px, measure_text_slice_with_fonts, vertical_align_offset},
     line_prefix::should_probe_bounded,
@@ -340,6 +342,7 @@ struct BuildTextRunInput<'a> {
     is_end: bool,
     source_provenance: RunSourceProvenance,
     context: &'a LineContext,
+    fonts: &'a TextMeasurementFonts<'a>,
     shape: RunShape,
 }
 
@@ -351,6 +354,10 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         base_font_size(input.context),
     );
     let height = line_height_px(&input.range.style);
+    let interaction_geometry = input
+        .fonts
+        .vertical_metrics_for_style(&TextMeasurementStyle::from_style(&input.range.style))
+        .and_then(|metrics| TextRunInteractionGeometry::from_font_metrics(metrics, height));
     TextRunBox {
         text: input.text,
         text_mapping: input.text_mapping,
@@ -359,6 +366,7 @@ fn build_text_run(input: BuildTextRunInput<'_>) -> TextRunBox {
         width: input.width,
         height,
         font_size,
+        interaction_geometry,
         paint: run_paint_value(&input.range.style, input.is_start, input.is_end),
         line_height_px: number_style(&input.range.style, "lineHeightPx"),
         href: input.range.href.clone(),
@@ -411,20 +419,118 @@ fn consume_newline(text: &Utf16Text<'_>, pos: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use std::num::NonZeroUsize;
+    use std::{collections::BTreeMap, num::NonZeroUsize};
 
     use serde_json::{json, Map, Value};
 
     use super::{layout_greedy_lines, layout_greedy_lines_with_fonts, GreedyLineLayoutSession};
     use crate::layout::{
         inline_segment::{InlineSegment, TextSegment},
+        line::{LineRun, TextRunBox},
         text_mapping::TextSegmentMapping,
-        text_measure::TextMeasurementFonts,
+        text_measure::{TextMeasurementCache, TextMeasurementFonts},
         text_work::{TextWorkBudget, TextWorkMeter},
         text_work_trace::capture_text_work_trace,
+        FontVerticalMetricSample,
     };
 
     mod real_font_resumption;
+
+    #[test]
+    fn line_height_centers_the_exact_font_box_without_changing_its_height() {
+        let fonts = vertical_metric_fonts(vec![vertical_metrics(
+            "serif", "normal", 400, 20.0, 4.0, 20.0,
+        )]);
+        let build = |line_height_px: f64| {
+            let style = Map::from_iter([
+                ("fontSize".to_owned(), json!(20)),
+                ("lineHeightPx".to_owned(), json!(line_height_px)),
+            ]);
+            first_text_run(&layout_greedy_lines_with_fonts(
+                &[text_segment("text".to_owned(), style)],
+                200.0,
+                &fonts,
+            ))
+            .clone()
+        };
+
+        let compact = build(31.0);
+        let spacious = build(60.0);
+
+        assert_ne!(compact.height, spacious.height);
+        assert_eq!(compact.interaction_vertical_bounds(), (3.0, 24.0));
+        assert_eq!(spacious.interaction_vertical_bounds(), (18.0, 24.0));
+    }
+
+    #[test]
+    fn exact_canvas_descriptor_selects_the_matching_size_sample() {
+        let fonts = vertical_metric_fonts(vec![
+            vertical_metrics("Book", "normal", 400, 20.0, 2.0, 16.0),
+            vertical_metrics("Book", "italic", 700, 20.0, 5.0, 20.0),
+            vertical_metrics("Book", "italic", 700, 21.0, 6.0, 21.0),
+        ]);
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(20)),
+            ("lineHeightPx".to_owned(), json!(40)),
+            ("fontFamily".to_owned(), Value::String("book".to_owned())),
+            ("fontStyle".to_owned(), Value::String("ITALIC".to_owned())),
+            ("fontWeight".to_owned(), json!(700)),
+        ]);
+        let lines = layout_greedy_lines_with_fonts(
+            &[text_segment("text".to_owned(), style)],
+            200.0,
+            &fonts,
+        );
+
+        assert_eq!(
+            first_text_run(&lines).interaction_vertical_bounds(),
+            (7.0, 25.0)
+        );
+    }
+
+    #[test]
+    fn missing_or_invalid_vertical_metrics_keep_line_height_fallback() {
+        let fonts = vertical_metric_fonts(vec![vertical_metrics(
+            "serif",
+            "normal",
+            400,
+            20.0,
+            f64::NAN,
+            20.0,
+        )]);
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(20)),
+            ("lineHeight".to_owned(), json!(2.0)),
+        ]);
+        let lines = layout_greedy_lines_with_fonts(
+            &[text_segment("text".to_owned(), style)],
+            200.0,
+            &fonts,
+        );
+        let run = first_text_run(&lines);
+
+        assert!(run.interaction_geometry.is_none());
+        assert_eq!(run.interaction_vertical_bounds(), (0.0, 40.0));
+    }
+
+    #[test]
+    fn descriptor_defaults_are_normalized_before_exact_lookup() {
+        let fonts = vertical_metric_fonts(vec![vertical_metrics("", "", 0, 20.0, 4.0, 20.0)]);
+        let style = Map::from_iter([
+            ("fontSize".to_owned(), json!(20)),
+            ("lineHeightPx".to_owned(), json!(32)),
+        ]);
+        let lines = layout_greedy_lines_with_fonts(
+            &[text_segment("text".to_owned(), style)],
+            200.0,
+            &fonts,
+        );
+
+        assert_eq!(
+            first_text_run(&lines).interaction_vertical_bounds(),
+            (4.0, 24.0)
+        );
+    }
 
     #[test]
     fn literal_object_replacement_character_remains_text_without_an_atom() {
@@ -885,6 +991,49 @@ mod tests {
             border_start: false,
             border_end: false,
         })
+    }
+
+    fn first_text_run(lines: &[crate::layout::line::LineBox]) -> &TextRunBox {
+        lines
+            .iter()
+            .flat_map(|line| &line.runs)
+            .find_map(|run| match run {
+                LineRun::Text(run) => Some(run),
+                LineRun::Atom(_) | LineRun::Ruby(_) => None,
+            })
+            .expect("layout has a text run")
+    }
+
+    fn vertical_metric_fonts(
+        samples: Vec<FontVerticalMetricSample>,
+    ) -> TextMeasurementFonts<'static> {
+        TextMeasurementFonts::new_with_cache_and_vertical_metrics(
+            Vec::new(),
+            TextMeasurementCache::default(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            samples,
+        )
+    }
+
+    fn vertical_metrics(
+        family: &str,
+        style: &str,
+        weight: u16,
+        size: f64,
+        ascent: f64,
+        descent: f64,
+    ) -> FontVerticalMetricSample {
+        FontVerticalMetricSample {
+            font_family: family.to_owned(),
+            font_style: style.to_owned(),
+            font_weight: weight,
+            font_size_px: size,
+            top_baseline_ascent_px: ascent,
+            top_baseline_descent_px: descent,
+        }
     }
 
     fn resumable_segments() -> Vec<InlineSegment> {

@@ -314,6 +314,7 @@ fn text_run(
         width: 30.0,
         height: 12.0,
         font_size: 10.0,
+        interaction_geometry: None,
         paint,
         line_height_px: None,
         href: None,

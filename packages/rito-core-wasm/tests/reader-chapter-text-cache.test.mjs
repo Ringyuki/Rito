@@ -156,6 +156,7 @@ test('reader accepts empty metric maps omitted from a Rust follow-up', async () 
       genericSerifPairAdjustments: {},
       fontFamilyAdvances: {},
       fontFamilyPairAdjustments: {},
+      fontVerticalMetrics: [],
     },
   };
   const followUp = {
@@ -217,6 +218,52 @@ test('reader rejects a follow-up with a changed nested font metric', async () =>
   await assert.rejects(
     client.createViewRevision(request),
     /follow-up layoutConfig does not match.*layoutConfig\["genericSerifAdvances"\]\["A"\] \(0\.5 !== 0\.75\)/,
+  );
+  client.dispose();
+});
+
+test('reader rejects a follow-up with changed exact-size vertical font metrics', async () => {
+  const sample = {
+    fontFamily: 'serif',
+    fontStyle: 'normal',
+    fontWeight: 400,
+    fontSizePx: 32,
+    topBaselineAscentPx: 4.5,
+    topBaselineDescentPx: 31.5,
+  };
+  const request = {
+    ...VIEW_REQUEST,
+    mode: 'preview',
+    layoutConfig: {
+      ...VIEW_REQUEST.layoutConfig,
+      fontVerticalMetrics: [sample],
+    },
+  };
+  const followUp = {
+    delayMs: 1_000,
+    request: {
+      ...request,
+      layoutConfig: {
+        ...request.layoutConfig,
+        fontVerticalMetrics: [{ ...sample, topBaselineAscentPx: 4.75 }],
+      },
+      previousRevisionId: 'preview-vertical-metric-mismatch',
+      mode: 'full',
+    },
+  };
+  const client = createRitoCoreWasmInProcessReaderClient(
+    fakeModule(() =>
+      viewPayload(
+        { revisionId: 'preview-vertical-metric-mismatch', entries: CHAPTER_ENTRIES },
+        { kind: 'preview', revisionId: 'preview-vertical-metric-mismatch', followUp },
+      ),
+    ),
+  );
+  await client.open(new ArrayBuffer(0));
+
+  await assert.rejects(
+    client.createViewRevision(request),
+    /follow-up layoutConfig does not match.*layoutConfig\["fontVerticalMetrics"\]\[0\]\["topBaselineAscentPx"\] \(4\.5 !== 4\.75\)/,
   );
   client.dispose();
 });

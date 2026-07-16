@@ -55,6 +55,9 @@ function releaseRetainedReaderData(state: BrowserReaderState): void {
   for (const family of Object.keys(state.fontMetrics.fontFamilies)) {
     Reflect.deleteProperty(state.fontMetrics.fontFamilies, family);
   }
+  for (const key of Object.keys(state.fontMetrics.verticalMetrics)) {
+    Reflect.deleteProperty(state.fontMetrics.verticalMetrics, key);
+  }
   state.reflow.lastError = undefined;
 }
 

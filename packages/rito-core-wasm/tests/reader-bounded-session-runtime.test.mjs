@@ -17,6 +17,9 @@ import {
 
 test('bounded snapshots include exact slim presentation metadata', async () => {
   let presentationCount = 0;
+  const fontVerticalMetricDemands = [
+    { fontFamily: 'serif', fontStyle: 'normal', fontWeight: 400, fontSizePx: 32 },
+  ];
   const client = fixtureClient({
     create: async () => versioned(advance(0, 1, true)),
     presentation: async (value, extent) => {
@@ -25,7 +28,10 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
       const navigation = revisionNavigation(value.revisionId, extent);
       return {
         revision: value,
-        value: revisionPresentation(revision, navigation),
+        value: {
+          ...revisionPresentation(revision, navigation),
+          fontVerticalMetricDemands,
+        },
       };
     },
   });
@@ -37,6 +43,7 @@ test('bounded snapshots include exact slim presentation metadata', async () => {
   assert.equal(snapshot.navigation, snapshot.presentation.navigation);
   assert.equal('footnotes' in snapshot.presentation, false);
   assert.equal('chapterTextIndices' in snapshot.presentation, false);
+  assert.deepEqual(snapshot.presentation.fontVerticalMetricDemands, fontVerticalMetricDemands);
   assert.equal(presentationCount, 1);
   await session.dispose();
 });

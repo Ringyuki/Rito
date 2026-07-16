@@ -1,5 +1,8 @@
 use crate::epub::{EpubError, EpubResult};
-use crate::layout::{summarize_layout_font_families, LayoutConfig};
+use crate::layout::{
+    summarize_layout_font_families, summarize_layout_font_vertical_metric_demands, LayoutConfig,
+    TextMeasurementMode,
+};
 
 use super::revision_fonts::required_font_faces_for_revision;
 use super::{
@@ -417,6 +420,7 @@ impl RuntimeDocument {
                 },
             },
             font_families: presentation.font_families,
+            font_vertical_metric_demands: presentation.font_vertical_metric_demands,
             required_font_faces: presentation.required_font_faces,
         })
     }
@@ -440,6 +444,10 @@ impl RuntimeDocument {
             .get(revision_id)
             .ok_or_else(|| EpubError::new(format!("unknown revision: {revision_id}")))?;
         let font_families = summarize_layout_font_families(&revision_record.layout.pages);
+        let font_vertical_metric_demands = (revision_record.layout_config.text_measurement
+            == TextMeasurementMode::FontAware)
+            .then(|| summarize_layout_font_vertical_metric_demands(&revision_record.layout.pages))
+            .filter(|demands| !demands.is_empty());
         let required_font_faces = revision_record
             .required_font_face_catalog
             .as_deref()
@@ -449,6 +457,7 @@ impl RuntimeDocument {
             navigation,
             toc_targets,
             font_families,
+            font_vertical_metric_demands,
             required_font_faces,
         })
     }

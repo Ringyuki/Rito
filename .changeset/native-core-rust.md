@@ -22,5 +22,8 @@ for internal-link previews. Production Reader gestures retain their anchor while
 and preserve the latest valid in-flight drag result when pointer release lands outside text.
 Rust-authoritative ICU word and retained-flow paragraph selection now power mouse double/triple click,
 repeated-click drag, and touch long press while preserving exact cross-page source ranges.
+Released native selections now survive asynchronous image/frame content repaints. Candidate revisions
+calibrate browser font advances and exact-size vertical font boxes before becoming interactive, so
+caret/highlight geometry matches native selection without shrinking the forgiving line-height hit area.
 The locale-aware ICU auto data increases the release WASM by about 2.5 MB raw (1.9 MB gzip) and
 37 initial memory pages; this preserves Chinese, Japanese, Thai, and locale-tailored word behavior.

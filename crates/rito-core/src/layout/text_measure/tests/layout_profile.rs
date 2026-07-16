@@ -7,6 +7,7 @@ use crate::layout::{
         TextMeasurementStyle,
     },
     text_work_trace::{capture_text_work_trace, MeasurementCacheOutcome, MeasurementCacheSource},
+    FontVerticalMetricSample,
 };
 
 #[test]
@@ -175,6 +176,51 @@ fn fallback_mode_and_each_fallback_table_are_part_of_the_profile() {
 }
 
 #[test]
+fn every_vertical_metric_component_is_part_of_the_profile() {
+    let baseline = vertical_metric_fonts(vec![vertical_metrics(
+        "book", "italic", 500, 20.0, 4.0, 20.0,
+    )]);
+
+    for changed in [
+        vertical_metric_fonts(vec![vertical_metrics(
+            "novel", "italic", 500, 20.0, 4.0, 20.0,
+        )]),
+        vertical_metric_fonts(vec![vertical_metrics(
+            "book", "normal", 500, 20.0, 4.0, 20.0,
+        )]),
+        vertical_metric_fonts(vec![vertical_metrics(
+            "book", "italic", 700, 20.0, 4.0, 20.0,
+        )]),
+        vertical_metric_fonts(vec![vertical_metrics(
+            "book", "italic", 500, 21.0, 4.0, 20.0,
+        )]),
+        vertical_metric_fonts(vec![vertical_metrics(
+            "book", "italic", 500, 20.0, 5.0, 20.0,
+        )]),
+        vertical_metric_fonts(vec![vertical_metrics(
+            "book", "italic", 500, 20.0, 4.0, 21.0,
+        )]),
+    ] {
+        assert_ne!(baseline.layout_profile_id(), changed.layout_profile_id());
+    }
+}
+
+#[test]
+fn normalized_vertical_metric_descriptors_share_a_profile() {
+    let normalized = vertical_metric_fonts(vec![vertical_metrics(
+        "book", "italic", 400, 20.0, 4.0, 20.0,
+    )]);
+    let unnormalized = vertical_metric_fonts(vec![vertical_metrics(
+        "  BOOK ", " ITALIC ", 0, 20.0, 4.0, 20.0,
+    )]);
+
+    assert_eq!(
+        normalized.layout_profile_id(),
+        unnormalized.layout_profile_id()
+    );
+}
+
+#[test]
 fn shared_width_cache_is_isolated_by_the_complete_face_profile() {
     let first_bytes = read_epub_font("OEBPS/Fonts/illus1.ttf");
     let second_bytes = read_epub_font("OEBPS/Fonts/illus5.ttf");
@@ -256,6 +302,36 @@ fn fallback_fonts(
         generic_pair_adjustments,
         family_pair_adjustments,
     )
+}
+
+fn vertical_metric_fonts(samples: Vec<FontVerticalMetricSample>) -> TextMeasurementFonts<'static> {
+    TextMeasurementFonts::new_with_cache_and_vertical_metrics(
+        Vec::new(),
+        TextMeasurementCache::default(),
+        BTreeMap::new(),
+        BTreeMap::new(),
+        BTreeMap::new(),
+        BTreeMap::new(),
+        samples,
+    )
+}
+
+fn vertical_metrics(
+    family: &str,
+    style: &str,
+    weight: u16,
+    size: f64,
+    ascent: f64,
+    descent: f64,
+) -> FontVerticalMetricSample {
+    FontVerticalMetricSample {
+        font_family: family.to_owned(),
+        font_style: style.to_owned(),
+        font_weight: weight,
+        font_size_px: size,
+        top_baseline_ascent_px: ascent,
+        top_baseline_descent_px: descent,
+    }
 }
 
 fn family_advances(left: f64, right: f64) -> BTreeMap<String, BTreeMap<char, f64>> {

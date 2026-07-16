@@ -5,7 +5,9 @@
 use super::{
     hyphenation::find_hyphenation_points,
     inline_segment::{AtomSegment, InlineSegment, TextSegment},
-    line::{AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox},
+    line::{
+        AtomRunBox, LineBox, LineRun, RunSourceProvenance, TextRunBox, TextRunInteractionGeometry,
+    },
     line_break::{
         contains_cjk, split_line_break_segments, split_text_units, utf16_len, LineBreakOptions,
     },
@@ -16,7 +18,7 @@ use super::{
         border_width, number_style, run_border_edge_value, run_paint_value, string_style,
     },
     text_mapping::{RunTextMapping, TextMappingUnavailableReason},
-    text_measure::{shape_text_with_style, TextMeasurementFonts},
+    text_measure::{shape_text_with_style, TextMeasurementFonts, TextMeasurementStyle},
     text_shape::{RunShape, RunShapeUnavailableReason},
 };
 use serde_json::Value;
@@ -560,14 +562,20 @@ fn build_text_run(
         segment.source_text_offset,
         context.current_relative_source_offset,
     );
+    let height = line_height_px(&segment.style);
+    let interaction_geometry = context
+        .fonts
+        .vertical_metrics_for_style(&TextMeasurementStyle::from_style(&segment.style))
+        .and_then(|metrics| TextRunInteractionGeometry::from_font_metrics(metrics, height));
     TextRunBox {
         text: context.current_text.clone(),
         text_mapping,
         x: context.x,
         y: kp_vertical_align_offset(&segment.style, context.line_height, context.base_font_size),
         width,
-        height: line_height_px(&segment.style),
+        height,
         font_size,
+        interaction_geometry,
         paint: run_paint_value(&segment.style, is_start, false),
         line_height_px: number_style(&segment.style, "lineHeightPx"),
         href: segment.href.clone(),
@@ -714,6 +722,10 @@ fn trim_last_run(context: &mut RunBuildContext<'_>) {
     run.text_mapping = run.text_mapping.truncate(utf16_len(&run.text));
     run.width = measure_text_slice_with_fonts(&run.text, &segment.style, context.fonts);
     run.shape = shape_text_with_style(&run.text, &segment.style, context.fonts);
+    run.interaction_geometry = context
+        .fonts
+        .vertical_metrics_for_style(&TextMeasurementStyle::from_style(&segment.style))
+        .and_then(|metrics| TextRunInteractionGeometry::from_font_metrics(metrics, run.height));
 }
 
 fn mark_segment_started(started_segments: &mut Vec<usize>, segment_index: usize) -> bool {
@@ -1604,15 +1616,18 @@ impl FitnessClass {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
+    use std::{collections::BTreeMap, sync::Arc};
 
     use serde_json::{json, Map, Value};
 
     use super::{
-        build_kp_items, emergency_breaks, layout_optimal_lines, solve_kp, KpBox, KpGlue, KpItem,
-        KpPenalty, LineWidthSpec,
+        build_kp_items, emergency_breaks, layout_optimal_lines, layout_optimal_lines_with_fonts,
+        solve_kp, KpBox, KpGlue, KpItem, KpPenalty, LineWidthSpec,
     };
-    use crate::layout::inline_segment::{AtomSegment, InlineSegment, TextSegment};
+    use crate::layout::{
+        inline_segment::{AtomSegment, InlineSegment, TextSegment},
+        FontVerticalMetricSample, TextMeasurementCache, TextMeasurementFonts,
+    };
 
     fn word(width: f64) -> KpItem {
         KpItem::Box(KpBox {
@@ -1893,6 +1908,44 @@ mod tests {
         assert_eq!(lines.len(), 2);
         assert_eq!(line_text(&lines[0]), "one two");
         assert_eq!(line_text(&lines[1]), "three four");
+    }
+
+    #[test]
+    fn optimal_runs_use_exact_vertical_font_metrics() {
+        let mut segment = text_segment("one two");
+        let InlineSegment::Text(text) = &mut segment else {
+            unreachable!();
+        };
+        text.style = Map::from_iter([
+            ("fontSize".to_owned(), json!(20)),
+            ("lineHeight".to_owned(), json!(2)),
+            ("fontFamily".to_owned(), json!("Book")),
+        ]);
+        let fonts = TextMeasurementFonts::new_with_cache_and_vertical_metrics(
+            Vec::new(),
+            TextMeasurementCache::default(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            BTreeMap::new(),
+            vec![FontVerticalMetricSample {
+                font_family: "book".to_owned(),
+                font_style: "normal".to_owned(),
+                font_weight: 400,
+                font_size_px: 20.0,
+                top_baseline_ascent_px: 20.0,
+                top_baseline_descent_px: 4.0,
+            }],
+        );
+
+        let lines = layout_optimal_lines_with_fonts(&[segment], 200.0, &fonts);
+
+        assert_eq!(
+            first_text_run(&lines[0])
+                .expect("optimal line has text")
+                .interaction_vertical_bounds(),
+            (8.0, 24.0)
+        );
     }
 
     #[test]

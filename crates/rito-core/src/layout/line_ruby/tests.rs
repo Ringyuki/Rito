@@ -269,6 +269,7 @@ fn text_run(
         width,
         height: font_size,
         font_size,
+        interaction_geometry: None,
         paint,
         line_height_px: None,
         href: Some(format!("#{text}")),

@@ -120,7 +120,6 @@ export function wireSpreadRendered(deps: WiringDeps, disposables: DisposableColl
     disposables.add(
       deps.reader.onSpreadContentInvalidated((idx) => {
         if (idx === deps.getCurrentSpread()) {
-          deps.engines.selection.invalidate();
           invalidateNativeTargets(deps.coordState);
           if (usesNativeAnnotationGeometry(deps.reader) && !deps.reader.interactions?.enabled) {
             invalidateNativeAnnotationGeometry(deps.coordState);

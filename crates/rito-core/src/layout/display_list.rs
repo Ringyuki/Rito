@@ -621,6 +621,7 @@ mod tests {
                             width: 48.0,
                             height: 20.0,
                             font_size: 16.0,
+                            interaction_geometry: None,
                             paint: json!({ "color": "#000000" }),
                             line_height_px: Some(20.0),
                             href: None,
@@ -759,6 +760,7 @@ mod tests {
                             width: 40.0,
                             height: 16.0,
                             font_size: 16.0,
+                            interaction_geometry: None,
                             paint: json!({ "color": "#111111" }),
                             line_height_px: Some(20.0),
                             href: Some("chapter.xhtml#target".to_owned()),
@@ -1005,6 +1007,7 @@ mod tests {
             font_family_advances: Default::default(),
             generic_serif_pair_adjustments: Default::default(),
             font_family_pair_adjustments: Default::default(),
+            font_vertical_metrics: Default::default(),
         }
     }
 }

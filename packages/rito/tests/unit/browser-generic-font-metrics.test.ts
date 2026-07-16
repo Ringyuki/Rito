@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   createHostFontMetrics,
+  ensureHostFontVerticalMetrics,
   ensureHostGenericSerifMetrics,
   hostFontMetricConfig,
   measureHostFontMetrics,
@@ -58,6 +59,7 @@ describe('browser generic font metrics', () => {
     const config = hostFontMetricConfig({
       genericSerif,
       fontFamilies: Object.create(null) as Record<string, never>,
+      verticalMetrics: Object.create(null) as Record<string, never>,
     });
 
     expect(config.genericSerifAdvances?.['A']).toBe(0.5);
@@ -72,6 +74,94 @@ describe('browser generic font metrics', () => {
     expect(ensureHostGenericSerifMetrics(metrics, context)).toBe(true);
     expect(ensureHostGenericSerifMetrics(metrics, context)).toBe(false);
     expect(hostFontMetricConfig(metrics).genericSerifAdvances?.['A']).toBe(0.5);
+  });
+
+  it('captures exact-size font boxes independently for style and weight', () => {
+    const metrics = createHostFontMetrics();
+    const measureText = vi
+      .fn()
+      .mockReturnValueOnce({ fontBoundingBoxAscent: 4.5, fontBoundingBoxDescent: 31.5 })
+      .mockReturnValueOnce({ fontBoundingBoxAscent: 4.75, fontBoundingBoxDescent: 31.25 })
+      .mockReturnValueOnce({ fontBoundingBoxAscent: 2, fontBoundingBoxDescent: 15 });
+    const context = {
+      font: '',
+      textBaseline: 'alphabetic',
+      save: vi.fn(),
+      restore: vi.fn(),
+      measureText,
+    } as unknown as Parameters<typeof ensureHostFontVerticalMetrics>[1];
+
+    const normal32 = {
+      fontFamily: ' Title Font ',
+      fontStyle: 'normal' as const,
+      fontWeight: 400,
+      fontSizePx: 32,
+    };
+    const italic32 = { ...normal32, fontStyle: 'italic' as const, fontWeight: 700 };
+    const normal16 = { ...normal32, fontSizePx: 16 };
+
+    expect(
+      ensureHostFontVerticalMetrics(metrics, context, [
+        normal32,
+        italic32,
+        normal16,
+        { ...normal32, fontFamily: 'Title Font' },
+      ]),
+    ).toBe(true);
+    expect(ensureHostFontVerticalMetrics(metrics, context, [normal32])).toBe(false);
+    expect(hostFontMetricConfig(metrics).fontVerticalMetrics).toEqual([
+      {
+        fontFamily: 'Title Font',
+        fontStyle: 'italic',
+        fontWeight: 700,
+        fontSizePx: 32,
+        topBaselineAscentPx: 4.75,
+        topBaselineDescentPx: 31.25,
+      },
+      {
+        fontFamily: 'Title Font',
+        fontStyle: 'normal',
+        fontWeight: 400,
+        fontSizePx: 16,
+        topBaselineAscentPx: 2,
+        topBaselineDescentPx: 15,
+      },
+      {
+        fontFamily: 'Title Font',
+        fontStyle: 'normal',
+        fontWeight: 400,
+        fontSizePx: 32,
+        topBaselineAscentPx: 4.5,
+        topBaselineDescentPx: 31.5,
+      },
+    ]);
+    expect(measureText).toHaveBeenCalledTimes(3);
+    expect(context.font).toBe('16px Title Font');
+  });
+
+  it('retries a vertical metric demand after an incomplete TextMetrics result', () => {
+    const metrics = createHostFontMetrics();
+    const measureText = vi
+      .fn()
+      .mockReturnValueOnce({})
+      .mockReturnValueOnce({ fontBoundingBoxAscent: 2, fontBoundingBoxDescent: 15 });
+    const context = {
+      font: '',
+      textBaseline: 'alphabetic',
+      save: vi.fn(),
+      restore: vi.fn(),
+      measureText,
+    } as unknown as Parameters<typeof ensureHostFontVerticalMetrics>[1];
+    const demand = {
+      fontFamily: 'serif',
+      fontStyle: 'normal' as const,
+      fontWeight: 400,
+      fontSizePx: 16,
+    };
+
+    expect(ensureHostFontVerticalMetrics(metrics, context, [demand])).toBe(false);
+    expect(ensureHostFontVerticalMetrics(metrics, context, [demand])).toBe(true);
+    expect(measureText).toHaveBeenCalledTimes(2);
   });
 
   it('keys publication-family metrics by normalized CSS family name', () => {

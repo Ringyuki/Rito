@@ -8,6 +8,7 @@ use super::{
     summary_json::{hash_text, number_value, rect_value},
     text_mapping::RunTextMapping,
     text_shape::RunShape,
+    FontVerticalMetricSample,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -172,6 +173,7 @@ pub(crate) struct TextRunBox {
     pub(crate) width: f64,
     pub(crate) height: f64,
     pub(crate) font_size: f64,
+    pub(crate) interaction_geometry: Option<TextRunInteractionGeometry>,
     pub(crate) paint: Value,
     pub(crate) line_height_px: Option<f64>,
     pub(crate) href: Option<String>,
@@ -181,6 +183,37 @@ pub(crate) struct TextRunBox {
     pub(crate) inline_margin_right: Option<f64>,
     pub(crate) ruby_annotation: Option<String>,
     pub(crate) shape: RunShape,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct TextRunInteractionGeometry {
+    top_offset: f64,
+    top_baseline_ascent_px: f64,
+    top_baseline_descent_px: f64,
+}
+
+impl TextRunInteractionGeometry {
+    pub(crate) fn from_font_metrics(
+        metrics: &FontVerticalMetricSample,
+        line_height: f64,
+    ) -> Option<Self> {
+        if !line_height.is_finite()
+            || line_height <= 0.0
+            || !metrics.top_baseline_ascent_px.is_finite()
+            || metrics.top_baseline_ascent_px < 0.0
+            || !metrics.top_baseline_descent_px.is_finite()
+            || metrics.top_baseline_descent_px < 0.0
+        {
+            return None;
+        }
+        let height = metrics.top_baseline_ascent_px + metrics.top_baseline_descent_px;
+        let top_offset = ((line_height - height) / 2.0).floor();
+        (top_offset.is_finite() && height.is_finite() && height > 0.0).then_some(Self {
+            top_offset,
+            top_baseline_ascent_px: metrics.top_baseline_ascent_px,
+            top_baseline_descent_px: metrics.top_baseline_descent_px,
+        })
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -222,6 +255,28 @@ impl RunSourceProvenance {
 }
 
 impl TextRunBox {
+    pub(crate) fn interaction_vertical_bounds(&self) -> (f64, f64) {
+        let Some(geometry) = self.interaction_geometry else {
+            return (self.y, self.height);
+        };
+        // Absolute CSS line heights keep `y` at the canvas content top while
+        // line finalization normalizes the inline box by its half-leading.
+        // Range geometry is relative to that inline box, not the canvas text
+        // origin, so recover its top before applying the measured font box.
+        let inline_box_top = self.y
+            + self
+                .line_height_px
+                .map(|line_height| (self.font_size - line_height) / 2.0)
+                .unwrap_or(0.0);
+        let y = inline_box_top + geometry.top_offset;
+        let height = geometry.top_baseline_ascent_px + geometry.top_baseline_descent_px;
+        if y.is_finite() && height.is_finite() && height > 0.0 {
+            (y, height)
+        } else {
+            (self.y, self.height)
+        }
+    }
+
     fn trailing_inline_extension(&self) -> f64 {
         if paint_object(&self.paint, &["border", "end"]).is_none() {
             return 0.0;
@@ -407,6 +462,7 @@ mod tests {
                     width: 30.0,
                     height: 12.0,
                     font_size: 12.0,
+                    interaction_geometry: None,
                     paint: json!({ "color": "#000000" }),
                     line_height_px: None,
                     href: None,
@@ -475,6 +531,7 @@ mod tests {
                 width: 8.0,
                 height: 12.0,
                 font_size: 12.0,
+                interaction_geometry: None,
                 paint: json!({}),
                 line_height_px: None,
                 href: None,
@@ -504,6 +561,7 @@ mod tests {
             width: 20.0,
             height: 12.0,
             font_size: 12.0,
+            interaction_geometry: None,
             paint: json!({ "wordSpacingPx": 1 }),
             line_height_px: None,
             href: None,
@@ -543,6 +601,7 @@ mod tests {
             width: 30.0,
             height: 12.0,
             font_size: 12.0,
+            interaction_geometry: None,
             paint,
             line_height_px: None,
             href: None,

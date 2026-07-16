@@ -168,6 +168,10 @@ test('generated type surface does not expose publication and layout as generic J
   assert.doesNotMatch(declaration, /readonly initialFrame\?: RitoCoreWasmInitialFrameDecision/);
   assert.doesNotMatch(declaration, /initialFrameResourcePayloads/);
   assert.match(revisionBundle, /readonly fontFamilies: readonly string\[];/);
+  assert.match(
+    revisionBundle,
+    /readonly fontVerticalMetricDemands\?: readonly RitoCoreWasmFontVerticalMetricDemand\[]/,
+  );
   assert.match(revisionBundle, /readonly requiredFontFaces\?: RitoCoreWasmRequiredFontFaces/);
   const requiredFonts = interfaceBody(declaration, 'RitoCoreWasmRequiredFontFaces');
   const requiredFace = interfaceBody(declaration, 'RitoCoreWasmRequiredFontFace');

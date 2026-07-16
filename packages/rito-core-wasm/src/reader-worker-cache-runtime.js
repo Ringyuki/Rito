@@ -1,4 +1,5 @@
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
+import { requireFontVerticalMetricDemands } from './font-vertical-metric-validation-runtime.js';
 import { requireSourceLocatorRequest } from './reader-worker-interaction-validation-runtime.js';
 
 const FULL_CHAPTER_TEXT_INDICES_SCOPE_KEY = 'chapter-text-v1:full';
@@ -129,6 +130,7 @@ const EMPTY_LAYOUT_CONFIG_MAP_DEFAULTS = [
   'fontFamilyAdvances',
   'fontFamilyPairAdjustments',
 ];
+const EMPTY_LAYOUT_CONFIG_ARRAY_DEFAULTS = ['fontVerticalMetrics'];
 
 function normalizeLayoutConfig(config) {
   return Object.fromEntries(
@@ -137,9 +139,12 @@ function normalizeLayoutConfig(config) {
       textMeasurement: config.textMeasurement ?? 'fixtureCompatible',
     }).filter(
       ([key, value]) =>
-        !EMPTY_LAYOUT_CONFIG_MAP_DEFAULTS.includes(key) ||
-        !isJsonObject(value) ||
-        jsonObjectKeys(value).length > 0,
+        (!EMPTY_LAYOUT_CONFIG_MAP_DEFAULTS.includes(key) ||
+          !isJsonObject(value) ||
+          jsonObjectKeys(value).length > 0) &&
+        (!EMPTY_LAYOUT_CONFIG_ARRAY_DEFAULTS.includes(key) ||
+          !Array.isArray(value) ||
+          value.length > 0),
     ),
   );
 }
@@ -214,6 +219,7 @@ export function hydrateReaderViewRevision(cache, view, requestedScopeKey) {
   if (revisionId !== revision.revisionId) {
     throw new Error('Reader chapter text indices revision does not match the revision bundle');
   }
+  requireFontVerticalMetricDemands(bundle.fontVerticalMetricDemands, 'Reader view revision');
   requireRequiredFontFaces(bundle.requiredFontFaces, revisionId, 'Reader view revision');
 
   if (view.kind === 'preview') {

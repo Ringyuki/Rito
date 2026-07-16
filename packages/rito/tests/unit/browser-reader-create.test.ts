@@ -132,6 +132,8 @@ describe('Browser reader creation', () => {
 
     expect(settled).toBe(true);
     expect(mocks.buildBrowserReaderMethods).toHaveBeenCalledOnce();
+    // Font metrics depend on the actual styles and sizes discovered by Rust,
+    // so all probes remain behind the initial revision.
     expect(measureText).not.toHaveBeenCalled();
     expect(mocks.warmBrowserReaderFrameWindow).not.toHaveBeenCalled();
 

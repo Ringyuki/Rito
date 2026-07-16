@@ -1,4 +1,14 @@
 import type { CanvasRenderingTarget } from './rendering';
+import {
+  createHostFontVerticalMetricStore,
+  ensureHostFontVerticalMetrics as ensureVerticalMetrics,
+  hostFontVerticalMetricConfig,
+  type HostFontVerticalMetricDemand,
+  type HostFontVerticalMetricSample,
+  type HostFontVerticalMetricStore,
+} from './font-vertical-metrics';
+
+export type { HostFontVerticalMetricDemand, HostFontVerticalMetricSample };
 
 export type GlyphAdvances = Readonly<Record<string, number>>;
 export type GlyphPairAdjustments = Readonly<Record<string, number>>;
@@ -11,6 +21,7 @@ export interface HostFontFaceMetrics {
 export interface HostFontMetrics {
   genericSerif: HostFontFaceMetrics | undefined;
   readonly fontFamilies: Record<string, HostFontFaceMetrics>;
+  readonly verticalMetrics: HostFontVerticalMetricStore;
 }
 
 export interface HostFontMetricConfig {
@@ -18,6 +29,7 @@ export interface HostFontMetricConfig {
   readonly genericSerifPairAdjustments?: GlyphPairAdjustments | undefined;
   readonly fontFamilyAdvances?: Readonly<Record<string, GlyphAdvances>> | undefined;
   readonly fontFamilyPairAdjustments?: Readonly<Record<string, GlyphPairAdjustments>> | undefined;
+  readonly fontVerticalMetrics?: readonly HostFontVerticalMetricSample[] | undefined;
 }
 
 const PROBE_FONT_SIZE_PX = 16;
@@ -80,7 +92,28 @@ export function measureHostFontMetrics(context: CanvasRenderingTarget): HostFont
 }
 
 export function createHostFontMetrics(): HostFontMetrics {
-  return { genericSerif: undefined, fontFamilies: emptyFontFamilyMetrics() };
+  return {
+    genericSerif: undefined,
+    fontFamilies: emptyFontFamilyMetrics(),
+    verticalMetrics: createHostFontVerticalMetricStore(),
+  };
+}
+
+export function hostFontMetricSampleCount(metrics: HostFontMetrics): number {
+  return (
+    (metrics.genericSerif ? 1 : 0) +
+    Object.keys(metrics.fontFamilies).length +
+    Object.keys(metrics.verticalMetrics).length
+  );
+}
+
+/** Capture unresolved browser font boxes at their exact rendered descriptors and sizes. */
+export function ensureHostFontVerticalMetrics(
+  metrics: HostFontMetrics,
+  context: CanvasRenderingTarget,
+  demands: readonly HostFontVerticalMetricDemand[],
+): boolean {
+  return ensureVerticalMetrics(metrics.verticalMetrics, context, demands);
 }
 
 export function ensureHostGenericSerifMetrics(
@@ -122,6 +155,7 @@ export function hostFontMetricConfig(metrics: HostFontMetrics): HostFontMetricCo
   const families = Object.entries(metrics.fontFamilies);
   const generic = metrics.genericSerif;
   const genericPairAdjustments = { ...generic?.pairAdjustments };
+  const verticalMetrics = hostFontVerticalMetricConfig(metrics.verticalMetrics);
   return {
     ...(generic ? { genericSerifAdvances: { ...generic.advances } } : {}),
     ...(generic && Object.keys(genericPairAdjustments).length > 0
@@ -137,6 +171,7 @@ export function hostFontMetricConfig(metrics: HostFontMetrics): HostFontMetricCo
           ),
         }
       : {}),
+    ...(verticalMetrics !== undefined ? { fontVerticalMetrics: verticalMetrics } : {}),
   };
 }
 

@@ -144,7 +144,7 @@ impl PendingTextRun {
                     let range = &context.ranges[self.range_index];
                     let shape = shape_text_with_style(&self.text, &range.style, fonts);
                     debug_assert!((shape.advance() - width).abs() < 0.000_001);
-                    let (run, next_x) = self.build_run(context, width, shape);
+                    let (run, next_x) = self.build_run(context, width, shape, fonts);
                     self.stage = PendingTextRunStage::Complete;
                     return Ok(Some((run, next_x)));
                 }
@@ -188,6 +188,7 @@ impl PendingTextRun {
         context: &LineContext,
         width: f64,
         shape: RunShape,
+        fonts: &TextMeasurementFonts<'_>,
     ) -> (TextRunBox, f64) {
         let range = &context.ranges[self.range_index];
         let edges = RangeEdges {
@@ -216,6 +217,7 @@ impl PendingTextRun {
             is_end: edges.is_end,
             source_provenance,
             context,
+            fonts,
             shape,
         });
         if spacing.margin_right > 0.0 {

@@ -327,6 +327,7 @@ fn line_box(text: &str, y: f64) -> LineBox {
             width: 40.0,
             height: 12.0,
             font_size: 12.0,
+            interaction_geometry: None,
             paint: json!({}),
             line_height_px: None,
             href: None,

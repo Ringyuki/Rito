@@ -140,7 +140,11 @@ The remaining usability work is narrower but still release-blocking:
    following same-chapter flow is retained. The exact-source caret remains at the
    current flow's text end instead of pretending to be the DOM's structural
    next-block boundary, and a bounded retention edge can temporarily omit that
-   trailing separator. ICU auto is the smallest official constructor that keeps
+   trailing separator. Content-only image/frame repaints retain a released selection.
+   Browser font advances and exact-size font boxes are calibrated before a candidate
+   revision becomes interactive; those boxes drive caret/highlight placement without
+   shrinking the full-line point hit area. ICU auto is the smallest official
+   constructor that keeps
    the required CJK/Japanese/Thai and locale behavior, but it currently costs
    about 2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli plus 37 initial WASM memory
    pages. Treat a scoped ICU data provider or an explicit host segmentation

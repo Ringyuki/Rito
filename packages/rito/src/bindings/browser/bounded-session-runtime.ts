@@ -20,6 +20,10 @@ import { toCoreLayoutConfig } from './reader/layout';
 import { toReaderLocatorResolution } from './reader/interaction';
 import { copyReaderLocator } from './reader/interaction-capture';
 import type { BrowserReaderState } from './reader/types';
+import {
+  replaceBrowserReaderFontGeometryMutation,
+  type BrowserReaderBoundedReplacementTarget,
+} from './bounded-font-geometry';
 
 const INITIAL_SPREAD_LAYOUT_NODE_BUDGET = 1;
 const BOUNDED_GROWTH_LAYOUT_NODE_BUDGET = 32;
@@ -33,7 +37,9 @@ export interface BrowserReaderBoundedLayoutRequest {
   readonly lineBreaking: 'greedy' | 'optimal';
   readonly targetSpreadIndex: number;
   readonly preserveLocator?: ReaderLocator | undefined;
+  readonly complete?: boolean | undefined;
   readonly expectedActiveSpreadIndex?: number | undefined;
+  readonly notifyLayoutCommitted?: boolean | undefined;
   readonly onCommitted?: (() => void) | undefined;
 }
 
@@ -107,6 +113,7 @@ async function runCandidate(
   if (request.preserveLocator) {
     snapshot = await owner.controller.ensureLocator(copyReaderLocator(request.preserveLocator));
   }
+  if (request.complete) snapshot = await owner.controller.complete();
   if (!ownsBrowserReaderBoundedCandidate(state, owner, generation) || signal?.aborted) {
     await abandonBrowserReaderBoundedCandidate(state, owner);
     return undefined;
@@ -119,6 +126,7 @@ async function runCandidate(
     lineBreaking: request.lineBreaking,
     baseCommitGeneration,
     expectedActiveSpreadIndex: request.expectedActiveSpreadIndex,
+    notifyLayoutCommitted: request.notifyLayoutCommitted,
     onCommitted: request.onCommitted,
   });
   if (!result.committed) {
@@ -147,6 +155,7 @@ export function ensureBrowserReaderBoundedSpread(
       state,
       (owner) => owner.controller.ensureSpread(spreadIndex),
       false,
+      { targetSpreadIndex: spreadIndex },
     );
     if (!snapshot || signal?.aborted) return undefined;
     return spreadIndex < snapshot.revision.spreadCount;
@@ -165,6 +174,7 @@ export function ensureBrowserReaderBoundedLocator(
       state,
       (owner) => owner.controller.ensureLocator(copied),
       false,
+      { targetSpreadIndex: state.activeSpreadIndex, preserveLocator: copied },
     );
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'locator') {
@@ -181,7 +191,10 @@ export function completeBrowserReaderBoundedSession(
   return enqueueCurrentMutation(state, async () => {
     if (signal?.aborted || state.disposed) return undefined;
     if (state.revisionBundle.revision.status === 'complete') return true;
-    const snapshot = await mutateCurrent(state, (owner) => owner.controller.complete(), true);
+    const snapshot = await mutateCurrent(state, (owner) => owner.controller.complete(), true, {
+      targetSpreadIndex: state.activeSpreadIndex,
+      complete: true,
+    });
     if (!snapshot || signal?.aborted) return undefined;
     if (snapshot.target.kind !== 'complete' || snapshot.revision.status !== 'complete') {
       throw new Error('Bounded reader completion mutation did not commit a complete revision');
@@ -194,6 +207,7 @@ async function mutateCurrent(
   state: BrowserReaderState,
   target: (owner: BrowserReaderBoundedSessionOwner) => Promise<BrowserReaderBoundedSnapshot>,
   notifyLayoutCommitted: boolean,
+  replacementTarget: BrowserReaderBoundedReplacementTarget,
 ): Promise<BrowserReaderBoundedSnapshot | undefined> {
   const owner = state.boundedSessions.current;
   if (!owner) throw new Error('Browser reader has no current bounded session');
@@ -213,6 +227,16 @@ async function mutateCurrent(
       notifyLayoutCommitted,
     });
     if (result.committed) return snapshot;
+    if (result.requiresFontGeometryReflow) {
+      const replacement = await replaceBrowserReaderFontGeometryMutation(
+        state,
+        owner,
+        replacementTarget,
+        notifyLayoutCommitted,
+        startBrowserReaderBoundedCandidate,
+      );
+      if (replacement) return replacement;
+    }
     await recoverUncommittedMutation(state, owner, gate);
     return undefined;
   } catch (error) {

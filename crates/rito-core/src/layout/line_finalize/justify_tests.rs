@@ -120,6 +120,7 @@ fn text_run(text: &str) -> LineRun {
         width: 10.0,
         height: 10.0,
         font_size: 10.0,
+        interaction_geometry: None,
         paint: json!({}),
         line_height_px: None,
         href: None,

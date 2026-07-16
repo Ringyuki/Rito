@@ -26,6 +26,11 @@ impl CollectedTextRun<'_> {
         self.visual.resolve_rect(self.source_rect())
     }
 
+    pub(super) fn interaction_vertical_bounds(self) -> (f64, f64) {
+        let (run_y, height) = self.run.interaction_vertical_bounds();
+        (self.y + run_y - self.run.y, height)
+    }
+
     pub(super) fn matches_address(self, address: super::TextCaretAddress) -> bool {
         self.page_index == address.page_index
             && self.block_index == address.block_index

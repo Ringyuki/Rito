@@ -84,8 +84,10 @@ as authoritative: pointer samples are resolved asynchronously against the commit
 Rust revision, exact rectangles drive the overlay, selected source text drives copy,
 and the returned source range anchors annotations. `selectionRange` remains available
 for legacy readers but is intentionally `null` for an exact native selection; use
-`hasSelection` and `selectionSourceLocator` instead. Revision invalidation, spread
-changes, render-scale changes, cancellation, and disposal discard late async results.
+`hasSelection` and `selectionSourceLocator` instead. Layout revision invalidation, spread
+changes, render-scale changes, cancellation, and disposal discard late async results. A
+content-only resource repaint, such as an image decode or frame warmup completing, keeps
+the committed selection because its Rust revision and source range remain valid.
 Persistent annotation target creation now preserves the exact native source range;
 when `interactions.resolveExactSourceRange` is present, Kit also treats it as
 authoritative for annotation re-projection. It resolves selector fallbacks to a

@@ -2,6 +2,7 @@ use super::{
     font_aware_fallback_character_width, font_aware_fallback_pair_adjustment, TextMeasurementCache,
     TextMeasurementCacheKey, TextMeasurementStyle,
 };
+use crate::layout::{FontVerticalMetricDemand, FontVerticalMetricSample};
 use std::{
     collections::{hash_map::DefaultHasher, BTreeMap},
     hash::{Hash, Hasher},
@@ -36,6 +37,25 @@ enum FallbackMeasurementMode {
     FontAware,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+struct FontVerticalMetricKey {
+    font_family: String,
+    font_style: String,
+    font_weight: u16,
+    font_size_bits: u64,
+}
+
+impl From<&FontVerticalMetricDemand> for FontVerticalMetricKey {
+    fn from(demand: &FontVerticalMetricDemand) -> Self {
+        Self {
+            font_family: demand.font_family.clone(),
+            font_style: demand.font_style.clone(),
+            font_weight: demand.font_weight,
+            font_size_bits: demand.font_size_px.to_bits(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct TextMeasurementFonts<'a> {
     faces: Vec<TextMeasurementFontFace<'a>>,
@@ -45,6 +65,7 @@ pub(crate) struct TextMeasurementFonts<'a> {
     font_family_advances: BTreeMap<String, BTreeMap<char, f64>>,
     generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
     font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
+    font_vertical_metrics: BTreeMap<FontVerticalMetricKey, FontVerticalMetricSample>,
     layout_profile_id: u64,
 }
 
@@ -64,6 +85,7 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
+            font_vertical_metrics: BTreeMap::new(),
             layout_profile_id: compute_layout_profile_id(
                 FallbackMeasurementMode::FixtureCompatible,
                 0,
@@ -82,6 +104,7 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
+            font_vertical_metrics: BTreeMap::new(),
             layout_profile_id: compute_layout_profile_id(
                 FallbackMeasurementMode::FontAware,
                 0,
@@ -102,10 +125,12 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances: BTreeMap::new(),
             generic_serif_pair_adjustments: BTreeMap::new(),
             font_family_pair_adjustments: BTreeMap::new(),
+            font_vertical_metrics: BTreeMap::new(),
             layout_profile_id,
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn new_with_cache(
         faces: Vec<TextMeasurementFontFace<'a>>,
         cache: TextMeasurementCache,
@@ -114,11 +139,46 @@ impl<'a> TextMeasurementFonts<'a> {
         generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
         font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
     ) -> Self {
+        Self::new_with_cache_and_vertical_metrics(
+            faces,
+            cache,
+            generic_serif_advances,
+            font_family_advances,
+            generic_serif_pair_adjustments,
+            font_family_pair_adjustments,
+            Vec::new(),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn new_with_cache_and_vertical_metrics(
+        faces: Vec<TextMeasurementFontFace<'a>>,
+        cache: TextMeasurementCache,
+        generic_serif_advances: BTreeMap<char, f64>,
+        font_family_advances: BTreeMap<String, BTreeMap<char, f64>>,
+        generic_serif_pair_adjustments: BTreeMap<(char, char), f64>,
+        font_family_pair_adjustments: BTreeMap<String, BTreeMap<(char, char), f64>>,
+        font_vertical_metrics: Vec<FontVerticalMetricSample>,
+    ) -> Self {
+        let font_vertical_metrics = font_vertical_metrics
+            .into_iter()
+            .filter_map(|sample| {
+                let sample = sample.normalized()?;
+                let demand = FontVerticalMetricDemand {
+                    font_family: sample.font_family.clone(),
+                    font_style: sample.font_style.clone(),
+                    font_weight: sample.font_weight,
+                    font_size_px: sample.font_size_px,
+                };
+                Some((FontVerticalMetricKey::from(&demand), sample))
+            })
+            .collect();
         let fallback_profile_id = fallback_profile_id(
             &generic_serif_advances,
             &font_family_advances,
             &generic_serif_pair_adjustments,
             &font_family_pair_adjustments,
+            &font_vertical_metrics,
         );
         let layout_profile_id = compute_layout_profile_id(
             FallbackMeasurementMode::FontAware,
@@ -133,8 +193,23 @@ impl<'a> TextMeasurementFonts<'a> {
             font_family_advances,
             generic_serif_pair_adjustments,
             font_family_pair_adjustments,
+            font_vertical_metrics,
             layout_profile_id,
         }
+    }
+
+    pub(crate) fn vertical_metrics_for_style(
+        &self,
+        style: &TextMeasurementStyle,
+    ) -> Option<&FontVerticalMetricSample> {
+        let demand = FontVerticalMetricDemand::normalized(
+            style.font_family.as_deref(),
+            style.font_style.as_deref(),
+            style.font_weight.map(f64::from),
+            style.font_size,
+        )?;
+        self.font_vertical_metrics
+            .get(&FontVerticalMetricKey::from(&demand))
     }
 
     pub(super) fn matching_faces<'b>(
@@ -316,11 +391,13 @@ fn fallback_profile_id(
     family_advances: &BTreeMap<String, BTreeMap<char, f64>>,
     generic_pair_adjustments: &BTreeMap<(char, char), f64>,
     family_pair_adjustments: &BTreeMap<String, BTreeMap<(char, char), f64>>,
+    font_vertical_metrics: &BTreeMap<FontVerticalMetricKey, FontVerticalMetricSample>,
 ) -> u64 {
     if generic_advances.is_empty()
         && family_advances.is_empty()
         && generic_pair_adjustments.is_empty()
         && family_pair_adjustments.is_empty()
+        && font_vertical_metrics.is_empty()
     {
         return 0;
     }
@@ -352,6 +429,12 @@ fn fallback_profile_id(
             right.hash(&mut hasher);
             adjustment.to_bits().hash(&mut hasher);
         }
+    }
+    4_u8.hash(&mut hasher);
+    for (key, sample) in font_vertical_metrics {
+        key.hash(&mut hasher);
+        sample.top_baseline_ascent_px.to_bits().hash(&mut hasher);
+        sample.top_baseline_descent_px.to_bits().hash(&mut hasher);
     }
     hasher.finish()
 }

@@ -20,6 +20,8 @@ import {
 } from './reader-session-host';
 import { applyBrowserReaderRevisionState } from './reader/revision';
 import type { BrowserReaderState } from './reader/types';
+import { prepareBrowserReaderRevisionFonts } from './resources';
+import { captureBrowserReaderCandidateHostFontMetrics } from './bounded-font-geometry';
 
 export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSnapshotCommitContract {
   readonly config: LayoutConfig;
@@ -37,16 +39,27 @@ export interface BrowserReaderBoundedCommitInput extends BrowserReaderBoundedSna
 
 export interface BrowserReaderBoundedCommitResult {
   readonly committed: boolean;
+  readonly requiresFontGeometryReflow?: boolean | undefined;
   /** The caller must drain this controller before disposing its worker. */
   readonly retiredOwner?: BrowserReaderBoundedSessionOwner | undefined;
 }
 
-interface PreparedBoundedCommit {
+interface PreparedBoundedCommitBase {
   readonly input: BrowserReaderBoundedCommitInput;
   readonly result: BrowserReaderRevisionResult;
   readonly rollbackFonts: () => void;
+}
+
+interface PreparedFontGeometryCalibration extends PreparedBoundedCommitBase {
+  readonly kind: 'fontGeometryCalibration';
+}
+
+interface PreparedRevisionPublication extends PreparedBoundedCommitBase {
+  readonly kind: 'revisionPublication';
   readonly commitFrame: BrowserReaderPreparedCommitFrame;
 }
+
+type PreparedBoundedCommit = PreparedFontGeometryCalibration | PreparedRevisionPublication;
 
 export async function commitBrowserReaderBoundedSnapshot(
   state: BrowserReaderState,
@@ -65,6 +78,20 @@ async function prepareBoundedCommit(
   if (!isEligibleCommit(state, input)) return undefined;
   const result = await createBoundedRevisionResult(input);
   if (!isEligibleCommit(state, input)) return undefined;
+  const demands = result.bundle.fontVerticalMetricDemands ?? [];
+  const pinned = state.pinnedFonts.summary.faces.length > 0;
+  const needsHostMetrics = !pinned || demands.length > 0;
+  const publicationFontsReady = needsHostMetrics
+    ? pinned ||
+      (await prepareBrowserReaderRevisionFonts(
+        state,
+        input.owner.worker,
+        revisionHandle(input.snapshot),
+        () => isEligibleCommit(state, input),
+        result.bundle.fontFamilies,
+      ))
+    : false;
+  if (!isEligibleCommit(state, input)) return undefined;
   const rollbackFonts = await prepareControllerOwnedRevisionFonts(
     state,
     input.owner.worker,
@@ -72,9 +99,14 @@ async function prepareBoundedCommit(
     () => isEligibleCommit(state, input),
   );
   if (!rollbackFonts) return undefined;
+  if (captureBrowserReaderCandidateHostFontMetrics(state, demands, pinned, publicationFontsReady)) {
+    return { kind: 'fontGeometryCalibration', input, result, rollbackFonts };
+  }
   try {
     const commitFrame = await prepareControllerOwnedBrowserReaderCommitFrame(state, result);
-    if (isEligibleCommit(state, input)) return { input, result, rollbackFonts, commitFrame };
+    if (isEligibleCommit(state, input)) {
+      return { kind: 'revisionPublication', input, result, rollbackFonts, commitFrame };
+    }
     rollbackFonts();
     return undefined;
   } catch (error) {
@@ -137,6 +169,9 @@ function publishBoundedCommit(
     prepared.rollbackFonts();
     return { committed: false };
   }
+  if (prepared.kind === 'fontGeometryCalibration') {
+    return { committed: false, requiresFontGeometryReflow: true };
+  }
   const candidate = state.boundedSessions.candidate === input.owner;
   const retiredOwner = candidate ? state.boundedSessions.current : undefined;
   if (candidate) {
@@ -164,7 +199,7 @@ function publishBoundedCommit(
 
 function boundedCommitActiveSpread(
   state: BrowserReaderState,
-  prepared: PreparedBoundedCommit,
+  prepared: PreparedRevisionPublication,
 ): number {
   const frameSpread = prepared.commitFrame.frame?.spreadIndex;
   if (frameSpread !== undefined) return frameSpread;

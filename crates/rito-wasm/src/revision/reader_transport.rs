@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use rito_core::layout::FontVerticalMetricDemand;
 use rito_core::runtime::{
     encode_runtime_bundle, RuntimeChapterTextIndex, RuntimeFootnotes, RuntimeRequiredFontFaces,
     RuntimeRevisionNavigation, RuntimeRevisionSummary, RuntimeTocTargets,
@@ -55,6 +56,8 @@ struct WasmReaderRuntimeRevisionBundle<'a> {
     footnotes: &'a RuntimeFootnotes,
     chapter_text_indices: WasmReaderChapterTextIndices<'a>,
     font_families: &'a [String],
+    #[serde(skip_serializing_if = "Option::is_none")]
+    font_vertical_metric_demands: Option<&'a [FontVerticalMetricDemand]>,
     #[serde(skip_serializing_if = "Option::is_none")]
     required_font_faces: Option<&'a RuntimeRequiredFontFaces>,
 }
@@ -182,6 +185,7 @@ fn reader_view_revision_projection(
                     scope_key: FULL_CHAPTER_TEXT_SCOPE_KEY,
                 },
                 font_families: &bundle.font_families,
+                font_vertical_metric_demands: bundle.font_vertical_metric_demands.as_deref(),
                 required_font_faces: bundle.required_font_faces.as_ref(),
             },
             frame_selection: result.frame_selection.as_ref(),

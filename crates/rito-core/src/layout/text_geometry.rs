@@ -153,14 +153,15 @@ fn text_geometry_run(
     line_y: f64,
     visual: VisualGeometry,
 ) -> TextGeometryRun {
+    let (interaction_y, interaction_height) = run.interaction_vertical_bounds();
     TextGeometryRun {
         block_index,
         line_index,
         run_index,
         x: line_x + run.x,
-        y: line_y + run.y,
+        y: line_y + interaction_y,
         width: run.width,
-        height: run.height,
+        height: interaction_height,
         text_len: utf16_len(&run.text),
         visual,
     }
@@ -405,6 +406,7 @@ mod tests {
             width,
             height: 12.0,
             font_size: 12.0,
+            interaction_geometry: None,
             paint: json!({}),
             line_height_px: None,
             href: None,

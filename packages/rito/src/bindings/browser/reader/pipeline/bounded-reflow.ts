@@ -7,6 +7,7 @@ import { openBrowserReaderWorker } from '../../pinned-fonts';
 import { applyLayoutOverrides, makeBrowserReaderLayoutConfig } from '../layout';
 import type { BrowserReaderQueuedReflow, BrowserReaderState } from '../types';
 import { trackBrowserReaderHostTask } from '../host-tasks';
+import { hostFontMetricSampleCount } from '../../font-metrics';
 import { captureBrowserReaderReflowAnchor } from './reflow-anchor';
 import {
   isNoOpReflow,
@@ -68,23 +69,59 @@ export async function startBrowserReaderInitialReflow(
   state.reflow.active = request;
   activeAborts.set(state, abort);
   try {
-    const snapshot = await startBrowserReaderBoundedCandidate(
+    await runInitialCandidateLoop(
       state,
+      request,
       owner,
-      {
-        config: request.config,
-        spreadMode,
-        lineBreaking,
-        targetSpreadIndex: 0,
-        onCommitted,
-      },
+      spreadMode,
+      lineBreaking,
+      onCommitted,
       abort.signal,
     );
-    if (!snapshot) throw new Error('Initial bounded reader candidate was cancelled');
   } catch (error) {
     throw reportReflowError(state, error, 'initial reader reflow');
   } finally {
     finishActiveRequest(state, request, abort);
+  }
+}
+
+async function runInitialCandidateLoop(
+  state: State,
+  request: Request,
+  initialOwner: ReturnType<typeof createBrowserReaderBoundedSessionOwner>,
+  spreadMode: 'single' | 'double',
+  lineBreaking: 'greedy' | 'optimal',
+  onCommitted: (() => void) | undefined,
+  signal: AbortSignal,
+): Promise<void> {
+  let owner = initialOwner;
+  let sampleCount = hostFontMetricSampleCount(state.fontMetrics);
+  for (;;) {
+    const snapshot = await startBrowserReaderBoundedCandidate(
+      state,
+      owner,
+      { config: request.config, spreadMode, lineBreaking, targetSpreadIndex: 0, onCommitted },
+      signal,
+    );
+    if (snapshot) return;
+    const nextSampleCount = hostFontMetricSampleCount(state.fontMetrics);
+    if (state.disposed || signal.aborted || nextSampleCount <= sampleCount) {
+      throw new Error('Initial bounded reader candidate was cancelled');
+    }
+    sampleCount = nextSampleCount;
+    const worker = state.workerFactory();
+    try {
+      await openBrowserReaderWorker(
+        worker,
+        state.documentData.slice(0),
+        state.pinnedFonts.policy,
+        state.pinnedFonts.summary,
+      );
+      owner = createBrowserReaderBoundedSessionOwner(worker);
+    } catch (error) {
+      worker.dispose();
+      throw error;
+    }
   }
 }
 

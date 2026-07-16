@@ -1,7 +1,30 @@
 import { expect, test, type Page } from '@playwright/test';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { stableReaderCanvasChecksum } from './reader-page-harness';
 import {
-  createSelectionFixtureEpub,
+  imageDecodeComplete,
+  imageDecodePending,
+  installDelayedImageDecode,
+  releaseImageDecode,
+} from './reader-image-decode-harness';
+import {
+  chromiumSelectionOracle,
+  copySelection,
+  dragSelection,
+  loadSelectionFixture,
+  pointInsideFirstWord,
+  readSelectionHighlightBands,
+  requireBand,
+  requireTextBands,
+  selectionRectCount,
+  selectionTextLength,
+  type CanvasTextBand,
+  type ChromiumSelectionOracle,
+} from './reader-selection-harness';
+import {
+  CJK_FIRST_LINE,
+  CJK_SELECTION_TEXT,
   CROSS_FLOW_LINE,
   CROSS_FLOW_SELECTION_TEXT,
   SAME_FLOW_FIRST_LINE,
@@ -10,23 +33,14 @@ import {
   SAME_FLOW_SELECTION_TEXT,
 } from './selection-fixture';
 
-const READER_LOAD_TIMEOUT_MS = 90_000;
+const TINOS_PINNED_FAMILY = pinnedFamily('Tinos-Regular.ttf');
+const SOURCE_HAN_PINNED_FAMILY = pinnedFamily('SourceHanSerifCN-Regular.otf');
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
-interface CanvasTextBand {
-  readonly left: number;
-  readonly right: number;
-  readonly centerY: number;
-}
-
 test.describe('reader native text selection acceptance', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
-    await page.evaluate(() => {
-      localStorage.clear();
-    });
-    await page.reload();
+    await openEmptyReader(page);
     await loadSelectionFixture(page);
   });
 
@@ -46,6 +60,9 @@ test.describe('reader native text selection acceptance', () => {
       .poll(() => selectionTextLength(page))
       .toBeGreaterThanOrEqual(SAME_FLOW_FIRST_LINE.length + SAME_FLOW_SECOND_LINE.length);
     await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(2);
+    await expect
+      .poll(async () => (await readSelectionHighlightBands(page)).length)
+      .toBeGreaterThanOrEqual(2);
 
     const selectedTextLength = await selectionTextLength(page);
     const selectedCanvas = await stableReaderCanvasChecksum(page);
@@ -55,17 +72,12 @@ test.describe('reader native text selection acceptance', () => {
     await expect(shell).toHaveAttribute('data-selection-active', 'true');
     expect(await selectionTextLength(page)).toBe(selectedTextLength);
     expect(await stableReaderCanvasChecksum(page)).toBe(selectedCanvas);
-
-    const copied = await copySelection(page);
-    expect(copied).toBe(SAME_FLOW_SELECTION_TEXT);
+    expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
   });
 
   test('extends one native selection across adjacent paragraphs', async ({ page }) => {
     const bands = await requireTextBands(page, 4);
-    const firstLine = requireBand(bands, 0);
-    const nextParagraphLastLine = requireBand(bands, 3);
-
-    await dragSelection(page, firstLine, nextParagraphLastLine);
+    await dragSelection(page, requireBand(bands, 0), requireBand(bands, 3));
 
     const shell = page.getByTestId('reader-shell');
     await expect(shell).toHaveAttribute('data-selection-active', 'true');
@@ -75,9 +87,17 @@ test.describe('reader native text selection acceptance', () => {
         SAME_FLOW_FIRST_LINE.length + SAME_FLOW_SECOND_LINE.length + CROSS_FLOW_LINE.length,
       );
     await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(4);
+    expect(await copySelection(page)).toBe(CROSS_FLOW_SELECTION_TEXT);
+  });
 
-    const copied = await copySelection(page);
-    expect(copied).toBe(CROSS_FLOW_SELECTION_TEXT);
+  test('paints the same vertical font box as Chromium native selection', async ({ page }) => {
+    const bands = await requireTextBands(page, 2);
+    const firstBand = requireBand(bands, 0);
+    await dragSelection(page, firstBand, requireBand(bands, 1));
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-selection-active', 'true');
+
+    const oracle = await chromiumSelectionOracle(page, TINOS_PINNED_FAMILY);
+    await expectSelectionFontBox(page, firstBand, oracle);
   });
 
   test('keeps the original anchor when one drag crosses it and reverses direction', async ({
@@ -94,8 +114,7 @@ test.describe('reader native text selection acceptance', () => {
     await page.mouse.move(firstLine.left, firstLine.centerY, { steps: 12 });
     await page.mouse.up();
 
-    const shell = page.getByTestId('reader-shell');
-    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-selection-active', 'true');
     await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(2);
     expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
   });
@@ -135,123 +154,85 @@ test.describe('reader native text selection acceptance', () => {
   });
 });
 
-async function loadSelectionFixture(page: Page): Promise<void> {
-  const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByTestId('open-file-button').click();
-  const chooser = await chooserPromise;
-  await chooser.setFiles({
-    name: 'native-selection-fixture.epub',
-    mimeType: 'application/epub+zip',
-    buffer: createSelectionFixtureEpub(),
+test('paints Chinese Source Han selection with Chromium native font geometry', async ({ page }) => {
+  await openEmptyReader(page);
+  await loadSelectionFixture(page, { locale: 'cjk' });
+  const bands = await requireTextBands(page, 2);
+  const firstBand = requireBand(bands, 0);
+  await dragSelection(page, firstBand, requireBand(bands, 1));
+  await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-selection-active', 'true');
+
+  const oracle = await chromiumSelectionOracle(page, SOURCE_HAN_PINNED_FAMILY, CJK_FIRST_LINE);
+  await expectSelectionFontBox(page, firstBand, oracle);
+  expect(await copySelection(page)).toBe(CJK_SELECTION_TEXT);
+});
+
+test.describe('reader native selection resource invalidation', () => {
+  test('keeps a released visual selection when an image finishes decoding', async ({ page }) => {
+    await installDelayedImageDecode(page);
+    await openEmptyReader(page);
+    await loadSelectionFixture(page, { includeImage: true });
+    await expect.poll(() => imageDecodePending(page)).toBe(true);
+
+    const bands = await requireTextBands(page, 2);
+    await dragSelection(page, requireBand(bands, 0), requireBand(bands, 1));
+    const shell = page.getByTestId('reader-shell');
+    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    const selectedTextLength = await selectionTextLength(page);
+    const pendingImageCanvas = await stableReaderCanvasChecksum(page);
+    const pendingHighlight = requireBand(await readSelectionHighlightBands(page), 0);
+
+    await releaseImageDecode(page);
+    await expect.poll(() => imageDecodeComplete(page)).toBe(true);
+    await page.waitForTimeout(300);
+    const decodedImageCanvas = await stableReaderCanvasChecksum(page);
+    const decodedHighlight = requireBand(await readSelectionHighlightBands(page), 0);
+
+    await expect(shell).toHaveAttribute('data-selection-active', 'true');
+    expect(decodedImageCanvas).not.toBe(pendingImageCanvas);
+    expect(decodedHighlight.top).toBeCloseTo(pendingHighlight.top, 6);
+    expect(decodedHighlight.height).toBeCloseTo(pendingHighlight.height, 6);
+    expect(await selectionTextLength(page)).toBe(selectedTextLength);
+    expect(await copySelection(page)).toBe(SAME_FLOW_SELECTION_TEXT);
   });
-  await expect(page.getByTestId('reader-shell')).toHaveAttribute('data-loaded', 'true', {
-    timeout: READER_LOAD_TIMEOUT_MS,
+});
+
+async function openEmptyReader(page: Page): Promise<void> {
+  await page.goto('/');
+  await page.evaluate(() => {
+    localStorage.clear();
   });
-  await expect.poll(() => visibleParagraphCount(page)).toBe(2);
+  await page.reload();
 }
 
-async function dragSelection(
+async function expectSelectionFontBox(
   page: Page,
-  startBand: CanvasTextBand,
-  endBand: CanvasTextBand,
+  textBand: CanvasTextBand,
+  oracle: ChromiumSelectionOracle,
 ): Promise<void> {
-  await page.mouse.move(startBand.left, startBand.centerY);
-  await page.mouse.down();
-  await page.mouse.move(endBand.right, endBand.centerY, { steps: 12 });
-  await page.mouse.up();
-}
+  const shell = page.getByTestId('reader-shell');
+  const modelHeight = Number(await shell.getAttribute('data-selection-first-rect-height'));
+  const modelTop = Number(await shell.getAttribute('data-selection-first-rect-y'));
+  const visual = requireBand(await readSelectionHighlightBands(page), 0);
 
-async function requireTextBands(page: Page, count: number): Promise<readonly CanvasTextBand[]> {
-  const bands = await readCanvasTextBands(page);
-  expect(bands.length).toBeGreaterThanOrEqual(count);
-  return bands.slice(0, count);
-}
-
-function requireBand(bands: readonly CanvasTextBand[], index: number): CanvasTextBand {
-  const band = bands[index];
-  if (!band) throw new Error(`Missing Canvas text band ${String(index)}`);
-  return band;
-}
-
-function pointInsideFirstWord(band: CanvasTextBand): { readonly x: number; readonly y: number } {
-  return { x: band.left + 10, y: band.centerY };
-}
-
-async function readCanvasTextBands(page: Page): Promise<readonly CanvasTextBand[]> {
-  return page
-    .getByTestId('reader-shell')
-    .locator('canvas')
-    .evaluate((canvas) => {
-      if (!(canvas instanceof HTMLCanvasElement)) throw new Error('Reader canvas is unavailable');
-      const context = canvas.getContext('2d');
-      if (!context) throw new Error('Reader canvas context is unavailable');
-      const bounds = canvas.getBoundingClientRect();
-      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-      const rows: { y: number; left: number; right: number }[] = [];
-      for (let y = 0; y < canvas.height; y += 1) {
-        let left = canvas.width;
-        let right = -1;
-        for (let x = 0; x < canvas.width; x += 1) {
-          const offset = (y * canvas.width + x) * 4;
-          const alpha = pixels[offset + 3] ?? 0;
-          const luminance =
-            (pixels[offset] ?? 255) + (pixels[offset + 1] ?? 255) + (pixels[offset + 2] ?? 255);
-          if (alpha > 32 && luminance < 570) {
-            left = Math.min(left, x);
-            right = Math.max(right, x);
-          }
-        }
-        if (right >= left) rows.push({ y, left, right });
-      }
-
-      const groups: { top: number; bottom: number; left: number; right: number }[] = [];
-      const backingScaleY = canvas.height / bounds.height;
-      const adjacentRowGap = Math.max(2, Math.round(3 * backingScaleY));
-      for (const row of rows) {
-        const previous = groups.at(-1);
-        if (previous && row.y <= previous.bottom + adjacentRowGap) {
-          previous.bottom = row.y;
-          previous.left = Math.min(previous.left, row.left);
-          previous.right = Math.max(previous.right, row.right);
-        } else {
-          groups.push({ top: row.y, bottom: row.y, left: row.left, right: row.right });
-        }
-      }
-
-      const scaleX = bounds.width / canvas.width;
-      const scaleY = bounds.height / canvas.height;
-      return groups
-        .filter((group) => group.bottom - group.top >= 8 && group.right - group.left >= 40)
-        .map((group) => ({
-          left: bounds.left + (group.left + 2) * scaleX,
-          right: bounds.left + (group.right - 2) * scaleX,
-          centerY: bounds.top + ((group.top + group.bottom) / 2) * scaleY,
-        }));
-    });
-}
-
-async function selectionTextLength(page: Page): Promise<number> {
-  return Number(
-    (await page.getByTestId('reader-shell').getAttribute('data-selection-text-length')) ?? '0',
+  expect(modelHeight).toBeGreaterThan(0);
+  expect(Math.abs(modelHeight - oracle.height)).toBeLessThanOrEqual(0.25);
+  const modelTopDelta = modelTop - textBand.logicalCenterY - oracle.topFromCanvasInkCenter;
+  expect(
+    Math.abs(modelTopDelta),
+    JSON.stringify({ modelTop, textBand, oracle }),
+  ).toBeLessThanOrEqual(1);
+  expect(Math.abs(visual.top - modelTop), JSON.stringify({ visual, modelTop })).toBeLessThanOrEqual(
+    1,
   );
+  expect(
+    Math.abs(visual.height - modelHeight),
+    JSON.stringify({ visual, modelHeight }),
+  ).toBeLessThanOrEqual(1);
 }
 
-async function selectionRectCount(page: Page): Promise<number> {
-  return Number(
-    (await page.getByTestId('reader-shell').getAttribute('data-selection-rect-count')) ?? '0',
-  );
-}
-
-async function visibleParagraphCount(page: Page): Promise<number> {
-  return page.locator('[role="document"][aria-live="polite"] p').count();
-}
-
-async function copySelection(page: Page): Promise<string> {
-  await page.getByTestId('reader-context-trigger').click({ button: 'right' });
-  await page.getByRole('menuitem', { name: /^Copy/ }).click();
-  return readClipboard(page);
-}
-
-async function readClipboard(page: Page): Promise<string> {
-  return page.evaluate(() => navigator.clipboard.readText());
+function pinnedFamily(fileName: string): string {
+  return `__RitoPinned_${createHash('sha256')
+    .update(readFileSync(new URL(`../../src/assets/fonts/${fileName}`, import.meta.url)))
+    .digest('hex')}`;
 }

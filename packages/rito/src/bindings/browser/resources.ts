@@ -1,11 +1,19 @@
-import type {
-  BrowserReaderRevisionHandle,
-  BrowserReaderState,
-  BrowserReaderWorkerRevisionHandle,
-} from './reader/types';
+import type { BrowserReaderRevisionHandle, BrowserReaderState } from './reader/types';
 import type { BrowserReaderResourceBytes, CoreRevisionHandle } from './core-contracts';
-import { ensureHostFontFamilyMetrics, ensureHostGenericSerifMetrics } from './font-metrics';
+import {
+  ensureHostFontFamilyMetrics,
+  ensureHostFontVerticalMetrics,
+  ensureHostGenericSerifMetrics,
+} from './font-metrics';
 import { isCurrentRevisionHandle } from './reader/pipeline/revision-handle';
+import { prepareBrowserReaderRevisionFonts } from './publication-fonts';
+
+export {
+  browserFontFaceRegistry,
+  prepareBrowserReaderRevisionFonts,
+  unregisterReaderFonts,
+  type BrowserFontFaceRegistry,
+} from './publication-fonts';
 
 export function createBrowserReaderResourceState(): Pick<
   BrowserReaderState,
@@ -19,7 +27,10 @@ export function createBrowserReaderResourceState(): Pick<
 }
 
 export async function preloadReaderFonts(state: BrowserReaderState): Promise<boolean> {
-  if (state.pinnedFonts.summary.faces.length > 0) return false;
+  const verticalDemands = state.revisionBundle.fontVerticalMetricDemands ?? [];
+  if (state.pinnedFonts.summary.faces.length > 0) {
+    return ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands);
+  }
   const revision = state.revisionHandle;
   if (!revision) return false;
   const worker = state.worker;
@@ -27,14 +38,24 @@ export async function preloadReaderFonts(state: BrowserReaderState): Promise<boo
     return false;
   const registeredBefore = state.registeredFontFaces.size;
   let metricsChanged = ensureHostGenericSerifMetrics(state.fontMetrics, state.ctx);
-  await registerRevisionFonts(state, worker, revision);
+  const publicationFontsReady = await prepareBrowserReaderRevisionFonts(
+    state,
+    worker,
+    revision,
+    () => isCurrentRevisionHandle(state, revision),
+  );
   if (!isCurrentRevisionHandle(state, revision)) return false;
-  metricsChanged =
-    ensureHostFontFamilyMetrics(
-      state.fontMetrics,
-      state.ctx,
-      [...state.registeredFontFaces.values()].map((face) => face.family),
-    ) || metricsChanged;
+  if (publicationFontsReady) {
+    metricsChanged =
+      ensureHostFontFamilyMetrics(
+        state.fontMetrics,
+        state.ctx,
+        [...state.registeredFontFaces.values()].map((face) => face.family),
+      ) || metricsChanged;
+    metricsChanged =
+      ensureHostFontVerticalMetrics(state.fontMetrics, state.ctx, verticalDemands) ||
+      metricsChanged;
+  }
   if (state.registeredFontFaces.size > registeredBefore) {
     for (const spreadIndex of [...state.frames.keys()])
       notifySpreadContentInvalidated(state, spreadIndex);
@@ -110,122 +131,6 @@ function ownedArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-interface ReaderFontFaceInput {
-  readonly family: string;
-  readonly href: string;
-  readonly style?: string | undefined;
-  readonly weight?: string | undefined;
-}
-
-interface PreparedReaderFontFace {
-  readonly key: string;
-  readonly face: FontFace;
-}
-
-export interface BrowserFontFaceRegistry {
-  readonly add: (face: FontFace) => void;
-  readonly delete: (face: FontFace) => boolean;
-}
-
-async function registerRevisionFonts(
-  state: BrowserReaderState,
-  worker: BrowserReaderState['worker'],
-  revision: BrowserReaderRevisionHandle,
-): Promise<void> {
-  const registry = browserFontFaceRegistry();
-  if (typeof FontFace === 'undefined' || !registry) return;
-  const prepared = await Promise.all(
-    readerFontFaceInputs(state).map((input) =>
-      prepareReaderFontFace(state, worker, revision, input).catch(() => undefined),
-    ),
-  );
-  if (!isCurrentRevisionHandle(state, revision)) return;
-  for (const item of prepared) {
-    if (item) commitReaderFontFace(state, item, registry);
-  }
-}
-
-function readerFontFaceInputs(state: BrowserReaderState): readonly ReaderFontFaceInput[] {
-  if (state.publication.fontFaces.length > 0) return state.publication.fontFaces;
-  const family = state.revisionBundle.fontFamilies[0];
-  const font = state.publication.resources.fonts[0];
-  if (!family || !font || state.publication.resources.fonts.length !== 1) return [];
-  return [{ family, href: font.href }];
-}
-
-async function prepareReaderFontFace(
-  state: BrowserReaderState,
-  worker: BrowserReaderState['worker'],
-  revision: BrowserReaderRevisionHandle,
-  input: ReaderFontFaceInput,
-): Promise<PreparedReaderFontFace | undefined> {
-  const key = fontFaceKey(input);
-  if (state.registeredFontFaces.has(key) || hasPinnedFontFamily(state, input.family)) return;
-  const { bytes } = (
-    await worker.readResourceAtRevision(coreRevisionHandle(revision), 'font', input.href)
-  ).value;
-  if (!isCurrentRevisionHandle(state, revision)) return;
-  const face = new FontFace(input.family, ownedArrayBuffer(bytes), fontFaceDescriptors(input));
-  await face.load();
-  return { key, face };
-}
-
-function hasPinnedFontFamily(state: BrowserReaderState, family: string): boolean {
-  const expected = asciiLowerCase(family);
-  for (const alias of state.pinnedFonts.faces.keys()) {
-    if (asciiLowerCase(alias) === expected) return true;
-  }
-  return false;
-}
-
-function asciiLowerCase(value: string): string {
-  return value.replace(/[A-Z]/g, (character) => character.toLowerCase());
-}
-
-function commitReaderFontFace(
-  state: BrowserReaderState,
-  prepared: PreparedReaderFontFace,
-  registry: BrowserFontFaceRegistry,
-): void {
-  if (state.registeredFontFaces.has(prepared.key)) return;
-  try {
-    registry.add(prepared.face);
-    state.registeredFontFaces.set(prepared.key, prepared.face);
-  } catch {
-    // A failed face is isolated so later source-order entries can still register.
-  }
-}
-
-export function unregisterReaderFonts(state: BrowserReaderState): void {
-  const registry = browserFontFaceRegistry();
-  if (registry) {
-    for (const face of state.registeredFontFaces.values()) {
-      try {
-        registry.delete(face);
-      } catch {
-        // Font cleanup is best effort and must not block Reader session release.
-      }
-    }
-  }
-  state.registeredFontFaces.clear();
-}
-
-export function browserFontFaceRegistry(): BrowserFontFaceRegistry | undefined {
-  if (typeof document !== 'undefined' && 'fonts' in document) return document.fonts;
-  return (globalThis as typeof globalThis & { readonly fonts?: BrowserFontFaceRegistry }).fonts;
-}
-
-function fontFaceDescriptors(input: ReaderFontFaceInput): FontFaceDescriptors {
-  return {
-    ...(input.style !== undefined ? { style: input.style } : {}),
-    ...(input.weight !== undefined ? { weight: input.weight } : {}),
-  };
-}
-
-function fontFaceKey(input: ReaderFontFaceInput): string {
-  return [input.family, input.href, input.style ?? '', input.weight ?? ''].join('\u0000');
-}
-
 async function preloadImageBytes(
   state: BrowserReaderState,
   href: string,
@@ -261,7 +166,7 @@ async function loadImageBytes(
   state.images.set(href, image);
 }
 
-function coreRevisionHandle(revision: BrowserReaderWorkerRevisionHandle): CoreRevisionHandle {
+function coreRevisionHandle(revision: CoreRevisionHandle): CoreRevisionHandle {
   return {
     revisionId: revision.revisionId,
     revisionVersion: revision.revisionVersion,

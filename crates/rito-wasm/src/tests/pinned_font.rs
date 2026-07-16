@@ -141,6 +141,21 @@ fn reader_json_and_ritorb1_preserve_required_font_faces() {
         &json["result"]["bundle"],
         &binary.payload["result"]["bundle"],
     ] {
+        let demands = bundle["fontVerticalMetricDemands"]
+            .as_array()
+            .filter(|demands| !demands.is_empty())
+            .expect("full reader projection preserves vertical metric demands");
+        for demand in demands {
+            assert!(demand["fontFamily"]
+                .as_str()
+                .is_some_and(|family| !family.is_empty()));
+            assert!(demand["fontStyle"]
+                .as_str()
+                .is_some_and(|style| !style.is_empty()));
+            assert!(demand["fontWeight"].as_u64().is_some());
+            assert!(demand["fontSizePx"].as_f64().is_some_and(|size| size > 0.0));
+        }
+
         let required = &bundle["requiredFontFaces"];
         assert_eq!(required["schemaVersion"], 1);
         assert_eq!(required["revisionId"], bundle["revision"]["revisionId"]);

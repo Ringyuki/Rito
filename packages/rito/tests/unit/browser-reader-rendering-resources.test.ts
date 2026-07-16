@@ -114,6 +114,7 @@ describe('Browser reader resource-backed rendering', () => {
         },
       },
     });
+    useFontFamilies(state, 'BookFont');
     state.spreadContentInvalidatedListeners = new Set([
       (index: number) => {
         invalidated.push(index);
@@ -162,6 +163,7 @@ describe('Browser reader resource-backed rendering', () => {
         resources: { fonts: [], images: [], stylesheets: [] },
       },
     });
+    useFontFamilies(state, 'WorkerFont');
 
     await preloadReaderFonts(state);
 
@@ -229,6 +231,45 @@ describe('Browser reader resource-backed rendering', () => {
     expect(addFont).not.toHaveBeenCalled();
   });
 
+  it('measures exact-size vertical metrics for an active pinned face', async () => {
+    const measureText = vi.fn(() => ({
+      width: 16,
+      fontBoundingBoxAscent: 4.5,
+      fontBoundingBoxDescent: 31.5,
+    }));
+    const state = createState({
+      ctx: Object.assign(fontMetricContext(), { measureText }),
+      pinnedFonts: {
+        policy: undefined,
+        summary: { ...emptyPinnedFontPolicySummary(), faces: [{}] },
+        registry: undefined,
+        faces: new Map(),
+      },
+    });
+    state.revisionBundle = {
+      ...state.revisionBundle,
+      fontVerticalMetricDemands: [
+        {
+          fontFamily: '__RitoPinned_face',
+          fontStyle: 'italic',
+          fontWeight: 700,
+          fontSizePx: 32,
+        },
+      ],
+    };
+
+    await expect(preloadReaderFonts(state)).resolves.toBe(true);
+    await expect(preloadReaderFonts(state)).resolves.toBe(false);
+
+    expect(measureText).toHaveBeenCalledOnce();
+    expect(state.fontMetrics.verticalMetrics).toMatchObject({
+      '["__ritopinned_face","italic",700,32]': {
+        topBaselineAscentPx: 4.5,
+        topBaselineDescentPx: 31.5,
+      },
+    });
+  });
+
   it('retries font registration when the active revision changes during a slow load', async () => {
     const addFont = vi.fn();
     const finishLoads: Array<() => void> = [];
@@ -257,6 +298,7 @@ describe('Browser reader resource-backed rendering', () => {
         resources: { fonts: [], images: [], stylesheets: [] },
       },
     });
+    useFontFamilies(state, 'BookFont');
 
     const preload = preloadCurrentReaderFonts(state);
     await flushPromises();
@@ -298,7 +340,7 @@ describe('Browser reader resource-backed rendering', () => {
     expect(state.registeredFontFaces.size).toBe(1);
   });
 
-  it('registers loaded fonts in metadata order when loads settle in reverse order', async () => {
+  it('loads only referenced fonts and registers them in metadata order', async () => {
     const addFont = vi.fn();
     const loadSettlements = new Map<
       string,
@@ -337,20 +379,18 @@ describe('Browser reader resource-backed rendering', () => {
         resources: { fonts: [], images: [], stylesheets: [] },
       },
     });
+    useFontFamilies(state, 'First, Second');
 
     const preload = preloadReaderFonts(state);
     await flushPromises();
     expect(readResource.mock.calls.map((call) => call[2])).toEqual([
       'fonts/first.woff2',
-      'fonts/broken.woff2',
       'fonts/second.woff2',
     ]);
-    expect([...loadSettlements.keys()]).toEqual(['First', 'Broken', 'Second']);
+    expect([...loadSettlements.keys()]).toEqual(['First', 'Second']);
 
     const secondLoad = expectDefined(loadSettlements.get('Second'));
-    const brokenLoad = expectDefined(loadSettlements.get('Broken'));
     secondLoad.resolve();
-    brokenLoad.reject();
     await flushPromises();
     expect(addFont).not.toHaveBeenCalled();
 
@@ -366,6 +406,39 @@ describe('Browser reader resource-backed rendering', () => {
       'First',
       'Second',
     ]);
+  });
+
+  it('fails a referenced face once instead of publishing mismatched fallback geometry', async () => {
+    const addFont = vi.fn();
+    class BrokenFontFace extends FakeFontFace {
+      override load(): Promise<BrokenFontFace> {
+        return Promise.reject(new Error('unsupported font'));
+      }
+    }
+    vi.stubGlobal('FontFace', BrokenFontFace);
+    vi.stubGlobal('document', { fonts: { add: addFont } });
+    const readResource = vi.fn<BrowserReaderWorkerClient['readResourceAtRevision']>(
+      (revision, _kind, href) => Promise.resolve(versionedResource(revision, 'font', href)),
+    );
+    const state = createState({
+      worker: {
+        ...createWorker(),
+        readResourceAtRevision: readResource,
+      } as BrowserReaderWorkerClient,
+      publication: {
+        fontFaces: [{ family: 'Broken', href: 'fonts/broken.woff2' }],
+        resources: { fonts: [], images: [], stylesheets: [] },
+      },
+    });
+    useFontFamilies(state, 'Broken');
+
+    const failure = 'Referenced publication font could not be loaded: Broken (fonts/broken.woff2)';
+    await expect(preloadReaderFonts(state)).rejects.toThrow(failure);
+    await expect(preloadReaderFonts(state)).rejects.toThrow(failure);
+
+    expect(readResource).toHaveBeenCalledOnce();
+    expect(addFont).not.toHaveBeenCalled();
+    expect(state.registeredFontFaces.size).toBe(0);
   });
 
   it('does not register a font prepared for a stale revision', async () => {
@@ -388,6 +461,7 @@ describe('Browser reader resource-backed rendering', () => {
         resources: { fonts: [], images: [], stylesheets: [] },
       },
     });
+    useFontFamilies(state, 'BookFont');
 
     const preload = preloadReaderFonts(state);
     await flushPromises();
@@ -558,6 +632,7 @@ function createState(overrides: object = {}): BrowserReaderState {
     fontMetrics: {
       genericSerif: { advances: {}, pairAdjustments: {} },
       fontFamilies: {},
+      verticalMetrics: {},
     },
     spreadContentInvalidatedListeners: new Set(),
     disposed: false,
@@ -568,6 +643,10 @@ function createState(overrides: object = {}): BrowserReaderState {
     },
     ...overrides,
   } as unknown as BrowserReaderState;
+}
+
+function useFontFamilies(state: BrowserReaderState, ...fontFamilies: string[]): void {
+  state.revisionBundle = { ...state.revisionBundle, fontFamilies };
 }
 
 function emptyPinnedFontPolicySummary() {

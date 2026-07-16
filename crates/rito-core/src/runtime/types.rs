@@ -9,8 +9,8 @@ use crate::{
     epub::{PackageDocument, TocEntry},
     interaction::{FootnoteEntry, FootnoteKind},
     layout::{
-        LayoutConfig, LineBreaking, PaginationFlowChapterRange, SearchRuntimeResult,
-        SearchTextPosition, TextRangeRect, TextRunOffset,
+        FontVerticalMetricDemand, LayoutConfig, LineBreaking, PaginationFlowChapterRange,
+        SearchRuntimeResult, SearchTextPosition, TextRangeRect, TextRunOffset,
     },
     render::{DisplayListResourceRefs, PackedDisplayCommandRecordStats},
     resources::PublicationResources,
@@ -306,7 +306,7 @@ pub struct RuntimeCreatedRevisionBundle {
     pub preview: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionPresentation {
     pub revision: RuntimeRevisionSummary,
@@ -314,10 +314,12 @@ pub struct RuntimeRevisionPresentation {
     pub toc_targets: RuntimeTocTargets,
     pub font_families: Vec<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuntimeRevisionBundle {
     pub revision: RuntimeRevisionSummary,
@@ -326,6 +328,8 @@ pub struct RuntimeRevisionBundle {
     pub footnotes: RuntimeFootnotes,
     pub chapter_text_indices: RuntimeChapterTextIndices,
     pub font_families: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub font_vertical_metric_demands: Option<Vec<FontVerticalMetricDemand>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub required_font_faces: Option<RuntimeRequiredFontFaces>,
 }

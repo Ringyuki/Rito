@@ -69,9 +69,13 @@ pub(crate) use cleanup::{CleanupProgress, PendingBuiltLayoutCleanup, PendingLayo
 pub(crate) use content::{RuntimeBlock, RuntimeChild};
 pub(crate) use display_list::{build_display_list_frame_commands, DisplayListFrameCommands};
 pub use display_list_flow::{DisplayListFlowSpreadDigest, DisplayListFlowSummary};
-pub(crate) use font_summary::summarize_layout_font_families;
+pub(crate) use font_summary::{
+    summarize_layout_font_families, summarize_layout_font_vertical_metric_demands,
+};
 pub use hit_map::{HitMapFlowCounts, HitMapFlowPageDigest, HitMapFlowSummary};
 pub(crate) use hit_target::{build_hit_targets, LayoutHitTarget};
+#[cfg(test)]
+pub(crate) use line::TextRunInteractionGeometry;
 pub(crate) use line::{LineBox, LineRun, TextRunBox};
 pub use link_map::{LinkMapFlowPageDigest, LinkMapFlowSummary, LinkMapFlowTotals};
 pub(crate) use locator::{collect_anchor_pages, collect_source_run_starts, LayoutSourceRunStart};
@@ -179,6 +183,101 @@ pub struct PaginationPolicy {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct FontVerticalMetricSample {
+    #[serde(default = "default_font_family")]
+    pub font_family: String,
+    #[serde(default = "default_font_style")]
+    pub font_style: String,
+    #[serde(default = "default_font_weight")]
+    pub font_weight: u16,
+    pub font_size_px: f64,
+    pub top_baseline_ascent_px: f64,
+    pub top_baseline_descent_px: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontVerticalMetricDemand {
+    pub font_family: String,
+    pub font_style: String,
+    pub font_weight: u16,
+    pub font_size_px: f64,
+}
+
+impl FontVerticalMetricDemand {
+    pub(crate) fn normalized(
+        font_family: Option<&str>,
+        font_style: Option<&str>,
+        font_weight: Option<f64>,
+        font_size_px: f64,
+    ) -> Option<Self> {
+        if !font_size_px.is_finite() || font_size_px <= 0.0 {
+            return None;
+        }
+        Some(Self {
+            font_family: normalize_font_descriptor_part(font_family, "serif"),
+            font_style: normalize_font_descriptor_part(font_style, "normal"),
+            font_weight: normalize_font_weight(font_weight),
+            font_size_px,
+        })
+    }
+}
+
+impl FontVerticalMetricSample {
+    pub(crate) fn normalized(&self) -> Option<Self> {
+        let demand = FontVerticalMetricDemand::normalized(
+            Some(&self.font_family),
+            Some(&self.font_style),
+            Some(f64::from(self.font_weight)),
+            self.font_size_px,
+        )?;
+        if !self.top_baseline_ascent_px.is_finite()
+            || self.top_baseline_ascent_px < 0.0
+            || !self.top_baseline_descent_px.is_finite()
+            || self.top_baseline_descent_px < 0.0
+            || self.top_baseline_ascent_px + self.top_baseline_descent_px <= 0.0
+        {
+            return None;
+        }
+        Some(Self {
+            font_family: demand.font_family,
+            font_style: demand.font_style,
+            font_weight: demand.font_weight,
+            font_size_px: demand.font_size_px,
+            top_baseline_ascent_px: self.top_baseline_ascent_px,
+            top_baseline_descent_px: self.top_baseline_descent_px,
+        })
+    }
+}
+
+fn normalize_font_descriptor_part(value: Option<&str>, fallback: &str) -> String {
+    let value = value.map(str::trim).filter(|value| !value.is_empty());
+    value.unwrap_or(fallback).to_ascii_lowercase()
+}
+
+fn normalize_font_weight(value: Option<f64>) -> u16 {
+    let value = value.unwrap_or(f64::from(default_font_weight())).round();
+    if value.is_finite() && (1.0..=1000.0).contains(&value) {
+        value as u16
+    } else {
+        default_font_weight()
+    }
+}
+
+fn default_font_family() -> String {
+    "serif".to_owned()
+}
+
+fn default_font_style() -> String {
+    "normal".to_owned()
+}
+
+const fn default_font_weight() -> u16 {
+    400
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct LayoutConfig {
     pub viewport_width: f64,
     pub viewport_height: f64,
@@ -212,6 +311,8 @@ pub struct LayoutConfig {
     pub generic_serif_pair_adjustments: BTreeMap<String, f64>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub font_family_pair_adjustments: BTreeMap<String, BTreeMap<String, f64>>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub font_vertical_metrics: Vec<FontVerticalMetricSample>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -291,6 +392,7 @@ pub fn create_layout_config(input: LayoutConfigInput) -> LayoutConfig {
         font_family_advances: BTreeMap::new(),
         generic_serif_pair_adjustments: BTreeMap::new(),
         font_family_pair_adjustments: BTreeMap::new(),
+        font_vertical_metrics: Vec::new(),
     }
 }
 
@@ -333,8 +435,8 @@ fn resolve_margins(input: MarginInput) -> Margins {
 #[cfg(test)]
 mod tests {
     use super::{
-        create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
-        TextMeasurementMode,
+        create_layout_config, FontVerticalMetricSample, LayoutConfig, LayoutConfigInput,
+        MarginInput, SpreadMode, TextMeasurementMode,
     };
 
     #[test]
@@ -409,6 +511,7 @@ mod tests {
         );
         assert!(config.generic_serif_pair_adjustments.is_empty());
         assert!(config.font_family_pair_adjustments.is_empty());
+        assert!(config.font_vertical_metrics.is_empty());
     }
 
     #[test]
@@ -463,5 +566,43 @@ mod tests {
         });
 
         assert_eq!(config.text_measurement, TextMeasurementMode::FontAware);
+    }
+
+    #[test]
+    fn text_measurement_config_round_trips_host_vertical_metrics() {
+        let mut config = create_layout_config(LayoutConfigInput {
+            width: 420.0,
+            height: 640.0,
+            margin: MarginInput::All(24.0),
+            spread: SpreadMode::Single,
+            first_page_alone: true,
+            spread_gap: 0.0,
+            root_font_size: 16.0,
+            line_height_override: None,
+            line_height_force: None,
+            font_family_override: None,
+            font_family_force: None,
+            pagination_policy: None,
+            text_measurement: Some(TextMeasurementMode::FontAware),
+        });
+        config.font_vertical_metrics = vec![FontVerticalMetricSample {
+            font_family: "Book".to_owned(),
+            font_style: "Italic".to_owned(),
+            font_weight: 700,
+            font_size_px: 24.0,
+            top_baseline_ascent_px: 5.0,
+            top_baseline_descent_px: 22.0,
+        }];
+
+        let value = serde_json::to_value(&config).expect("layout config serializes");
+        assert_eq!(value["fontVerticalMetrics"][0]["fontFamily"], "Book");
+        assert_eq!(value["fontVerticalMetrics"][0]["fontSizePx"], 24.0);
+        assert_eq!(
+            value["fontVerticalMetrics"][0]["topBaselineDescentPx"],
+            22.0
+        );
+        let decoded: LayoutConfig =
+            serde_json::from_value(value).expect("layout config vertical metrics deserialize");
+        assert_eq!(decoded, config);
     }
 }

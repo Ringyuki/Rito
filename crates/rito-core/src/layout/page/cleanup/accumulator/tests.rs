@@ -184,6 +184,7 @@ fn text_run(source: Arc<str>) -> LineRun {
         width: 20.0,
         height: 12.0,
         font_size: 12.0,
+        interaction_geometry: None,
         paint: json!({ "color": "#000" }),
         line_height_px: None,
         href: None,

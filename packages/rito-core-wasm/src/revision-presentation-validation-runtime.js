@@ -3,6 +3,7 @@ import {
   requireObjectInput,
 } from './core-wasm-versioned-validation-runtime.js';
 import { requireRequiredFontFaces } from './required-font-faces-validation-runtime.js';
+import { requireFontVerticalMetricDemands } from './font-vertical-metric-validation-runtime.js';
 export function requireRevisionPresentation(value, revision, operation) {
   const presentation = requireObjectInput(value, `${operation} value`);
   const fields = new Set([
@@ -10,6 +11,7 @@ export function requireRevisionPresentation(value, revision, operation) {
     'navigation',
     'tocTargets',
     'fontFamilies',
+    'fontVerticalMetricDemands',
     'requiredFontFaces',
   ]);
   for (const field of Object.keys(presentation)) {
@@ -60,6 +62,7 @@ export function requireRevisionPresentation(value, revision, operation) {
   ) {
     throw new Error(`${operation} returned malformed presentation font families`);
   }
+  requireFontVerticalMetricDemands(presentation.fontVerticalMetricDemands, operation);
   requireRequiredFontFaces(presentation.requiredFontFaces, revision.revisionId, operation);
   return presentation;
 }

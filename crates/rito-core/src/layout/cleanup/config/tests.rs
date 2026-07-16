@@ -6,7 +6,8 @@ use std::{
 
 use super::{LayoutConfigCleanupStage, PendingLayoutConfigCleanup};
 use crate::layout::{
-    create_layout_config, LayoutConfig, LayoutConfigInput, MarginInput, SpreadMode,
+    create_layout_config, FontVerticalMetricSample, LayoutConfig, LayoutConfigInput, MarginInput,
+    SpreadMode,
 };
 
 const LARGE_ENTRY_COUNT: usize = 16_384;
@@ -41,9 +42,27 @@ fn flat_nested_and_empty_family_maps_have_exact_units() {
         "Serif".to_owned(),
         BTreeMap::from([("AB".to_owned(), -2.0)]),
     );
+    owner.font_vertical_metrics.extend([
+        FontVerticalMetricSample {
+            font_family: "serif".to_owned(),
+            font_style: "normal".to_owned(),
+            font_weight: 400,
+            font_size_px: 16.0,
+            top_baseline_ascent_px: 3.0,
+            top_baseline_descent_px: 15.0,
+        },
+        FontVerticalMetricSample {
+            font_family: "sans-serif".to_owned(),
+            font_style: "italic".to_owned(),
+            font_weight: 700,
+            font_size_px: 20.0,
+            top_baseline_ascent_px: 4.0,
+            top_baseline_descent_px: 18.0,
+        },
+    ]);
     let mut cleanup = PendingLayoutConfigCleanup::new(owner);
 
-    assert_eq!(drive_q1(&mut cleanup, 18), 18);
+    assert_eq!(drive_q1(&mut cleanup, 21), 21);
 }
 
 #[test]

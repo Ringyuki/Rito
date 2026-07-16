@@ -1,4 +1,4 @@
-use rito_core::runtime::RuntimeResourceKind;
+use rito_core::{layout::TextMeasurementMode, runtime::RuntimeResourceKind};
 use serde_json::{json, Value};
 
 use super::fixture::{fixture_document, layout, revision_id};
@@ -155,7 +155,23 @@ fn versioned_raw_reads_return_stamped_envelopes() {
 #[test]
 fn versioned_revision_presentation_is_slim_and_exact() {
     let mut document = WasmRuntimeDocument::from_loaded_document(fixture_document());
-    let revision_id = revision_id(&mut document);
+    let mut config = layout();
+    config.text_measurement = TextMeasurementMode::FontAware;
+    let created = parse(
+        document
+            .create_full_revision_bundle_json(
+                &json!({
+                    "layoutConfig": config,
+                    "activeSpreadIndex": 0,
+                })
+                .to_string(),
+            )
+            .expect("font-aware revision is created"),
+    );
+    let revision_id = created["bundle"]["revision"]["revisionId"]
+        .as_str()
+        .expect("font-aware revision id is present")
+        .to_owned();
     let presentation = parse(
         document
             .get_revision_presentation_at_revision_json(&revision_id, 0)
@@ -171,9 +187,18 @@ fn versioned_revision_presentation_is_slim_and_exact() {
     let value = presentation["value"]
         .as_object()
         .expect("presentation value is an object");
-    for field in ["revision", "navigation", "tocTargets", "fontFamilies"] {
+    for field in [
+        "revision",
+        "navigation",
+        "tocTargets",
+        "fontFamilies",
+        "fontVerticalMetricDemands",
+    ] {
         assert!(value.contains_key(field), "missing {field}");
     }
+    assert!(value["fontVerticalMetricDemands"]
+        .as_array()
+        .is_some_and(|demands| !demands.is_empty()));
     assert!(!value.contains_key("footnotes"));
     assert!(!value.contains_key("chapterTextIndices"));
     for field in [
@@ -181,6 +206,7 @@ fn versioned_revision_presentation_is_slim_and_exact() {
         "navigation",
         "tocTargets",
         "fontFamilies",
+        "fontVerticalMetricDemands",
         "requiredFontFaces",
     ] {
         assert_eq!(presentation["value"][field], bundle["value"][field]);

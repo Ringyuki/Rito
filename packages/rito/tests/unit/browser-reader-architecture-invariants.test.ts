@@ -41,6 +41,7 @@ const BROWSER_READER_TEXT_SELECTION_SUPPORT = join(
 const BROWSER_READER_WORKER_BOOTSTRAP = join(BROWSER_READER_BINDING, 'worker-bootstrap.ts');
 const BROWSER_READER_WORKER_MAIN = join(BROWSER_READER_BINDING, 'worker-main.ts');
 const BROWSER_RESOURCE_ADAPTER = join(SRC, 'bindings/browser/resources.ts');
+const BROWSER_PUBLICATION_FONTS = join(SRC, 'bindings/browser/publication-fonts.ts');
 const BROWSER_READER_SESSION_HOST = join(SRC, 'bindings/browser/reader-session-host.ts');
 const BROWSER_READER_RESOURCE_SCHEDULER = join(BROWSER_READER_BINDING, 'resources/scheduler.ts');
 const BROWSER_READER_BINDING_FILES = walkTs(BROWSER_READER_BINDING);
@@ -522,7 +523,7 @@ describe('Browser reader architecture invariant: browser reader binding stays pr
   });
 
   it('uses Rust revision font summaries instead of probing frames for fallback fonts', () => {
-    const source = read(BROWSER_RESOURCE_ADAPTER);
+    const source = read(BROWSER_RESOURCE_ADAPTER) + read(BROWSER_PUBLICATION_FONTS);
     expect(source).toContain('state.revisionBundle.fontFamilies');
     expect(source).not.toContain('./frame-cache');
     expect(source).not.toContain('ensureFrameLoaded');

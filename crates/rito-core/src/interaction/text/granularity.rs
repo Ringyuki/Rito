@@ -226,9 +226,14 @@ fn resolve_flow_boundary(
         }
         let stop = stop_at(shape, offset - slice.logical_start)?;
         let resolved = resolved_run_caret(*run, slice, stop)?;
+        let (interaction_y, interaction_height) = run.interaction_vertical_bounds();
         let bounds = run
             .visual
-            .resolve_vertical_segment(run.x + f64::from(stop.visual_offset), run.y, run.run.height)
+            .resolve_vertical_segment(
+                run.x + f64::from(stop.visual_offset),
+                interaction_y,
+                interaction_height,
+            )
             .ok_or(TextInteractionUnavailableReason::VisualGeometryUnavailable)?;
         return Ok(LayoutTextCaret {
             address: resolved.address,

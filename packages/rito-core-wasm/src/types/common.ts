@@ -21,6 +21,15 @@ export interface RitoCoreWasmPaginationPolicy {
   readonly defaultWidows?: number | undefined;
 }
 
+export interface RitoCoreWasmFontVerticalMetricSample {
+  readonly fontFamily: string;
+  readonly fontStyle: 'normal' | 'italic';
+  readonly fontWeight: number;
+  readonly fontSizePx: number;
+  readonly topBaselineAscentPx: number;
+  readonly topBaselineDescentPx: number;
+}
+
 export interface RitoCoreWasmLayoutConfig {
   readonly viewportWidth: number;
   readonly viewportHeight: number;
@@ -52,4 +61,6 @@ export interface RitoCoreWasmLayoutConfig {
   readonly fontFamilyPairAdjustments?:
     | Readonly<Record<string, Readonly<Record<string, number>>>>
     | undefined;
+  /** Exact-size Host Canvas font boxes used for caret and selection geometry. */
+  readonly fontVerticalMetrics?: readonly RitoCoreWasmFontVerticalMetricSample[] | undefined;
 }

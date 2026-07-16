@@ -8,10 +8,47 @@ use super::{
     TextInteractionUnavailableReason,
 };
 use crate::layout::{
-    fixture_logical_text_flow, LayoutRuntimePage, LineBox, LineRun, LogicalTextFlow, RunShape,
-    RunShapeCluster, RunShapeDirection, RunShapeProvenance, RunShapeUnavailableReason,
-    RunTextMapping, RuntimeBlock, RuntimeChild, TextFlowSlice, TextRunBox,
+    fixture_logical_text_flow, FontVerticalMetricSample, LayoutRuntimePage, LineBox, LineRun,
+    LogicalTextFlow, RunShape, RunShapeCluster, RunShapeDirection, RunShapeProvenance,
+    RunShapeUnavailableReason, RunTextMapping, RuntimeBlock, RuntimeChild, TextFlowSlice,
+    TextRunBox, TextRunInteractionGeometry,
 };
+
+#[test]
+fn caret_and_range_use_font_geometry_while_hit_testing_keeps_line_height() {
+    let flow = exact_flow("a");
+    let mut text_run = run("a", slice(&flow, 0, 0, 1), 0.0, 10.0, uniform_shape(1));
+    let LineRun::Text(run) = &mut text_run else {
+        unreachable!("fixture creates a text run");
+    };
+    run.interaction_geometry = TextRunInteractionGeometry::from_font_metrics(
+        &FontVerticalMetricSample {
+            font_family: "serif".to_owned(),
+            font_style: "normal".to_owned(),
+            font_weight: 400,
+            font_size_px: 16.0,
+            top_baseline_ascent_px: 4.0,
+            top_baseline_descent_px: 12.0,
+        },
+        run.height,
+    );
+    let page = page(0, vec![vec![text_run]], None);
+
+    let LayoutTextCaretResolution::Resolved(caret) = resolve_text_caret(0, &page, 15.0, 39.0)
+    else {
+        panic!("full line-height hit target resolves below the font box");
+    };
+    assert_eq!((caret.geometry.y, caret.geometry.height), (22.0, 16.0));
+
+    let LayoutExactTextRangeResolution::Resolved(range) = resolve_text_range(
+        std::slice::from_ref(&page),
+        address(0, 0, 0, 0, 0, TextCaretAffinity::Downstream),
+        address(0, 0, 0, 0, 1, TextCaretAffinity::Upstream),
+    ) else {
+        panic!("font-box range resolves");
+    };
+    assert_eq!((range.rects[0].y, range.rects[0].height), (22.0, 16.0));
+}
 
 #[test]
 fn point_hit_uses_variable_width_cluster_carets() {
@@ -703,6 +740,7 @@ fn run(text: &str, text_mapping: RunTextMapping, x: f64, width: f64, shape: RunS
         width,
         height: 20.0,
         font_size: 16.0,
+        interaction_geometry: None,
         paint: json!({}),
         line_height_px: None,
         href: None,

@@ -201,12 +201,13 @@ describe('native target spread lifecycle', () => {
     } as unknown as Reader;
     const state = createCoordinatorState();
     const canvas = { style: { cursor: 'pointer' } };
+    const invalidateSelection = vi.fn();
     const deps = {
       reader,
       coordState: state,
       canvas,
       engines: {
-        selection: { setSpread: vi.fn(), invalidate: vi.fn() },
+        selection: { setSpread: vi.fn(), invalidate: invalidateSelection },
         search: {},
         position: null,
       },
@@ -225,6 +226,7 @@ describe('native target spread lifecycle', () => {
       expect(state.nativeTargetsByPage.has(0)).toBe(true);
     });
     invalidated?.(0);
+    expect(invalidateSelection).not.toHaveBeenCalled();
     expect(state.nativeTargetsByPage.size).toBe(0);
     await vi.waitFor(() => {
       expect(state.nativeTargetsByPage.has(0)).toBe(true);

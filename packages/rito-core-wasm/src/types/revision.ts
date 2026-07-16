@@ -93,6 +93,7 @@ export interface RitoCoreWasmRevisionBundle {
   readonly footnotes: RitoCoreWasmFootnotes;
   readonly chapterTextIndices: RitoCoreWasmChapterTextIndices;
   readonly fontFamilies: readonly string[];
+  readonly fontVerticalMetricDemands?: readonly RitoCoreWasmFontVerticalMetricDemand[] | undefined;
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
 }
 
@@ -108,7 +109,15 @@ export interface RitoCoreWasmRevisionPresentation {
   readonly navigation: RitoCoreWasmRevisionNavigation;
   readonly tocTargets: RitoCoreWasmTocTargets;
   readonly fontFamilies: readonly string[];
+  readonly fontVerticalMetricDemands?: readonly RitoCoreWasmFontVerticalMetricDemand[] | undefined;
   readonly requiredFontFaces?: RitoCoreWasmRequiredFontFaces | undefined;
+}
+
+export interface RitoCoreWasmFontVerticalMetricDemand {
+  readonly fontFamily: string;
+  readonly fontStyle: 'normal' | 'italic';
+  readonly fontWeight: number;
+  readonly fontSizePx: number;
 }
 
 export interface RitoCoreWasmRequiredFontFaces {

@@ -266,6 +266,7 @@ fn text_run_with_shape(text: &str, x: f64, shape: RunShape) -> LineRun {
         width: 10.0,
         height: 10.0,
         font_size: 10.0,
+        interaction_geometry: None,
         paint: Value::Object(Default::default()),
         line_height_px: None,
         href: None,

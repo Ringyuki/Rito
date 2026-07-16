@@ -400,6 +400,7 @@ mod tests {
             width: 10.0,
             height: 12.0,
             font_size: 12.0,
+            interaction_geometry: None,
             paint: json!({}),
             line_height_px: None,
             href: Some("#same".to_owned()),

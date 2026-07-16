@@ -193,13 +193,14 @@ fn range_rect_for_run(
     let end_x = collected.x + f64::from(end_stop.visual_offset);
     let source_x = start_x.min(end_x);
     let source_width = (end_x - start_x).abs();
+    let (source_y, source_height) = collected.interaction_vertical_bounds();
     let Some(bounds) = collected
         .visual
         .resolve_rect(crate::layout::VisualRect::new(
             source_x,
-            collected.y,
+            source_y,
             source_width,
-            collected.run.height,
+            source_height,
         ))
     else {
         return Ok(None);

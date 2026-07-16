@@ -63,6 +63,7 @@ pub(crate) fn add_continuous_list_marker(
             width: LIST_MARKER_AREA_WIDTH,
             height: first_line.height,
             font_size,
+            interaction_geometry: None,
             paint: run_paint_value(&node.style, false, false),
             line_height_px: None,
             href: None,

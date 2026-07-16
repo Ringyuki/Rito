@@ -229,6 +229,7 @@ pub(super) fn text_run(
         width,
         height: 20.0,
         font_size: 16.0,
+        interaction_geometry: None,
         paint: json!({}),
         line_height_px: None,
         href: None,

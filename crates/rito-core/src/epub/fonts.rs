@@ -134,13 +134,14 @@ fn text_measurement_font_assembly_with_cache<'a>(
     // cannot outrank the v1 normal/400 pinned face under the same alias.
     faces.extend(pinned_faces);
     TextMeasurementFontAssembly {
-        fonts: TextMeasurementFonts::new_with_cache(
+        fonts: TextMeasurementFonts::new_with_cache_and_vertical_metrics(
             faces,
             cache,
             generic_serif_advances(layout_config),
             font_family_advances(layout_config),
             generic_serif_pair_adjustments(layout_config),
             font_family_pair_adjustments(layout_config),
+            layout_config.font_vertical_metrics.clone(),
         ),
         shapeable_publication_families,
         shapeable_publication_faces,

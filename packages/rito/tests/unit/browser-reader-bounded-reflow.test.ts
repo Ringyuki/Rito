@@ -102,6 +102,41 @@ describe('Browser bounded reflow coordinator', () => {
     expect(state.reflow.active).toBeUndefined();
   });
 
+  it('retries an initial candidate only after exact font geometry grows', async () => {
+    const initial = createWorker(() => undefined, 'initial-font-fallback');
+    const calibrated = createWorker(() => undefined, 'initial-font-calibrated');
+    const state = createState(initial.worker);
+    Object.assign(state, { workerFactory: () => calibrated.worker });
+    mocks.startCandidate
+      .mockImplementationOnce((candidateState) => {
+        candidateState.fontMetrics.verticalMetrics['body'] = {
+          fontFamily: 'body',
+          fontStyle: 'normal',
+          fontWeight: 400,
+          fontSizePx: 16,
+          topBaselineAscentPx: 3,
+          topBaselineDescentPx: 14,
+        };
+        return Promise.resolve(undefined);
+      })
+      .mockResolvedValueOnce(snapshot());
+
+    await startBrowserReaderInitialReflow(state, BASE_READER_OPTIONS, 'single', 'greedy');
+
+    expect(mocks.startCandidate).toHaveBeenCalledTimes(2);
+    expect(mocks.openWorker).toHaveBeenCalledOnce();
+    expect(mocks.openWorker).toHaveBeenCalledWith(
+      calibrated.worker,
+      expect.any(ArrayBuffer),
+      state.pinnedFonts.policy,
+      state.pinnedFonts.summary,
+    );
+    expect(mocks.createOwner.mock.calls.map(([worker]) => worker.sessionId)).toEqual([
+      initial.worker.sessionId,
+      calibrated.worker.sessionId,
+    ]);
+  });
+
   it('opens an independent candidate and carries the exact reading anchor into it', async () => {
     const current = currentFixture(3, 1);
     const candidate = createWorker(() => undefined, 'candidate');
