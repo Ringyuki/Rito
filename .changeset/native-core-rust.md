@@ -29,5 +29,11 @@ caret/highlight geometry matches native selection without shrinking the forgivin
 Captured touch handles can now grow an unpublished bounded spread and continue across the appended
 revision through an atomic stable-prefix caret-to-point operation; replacement layouts still invalidate
 the selection, and stale growth cannot supersede a newer navigation or layout intent.
+Primary mouse/pen and touch long-press selection drags now use the same exact gesture lease to dwell
+across already-published or lazily appended spread edges, replay through the new coordinate projection,
+retain precise copied text after immediate release, and suppress target activation after a physical turn.
+Every physical selection press now claims one latest-input barrier before resolving coordinates, cancels
+older spread/locator/portable-position work without invalidating a stable reading position, and passes the
+same claim to derived mouse semantics or the delayed long-press instead of letting them reclaim ownership.
 The locale-aware ICU auto data increases the release WASM by about 2.5 MB raw (1.9 MB gzip) and
 37 initial memory pages; this preserves Chinese, Japanese, Thai, and locale-tailored word behavior.

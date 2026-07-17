@@ -4,9 +4,15 @@ import type { TransitionDriver } from '../../driver/transition-driver';
 import type { ContentRenderer, PageBufferPool } from '../../painter/buffer-pool';
 import type { TypedEmitter } from '../../utils/event-emitter';
 import type { ReaderControllerEvents } from '../types';
+import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import * as navState from './state';
 import * as jump from './jump';
 import * as growth from './growth';
+import {
+  supersedeNavigationForPositionIntent,
+  supersedeNavigationForSelectionIntent,
+  type NavigationSelectionInputBarrier,
+} from './direct-interaction';
 import { emitNavigationStart } from './start';
 import { navigateReaderLocator, navigateTocEntry, retryPendingTocEntry } from './toc-growth';
 
@@ -31,8 +37,10 @@ export interface NavigationDeps {
   onNavigationCancelled?: () => void;
   /** Publishes a newly committed known/final spread extent without resetting layout state. */
   onPaginationChanged?: () => void;
-  /** Scope a same-revision native handle projection transfer to one ready jump attempt. */
-  beginSelectionProjectionTransfer?: ((spreadIndex: number) => () => void) | undefined;
+  /** Scope one exact native gesture projection transfer to one ready jump attempt. */
+  beginSelectionProjectionTransfer?:
+    | ((spreadIndex: number, lease: SelectionGestureLease) => () => void)
+    | undefined;
 }
 
 export interface NavigationActions {
@@ -52,7 +60,7 @@ export interface NavigationActions {
   /** Snap only when the target is immediately paintable. */
   jumpToSpreadIfReady(
     index: number,
-    preserveNativeHandleDrag?: boolean,
+    selectionGesture?: SelectionGestureLease,
   ): jump.NavigationJumpOutcome;
   /** Prepare a paintable snap without claiming navigation or position ownership. */
   prepareSpreadForJump(index: number): jump.NavigationJumpReadiness;
@@ -62,6 +70,8 @@ export interface NavigationActions {
   notifyContentReady(spreadIndex: number): void;
   /** Retry a TOC target that was unavailable in a partial preview revision. */
   notifyLayoutCommitted(): void;
+  /** Silently retire older navigation work before starting a direct selection gesture. */
+  supersedeForSelectionIntent(): NavigationSelectionInputBarrier | null;
   supersedeForPositionIntent(): void;
   dispose(): void;
 }
@@ -75,9 +85,7 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
   const state = navState.createNavigationState();
   const locatorNavigator = createLocatorNavigator(state, deps);
   return {
-    goToSpread(index) {
-      startNavigation(state, deps, index);
-    },
+    goToSpread: startNavigation.bind(undefined, state, deps),
     startGestureNavigation(index, onTransitionStart, onUnavailable) {
       return startGestureNavigation(state, deps, index, onTransitionStart, onUnavailable);
     },
@@ -98,8 +106,8 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       const attemptId = jump.claimNavigationAttempt(state, deps, preservePositionIntent);
       return jump.jumpToSpread(state, deps, attemptId, index);
     },
-    jumpToSpreadIfReady: (index, preserveNativeHandleDrag) =>
-      jump.performReadyJump(state, deps, index, preserveNativeHandleDrag),
+    jumpToSpreadIfReady: (index, selectionGesture) =>
+      jump.performReadyJump(state, deps, index, selectionGesture),
     prepareSpreadForJump(index) {
       return state.disposed ? 'superseded' : jump.prepareSpreadForJump(deps, index);
     },
@@ -113,19 +121,12 @@ export function createNavigation(deps: NavigationDeps): NavigationActions {
       if (state.disposed) return;
       retryPendingTocEntry(state, deps, locatorNavigator);
     },
+    supersedeForSelectionIntent: () => supersedeNavigationForSelectionIntent(state, deps),
     supersedeForPositionIntent: () => {
-      supersedeForPositionIntent(state, deps);
+      supersedeNavigationForPositionIntent(state, deps);
     },
-    dispose() {
-      disposeNavigation(state);
-    },
+    dispose: disposeNavigation.bind(undefined, state),
   };
-}
-
-function supersedeForPositionIntent(state: State, deps: NavigationDeps): void {
-  if (state.disposed) return;
-  deps.onContentInteractionIntent?.();
-  navState.supersedeNavigationForPositionIntent(state, deps.td);
 }
 
 function disposeNavigation(state: State): void {

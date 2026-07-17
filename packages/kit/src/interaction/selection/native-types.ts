@@ -45,6 +45,11 @@ export interface NativeSelectionHandleDrag {
   cancel(): void;
 }
 
+/** Opaque lease for one exact active gesture session. */
+export interface NativeSelectionGestureLease {
+  isActive(): boolean;
+}
+
 export interface NativeSelectionEngine {
   beginHandleDrag(edge: NativeSelectionHandleEdge): NativeSelectionHandleDrag | null;
   handlePointerDown(point: NativeSelectionPoint, granularity?: NativeSelectionGranularity): void;
@@ -58,6 +63,7 @@ export interface NativeSelectionEngine {
   getState(): NativeSelectionState;
   getInteractionGeneration(): number;
   getSnapshot(): NativeSelectionSnapshot | null;
+  captureActiveGesture(): NativeSelectionGestureLease | null;
   hasActiveHandleDrag(): boolean;
   onChange(listener: (change: NativeSelectionChange) => void): () => void;
 }

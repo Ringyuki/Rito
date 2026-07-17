@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReaderLocator } from '@ritojs/core';
+import type { PositionLocatorNavigator } from '../src/interaction/position/native';
 import { createPositionTracker } from '../src/interaction/position/tracker';
 import type { PositionLayout, ReadingPosition } from '../src/interaction/position/model';
 
@@ -34,6 +35,58 @@ describe('native reading-position tracker', () => {
       projection: { pageIndex: 1, spreadIndex: 1 },
       progress: 0.5,
     });
+  });
+
+  it('publishes a pending native anchor against the latest appended pagination', async () => {
+    const capture = deferred<unknown>();
+    const initialLayout = layout();
+    let currentLayout = initialLayout;
+    const tracker = createTracker(
+      {
+        getPageReadingAnchor: vi.fn(() => capture.promise),
+        resolveLocator: vi.fn(),
+      },
+      () => currentLayout,
+    );
+
+    tracker.update(1);
+    currentLayout = appendedLayout(initialLayout);
+    capture.resolve({ status: 'resolved', pageIndex: 1, spreadIndex: 1, locator });
+    await tracker.settle();
+
+    expect(tracker.getCurrent()).toMatchObject({
+      projection: { pageIndex: 1, spreadIndex: 1 },
+      progress: 0.25,
+    });
+  });
+
+  it('settles the latest capture when an anchor lookup synchronously reenters', async () => {
+    const first = deferred<unknown>();
+    const second = deferred<unknown>();
+    let reentered = false;
+    const getPageReadingAnchor = vi.fn(() => {
+      if (!reentered) {
+        reentered = true;
+        tracker.update(1);
+        return first.promise;
+      }
+      return second.promise;
+    });
+    const tracker = createTracker({ getPageReadingAnchor, resolveLocator: vi.fn() });
+
+    tracker.update(0);
+    const settlement = tracker.settle();
+    let settled = false;
+    void settlement.then(() => {
+      settled = true;
+    });
+    first.resolve({ status: 'resolved', pageIndex: 0, spreadIndex: 0, locator });
+    await settleMicrotasks();
+    expect(settled).toBe(false);
+
+    second.resolve({ status: 'resolved', pageIndex: 1, spreadIndex: 1, locator });
+    await settlement;
+    expect(tracker.getCurrent()?.projection).toEqual({ pageIndex: 1, spreadIndex: 1 });
   });
 
   it('does not re-query a pending or committed native anchor for a same-spread repaint', async () => {
@@ -315,6 +368,41 @@ describe('native reading-position tracker', () => {
     expect(signals[1]?.aborted).toBe(false);
   });
 
+  it('settles the latest locator when navigator entry synchronously reenters', async () => {
+    const stale = deferred<ReturnType<typeof resolvedLocator>>();
+    const latest = deferred<ReturnType<typeof resolvedLocator>>();
+    let reentered = false;
+    let latestResolution: ReturnType<typeof tracker.resolveForNavigation> | undefined;
+    const navigateToLocator = vi.fn<PositionLocatorNavigator>(() => {
+      if (!reentered) {
+        reentered = true;
+        const intent = tracker.claimPortableIntent();
+        latestResolution = tracker.resolveForNavigation(position(locator), intent);
+        return stale.promise;
+      }
+      return latest.promise;
+    });
+    const tracker = createPositionTracker(layout, () => undefined, navigateToLocator);
+    const staleIntent = tracker.claimPortableIntent();
+
+    const staleResolution = tracker.resolveForNavigation(position(locator), staleIntent);
+    const settlement = tracker.settle();
+    let settled = false;
+    void settlement.then(() => {
+      settled = true;
+    });
+    stale.resolve(resolvedLocator(0, 0));
+    await settleMicrotasks();
+    expect(settled).toBe(false);
+
+    latest.resolve(resolvedLocator(1, 1));
+    await settlement;
+    await expect(staleResolution).resolves.toBeUndefined();
+    await expect(latestResolution).resolves.toMatchObject({
+      position: { projection: { pageIndex: 1, spreadIndex: 1 } },
+    });
+  });
+
   it('settles after abort even when the atomic navigator ignores its signal', async () => {
     const pending = deferred<ReturnType<typeof resolvedLocator>>();
     let signal: AbortSignal | undefined;
@@ -580,6 +668,19 @@ function doubleLayout(): PositionLayout {
   };
 }
 
+function appendedLayout(base: PositionLayout): PositionLayout {
+  const template = base.pages[0];
+  if (!template) throw new Error('appended test layout is missing its template page');
+  const third = { ...template, index: 2 };
+  const fourth = { ...template, index: 3 };
+  return {
+    ...base,
+    pages: [...base.pages, third, fourth],
+    spreads: [...base.spreads, { index: 2, left: third }, { index: 3, left: fourth }],
+    chapterMap: new Map([['chapter', { startPage: 0, endPage: 3 }]]),
+  };
+}
+
 function position(sourceLocator?: ReaderLocator): ReadingPosition {
   return {
     ...(sourceLocator ? { sourceLocator } : {}),
@@ -619,4 +720,9 @@ function deferred<T>(): {
     reject = fail;
   });
   return { promise, resolve, reject };
+}
+
+async function settleMicrotasks(): Promise<void> {
+  await Promise.resolve();
+  await Promise.resolve();
 }

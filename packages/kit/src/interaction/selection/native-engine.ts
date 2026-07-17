@@ -30,6 +30,7 @@ import {
   handleUnresolvedSample,
   settleMoveFallback,
 } from './native-engine-fallback';
+import { captureActiveNativeSelectionGesture } from './native-engine-gesture';
 
 export function createNativeSelectionEngine(
   capability: NativeSelectionCapability,
@@ -65,6 +66,7 @@ export function createNativeSelectionEngine(
     getState: () => data.state,
     getInteractionGeneration: () => data.epoch,
     getSnapshot: () => data.snapshot,
+    captureActiveGesture: () => captureActiveNativeSelectionGesture(data),
     hasActiveHandleDrag: () => data.session?.handleDrag !== undefined,
     onChange: (listener) => subscribeNativeSelection(data, listener),
   };

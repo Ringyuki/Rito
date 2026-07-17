@@ -11,6 +11,7 @@ import { clientToSpreadContent } from '../core/wiring-deps';
 import { buildWiringDeps } from '../core/wiring-deps';
 import { dispatchClick } from './click-dispatch';
 import { wireUnifiedTouchHandler } from './gesture';
+import { createPrimarySelectionDragNavigation } from '../facade/selection-primary-drag';
 
 /**
  * Wire touch gesture handling: canvas rect caching, gesture deps,
@@ -42,6 +43,7 @@ export function wireTouchGestures(
     touchToContent,
     handleTap,
     disposables,
+    createPrimarySelectionDragNavigation(internals, canvas, nav),
   );
 }
 

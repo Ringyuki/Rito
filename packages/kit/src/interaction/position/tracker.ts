@@ -13,14 +13,14 @@ import {
   type ResolvedPositionIntent,
 } from './intent';
 import {
-  positionFromAnchor,
-  spreadPageIndexes,
+  captureNativeSpreadPosition,
   supportsNativePosition,
   withPortableLocator,
   type NativePositionInteractions,
   type PositionInteractions,
   type PositionLocatorNavigator,
 } from './native';
+import { registerPreservingIntentClaim } from './preserving-intent';
 import { parsePosition } from './parse';
 import { PortablePositionResolver } from './portable-resolution';
 
@@ -56,6 +56,7 @@ class PositionTrackerRuntime implements PositionTracker {
     private readonly getInteractions: () => PositionInteractions | undefined,
     private readonly navigator?: PositionLocatorNavigator,
   ) {
+    registerPreservingIntentClaim(this, () => this.claimPositionIntent(true));
     this.portableResolver = new PortablePositionResolver(
       getLayout,
       getInteractions,
@@ -72,8 +73,8 @@ class PositionTrackerRuntime implements PositionTracker {
       this.captureNative(spreadIndex, interactions);
       return;
     }
-    this.claimIntent();
-    this.publish(createReadingPosition(this.getLayout(), spreadIndex));
+    const intent = this.claimIntent();
+    if (this.owns(intent)) this.publish(createReadingPosition(this.getLayout(), spreadIndex));
   }
 
   project(position: ReadingPosition): ReadingPosition {
@@ -81,8 +82,8 @@ class PositionTrackerRuntime implements PositionTracker {
   }
 
   setCurrent(position: ReadingPosition): void {
-    this.claimIntent();
-    this.publish(position);
+    const intent = this.claimIntent();
+    if (this.owns(intent)) this.publish(position);
   }
 
   getCurrent(): ReadingPosition | null {
@@ -98,25 +99,31 @@ class PositionTrackerRuntime implements PositionTracker {
   }
 
   claimIntent(): PositionIntent {
-    this.cancelAsyncIntent();
-    this.currentIsSerializable = false;
+    return this.claimPositionIntent(false);
+  }
+  private claimPositionIntent(preserveCurrent: boolean): PositionIntent {
     const intent = { generation: ++this.generation };
+    const previousController = this.intentController;
     const controller = new AbortController();
     this.intentController = controller;
+    this.pending = null;
+    this.pendingCaptureSpread = null;
+    this.portableIntent = null;
+    if (!preserveCurrent) this.currentIsSerializable = false;
     registerPositionIntentSupersession(intent, controller.signal);
+    previousController?.abort();
+    if (this.generation === intent.generation) this.portableResolver.cancel();
     return intent;
   }
-
   claimPortableIntent(): PositionIntent {
     const intent = this.claimIntent();
-    this.portableIntent = intent;
+    if (this.owns(intent)) this.portableIntent = intent;
     return intent;
   }
 
   cancelPortableIntent(intent: PositionIntent): boolean {
     if (!this.owns(intent)) return false;
-    this.claimIntent();
-    return true;
+    return this.owns(this.claimIntent());
   }
 
   owns(intent: PositionIntent): boolean {
@@ -160,7 +167,10 @@ class PositionTrackerRuntime implements PositionTracker {
     if (preserved && this.startLayoutProjection(preserved, committedSpreadIndex)) {
       return { kind: 'portable' };
     }
-    return { kind: 'legacy', intent: this.claimIntent(), position: preserved };
+    const intent = this.claimIntent();
+    return this.owns(intent)
+      ? { kind: 'legacy', intent, position: preserved }
+      : { kind: 'portable' };
   }
 
   async settle(): Promise<void> {
@@ -180,8 +190,12 @@ class PositionTrackerRuntime implements PositionTracker {
   }
 
   invalidate(): void {
-    this.cancelAsyncIntent();
+    const intent = this.claimPositionIntent(true);
+    if (this.generation !== intent.generation) return;
+    const controller = this.intentController;
+    this.intentController = undefined;
     this.generation += 1;
+    controller?.abort();
   }
 
   dispose(): void {
@@ -211,28 +225,22 @@ class PositionTrackerRuntime implements PositionTracker {
 
   private captureNative(spreadIndex: number, interactions: NativePositionInteractions): void {
     const intent = this.claimIntent();
+    if (!this.owns(intent)) return;
     this.pendingCaptureSpread = spreadIndex;
-    const task = this.captureSpreadPages(spreadIndex, interactions, intent)
+    const task = captureNativeSpreadPosition(
+      this.getLayout,
+      spreadIndex,
+      interactions,
+      () => this.owns(intent),
+      (position) => {
+        if (this.owns(intent)) this.publish(position);
+      },
+    )
       .catch(ignoreResult)
       .then(() => {
         if (this.owns(intent)) this.pendingCaptureSpread = null;
       });
-    this.track(task);
-  }
-
-  private async captureSpreadPages(
-    spreadIndex: number,
-    interactions: NativePositionInteractions,
-    intent: PositionIntent,
-  ): Promise<void> {
-    for (const pageIndex of spreadPageIndexes(this.getLayout(), spreadIndex)) {
-      const anchor = await interactions.getPageReadingAnchor(pageIndex);
-      if (!this.owns(intent) || anchor === undefined) return;
-      if (anchor.status === 'resolved') {
-        this.publish(positionFromAnchor(anchor, this.getLayout()));
-        return;
-      }
-    }
+    if (this.owns(intent)) this.track(task);
   }
 
   private async resolvePortable(
@@ -243,7 +251,8 @@ class PositionTrackerRuntime implements PositionTracker {
     const operation = navigate
       ? this.portableResolver.navigate(position, intent)
       : this.portableResolver.resolve(position, intent);
-    this.track(operation.then(ignoreResult, ignoreResult));
+    const tracked = operation.then(ignoreResult, ignoreResult);
+    if (this.owns(intent)) this.track(tracked);
     try {
       const resolved = await operation;
       if (!resolved && this.owns(intent)) this.portableIntent = null;
@@ -259,6 +268,7 @@ class PositionTrackerRuntime implements PositionTracker {
     const portable = withPortableLocator(position, this.getLayout());
     if (!portable || !supportsNativePosition(this.getInteractions())) return false;
     const intent = this.claimPortableIntent();
+    if (!this.owns(intent)) return true;
     const operation = this.resolvePortable(portable, intent, false).then(
       (resolved) => {
         if (resolved) this.commit(resolved.intent, resolved.position);
@@ -268,17 +278,8 @@ class PositionTrackerRuntime implements PositionTracker {
         if (this.cancelPortableIntent(intent)) this.update(spreadIndex);
       },
     );
-    this.track(operation);
+    if (this.owns(intent)) this.track(operation);
     return true;
-  }
-
-  private cancelAsyncIntent(): void {
-    this.intentController?.abort();
-    this.intentController = undefined;
-    this.portableResolver.cancel();
-    this.pending = null;
-    this.pendingCaptureSpread = null;
-    this.portableIntent = null;
   }
 
   private publish(position: ReadingPosition): void {

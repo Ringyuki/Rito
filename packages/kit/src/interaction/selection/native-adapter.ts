@@ -1,8 +1,4 @@
-import type {
-  ReaderTextCaret,
-  ReaderTextPoint,
-  ReaderTextSelectionInteractions,
-} from '@ritojs/core';
+import type { ReaderTextPoint, ReaderTextSelectionInteractions } from '@ritojs/core';
 import type { Rect } from '../layout-types';
 import type { SelectionEngine, NativeSelectionProjection, PointerInput } from './engine';
 import type {
@@ -11,10 +7,17 @@ import type {
   SelectionHandleEdge,
 } from './handle-types';
 import { beginNativeSelectionHandleDrag } from './native-adapter-handle';
+import {
+  registerNativeAdapterGestureOwner,
+  shouldPreserveNativeAdapterGesture,
+} from './native-adapter-gesture';
+import {
+  projectNativeSelectionCaret,
+  projectNativeSelectionPoint,
+} from './native-adapter-projection';
 import { getNativeSelectionFocusEdge } from './native-adapter-snapshot';
 import { createNativeSelectionEngine } from './native-engine';
 import type { NativeSelectionGranularity, NativeSelectionSnapshot } from './native-types';
-import { registerSelectionInteractionOwner } from './selection-interaction-owner';
 
 interface AdapterData {
   readonly native: ReturnType<typeof createNativeSelectionEngine>;
@@ -25,6 +28,7 @@ interface AdapterData {
   projectedRects: readonly Rect[];
   projectedFocusRect: Rect | null;
   projectedHandleCarets: SelectionHandleCarets | null;
+  owner: SelectionEngine | undefined;
   disposed: boolean;
 }
 
@@ -46,14 +50,15 @@ export function createNativeSelectionAdapter(
     projectedRects: [],
     projectedFocusRect: null,
     projectedHandleCarets: null,
+    owner: undefined,
     disposed: false,
   };
   data.native.onChange(() => {
     handleNativeChange(data);
   });
-  return registerSelectionInteractionOwner(buildAdapter(data), () =>
-    data.native.getInteractionGeneration(),
-  );
+  const adapter = buildAdapter(data);
+  data.owner = adapter;
+  return registerNativeAdapterGestureOwner(adapter, data.native);
 }
 function buildAdapter(data: AdapterData): SelectionEngine {
   return {
@@ -81,7 +86,15 @@ function buildPointerMethods(
       handleUp(data, input);
     },
     setSpread(_spread, _config, _measurer, projection, update) {
-      setSpread(data, projection, update?.preserveNativeHandleDrag === true);
+      setSpread(
+        data,
+        projection,
+        shouldPreserveNativeAdapterGesture(
+          data.owner,
+          data.native,
+          update?.preserveNativeHandleDrag === true,
+        ),
+      );
     },
   };
 }
@@ -89,7 +102,7 @@ function buildPointerMethods(
 function beginHandleDrag(data: AdapterData, edge: SelectionHandleEdge): SelectionHandleDrag | null {
   if (data.disposed || !data.projection) return null;
   return beginNativeSelectionHandleDrag(data.native, edge, (input) =>
-    projectPoint(input, data.projection),
+    projectNativeSelectionPoint(input, data.projection),
   );
 }
 
@@ -163,7 +176,7 @@ function handleDown(
   granularity: NativeSelectionGranularity | undefined,
 ): void {
   if (data.disposed) return;
-  const point = projectPoint(input, data.projection);
+  const point = projectNativeSelectionPoint(input, data.projection);
   data.lastValidPoint = point;
   if (point) data.native.handlePointerDown(point, granularity);
   else data.native.clear();
@@ -171,7 +184,7 @@ function handleDown(
 
 function handleMove(data: AdapterData, input: PointerInput): void {
   if (data.disposed) return;
-  const point = projectPoint(input, data.projection);
+  const point = projectNativeSelectionPoint(input, data.projection);
   if (!point) return;
   data.lastValidPoint = point;
   data.native.handlePointerMove(point);
@@ -179,7 +192,7 @@ function handleMove(data: AdapterData, input: PointerInput): void {
 
 function handleUp(data: AdapterData, input: PointerInput): void {
   if (data.disposed) return;
-  const point = projectPoint(input, data.projection) ?? data.lastValidPoint;
+  const point = projectNativeSelectionPoint(input, data.projection) ?? data.lastValidPoint;
   data.lastValidPoint = undefined;
   if (point) data.native.handlePointerUp(point);
   else data.native.clear();
@@ -188,12 +201,12 @@ function handleUp(data: AdapterData, input: PointerInput): void {
 function setSpread(
   data: AdapterData,
   projection: NativeSelectionProjection | undefined,
-  preserveNativeHandleDrag: boolean,
+  preserveNativeGesture: boolean,
 ): void {
   if (data.disposed) return;
   data.projection = projection;
   data.lastValidPoint = undefined;
-  if (preserveNativeHandleDrag && data.native.hasActiveHandleDrag()) {
+  if (preserveNativeGesture) {
     handleNativeChange(data);
     return;
   }
@@ -234,10 +247,10 @@ function projectSnapshot(data: AdapterData, snapshot: NativeSelectionSnapshot): 
     );
   const focus = snapshot.focusCaret;
   data.projectedRects = rects;
-  data.projectedFocusRect = projectCaret(projection, focus);
+  data.projectedFocusRect = projectNativeSelectionCaret(projection, focus);
   data.projectedHandleCarets = {
-    start: projectCaret(projection, snapshot.range.start),
-    end: projectCaret(projection, snapshot.range.end),
+    start: projectNativeSelectionCaret(projection, snapshot.range.start),
+    end: projectNativeSelectionCaret(projection, snapshot.range.end),
     focusEdge: getNativeSelectionFocusEdge(snapshot),
   };
 }
@@ -275,25 +288,4 @@ function disposeAdapter(data: AdapterData): void {
   data.native.dispose();
   data.listeners.clear();
   data.errorListeners.clear();
-}
-
-function projectPoint(
-  input: PointerInput,
-  projection: NativeSelectionProjection | undefined,
-): ReaderTextPoint | undefined {
-  if (!projection) return undefined;
-  return projection.spreadContentToPage(input.x, input.y) ?? undefined;
-}
-
-function projectCaret(
-  projection: NativeSelectionProjection,
-  caret: Pick<ReaderTextCaret, 'pageIndex' | 'geometry'>,
-): Rect | null {
-  if (!projection.isPageVisible(caret.pageIndex)) return null;
-  return projection.pageContentToSpread(caret.pageIndex, {
-    x: caret.geometry.x,
-    y: caret.geometry.y,
-    width: 0,
-    height: caret.geometry.height,
-  });
 }

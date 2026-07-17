@@ -11,8 +11,12 @@ import type { Spread } from '../src/interaction';
 import { createCoordinateMapper } from '../src/controller/geometry/coordinate-mapper';
 import type { NativeSelectionProjection } from '../src/interaction/selection/engine';
 import {
+  captureSelectionGesture,
   captureSelectionInteraction,
+  isSelectionGestureSuperseded,
+  ownsSelectionGesture,
   ownsSelectionInteraction,
+  withSelectionGestureProjection,
 } from '../src/interaction/selection/selection-interaction-owner';
 import {
   capabilityWithRangeToPoint,
@@ -52,6 +56,25 @@ const resolveTextRangeFromPoints: ReaderTextSelectionInteractions['resolveTextRa
   () => Promise.resolve({ status: 'miss' });
 
 describe('native SelectionEngine adapter', () => {
+  it('keeps an empty caret miss in the same interaction lifecycle', async () => {
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn().mockResolvedValue({ status: 'miss' }),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints,
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, projection);
+
+    engine.handlePointerDown({ x: 10, y: 12 });
+    const lease = captureSelectionGesture(engine);
+    if (!lease) throw new Error('missing active primary selection lease');
+    await flushMicrotasks();
+
+    expect(engine.getState()).toBe('idle');
+    expect(ownsSelectionGesture(lease)).toBe(false);
+    expect(isSelectionGestureSuperseded(lease)).toBe(false);
+  });
+
   it('projects a cross-page semantic focus through the real adapter entry', async () => {
     const range = exactRange(caret(10), caret(40, 1));
     const resolveCaret = vi.fn<ReaderTextSelectionInteractions['resolveCaret']>();
@@ -319,6 +342,70 @@ describe('native SelectionEngine adapter', () => {
     expect(engine.getState()).toBe('selecting');
     expect(engine.getText()).toBe('exact text');
     expect(engine.getRects()).toEqual([{ x: 330, y: 2, width: 30, height: 18 }]);
+  });
+
+  it('reprojects only the exact active primary gesture authorized by its lease', async () => {
+    const baseline = exactRange(caret(10), caret(20));
+    const moved = exactRange(caret(10), caret(80, 1));
+    const resolveTextRangeFromPoints = vi
+      .fn<ReaderTextSelectionInteractions['resolveTextRangeFromPoints']>()
+      .mockImplementation(({ focus }) =>
+        Promise.resolve({
+          status: 'resolved',
+          range: focus.pageIndex === 1 ? moved : baseline,
+        }),
+      );
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints,
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    await flushMicrotasks();
+    const lease = captureSelectionGesture(engine);
+    if (!lease) throw new Error('missing active primary selection lease');
+
+    withSelectionGestureProjection(engine, lease, () => {
+      engine.setSpread(spread, config, measurer, singlePageProjection(1));
+    });
+    engine.handlePointerMove({ x: 80, y: 12 });
+    await flushMicrotasks();
+
+    expect(ownsSelectionGesture(lease)).toBe(true);
+    expect(engine.getState()).toBe('selecting');
+    expect(resolveTextRangeFromPoints).toHaveBeenLastCalledWith({
+      anchor: { pageIndex: 0, x: 10, y: 12 },
+      focus: { pageIndex: 1, x: 80, y: 12 },
+      granularity: 'paragraph',
+    });
+    expect(engine.getText()).toBe('exact text');
+
+    engine.handlePointerUp({ x: 80, y: 12 });
+    expect(ownsSelectionGesture(lease)).toBe(false);
+    await flushMicrotasks();
+    expect(engine.getState()).toBe('selected');
+  });
+
+  it('does not let the handle-only compatibility flag preserve a primary gesture', async () => {
+    const range = exactRange(caret(10), caret(20));
+    const capability = capabilityWithRangeToPoint({
+      resolveCaret: vi.fn(),
+      resolveTextRange: vi.fn(),
+      resolveTextRangeFromPoints: vi.fn().mockResolvedValue({ status: 'resolved', range }),
+    });
+    const engine = createSelectionEngine(capability);
+    engine.setSpread(spread, config, measurer, singlePageProjection(0));
+    engine.handlePointerDown({ x: 10, y: 12 }, 'paragraph');
+    await flushMicrotasks();
+
+    engine.setSpread(spread, config, measurer, singlePageProjection(1), {
+      preserveNativeHandleDrag: true,
+    });
+
+    expect(engine.getState()).toBe('idle');
+    expect(engine.hasSelection()).toBe(false);
   });
 
   it('reprojects an active handle session onto a known spread without invalidating it', async () => {

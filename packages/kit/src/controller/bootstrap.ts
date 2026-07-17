@@ -13,6 +13,7 @@ import { buildWiringDeps } from './core/wiring-deps';
 import { createEngines } from './engines/index';
 import { syncCanvasSize, type Internals } from './facade';
 import { commitLayoutChange, publishPaginationChange } from './facade/layout-actions';
+import { createPrimarySelectionDragNavigation } from './facade/selection-primary-drag';
 import type { RuntimeComponents } from './facade/types';
 import { createNavigation } from './navigation/index';
 import { createPositionPersistence } from './position-persistence';
@@ -234,8 +235,8 @@ function createRuntimeNavigation(
     onPaginationChanged: () => {
       publishPaginationChange(internals, emitter, frameDriver);
     },
-    beginSelectionProjectionTransfer: (targetSpreadIndex) => {
-      const transfer = { targetSpreadIndex };
+    beginSelectionProjectionTransfer: (targetSpreadIndex, gesture) => {
+      const transfer = { targetSpreadIndex, gesture };
       internals.coordState.selectionProjectionTransfer = transfer;
       return () => {
         if (internals.coordState.selectionProjectionTransfer === transfer) {
@@ -270,5 +271,5 @@ function wireRuntimeEvents(
   }
   wireEngineEvents(deps, disposables);
   wirePositionTracker(deps, disposables);
-  wireDomHelpers(deps, disposables);
+  wireDomHelpers(deps, disposables, createPrimarySelectionDragNavigation(internals, canvas, nav));
 }

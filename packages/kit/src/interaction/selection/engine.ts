@@ -9,7 +9,6 @@
  * viewport with margins. In `@ritojs/kit`, the CoordinateMapper provides
  * `selectionConfig` for this purpose, and `cssToSpreadContent()` converts
  * pointer events from display-css to spread-content.
- *
  * Returned rects from `getRects()` are also in spread-content space.
  */
 
@@ -28,6 +27,7 @@ import type {
   SelectionHandleEdge,
 } from './handle-types';
 import type { NativeSelectionGranularity, SelectionSpreadUpdate } from './native-types';
+import { registerLegacySelectionGestureOwner } from './legacy-engine-gesture';
 
 export type {
   SelectionHandleCarets,
@@ -114,7 +114,7 @@ export function createSelectionEngine(
   nativeCapability?: ReaderTextSelectionInteractions,
 ): SelectionEngine {
   if (nativeCapability) return createNativeSelectionAdapter(nativeCapability);
-  return buildEngine(createState());
+  return registerLegacySelectionGestureOwner(buildEngine(createState()));
 }
 
 interface EngineState {

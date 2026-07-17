@@ -11,14 +11,20 @@ import {
 import {
   chromiumSelectionOracle,
   copySelection,
+  currentReaderSpread,
   dragSelection,
+  loadEdgeSelectionFixture,
   loadSelectionFixture,
   pointInsideFirstWord,
+  prepareEdgeSelectionFixture,
   readSelectionHighlightBands,
+  readerSurfaceBounds,
   requireBand,
   requireTextBands,
   selectionRectCount,
   selectionTextLength,
+  waitForReaderTransitionEnd,
+  waitForVisibleDocumentText,
   type CanvasTextBand,
   type ChromiumSelectionOracle,
 } from './reader-selection-harness';
@@ -27,6 +33,9 @@ import {
   CJK_SELECTION_TEXT,
   CROSS_FLOW_LINE,
   CROSS_FLOW_SELECTION_TEXT,
+  EDGE_FIRST_PAGE_TEXT,
+  EDGE_SECOND_PAGE_TEXT,
+  EDGE_SELECTION_TEXT,
   SAME_FLOW_FIRST_LINE,
   SAME_FLOW_PARAGRAPH_SELECTION_TEXT,
   SAME_FLOW_SECOND_LINE,
@@ -35,6 +44,7 @@ import {
 
 const TINOS_PINNED_FAMILY = pinnedFamily('Tinos-Regular.ttf');
 const SOURCE_HAN_PINNED_FAMILY = pinnedFamily('SourceHanSerifCN-Regular.otf');
+const EDGE_INSET_PX = 4;
 
 test.use({ permissions: ['clipboard-read', 'clipboard-write'] });
 
@@ -197,6 +207,67 @@ test.describe('reader native selection resource invalidation', () => {
   });
 });
 
+test.describe('reader primary selection edge autoscroll acceptance', () => {
+  test.beforeEach(async ({ page }) => {
+    await openEmptyReader(page);
+    await loadEdgeSelectionFixture(page);
+    await prepareEdgeSelectionFixture(page);
+  });
+
+  test('continues a mouse drag through lazy pagination and preserves exact copy', async ({
+    page,
+  }) => {
+    const shell = page.getByTestId('reader-shell');
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const surface = await readerSurfaceBounds(page);
+    const edgePoint = { x: surface.right - EDGE_INSET_PX, y: firstLine.centerY };
+
+    await page.mouse.move(firstLine.left, firstLine.centerY);
+    await page.mouse.down();
+    await page.mouse.move(edgePoint.x, edgePoint.y, { steps: 12 });
+
+    await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const secondLine = requireBand(await requireTextBands(page, 1), 0);
+    await page.mouse.move(secondLine.right, secondLine.centerY, { steps: 12 });
+    await page.mouse.up();
+
+    await expectReleasedEdgeSelection(page);
+    expect(await currentReaderSpread(page)).toBe(1);
+    expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+
+  test('continues a reverse mouse drag into the previous published spread', async ({ page }) => {
+    await page.keyboard.press('ArrowRight');
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect.poll(() => currentReaderSpread(page)).toBe(1);
+    await waitForReaderTransitionEnd(page);
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const secondLine = requireBand(await requireTextBands(page, 1), 0);
+    const surface = await readerSurfaceBounds(page);
+    const edgePoint = { x: surface.left + EDGE_INSET_PX, y: secondLine.centerY };
+
+    await page.mouse.move(secondLine.right, secondLine.centerY);
+    await page.mouse.down();
+    await page.mouse.move(edgePoint.x, edgePoint.y, { steps: 12 });
+
+    await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(0);
+    await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    await page.mouse.move(firstLine.left, firstLine.centerY, { steps: 12 });
+    await page.mouse.up();
+
+    await expectReleasedEdgeSelection(page);
+    expect(await currentReaderSpread(page)).toBe(0);
+    expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+});
+
 async function openEmptyReader(page: Page): Promise<void> {
   await page.goto('/');
   await page.evaluate(() => {
@@ -229,6 +300,20 @@ async function expectSelectionFontBox(
     Math.abs(visual.height - modelHeight),
     JSON.stringify({ visual, modelHeight }),
   ).toBeLessThanOrEqual(1);
+}
+
+async function expectReleasedEdgeSelection(page: Page): Promise<void> {
+  const shell = page.getByTestId('reader-shell');
+  await expect(shell).toHaveAttribute('data-selection-active', 'true');
+  await expect.poll(() => selectionTextLength(page)).toBe(EDGE_SELECTION_TEXT.length);
+  await expect.poll(() => selectionRectCount(page)).toBeGreaterThanOrEqual(1);
+  await page.waitForTimeout(300);
+  await expect(shell).toHaveAttribute('data-selection-active', 'true');
+  expect(await selectionTextLength(page)).toBe(EDGE_SELECTION_TEXT.length);
+}
+
+async function readerNumberAttribute(page: Page, name: string): Promise<number> {
+  return Number((await page.getByTestId('reader-shell').getAttribute(name)) ?? '0');
 }
 
 function pinnedFamily(fileName: string): string {

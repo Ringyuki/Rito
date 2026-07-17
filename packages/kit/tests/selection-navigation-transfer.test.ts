@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { Reader, Spread } from '@ritojs/core';
 import { createNavigation, type NavigationDeps } from '../src/controller/navigation';
+import type { SelectionGestureLease } from '../src/interaction/selection/selection-interaction-owner';
+
+const gesture = { generation: 1 } as SelectionGestureLease;
 
 const spreads: readonly Spread[] = [0, 1].map((index) => ({
   index,
@@ -17,17 +20,20 @@ describe('selection projection navigation scope', () => {
     let reentered = false;
     const observedTransfer: boolean[] = [];
     let reenterNavigation = (): void => undefined;
-    const fixture = navigationFixture({
-      onContentInteractionIntent: () => {
-        transfer = null;
-      },
-      beginSelectionProjectionTransfer: () => {
+    const beginSelectionProjectionTransfer = vi.fn(
+      (_spreadIndex: number, _gesture: SelectionGestureLease) => {
         const token = {};
         transfer = token;
         return () => {
           if (transfer === token) transfer = null;
         };
       },
+    );
+    const fixture = navigationFixture({
+      onContentInteractionIntent: () => {
+        transfer = null;
+      },
+      beginSelectionProjectionTransfer,
       onNotify: () => {
         observedTransfer.push(transfer !== null);
         if (reentered) return;
@@ -41,8 +47,9 @@ describe('selection projection navigation scope', () => {
     };
 
     expect(nav.prepareSpreadForJump(1)).toBe('ready');
-    expect(nav.jumpToSpreadIfReady(1, true)).toBe('superseded');
+    expect(nav.jumpToSpreadIfReady(1, gesture)).toBe('superseded');
 
+    expect(beginSelectionProjectionTransfer).toHaveBeenCalledWith(1, gesture);
     expect(observedTransfer).toEqual([true, false]);
     expect(transfer).toBeNull();
   });
@@ -63,7 +70,7 @@ describe('selection projection navigation scope', () => {
     });
 
     expect(fixture.nav.prepareSpreadForJump(1)).toBe('ready');
-    expect(() => fixture.nav.jumpToSpreadIfReady(1, true)).toThrow('listener failed');
+    expect(() => fixture.nav.jumpToSpreadIfReady(1, gesture)).toThrow('listener failed');
     expect(transfer).toBeNull();
   });
 
@@ -101,7 +108,10 @@ interface NavigationFixtureOptions {
   readonly ready?: boolean;
   readonly onNavigationIntent?: () => void;
   readonly onContentInteractionIntent?: () => void;
-  readonly beginSelectionProjectionTransfer?: (spreadIndex: number) => () => void;
+  readonly beginSelectionProjectionTransfer?: (
+    spreadIndex: number,
+    gesture: SelectionGestureLease,
+  ) => () => void;
   readonly onNotify?: (spreadIndex: number) => void;
 }
 

@@ -11,7 +11,7 @@ afterEach(() => {
 });
 
 describe('selection edge navigation', () => {
-  it('turns once after a stationary edge dwell', () => {
+  it('keeps turning published spreads while the pointer remains at the edge', () => {
     vi.useFakeTimers();
     let currentSpread = 0;
     const navigate = vi.fn((target: number) => {
@@ -38,7 +38,13 @@ describe('selection edge navigation', () => {
       expect.any(AbortSignal),
     );
     vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
-    expect(navigate).toHaveBeenCalledOnce();
+    expect(navigate).toHaveBeenCalledTimes(2);
+    expect(navigate).toHaveBeenLastCalledWith(
+      2,
+      1,
+      { clientX: 496, clientY: 200 },
+      expect.any(AbortSignal),
+    );
   });
 
   it('cancels the dwell when the pointer leaves the edge or the session ends', () => {
@@ -89,6 +95,26 @@ describe('selection edge navigation', () => {
     vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
     expect(navigate).toHaveBeenCalledTimes(2);
     expect(currentSpread).toBe(1);
+  });
+
+  it('delays repeated synchronous retries instead of recursing', () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn(() => 'retry' as const);
+    const edge = createSelectionEdgeNavigation({
+      getSurfaceRect: () => surface,
+      getCurrentSpread: () => 0,
+      getTotalSpreads: () => 2,
+      navigate,
+    });
+
+    edge.update({ clientX: 496, clientY: 200 });
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
+    expect(navigate).toHaveBeenCalledOnce();
+
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS - 1);
+    expect(navigate).toHaveBeenCalledOnce();
+    vi.advanceTimersByTime(1);
+    expect(navigate).toHaveBeenCalledTimes(2);
   });
 
   it('grows the next unpublished spread and resumes from a stationary point', async () => {
@@ -150,6 +176,52 @@ describe('selection edge navigation', () => {
     expect(growthSignal?.aborted).toBe(true);
     settleGrowth?.('retry');
     await Promise.resolve();
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it('sees cancellation reentered while an async navigation is being constructed', async () => {
+    vi.useFakeTimers();
+    let growthSignal: AbortSignal | undefined;
+    const edgeRef: { current?: ReturnType<typeof createSelectionEdgeNavigation> } = {};
+    const navigate = vi.fn((_target, _direction, _point, signal: AbortSignal) => {
+      growthSignal = signal;
+      edgeRef.current?.cancel();
+      return Promise.resolve('retry' as const);
+    });
+    const edge = createSelectionEdgeNavigation({
+      getSurfaceRect: () => surface,
+      getCurrentSpread: () => 0,
+      getTotalSpreads: () => 1,
+      canGrowForward: () => true,
+      navigate,
+    });
+    edgeRef.current = edge;
+
+    edge.update({ clientX: 496, clientY: 200 });
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS);
+
+    expect(growthSignal?.aborted).toBe(true);
+    await Promise.resolve();
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
+    expect(navigate).toHaveBeenCalledOnce();
+  });
+
+  it('stops cleanly when synchronous navigation construction throws', () => {
+    vi.useFakeTimers();
+    const navigate = vi.fn(() => {
+      throw new Error('navigation failed');
+    });
+    const edge = createSelectionEdgeNavigation({
+      getSurfaceRect: () => surface,
+      getCurrentSpread: () => 0,
+      getTotalSpreads: () => 2,
+      navigate,
+    });
+
+    edge.update({ clientX: 496, clientY: 200 });
+
+    expect(() => vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS)).not.toThrow();
+    vi.advanceTimersByTime(SELECTION_EDGE_DWELL_MS * 2);
     expect(navigate).toHaveBeenCalledOnce();
   });
 });

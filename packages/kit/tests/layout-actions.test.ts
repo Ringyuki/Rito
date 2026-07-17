@@ -455,7 +455,10 @@ describe('buildLayoutActions', () => {
   it('does not overwrite navigation triggered while clearing active search results', () => {
     const fixture = createMocks({ currentSpread: 0, totalSpreads: 3 });
     const order: string[] = [];
-    fixture.internals.coordState.selectionProjectionTransfer = { targetSpreadIndex: 1 };
+    fixture.internals.coordState.selectionProjectionTransfer = {
+      targetSpreadIndex: 1,
+      gesture: { generation: 0 },
+    };
     fixture.spies.prepareLayoutCommit.mockReturnValueOnce({ kind: 'portable' });
     fixture.spies.notifyActiveSpread.mockImplementation((spreadIndex: number) => {
       order.push(`notify:${String(spreadIndex)}`);

@@ -79,6 +79,26 @@ describe('partial locator navigation', () => {
     expect(fixture.goToTarget).toHaveBeenCalledOnce();
   });
 
+  it('lets a selection input cancel pending locator growth without a late jump', async () => {
+    const fixture = createFixture();
+    const locator = { href: 'pending.xhtml' };
+
+    fixture.nav.navigateToLocator(locator);
+    const pending = fixture.request(0);
+    const barrier = fixture.nav.supersedeForSelectionIntent();
+
+    expect(barrier?.owns()).toBe(true);
+    expect(pending.signal.aborted).toBe(true);
+    expect(fixture.onNavigationCancelled).not.toHaveBeenCalled();
+
+    fixture.commitExtent(2);
+    pending.resolve(resolvedLocator(locator.href, 1));
+    await settleTasks();
+
+    expect(fixture.current()).toBe(0);
+    expect(fixture.goToTarget).not.toHaveBeenCalled();
+  });
+
   it('does not resume an old TOC target after pagination publication reenters navigation', async () => {
     const fixture = createFixture();
     fixture.onPaginationChanged.mockImplementationOnce(() => {

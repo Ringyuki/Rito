@@ -29,6 +29,24 @@ export function spreadPageIndexes(layout: PositionLayout, spreadIndex: number): 
     .sort((left, right) => left - right);
 }
 
+export async function captureNativeSpreadPosition(
+  getLayout: () => PositionLayout,
+  spreadIndex: number,
+  interactions: NativePositionInteractions,
+  isCurrent: () => boolean,
+  publish: (position: ReadingPosition) => void,
+): Promise<void> {
+  const pageIndexes = spreadPageIndexes(getLayout(), spreadIndex);
+  for (const pageIndex of pageIndexes) {
+    const anchor = await interactions.getPageReadingAnchor(pageIndex);
+    if (!isCurrent() || anchor === undefined) return;
+    if (anchor.status === 'resolved') {
+      publish(positionFromAnchor(anchor, getLayout()));
+      return;
+    }
+  }
+}
+
 export function withPortableLocator(
   position: ReadingPosition,
   layout: PositionLayout,

@@ -44,7 +44,7 @@ class SelectionEdgeNavigationController implements SelectionEdgeNavigation {
 
   update(point: SelectionClientPoint): void {
     this.latestPoint = point;
-    const nextDirection = resolveDirection(point, this.options.getSurfaceRect());
+    const nextDirection = resolveSelectionEdgeDirection(point, this.options.getSurfaceRect());
     if (nextDirection === this.direction) return;
     this.pending?.abort();
     this.pending = null;
@@ -83,7 +83,7 @@ class SelectionEdgeNavigationController implements SelectionEdgeNavigation {
     this.timer = null;
     const point = this.latestPoint;
     if (!point || this.direction === null) return;
-    const currentDirection = resolveDirection(point, this.options.getSurfaceRect());
+    const currentDirection = resolveSelectionEdgeDirection(point, this.options.getSurfaceRect());
     if (currentDirection !== this.direction) {
       this.direction = currentDirection;
       this.arm();
@@ -92,9 +92,15 @@ class SelectionEdgeNavigationController implements SelectionEdgeNavigation {
     const target = targetSpread(this.options, this.direction);
     if (target === null) return;
     const abort = new AbortController();
-    const outcome = this.options.navigate(target, this.direction, point, abort.signal);
+    this.pending = abort;
+    let outcome: SelectionEdgeNavigationResult;
+    try {
+      outcome = this.options.navigate(target, this.direction, point, abort.signal);
+    } catch {
+      this.settleSynchronous(abort, 'stop');
+      return;
+    }
     if (isPromise(outcome)) {
-      this.pending = abort;
       void outcome.then(
         (settled) => {
           this.settlePending(abort, settled);
@@ -105,7 +111,14 @@ class SelectionEdgeNavigationController implements SelectionEdgeNavigation {
       );
       return;
     }
-    if (outcome === 'retry') this.arm();
+    this.settleSynchronous(abort, outcome);
+  }
+
+  private settleSynchronous(abort: AbortController, outcome: SelectionEdgeNavigationOutcome): void {
+    if (this.pending !== abort) return;
+    this.pending = null;
+    if (abort.signal.aborted) return;
+    if (outcome === 'retry' || outcome === 'committed') this.arm();
     else this.direction = null;
   }
 
@@ -114,6 +127,7 @@ class SelectionEdgeNavigationController implements SelectionEdgeNavigation {
     this.pending = null;
     if (abort.signal.aborted) return;
     if (outcome === 'retry') this.onDwell();
+    else if (outcome === 'committed') this.arm();
     else this.direction = null;
   }
 }
@@ -135,7 +149,8 @@ function isPromise(
   return typeof (value as Promise<SelectionEdgeNavigationOutcome>).then === 'function';
 }
 
-function resolveDirection(
+/** Resolve the active horizontal edge zone for one finite client-space sample. */
+export function resolveSelectionEdgeDirection(
   point: SelectionClientPoint,
   rect: Pick<DOMRect, 'left' | 'right' | 'top' | 'bottom'>,
 ): SelectionEdgeDirection | null {

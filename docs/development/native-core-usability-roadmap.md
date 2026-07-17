@@ -140,9 +140,12 @@ The remaining usability work is narrower but still release-blocking:
    pointer capture plus forward and backward known-spread edge turns. A same-revision
    handle drag can now dwell at the Reader edge, snap to an already-published adjacent
    spread, retain capture through the temporary empty projection, and resume from a
-   clamped point in the new mapper. Lazy-growth
-   cross-revision continuation, primary-drag edge autoscroll and platform keyboard
-   extension remain usability work. Mouse repeated-click and trusted Chromium touch
+   clamped point in the new mapper. Captured handles and active primary mouse/pen or
+   touch long-press drags now share the same exact gesture lease, lazy-growth revision
+   continuation, adjacent-spread snap and new-mapper replay in both directions.
+   Released selections cannot consume that one-shot projection authorization, and
+   pointer/touch cancellation aborts pending growth before finalization. Platform keyboard
+   extension remains usability work. Mouse repeated-click and trusted Chromium touch
    long-press both pass the
    production Worker/Canvas path; touch acceptance covers word seeding, cross-line
    extension with immediate release, retained highlight and cancellation in
@@ -674,8 +677,9 @@ adjustment now follow that rule, including fixed-opposite-caret crossing, grab-o
 preservation, pointer capture, fast release and cancellation rollback. Exact-handle
 edge autoscroll now covers already-published spreads and append-only bounded growth. It
 atomically rebinds the stable-prefix caret against the appended revision and rejects
-replacement layouts. Primary-drag edge scrolling and keyboard extension must likewise
-follow the host platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
+replacement layouts. Primary-drag edge scrolling now uses that same selection-owned
+transaction for already-published and lazily appended spreads; keyboard extension must
+likewise follow the host platform rather than introducing Rito-specific interaction rules. Browser acceptance uses real
 Canvas pointer input and the production Worker path, not only mocked caret/range
 unit tests. The controlled Browser proof passes real Canvas multi-line and
 cross-paragraph drags, pointer-up persistence and exact copied text with native

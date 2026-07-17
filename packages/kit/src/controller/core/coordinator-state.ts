@@ -14,6 +14,7 @@ import type {
   ReadingPosition,
 } from '../../interaction/index';
 import type { CoordinateMapper } from '../geometry/coordinate-mapper';
+import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import {
   createNativeAnnotationGeometryState,
   type NativeAnnotationGeometryState,
@@ -44,6 +45,7 @@ export type PositionUpdateMode =
 
 export interface SelectionProjectionTransfer {
   readonly targetSpreadIndex: number;
+  readonly gesture: SelectionGestureLease;
 }
 
 export interface CoordinatorState {
@@ -76,7 +78,7 @@ export interface CoordinatorState {
   contentInteractionGeneration: number;
   /** One-shot position behavior for the next active spread notification. */
   positionUpdateMode: PositionUpdateMode;
-  /** Synchronous same-revision projection transaction for an active handle drag. */
+  /** Synchronous same-revision projection transaction for one exact active selection gesture. */
   selectionProjectionTransfer: SelectionProjectionTransfer | null;
 }
 

@@ -943,8 +943,11 @@ RITO_READER_MACHINE_ID=<id> pnpm test:e2e:usability-gate` applies a strict
      preserves the captured DOM node, atomically rebinds its stable-prefix caret to
      the appended revision and replays only the latest sample. Ordinary same-owner
      appends preserve selection state, while font-geometry/full-layout replacement
-     still invalidates it. Primary-drag edge scrolling and platform keyboard
-     semantics remain. The
+     still invalidates it. Primary mouse and touch long-press drags now use the same
+     exact gesture lease to cross known or lazily appended spread edges without
+     releasing pointer/touch capture. Physical selection presses claim one latest-input
+     barrier before coordinate mapping, so delayed semantic/long-press starts cannot
+     supersede newer navigation or portable-position work; platform keyboard semantics remain. The
      correctness-complete ICU auto constructor adds approximately
      2.5 MB raw / 1.9 MB gzip / 1.67 MB Brotli to the release WASM and raises its
      initial linear memory from 23 to 60 pages. Dictionary-only is larger, while
@@ -1056,9 +1059,9 @@ runtime render-command matrix.
 
 Work in roadmap order:
 
-1. Complete the remaining host-native selection behavior: lazy-growth cross-revision
-   spread extension, primary-drag edge autoscroll and platform keyboard semantics.
-   Exact touch handles, same-revision known-spread edge dwell, cross-flow and reverse-direction
+1. Complete the remaining host-native selection behavior: platform keyboard semantics.
+   Exact touch handles and primary drags now cover same-revision and lazy-growth
+   cross-revision spread edges; cross-flow and reverse-direction
    exact selection/copy, pointer-up persistence, word/paragraph granularity and
    link-preview chapter context are now green in production-path Reader E2E.
 2. Make the existing latency and memory gates green without weakening their limits. The
@@ -1108,8 +1111,9 @@ word and retained-flow paragraph selection are wired to mouse repeated click and
 touch long press, and both now pass production-path input E2E. Exact touch handles use
 Core endpoints, Kit-owned epoch sessions and React DOM pointer capture; their edge dwell
 now continues across already-published spreads and append-only bounded revision growth.
-End-user interaction parity still needs primary-drag edge autoscroll and platform
-keyboard semantics. Greedy
+End-user interaction parity still needs platform keyboard semantics. Primary mouse,
+pen and touch long-press drags now retain an exact session through known and lazy-grown
+spread-edge navigation. Greedy
 leaf layout is resumable through
 ordinary transparent container trees without changing final pagination. A
 pending Greedy line now preserves break/measure/shape, UTF-16 run-copy,

@@ -74,13 +74,21 @@ export function clearPendingNavigation(state: NavigationState): boolean {
   return cancelledIntent;
 }
 
-export function supersedeNavigationForPositionIntent(
+export interface SupersededNavigation {
+  readonly attemptId: number;
+  readonly cancelledPending: boolean;
+}
+
+export function supersedeNavigationForDirectInteraction(
   state: NavigationState,
   transition: TransitionDriver,
-): void {
-  state.navigationAttemptId += 1;
-  clearPendingNavigation(state);
-  if (transition.isAnimating) transition.forceSettle();
+): SupersededNavigation {
+  const attemptId = ++state.navigationAttemptId;
+  const cancelledPending = clearPendingNavigation(state);
+  if (state.navigationAttemptId === attemptId && transition.isAnimating) {
+    transition.forceSettle();
+  }
+  return { attemptId, cancelledPending };
 }
 
 export function settleNavigationForContinuity(transition: TransitionDriver): number {

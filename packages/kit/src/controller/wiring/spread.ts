@@ -20,6 +20,7 @@ import {
 } from '../annotation-resolution';
 import { invalidateNativeTargets, loadNativeTargetsForSpread } from './native-targets';
 import { scheduleNativeSearchForSpread } from './native-search';
+import { withSelectionGestureProjection } from '../../interaction/selection/selection-interaction-owner';
 
 export function coordinateOnSpreadRendered(
   spreadIndex: number,
@@ -32,16 +33,20 @@ export function coordinateOnSpreadRendered(
   const generation = ++state.spreadCoordinationGeneration;
   const mapper = createCoordinateMapper(reader.getLayoutGeometry(), spread, renderScale);
   state.mapper = mapper;
-  const preserveNativeHandleDrag =
-    state.selectionProjectionTransfer?.targetSpreadIndex === spreadIndex;
-
-  engines.selection.setSpread(
-    asLegacySpread(spread),
-    mapper.selectionConfig,
-    reader.measurer,
-    mapper,
-    { preserveNativeHandleDrag },
-  );
+  const transfer = state.selectionProjectionTransfer;
+  const installSelectionSpread = (): void => {
+    engines.selection.setSpread(
+      asLegacySpread(spread),
+      mapper.selectionConfig,
+      reader.measurer,
+      mapper,
+    );
+  };
+  if (transfer?.targetSpreadIndex === spreadIndex) {
+    withSelectionGestureProjection(engines.selection, transfer.gesture, installSelectionSpread);
+  } else {
+    installSelectionSpread();
+  }
   if (generation !== state.spreadCoordinationGeneration) return false;
   rebuildHitMaps(spread, state);
   rebuildLinksByPage(spread, state);

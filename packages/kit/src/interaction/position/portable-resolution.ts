@@ -52,8 +52,8 @@ export class PortablePositionResolver {
   cancel(): void {
     const navigation = this.atomicNavigation;
     this.atomicNavigation = undefined;
-    navigation?.controller.abort();
     this.signalAll('cancel');
+    navigation?.controller.abort();
   }
 
   async navigate(
@@ -107,8 +107,16 @@ export class PortablePositionResolver {
   ): Promise<ResolvedPositionIntent | undefined> {
     if (!position.sourceLocator || !this.owns(intent)) return undefined;
     const navigation = { controller: new AbortController() };
-    this.atomicNavigation?.controller.abort();
+    const previousNavigation = this.atomicNavigation;
     this.atomicNavigation = navigation;
+    previousNavigation?.controller.abort();
+    if (this.atomicNavigation !== navigation || !this.owns(intent)) {
+      if (this.atomicNavigation === navigation) {
+        this.atomicNavigation = undefined;
+        navigation.controller.abort();
+      }
+      return undefined;
+    }
     try {
       const attempt = await raceAtomicNavigation(
         navigator(position.sourceLocator, navigation.controller.signal),

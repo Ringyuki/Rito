@@ -91,8 +91,14 @@ the committed selection because its Rust revision and source range remain valid.
 Append-only bounded pagination also preserves the native selection session: Kit
 invalidates reads from the older revision, replays only the latest pointer or
 handle sample through the atomic caret-to-point API, and can continue a captured
-handle into a newly published spread after edge dwell. A replacement layout or
-new worker session still invalidates the selection before it is painted.
+handle or active primary mouse/pen/touch drag into a newly published spread after
+edge dwell. The projection handoff is authorized by the exact active gesture and
+is consumed once, so a released or replacement selection cannot inherit it. A
+replacement layout or new worker session still invalidates the selection before it is painted.
+The initial `pointerdown`, `touchstart`, or valid handle press also owns a private latest-input barrier.
+It retires older deferred navigation and portable-position work before coordinate mapping; semantic
+mouse restarts and delayed long-press selection inherit that same barrier, while a stable serialized
+reading position remains valid. This prevents an older physical press from resuming after newer input.
 Persistent annotation target creation now preserves the exact native source range;
 when `interactions.resolveExactSourceRange` is present, Kit also treats it as
 authoritative for annotation re-projection. It resolves selector fallbacks to a
@@ -127,6 +133,14 @@ restart that navigation or cause a second jump. Newer user navigation and
 disposal abort the old intent, and position storage never falls back to a stale
 page index. Readers without the native capability retain the legacy synchronous
 projection internally, exposed through the same Promise API.
+Position action promises preserve completion semantics: an awaited `savePosition()`
+means the exact position has settled and the adapter write has completed. Storage
+adapter `load()` and `save()` callbacks must therefore not call controller position
+actions before their own Promise settles. During synchronous action setup, an owned
+restore load, or an active adapter write, `savePosition()` explicitly rejects instead
+of entering a dependency cycle; adapters must not rely on reentrant restore or
+navigation. Outside adapter callbacks, concurrent restores and navigation retain
+their normal latest-wins behavior.
 
 The current native projection accepts exact source-backed ranges across retained
 logical text flows in document order within one chapter and requires deterministic

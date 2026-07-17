@@ -1,4 +1,5 @@
 import type { SlotPosition } from '../../painter/types';
+import type { SelectionGestureLease } from '../../interaction/selection/selection-interaction-owner';
 import type { NavigationDeps } from './index';
 import { clearPendingNavigation, type NavigationState } from './state';
 
@@ -28,18 +29,18 @@ export function claimNavigationAttempt(
   return attemptId;
 }
 
-/** Claim and perform one paint-ready snap, optionally preserving a native handle session. */
+/** Claim and perform one paint-ready snap, optionally preserving one exact native gesture. */
 export function performReadyJump(
   state: NavigationState,
   deps: NavigationDeps,
   index: number,
-  preserveNativeHandleDrag?: boolean,
+  selectionGesture?: SelectionGestureLease,
 ): NavigationJumpOutcome {
   if (state.disposed) return 'superseded';
   const attemptId = claimNavigationAttempt(state, deps);
   if (attemptId !== state.navigationAttemptId) return 'superseded';
-  const endTransfer = preserveNativeHandleDrag
-    ? deps.beginSelectionProjectionTransfer?.(index)
+  const endTransfer = selectionGesture
+    ? deps.beginSelectionProjectionTransfer?.(index, selectionGesture)
     : undefined;
   try {
     return jumpToSpreadIfReady(state, deps, attemptId, index);

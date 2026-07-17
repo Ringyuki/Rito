@@ -1,9 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 import {
   createSelectionFixtureEpub,
+  EDGE_FIRST_PAGE_TEXT,
   SAME_FLOW_FIRST_LINE,
   type SelectionFixtureOptions,
 } from './selection-fixture';
+import { stableReaderCanvasChecksum } from './reader-page-harness';
 
 const READER_LOAD_TIMEOUT_MS = 90_000;
 
@@ -41,6 +43,24 @@ export async function loadSelectionFixture(
 
 export async function loadEdgeSelectionFixture(page: Page): Promise<void> {
   await uploadSelectionFixture(page, { layout: 'edge-pages' });
+}
+
+export async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
+  await page.getByTestId('reader-context-trigger').click({ button: 'right' });
+  await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
+  const heading = page.getByRole('heading', { name: 'Reader Settings' });
+  await expect(heading).toBeVisible();
+  await page.getByRole('button', { name: 'Single Page' }).click();
+  await page.keyboard.press('Escape');
+  await expect(heading).toBeHidden();
+
+  const shell = page.getByTestId('reader-shell');
+  await expect(shell).toHaveAttribute('data-spread-mode', 'single');
+  await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
+  await expect.poll(() => currentReaderSpread(page)).toBe(0);
+  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
+  await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
+  await stableReaderCanvasChecksum(page);
 }
 
 async function uploadSelectionFixture(page: Page, options: SelectionFixtureOptions): Promise<void> {

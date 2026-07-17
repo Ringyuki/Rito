@@ -150,7 +150,7 @@ describe('navigation deferred content', () => {
     expect(currentSpread).toBe(0);
   });
 
-  it('silently clears older pending content, gesture, and TOC work for a position intent', () => {
+  it('silently clears older pending work for selection and position intents', () => {
     let currentSpread = 0;
     let contentReady = false;
     let tocReady = false;
@@ -187,7 +187,7 @@ describe('navigation deferred content', () => {
     const nav = createNavigation(deps);
 
     const gesture = nav.startGestureNavigation(1, gestureStarted);
-    nav.supersedeForPositionIntent();
+    nav.supersedeForSelectionIntent();
     contentReady = true;
     nav.notifyContentReady(1);
     gesture.cancel();
@@ -205,7 +205,7 @@ describe('navigation deferred content', () => {
     expect(onContentInteractionIntent).toHaveBeenCalledTimes(4);
   });
 
-  it('lets navigation from force-settle callbacks supersede the position intent', () => {
+  it('rejects a selection barrier superseded from a force-settle callback', () => {
     let currentSpread = 0;
     let animating = true;
     const navigation: { current?: ReturnType<typeof createNavigation> } = {};
@@ -247,9 +247,10 @@ describe('navigation deferred content', () => {
     const nav = createNavigation(deps);
     navigation.current = nav;
 
-    nav.supersedeForPositionIntent();
+    const barrier = nav.supersedeForSelectionIntent();
 
     expect(forceSettle).toHaveBeenCalledOnce();
+    expect(barrier).toBeNull();
     expect(onNavigationIntent).toHaveBeenCalledOnce();
     expect(currentSpread).toBe(2);
     expect(goToTarget).toHaveBeenCalledWith('forward', 0, 2, 0);

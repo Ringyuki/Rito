@@ -5,6 +5,7 @@ import {
   loadEdgeSelectionFixture,
   loadSelectionFixture,
   pointInsideFirstWord,
+  prepareEdgeSelectionFixture,
   readerSurfaceBounds,
   requireBand,
   requireTextBands,
@@ -163,6 +164,39 @@ test.describe('reader touch selection edge autoscroll acceptance', () => {
     touchInput = null;
   });
 
+  test('autoscrolls an active long-press selection through lazy pagination', async ({ page }) => {
+    const input = requireTouchInput(touchInput);
+    const shell = page.getByTestId('reader-shell');
+    const firstLine = requireBand(await requireTextBands(page, 1), 0);
+    const start = pointInsideFirstWord(firstLine);
+    const surface = await readerSurfaceBounds(page);
+    const edgePoint = { x: surface.right - EDGE_INSET_PX, y: firstLine.centerY };
+
+    await input.start(start);
+    await page.waitForTimeout(LONG_PRESS_SETTLE_MS);
+    await expect(shell).toHaveAttribute(
+      'data-selection-text-length',
+      String(EDGE_FIRST_PAGE_TEXT.length),
+    );
+    await moveTouchAlongPath(input, start, edgePoint);
+
+    await expect.poll(() => currentReaderSpread(page), { timeout: 5_000 }).toBe(1);
+    await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(2);
+    await expect(shell).toHaveAttribute('data-pagination-complete', 'true');
+    await waitForVisibleDocumentText(page, EDGE_SECOND_PAGE_TEXT);
+    await stableReaderCanvasChecksum(page);
+    const secondLine = requireBand(await requireTextBands(page, 1), 0);
+    await moveTouchAlongPath(input, edgePoint, {
+      x: secondLine.right,
+      y: secondLine.centerY,
+    });
+    await input.end();
+
+    await expectReleasedSelection(page, EDGE_SELECTION_TEXT.length, 1);
+    expect(await selectionTextLength(page)).toBe(EDGE_SELECTION_TEXT.length);
+    expect(await copySelection(page)).toBe(EDGE_SELECTION_TEXT);
+  });
+
   test('autoscrolls a captured end handle into the next spread', async ({ page }) => {
     const input = requireTouchInput(touchInput);
     const shell = page.getByTestId('reader-shell');
@@ -277,24 +311,6 @@ async function openEmptyReader(page: Page): Promise<void> {
     localStorage.clear();
   });
   await page.reload();
-}
-
-async function prepareEdgeSelectionFixture(page: Page): Promise<void> {
-  await page.getByTestId('reader-context-trigger').click({ button: 'right' });
-  await page.getByRole('menuitem', { name: /Reader Settings/ }).click();
-  const heading = page.getByRole('heading', { name: 'Reader Settings' });
-  await expect(heading).toBeVisible();
-  await page.getByRole('button', { name: 'Single Page' }).click();
-  await page.keyboard.press('Escape');
-  await expect(heading).toBeHidden();
-
-  const shell = page.getByTestId('reader-shell');
-  await expect(shell).toHaveAttribute('data-spread-mode', 'single');
-  await expect(shell).toHaveAttribute('data-pagination-complete', 'false');
-  await expect.poll(() => currentReaderSpread(page)).toBe(0);
-  await expect.poll(() => readerNumberAttribute(page, 'data-total-spreads')).toBe(1);
-  await waitForVisibleDocumentText(page, EDGE_FIRST_PAGE_TEXT);
-  await stableReaderCanvasChecksum(page);
 }
 
 async function readerNumberAttribute(page: Page, name: string): Promise<number> {

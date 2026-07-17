@@ -6,12 +6,13 @@ export interface DomHarness {
   readonly emit: (type: string, event: unknown) => void;
 }
 
-interface SelectionHarness {
+export interface SelectionHarness {
   readonly engine: SelectionEngine;
   readonly down: Mock;
   readonly move: Mock;
   readonly up: Mock;
   readonly clear: Mock;
+  readonly setState: (state: ReturnType<SelectionEngine['getState']>) => void;
 }
 
 export function createDomTarget(): DomHarness {
@@ -52,13 +53,24 @@ export function createSelectionHarness(): SelectionHarness {
   const move = vi.fn();
   const up = vi.fn();
   const clear = vi.fn();
+  let state: ReturnType<SelectionEngine['getState']> = 'idle';
   const engine = {
     handlePointerDown: down,
     handlePointerMove: move,
     handlePointerUp: up,
     clear,
+    getState: () => state,
   } as unknown as SelectionEngine;
-  return { engine, down, move, up, clear };
+  return {
+    engine,
+    down,
+    move,
+    up,
+    clear,
+    setState: (nextState) => {
+      state = nextState;
+    },
+  };
 }
 
 export function pointer(

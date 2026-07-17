@@ -224,6 +224,7 @@ export interface ReaderController {
   readonly annotations: readonly AnnotationRecord[];
 
   restorePosition(): Promise<number | undefined>;
+  /** Rejects during action setup, an owned restore load, or an active adapter write. */
   savePosition(): Promise<void>;
   /** Resolve and navigate to a serialized source-anchored ReadingPosition. */
   goToPosition(position: ReadingPosition): Promise<number | undefined>;

@@ -1,26 +1,51 @@
-import type { ReadingPosition } from '../../interaction/index';
+import type { PositionIntent, ReadingPosition } from '../../interaction/index';
 import { getPositionIntentSupersessionSignal } from '../../interaction/position/intent';
 import type { Internals, Nav, PositionActionsSlice } from './types';
 
 export function buildPositionActions(internals: Internals, nav: Nav): PositionActionsSlice {
   let latestRestoreId = 0;
+  let latestActionId = 0;
+  let constructionDepth = 0;
+  const activeRestoreLoads = new Set<PositionIntent>();
+  const hasActiveStorageCallback = (): boolean =>
+    internals.positionPersistence.hasActiveWrite() ||
+    hasOwnedRestoreLoad(internals, activeRestoreLoads);
+  const startAction = <T>(create: () => Promise<T>): Promise<T> => {
+    const actionId = ++latestActionId;
+    constructionDepth += 1;
+    try {
+      return startPositionAction(internals, create, () => actionId === latestActionId);
+    } finally {
+      constructionDepth -= 1;
+    }
+  };
   return {
     restorePosition: () => {
       const restoreId = ++latestRestoreId;
-      return trackPositionAction(
-        internals,
-        restorePosition(internals, nav, () => restoreId === latestRestoreId),
+      return startAction(() =>
+        restorePosition(internals, nav, activeRestoreLoads, () => restoreId === latestRestoreId),
       );
     },
-    savePosition: () => savePosition(internals),
-    goToPosition: (position) =>
-      trackPositionAction(internals, goToPosition(position, internals, nav)),
+    savePosition: () => {
+      if (constructionDepth > 0 || hasActiveStorageCallback()) {
+        return rejectReentrantPositionSave();
+      }
+      return savePosition(internals);
+    },
+    goToPosition: (position) => startAction(() => goToPosition(position, internals, nav)),
   };
+}
+
+function rejectReentrantPositionSave(): Promise<void> {
+  return Promise.reject(
+    new Error('ReaderController.savePosition() cannot reenter active position work'),
+  );
 }
 
 async function restorePosition(
   internals: Internals,
   nav: Nav,
+  activeRestoreLoads: Set<PositionIntent>,
   isLatestRestore: () => boolean,
 ): Promise<number | undefined> {
   const tracker = internals.engines.position;
@@ -28,12 +53,10 @@ async function restorePosition(
   let failed = false;
   try {
     if (!tracker || !intent) return undefined;
+    if (!tracker.owns(intent)) return undefined;
     nav.supersedeForPositionIntent();
     if (!tracker.owns(intent)) return undefined;
-    const loadAttempt = await racePositionIntentOperation(
-      Promise.resolve(internals.options.positionStorage?.load()),
-      getPositionIntentSupersessionSignal(intent),
-    );
+    const loadAttempt = await loadStoredPosition(internals, intent, activeRestoreLoads);
     if (loadAttempt.kind === 'superseded') return undefined;
     const serialized = loadAttempt.value ?? null;
     if (!tracker.owns(intent)) return undefined;
@@ -63,6 +86,35 @@ async function restorePosition(
   }
 }
 
+async function loadStoredPosition(
+  internals: Internals,
+  intent: PositionIntent,
+  activeRestoreLoads: Set<PositionIntent>,
+): Promise<PositionIntentAttempt<string | null | undefined>> {
+  const storage = internals.options.positionStorage;
+  if (storage) activeRestoreLoads.add(intent);
+  try {
+    return await racePositionIntentOperation(
+      Promise.resolve(storage?.load()),
+      getPositionIntentSupersessionSignal(intent),
+    );
+  } finally {
+    if (storage) activeRestoreLoads.delete(intent);
+  }
+}
+
+function hasOwnedRestoreLoad(
+  internals: Internals,
+  activeRestoreLoads: ReadonlySet<PositionIntent>,
+): boolean {
+  const tracker = internals.engines.position;
+  if (!tracker) return false;
+  for (const intent of activeRestoreLoads) {
+    if (tracker.owns(intent)) return true;
+  }
+  return false;
+}
+
 async function savePosition(internals: Internals): Promise<void> {
   const tracker = internals.engines.position;
   if (!tracker) return;
@@ -72,13 +124,37 @@ async function savePosition(internals: Internals): Promise<void> {
   if (serialized !== undefined) await internals.positionPersistence.save(serialized);
 }
 
-function trackPositionAction<T>(internals: Internals, action: Promise<T>): Promise<T> {
+function startPositionAction<T>(
+  internals: Internals,
+  create: () => Promise<T>,
+  isLatest: () => boolean,
+): Promise<T> {
+  let releaseBarrier!: () => void;
+  const barrier = new Promise<void>((resolve) => {
+    releaseBarrier = resolve;
+  });
+  internals.pendingPositionAction = barrier;
+  let action: Promise<T>;
+  try {
+    action = create();
+  } catch (error) {
+    if (internals.pendingPositionAction === barrier) internals.pendingPositionAction = undefined;
+    releaseBarrier();
+    throw error;
+  }
+  if (isLatest() && internals.pendingPositionAction === barrier) {
+    trackPositionAction(internals, action);
+  }
+  releaseBarrier();
+  return action;
+}
+
+function trackPositionAction<T>(internals: Internals, action: Promise<T>): void {
   internals.pendingPositionAction = action;
   const clear = (): void => {
     if (internals.pendingPositionAction === action) internals.pendingPositionAction = undefined;
   };
   void action.then(clear, clear);
-  return action;
 }
 
 async function settlePositionAction(internals: Internals): Promise<void> {
@@ -97,6 +173,7 @@ async function goToPosition(
   const intent = tracker.claimPortableIntent();
   let resolved: Awaited<ReturnType<typeof tracker.resolveForNavigation>>;
   try {
+    if (!tracker.owns(intent)) return undefined;
     nav.supersedeForPositionIntent();
     if (!tracker.owns(intent)) return undefined;
     resolved = await tracker.resolveForNavigation(position, intent);

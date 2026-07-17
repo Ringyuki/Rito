@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { FrameDriver } from '../src/driver/frame-driver';
-import type { TransitionDriver } from '../src/driver/transition-driver';
-import type { InteractionModeManager } from '../src/controller/interaction-mode/index';
 import { bindPointerEvents } from '../src/controller/wiring/pointer';
-import { wireUnifiedTouchHandler, type GestureDeps } from '../src/controller/wiring/gesture';
-import { createDisposableCollection } from '../src/utils/disposable';
+import type {
+  PrimarySelectionDragNavigation,
+  PrimarySelectionDragSession,
+} from '../src/controller/wiring/selection-drag';
 import {
   createDomTarget,
   createSelectionHarness,
@@ -14,8 +13,128 @@ import {
   touch,
   touchEvent,
 } from './helpers/dom-input';
+import {
+  primarySelectionDragSession,
+  primarySelectionNavigation,
+} from './helpers/primary-selection';
+import { createTouchSelectionHarness } from './helpers/touch-selection';
 
 describe('pointer selection wiring', () => {
+  it('feeds client-space edge input and suppresses click after a physical selection turn', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const click = vi.fn();
+    const edge = primarySelectionDragSession(true);
+    const navigation = primarySelectionNavigation(edge);
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      click,
+      navigation,
+    );
+
+    dom.emit('pointerdown', pointer(1, 10, 20));
+    dom.emit('pointermove', pointer(1, 30, 40));
+    dom.emit('pointerup', pointer(1, 10, 20));
+
+    expect(navigation.claim).toHaveBeenCalledOnce();
+    expect(navigation.begin).toHaveBeenCalledOnce();
+    expect(edge.update).toHaveBeenCalledWith({ clientX: 30, clientY: 40 });
+    expect(edge.finish).toHaveBeenCalledOnce();
+    expect(edge.finish.mock.invocationCallOrder[0]).toBeLessThan(
+      selection.up.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(click).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it('replaces the character edge lease with the repeated-click semantic session', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const character = primarySelectionDragSession();
+    const semantic = primarySelectionDragSession();
+    const input = { owns: () => true };
+    const claim = vi.fn(() => input);
+    const begin = vi
+      .fn<PrimarySelectionDragNavigation['begin']>()
+      .mockImplementationOnce((_input, start) => {
+        start();
+        return character;
+      })
+      .mockImplementationOnce((_input, start) => {
+        start();
+        return semantic;
+      });
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      vi.fn(),
+      { begin, claim },
+    );
+
+    dom.emit('pointerdown', pointer(7, 10, 20));
+    dom.emit('mousedown', mouseDown(2));
+    dom.emit('pointermove', pointer(7, 50, 60));
+    dom.emit('pointerup', pointer(7, 70, 80));
+
+    expect(begin).toHaveBeenCalledTimes(2);
+    expect(claim).toHaveBeenCalledOnce();
+    expect(character.cancel).toHaveBeenCalledOnce();
+    expect(character.update).not.toHaveBeenCalled();
+    expect(semantic.update).toHaveBeenCalledWith({ clientX: 50, clientY: 60 });
+    expect(semantic.finish).toHaveBeenCalledOnce();
+    dispose();
+  });
+
+  it('does not let an obsolete pointer mutate a replacement native selection', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    let owns = true;
+    const edge = primarySelectionDragSession(false, () => owns);
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      vi.fn(),
+      primarySelectionNavigation(edge),
+    );
+
+    dom.emit('pointerdown', pointer(1, 10, 20));
+    owns = false;
+    dom.emit('pointermove', pointer(1, 30, 40));
+    dom.emit('pointercancel', pointer(1, 30, 40));
+    dom.emit('pointerup', pointer(1, 30, 40));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(selection.move).not.toHaveBeenCalled();
+    expect(selection.up).not.toHaveBeenCalled();
+    expect(selection.clear).not.toHaveBeenCalled();
+    dispose();
+  });
+
+  it('rechecks exact ownership after edge shutdown before pointer finalization', () => {
+    const dom = createDomTarget();
+    const selection = createSelectionHarness();
+    const edge = primarySelectionDragSession();
+    edge.finish.mockReturnValue(false);
+    const dispose = bindPointerEvents(
+      dom.target as HTMLCanvasElement,
+      selection.engine,
+      pointerPosition,
+      vi.fn(),
+      primarySelectionNavigation(edge),
+    );
+
+    dom.emit('pointerdown', pointer(1, 10, 20));
+    dom.emit('pointerup', pointer(1, 30, 40));
+
+    expect(edge.finish).toHaveBeenCalledOnce();
+    expect(selection.up).not.toHaveBeenCalled();
+    dispose();
+  });
+
   it.each([
     { detail: 2, granularity: 'word' },
     { detail: 3, granularity: 'paragraph' },
@@ -306,7 +425,7 @@ describe('touch selection wiring', () => {
 
   it('tracks the original touch identity through long-press selection', () => {
     vi.useFakeTimers();
-    const harness = createTouchHarness();
+    const harness = createTouchSelectionHarness();
     const first = touch(1, 10, 20);
     const second = touch(2, 70, 80);
 
@@ -337,9 +456,192 @@ describe('touch selection wiring', () => {
     harness.disposables.disposeAll();
   });
 
+  it('routes long-press client input through one edge session and finishes it before selection', () => {
+    vi.useFakeTimers();
+    const edge = {
+      ...primarySelectionDragSession(),
+      resolveFinalInput: vi.fn(() => ({ x: 100, y: 40 })),
+    } satisfies PrimarySelectionDragSession;
+    const navigation = primarySelectionNavigation(edge);
+    let scale = 1;
+    navigation.claim.mockImplementation(() => {
+      scale = 2;
+      return { owns: () => true };
+    });
+    const harness = createTouchSelectionHarness(navigation, (value) => ({
+      x: value.clientX / scale,
+      y: value.clientY / scale,
+    }));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    expect(navigation.claim).toHaveBeenCalledOnce();
+    expect(navigation.begin).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(350);
+    const moved = touch(1, 30, 40);
+    harness.dom.emit('touchmove', touchEvent([moved], [moved]));
+    harness.dom.emit('touchend', touchEvent([], [moved]));
+
+    expect(navigation.begin).toHaveBeenCalledOnce();
+    expect(harness.selection.down).toHaveBeenCalledWith({ x: 5, y: 10 }, 'word');
+    expect(edge.update).toHaveBeenCalledWith({ clientX: 30, clientY: 40 });
+    expect(edge.finish).toHaveBeenCalledOnce();
+    expect(edge.resolveFinalInput).toHaveBeenCalledWith({ clientX: 30, clientY: 40 });
+    expect(harness.selection.up).toHaveBeenCalledWith({ x: 100, y: 40 });
+    expect(edge.finish.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.selection.up.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(edge.cancel).not.toHaveBeenCalled();
+    harness.disposables.disposeAll();
+  });
+
+  it('aborts long-press edge work before clearing a cancelled touch selection', () => {
+    vi.useFakeTimers();
+    const edge = primarySelectionDragSession();
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    harness.dom.emit('touchcancel', touchEvent([], [first]));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(edge.cancel.mock.invocationCallOrder[0]).toBeLessThan(
+      harness.selection.clear.mock.invocationCallOrder[0] ?? Number.POSITIVE_INFINITY,
+    );
+    expect(edge.finish).not.toHaveBeenCalled();
+    harness.disposables.disposeAll();
+  });
+
+  it('does not overwrite selection mode when clear synchronously starts a replacement', () => {
+    vi.useFakeTimers();
+    const edge = primarySelectionDragSession();
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+    harness.selection.clear.mockImplementation(() => {
+      harness.selection.setState('selecting');
+    });
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    harness.dom.emit('touchcancel', touchEvent([], [first]));
+
+    expect(harness.selection.clear).toHaveBeenCalledOnce();
+    expect(harness.setMode.mock.calls).toEqual([['selection']]);
+    harness.disposables.disposeAll();
+  });
+
+  it('does not let an obsolete touch mutate a replacement native selection', () => {
+    vi.useFakeTimers();
+    let owns = true;
+    const edge = primarySelectionDragSession(false, () => owns);
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    owns = false;
+    const moved = touch(1, 30, 40);
+    harness.dom.emit('touchmove', touchEvent([moved], [moved]));
+    harness.dom.emit('touchcancel', touchEvent([], [moved]));
+    harness.dom.emit('touchend', touchEvent([], [moved]));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(harness.selection.move).not.toHaveBeenCalled();
+    expect(harness.selection.up).not.toHaveBeenCalled();
+    expect(harness.selection.clear).not.toHaveBeenCalled();
+    expect(harness.setMode).toHaveBeenLastCalledWith('gesture');
+    harness.disposables.disposeAll();
+  });
+
+  it('clears the exact touch session superseded only by pending content navigation', () => {
+    vi.useFakeTimers();
+    let ownsIntent = true;
+    const edge = primarySelectionDragSession(
+      false,
+      () => ownsIntent,
+      () => true,
+      () => true,
+    );
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    ownsIntent = false;
+    const moved = touch(1, 30, 40);
+    harness.dom.emit('touchmove', touchEvent([moved], [moved]));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(harness.selection.clear).toHaveBeenCalledOnce();
+    expect(harness.selection.move).not.toHaveBeenCalled();
+    expect(harness.setMode).toHaveBeenLastCalledWith('gesture');
+    harness.disposables.disposeAll();
+  });
+
+  it('clears the exact touch session when pending navigation wins at release', () => {
+    vi.useFakeTimers();
+    let ownsIntent = true;
+    const edge = primarySelectionDragSession(
+      false,
+      () => ownsIntent,
+      () => true,
+      () => true,
+    );
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    ownsIntent = false;
+    harness.dom.emit('touchend', touchEvent([], [first]));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(harness.selection.clear).toHaveBeenCalledOnce();
+    expect(harness.selection.up).not.toHaveBeenCalled();
+    expect(harness.setMode).toHaveBeenLastCalledWith('gesture');
+    harness.disposables.disposeAll();
+  });
+
+  it('restores gesture mode when a rejected long-press is released without moving', () => {
+    vi.useFakeTimers();
+    const edge = primarySelectionDragSession(false, () => false);
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+    harness.dom.emit('touchend', touchEvent([], [first]));
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(harness.selection.up).not.toHaveBeenCalled();
+    expect(harness.setMode).toHaveBeenLastCalledWith('gesture');
+    harness.disposables.disposeAll();
+  });
+
+  it('clears an exact long-press rejected synchronously by content navigation', () => {
+    vi.useFakeTimers();
+    const edge = primarySelectionDragSession(
+      false,
+      () => false,
+      () => true,
+      () => true,
+    );
+    const harness = createTouchSelectionHarness(primarySelectionNavigation(edge));
+    const first = touch(1, 10, 20);
+
+    harness.dom.emit('touchstart', touchEvent([first], [first]));
+    vi.advanceTimersByTime(350);
+
+    expect(edge.cancel).toHaveBeenCalledOnce();
+    expect(harness.selection.clear).toHaveBeenCalledOnce();
+    expect(harness.setMode).toHaveBeenLastCalledWith('gesture');
+    harness.disposables.disposeAll();
+  });
+
   it('keeps a word seed when long-press is released without moving', () => {
     vi.useFakeTimers();
-    const harness = createTouchHarness();
+    const harness = createTouchSelectionHarness();
     const first = touch(1, 10, 20);
 
     harness.dom.emit('touchstart', touchEvent([first], [first]));
@@ -356,7 +658,7 @@ describe('touch selection wiring', () => {
 
   it('touchcancel clears a pending timer and never turns it into a tap or selection', () => {
     vi.useFakeTimers();
-    const harness = createTouchHarness();
+    const harness = createTouchSelectionHarness();
     const first = touch(1, 10, 20);
 
     harness.dom.emit('touchstart', touchEvent([first], [first]));
@@ -379,7 +681,7 @@ describe('touch selection wiring', () => {
 
   it('touchcancel discards an active long-press selection without pointer-up or tap', () => {
     vi.useFakeTimers();
-    const harness = createTouchHarness();
+    const harness = createTouchSelectionHarness();
     const first = touch(1, 10, 20);
     const other = touch(2, 80, 90);
 
@@ -401,7 +703,7 @@ describe('touch selection wiring', () => {
   });
 
   it('touchcancel cancels page tracking without committing the gesture', () => {
-    const harness = createTouchHarness();
+    const harness = createTouchSelectionHarness();
     const first = touch(1, 50, 20);
 
     harness.dom.emit('touchstart', touchEvent([first], [first]));
@@ -416,64 +718,3 @@ describe('touch selection wiring', () => {
     harness.disposables.disposeAll();
   });
 });
-
-function createTouchHarness() {
-  const dom = createDomTarget();
-  const selection = createSelectionHarness();
-  const tap = vi.fn();
-  const setMode = vi.fn();
-  const cancelTracking = vi.fn(() => true);
-  const cancelGestureNavigation = vi.fn();
-  const releaseTracking = vi.fn();
-  const scheduleComposite = vi.fn();
-  const forceSettle = vi.fn(() => 0);
-  const td = {
-    isAnimating: false,
-    cancelTracking,
-    releaseTracking,
-    startTracking: vi.fn(),
-    updateTracking: vi.fn(),
-    interrupt: vi.fn(),
-    forceSettle,
-    onSettled: vi.fn(() => () => {}),
-  } as unknown as TransitionDriver;
-  const frameDriver = { scheduleComposite } as unknown as FrameDriver;
-  const deps: GestureDeps = {
-    td,
-    frameDriver,
-    startGestureNavigation: (_index: number, onTransitionStart: () => void) => {
-      onTransitionStart();
-      return { cancel: cancelGestureNavigation };
-    },
-    getCurrentSpread: () => 0,
-    getTotalSpreads: () => 3,
-    isPaginationComplete: () => true,
-    commitPendingTransition: vi.fn(),
-  };
-  const modeManager = {
-    mode: 'gesture',
-    setMode,
-    onModeChange: () => () => {},
-  } as InteractionModeManager;
-  const disposables = createDisposableCollection();
-  wireUnifiedTouchHandler(
-    dom.target,
-    deps,
-    selection.engine,
-    modeManager,
-    (value) => ({ x: value.clientX, y: value.clientY }),
-    tap,
-    disposables,
-  );
-  return {
-    dom,
-    selection,
-    tap,
-    setMode,
-    cancelTracking,
-    cancelGestureNavigation,
-    releaseTracking,
-    scheduleComposite,
-    disposables,
-  };
-}
